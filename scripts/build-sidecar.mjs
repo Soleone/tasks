@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 
@@ -42,15 +42,12 @@ if (process.platform === "win32" || process.platform === "darwin") {
   }
 }
 
-const postject = spawnSync(
-  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-  ["exec", "postject", executablePath, "NODE_SEA_BLOB", blobPath, "--sentinel-fuse", "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2"],
+const postjectCli = path.join(root, "node_modules", "postject", "dist", "cli.js");
+execFileSync(
+  process.execPath,
+  [postjectCli, executablePath, "NODE_SEA_BLOB", blobPath, "--sentinel-fuse", "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2"],
   { cwd: root, stdio: "inherit" },
 );
-
-if (postject.status !== 0) {
-  process.exit(postject.status ?? 1);
-}
 
 if (process.platform !== "win32") {
   execFileSync("chmod", ["+x", executablePath]);

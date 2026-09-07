@@ -12,15 +12,17 @@ export function getDataDirectory(
   platform: Platform = process.platform as Platform,
   homeDirectory = os.homedir(),
 ): string {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+
   if (platform === "win32") {
-    return path.join(environment.APPDATA ?? path.join(homeDirectory, "AppData", "Roaming"), APP_NAME);
+    return pathApi.join(environment.APPDATA ?? pathApi.join(homeDirectory, "AppData", "Roaming"), APP_NAME);
   }
 
   if (platform === "darwin") {
-    return path.join(homeDirectory, "Library", "Application Support", APP_NAME);
+    return pathApi.join(homeDirectory, "Library", "Application Support", APP_NAME);
   }
 
-  return path.join(environment.XDG_DATA_HOME ?? path.join(homeDirectory, ".local", "share"), APP_NAME);
+  return pathApi.join(environment.XDG_DATA_HOME ?? pathApi.join(homeDirectory, ".local", "share"), APP_NAME);
 }
 
 export function getDatabasePath(
@@ -28,5 +30,6 @@ export function getDatabasePath(
   platform: Platform = process.platform as Platform,
   homeDirectory = os.homedir(),
 ): string {
-  return path.join(getDataDirectory(environment, platform, homeDirectory), "tasks.db");
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  return pathApi.join(getDataDirectory(environment, platform, homeDirectory), "tasks.db");
 }

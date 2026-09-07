@@ -2,7 +2,7 @@
 
 **Reviewed:** 2026-09-06
 
-**Status:** M0 scaffold in progress. Backend and sidecar probes pass on the current Linux host; native Tauri and target-platform gates remain open.
+**Status:** M0 complete. Backend and sidecar probes pass on Linux, Windows tests and the packaged Windows sidecar pass, the native Windows 11 long-lived desktop probe and WSL CLI bridge pass with the app open and closed, sidecar recovery passes, and Windows MSI/NSIS release bundles build successfully. Omarchy remains a later secondary target.
 
 **Origin:** Review of the `2026-09-06-agentic-todo-app.md` concept brief. This file is the implementation plan of record.
 
@@ -68,7 +68,7 @@ Standalone CLI (same bundled runtime and application modules)
   -> the same database, even with the desktop app closed
 ```
 
-Use one long-lived sidecar for the desktop session; do not spawn Node for every interaction. The CLI may run in its own process. Shared implementation does not require a resident daemon or a localhost HTTP server. The initial M0 desktop probe uses a one-shot sidecar invocation so packaging can be proven before adding process lifecycle state; the JSON-lines `--stdio` path already exists for the long-lived transport work.
+Use one long-lived sidecar for the desktop session; do not spawn Node for every interaction. The CLI may run in its own process. Shared implementation does not require a resident daemon or a localhost HTTP server. The desktop bridge now uses the JSON-lines `--stdio` session, with request correlation, malformed-response handling, restart-on-next-request behavior, and shutdown cleanup. The one-shot `--probe` path remains useful for direct packaging checks.
 
 Keep these boundaries small:
 
@@ -86,6 +86,10 @@ Start with modules in one repository; separate packages only when the build or d
 - A committed activity sequence can drive lightweight polling and query invalidation for CLI changes. Refresh on focus as well. An open detail editor must surface a conflict rather than replace unsaved text.
 - Handle sidecar exit, malformed messages, timeouts, shutdown, and restart visibly. Correlate requests; keep protocol output on stdout and diagnostics on stderr. Do not replay uncertain writes without their original idempotency key.
 - Synchronous SQLite work is acceptable in the separate backend process initially. Keep work bounded and off the UI thread; introduce workers only if measurement calls for them.
+
+### WSL agent access
+
+When the desktop app is running on Windows and an agent is running inside WSL, the WSL CLI must invoke the Windows SEA sidecar rather than open the Windows database from a Linux process over `/mnt/c`. The repository's `bin/tasks` wrapper resolves the Windows ApplicationData path, invokes the Windows sidecar, and passes the database path explicitly. `TASKS_WINDOWS_ROOT`, `TASKS_WINDOWS_SIDECAR`, and `TASKS_WINDOWS_DATABASE` provide local checkout and test-workspace overrides. This keeps both clients on Windows SQLite/file-locking semantics and avoids treating a cross-environment filesystem mount as a supported database transport.
 
 ### Browser path later
 
@@ -157,7 +161,7 @@ MCP can later be a thin adapter over this contract. It does not need its own com
 
 ### M0: Prove the TypeScript runtime and packaging
 
-**First work item.** Set up minimal Tauri/Vite and a TypeScript backend probe, not the full task UI. Package the runtime, run a SQLite transaction and FTS5 query, and exercise the same command from the Tauri bridge and CLI. The current scaffold satisfies the backend, CLI, and Linux sidecar portions; native Tauri execution and lifecycle evidence remain open.
+**First work item.** Set up minimal Tauri/Vite and a TypeScript backend probe, not the full task UI. Package the runtime, run a SQLite transaction and FTS5 query, and exercise the same command from the Tauri bridge and CLI. The backend, CLI, Linux sidecar, native Windows 11 desktop probe, WSL bridge, lifecycle recovery, and Windows release bundles now pass.
 
 The primary native target is the Windows 11 host. WSL is useful for backend and packaging checks but is not the desktop acceptance environment. Omarchy is a secondary target to validate after the core workflow has a stable milestone, not a reason to delay the first Windows build.
 
@@ -205,11 +209,12 @@ Exit evidence:
 The repository now has a Vite/React shell, TypeScript backend, JSON-lines CLI, SQLite/FTS5 probe, Tauri shell configuration, and a Linux Node SEA sidecar. No full implementation milestone has passed.
 
 - The local environment is WSL2/Ubuntu 26.04, with Node 22.22.3, pnpm 11.22.0, and Rust/Cargo 1.96.0 available. These are observations, not pinned project requirements.
-- `pnpm check`, `pnpm test`, `pnpm build`, and the target Linux SEA sidecar probe pass locally. The SEA executable runs with a minimal environment and no system Node on `PATH`.
+- `pnpm check`, `pnpm test`, `pnpm build`, and the target Linux SEA sidecar probe pass locally. Tests now cover a bounded SQLite writer conflict and restarting the compiled CLI against the same database. The SEA executable runs with a minimal environment and no system Node on `PATH`.
 - The current Linux SEA sidecar is 124,914,880 bytes (about 120 MiB) and its probe takes about 20–30 ms on this WSL host. Treat that size and timing as an early packaging observation, not a release target.
 - `node:sqlite` reports the experimental-feature warning on Node 22.22.3. Keep the binding decision open until a supported runtime and cross-platform package are proven.
-- Native Tauri compilation was attempted and is blocked by missing `libdbus-1-dev` before the WebKitGTK checks. `sudo apt-get` cannot authenticate in this session, so the dependency install remains an environment action.
-- Windows 11 native prerequisites, host access, and the first desktop run remain unverified. Arrange Windows validation as the primary M0 gate. Omarchy access and validation can follow the stable M1/M2 workflow; do not claim a cross-platform pass from WSL or a browser preview.
+- Native Tauri compilation in WSL remains blocked by missing `libdbus-1-dev` before the WebKitGTK checks. This is not blocking the primary Windows path.
+- The first native Windows 11 run succeeded from the Developer Command Prompt. It reported Node `v24.19.0`, SQLite `3.53.3`, WAL, FTS5, one match, and database path `C:\Users\soleone\AppData\Roaming\com.soleone.tasks\tasks.db`.
+- Windows validation passes: `pnpm test` reports 6/6, `pnpm test:sidecar` builds and probes the `x86_64-pc-windows-msvc` SEA sidecar, the native desktop `--stdio` bridge reports Node `v24.19.0`, SQLite `3.53.3`, WAL, FTS5, one match, and the expected app-data path, and `bin/tasks` succeeds from WSL with the app open and closed. Killing the packaged sidecar is recovered by the next desktop probe. `pnpm build:tauri` now produces both `Tasks_0.1.0_x64_en-US.msi` (38.2 MB) and `Tasks_0.1.0_x64-setup.exe` (25.7 MB). Omarchy access and validation can follow the stable M1/M2 workflow; do not claim a cross-platform pass from WSL or a browser preview.
 - Runtime packaging and the SQLite binding are M0 decisions. Product naming and release signing are later decisions, not reasons to delay the current backend work. License and core-language choices are settled.
 
 ## Technical references

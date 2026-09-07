@@ -1,5 +1,5 @@
-import { useState, type ReactElement } from "react";
-import { runRuntimeProbe, type ProbeResult } from "./platform/backendClient";
+import { useEffect, useState, type ReactElement } from "react";
+import { closeBackendSession, runRuntimeProbe, type ProbeResult } from "./platform/backendClient";
 
 function ResultValue({ label, value }: { label: string; value: string | number | boolean }): ReactElement {
   return (
@@ -14,6 +14,10 @@ export default function App(): ReactElement {
   const [probe, setProbe] = useState<ProbeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+
+  useEffect(() => () => {
+    void closeBackendSession();
+  }, []);
 
   async function handleProbe(): Promise<void> {
     setRunning(true);

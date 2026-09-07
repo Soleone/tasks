@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+windows_root="${TASKS_WINDOWS_ROOT:-/mnt/d/src/wsl/tasks}"
+sidecar="${TASKS_WINDOWS_SIDECAR:-$windows_root/src-tauri/binaries/tasks-backend-x86_64-pc-windows-msvc.exe}"
+
+if [[ ! -f "$sidecar" ]]; then
+  printf 'Windows sidecar not found: %s\n' "$sidecar" >&2
+  printf 'Set TASKS_WINDOWS_ROOT or TASKS_WINDOWS_SIDECAR to the Windows checkout.\n' >&2
+  exit 1
+fi
+
+if [[ -n "${TASKS_WINDOWS_DATABASE:-}" ]]; then
+  database_path="$(wslpath -w "$TASKS_WINDOWS_DATABASE")"
+else
+  application_data="$(powershell.exe -NoProfile -NonInteractive -Command '[Environment]::GetFolderPath("ApplicationData")' < /dev/null | tr -d '\r\n')"
+  if [[ -z "$application_data" ]]; then
+    printf 'Could not resolve the Windows ApplicationData directory.\n' >&2
+    exit 1
+  fi
+  database_path="${application_data}\\com.soleone.tasks\\tasks.db"
+fi
+
+exec "$sidecar" "$@" --database "$database_path"

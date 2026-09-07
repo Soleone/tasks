@@ -5,13 +5,15 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "shell:allow-kill",
+    "shell:allow-stdin-write",
     {
-      "identifier": "shell:allow-execute",
+      "identifier": "shell:allow-spawn",
       "allow": [
         {
           "name": "binaries/tasks-backend",
           "sidecar": true,
-          "args": ["--probe"]
+          "args": ["--stdio"]
         }
       ]
     }

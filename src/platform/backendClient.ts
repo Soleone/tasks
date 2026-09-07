@@ -1,27 +1,28 @@
-import type { RuntimeProbeResult } from "../backend/protocol";
+import { PROTOCOL_VERSION, type RuntimeProbeResult } from "../backend/protocol";
+import { BackendSession } from "./backendSession";
 
 export type ProbeResult = RuntimeProbeResult;
+
+const session = new BackendSession();
 
 export async function runRuntimeProbe(): Promise<ProbeResult> {
   if (!("__TAURI_INTERNALS__" in window)) {
     throw new Error("The runtime probe is available when the desktop shell is running.");
   }
 
-  const { Command } = await import("@tauri-apps/plugin-shell");
-  const command = Command.sidecar("binaries/tasks-backend", ["--probe"]);
-  const output = await command.execute();
-
-  if (output.code !== 0) {
-    throw new Error(output.stderr.trim() || `Backend exited with code ${output.code ?? "unknown"}`);
-  }
-
-  const response = JSON.parse(output.stdout) as
-    | { ok: true; result: RuntimeProbeResult }
-    | { ok: false; error: { message: string } };
+  const response = await session.request({
+    version: PROTOCOL_VERSION,
+    requestId: crypto.randomUUID(),
+    command: "runtime.probe",
+  });
 
   if (!response.ok) {
     throw new Error(response.error.message);
   }
 
   return response.result;
+}
+
+export async function closeBackendSession(): Promise<void> {
+  await session.close();
 }

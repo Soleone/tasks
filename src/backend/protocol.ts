@@ -99,6 +99,72 @@ export function parseLine(line: string): RuntimeProbeRequest {
   }
 }
 
+function responseString(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ProtocolError("INVALID_RESPONSE", `${field} must be a non-empty string`);
+  }
+
+  return value;
+}
+
+function responseNumber(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ProtocolError("INVALID_RESPONSE", `${field} must be a finite number`);
+  }
+
+  return value;
+}
+
+function responseBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ProtocolError("INVALID_RESPONSE", `${field} must be a boolean`);
+  }
+
+  return value;
+}
+
+export function parseResponse(value: unknown): ProtocolResponse {
+  if (!isRecord(value)) {
+    throw new ProtocolError("INVALID_RESPONSE", "response must be a JSON object");
+  }
+
+  if (value.version !== PROTOCOL_VERSION) {
+    throw new ProtocolError("UNSUPPORTED_VERSION", `protocol version must be ${PROTOCOL_VERSION}`);
+  }
+
+  const requestId = responseString(value.requestId, "requestId");
+  if (value.ok === false && isRecord(value.error)) {
+    return {
+      version: PROTOCOL_VERSION,
+      requestId,
+      ok: false,
+      error: {
+        code: responseString(value.error.code, "error.code"),
+        message: responseString(value.error.message, "error.message"),
+      },
+    };
+  }
+
+  if (value.ok === true && isRecord(value.result)) {
+    return {
+      version: PROTOCOL_VERSION,
+      requestId,
+      ok: true,
+      result: {
+        databasePath: responseString(value.result.databasePath, "result.databasePath"),
+        nodeVersion: responseString(value.result.nodeVersion, "result.nodeVersion"),
+        sqliteVersion: responseString(value.result.sqliteVersion, "result.sqliteVersion"),
+        journalMode: responseString(value.result.journalMode, "result.journalMode"),
+        fts5Enabled: responseBoolean(value.result.fts5Enabled, "result.fts5Enabled"),
+        searchMatches: responseNumber(value.result.searchMatches, "result.searchMatches"),
+        probeValue: responseString(value.result.probeValue, "result.probeValue"),
+      },
+    };
+  }
+
+  throw new ProtocolError("INVALID_RESPONSE", "response must contain a valid result or error");
+}
+
 export function successResponse(requestId: string, result: RuntimeProbeResult): SuccessResponse {
   return {
     version: PROTOCOL_VERSION,
