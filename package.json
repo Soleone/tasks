@@ -1,0 +1,39 @@
+{
+  "name": "tasks",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm check && pnpm build:backend && pnpm build:web",
+    "build:web": "vite build",
+    "build:backend": "tsc -p tsconfig.backend.json",
+    "build:backend:bundle": "esbuild src/backend/cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/cli.cjs",
+    "build:sidecar": "pnpm build:backend:bundle && node scripts/build-sidecar.mjs",
+    "build:tauri": "pnpm build:sidecar && pnpm build && tauri build",
+    "dev:tauri": "pnpm build:sidecar && tauri dev",
+    "tauri": "tauri",
+    "test": "pnpm build:backend && node --test dist/backend/*.test.js",
+    "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
+    "check": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.web.json --noEmit"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-shell": "^2.3.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}
