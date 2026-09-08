@@ -9,6 +9,7 @@ import {
   MoveRight,
   SaveCheck,
   Tags,
+  Trash2,
   Undo2,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
     entries: [
       { label: "Add, save, or open", icon: ListPlus, keys: ["Enter"], keywords: "enter title description new line list highlighted task" },
       { label: "Save from anywhere", icon: SaveCheck, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
+      { label: "Delete task", icon: Trash2, keys: ["Delete"], keywords: "delete remove permanent task confirmation enter escape" },
     ],
   },
   {

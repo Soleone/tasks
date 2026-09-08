@@ -78,6 +78,7 @@ try {
   browser("press", "Shift+Tab");
   check('document.activeElement.name === "title"');
   browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "@category");
@@ -195,8 +196,77 @@ try {
   const audit = JSON.parse(browser("--json", "a11y"));
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
+  // Delete is scoped to a focused row, never the capture input.
+  browser("focus", "input[name=title]");
+  browser("press", "Delete");
+  check('document.querySelector("[role=dialog]") === null');
+  browser("focus", "[role=listbox]");
+  evaluate('window.deleteList = document.activeElement; true');
+  browser("press", "Delete");
+  waitFor('document.activeElement.textContent === "Delete task"');
+  const dialogAudit = JSON.parse(browser("--json", "a11y"));
+  assert.equal(dialogAudit.data.violations.length, 0, JSON.stringify(dialogAudit.data));
+  for (const width of [1280, 320]) {
+    browser("set", "viewport", String(width), "844");
+    check('document.documentElement.scrollWidth <= innerWidth');
+    browser("screenshot", path.join(tmpdir(), `tasks-delete-dialog-${width}.png`));
+  }
+  browser("press", "Escape");
+  waitFor('document.activeElement === window.deleteList && !document.querySelector("[role=dialog]")');
+  assert.equal((await command("task.list")).tasks.length, 4);
+
+  // Keep the original version while confirmation is open, even across a refresh.
+  const deletingId = evaluate('window.deleteList.getAttribute("aria-activedescendant").slice("task-option-".length)');
+  const deletingTask = (await command("task.get", { id: deletingId })).task;
+  browser("press", "Delete");
+  waitFor('document.activeElement.textContent === "Delete task"');
+  await command("task.update", { id: deletingId, expectedVersion: deletingTask.version, title: "Changed before delete" });
+  evaluate('window.dispatchEvent(new Event("focus")); true');
+  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("This task changed elsewhere")');
+  assert.equal((await command("task.list")).tasks.length, 4);
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement === window.deleteList');
+
+  // A committed delete with a lost reply can be confirmed again safely.
+  evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.deleteKeys = []; window.fetch = async (...args) => {
+    const payload = args[1]?.body && JSON.parse(args[1].body);
+    const response = await window.originalFetch(...args);
+    if (payload.command === "task.delete") {
+      window.deleteKeys.push(payload.idempotencyKey);
+      if (window.loseReply) { window.loseReply = false; throw new TypeError("Lost delete reply"); }
+    }
+    return response;
+  }; true`);
+  browser("press", "Delete");
+  waitFor('document.activeElement.textContent === "Delete task"');
+  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("Could not delete task")');
+  check('document.activeElement.textContent === "Delete task"');
+  browser("press", "Enter");
+  waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
+  check('window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]');
+  check('document.activeElement.matches("[role=listbox]")');
+  evaluate('window.fetch = window.originalFetch; true');
+  assert.ok(!(await command("task.list")).tasks.some((task) => task.id === deletingId));
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 3');
+  for (let remaining = 3; remaining > 0; remaining--) {
+    browser("focus", "[role=listbox]");
+    browser("press", "Delete");
+    waitFor('document.activeElement.textContent === "Delete task"');
+    browser("press", "Enter");
+    waitFor(`!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === ${remaining - 1}`);
+  }
+  waitFor('document.body.textContent.includes("No tasks yet")');
+  check('document.activeElement.matches("section[aria-label=\\"Saved tasks\\"]")');
+  assert.equal((await command("task.list")).total, 0);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, deletion/cancellation, empty-list focus, validation, persistence, responsive overflow, and axe.");
+} catch (error) {
+  console.error(browser("snapshot"));
+  console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));
+  throw error;
 } finally {
   try { browser("close"); } finally {
     app.kill("SIGTERM");

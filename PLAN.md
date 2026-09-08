@@ -130,7 +130,7 @@ Initial state semantics:
 - Parent links organize work; dependency links constrain readiness. Reject self-links and cycles in each graph in the same transaction as the change. Do not silently cascade completion or cancellation. A canceled prerequisite does not count as completed; make that unresolved dependency visible.
 - The task text is canonical for classification. On create/update, parse plain text and reconcile the derived category/tag tables in the same transaction. Normalize lookup slugs case-insensitively while preserving a readable label. There is at most one `@category`; multiple category tokens produce a clear validation error rather than an arbitrary choice. `#tags` may repeat in text but store only one join per tag.
 - Begin with names made of letters, numbers, `_`, and `-`. Do not treat Markdown headings, URLs, email addresses, code spans, or fenced code as tags/categories. Revisit the grammar only when real task text shows a need.
-- No hard-delete or bulk destructive command in the first release. Cancel/reopen provides a reversible initial path.
+- Owner-requested exception: `task.delete` permanently removes one task, its tag joins, and its activity history. Receipts remain for safe retries; this is not secure erasure. The list's Delete key opens confirmation with Enter to confirm and Escape to cancel. Deletion requires an expected version and idempotency key and supports read-only/dry-run previews. No bulk destructive command.
 
 ## Command and agent contract
 

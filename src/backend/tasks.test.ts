@@ -186,6 +186,50 @@ test("read-only and dry-run mutations leave every table unchanged", () => {
   }
 });
 
+test("delete protects versions, previews without writes, cascades task data, and replays receipts", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-delete-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = task(executeCommand(request("task.create", { title: "Delete @work #tag" }, { idempotencyKey: "create" }), databasePath));
+    const args = { id: created.id, expectedVersion: created.version };
+    const before = executeCommand(request("workspace.export"), databasePath).snapshot as Record<string, unknown>;
+    for (const options of [{ dryRun: true }, { readOnly: true }]) {
+      assert.equal(executeCommand(request("task.delete", args, { ...options, idempotencyKey: "preview" }), databasePath).dryRun, true);
+      const after = executeCommand(request("workspace.export"), databasePath).snapshot as Record<string, unknown>;
+      assert.deepEqual({ ...after, exportedAt: null }, { ...before, exportedAt: null });
+    }
+    assert.throws(() => executeCommand(request("task.delete", args), databasePath), /IDEMPOTENCY_REQUIRED/);
+    assert.throws(() => executeCommand(request("task.delete", { id: created.id }, { idempotencyKey: "missing-version" }), databasePath), /EXPECTED_VERSION_REQUIRED/);
+    assert.throws(() => executeCommand(request("task.delete", { ...args, expectedVersion: 2 }, { idempotencyKey: "stale" }), databasePath), /STALE_TASK_VERSION/);
+
+    // A receipt failure must roll back the delete and its cascading rows.
+    const database = openDatabase(databasePath);
+    database.exec("CREATE TRIGGER reject_delete_receipt BEFORE INSERT ON command_receipts WHEN NEW.command = 'task.delete' BEGIN SELECT RAISE(ABORT, 'receipt failed'); END;");
+    database.close();
+    const deletion = request("task.delete", args, { idempotencyKey: "delete" });
+    assert.throws(() => executeCommand(deletion, databasePath), /receipt failed/);
+    assert.deepEqual(task(executeCommand(request("task.get", { id: created.id }), databasePath)), created);
+    assert.equal(countRows(databasePath, "activity"), 1);
+    assert.equal(countRows(databasePath, "task_tags"), 1);
+    const unlocked = openDatabase(databasePath);
+    unlocked.exec("DROP TRIGGER reject_delete_receipt");
+    unlocked.close();
+
+    const result = executeCommand(deletion, databasePath);
+    assert.deepEqual(result, { id: created.id, deleted: true });
+    assert.deepEqual(executeCommand(deletion, databasePath), result);
+    assert.equal(executeCommand(request("task.list"), databasePath).total, 0);
+    assert.equal(countRows(databasePath, "task_tags"), 0);
+    assert.equal(countRows(databasePath, "activity"), 0);
+    assert.equal(countRows(databasePath, "command_receipts"), 2);
+    assert.throws(() => executeCommand(request("task.get", { id: created.id }), databasePath), /TASK_NOT_FOUND/);
+    assert.throws(() => executeCommand(request("task.delete", args, { idempotencyKey: "another-delete" }), databasePath), /TASK_NOT_FOUND/);
+    assert.throws(() => executeCommand(request("task.delete", { ...args, expectedVersion: 2 }, { idempotencyKey: "delete" }), databasePath), /IDEMPOTENCY_KEY_REUSED/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("backup, JSON export, and restore preserve canonical records", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m1-portability-"));
   const databasePath = path.join(directory, "tasks.db");

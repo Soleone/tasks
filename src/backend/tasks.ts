@@ -29,6 +29,7 @@ type PreparedTask = {
 const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.create",
   "task.update",
+  "task.delete",
   "task.start",
   "task.complete",
   "task.reopen",
@@ -430,6 +431,28 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   });
 }
 
+function deleteTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+  // Hold the writer lock across receipt lookup, version validation, and deletion.
+  return withTransaction(database, () => {
+    const context = mutationContext(database, request);
+    if (context.replay) return context.replay;
+
+    const current = requireTask(database, taskId(request.args));
+    if (expectedVersion(request.args) !== current.version) {
+      throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
+    }
+    const result = { id: current.id, deleted: true };
+    if (request.readOnly || request.dryRun) {
+      return { ...result, dryRun: true, readOnly: Boolean(request.readOnly) };
+    }
+
+    // Task tags and task activity cascade; receipts remain for safe lost-reply retries.
+    database.prepare("DELETE FROM tasks WHERE id = ?").run(current.id);
+    recordReceipt(database, request, context, result, new Date().toISOString());
+    return result;
+  });
+}
+
 function transitionTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
@@ -579,6 +602,8 @@ export function executeTaskCommand(database: DatabaseSync, request: ProtocolRequ
       return getTask(database, request);
     case "task.update":
       return updateTask(database, request);
+    case "task.delete":
+      return deleteTask(database, request);
     case "task.start":
     case "task.complete":
     case "task.reopen":
