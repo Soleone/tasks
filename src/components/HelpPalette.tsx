@@ -8,18 +8,19 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Keyboard",
     entries: [
-      { title: "Enter", description: "In the title, add the task or save your edit. In the description, insert a new line." },
-      { title: "Tab", description: "From the title, reveal and focus the optional Markdown description. Elsewhere, move to the next control." },
-      { title: "Shift+Tab", description: "Move to the previous control. From the description, return to the title." },
+      { title: "Enter", description: "In the title, add the task or save your edit. In the description, insert a new line. On the task list, open the highlighted task." },
+      { title: "Tab", description: "Cycle title, description, task list, then back to title. Tab never leaves the app." },
+      { title: "Shift+Tab", description: "Cycle backwards. From the description, return to the title." },
+      { title: "Arrow keys", description: "On the task list, move through tasks with Up and Down. Home jumps to the first task, End to the last." },
       { title: "Ctrl/Cmd+Enter", description: "Save from either the title or description." },
       { title: "Ctrl/Cmd+K", description: "Open or close this shortcuts and syntax palette, even while typing." },
-      { title: "Escape", description: "Close this palette and return to where you were. In the description, focus the title without losing your notes; hide the description if empty." },
+      { title: "Escape", description: "Close this palette and return to where you were. In the description, focus the title without losing your notes; hide the description if empty. On the task list, jump back to the title. In the edit title, go back to the list." },
     ],
   },
   {
     heading: "Tasks",
     entries: [
-      { title: "Open a task", description: "Tab to a task in the list and press Enter to edit it, or click its title." },
+      { title: "Open a task", description: "Tab to the task list, highlight a task with the arrow keys, and press Enter. Clicking still works." },
     ],
   },
   {

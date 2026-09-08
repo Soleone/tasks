@@ -3,7 +3,7 @@ import type { TaskRecord } from "@/backend/protocol";
 import { createTask, updateTask, BackendCommandError } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,12 +12,16 @@ type TaskComposerProps = {
   task?: TaskRecord;
   onSaved: (task: TaskRecord) => void;
   onCancel?: () => void;
+  onTabFromDescription?: () => void;
+  onShiftTabFromTitle?: () => void;
 };
 
-export function TaskComposer({ task, onSaved, onCancel }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, onShiftTabFromTitle }: TaskComposerProps): ReactElement {
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const [title, setTitle] = useState(task?.title ?? "");
@@ -27,6 +31,47 @@ export function TaskComposer({ task, onSaved, onCancel }: TaskComposerProps): Re
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = title !== (task?.title ?? "") || description !== (task?.descriptionMarkdown ?? "");
+
+  function focusFirstButton(): void {
+    // DOM order is Cancel then Save; the first tabbable after the
+    // description is Cancel when it exists, otherwise Save.
+    if (onCancel) cancelButton.current?.focus();
+    else saveButton.current?.focus();
+  }
+
+  function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) {
+      if (event.key === "Enter") event.preventDefault();
+      return;
+    }
+    if (event.key === "Escape") {
+      // In the editor, Esc from the title goes back to the list.
+      // From the description, Esc first lands on the title so notes are kept.
+      if (!pending && onCancel) {
+        event.preventDefault();
+        onCancel();
+      }
+      return;
+    }
+    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.shiftKey) {
+        event.preventDefault();
+        if (onShiftTabFromTitle) onShiftTabFromTitle();
+        else saveButton.current?.focus();
+      } else if (!notesOpen) {
+        event.preventDefault();
+        showNotes();
+      } else {
+        event.preventDefault();
+        notesInput.current?.focus();
+      }
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  }
 
   function showNotes(): void {
     setNotesOpen(true);
@@ -88,12 +133,6 @@ export function TaskComposer({ task, onSaved, onCancel }: TaskComposerProps): Re
           }
         }}
       >
-        <CardHeader>
-          <CardTitle>{task ? "Edit task" : "Add task"}</CardTitle>
-          <CardDescription id={`${id}-hint`}>
-            {notesOpen ? "Ctrl/Cmd+Enter to save · Enter for a new line" : "Enter to save · Tab for description"}
-          </CardDescription>
-        </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <FieldGroup>
             <Field data-invalid={titleError || undefined}>
@@ -109,22 +148,9 @@ export function TaskComposer({ task, onSaved, onCancel }: TaskComposerProps): Re
                 readOnly={pending}
                 required
                 aria-invalid={titleError || undefined}
-                aria-describedby={`${id}-hint${titleError ? ` ${id}-error` : ""}`}
+                aria-describedby={titleError ? `${id}-error` : undefined}
                 onChange={(event) => { setTitle(event.target.value); setTitleError(false); }}
-                onKeyDown={(event) => {
-                  if (event.nativeEvent.isComposing || event.keyCode === 229) {
-                    if (event.key === "Enter") event.preventDefault();
-                    return;
-                  }
-                  if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                    event.preventDefault();
-                    showNotes();
-                  }
-                  if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
+                onKeyDown={handleTitleKeyDown}
               />
               {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
             </Field>
@@ -142,6 +168,12 @@ export function TaskComposer({ task, onSaved, onCancel }: TaskComposerProps): Re
                   onChange={(event) => setDescription(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                      event.preventDefault();
+                      if (event.shiftKey) titleInput.current?.focus();
+                      else if (onTabFromDescription) onTabFromDescription();
+                      else focusFirstButton();
+                    }
                     if (event.key === "Escape") {
                       event.preventDefault();
                       if (!description) setNotesOpen(false);
@@ -160,10 +192,22 @@ export function TaskComposer({ task, onSaved, onCancel }: TaskComposerProps): Re
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap gap-2">
-              {!notesOpen ? <Button type="button" variant="ghost" size="sm" onClick={showNotes}>Add description</Button> : null}
-              {onCancel ? <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onCancel}>{dirty ? "Discard changes" : "Back to tasks"}</Button> : null}
+              {!notesOpen ? <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>Add description</Button> : null}
+              {onCancel ? <Button ref={cancelButton} type="button" variant="ghost" size="sm" disabled={pending} onClick={onCancel}>{dirty ? "Discard changes" : "Back to tasks"}</Button> : null}
             </div>
-            <Button type="submit" size="sm" disabled={pending}>{pending ? "Saving…" : task ? "Save changes" : "Add task"}</Button>
+            <Button
+              ref={saveButton}
+              type="submit"
+              size="sm"
+              disabled={pending}
+              tabIndex={task ? undefined : -1}
+              onKeyDown={task ? (event) => {
+                if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                  event.preventDefault();
+                  titleInput.current?.focus();
+                }
+              } : undefined}
+            >{pending ? "Saving…" : task ? "Save changes" : "Add task"}</Button>
           </div>
         </CardContent>
       </form>

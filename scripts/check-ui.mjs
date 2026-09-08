@@ -97,7 +97,7 @@ try {
 
   // Keep a capture draft while editing, and retain stale editor contents after refresh.
   browser("fill", 'input[name=title]', "Next capture draft");
-  browser("click", "section a");
+  evaluate('document.querySelector("[role=option]").click(); true');
   waitFor('document.querySelector("form[aria-label^=Edit]") !== null');
   check('document.querySelector("section") === null');
   browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
@@ -134,8 +134,48 @@ try {
   browser("press", "Enter");
   waitFor('document.activeElement.value === ""');
   browser("reload");
-  waitFor('document.querySelectorAll("section a").length === 3');
-  browser("find", "role", "link", "click", "--name", "Call the venue");
+  waitFor('document.querySelectorAll("[role=option]").length === 3');
+
+  // Severe tab control: title -> description -> list -> title, arrows move in the list.
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  check('document.activeElement.tagName !== "BUTTON"');
+  check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== null');
+  evaluate('window.beforeNav = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
+  browser("press", "ArrowDown");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== window.beforeNav');
+  browser("press", "ArrowUp");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.beforeNav');
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "title"');
+  browser("press", "Shift+Tab");
+  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  browser("press", "Shift+Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  browser("press", "Escape");
+  waitFor('document.activeElement.name === "title"');
+  // Enter on the list opens the highlighted task.
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  browser("press", "Enter");
+  waitFor('document.querySelector("form[aria-label^=Edit]") !== null');
+  // Esc from the edit title goes back to the list.
+  waitFor('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
+  browser("press", "Escape");
+  waitFor('document.querySelectorAll("[role=option]").length === 3 && document.activeElement.name === "title"');
+  // Leave capture notes closed so the edit flow below starts from the same state as before.
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Escape");
+  waitFor('document.activeElement.name === "title" && document.querySelector("textarea") === null');
+
+  evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")).click(); true');
   browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
@@ -147,7 +187,7 @@ try {
 
   await command("task.create", { title: "Check ".repeat(60), descriptionMarkdown: "Long notes ".repeat(100) });
   browser("reload");
-  waitFor('document.querySelectorAll("section a").length === 4');
+  waitFor('document.querySelectorAll("[role=option]").length === 4');
   for (const width of [1280, 390, 320]) {
     browser("set", "viewport", String(width), "844");
     check('document.documentElement.scrollWidth <= innerWidth');
