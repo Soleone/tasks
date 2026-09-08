@@ -66,9 +66,17 @@ try {
   browser("snapshot", "-i");
   waitFor('document.activeElement.name === "title"');
   check('document.querySelector("textarea") === null');
+  browser("find", "role", "button", "click", "--name", "Add description");
+  waitFor('document.activeElement.name === "description"');
+  browser("click", 'input[name=title]');
+  waitFor('document.activeElement.name === "title" && document.querySelector("textarea") === null');
   browser("press", "Enter");
   waitFor('document.querySelector("input[name=title]").getAttribute("aria-invalid") === "true"');
   browser("fill", 'input[name=title]', "Book venue @launch #planning");
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Shift+Tab");
+  waitFor('document.activeElement.name === "title" && document.querySelector("textarea") === null');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
   browser("fill", 'textarea[name=description]', "## Shortlist");
@@ -154,6 +162,8 @@ try {
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   browser("press", "Shift+Tab");
+  waitFor('document.activeElement.name === "title"');
+  browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
   browser("press", "Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');

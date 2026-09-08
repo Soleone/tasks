@@ -156,7 +156,7 @@ export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, on
             </Field>
             {notesOpen ? (
               <Field>
-                <FieldLabel htmlFor={`${id}-description`}>Description (optional)</FieldLabel>
+                <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
                 <Textarea
                   ref={notesInput}
                   id={`${id}-description`}
@@ -176,9 +176,12 @@ export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, on
                     }
                     if (event.key === "Escape") {
                       event.preventDefault();
-                      if (!description) setNotesOpen(false);
+                      if (!description.trim()) setNotesOpen(false);
                       titleInput.current?.focus();
                     }
+                  }}
+                  onBlur={() => {
+                    if (!description.trim()) setNotesOpen(false);
                   }}
                 />
               </Field>

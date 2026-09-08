@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { closeBackendSession, listTasks } from "@/platform/backendClient";
 import { backendKind } from "@/platform/backendTransport";
 
-// Severe tab control: Title -> Description -> Task list -> back to Title.
+// Severe tab control: Title -> revealed Description -> Task list -> back to Title.
 // The list is one tab stop; arrows move between tasks, Enter opens one.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
