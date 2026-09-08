@@ -152,6 +152,7 @@ try {
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   check('document.activeElement.tagName !== "BUTTON"');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== null');
+  check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
   evaluate('window.beforeNav = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
   browser("press", "ArrowDown");
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== window.beforeNav');
@@ -159,6 +160,7 @@ try {
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.beforeNav');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "title"');
+  check('document.querySelector("[role=option][aria-selected=true]") === null');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   browser("press", "Shift+Tab");
@@ -169,6 +171,7 @@ try {
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   browser("press", "Escape");
   waitFor('document.activeElement.name === "title"');
+  check('document.querySelector("[role=option][aria-selected=true]") === null');
   // Enter on the list opens the highlighted task.
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');

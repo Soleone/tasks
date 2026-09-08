@@ -65,9 +65,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const deleteReturnFocus = useRef<HTMLElement | null>(null);
   const [deletion, setDeletion] = useState<{ task: TaskRecord; key: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [listFocused, setListFocused] = useState(false);
 
   const hasMore = tasks.length < total;
-  const activeTask = tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
+  const activeTask = listFocused && tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
 
   useImperativeHandle(ref, () => ({
     focusList: () => (list.current ?? section.current)?.focus(),
@@ -163,11 +164,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2.5 outline-none"
+          onFocus={() => setListFocused(true)}
+          onBlur={() => setListFocused(false)}
           onKeyDown={handleListKeyDown}
         >
           {tasks.map((task, index) => {
             const metadata = taskMetadata(task);
-            const active = index === activeTaskIndex;
+            const active = listFocused && index === activeTaskIndex;
             return (
               <Item
                 key={task.id}
