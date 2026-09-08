@@ -8,8 +8,10 @@ import {
   type ReactElement,
 } from "react";
 import type { TaskRecord } from "@/backend/protocol";
+import { stripClassificationTokens } from "@/backend/taskText";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -18,6 +20,13 @@ export type TaskListHandle = {
   focusList: () => void;
   focusLoadMore: () => void;
   focusRetry: () => void;
+};
+
+const taskStatusLabels: Record<TaskRecord["status"], string> = {
+  open: "",
+  in_progress: "In progress",
+  done: "Done",
+  canceled: "Canceled",
 };
 
 type TaskListProps = {
@@ -35,13 +44,22 @@ type TaskListProps = {
   onFocusPreviousStop: () => void;
 };
 
-function taskMetadata(task: TaskRecord): string {
-  const statusLabels = { open: "", in_progress: "In progress", done: "Done", canceled: "Canceled" };
-  return [
-    statusLabels[task.status],
-    task.category ? `@${task.category.label}` : null,
-    ...task.tags.map((tag) => `#${tag.label}`),
-  ].filter(Boolean).join(" · ");
+function taskMetadata(task: TaskRecord): ReactElement | null {
+  const statusLabel = taskStatusLabels[task.status] || null;
+  const hasClassification = Boolean(task.category) || task.tags.length > 0;
+  if (!statusLabel && !hasClassification) return null;
+
+  return (
+    <ItemDescription className="flex flex-wrap items-center gap-1.5">
+      {statusLabel ? <span>{statusLabel}</span> : null}
+      {statusLabel && task.category ? <span aria-hidden="true">·</span> : null}
+      {task.category ? <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">@{task.category.label}</Badge> : null}
+      {(statusLabel || task.category) && task.tags.length ? <span aria-hidden="true">·</span> : null}
+      {task.tags.map((tag) => (
+        <Badge key={tag.slug} variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">#{tag.label}</Badge>
+      ))}
+    </ItemDescription>
+  );
 }
 
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
@@ -169,7 +187,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           onKeyDown={handleListKeyDown}
         >
           {tasks.map((task, index) => {
-            const metadata = taskMetadata(task);
+            const displayTitle = stripClassificationTokens(task.title) || task.title;
             const active = listFocused && index === activeTaskIndex;
             return (
               <Item
@@ -186,9 +204,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 onMouseEnter={() => onActiveTaskIndexChange(index)}
               >
                 <ItemContent className="min-w-0">
-                  <ItemTitle className="line-clamp-none wrap-anywhere">{task.title}</ItemTitle>
+                  <ItemTitle className="line-clamp-none wrap-anywhere">{displayTitle}</ItemTitle>
                   {task.descriptionMarkdown ? <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription> : null}
-                  {metadata ? <ItemDescription className="wrap-anywhere">{metadata}</ItemDescription> : null}
+                  {taskMetadata(task)}
                 </ItemContent>
               </Item>
             );

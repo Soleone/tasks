@@ -103,6 +103,9 @@ try {
   assert.equal(saved[0].descriptionMarkdown, "## Shortlist\n- Ask about accessibility");
   assert.equal(saved[0].category.slug, "launch");
   assert.equal(saved[0].tags[0].slug, "planning");
+  waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
+  check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
+  check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
 
   // Keep a capture draft while editing, and retain stale editor contents after refresh.
   browser("fill", 'input[name=title]', "Next capture draft");

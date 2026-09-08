@@ -7,7 +7,7 @@ import test from "node:test";
 import { executeCommand } from "./commands.js";
 import { openDatabase } from "./database.js";
 import { type ProtocolRequest, type TaskRecord } from "./protocol.js";
-import { classifyTaskText, TaskTextError } from "./taskText.js";
+import { classifyTaskText, stripClassificationTokens, TaskTextError } from "./taskText.js";
 
 type Result = Record<string, unknown>;
 
@@ -60,6 +60,8 @@ test("classification respects boundaries, code, URLs, headings, and one category
     () => classifyTaskText("Choose @one and @two"),
     (error: unknown) => error instanceof TaskTextError && error.code === "MULTIPLE_CATEGORIES",
   );
+  assert.equal(stripClassificationTokens("Prepare @Todo-App launch #Planning #product"), "Prepare launch");
+  assert.equal(stripClassificationTokens("See https://example.com/#anchor and `#ignored` #real"), "See https://example.com/#anchor and `#ignored`");
 });
 
 test("task mutations persist classification, activity, and optimistic versions", () => {
