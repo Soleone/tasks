@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { executeCommand } from "./commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
-import { parseLine, parseRequest, parseResponse, ProtocolError } from "./protocol.js";
+import { parseLine, parseRequest, parseResponse, parseRuntimeProbeResult, ProtocolError } from "./protocol.js";
 
 test("runtime probe persists a WAL database and searches with FTS5", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m0-"));
@@ -83,7 +83,11 @@ test("protocol validates backend responses before the UI consumes them", () => {
   assert.equal(response.ok, true);
   assert.equal(response.requestId, "response-1");
   assert.throws(
-    () => parseResponse({ version: 1, requestId: "response-2", ok: true, result: {} }),
+    () => parseResponse({ version: 1, requestId: "response-2", ok: true, result: null }),
+    (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_RESPONSE",
+  );
+  assert.throws(
+    () => parseRuntimeProbeResult({}),
     (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_RESPONSE",
   );
 });

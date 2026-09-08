@@ -3,6 +3,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RuntimeProbeResult } from "./protocol.js";
 
+export const SCHEMA_VERSION = 1;
+
 function readString(value: unknown, field: string): string {
   if (typeof value !== "object" || value === null || !(field in value)) {
     throw new Error(`SQLite did not return ${field}`);
@@ -29,12 +31,113 @@ function readNumber(value: unknown, field: string): number {
   return result;
 }
 
-export function runRuntimeProbe(databasePath: string): RuntimeProbeResult {
-  mkdirSync(path.dirname(databasePath), { recursive: true });
+function createSchema(database: DatabaseSync): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
 
+    CREATE TABLE IF NOT EXISTS tags (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+      description_markdown TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'done', 'canceled')),
+      category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+      version INTEGER NOT NULL CHECK (version > 0),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      canceled_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS task_tags (
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+      PRIMARY KEY (task_id, tag_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS activity (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      request_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor_kind TEXT NOT NULL,
+      actor_label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      details_json TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS command_receipts (
+      idempotency_key TEXT PRIMARY KEY,
+      command TEXT NOT NULL,
+      request_hash TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS tasks_updated_at_idx ON tasks (updated_at DESC, id ASC);
+    CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks (status, updated_at DESC, id ASC);
+    CREATE INDEX IF NOT EXISTS activity_task_idx ON activity (task_id, seq DESC);
+  `);
+}
+
+export function ensureSchema(database: DatabaseSync): void {
+  database.exec("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);");
+  const row = database.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as
+    | { value?: unknown }
+    | undefined;
+  const version = row?.value === undefined ? undefined : Number(row.value);
+
+  if (version !== undefined && (!Number.isInteger(version) || version > SCHEMA_VERSION)) {
+    throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is newer than ${SCHEMA_VERSION}`);
+  }
+
+  const needsVersion = version === undefined;
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    createSchema(database);
+    if (needsVersion) {
+      database.prepare("INSERT INTO schema_meta (key, value) VALUES ('schema_version', ?)").run(String(SCHEMA_VERSION));
+    }
+    database.exec("COMMIT");
+  } catch (error) {
+    try {
+      database.exec("ROLLBACK");
+    } catch {
+      // Preserve the original schema error.
+    }
+    throw error;
+  }
+}
+
+export function openDatabase(databasePath: string): DatabaseSync {
+  mkdirSync(path.dirname(databasePath), { recursive: true });
   const database = new DatabaseSync(databasePath);
   try {
-    database.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 1000;");
+    database.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 1000; PRAGMA journal_mode = WAL;");
+    ensureSchema(database);
+    return database;
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+}
+
+export function runRuntimeProbe(databasePath: string): RuntimeProbeResult {
+  const database = openDatabase(databasePath);
+  try {
     const journalMode = readString(database.prepare("PRAGMA journal_mode = WAL").get(), "journal_mode");
     const sqliteVersion = readString(database.prepare("SELECT sqlite_version() AS version").get(), "version");
 
@@ -71,5 +174,21 @@ export function runRuntimeProbe(databasePath: string): RuntimeProbeResult {
     };
   } finally {
     database.close();
+  }
+}
+
+export function withTransaction<T>(database: DatabaseSync, action: () => T): T {
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const result = action();
+    database.exec("COMMIT");
+    return result;
+  } catch (error) {
+    try {
+      database.exec("ROLLBACK");
+    } catch {
+      // Preserve the original command error.
+    }
+    throw error;
   }
 }

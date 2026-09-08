@@ -1,8 +1,8 @@
 import type { Child, Command } from "@tauri-apps/plugin-shell";
 import {
   parseResponse,
+  type ProtocolRequest,
   type ProtocolResponse,
-  type RuntimeProbeRequest,
 } from "../backend/protocol";
 
 type PendingRequest = {
@@ -24,7 +24,7 @@ export class BackendSession {
   private stdoutBuffer = "";
   private readonly pending = new Map<string, PendingRequest>();
 
-  async request(request: RuntimeProbeRequest): Promise<ProtocolResponse> {
+  async request(request: ProtocolRequest): Promise<ProtocolResponse> {
     await this.ensureStarted();
 
     if (!this.child) {
@@ -43,9 +43,16 @@ export class BackendSession {
   }
 
   async close(): Promise<void> {
-    const child = this.child;
-    this.fail(new Error("backend session closed"));
-    await child?.kill();
+    const starting = this.starting;
+    const child = this.rejectPending(new Error("backend session closed"));
+    await starting?.catch(() => undefined);
+
+    const spawnedAfterClose = this.child;
+    this.child = null;
+    await this.kill(child);
+    if (spawnedAfterClose !== child) {
+      await this.kill(spawnedAfterClose);
+    }
   }
 
   private async ensureStarted(): Promise<void> {
@@ -114,7 +121,13 @@ export class BackendSession {
   }
 
   private fail(value: unknown): void {
+    const child = this.rejectPending(value);
+    void this.kill(child);
+  }
+
+  private rejectPending(value: unknown): Child | null {
     const error = asError(value);
+    const child = this.child;
     this.child = null;
     this.stdoutBuffer = "";
 
@@ -122,5 +135,17 @@ export class BackendSession {
       request.reject(error);
     }
     this.pending.clear();
+    return child;
+  }
+
+  private async kill(child: Child | null): Promise<void> {
+    if (!child) {
+      return;
+    }
+    try {
+      await child.kill();
+    } catch {
+      // The process may have exited between the failure and cleanup.
+    }
   }
 }
