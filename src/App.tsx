@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActivityRecord, TaskRecord } from "@/backend/protocol";
+import { backendKind } from "@/platform/backendTransport";
 import {
   closeBackendSession,
   createTask,
@@ -64,6 +65,8 @@ import {
 
 type StatusFilter = "all" | "open" | "in_progress" | "done" | "canceled";
 type TransitionCommand = "task.start" | "task.complete" | "task.reopen" | "task.cancel";
+
+const inBrowserPreview = backendKind() === "browser";
 
 function errorMessage(error: unknown): string {
   if (error && typeof error === "object" && "code" in error && "message" in error) {
@@ -275,7 +278,7 @@ export default function App(): ReactElement {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-8">
         <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">M1 / Local workspace</p>
+            <p className="text-sm text-muted-foreground">M1 / Local workspace{inBrowserPreview ? " · Browser preview" : null}</p>
             <h1 className="text-3xl font-semibold tracking-tight">Tasks</h1>
             <p className="max-w-xl text-sm text-muted-foreground">
               Capture clearly, keep the history, and let people and agents use the same path.

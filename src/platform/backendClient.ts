@@ -6,7 +6,7 @@ import {
   type RuntimeProbeResult,
   type TaskRecord,
 } from "../backend/protocol";
-import { BackendSession } from "./backendSession";
+import { getBackendTransport } from "./backendTransport";
 
 export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; total: number; limit: number; offset: number };
@@ -25,14 +25,6 @@ export type TaskMutationResult = {
   readOnly?: boolean;
 };
 
-const session = new BackendSession();
-
-function requireDesktop(): void {
-  if (!("__TAURI_INTERNALS__" in window)) {
-    throw new Error("This command is available when the desktop shell is running.");
-  }
-}
-
 export class BackendCommandError extends Error {
   readonly code: string;
 
@@ -48,8 +40,7 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
   args: Record<string, unknown> = {},
   options: CommandOptions = {},
 ): Promise<T> {
-  requireDesktop();
-  const response = await session.request({
+  const response = await getBackendTransport().request({
     version: PROTOCOL_VERSION,
     requestId: crypto.randomUUID(),
     command,
@@ -110,5 +101,5 @@ export async function listActivity(taskId?: string): Promise<ActivityListResult>
 }
 
 export async function closeBackendSession(): Promise<void> {
-  await session.close();
+  await getBackendTransport().close();
 }
