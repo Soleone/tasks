@@ -1,0 +1,166 @@
+import assert from "node:assert/strict";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+
+// Requires agent-browser with Linux Chromium installed. All writes use a scratch database.
+const root = path.resolve(import.meta.dirname, "..");
+const scratch = mkdtempSync(path.join(tmpdir(), "tasks-ui-check-"));
+const session = `tasks-ui-check-${process.pid}`;
+const server = createServer();
+async function freePort() {
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  await new Promise((resolve) => server.close(resolve));
+  return port;
+}
+const webPort = await freePort();
+const backendPort = await freePort();
+const url = `http://127.0.0.1:${webPort}`;
+const backendUrl = `http://127.0.0.1:${backendPort}`;
+const app = spawn(process.execPath, ["scripts/dev-web.mjs", "--", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], {
+  cwd: root,
+  env: { ...process.env, TASKS_DATABASE_PATH: path.join(scratch, "tasks.db"), TASKS_DEV_BACKEND_PORT: String(backendPort), VITE_DEV_BACKEND_URL: backendUrl },
+  stdio: ["ignore", "pipe", "pipe"],
+});
+let serverLog = "";
+app.stdout.on("data", (chunk) => { serverLog += chunk; });
+app.stderr.on("data", (chunk) => { serverLog += chunk; });
+
+function browser(...args) {
+  return execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8", timeout: 35_000 });
+}
+function evaluate(script) {
+  const response = JSON.parse(browser("--json", "eval", script));
+  assert.equal(response.success, true, response.error);
+  return response.data.result;
+}
+function waitFor(script) { browser("wait", "--fn", script); }
+function check(script) { assert.equal(evaluate(script), true, script); }
+async function command(command, args = {}) {
+  const response = await fetch(`${backendUrl}/command`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ version: 1, requestId: crypto.randomUUID(), idempotencyKey: crypto.randomUUID(), actor: { kind: "agent", label: "UI check" }, command, args }),
+  });
+  const result = await response.json();
+  assert.equal(result.ok, true, JSON.stringify(result));
+  return result.result;
+}
+
+try {
+  let ready = false;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (app.exitCode !== null) throw new Error(serverLog);
+    try {
+      ready = (await fetch(`${backendUrl}/health`)).ok && (await fetch(url)).ok;
+    } catch { /* Startup may not have bound its ports yet. */ }
+    if (ready) break;
+    await delay(100);
+  }
+  assert.ok(ready, serverLog);
+  browser("open", url);
+  browser("snapshot", "-i");
+  waitFor('document.activeElement.name === "title"');
+  check('document.querySelector("textarea") === null');
+  browser("press", "Enter");
+  waitFor('document.querySelector("input[name=title]").getAttribute("aria-invalid") === "true"');
+  browser("fill", 'input[name=title]', "Book venue @launch #planning");
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("fill", 'textarea[name=description]', "## Shortlist");
+  browser("press", "Enter");
+  browser("keyboard", "inserttext", "- Ask about accessibility");
+  assert.equal((await command("task.list")).tasks.length, 0);
+  browser("press", "Shift+Tab");
+  check('document.activeElement.name === "title"');
+  browser("press", "Tab");
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "@category");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  check('document.querySelector("[data-slot=command-item]").textContent.includes("not people")');
+  browser("press", "Escape");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Escape");
+  check('document.activeElement.name === "title" && document.querySelector("textarea").value.includes("accessibility")');
+  browser("press", "Control+Enter");
+  waitFor('document.activeElement.name === "title" && document.activeElement.value === ""');
+  let saved = (await command("task.list")).tasks;
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].descriptionMarkdown, "## Shortlist\n- Ask about accessibility");
+  assert.equal(saved[0].category.slug, "launch");
+  assert.equal(saved[0].tags[0].slug, "planning");
+
+  // Keep a capture draft while editing, and retain stale editor contents after refresh.
+  browser("fill", 'input[name=title]', "Next capture draft");
+  browser("click", "section a");
+  waitFor('document.querySelector("form[aria-label^=Edit]") !== null');
+  check('document.querySelector("section") === null');
+  browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
+  await command("task.update", { id: saved[0].id, expectedVersion: saved[0].version, title: "Agent updated title", descriptionMarkdown: saved[0].descriptionMarkdown });
+  evaluate('window.dispatchEvent(new Event("focus")); true');
+  browser("press", "Control+Enter");
+  waitFor('document.body.textContent.includes("This task changed elsewhere")');
+  check('document.querySelector("form[aria-label^=Edit] input").value === "My unsaved title"');
+  browser("find", "role", "button", "click", "--name", "Discard changes");
+  waitFor('document.activeElement.name === "title" && document.activeElement.value === "Next capture draft"');
+
+  // Simulate commit-before-lost-reply. Retrying must not duplicate the task.
+  evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.fetch = async (...args) => {
+    const response = await window.originalFetch(...args);
+    if (window.loseReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create") {
+      window.loseReply = false;
+      throw new TypeError("Lost reply");
+    }
+    return response;
+  }; true`);
+  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("Could not save")');
+  check('document.querySelector("input[name=title]").value === "Next capture draft"');
+  browser("press", "Enter");
+  waitFor('document.activeElement.value === ""');
+  assert.equal((await command("task.list")).tasks.length, 2);
+  evaluate("window.fetch = window.originalFetch; true");
+
+  browser("fill", 'input[name=title]', "Ambiguous @work @home");
+  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("only one @category")');
+  check('document.activeElement.value === "Ambiguous @work @home"');
+  browser("fill", 'input[name=title]', "Call the venue");
+  browser("press", "Enter");
+  waitFor('document.activeElement.value === ""');
+  browser("reload");
+  waitFor('document.querySelectorAll("section a").length === 3');
+  browser("find", "role", "link", "click", "--name", "Call the venue");
+  browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Escape");
+  check('document.activeElement.name === "title" && document.querySelector("textarea") === null');
+  browser("press", "Enter");
+  waitFor('document.querySelector("form[aria-label^=Edit]") === null');
+  assert.ok((await command("task.list")).tasks.some((task) => task.title === "Confirm the venue"));
+
+  await command("task.create", { title: "Check ".repeat(60), descriptionMarkdown: "Long notes ".repeat(100) });
+  browser("reload");
+  waitFor('document.querySelectorAll("section a").length === 4');
+  for (const width of [1280, 390, 320]) {
+    browser("set", "viewport", String(width), "844");
+    check('document.documentElement.scrollWidth <= innerWidth');
+  }
+  const audit = JSON.parse(browser("--json", "a11y"));
+  assert.equal(audit.success, true);
+  assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
+  assert.equal(browser("errors").trim(), "");
+  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, validation, persistence, responsive overflow, and axe.");
+} finally {
+  try { browser("close"); } finally {
+    app.kill("SIGTERM");
+    await new Promise((resolve) => app.exitCode !== null ? resolve() : app.once("exit", resolve));
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}

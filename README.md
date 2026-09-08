@@ -15,6 +15,7 @@ pnpm install
 pnpm check
 pnpm test
 pnpm test:sidecar
+pnpm test:ui
 pnpm dev:web
 ```
 
@@ -23,6 +24,8 @@ pnpm dev:web
 The primary native test environment is the Windows 11 host. WSL is for backend and packaging checks, not desktop acceptance. The browser preview exercises the real command path and SQLite storage but is UI iteration tooling, not desktop acceptance and not evidence of PWA support. On Windows, install the Tauri prerequisites from the [official guide](https://v2.tauri.app/start/prerequisites/) and run `pnpm dev:tauri` from the project. `dev:tauri` reuses the packaged sidecar when backend sources are unchanged (sub-second check) and only pays the full SEA rebuild after backend edits; run `pnpm build:sidecar` for an explicit rebuild. Omarchy/Linux is the secondary native target after the core workflow is stable. The checked Windows host already has WebView2, but still needs Windows Node, pnpm, Rust/Cargo, and Visual Studio C++ Build Tools. The current WSL machine is missing `libdbus-1-dev`, WebKitGTK 4.1, GTK/RSVG, and related development packages, so native launch is not available there.
 
 `pnpm test:sidecar` builds a target-specific Node SEA executable and runs it with a minimal environment, demonstrating that the probe does not require a system Node installation. The binary is generated under `src-tauri/binaries/` and is intentionally ignored by Git.
+
+`pnpm test:ui` drives the keyboard-first UI end to end in headless Chromium through `agent-browser`: capture, Tab-to-description, Ctrl/Cmd+Enter, the Ctrl/Cmd+K shortcut palette, editing, stale-edit conflicts, lost-reply receipt retry, validation, reload persistence, responsive overflow, and axe. It starts its own Vite plus dev backend on free ports against a temporary scratch database, so it never touches the shared workspace. It needs `agent-browser` with Linux Chromium installed (see the WSL browser guidance); without it, rely on `pnpm dev:web` plus manual checks and say so.
 
 ### Windows 11 first run
 

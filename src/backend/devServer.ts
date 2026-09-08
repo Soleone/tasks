@@ -66,6 +66,10 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
 
   const server = http.createServer((request, response) => {
     void handleRequest(request, response, databasePath).catch((error: unknown) => {
+      if (response.headersSent) {
+        response.destroy();
+        return;
+      }
       response.writeHead(500, { "content-type": "application/json" });
       response.end(JSON.stringify(errorResponse("unknown", error)));
     });
@@ -126,9 +130,16 @@ async function handleRequest(
       const parsed = JSON.parse(await readBody(request)) as unknown;
       const command = parseRequest(parsed);
       requestId = command.requestId;
+      // Run the command before writing the head: a rejected command must
+      // answer through the catch, not crash the bridge with double headers.
+      const result = executeCommand(command, databasePath);
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(successResponse(requestId, executeCommand(command, databasePath))));
+      response.end(JSON.stringify(successResponse(requestId, result)));
     } catch (error) {
+      if (response.headersSent) {
+        response.destroy();
+        return;
+      }
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(errorResponse(requestId, error)));
     }
