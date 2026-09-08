@@ -82,7 +82,7 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "@category");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
-  check('document.querySelector("[data-slot=command-item]").textContent.includes("not people")');
+  check('document.querySelector("[data-slot=command-item]").textContent.includes("One per task")');
   browser("press", "Escape");
   waitFor('document.activeElement.name === "description"');
   browser("press", "Escape");

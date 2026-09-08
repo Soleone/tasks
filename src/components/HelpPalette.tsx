@@ -1,34 +1,48 @@
-import { useRef, type ReactElement } from "react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Fragment, useRef, type ReactElement } from "react";
+import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  ArrowUpDown,
+  AtSign,
+  Command as CommandIcon,
+  CornerDownLeft,
+  Hash,
+  Search,
+  Type,
+  Undo2,
+  type LucideIcon,
+} from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
-type HelpEntry = { title: string; description: string };
+type HelpEntry = {
+  label: string;
+  hint?: string;
+  icon: LucideIcon;
+  keys?: string[];
+  keywords?: string;
+};
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
-    heading: "Keyboard",
+    heading: "Shortcuts",
     entries: [
-      { title: "Enter", description: "In the title, add the task or save your edit. In the description, insert a new line. On the task list, open the highlighted task." },
-      { title: "Tab", description: "Cycle title, description, task list, then back to title. Tab never leaves the app." },
-      { title: "Shift+Tab", description: "Cycle backwards. From the description, return to the title." },
-      { title: "Arrow keys", description: "On the task list, move through tasks with Up and Down. Home jumps to the first task, End to the last." },
-      { title: "Ctrl/Cmd+Enter", description: "Save from either the title or description." },
-      { title: "Ctrl/Cmd+K", description: "Open or close this shortcuts and syntax palette, even while typing." },
-      { title: "Escape", description: "Close this palette and return to where you were. In the description, focus the title without losing your notes; hide the description if empty. On the task list, jump back to the title. In the edit title, go back to the list." },
-    ],
-  },
-  {
-    heading: "Tasks",
-    entries: [
-      { title: "Open a task", description: "Tab to the task list, highlight a task with the arrow keys, and press Enter. Clicking still works." },
+      { label: "Add, save, or open", icon: CornerDownLeft, keys: ["Enter"], keywords: "enter title description list highlighted task" },
+      { label: "Next field or list", icon: ArrowRightToLine, keys: ["Tab"], keywords: "tab cycle description" },
+      { label: "Previous field", icon: ArrowLeftToLine, keys: ["Shift", "Tab"], keywords: "shift backwards cycle" },
+      { label: "Move through tasks", icon: ArrowUpDown, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
+      { label: "Save from anywhere", icon: CommandIcon, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
+      { label: "Toggle this palette", icon: Search, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
+      { label: "Close or go back", icon: Undo2, keys: ["Esc"], keywords: "escape palette focus title notes list edit" },
     ],
   },
   {
     heading: "Syntax",
     entries: [
-      { title: "@category", description: "One optional category per task, in the title or description. Example: Book venue @launch. Categories are not people or mentions." },
-      { title: "#tags", description: "Any number of tags, in the title or description. Example: Book venue #planning #calls." },
-      { title: "Names and Markdown", description: "Start category and tag names with a letter, then use letters, numbers, _ or -. Matching ignores case. Use # followed by a space for a Markdown heading. Tokens inside backtick code are ignored. Markdown is saved as text, not rendered here." },
+      { label: "@category", hint: "One per task", icon: AtSign, keywords: "@launch people mentions title description" },
+      { label: "#tags", hint: "Any number of tags", icon: Hash, keywords: "#planning #calls title description" },
+      { label: "Names & Markdown", hint: "Letters, numbers, _ -", icon: Type, keywords: "case heading code backtick rendered text" },
     ],
   },
 ];
@@ -47,7 +61,7 @@ export function HelpPalette({ open, onOpenChange, returnFocus }: {
         <DialogDescription>Keyboard help, @categories and #tags.</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className="top-1/3 translate-y-0 max-h-full overflow-y-auto rounded-xl! p-0"
+        className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
         initialFocus={searchInput}
         finalFocus={() => returnFocus?.isConnected ? returnFocus : undefined}
@@ -56,17 +70,31 @@ export function HelpPalette({ open, onOpenChange, returnFocus }: {
           <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
           <CommandList label="Help results">
             <CommandEmpty>No matching help. Try “Tab”, “@” or “Markdown”.</CommandEmpty>
-            {helpGroups.map((group) => (
-              <CommandGroup key={group.heading} heading={group.heading}>
-                {group.entries.map((entry) => (
-                  <CommandItem key={entry.title} onSelect={() => onOpenChange(false)}>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{entry.title}</span>
-                      <span className="text-muted-foreground">{entry.description}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+            {helpGroups.map((group, groupIndex) => (
+              <Fragment key={group.heading}>
+                {groupIndex > 0 ? <CommandSeparator /> : null}
+                <CommandGroup heading={group.heading}>
+                  {group.entries.map((entry) => {
+                    const Icon = entry.icon;
+                    return (
+                      <CommandItem key={entry.label} value={`${group.heading} ${entry.label} ${entry.hint ?? ""} ${entry.keys?.join(" ") ?? ""} ${entry.keywords ?? ""}`}>
+                        <Icon aria-hidden="true" />
+                        <span className="font-medium">{entry.label}</span>
+                        {entry.hint ? <span className="text-muted-foreground">{entry.hint}</span> : null}
+                        {entry.keys ? (
+                          <CommandShortcut className="flex shrink-0 items-center tracking-normal">
+                            <KbdGroup>
+                              {entry.keys.map((key) => (
+                                <Kbd key={key}>{key}</Kbd>
+                              ))}
+                            </KbdGroup>
+                          </CommandShortcut>
+                        ) : null}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </Fragment>
             ))}
           </CommandList>
         </Command>
