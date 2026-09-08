@@ -1,14 +1,14 @@
 import { Fragment, useRef, type ReactElement } from "react";
 import {
-  ArrowLeftToLine,
-  ArrowRightToLine,
-  ArrowUpDown,
-  AtSign,
-  Command as CommandIcon,
-  CornerDownLeft,
-  Hash,
-  Search,
-  Type,
+  CircleHelp,
+  FileText,
+  Folder,
+  ListChecks,
+  ListPlus,
+  MoveLeft,
+  MoveRight,
+  SaveCheck,
+  Tags,
   Undo2,
   type LucideIcon,
 } from "lucide-react";
@@ -26,23 +26,33 @@ type HelpEntry = {
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
-    heading: "Shortcuts",
+    heading: "Task actions",
     entries: [
-      { label: "Add, save, or open", icon: CornerDownLeft, keys: ["Enter"], keywords: "enter title description list highlighted task" },
-      { label: "Next field or list", icon: ArrowRightToLine, keys: ["Tab"], keywords: "tab cycle description" },
-      { label: "Previous field", icon: ArrowLeftToLine, keys: ["Shift", "Tab"], keywords: "shift backwards cycle" },
-      { label: "Move through tasks", icon: ArrowUpDown, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
-      { label: "Save from anywhere", icon: CommandIcon, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
-      { label: "Toggle this palette", icon: Search, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
+      { label: "Add, save, or open", icon: ListPlus, keys: ["Enter"], keywords: "enter title description new line list highlighted task" },
+      { label: "Save from anywhere", icon: SaveCheck, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
+    ],
+  },
+  {
+    heading: "Navigation",
+    entries: [
+      { label: "Next field or list", icon: MoveRight, keys: ["Tab"], keywords: "tab cycle description" },
+      { label: "Previous field", icon: MoveLeft, keys: ["Shift", "Tab"], keywords: "shift backwards cycle" },
+      { label: "Move through tasks", icon: ListChecks, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
+    ],
+  },
+  {
+    heading: "Workspace",
+    entries: [
+      { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
       { label: "Close or go back", icon: Undo2, keys: ["Esc"], keywords: "escape palette focus title notes list edit" },
     ],
   },
   {
     heading: "Syntax",
     entries: [
-      { label: "@category", hint: "One per task", icon: AtSign, keywords: "@launch people mentions title description" },
-      { label: "#tags", hint: "Any number of tags", icon: Hash, keywords: "#planning #calls title description" },
-      { label: "Names & Markdown", hint: "Letters, numbers, _ -", icon: Type, keywords: "case heading code backtick rendered text" },
+      { label: "@category", hint: "One per task", icon: Folder, keywords: "@launch people mentions title description" },
+      { label: "#tags", hint: "Any number of tags", icon: Tags, keywords: "#planning #calls title description" },
+      { label: "Names & Markdown", hint: "Letters, numbers, _ -", icon: FileText, keywords: "case heading code backtick rendered text" },
     ],
   },
 ];
