@@ -121,12 +121,12 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "a");
   waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "true"');
-  waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive tasks"');
+  waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "a");
   waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
-  waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active tasks"');
+  waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "a");

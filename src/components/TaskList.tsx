@@ -340,7 +340,7 @@ export function TaskList({
             <ListFilter aria-hidden="true" />
             <span className="sr-only">{showInactive ? "Show active tasks" : "Show inactive tasks"}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{showInactive ? "Inactive tasks" : "Active tasks"}</TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{showInactive ? "Inactive" : "Active"}</TooltipContent>
         </Tooltip>
       </ButtonGroup>
       {error ? <Alert variant="destructive">
