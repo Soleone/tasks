@@ -13,7 +13,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, setTheme } from "@/platform/backendClient";
+import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme } from "@/platform/backendClient";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 
@@ -174,6 +174,26 @@ export default function App(): ReactElement {
     setPicker(null);
   }
 
+  async function pickerRemoveBlocker(blockerId: string): Promise<void> {
+    if (!picker) return;
+    const { subject } = picker;
+    const current = tasks.find((task) => task.id === subject.id) ?? subject;
+    const blocker = tasks.find((task) => task.id === blockerId);
+    const subjectTitle = taskTitleDisplay(current.title);
+    const blockerTitle = blocker ? taskTitleDisplay(blocker.title) : "blocker";
+    setPicker(null);
+    try {
+      const result = await removeDependency(current.id, blockerId, current.version, { idempotencyKey: crypto.randomUUID() });
+      updateVisibleTask(result.task);
+      setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
+    } catch (caught) {
+      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        ? `${current.title} changed elsewhere. Refresh and try again.`
+        : caught instanceof Error ? caught.message : String(caught));
+      void refreshTasks();
+    }
+  }
+
   async function pickerSelected(target: TaskRecord): Promise<void> {
     if (!picker) return;
     const { mode, subject } = picker;
@@ -327,6 +347,7 @@ export default function App(): ReactElement {
         onClose={closePicker}
         finalFocus={() => focusStack.restore("picker") ?? undefined}
         onSelect={(target) => void pickerSelected(target)}
+        onRemoveBlocker={(blockerId) => void pickerRemoveBlocker(blockerId)}
       /> : null}
       <ThemePalette
         open={themesOpen}

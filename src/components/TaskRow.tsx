@@ -6,6 +6,7 @@ import {
   CirclePlay,
   CircleX,
   Folder,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "cn";
@@ -124,19 +125,42 @@ export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement | 
 }
 
 /** Quiet relationship context for the full row. Never color-only. */
-export function TaskRowRelationships({ task, parentLabel }: {
+export function TaskRowRelationships({ task, parentLabel, blockedByLabels }: {
   task: TaskRecord;
   parentLabel?: string | null;
+  blockedByLabels?: string[];
 }): ReactElement | null {
-  const parts: string[] = [];
-  if (parentLabel) parts.push(`Under ${parentLabel}`);
-  else if (task.parentId) parts.push("Has parent");
-  if (task.blockedByIds.length > 0) {
-    parts.push(`Blocked by ${task.blockedByIds.length}`);
-  }
-  if (parts.length === 0) return null;
+  const hasParent = Boolean(parentLabel) || Boolean(task.parentId);
+  const blockerCount = task.blockedByIds.length;
+  const hasBlocker = blockerCount > 0;
+  if (!hasParent && !hasBlocker) return null;
+
+  const resolved = blockedByLabels ?? [];
+  const unresolvedCount = Math.max(blockerCount - resolved.length, 0);
+  const blockerText = resolved.length > 0
+    ? unresolvedCount > 0
+      ? `${resolved.join(", ")} +${unresolvedCount} more`
+      : resolved.join(", ")
+    : blockerCount === 1
+      ? "1 blocker"
+      : `${blockerCount} blockers`;
+
   return (
-    <p className="text-xs text-muted-foreground">{parts.join(" · ")}</p>
+    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+      {parentLabel
+        ? <span>Under {parentLabel}</span>
+        : task.parentId
+          ? <span>Has parent</span>
+          : null}
+      {hasParent && hasBlocker ? <span aria-hidden="true">·</span> : null}
+      {hasBlocker ? (
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
+          <span className="sr-only">Blocked by </span>
+          <span>{blockerText}</span>
+        </span>
+      ) : null}
+    </p>
   );
 }
 
@@ -145,11 +169,12 @@ export function TaskRowRelationships({ task, parentLabel }: {
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with description and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, parentLabel }: {
+export function TaskRow({ task, variant, statusSlot, parentLabel, blockedByLabels }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
   parentLabel?: string | null;
+  blockedByLabels?: string[];
 }): ReactElement {
   return (
     <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start")}>
@@ -160,7 +185,7 @@ export function TaskRow({ task, variant, statusSlot, parentLabel }: {
           <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
-        {variant === "full" ? <TaskRowRelationships task={task} parentLabel={parentLabel} /> : null}
+        {variant === "full" ? <TaskRowRelationships task={task} parentLabel={parentLabel} blockedByLabels={blockedByLabels} /> : null}
       </div>
     </div>
   );

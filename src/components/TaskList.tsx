@@ -302,6 +302,10 @@ export function TaskList({
             const active = listFocused && index === activeTaskIndex;
             const parent = task.parentId ? tasks.find((candidate) => candidate.id === task.parentId) : undefined;
             const parentLabel = parent ? taskTitleDisplay(parent.title) : null;
+            const blockedByLabels = task.blockedByIds.map((id) => {
+              const blocker = tasks.find((candidate) => candidate.id === id);
+              return blocker ? taskTitleDisplay(blocker.title) : null;
+            }).filter((label): label is string => label !== null);
             return (
               <Item
                 key={task.id}
@@ -320,6 +324,7 @@ export function TaskList({
                   task={task}
                   variant="full"
                   parentLabel={parentLabel}
+                  blockedByLabels={blockedByLabels}
                   statusSlot={
                     <TaskStatusToggle
                       task={task}

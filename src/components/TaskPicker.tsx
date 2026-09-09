@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { Link2Off } from "lucide-react";
 import type { TaskRecord } from "@/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
@@ -41,16 +42,17 @@ function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPick
   );
 }
 
-export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect }: {
+export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect, onRemoveBlocker }: {
   open: boolean;
   mode: TaskPickerMode;
   subject: TaskRecord;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
   onSelect: (target: TaskRecord) => void;
+  onRemoveBlocker?: (blockerId: string) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [candidates, setCandidates] = useState<TaskRecord[]>([]);
+  const [fetched, setFetched] = useState<TaskRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,12 +66,12 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect 
     listTasks(undefined, 0)
       .then((result) => {
         if (cancelled) return;
-        setCandidates(pickerCandidates(result.tasks.slice(0, PICKER_LIMIT), subject, mode));
+        setFetched(result.tasks.slice(0, PICKER_LIMIT));
       })
       .catch((caught) => {
         if (cancelled) return;
         setError(caught instanceof Error ? caught.message : String(caught));
-        setCandidates([]);
+        setFetched([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -78,6 +80,11 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect 
       cancelled = true;
     };
   }, [open, subject, mode]);
+
+  const candidates = useMemo(
+    () => pickerCandidates(fetched, subject, mode),
+    [fetched, subject, mode],
+  );
 
   const duplicateTitles = useMemo(() => {
     const counts = new Map<string, number>();
@@ -90,13 +97,25 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect 
 
   const heading = mode === "blocker" ? `Blocked by: ${taskTitleDisplay(subject.title)}` : `Move ${taskTitleDisplay(subject.title)} under…`;
   const emptyText = loading ? "Loading tasks…" : error ?? "No matching tasks.";
+  const showRemoveBlocker = mode === "blocker" && subject.blockedByIds.length > 0 && onRemoveBlocker;
+  const blockers = useMemo(() => {
+    if (!showRemoveBlocker) return [];
+    return subject.blockedByIds.map((id) => {
+      const blocker = fetched.find((task) => task.id === id) ?? null;
+      return { id, title: blocker ? taskTitleDisplay(blocker.title) : null };
+    });
+  }, [showRemoveBlocker, subject.blockedByIds, fetched]);
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
         <DialogTitle>{heading}</DialogTitle>
         <DialogDescription>
-          {mode === "blocker" ? "Search tasks and press Enter to mark this task blocked by the selected task." : "Search tasks and press Enter to move this task under the selected task."}
+          {mode === "blocker"
+            ? showRemoveBlocker
+              ? "Remove the current blocker, or search tasks and press Enter to mark this task blocked by the selected task."
+              : "Search tasks and press Enter to mark this task blocked by the selected task."
+            : "Search tasks and press Enter to move this task under the selected task."}
         </DialogDescription>
       </DialogHeader>
       <DialogContent
@@ -109,6 +128,18 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect 
           <CommandInput ref={searchInput} placeholder="Search tasks…" />
           <CommandList label="Task results">
             <CommandEmpty>{emptyText}</CommandEmpty>
+            {showRemoveBlocker && onRemoveBlocker ? blockers.map((blocker) => (
+              <CommandItem
+                key={`remove-${blocker.id}`}
+                value={`Remove blocker ${blocker.title ?? ""} ${blocker.id}`}
+                keywords={["remove", "unblock", "clear", blocker.title ?? ""]}
+                onSelect={() => onRemoveBlocker(blocker.id)}
+              >
+                <Link2Off aria-hidden="true" className="text-muted-foreground" />
+                <span className="font-medium">Remove blocker</span>
+                {blocker.title ? <span className="truncate text-muted-foreground">{blocker.title}</span> : null}
+              </CommandItem>
+            )) : null}
             {candidates.map((task) => {
               const displayTitle = taskTitleDisplay(task.title);
               const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
