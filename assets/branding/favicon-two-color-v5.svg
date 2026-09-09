@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Tasks">
+  <title>Tasks</title>
+  <rect x="3" y="3" width="94" height="94" rx="19" fill="#0B0B0D"/>
+  <path d="M21 52.5 39 70.5 73 34.5" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M79 15c1.2 8.1 5.1 12.1 13 13.2-7.9 1.1-11.8 5.1-13 13.2-1.2-8.1-5.1-12.1-13-13.2 7.9-1.1 11.8-5.1 13-13.2Z" fill="#FFFFFF"/>
+</svg>
