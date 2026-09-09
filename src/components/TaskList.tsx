@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { FocusStack, Navigator } from "@/navigation";
 import { BackendCommandError, transitionTask } from "@/platform/backendClient";
@@ -50,8 +49,8 @@ const taskStatusMeta: Record<TaskStatus, StatusMeta> = {
 type TaskListProps = {
   tasks: TaskRecord[];
   total: number;
-  includeNonActive: boolean;
-  onIncludeNonActiveChange: (include: boolean) => void;
+  showInactive: boolean;
+  onShowInactiveChange: (show: boolean) => void;
   activeTaskIndex: number;
   loading: boolean;
   error: string | null;
@@ -90,7 +89,7 @@ function taskMetadata(task: TaskRecord): ReactElement | null {
   );
 }
 
-const STATUS_FEEDBACK_DURATION_MS = 900;
+const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
 function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
   task: TaskRecord;
@@ -107,7 +106,7 @@ function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
   useEffect(() => {
     if (feedbackVersion === undefined) return;
     setFeedbackOpen(true);
-    const timeout = window.setTimeout(() => setFeedbackOpen(false), STATUS_FEEDBACK_DURATION_MS);
+    const timeout = window.setTimeout(() => setFeedbackOpen(false), TOGGLE_FEEDBACK_DURATION_MS);
     return () => window.clearTimeout(timeout);
   }, [feedbackVersion]);
 
@@ -143,8 +142,8 @@ function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
 export function TaskList({
   tasks,
   total,
-  includeNonActive,
-  onIncludeNonActiveChange,
+  showInactive,
+  onShowInactiveChange,
   activeTaskIndex,
   loading,
   error,
@@ -168,6 +167,8 @@ export function TaskList({
   const [listFocused, setListFocused] = useState(false);
   const [statusPendingIds, setStatusPendingIds] = useState<Set<string>>(() => new Set());
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
+  const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
+  const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
 
   const hasMore = tasks.length < total;
   const activeTask = listFocused && tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
@@ -195,10 +196,18 @@ export function TaskList({
     }
   }, [listFocused, tasks.length]);
 
-  function toggleNonActive(): void {
-    const next = !includeNonActive;
-    onIncludeNonActiveChange(next);
-    onAnnounce(next ? "Showing paused and cancelled tasks" : "Hiding paused and cancelled tasks");
+  useEffect(() => {
+    if (filterFeedbackVersion === 0) return;
+    setFilterFeedbackOpen(true);
+    const timeout = window.setTimeout(() => setFilterFeedbackOpen(false), TOGGLE_FEEDBACK_DURATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [filterFeedbackVersion]);
+
+  function toggleTaskFilter(): void {
+    const next = !showInactive;
+    onShowInactiveChange(next);
+    setFilterFeedbackVersion((previous) => previous + 1);
+    onAnnounce(next ? "Showing inactive tasks" : "Showing active tasks");
   }
 
   function moveActive(next: number): void {
@@ -265,7 +274,7 @@ export function TaskList({
     if (event.key.toLowerCase() === "a") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
-      toggleNonActive();
+      toggleTaskFilter();
     } else if (event.key === " ") {
       if (event.repeat || event.target !== list.current || event.shiftKey) return;
       event.preventDefault();
@@ -313,27 +322,25 @@ export function TaskList({
       onKeyDown={handleListKeyDown}
     >
       <ButtonGroup aria-label="Task list filters and sorting" className="self-end">
-        <Tooltip>
+        <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
           <TooltipTrigger
             render={
               <Button
-                variant={includeNonActive ? "secondary" : "ghost"}
+                variant={showInactive ? "secondary" : "ghost"}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={includeNonActive ? "Hide paused and cancelled tasks" : "Show paused and cancelled tasks"}
-                aria-pressed={includeNonActive}
+                aria-label={showInactive ? "Show active tasks" : "Show inactive tasks"}
+                aria-pressed={showInactive}
                 aria-keyshortcuts="A"
-                data-filter="non-active"
-                onClick={toggleNonActive}
+                data-filter="task-activity"
+                onClick={toggleTaskFilter}
               />
             }
           >
             <ListFilter aria-hidden="true" />
-            <span className="sr-only">{includeNonActive ? "Hide paused and cancelled tasks" : "Show paused and cancelled tasks"}</span>
+            <span className="sr-only">{showInactive ? "Show active tasks" : "Show inactive tasks"}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>
-            {includeNonActive ? "Hide paused and cancelled tasks" : "Show paused and cancelled tasks"} <Kbd>A</Kbd>
-          </TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{showInactive ? "Inactive tasks" : "Active tasks"}</TooltipContent>
         </Tooltip>
       </ButtonGroup>
       {error ? <Alert variant="destructive">

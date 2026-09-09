@@ -37,7 +37,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Add, save, or open", icon: ListPlus, keys: ["Enter"], keywords: "enter title description new line list highlighted task" },
       { label: "Save from anywhere", icon: SaveCheck, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
-      { label: "Include paused and cancelled", icon: ListFilter, keys: ["A"], keywords: "a all filter non-active paused canceled cancelled show hide" },
+      { label: "Switch active or inactive", icon: ListFilter, keys: ["A"], keywords: "a active inactive filter paused canceled cancelled show hide" },
       { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },
     ],
   },
