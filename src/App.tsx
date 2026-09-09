@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { CircleHelp, Settings2 } from "lucide-react";
+import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
+import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TaskList, type TaskListHandle } from "@/components/TaskList";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,12 @@ export default function App(): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
   const helpReturnFocus = useRef<HTMLElement | null>(null);
+  const themesReturnFocus = useRef<HTMLElement | null>(null);
   const settingsReturnFocus = useRef<HTMLElement | null>(null);
   const capture = useRef<HTMLDivElement>(null);
   const taskList = useRef<TaskListHandle>(null);
@@ -84,8 +87,8 @@ export default function App(): ReactElement {
   // Theme files can appear or disappear while the app runs, so the picker
   // re-reads them every time it opens.
   useEffect(() => {
-    if (helpOpen) void refreshThemes(false);
-  }, [helpOpen, refreshThemes]);
+    if (helpOpen || themesOpen) void refreshThemes(false);
+  }, [helpOpen, themesOpen, refreshThemes]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -101,7 +104,7 @@ export default function App(): ReactElement {
   }, [helpOpen]);
 
   async function chooseTheme(name: string): Promise<void> {
-    setHelpOpen(false);
+    setThemesOpen(false);
     try {
       const result = await setTheme(name);
       applyTheme(result.theme);
@@ -115,6 +118,11 @@ export default function App(): ReactElement {
   function openHelp(): void {
     helpReturnFocus.current = document.activeElement as HTMLElement;
     setHelpOpen(true);
+  }
+
+  function openThemes(): void {
+    themesReturnFocus.current = document.activeElement as HTMLElement;
+    setThemesOpen(true);
   }
 
   // From the palette the active element is its search field, which unmounts on
@@ -217,6 +225,15 @@ export default function App(): ReactElement {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={openThemes} />}
+              >
+                <Palette aria-hidden="true" />
+                <span className="sr-only">Themes</span>
+              </TooltipTrigger>
+              <TooltipContent>Themes</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
                 render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={() => openSettings()} />}
               >
                 <Settings2 aria-hidden="true" />
@@ -269,10 +286,15 @@ export default function App(): ReactElement {
         open={helpOpen}
         onOpenChange={setHelpOpen}
         returnFocus={helpReturnFocus.current}
+        onOpenSettings={() => openSettings(helpReturnFocus.current)}
+      />
+      <ThemePalette
+        open={themesOpen}
+        onOpenChange={setThemesOpen}
+        returnFocus={themesReturnFocus.current}
         themes={themes}
         selectedTheme={selectedTheme}
         onSelectTheme={(name) => void chooseTheme(name)}
-        onOpenSettings={() => openSettings(helpReturnFocus.current)}
       />
       <SettingsDialog
         open={settingsOpen}

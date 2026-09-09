@@ -7,7 +7,6 @@ import {
   ListPlus,
   MoveLeft,
   MoveRight,
-  Palette,
   SaveCheck,
   Settings2,
   Tags,
@@ -15,7 +14,6 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
@@ -66,11 +64,6 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   },
 ];
 
-function modeLabel(mode: ThemeMode): string {
-  if (mode === "system") return "Follows system";
-  return mode === "dark" ? "Dark" : "Light";
-}
-
 /** Search text that never shows up in the row but should still find it. */
 function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
@@ -91,13 +84,10 @@ function helpScore(value: string, search: string, keywords?: string[]): number {
   return words.reduce((score, word) => score + (label.includes(word) ? 2 : 1), 0);
 }
 
-export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedTheme, onSelectTheme, onOpenSettings }: {
+export function HelpPalette({ open, onOpenChange, returnFocus, onOpenSettings }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   returnFocus: HTMLElement | null;
-  themes: ThemeRecord[];
-  selectedTheme: string;
-  onSelectTheme: (name: string) => void;
   onOpenSettings: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
@@ -105,8 +95,8 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader className="sr-only">
-        <DialogTitle>Shortcuts, syntax, and themes</DialogTitle>
-        <DialogDescription>Keyboard help, @categories and #tags, and the workspace theme.</DialogDescription>
+        <DialogTitle>Shortcuts and syntax</DialogTitle>
+        <DialogDescription>Keyboard help, @categories and #tags.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
@@ -114,10 +104,10 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
         initialFocus={searchInput}
         finalFocus={() => returnFocus?.isConnected ? returnFocus : undefined}
       >
-        <Command label="Search shortcuts, syntax, and themes" filter={helpScore}>
-          <CommandInput ref={searchInput} placeholder="Search shortcuts, syntax, or themes…" />
+        <Command label="Search shortcuts and syntax" filter={helpScore} loop>
+          <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
           <CommandList label="Help results">
-            <CommandEmpty>No matches. Try “Tab”, “@”, or “theme”.</CommandEmpty>
+            <CommandEmpty>No matches. Try “Tab” or “@”.</CommandEmpty>
             {helpGroups.map((group, groupIndex) => (
               <Fragment key={group.heading}>
                 {groupIndex > 0 ? <CommandSeparator /> : null}
@@ -149,43 +139,6 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
                 </CommandGroup>
               </Fragment>
             ))}
-            {themes.length ? (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Theme">
-                  {themes.map((theme) => (
-                    <CommandItem
-                      key={theme.name}
-                      value={`Theme ${theme.label}`}
-                      keywords={[
-                        theme.label,
-                        theme.mode,
-                        theme.source,
-                        "themes",
-                        "appearance",
-                        "colour",
-                        "color",
-                        "accent",
-                        // A system theme resolves to either ramp, so it answers to both queries.
-                        ...(theme.mode === "system" ? ["dark", "light"] : []),
-                      ]}
-                      onSelect={() => onSelectTheme(theme.name)}
-                    >
-                      {theme.palette.accent
-                        ? <span
-                            aria-hidden="true"
-                            className="size-4 shrink-0 rounded-full ring-1 ring-border"
-                            style={{ backgroundColor: theme.palette.accent }}
-                          />
-                        : <Palette aria-hidden="true" />}
-                      <span className="font-medium">{theme.label}</span>
-                      <span className="text-muted-foreground">{theme.warnings[0] ?? modeLabel(theme.mode)}</span>
-                      {theme.name === selectedTheme ? <CommandShortcut>Active</CommandShortcut> : null}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            ) : null}
           </CommandList>
         </Command>
       </DialogContent>
