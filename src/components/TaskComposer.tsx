@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactElement } from "react";
 import type { TaskRecord } from "@/backend/protocol";
 import { createTask, updateTask, BackendCommandError } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -7,17 +7,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { Navigator } from "@/navigation";
 
 type TaskComposerProps = {
   task?: TaskRecord;
+  nav: Navigator;
   onSaved: (task: TaskRecord) => void;
   onCancel?: () => void;
-  onTabFromDescription?: () => void;
-  onTabFromEmptyTitle?: () => void;
-  onShiftTabFromTitle?: () => void;
 };
 
-export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, onTabFromEmptyTitle, onShiftTabFromTitle }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, nav, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -32,6 +31,18 @@ export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, on
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = title !== (task?.title ?? "") || description !== (task?.descriptionMarkdown ?? "");
+
+  // The composer is the "create" or "edit" destination. Its internal stops
+  // (title, description, buttons) stay local; the navigator only enters from
+  // either end. The refs go null when a stop unmounts, so the handles read
+  // live state without re-registering.
+  useEffect(() => nav.register(task ? "edit" : "create", {
+    focusFirst: () => titleInput.current?.focus(),
+    focusLast: () => (task
+      ? saveButton.current
+      : notesInput.current ?? titleInput.current
+    )?.focus(),
+  }), [nav, task]);
 
   function focusFirstButton(): void {
     // DOM order is Cancel then Save; the first tabbable after the
@@ -57,11 +68,11 @@ export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, on
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       if (event.shiftKey) {
         event.preventDefault();
-        if (onShiftTabFromTitle) onShiftTabFromTitle();
-        else saveButton.current?.focus();
-      } else if (!task && !title.trim() && onTabFromEmptyTitle) {
+        if (task) saveButton.current?.focus();
+        else nav.prev("create");
+      } else if (!task && !title.trim()) {
         event.preventDefault();
-        onTabFromEmptyTitle();
+        nav.next("create");
       } else if (!notesOpen) {
         event.preventDefault();
         showNotes();
@@ -175,8 +186,8 @@ export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, on
                     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
                       event.preventDefault();
                       if (event.shiftKey) titleInput.current?.focus();
-                      else if (onTabFromDescription) onTabFromDescription();
-                      else focusFirstButton();
+                      else if (task) focusFirstButton();
+                      else nav.next("create");
                     }
                     if (event.key === "Escape") {
                       event.preventDefault();

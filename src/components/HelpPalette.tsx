@@ -86,10 +86,10 @@ function helpScore(value: string, search: string, keywords?: string[]): number {
   return words.reduce((score, word) => score + (label.includes(word) ? 2 : 1), 0);
 }
 
-export function HelpPalette({ open, onOpenChange, returnFocus, onOpenSettings }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  returnFocus: HTMLElement | null;
+  finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
@@ -104,7 +104,7 @@ export function HelpPalette({ open, onOpenChange, returnFocus, onOpenSettings }:
         className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
         initialFocus={searchInput}
-        finalFocus={() => returnFocus?.isConnected ? returnFocus : undefined}
+        finalFocus={finalFocus}
       >
         <Command label="Search shortcuts and syntax" filter={helpScore} loop>
           <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />

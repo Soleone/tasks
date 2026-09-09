@@ -45,10 +45,10 @@ export function ThemeItem({ theme, selected, onSelect }: {
   );
 }
 
-export function ThemePalette({ open, onOpenChange, returnFocus, themes, selectedTheme, onSelectTheme }: {
+export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedTheme, onSelectTheme }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  returnFocus: HTMLElement | null;
+  finalFocus: () => HTMLElement | undefined;
   themes: ThemeRecord[];
   selectedTheme: string;
   onSelectTheme: (name: string) => void;
@@ -65,7 +65,7 @@ export function ThemePalette({ open, onOpenChange, returnFocus, themes, selected
         className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
         initialFocus={searchInput}
-        finalFocus={() => returnFocus?.isConnected ? returnFocus : undefined}
+        finalFocus={finalFocus}
       >
         <Command label="Search themes" loop>
           <CommandInput ref={searchInput} placeholder="Search themes…" />

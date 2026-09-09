@@ -5,11 +5,12 @@ import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { TaskList, type TaskListHandle } from "@/components/TaskList";
+import { TaskList } from "@/components/TaskList";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useFocusNavigation, useFocusStack } from "@/navigation";
 import { closeBackendSession, listTasks, listThemes, setTheme } from "@/platform/backendClient";
 import { applyTheme } from "@/theme";
 
@@ -28,15 +29,18 @@ export default function App(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
-  const helpReturnFocus = useRef<HTMLElement | null>(null);
-  const themesReturnFocus = useRef<HTMLElement | null>(null);
-  const settingsReturnFocus = useRef<HTMLElement | null>(null);
-  const capture = useRef<HTMLDivElement>(null);
-  const taskList = useRef<TaskListHandle>(null);
   const querySequence = useRef(0);
 
-  const hasMore = tasks.length < total;
   const showList = tasks.length > 0;
+
+  // The ordered navigation table, derived from app state: while editing, the
+  // editor replaces create and list; the list is a stop only once it has
+  // tasks or an error to focus. The capture composer stays mounted while
+  // hidden, so availability must never come from the DOM.
+  const nav = useFocusNavigation(
+    editingTask ? ["edit"] : showList || loadError ? ["create", "list"] : ["create"],
+  );
+  const focusStack = useFocusStack();
 
   const refreshTasks = useCallback(async (offset = 0): Promise<void> => {
     const sequence = ++querySequence.current;
@@ -101,8 +105,8 @@ export default function App(): ReactElement {
       if (event.altKey) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        if (!helpOpen) helpReturnFocus.current = document.activeElement as HTMLElement;
-        setHelpOpen(!helpOpen);
+        if (helpOpen) setHelpOpen(false);
+        else openHelp();
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -122,73 +126,29 @@ export default function App(): ReactElement {
   }
 
   function openHelp(): void {
-    helpReturnFocus.current = document.activeElement as HTMLElement;
+    focusStack.push("help");
     setHelpOpen(true);
   }
 
   function openThemes(): void {
-    themesReturnFocus.current = document.activeElement as HTMLElement;
+    focusStack.push("themes");
     setThemesOpen(true);
   }
 
-  // From the palette the active element is its search field, which unmounts on
-  // close, so the caller passes the element to return to instead.
-  function openSettings(from?: HTMLElement | null): void {
-    settingsReturnFocus.current = from ?? (document.activeElement as HTMLElement);
+  // From the palette the active element is its search field, which unmounts
+  // on close, so settings inherits the palette's own return target. Consume
+  // it now: otherwise the palette's close would steal focus back from the
+  // settings dialog opening on top of it.
+  function openSettings(): void {
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("settings", fromPalette);
     setHelpOpen(false);
     setSettingsOpen(true);
   }
 
-  function focusTitle(): void {
-    capture.current?.querySelector<HTMLInputElement>("input[name=title]")?.focus();
-  }
-
-  function focusPreviousCaptureStop(): void {
-    const notes = capture.current?.querySelector<HTMLTextAreaElement>("textarea[name=description]");
-    if (notes) notes.focus();
-    else focusTitle();
-  }
-
-  function focusLastStop(): void {
-    if (editingTask) {
-      document.querySelector<HTMLButtonElement>('form[aria-label="Edit task"] button[type=submit]')?.focus();
-      return;
-    }
-    if (hasMore) {
-      taskList.current?.focusLoadMore();
-      return;
-    }
-    if (showList) {
-      taskList.current?.focusList();
-      return;
-    }
-    if (loadError) {
-      taskList.current?.focusRetry();
-      return;
-    }
-    capture.current?.querySelector<HTMLTextAreaElement>("textarea[name=description]")?.focus();
-  }
-
-  function tabFromDescription(): void {
-    if (showList) taskList.current?.focusList();
-    else if (loadError) taskList.current?.focusRetry();
-    else focusTitle();
-  }
-
-  function tabFromEmptyTitle(): void {
-    taskList.current?.focusList();
-  }
-
-  function shiftTabFromTitle(): void {
-    if (hasMore) taskList.current?.focusLoadMore();
-    else if (showList) taskList.current?.focusList();
-    else if (loadError) taskList.current?.focusRetry();
-    else focusPreviousCaptureStop();
-  }
-
   function returnToCapture(): void {
     setEditingTask(null);
-    requestAnimationFrame(() => focusTitle());
+    requestAnimationFrame(() => nav.go("create"));
   }
 
   function taskSaved(task: TaskRecord): void {
@@ -208,7 +168,7 @@ export default function App(): ReactElement {
             onKeyDown={(event) => {
               if (event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
                 event.preventDefault();
-                focusLastStop();
+                nav.last();
               }
             }}
           >
@@ -240,7 +200,7 @@ export default function App(): ReactElement {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={() => openSettings()} />}
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={openSettings} />}
               >
                 <Settings2 aria-hidden="true" />
                 <span className="sr-only">Settings</span>
@@ -250,26 +210,22 @@ export default function App(): ReactElement {
           </ButtonGroup>
         </header>
 
-        <div ref={capture} hidden={editingTask !== null}>
-          <TaskComposer
-            onSaved={taskSaved}
-            onTabFromDescription={tabFromDescription}
-            onTabFromEmptyTitle={tabFromEmptyTitle}
-            onShiftTabFromTitle={shiftTabFromTitle}
-          />
+        <div hidden={editingTask !== null}>
+          <TaskComposer nav={nav} onSaved={taskSaved} />
         </div>
-        {editingTask ? <TaskComposer key={editingTask.id} task={editingTask} onSaved={taskSaved} onCancel={() => {
+        {editingTask ? <TaskComposer key={editingTask.id} nav={nav} task={editingTask} onSaved={taskSaved} onCancel={() => {
           returnToCapture();
           void refreshTasks();
         }} /> : null}
 
         {editingTask ? null : <TaskList
-          ref={taskList}
           tasks={tasks}
           total={total}
           activeTaskIndex={activeTaskIndex}
           loading={loading}
           error={loadError}
+          nav={nav}
+          focusStack={focusStack}
           onRefresh={refreshTasks}
           onActiveTaskIndexChange={setActiveTaskIndex}
           onAnnounce={setAnnouncement}
@@ -282,21 +238,19 @@ export default function App(): ReactElement {
             setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
             setAnnouncement(`Cancelled: ${task.title}`);
           }}
-          onFocusTitle={focusTitle}
-          onFocusPreviousStop={focusPreviousCaptureStop}
         />}
         <p role="status" className="sr-only">{announcement}</p>
       </div>
       <HelpPalette
         open={helpOpen}
         onOpenChange={setHelpOpen}
-        returnFocus={helpReturnFocus.current}
-        onOpenSettings={() => openSettings(helpReturnFocus.current)}
+        finalFocus={() => focusStack.restore("help")}
+        onOpenSettings={openSettings}
       />
       <ThemePalette
         open={themesOpen}
         onOpenChange={setThemesOpen}
-        returnFocus={themesReturnFocus.current}
+        finalFocus={() => focusStack.restore("themes")}
         themes={themes}
         selectedTheme={selectedTheme}
         onSelectTheme={(name) => void chooseTheme(name)}
@@ -304,7 +258,7 @@ export default function App(): ReactElement {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        returnFocus={() => settingsReturnFocus.current?.isConnected ? settingsReturnFocus.current : undefined}
+        finalFocus={() => focusStack.restore("settings")}
       />
     </main>
   );

@@ -1,7 +1,5 @@
 import {
-  forwardRef,
   useEffect,
-  useImperativeHandle,
   useRef,
   useState,
   type KeyboardEvent,
@@ -25,13 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { FocusStack, Navigator } from "@/navigation";
 import { BackendCommandError, transitionTask } from "@/platform/backendClient";
-
-export type TaskListHandle = {
-  focusList: () => void;
-  focusLoadMore: () => void;
-  focusRetry: () => void;
-};
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 type StatusMeta = {
@@ -56,14 +49,14 @@ type TaskListProps = {
   activeTaskIndex: number;
   loading: boolean;
   error: string | null;
+  nav: Navigator;
+  focusStack: FocusStack;
   onRefresh: (offset?: number) => Promise<void>;
   onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
   onTaskUpdated: (task: TaskRecord) => void;
   onCanceled: (task: TaskRecord) => void;
-  onFocusTitle: () => void;
-  onFocusPreviousStop: () => void;
 };
 
 type StatusReceipt = {
@@ -137,26 +130,25 @@ function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
   );
 }
 
-export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
+export function TaskList({
   tasks,
   total,
   activeTaskIndex,
   loading,
   error,
+  nav,
+  focusStack,
   onRefresh,
   onActiveTaskIndexChange,
   onAnnounce,
   onEdit,
   onTaskUpdated,
   onCanceled,
-  onFocusTitle,
-  onFocusPreviousStop,
-}, ref): ReactElement {
+}: TaskListProps): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const loadMore = useRef<HTMLButtonElement>(null);
   const retry = useRef<HTMLButtonElement>(null);
-  const deleteReturnFocus = useRef<HTMLElement | null>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
   const statusPending = useRef(new Set<string>());
   const [deletion, setDeletion] = useState<{ task: TaskRecord; key: string } | null>(null);
@@ -168,11 +160,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const hasMore = tasks.length < total;
   const activeTask = listFocused && tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
 
-  useImperativeHandle(ref, () => ({
-    focusList: () => (list.current ?? section.current)?.focus(),
-    focusLoadMore: () => loadMore.current?.focus(),
-    focusRetry: () => retry.current?.focus(),
-  }));
+  // The list owns its internal tail (load-more, retry); the navigator only
+  // enters the destination from either end.
+  useEffect(() => nav.register("list", {
+    focusFirst: () => (list.current ?? retry.current ?? section.current)?.focus(),
+    focusLast: () => (loadMore.current ?? list.current ?? retry.current ?? section.current)?.focus(),
+  }), [nav]);
 
   useEffect(() => {
     const nextIndex = Math.min(activeTaskIndex, Math.max(tasks.length - 1, 0));
@@ -226,7 +219,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
 
   function openDeleteDialog(): void {
     if (!activeTask) return;
-    deleteReturnFocus.current = list.current;
+    focusStack.push("delete", list.current);
     setDeletion({ task: activeTask, key: crypto.randomUUID() });
     setDeleteOpen(true);
   }
@@ -260,12 +253,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (activeTask) onEdit(activeTask);
     } else if (event.key === "Escape") {
       event.preventDefault();
-      onFocusTitle();
+      nav.go("create");
     } else if (event.key === "Tab") {
       event.preventDefault();
-      if (event.shiftKey) onFocusPreviousStop();
+      if (event.shiftKey) nav.prev("list");
       else if (hasMore) loadMore.current?.focus();
-      else onFocusTitle();
+      else nav.next("list");
     }
   }
 
@@ -273,7 +266,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
     event.preventDefault();
     if (event.shiftKey) list.current?.focus();
-    else onFocusTitle();
+    else nav.next("list");
   }
 
   return (
@@ -365,12 +358,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         open={deleteOpen}
         onClose={() => { setDeleteOpen(false); void onRefresh(); }}
         onCanceled={onCanceled}
-        returnFocus={() => deleteReturnFocus.current?.isConnected
-          ? deleteReturnFocus.current
-          : list.current?.isConnected
+        returnFocus={() => focusStack.restore("delete")
+          ?? (list.current?.isConnected
             ? list.current
-            : section.current ?? undefined}
+            : section.current ?? undefined)}
       /> : null}
     </section>
   );
-});
+}

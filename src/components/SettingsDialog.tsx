@@ -10,12 +10,12 @@ type Failure = { title: string; detail: string };
 type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  returnFocus: () => HTMLElement | undefined;
+  finalFocus: () => HTMLElement | undefined;
 };
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, returnFocus }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus }: SettingsDialogProps): ReactElement {
   const exportButton = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function SettingsDialog({ open, onOpenChange, returnFocus }: SettingsDial
       <DialogContent
         className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md"
         initialFocus={exportButton}
-        finalFocus={returnFocus}
+        finalFocus={finalFocus}
       >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
