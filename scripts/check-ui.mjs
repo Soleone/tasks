@@ -156,6 +156,13 @@ try {
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('document.querySelectorAll("[cmdk-group]")[4].querySelectorAll("[data-slot=command-item]").length === 7');
+
+  // "theme" is a fuzzy letter subsequence of several shortcut keyword blobs, so cmdk's
+  // default scorer answers it with the whole shortcuts help. Only themes may match.
+  browser("fill", 'input[role="combobox"]', "theme");
+  waitFor('document.querySelectorAll("[cmdk-group]:not([hidden])").length === 1');
+  check('document.querySelector("[cmdk-group]:not([hidden]) [cmdk-group-heading]").textContent === "Theme"');
+  check('document.querySelectorAll("[cmdk-group]:not([hidden]) [data-slot=command-item]").length === 7');
   browser("fill", 'input[role="combobox"]', "gruvbox");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");

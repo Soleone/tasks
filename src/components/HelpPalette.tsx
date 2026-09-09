@@ -66,6 +66,26 @@ function modeLabel(mode: ThemeMode): string {
   return mode === "dark" ? "Dark" : "Light";
 }
 
+/** Search text that never shows up in the row but should still find it. */
+function entryKeywords(entry: HelpEntry): string[] {
+  return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
+}
+
+/**
+ * cmdk's default scorer is a fuzzy subsequence match, so a query like "theme" is
+ * a hit anywhere its letters appear in order. Our values concatenate a long
+ * keyword blob, which turns every group into a low-score match. Require each
+ * query word to appear verbatim, and rank label matches above keyword-only ones.
+ */
+function helpScore(value: string, search: string, keywords?: string[]): number {
+  const label = value.toLowerCase();
+  const haystack = `${label} ${keywords?.join(" ").toLowerCase() ?? ""}`;
+  const words = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return 1;
+  if (!words.every((word) => haystack.includes(word))) return 0;
+  return words.reduce((score, word) => score + (label.includes(word) ? 2 : 1), 0);
+}
+
 export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedTheme, onSelectTheme }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -88,7 +108,7 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
         initialFocus={searchInput}
         finalFocus={() => returnFocus?.isConnected ? returnFocus : undefined}
       >
-        <Command label="Search shortcuts, syntax, and themes">
+        <Command label="Search shortcuts, syntax, and themes" filter={helpScore}>
           <CommandInput ref={searchInput} placeholder="Search shortcuts, syntax, or themes…" />
           <CommandList label="Help results">
             <CommandEmpty>No matches. Try “Tab”, “@”, or “theme”.</CommandEmpty>
@@ -99,7 +119,7 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
                   {group.entries.map((entry) => {
                     const Icon = entry.icon;
                     return (
-                      <CommandItem key={entry.label} value={`${group.heading} ${entry.label} ${entry.hint ?? ""} ${entry.keys?.join(" ") ?? ""} ${entry.keywords ?? ""}`}>
+                      <CommandItem key={entry.label} value={`${group.heading} ${entry.label}`} keywords={entryKeywords(entry)}>
                         <Icon aria-hidden="true" />
                         <span className="font-medium">{entry.label}</span>
                         {entry.hint ? <span className="text-muted-foreground">{entry.hint}</span> : null}
@@ -125,7 +145,19 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
                   {themes.map((theme) => (
                     <CommandItem
                       key={theme.name}
-                      value={`theme ${theme.label} ${theme.mode} ${theme.source} appearance colour color accent`}
+                      value={`Theme ${theme.label}`}
+                      keywords={[
+                        theme.label,
+                        theme.mode,
+                        theme.source,
+                        "themes",
+                        "appearance",
+                        "colour",
+                        "color",
+                        "accent",
+                        // A system theme resolves to either ramp, so it answers to both queries.
+                        ...(theme.mode === "system" ? ["dark", "light"] : []),
+                      ]}
                       onSelect={() => onSelectTheme(theme.name)}
                     >
                       {theme.palette.accent
