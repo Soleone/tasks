@@ -125,7 +125,7 @@ function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
       >
         <Icon aria-hidden="true" />
       </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8}>{statusLabel}</TooltipContent>
+      <TooltipContent side="top" sideOffset={8}>{statusLabel}</TooltipContent>
     </Tooltip>
   );
 }
