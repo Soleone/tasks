@@ -85,7 +85,7 @@ function taskMetadata(task: TaskRecord): ReactElement | null {
   );
 }
 
-const STATUS_FEEDBACK_DURATION_MS = 1800;
+const STATUS_FEEDBACK_DURATION_MS = 900;
 
 function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
   task: TaskRecord;
