@@ -3,7 +3,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RuntimeProbeResult } from "./protocol.js";
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 function readString(value: unknown, field: string): string {
   if (typeof value !== "object" || value === null || !(field in value)) {
@@ -55,11 +55,19 @@ function createSchema(database: DatabaseSync): void {
       description_markdown TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'paused', 'done', 'canceled')),
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+      parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
       version INTEGER NOT NULL CHECK (version > 0),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       completed_at TEXT,
       canceled_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS task_dependencies (
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      depends_on_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      PRIMARY KEY (task_id, depends_on_id),
+      CHECK (task_id != depends_on_id)
     );
 
     CREATE TABLE IF NOT EXISTS task_tags (
@@ -95,6 +103,9 @@ function createSchema(database: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS tasks_updated_at_idx ON tasks (updated_at DESC, id ASC);
     CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks (status, updated_at DESC, id ASC);
+    CREATE INDEX IF NOT EXISTS tasks_parent_idx ON tasks (parent_id);
+    CREATE INDEX IF NOT EXISTS task_dependencies_task_idx ON task_dependencies (task_id);
+    CREATE INDEX IF NOT EXISTS task_dependencies_depends_idx ON task_dependencies (depends_on_id);
     CREATE INDEX IF NOT EXISTS activity_task_idx ON activity (task_id, seq DESC);
   `);
 }
@@ -107,17 +118,36 @@ function migrateTaskStatusConstraint(database: DatabaseSync): void {
       description_markdown TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'paused', 'done', 'canceled')),
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+      parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
       version INTEGER NOT NULL CHECK (version > 0),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       completed_at TEXT,
       canceled_at TEXT
     );
-    INSERT INTO tasks_v2 (id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at)
-      SELECT id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at
+    INSERT INTO tasks_v2 (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at)
+      SELECT id, title, description_markdown, status, category_id, NULL, version, created_at, updated_at, completed_at, canceled_at
       FROM tasks;
     DROP TABLE tasks;
     ALTER TABLE tasks_v2 RENAME TO tasks;
+  `);
+}
+
+function migrateRelationships(database: DatabaseSync): void {
+  const columns = database.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === 'parent_id')) {
+    database.exec('ALTER TABLE tasks ADD COLUMN parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL');
+  }
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS task_dependencies (
+      task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      depends_on_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      PRIMARY KEY (task_id, depends_on_id),
+      CHECK (task_id != depends_on_id)
+    );
+    CREATE INDEX IF NOT EXISTS tasks_parent_idx ON tasks (parent_id);
+    CREATE INDEX IF NOT EXISTS task_dependencies_task_idx ON task_dependencies (task_id);
+    CREATE INDEX IF NOT EXISTS task_dependencies_depends_idx ON task_dependencies (depends_on_id);
   `);
 }
 
@@ -131,18 +161,20 @@ export function ensureSchema(database: DatabaseSync): void {
   if (version !== undefined && (!Number.isInteger(version) || version > SCHEMA_VERSION)) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is newer than ${SCHEMA_VERSION}`);
   }
-  if (version !== undefined && version !== 1 && version !== SCHEMA_VERSION) {
+  if (version !== undefined && version !== 1 && version !== 2 && version !== SCHEMA_VERSION) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is not supported`);
   }
 
   const needsVersion = version === undefined;
   const needsStatusMigration = version === 1;
+  const needsRelationshipMigration = version === 1 || version === 2;
   // SQLite cannot change a table constraint in place. Foreign keys are disabled
   // only for the atomic table replacement, then restored before the connection
   // is returned to callers.
   database.exec("PRAGMA foreign_keys = OFF; BEGIN IMMEDIATE");
   try {
     if (needsStatusMigration) migrateTaskStatusConstraint(database);
+    if (needsRelationshipMigration) migrateRelationships(database);
     createSchema(database);
     if (needsVersion || needsStatusMigration) {
       database

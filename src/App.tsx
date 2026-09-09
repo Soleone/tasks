@@ -4,6 +4,7 @@ import { AppIcon } from "@/components/AppIcon";
 import type { TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
+import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TaskList } from "@/components/TaskList";
@@ -12,7 +13,8 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { closeBackendSession, listTasks, listThemes, setTheme } from "@/platform/backendClient";
+import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, setTheme } from "@/platform/backendClient";
+import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 
 const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "done"];
@@ -40,6 +42,7 @@ export default function App(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
+  const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const querySequence = useRef(0);
   const showInactiveRef = useRef(false);
 
@@ -158,6 +161,42 @@ export default function App(): ReactElement {
     setSettingsOpen(true);
   }
 
+  function openPicker(mode: TaskPickerMode, subject: TaskRecord): void {
+    // From the palette, inherit its return target like settings does so the
+    // picker's close restores focus past the unmounted palette search field.
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("picker", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setPicker({ mode, subject });
+  }
+
+  function closePicker(): void {
+    setPicker(null);
+  }
+
+  async function pickerSelected(target: TaskRecord): Promise<void> {
+    if (!picker) return;
+    const { mode, subject } = picker;
+    const current = tasks.find((task) => task.id === subject.id) ?? subject;
+    setPicker(null);
+    try {
+      const result = mode === "blocker"
+        ? await addDependency(current.id, target.id, current.version, { idempotencyKey: crypto.randomUUID() })
+        : await moveTask(current.id, target.id, current.version, { idempotencyKey: crypto.randomUUID() });
+      updateVisibleTask(result.task);
+      const subjectTitle = taskTitleDisplay(current.title);
+      const targetTitle = taskTitleDisplay(target.title);
+      setAnnouncement(mode === "blocker"
+        ? `${subjectTitle} is now blocked by ${targetTitle}`
+        : `${subjectTitle} moved under ${targetTitle}`);
+    } catch (caught) {
+      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        ? `${current.title} changed elsewhere. Refresh and try again.`
+        : caught instanceof Error ? caught.message : String(caught));
+      void refreshTasks();
+    }
+  }
+
   function returnToCapture(): void {
     setEditingTask(null);
     requestAnimationFrame(() => nav.go("create"));
@@ -267,6 +306,8 @@ export default function App(): ReactElement {
             updateVisibleTask(task);
             setAnnouncement(`Cancelled: ${task.title}`);
           }}
+          onAddBlocker={(task) => openPicker("blocker", task)}
+          onMoveUnder={(task) => openPicker("move", task)}
         />}
         <p role="status" className="sr-only">{announcement}</p>
       </div>
@@ -275,7 +316,18 @@ export default function App(): ReactElement {
         onOpenChange={setHelpOpen}
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
+        activeTask={tasks[activeTaskIndex]}
+        onAddBlocker={(task) => openPicker("blocker", task)}
+        onMoveUnder={(task) => openPicker("move", task)}
       />
+      {picker ? <TaskPicker
+        open
+        mode={picker.mode}
+        subject={tasks.find((task) => task.id === picker.subject.id) ?? picker.subject}
+        onClose={closePicker}
+        finalFocus={() => focusStack.restore("picker") ?? undefined}
+        onSelect={(target) => void pickerSelected(target)}
+      /> : null}
       <ThemePalette
         open={themesOpen}
         onOpenChange={setThemesOpen}

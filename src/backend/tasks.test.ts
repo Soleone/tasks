@@ -200,7 +200,7 @@ test("read-only and dry-run mutations leave every table unchanged", () => {
       databasePath,
     );
     const createdTask = task(created);
-    const tables = ["tasks", "categories", "tags", "task_tags", "activity", "command_receipts"];
+    const tables = ["tasks", "categories", "tags", "task_tags", "task_dependencies", "activity", "command_receipts"];
     const before = tables.map((tableName) => countRows(databasePath, tableName));
 
     const preview = executeCommand(
@@ -346,9 +346,12 @@ test("schema migration adds the paused task status to existing workspaces", () =
     const migrated = openDatabase(databasePath);
     const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
     const table = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as { sql: string };
+    const dependencyTable = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_dependencies'").get() as { sql: string };
     const foreignKeys = migrated.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
-    assert.equal(schema.value, "2");
+    assert.equal(schema.value, "3");
     assert.match(table.sql, /paused/);
+    assert.match(table.sql, /parent_id/);
+    assert.match(dependencyTable.sql, /depends_on_id/);
     assert.equal(foreignKeys.foreign_keys, 1);
     migrated.close();
 
@@ -410,6 +413,8 @@ test("portable JSON export writes a readable file beside the database", () => {
       status: "open",
       category: "launch",
       tags: ["planning"],
+      parentId: null,
+      blockedByIds: [],
       notesMarkdown: "- ask about capacity",
       createdAt: venue.createdAt,
       updatedAt: venue.updatedAt,
@@ -454,12 +459,13 @@ test("restore failure leaves the destination without imported task rows", () => 
     snapshotPath,
     JSON.stringify({
       formatVersion: 1,
-      schemaVersion: 1,
+      schemaVersion: 3,
       exportedAt: new Date().toISOString(),
       categories: [],
       tags: [],
-      tasks: [{ id: "broken", title: "broken", description_markdown: "", status: "open", category_id: "missing", version: 1, created_at: "now", updated_at: "now", completed_at: null, canceled_at: null }],
+      tasks: [{ id: "broken", title: "broken", description_markdown: "", status: "open", category_id: "missing", parent_id: null, version: 1, created_at: "now", updated_at: "now", completed_at: null, canceled_at: null }],
       taskTags: [],
+      taskDependencies: [],
       activity: [],
       commandReceipts: [],
     }),
@@ -476,6 +482,137 @@ test("restore failure leaves the destination without imported task rows", () => 
     } finally {
       restored.close();
     }
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("parent moves validate versions, parents, and cycles without cascading status", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-relationships-parent-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const parent = task(executeCommand(request("task.create", { title: "Parent" }, { idempotencyKey: "parent" }), databasePath));
+    const child = task(executeCommand(request("task.create", { title: "Child" }, { idempotencyKey: "child" }), databasePath));
+    assert.equal(child.parentId, null);
+
+    const moved = task(
+      executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: child.version }, { idempotencyKey: "move-1" }), databasePath),
+    );
+    assert.equal(moved.parentId, parent.id);
+    assert.equal(moved.version, child.version + 1);
+    assert.equal(moved.status, child.status);
+
+    const noop = executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: moved.version }, { idempotencyKey: "move-noop" }), databasePath);
+    assert.equal(noop.changed, false);
+
+    assert.throws(
+      () => executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: child.version }, { idempotencyKey: "move-stale" }), databasePath),
+      /STALE_TASK_VERSION/,
+    );
+    assert.throws(
+      () => executeCommand(request("task.move", { id: child.id, parentId: child.id, expectedVersion: moved.version }, { idempotencyKey: "move-self" }), databasePath),
+      /INVALID_PARENT/,
+    );
+    assert.throws(
+      () => executeCommand(request("task.move", { id: parent.id, parentId: child.id, expectedVersion: parent.version }, { idempotencyKey: "move-cycle" }), databasePath),
+      /PARENT_CYCLE/,
+    );
+    assert.throws(
+      () => executeCommand(request("task.move", { id: child.id, parentId: "missing", expectedVersion: moved.version }, { idempotencyKey: "move-missing" }), databasePath),
+      /PARENT_NOT_FOUND/,
+    );
+    assert.throws(
+      () => executeCommand(request("task.move", { id: child.id, expectedVersion: moved.version }, { idempotencyKey: "move-no-parent" }), databasePath),
+      /INVALID_ARGUMENT/,
+    );
+
+    const preview = executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: moved.version }, { idempotencyKey: "move-preview", dryRun: true }), databasePath);
+    assert.equal(preview.dryRun, true);
+
+    const completedParent = task(
+      executeCommand(request("task.complete", { id: parent.id, expectedVersion: parent.version }, { idempotencyKey: "complete-parent" }), databasePath),
+    );
+    assert.equal(completedParent.status, "done");
+    assert.equal(task(executeCommand(request("task.get", { id: child.id }), databasePath)).status, "open");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("dependency links validate versions, duplicates, and cycles without cascading status", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-relationships-dependency-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const first = task(executeCommand(request("task.create", { title: "First" }, { idempotencyKey: "first" }), databasePath));
+    const second = task(executeCommand(request("task.create", { title: "Second" }, { idempotencyKey: "second" }), databasePath));
+    const third = task(executeCommand(request("task.create", { title: "Third" }, { idempotencyKey: "third" }), databasePath));
+    assert.deepEqual(second.blockedByIds, []);
+
+    const blocked = task(
+      executeCommand(request("task.dependency.add", { id: second.id, dependsOnId: first.id, expectedVersion: second.version }, { idempotencyKey: "block-1" }), databasePath),
+    );
+    assert.deepEqual(blocked.blockedByIds, [first.id]);
+
+    const duplicate = executeCommand(request("task.dependency.add", { id: second.id, dependsOnId: first.id, expectedVersion: blocked.version }, { idempotencyKey: "block-dup" }), databasePath);
+    assert.equal(duplicate.changed, false);
+
+    assert.throws(
+      () => executeCommand(request("task.dependency.add", { id: second.id, dependsOnId: second.id, expectedVersion: blocked.version }, { idempotencyKey: "block-self" }), databasePath),
+      /INVALID_DEPENDENCY/,
+    );
+    const chain = task(
+      executeCommand(request("task.dependency.add", { id: third.id, dependsOnId: second.id, expectedVersion: third.version }, { idempotencyKey: "block-2" }), databasePath),
+    );
+    assert.deepEqual(chain.blockedByIds, [second.id]);
+    assert.throws(
+      () => executeCommand(request("task.dependency.add", { id: first.id, dependsOnId: third.id, expectedVersion: first.version }, { idempotencyKey: "block-cycle" }), databasePath),
+      /DEPENDENCY_CYCLE/,
+    );
+    assert.throws(
+      () => executeCommand(request("task.dependency.add", { id: second.id, dependsOnId: first.id, expectedVersion: second.version }, { idempotencyKey: "block-stale" }), databasePath),
+      /STALE_TASK_VERSION/,
+    );
+
+    const removed = task(
+      executeCommand(request("task.dependency.remove", { id: second.id, dependsOnId: first.id, expectedVersion: blocked.version }, { idempotencyKey: "unblock-1" }), databasePath),
+    );
+    assert.deepEqual(removed.blockedByIds, []);
+    const removeNoop = executeCommand(request("task.dependency.remove", { id: second.id, dependsOnId: first.id, expectedVersion: removed.version }, { idempotencyKey: "unblock-noop" }), databasePath);
+    assert.equal(removeNoop.changed, false);
+
+    const doneFirst = task(
+      executeCommand(request("task.complete", { id: first.id, expectedVersion: first.version }, { idempotencyKey: "complete-first" }), databasePath),
+    );
+    assert.equal(doneFirst.status, "done");
+    assert.equal(task(executeCommand(request("task.get", { id: second.id }), databasePath)).status, "open");
+
+    const activities = executeCommand(request("activity.list", { taskId: second.id }), databasePath) as { activity: Array<{ action: string }> };
+    assert.ok(activities.activity.some((entry) => entry.action === "dependency.added"));
+    assert.ok(activities.activity.some((entry) => entry.action === "dependency.removed"));
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("relationship snapshots round-trip through export and restore", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-relationships-portability-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const exportPath = path.join(directory, "exports", "tasks.json");
+  const restoredPath = path.join(directory, "restored", "tasks.db");
+  try {
+    const parent = task(executeCommand(request("task.create", { title: "Parent" }, { idempotencyKey: "snap-parent" }), databasePath));
+    const child = task(executeCommand(request("task.create", { title: "Child", parentId: parent.id }, { idempotencyKey: "snap-child" }), databasePath));
+    const blocker = task(executeCommand(request("task.create", { title: "Blocker" }, { idempotencyKey: "snap-blocker" }), databasePath));
+    const blocked = task(
+      executeCommand(request("task.dependency.add", { id: child.id, dependsOnId: blocker.id, expectedVersion: child.version }, { idempotencyKey: "snap-block" }), databasePath),
+    );
+    assert.equal(child.parentId, parent.id);
+    assert.deepEqual(blocked.blockedByIds, [blocker.id]);
+
+    executeCommand(request("workspace.export", { destinationPath: exportPath }), databasePath);
+    const restored = executeCommand(request("workspace.restore", { sourcePath: exportPath, destinationPath: restoredPath }, { idempotencyKey: "snap-restore" }), databasePath);
+    assert.equal(restored.taskCount, 3);
+    assert.deepEqual(task(executeCommand(request("task.get", { id: child.id }), restoredPath)), blocked);
   } finally {
     cleanDirectory(directory);
   }

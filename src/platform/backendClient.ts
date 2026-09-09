@@ -74,8 +74,9 @@ export async function getTask(id: string): Promise<{ task: TaskRecord }> {
   return runBackendCommand<{ task: TaskRecord }>("task.get", { id });
 }
 
-export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions): Promise<TaskMutationResult> {
-  return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown }, options);
+export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string }): Promise<TaskMutationResult> {
+  const { parentId, ...commandOptions } = options;
+  return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown, ...(parentId ? { parentId } : {}) }, commandOptions);
 }
 
 export async function updateTask(
@@ -103,6 +104,18 @@ export async function transitionTask(
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
   return runBackendCommand<TaskMutationResult>(command, { id, expectedVersion }, options);
+}
+
+export async function moveTask(id: string, parentId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  return runBackendCommand<TaskMutationResult>("task.move", { id, parentId, expectedVersion }, options);
+}
+
+export async function addDependency(id: string, dependsOnId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  return runBackendCommand<TaskMutationResult>("task.dependency.add", { id, dependsOnId, expectedVersion }, options);
+}
+
+export async function removeDependency(id: string, dependsOnId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  return runBackendCommand<TaskMutationResult>("task.dependency.remove", { id, dependsOnId, expectedVersion }, options);
 }
 
 export async function listActivity(taskId?: string): Promise<ActivityListResult> {

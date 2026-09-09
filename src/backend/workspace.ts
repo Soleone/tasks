@@ -22,6 +22,7 @@ type Snapshot = {
   tags: Row[];
   tasks: Row[];
   taskTags: Row[];
+  taskDependencies: Row[];
   activity: Row[];
   commandReceipts: Row[];
 };
@@ -75,7 +76,7 @@ function readSnapshot(sourcePath: string): Snapshot {
   } catch (error) {
     throw new CommandError("INVALID_SNAPSHOT", error instanceof Error ? error.message : "could not read snapshot");
   }
-  if (!isRecord(value) || value.formatVersion !== 1 || value.schemaVersion !== SCHEMA_VERSION) {
+  if (!isRecord(value) || value.formatVersion !== 1 || (value.schemaVersion !== 2 && value.schemaVersion !== SCHEMA_VERSION)) {
     throw new CommandError("UNSUPPORTED_SNAPSHOT", "snapshot format or schema version is not supported");
   }
 
@@ -85,7 +86,11 @@ function readSnapshot(sourcePath: string): Snapshot {
       throw new CommandError("INVALID_SNAPSHOT", `snapshot field ${name} must be an array of objects`);
     }
   }
-  return value as unknown as Snapshot;
+  if (value.taskDependencies !== undefined && (!Array.isArray(value.taskDependencies) || !value.taskDependencies.every(isRecord))) {
+    throw new CommandError("INVALID_SNAPSHOT", "snapshot field taskDependencies must be an array of objects");
+  }
+  const snapshot = value as unknown as Snapshot;
+  return { ...snapshot, taskDependencies: snapshot.taskDependencies ?? [] };
 }
 
 export function exportWorkspace(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
@@ -97,6 +102,7 @@ export function exportWorkspace(database: DatabaseSync, request: ProtocolRequest
     tags: database.prepare("SELECT * FROM tags ORDER BY slug ASC").all() as Row[],
     tasks: database.prepare("SELECT * FROM tasks ORDER BY id ASC").all() as Row[],
     taskTags: database.prepare("SELECT * FROM task_tags ORDER BY task_id ASC, tag_id ASC").all() as Row[],
+    taskDependencies: database.prepare("SELECT * FROM task_dependencies ORDER BY task_id ASC, depends_on_id ASC").all() as Row[],
     activity: database.prepare("SELECT * FROM activity ORDER BY seq ASC").all() as Row[],
     commandReceipts: database.prepare("SELECT * FROM command_receipts ORDER BY idempotency_key ASC").all() as Row[],
   };
@@ -144,6 +150,8 @@ function exportedTask(task: TaskRecord): TaskExportRecord {
     status: task.status,
     category: task.category?.slug ?? null,
     tags: task.tags.map((tag) => tag.slug),
+    parentId: task.parentId,
+    blockedByIds: task.blockedByIds,
     notesMarkdown: task.descriptionMarkdown,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
@@ -220,7 +228,7 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
       for (const row of snapshot.tasks) {
         restored
           .prepare(
-            "INSERT INTO tasks (id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)",
           )
           .run(
             stringValue(row, "id"),
@@ -235,8 +243,17 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
             row.canceled_at === null ? null : stringValue(row, "canceled_at"),
           );
       }
+      for (const row of snapshot.tasks) {
+        const parentId = row.parent_id === null || row.parent_id === undefined ? null : stringValue(row, "parent_id");
+        if (parentId !== null) {
+          restored.prepare("UPDATE tasks SET parent_id = ? WHERE id = ?").run(parentId, stringValue(row, "id"));
+        }
+      }
       for (const row of snapshot.taskTags) {
         restored.prepare("INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)").run(stringValue(row, "task_id"), stringValue(row, "tag_id"));
+      }
+      for (const row of snapshot.taskDependencies ?? []) {
+        restored.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)").run(stringValue(row, "task_id"), stringValue(row, "depends_on_id"));
       }
       for (const row of snapshot.activity) {
         restored

@@ -5,45 +5,27 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import {
-  Circle,
-  CircleCheck,
-  CirclePause,
-  Folder,
-  CirclePlay,
-  CircleX,
-  ListFilter,
-  type LucideIcon,
-} from "lucide-react";
-import { cn } from "cn";
+import { ListFilter } from "lucide-react";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
-import { stripClassificationTokens } from "@/backend/taskText";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
+import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Item } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { FocusStack, Navigator } from "@/navigation";
 import { BackendCommandError, transitionTask } from "@/platform/backendClient";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
-type StatusMeta = {
-  label: string;
-  Icon: LucideIcon;
-  color: string;
-  next: TaskStatus;
-  command: StatusCommand;
-};
 
-const taskStatusMeta: Record<TaskStatus, StatusMeta> = {
-  open: { label: "Open", Icon: Circle, color: "text-muted-foreground", next: "in_progress", command: "task.start" },
-  in_progress: { label: "In progress", Icon: CirclePlay, color: "text-primary", next: "paused", command: "task.pause" },
-  paused: { label: "Paused", Icon: CirclePause, color: "text-warning", next: "done", command: "task.complete" },
-  done: { label: "Done", Icon: CircleCheck, color: "text-success", next: "open", command: "task.reopen" },
-  canceled: { label: "Cancelled", Icon: CircleX, color: "text-destructive", next: "open", command: "task.reopen" },
+const taskStatusTransition: Record<TaskStatus, { next: TaskStatus; command: StatusCommand }> = {
+  open: { next: "in_progress", command: "task.start" },
+  in_progress: { next: "paused", command: "task.pause" },
+  paused: { next: "done", command: "task.complete" },
+  done: { next: "open", command: "task.reopen" },
+  canceled: { next: "open", command: "task.reopen" },
 };
 
 type TaskListProps = {
@@ -62,6 +44,8 @@ type TaskListProps = {
   onEdit: (task: TaskRecord) => void;
   onTaskUpdated: (task: TaskRecord) => void;
   onCanceled: (task: TaskRecord) => void;
+  onAddBlocker: (task: TaskRecord) => void;
+  onMoveUnder: (task: TaskRecord) => void;
 };
 
 type StatusReceipt = {
@@ -70,74 +54,7 @@ type StatusReceipt = {
   key: string;
 };
 
-function taskMetadata(task: TaskRecord): ReactElement | null {
-  const hasClassification = Boolean(task.category) || task.tags.length > 0;
-  if (!hasClassification) return null;
-
-  return (
-    <ItemDescription className="flex flex-wrap items-center gap-1.5">
-      {task.category ? (
-        <Badge variant="outline" className="h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground">
-          <Folder data-icon="inline-start" aria-hidden="true" />
-          {task.category.label}
-        </Badge>
-      ) : null}
-      {task.tags.map((tag) => (
-        <Badge key={tag.slug} variant="outline" className="h-5 border-classification-tag bg-classification-tag px-1.5 text-xs font-normal text-classification-foreground">{tag.label}</Badge>
-      ))}
-    </ItemDescription>
-  );
-}
-
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
-
-function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
-  task: TaskRecord;
-  pending: boolean;
-  feedbackVersion?: number;
-  onToggle: (task: TaskRecord) => void;
-}): ReactElement {
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const status = taskStatusMeta[task.status];
-  const nextStatus = taskStatusMeta[status.next].label;
-  const Icon = status.Icon;
-  const statusLabel = `Status: ${status.label}`;
-
-  useEffect(() => {
-    if (feedbackVersion === undefined) return;
-    setFeedbackOpen(true);
-    const timeout = window.setTimeout(() => setFeedbackOpen(false), TOGGLE_FEEDBACK_DURATION_MS);
-    return () => window.clearTimeout(timeout);
-  }, [feedbackVersion]);
-
-  return (
-    <Tooltip open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-      <TooltipTrigger
-        render={
-          <span
-            role="img"
-            aria-label={`${statusLabel}. Click or press Space to change it to ${nextStatus}.`}
-            tabIndex={-1}
-            data-status={task.status}
-            data-status-pending={pending || undefined}
-            className={cn(
-              "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
-              status.color,
-              pending && "animate-pulse opacity-60",
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggle(task);
-            }}
-          />
-        }
-      >
-        <Icon aria-hidden="true" />
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={8}>{status.label}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 export function TaskList({
   tasks,
@@ -155,6 +72,8 @@ export function TaskList({
   onEdit,
   onTaskUpdated,
   onCanceled,
+  onAddBlocker,
+  onMoveUnder,
 }: TaskListProps): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -233,15 +152,15 @@ export function TaskList({
 
   async function toggleStatus(task: TaskRecord): Promise<void> {
     if (statusPending.current.has(task.id)) return;
-    const status = taskStatusMeta[task.status];
+    const transition = taskStatusTransition[task.status];
     const previousReceipt = statusReceipts.current.get(task.id);
-    const receipt = previousReceipt?.version === task.version && previousReceipt.target === status.next
+    const receipt = previousReceipt?.version === task.version && previousReceipt.target === transition.next
       ? previousReceipt
-      : { version: task.version, target: status.next, key: crypto.randomUUID() };
+      : { version: task.version, target: transition.next, key: crypto.randomUUID() };
     statusReceipts.current.set(task.id, receipt);
     setStatusPending(task.id, true);
     try {
-      const result = await transitionTask(status.command, task.id, task.version, { idempotencyKey: receipt.key });
+      const result = await transitionTask(transition.command, task.id, task.version, { idempotencyKey: receipt.key });
       statusReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
       setStatusFeedback({ taskId: task.id, version: result.task.version });
@@ -275,6 +194,14 @@ export function TaskList({
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
       toggleTaskFilter();
+    } else if (event.key.toLowerCase() === "b") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      if (activeTask) onAddBlocker(activeTask);
+    } else if (event.key.toLowerCase() === "m") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      if (activeTask) onMoveUnder(activeTask);
     } else if (event.key === " ") {
       if (event.repeat || event.target !== list.current || event.shiftKey) return;
       event.preventDefault();
@@ -317,7 +244,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="A Space Delete"
+      aria-keyshortcuts="A B M Space Delete"
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
@@ -362,7 +289,7 @@ export function TaskList({
           role="listbox"
           aria-label={`Tasks, ${tasks.length} of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="A Space Delete"
+          aria-keyshortcuts="A B M Space Delete"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -372,8 +299,9 @@ export function TaskList({
           }}
         >
           {tasks.map((task, index) => {
-            const displayTitle = stripClassificationTokens(task.title) || task.title;
             const active = listFocused && index === activeTaskIndex;
+            const parent = task.parentId ? tasks.find((candidate) => candidate.id === task.parentId) : undefined;
+            const parentLabel = parent ? taskTitleDisplay(parent.title) : null;
             return (
               <Item
                 key={task.id}
@@ -388,19 +316,20 @@ export function TaskList({
                 onClick={() => onEdit(task)}
                 onMouseEnter={() => onActiveTaskIndexChange(index)}
               >
-                <ItemMedia variant="icon">
-                  <StatusIndicator
-                    task={task}
-                    pending={statusPendingIds.has(task.id)}
-                    feedbackVersion={statusFeedback?.taskId === task.id ? statusFeedback.version : undefined}
-                    onToggle={(nextTask) => void toggleStatus(nextTask)}
-                  />
-                </ItemMedia>
-                <ItemContent className="min-w-0">
-                  <ItemTitle className="line-clamp-none wrap-anywhere">{displayTitle}</ItemTitle>
-                  {task.descriptionMarkdown ? <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription> : null}
-                  {taskMetadata(task)}
-                </ItemContent>
+                <TaskRow
+                  task={task}
+                  variant="full"
+                  parentLabel={parentLabel}
+                  statusSlot={
+                    <TaskStatusToggle
+                      task={task}
+                      pending={statusPendingIds.has(task.id)}
+                      feedbackVersion={statusFeedback?.taskId === task.id ? statusFeedback.version : undefined}
+                      nextLabel={taskStatusMeta[taskStatusTransition[task.status].next].label}
+                      onToggle={(nextTask) => void toggleStatus(nextTask)}
+                    />
+                  }
+                />
               </Item>
             );
           })}

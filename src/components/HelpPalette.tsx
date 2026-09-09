@@ -1,8 +1,10 @@
 import { Fragment, useRef, type ReactElement } from "react";
 import {
   CircleHelp,
+  CornerDownRight,
   FileText,
   Folder,
+  Link2,
   ListChecks,
   ListFilter,
   ListPlus,
@@ -16,6 +18,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
+import type { TaskRecord } from "@/backend/protocol";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
@@ -27,7 +30,7 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings";
+  action?: "open-settings" | "add-blocker" | "move-under";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -38,6 +41,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Save from anywhere", icon: SaveCheck, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
       { label: "Switch active or inactive", icon: ListFilter, keys: ["A"], keywords: "a active inactive filter paused canceled cancelled show hide" },
+      { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
+      { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
       { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },
     ],
   },
@@ -73,11 +78,14 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, activeTask, onAddBlocker, onMoveUnder }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
+  activeTask?: TaskRecord;
+  onAddBlocker?: (task: TaskRecord) => void;
+  onMoveUnder?: (task: TaskRecord) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
 
@@ -103,12 +111,19 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings }: 
                 <CommandGroup heading={group.heading}>
                   {group.entries.map((entry) => {
                     const Icon = entry.icon;
+                    const onSelect = entry.action === "open-settings"
+                      ? onOpenSettings
+                      : entry.action === "add-blocker" && activeTask && onAddBlocker
+                        ? () => onAddBlocker(activeTask)
+                        : entry.action === "move-under" && activeTask && onMoveUnder
+                          ? () => onMoveUnder(activeTask)
+                          : undefined;
                     return (
                       <CommandItem
                         key={entry.label}
                         value={`${group.heading} ${entry.label}`}
                         keywords={entryKeywords(entry)}
-                        onSelect={entry.action === "open-settings" ? onOpenSettings : undefined}
+                        onSelect={onSelect}
                       >
                         <Icon aria-hidden="true" />
                         <span className="font-medium">{entry.label}</span>

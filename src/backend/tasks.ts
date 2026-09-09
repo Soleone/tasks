@@ -35,6 +35,9 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.complete",
   "task.reopen",
   "task.cancel",
+  "task.move",
+  "task.dependency.add",
+  "task.dependency.remove",
   "workspace.restore",
 ]);
 
@@ -208,6 +211,13 @@ function categoryFromRow(row: Row | undefined): ClassificationToken | null {
   return { slug: stringValue(row, "category_slug"), label: stringValue(row, "category_label") };
 }
 
+function blockedByIdsForTask(database: DatabaseSync, taskId: string): string[] {
+  const rows = database
+    .prepare("SELECT depends_on_id FROM task_dependencies WHERE task_id = ? ORDER BY depends_on_id ASC")
+    .all(taskId) as Row[];
+  return rows.map((row) => stringValue(row, "depends_on_id"));
+}
+
 function taskFromRow(database: DatabaseSync, row: Row): TaskRecord {
   const taskId = stringValue(row, "id");
   const tagRows = database
@@ -227,12 +237,76 @@ function taskFromRow(database: DatabaseSync, row: Row): TaskRecord {
     status: statusValue(row.status),
     category: categoryFromRow(row),
     tags: tagRows.map((tag) => ({ slug: stringValue(tag, "tag_slug"), label: stringValue(tag, "tag_label") })),
+    parentId: nullableStringValue(row, "parent_id"),
+    blockedByIds: blockedByIdsForTask(database, taskId),
     version: numberValue(row, "version"),
     createdAt: stringValue(row, "created_at"),
     updatedAt: stringValue(row, "updated_at"),
     completedAt: nullableStringValue(row, "completed_at"),
     canceledAt: nullableStringValue(row, "canceled_at"),
   };
+}
+
+function parentIdValue(row: Row): string | null {
+  const value = row["parent_id"];
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") {
+    throw new CommandError("INVALID_STORAGE", "database field parent_id is not nullable text");
+  }
+  return value;
+}
+
+function requireParentTask(database: DatabaseSync, parentId: string): void {
+  const row = database.prepare("SELECT id FROM tasks WHERE id = ?").get(parentId) as Row | undefined;
+  if (!row) {
+    throw new CommandError("PARENT_NOT_FOUND", `parent task ${parentId} was not found`);
+  }
+}
+
+function collectParentChain(database: DatabaseSync, startId: string): string[] {
+  const chain: string[] = [];
+  let current: string | null = startId;
+  while (current !== null) {
+    if (chain.includes(current)) break;
+    chain.push(current);
+    const row = database.prepare("SELECT parent_id FROM tasks WHERE id = ?").get(current) as Row | undefined;
+    if (!row) break;
+    current = parentIdValue(row);
+  }
+  return chain;
+}
+
+function collectDescendantIds(database: DatabaseSync, rootId: string): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const current = queue.pop() as string;
+    const rows = database.prepare("SELECT id FROM tasks WHERE parent_id = ?").all(current) as Row[];
+    for (const row of rows) {
+      const childId = stringValue(row, "id");
+      if (childId === rootId || descendants.has(childId)) continue;
+      descendants.add(childId);
+      queue.push(childId);
+    }
+  }
+  return descendants;
+}
+
+function reachesThroughDependencies(database: DatabaseSync, startId: string, targetId: string): boolean {
+  const visited = new Set<string>();
+  const queue = [startId];
+  while (queue.length > 0) {
+    const current = queue.pop() as string;
+    if (current === targetId) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const rows = database.prepare("SELECT depends_on_id FROM task_dependencies WHERE task_id = ?").all(current) as Row[];
+    for (const row of rows) {
+      const next = stringValue(row, "depends_on_id");
+      if (!visited.has(next)) queue.push(next);
+    }
+  }
+  return false;
 }
 
 function findTask(database: DatabaseSync, taskId: string): TaskRecord | null {
@@ -319,6 +393,8 @@ function previewTask(input: PreparedTask, status: TaskStatus = "open"): TaskReco
     status,
     category: input.classification.category,
     tags: input.classification.tags,
+    parentId: null,
+    blockedByIds: [],
     version: 1,
     createdAt: now,
     updatedAt: now,
@@ -334,8 +410,17 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   }
 
   const input = taskInput(request.args);
+  const parentArg = request.args.parentId;
+  let parentId: string | null = null;
+  if (parentArg !== undefined && parentArg !== null) {
+    if (typeof parentArg !== "string" || parentArg.trim() === "") {
+      throw new CommandError("INVALID_ARGUMENT", "parentId must be a non-empty string");
+    }
+    parentId = parentArg;
+    requireParentTask(database, parentId);
+  }
   if (request.readOnly || request.dryRun) {
-    return taskResult(previewTask(input), { dryRun: true, readOnly: Boolean(request.readOnly) });
+    return taskResult({ ...previewTask(input), parentId }, { dryRun: true, readOnly: Boolean(request.readOnly) });
   }
 
   const now = new Date().toISOString();
@@ -344,12 +429,12 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
     database
       .prepare(
         `INSERT INTO tasks
-          (id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at)
-         VALUES (?, ?, ?, 'open', NULL, 1, ?, ?, NULL, NULL)`,
+          (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at)
+         VALUES (?, ?, ?, 'open', NULL, ?, 1, ?, ?, NULL, NULL)`,
       )
-      .run(id, input.title, input.descriptionMarkdown, now, now);
+      .run(id, input.title, input.descriptionMarkdown, parentId, now, now);
     upsertClassification(database, id, input.classification, now);
-    insertActivity(database, id, request, "created", { title: input.title }, now);
+    insertActivity(database, id, request, "created", { title: input.title, ...(parentId ? { parentId } : {}) }, now);
     const task = requireTask(database, id);
     const result = taskResult(task);
     recordReceipt(database, request, context, result, now);
@@ -513,6 +598,167 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
   });
 }
 
+function moveTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) {
+    return context.replay;
+  }
+
+  const current = requireTask(database, taskId(request.args));
+  const version = expectedVersion(request.args);
+  if (version !== current.version) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
+  }
+
+  const parentArg = request.args.parentId;
+  if (typeof parentArg !== "string" || parentArg.trim() === "") {
+    throw new CommandError("INVALID_ARGUMENT", "parentId is required");
+  }
+  const parentId = parentArg;
+  if (parentId === current.id) {
+    throw new CommandError("INVALID_PARENT", "a task cannot be its own parent");
+  }
+  requireParentTask(database, parentId);
+  const descendants = collectDescendantIds(database, current.id);
+  if (descendants.has(parentId)) {
+    throw new CommandError("PARENT_CYCLE", "a task cannot move under its own descendant");
+  }
+  if (collectParentChain(database, parentId).includes(current.id)) {
+    throw new CommandError("PARENT_CYCLE", "this move would create a parent cycle");
+  }
+
+  const changed = current.parentId !== parentId;
+  if (request.readOnly || request.dryRun) {
+    return taskResult({ ...current, parentId }, { dryRun: true, readOnly: Boolean(request.readOnly), changed });
+  }
+  if (!changed) {
+    return withTransaction(database, () => {
+      const result = taskResult(current, { changed: false });
+      recordReceipt(database, request, context, result, new Date().toISOString());
+      return result;
+    });
+  }
+
+  const now = new Date().toISOString();
+  return withTransaction(database, () => {
+    database
+      .prepare("UPDATE tasks SET parent_id = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+      .run(parentId, now, current.id, version);
+    insertActivity(database, current.id, request, "moved", { before: { parentId: current.parentId }, after: { parentId } }, now);
+    const task = requireTask(database, current.id);
+    const result = taskResult(task, { changed: true });
+    recordReceipt(database, request, context, result, now);
+    return result;
+  });
+}
+
+function addDependency(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) {
+    return context.replay;
+  }
+
+  const current = requireTask(database, taskId(request.args));
+  const version = expectedVersion(request.args);
+  if (version !== current.version) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
+  }
+
+  const dependsArg = request.args.dependsOnId;
+  if (typeof dependsArg !== "string" || dependsArg.trim() === "") {
+    throw new CommandError("INVALID_ARGUMENT", "dependsOnId is required");
+  }
+  const dependsOnId = dependsArg;
+  if (dependsOnId === current.id) {
+    throw new CommandError("INVALID_DEPENDENCY", "a task cannot depend on itself");
+  }
+  requireTask(database, dependsOnId);
+  const existing = database
+    .prepare("SELECT 1 AS found FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?")
+    .get(current.id, dependsOnId) as Row | undefined;
+  const changed = !existing;
+  if (changed && reachesThroughDependencies(database, dependsOnId, current.id)) {
+    throw new CommandError("DEPENDENCY_CYCLE", "this dependency would create a cycle");
+  }
+
+  if (request.readOnly || request.dryRun) {
+    return taskResult(
+      { ...current, blockedByIds: changed ? [...current.blockedByIds, dependsOnId].sort() : current.blockedByIds },
+      { dryRun: true, readOnly: Boolean(request.readOnly), changed },
+    );
+  }
+  if (!changed) {
+    return withTransaction(database, () => {
+      const result = taskResult(current, { changed: false });
+      recordReceipt(database, request, context, result, new Date().toISOString());
+      return result;
+    });
+  }
+
+  const now = new Date().toISOString();
+  return withTransaction(database, () => {
+    database.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)").run(current.id, dependsOnId);
+    database
+      .prepare("UPDATE tasks SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+      .run(now, current.id, version);
+    insertActivity(database, current.id, request, "dependency.added", { dependsOnId }, now);
+    const task = requireTask(database, current.id);
+    const result = taskResult(task, { changed: true });
+    recordReceipt(database, request, context, result, now);
+    return result;
+  });
+}
+
+function removeDependency(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) {
+    return context.replay;
+  }
+
+  const current = requireTask(database, taskId(request.args));
+  const version = expectedVersion(request.args);
+  if (version !== current.version) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
+  }
+
+  const dependsArg = request.args.dependsOnId;
+  if (typeof dependsArg !== "string" || dependsArg.trim() === "") {
+    throw new CommandError("INVALID_ARGUMENT", "dependsOnId is required");
+  }
+  const dependsOnId = dependsArg;
+  const existing = database
+    .prepare("SELECT 1 AS found FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?")
+    .get(current.id, dependsOnId) as Row | undefined;
+  const changed = Boolean(existing);
+
+  if (request.readOnly || request.dryRun) {
+    return taskResult(
+      { ...current, blockedByIds: current.blockedByIds.filter((id) => id !== dependsOnId) },
+      { dryRun: true, readOnly: Boolean(request.readOnly), changed },
+    );
+  }
+  if (!changed) {
+    return withTransaction(database, () => {
+      const result = taskResult(current, { changed: false });
+      recordReceipt(database, request, context, result, new Date().toISOString());
+      return result;
+    });
+  }
+
+  const now = new Date().toISOString();
+  return withTransaction(database, () => {
+    database.prepare("DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?").run(current.id, dependsOnId);
+    database
+      .prepare("UPDATE tasks SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+      .run(now, current.id, version);
+    insertActivity(database, current.id, request, "dependency.removed", { dependsOnId }, now);
+    const task = requireTask(database, current.id);
+    const result = taskResult(task, { changed: true });
+    recordReceipt(database, request, context, result, now);
+    return result;
+  });
+}
+
 function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
   const limit = Math.min(Math.max(optionalInteger(request.args, "limit", 50), 1), 100);
   const offset = Math.max(optionalInteger(request.args, "offset", 0), 0);
@@ -608,6 +854,12 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return getTask(database, request);
     case "task.update":
       return updateTask(database, request);
+    case "task.move":
+      return moveTask(database, request);
+    case "task.dependency.add":
+      return addDependency(database, request);
+    case "task.dependency.remove":
+      return removeDependency(database, request);
     case "task.delete":
     case "task.start":
     case "task.pause":

@@ -16,6 +16,9 @@ export const COMMAND_NAMES = [
   "task.complete",
   "task.reopen",
   "task.cancel",
+  "task.move",
+  "task.dependency.add",
+  "task.dependency.remove",
   "activity.list",
   "workspace.info",
   "workspace.backup",
@@ -61,6 +64,8 @@ export type TaskRecord = {
   status: TaskStatus;
   category: ClassificationToken | null;
   tags: ClassificationToken[];
+  parentId: string | null;
+  blockedByIds: string[];
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -83,6 +88,8 @@ export type TaskExportRecord = {
   status: TaskStatus;
   category: string | null;
   tags: string[];
+  parentId: string | null;
+  blockedByIds: string[];
   notesMarkdown: string;
   createdAt: string;
   updatedAt: string;
