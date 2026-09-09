@@ -16,13 +16,24 @@
   --om-on-accent: oklch(1 0 0);
   --om-background: oklch(1 0 0);
   --om-dark-background: oklch(0.985 0 0);
+  --om-darker-background: oklch(0.955 0 0);
   --om-lighter-background: oklch(0.97 0 0);
   --om-selection: oklch(0.93 0.02 259);
   --om-muted: oklch(0.922 0 0);
   --om-foreground: oklch(0.145 0 0);
+  --om-dark-foreground: oklch(0.62 0 0);
+  --om-light-foreground: oklch(0.33 0 0);
   --om-bright-foreground: oklch(0.145 0 0);
   --om-muted-foreground: oklch(0.556 0 0);
   --om-red: oklch(0.577 0.245 27.325);
+  --om-on-red: oklch(1 0 0);
+  --om-orange: oklch(0.646 0.222 41.116);
+  --om-yellow: oklch(0.681 0.162 75.298);
+  --om-green: oklch(0.627 0.194 149.214);
+  --om-cyan: oklch(0.6 0.118 184.704);
+  --om-blue: oklch(0.546 0.245 262.881);
+  --om-magenta: oklch(0.606 0.25 297.177);
+  --om-brown: oklch(0.553 0.131 56.8);
   color-scheme: light;
 }
 
@@ -31,13 +42,24 @@
   --om-on-accent: oklch(0.145 0 0);
   --om-background: oklch(0.205 0 0);
   --om-dark-background: oklch(0.145 0 0);
+  --om-darker-background: oklch(0.12 0 0);
   --om-lighter-background: oklch(0.269 0 0);
   --om-selection: oklch(0.32 0.03 259);
   --om-muted: oklch(1 0 0 / 12%);
   --om-foreground: oklch(0.985 0 0);
+  --om-dark-foreground: oklch(0.55 0 0);
+  --om-light-foreground: oklch(0.85 0 0);
   --om-bright-foreground: oklch(0.985 0 0);
   --om-muted-foreground: oklch(0.708 0 0);
   --om-red: oklch(0.704 0.191 22.216);
+  --om-on-red: oklch(0.145 0 0);
+  --om-orange: oklch(0.705 0.213 47.604);
+  --om-yellow: oklch(0.828 0.189 84.429);
+  --om-green: oklch(0.723 0.219 149.579);
+  --om-cyan: oklch(0.715 0.143 215.221);
+  --om-blue: oklch(0.707 0.165 254.624);
+  --om-magenta: oklch(0.714 0.203 305.504);
+  --om-brown: oklch(0.63 0.13 60);
   color-scheme: dark;
 }
 
@@ -47,6 +69,8 @@
  * `accent` is the brand color, so it becomes our primary and focus ring, while
  * shadcn's `--accent` is a quiet hover surface and takes their `selection`.
  * Their `muted` is a de-emphasized ink, so it becomes dividers and input edges.
+ * Hues forward directly: green/yellow/cyan become success/warning/info and
+ * chart-1..5, so every omarchy hue has somewhere visible to land.
  */
 :root {
   --background: var(--om-dark-background);
@@ -64,9 +88,26 @@
   --accent: var(--om-selection);
   --accent-foreground: var(--om-bright-foreground);
   --destructive: var(--om-red);
+  --destructive-foreground: var(--om-on-red);
+  --success: var(--om-green);
+  --warning: var(--om-yellow);
+  --info: var(--om-cyan);
   --border: var(--om-muted);
   --input: var(--om-muted);
   --ring: var(--om-accent);
+  --chart-1: var(--om-cyan);
+  --chart-2: var(--om-green);
+  --chart-3: var(--om-yellow);
+  --chart-4: var(--om-magenta);
+  --chart-5: var(--om-blue);
+  --sidebar: var(--om-background);
+  --sidebar-foreground: var(--om-foreground);
+  --sidebar-primary: var(--om-accent);
+  --sidebar-primary-foreground: var(--om-on-accent);
+  --sidebar-accent: var(--om-selection);
+  --sidebar-accent-foreground: var(--om-bright-foreground);
+  --sidebar-border: var(--om-muted);
+  --sidebar-ring: var(--om-accent);
   --radius: 0.625rem;
 }
 
@@ -76,7 +117,24 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);

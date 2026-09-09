@@ -9,15 +9,26 @@ import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
 const PALETTE_SLOTS: readonly string[] = [
   "accent",
   "on_accent",
+  "on_red",
   "background",
   "dark_background",
+  "darker_background",
   "lighter_background",
   "selection",
   "muted",
   "foreground",
+  "dark_foreground",
+  "light_foreground",
   "bright_foreground",
   "muted_foreground",
   "red",
+  "orange",
+  "yellow",
+  "green",
+  "cyan",
+  "blue",
+  "magenta",
+  "brown",
 ];
 
 const STORAGE_KEY = "tasks.theme";

@@ -45,8 +45,8 @@ type StatusMeta = {
 const taskStatusMeta: Record<TaskStatus, StatusMeta> = {
   open: { label: "Open", Icon: Circle, color: "text-muted-foreground", next: "in_progress", command: "task.start" },
   in_progress: { label: "In progress", Icon: CirclePlay, color: "text-primary", next: "paused", command: "task.pause" },
-  paused: { label: "Paused", Icon: CirclePause, color: "text-amber-600 dark:text-amber-400", next: "done", command: "task.complete" },
-  done: { label: "Done", Icon: CircleCheck, color: "text-emerald-600 dark:text-emerald-400", next: "open", command: "task.reopen" },
+  paused: { label: "Paused", Icon: CirclePause, color: "text-warning", next: "done", command: "task.complete" },
+  done: { label: "Done", Icon: CircleCheck, color: "text-success", next: "open", command: "task.reopen" },
   canceled: { label: "Cancelled", Icon: CircleX, color: "text-destructive", next: "open", command: "task.reopen" },
 };
 

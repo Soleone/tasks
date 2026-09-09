@@ -77,10 +77,18 @@ test("palette resolution derives the ramp, the accent, and readable ink", () => 
   );
 
   assert.equal(resolved.mode, "dark");
-  assert.equal(resolved.warnings.length, 0);
-  // A key the regions do not use is dropped rather than sent to the stylesheet.
+  assert.deepEqual(resolved.warnings, ['orange is not a hex color: "not-a-color"']);
+  // An invalid hue is dropped rather than sent to the stylesheet.
   assert.equal(resolved.palette.orange, undefined);
   assert.equal(resolved.palette.accent, "#7aa2f7");
+  // A valid hue forwards so the stylesheet can map it to success/warning/chart tokens.
+  const withHues = resolveTheme(
+    { background: "#1a1b26", foreground: "#a9b1d6", green: "#9ece6a", yellow: "#e0af68" },
+    undefined,
+  );
+  assert.equal(withHues.warnings.length, 0);
+  assert.equal(withHues.palette.green, "#9ece6a");
+  assert.equal(withHues.palette.yellow, "#e0af68");
   assert.equal(normalizeHex(resolved.palette.darker_background), resolved.palette.darker_background);
   // A light accent takes the theme's darkest stop as ink; a dark accent on a
   // light theme takes its paper.

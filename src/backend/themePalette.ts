@@ -11,9 +11,10 @@
  * shadcn `--accent` is a quiet hover surface, and omarchy `muted` is a
  * de-emphasized ink used for dividers, not a surface.
  *
- * Two keys are ours rather than omarchy's: `on_accent` (ink on an accent fill)
- * and `muted_foreground` (secondary text). Both are derived to stay readable,
- * and a theme file may set either one directly.
+ * Two keys are ours rather than omarchy's: `on_accent` (ink on an accent fill),
+ * `on_red` (ink on a destructive fill), and `muted_foreground` (secondary text).
+ * All three are derived to stay readable, and a theme file may set any of them
+ * directly.
  */
 
 export type ThemeMode = "dark" | "light" | "system";
@@ -61,6 +62,8 @@ const REGION_SLOTS = new Set([
   "background",
   "foreground",
   "accent",
+  "on_accent",
+  "on_red",
   "selection",
   "muted",
   "muted_foreground",
@@ -71,6 +74,13 @@ const REGION_SLOTS = new Set([
   "light_foreground",
   "bright_foreground",
   "red",
+  "orange",
+  "yellow",
+  "green",
+  "cyan",
+  "blue",
+  "magenta",
+  "brown",
 ]);
 
 type Rgb = { r: number; g: number; b: number };
@@ -244,10 +254,15 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
   const brightForeground = colors.bright_foreground ?? foreground;
   const darkForeground = colors.dark_foreground ?? mixHex(foreground, background, 0.45);
   // Ink on an accent fill comes from the theme's own extremes: its darkest stop
-  // for a light accent, its lightest for a dark one.
-  const onAccent = relativeLuminance(accent) >= ACCENT_LIGHTNESS
+  // for a light accent, its lightest for a dark one. The same rule covers ink
+  // on a destructive fill so `--destructive-foreground` stays readable.
+  const onAccent = colors.on_accent ?? (relativeLuminance(accent) >= ACCENT_LIGHTNESS
     ? (dark ? darkerBackground : foreground)
-    : (dark ? brightForeground : background);
+    : (dark ? brightForeground : background));
+  const red = colors.red ?? colors.color1 ?? (dark ? "#f87171" : "#b91c1c");
+  const onRed = colors.on_red ?? (relativeLuminance(red) >= ACCENT_LIGHTNESS
+    ? (dark ? darkerBackground : foreground)
+    : (dark ? brightForeground : background));
 
   return {
     mode,
@@ -256,6 +271,7 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
       ...colors,
       accent,
       on_accent: onAccent,
+      on_red: onRed,
       selection: colors.selection ?? mixHex(background, foreground, dark ? 0.18 : 0.12),
       muted: colors.muted ?? mixHex(background, foreground, dark ? 0.3 : 0.22),
       dark_background: darkBackground,
@@ -268,7 +284,7 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
       // omarchy's `dark_foreground` is usually too dim for all three.
       muted_foreground: colors.muted_foreground
         ?? readableMix(darkForeground, foreground, [background, darkBackground, lighterBackground], 4.5),
-      red: colors.red ?? colors.color1 ?? (dark ? "#f87171" : "#b91c1c"),
+      red,
     },
   };
 }
