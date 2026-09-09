@@ -152,8 +152,8 @@ export function TaskRow({ task, variant, statusSlot, parentLabel }: {
   parentLabel?: string | null;
 }): ReactElement {
   return (
-    <div className="flex min-w-0 flex-1 items-start gap-2.5">
-      <div className="flex shrink-0 items-center justify-center">{statusSlot}</div>
+    <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start")}>
+      <div className={cn("flex shrink-0 items-center justify-center", variant === "full" && "h-[1.375em]")}>{statusSlot}</div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <ItemTitle className="line-clamp-none wrap-anywhere w-full">{taskRowDisplayTitle(task)}</ItemTitle>
         {variant === "full" && task.descriptionMarkdown ? (
