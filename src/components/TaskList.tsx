@@ -9,6 +9,7 @@ import {
   Circle,
   CircleCheck,
   CirclePause,
+  Folder,
   CirclePlay,
   CircleX,
   type LucideIcon,
@@ -71,9 +72,14 @@ function taskMetadata(task: TaskRecord): ReactElement | null {
 
   return (
     <ItemDescription className="flex flex-wrap items-center gap-1.5">
-      {task.category ? <Badge variant="outline" className="h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground">@{task.category.label}</Badge> : null}
+      {task.category ? (
+        <Badge variant="outline" className="h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground">
+          <Folder data-icon="inline-start" aria-hidden="true" />
+          {task.category.label}
+        </Badge>
+      ) : null}
       {task.tags.map((tag) => (
-        <Badge key={tag.slug} variant="outline" className="h-5 border-classification-tag bg-classification-tag px-1.5 text-xs font-normal text-classification-foreground">#{tag.label}</Badge>
+        <Badge key={tag.slug} variant="outline" className="h-5 border-classification-tag bg-classification-tag px-1.5 text-xs font-normal text-classification-foreground">{tag.label}</Badge>
       ))}
     </ItemDescription>
   );
