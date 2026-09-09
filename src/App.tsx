@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
+import type { TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { ThemePalette } from "@/components/ThemePalette";
@@ -15,11 +15,19 @@ import { useFocusNavigation, useFocusStack } from "@/navigation";
 import { closeBackendSession, listTasks, listThemes, setTheme } from "@/platform/backendClient";
 import { applyTheme } from "@/theme";
 
+const DEFAULT_TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "done"];
+const NON_ACTIVE_TASK_STATUSES = new Set<TaskStatus>(["paused", "canceled"]);
+
+function taskIsVisible(task: TaskRecord, includeNonActive: boolean): boolean {
+  return includeNonActive || !NON_ACTIVE_TASK_STATUSES.has(task.status);
+}
+
 // Keep keyboard navigation inside the app; an empty new title skips the optional description.
 // The list is one tab stop; arrows move between tasks, Enter opens one.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [total, setTotal] = useState(0);
+  const [includeNonActive, setIncludeNonActive] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskRecord | null>(null);
   const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -31,6 +39,7 @@ export default function App(): ReactElement {
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
   const querySequence = useRef(0);
+  const includeNonActiveRef = useRef(false);
 
   // The ordered navigation table, derived from app state: while editing, the
   // editor replaces create and list. The empty list remains a focusable stop
@@ -44,7 +53,7 @@ export default function App(): ReactElement {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await listTasks(undefined, offset);
+      const result = await listTasks(includeNonActiveRef.current ? undefined : DEFAULT_TASK_STATUSES, offset);
       if (sequence !== querySequence.current) return;
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setTotal(result.total);
@@ -56,7 +65,11 @@ export default function App(): ReactElement {
   }, []);
 
   useEffect(() => {
+    includeNonActiveRef.current = includeNonActive;
     void refreshTasks();
+  }, [includeNonActive, refreshTasks]);
+
+  useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
     window.addEventListener("focus", refreshOnFocus);
     return () => {
@@ -156,6 +169,17 @@ export default function App(): ReactElement {
     void refreshTasks();
   }
 
+  function updateVisibleTask(task: TaskRecord): void {
+    const wasVisible = tasks.some((existing) => existing.id === task.id);
+    if (!taskIsVisible(task, includeNonActive)) {
+      if (!wasVisible) return;
+      setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
+      setTotal((previous) => Math.max(previous - 1, 0));
+      return;
+    }
+    setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+  }
+
   return (
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
@@ -221,6 +245,11 @@ export default function App(): ReactElement {
         {editingTask ? null : <TaskList
           tasks={tasks}
           total={total}
+          includeNonActive={includeNonActive}
+          onIncludeNonActiveChange={(next) => {
+            setIncludeNonActive(next);
+            setActiveTaskIndex(0);
+          }}
           activeTaskIndex={activeTaskIndex}
           loading={loading}
           error={loadError}
@@ -230,12 +259,10 @@ export default function App(): ReactElement {
           onActiveTaskIndexChange={setActiveTaskIndex}
           onAnnounce={setAnnouncement}
           onEdit={setEditingTask}
-          onTaskUpdated={(task) => {
-            setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
-          }}
+          onTaskUpdated={updateVisibleTask}
           onCanceled={(task) => {
             ++querySequence.current;
-            setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+            updateVisibleTask(task);
             setAnnouncement(`Cancelled: ${task.title}`);
           }}
         />}

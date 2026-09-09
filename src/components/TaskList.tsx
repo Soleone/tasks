@@ -12,6 +12,7 @@ import {
   Folder,
   CirclePlay,
   CircleX,
+  ListFilter,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "cn";
@@ -21,8 +22,10 @@ import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { FocusStack, Navigator } from "@/navigation";
 import { BackendCommandError, transitionTask } from "@/platform/backendClient";
@@ -47,6 +50,8 @@ const taskStatusMeta: Record<TaskStatus, StatusMeta> = {
 type TaskListProps = {
   tasks: TaskRecord[];
   total: number;
+  includeNonActive: boolean;
+  onIncludeNonActiveChange: (include: boolean) => void;
   activeTaskIndex: number;
   loading: boolean;
   error: string | null;
@@ -138,6 +143,8 @@ function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
 export function TaskList({
   tasks,
   total,
+  includeNonActive,
+  onIncludeNonActiveChange,
   activeTaskIndex,
   loading,
   error,
@@ -176,6 +183,23 @@ export function TaskList({
     const nextIndex = Math.min(activeTaskIndex, Math.max(tasks.length - 1, 0));
     if (nextIndex !== activeTaskIndex) onActiveTaskIndexChange(nextIndex);
   }, [activeTaskIndex, onActiveTaskIndexChange, tasks.length]);
+
+  useEffect(() => {
+    if (tasks.length > 0 && document.activeElement === section.current) {
+      list.current?.focus();
+      return;
+    }
+    if (tasks.length === 0 && listFocused) {
+      setListFocused(false);
+      section.current?.focus();
+    }
+  }, [listFocused, tasks.length]);
+
+  function toggleNonActive(): void {
+    const next = !includeNonActive;
+    onIncludeNonActiveChange(next);
+    onAnnounce(next ? "Showing paused and cancelled tasks" : "Hiding paused and cancelled tasks");
+  }
 
   function moveActive(next: number): void {
     if (tasks.length === 0) return;
@@ -229,7 +253,8 @@ export function TaskList({
     setDeleteOpen(true);
   }
 
-  function handleListKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+  function handleListKeyDown(event: KeyboardEvent<HTMLElement>): void {
+    if (event.target !== list.current && event.target !== section.current) return;
     if (event.key === "Delete") {
       if (event.repeat || event.nativeEvent.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
       event.preventDefault();
@@ -237,8 +262,12 @@ export function TaskList({
       return;
     }
     if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === " ") {
-      if (event.repeat || event.target !== event.currentTarget || event.shiftKey) return;
+    if (event.key.toLowerCase() === "a") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      toggleNonActive();
+    } else if (event.key === " ") {
+      if (event.repeat || event.target !== list.current || event.shiftKey) return;
       event.preventDefault();
       if (activeTask) void toggleStatus(activeTask);
     } else if (event.key === "ArrowDown") {
@@ -275,7 +304,38 @@ export function TaskList({
   }
 
   return (
-    <section ref={section} tabIndex={-1} aria-label="Saved tasks" className="flex flex-col gap-4">
+    <section
+      ref={section}
+      tabIndex={-1}
+      aria-label="Saved tasks"
+      aria-keyshortcuts="A Space Delete"
+      className="flex flex-col gap-4"
+      onKeyDown={handleListKeyDown}
+    >
+      <ButtonGroup aria-label="Task list filters and sorting" className="self-end">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={includeNonActive ? "secondary" : "ghost"}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={includeNonActive ? "Hide paused and cancelled tasks" : "Show paused and cancelled tasks"}
+                aria-pressed={includeNonActive}
+                aria-keyshortcuts="A"
+                data-filter="non-active"
+                onClick={toggleNonActive}
+              />
+            }
+          >
+            <ListFilter aria-hidden="true" />
+            <span className="sr-only">{includeNonActive ? "Hide paused and cancelled tasks" : "Show paused and cancelled tasks"}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>
+            {includeNonActive ? "Hide paused and cancelled tasks" : "Show paused and cancelled tasks"} <Kbd>A</Kbd>
+          </TooltipContent>
+        </Tooltip>
+      </ButtonGroup>
       {error ? <Alert variant="destructive">
         <AlertTitle>Could not load tasks</AlertTitle>
         <AlertDescription>
@@ -295,7 +355,7 @@ export function TaskList({
           role="listbox"
           aria-label={`Tasks, ${tasks.length} of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="Space Delete"
+          aria-keyshortcuts="A Space Delete"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -303,7 +363,6 @@ export function TaskList({
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}
-          onKeyDown={handleListKeyDown}
         >
           {tasks.map((task, index) => {
             const displayTitle = stripClassificationTokens(task.title) || task.title;

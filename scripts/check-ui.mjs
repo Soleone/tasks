@@ -93,6 +93,7 @@ try {
   waitFor('document.activeElement.name === "description"');
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Include paused and cancelled") && item.textContent.includes("A"))');
   browser("fill", 'input[role="combobox"]', "@category");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   check('document.querySelector("[data-slot=command-item]").textContent.includes("One per task")');
@@ -116,9 +117,16 @@ try {
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "In progress"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
+  check('document.querySelector("[data-filter=non-active]").getAttribute("aria-pressed") === "false"');
   browser("focus", "[role=listbox]");
+  browser("press", "a");
+  waitFor('document.querySelector("[data-filter=non-active]").getAttribute("aria-pressed") === "true"');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("press", "a");
+  waitFor('document.querySelector("[data-filter=non-active]").getAttribute("aria-pressed") === "false" && !document.querySelector("[role=option]")');
+  browser("press", "a");
+  waitFor('document.querySelector("[data-filter=non-active]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
   browser("press", "Space");
@@ -323,6 +331,9 @@ try {
   const audit = JSON.parse(browser("--json", "a11y"));
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
+  browser("focus", "[role=listbox]");
+  browser("press", "a");
+  waitFor('document.querySelector("[data-filter=non-active]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 4');
   // Delete is scoped to a focused row, never the capture input, and marks it cancelled.
   browser("focus", "input[name=title]");
   browser("press", "Delete");

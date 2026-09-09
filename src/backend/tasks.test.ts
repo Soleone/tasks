@@ -64,6 +64,31 @@ test("classification respects boundaries, code, URLs, headings, and one category
   assert.equal(stripClassificationTokens("See https://example.com/#anchor and `#ignored` #real"), "See https://example.com/#anchor and `#ignored`");
 });
 
+test("task.list filters by status", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-list-filter-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const open = task(executeCommand(request("task.create", { title: "Open task" }, { idempotencyKey: "create-open" }), databasePath));
+    const inProgress = task(executeCommand(request("task.create", { title: "In progress task" }, { idempotencyKey: "create-in-progress" }), databasePath));
+    const paused = task(executeCommand(request("task.create", { title: "Paused task" }, { idempotencyKey: "create-paused" }), databasePath));
+    const canceled = task(executeCommand(request("task.create", { title: "Cancelled task" }, { idempotencyKey: "create-canceled" }), databasePath));
+    executeCommand(request("task.start", { id: inProgress.id, expectedVersion: inProgress.version }, { idempotencyKey: "start-in-progress" }), databasePath);
+    executeCommand(request("task.pause", { id: paused.id, expectedVersion: paused.version }, { idempotencyKey: "pause-task" }), databasePath);
+    executeCommand(request("task.delete", { id: canceled.id, expectedVersion: canceled.version }, { idempotencyKey: "cancel-task" }), databasePath);
+
+    const active = executeCommand(request("task.list", { status: ["open", "in_progress", "done"] }), databasePath);
+    assert.equal(active.total, 2);
+    assert.deepEqual((active.tasks as TaskRecord[]).map((item) => item.id).sort(), [open.id, inProgress.id].sort());
+
+    const nonActive = executeCommand(request("task.list", { status: ["paused", "canceled"] }), databasePath);
+    assert.equal(nonActive.total, 2);
+    assert.deepEqual((nonActive.tasks as TaskRecord[]).map((item) => item.id).sort(), [paused.id, canceled.id].sort());
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task mutations persist classification, activity, and optimistic versions", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m1-mutations-"));
   const databasePath = path.join(directory, "tasks.db");
