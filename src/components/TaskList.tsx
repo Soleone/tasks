@@ -89,10 +89,11 @@ function taskMetadata(task: TaskRecord): ReactElement | null {
 
 const STATUS_FEEDBACK_DURATION_MS = 1800;
 
-function StatusIndicator({ task, pending, feedbackVersion }: {
+function StatusIndicator({ task, pending, feedbackVersion, onToggle }: {
   task: TaskRecord;
   pending: boolean;
   feedbackVersion?: number;
+  onToggle: (task: TaskRecord) => void;
 }): ReactElement {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const status = taskStatusMeta[task.status];
@@ -113,15 +114,19 @@ function StatusIndicator({ task, pending, feedbackVersion }: {
         render={
           <span
             role="img"
-            aria-label={`${statusLabel}. Space changes it to ${nextStatus}.`}
+            aria-label={`${statusLabel}. Click or press Space to change it to ${nextStatus}.`}
             tabIndex={-1}
             data-status={task.status}
             data-status-pending={pending || undefined}
             className={cn(
-              "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
+              "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
               status.color,
               pending && "animate-pulse opacity-60",
             )}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(task);
+            }}
           />
         }
       >
@@ -324,6 +329,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                     task={task}
                     pending={statusPendingIds.has(task.id)}
                     feedbackVersion={statusFeedback?.taskId === task.id ? statusFeedback.version : undefined}
+                    onToggle={(nextTask) => void toggleStatus(nextTask)}
                   />
                 </ItemMedia>
                 <ItemContent className="min-w-0">

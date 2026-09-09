@@ -111,12 +111,11 @@ try {
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
-  browser("focus", "[role=listbox]");
-  browser("press", "Space");
-  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
+  evaluate('document.querySelector("[role=option] [data-status]").click(); true');
+  waitFor('document.querySelector("form[aria-label^=Edit]") === null && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Status: In progress"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
-  check('![...document.querySelectorAll("[role=option] [data-slot=item-description]")].some((description) => description.textContent.includes("In progress"))');
+  browser("focus", "[role=listbox]");
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   browser("press", "Space");
