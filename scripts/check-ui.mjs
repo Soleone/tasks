@@ -173,6 +173,7 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('document.querySelectorAll("[cmdk-group]").length === 1');
   check(`document.querySelector("[cmdk-group]").querySelectorAll("[data-slot=command-item]").length === ${themeCount}`);
+  check('document.querySelector("[data-slot=command-item][aria-selected=true]")?.textContent.startsWith("Default")');
 
   // Theme names use literal word matching, so "cat" only returns Catppuccin.
   browser("fill", 'input[role="combobox"]', "cat");
@@ -195,6 +196,10 @@ try {
   browser("reload");
   waitFor('getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)" && document.querySelectorAll("[role=option]").length === 3');
   check('document.documentElement.classList.contains("dark")');
+  browser("press", "Alt+t");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('document.querySelector("[data-slot=command-item][aria-selected=true]")?.textContent.startsWith("Gruvbox")');
+  browser("press", "Escape");
 
   // A light palette drops the dark class, and a file beside the database joins the picker.
   writeFileSync(path.join(scratch, "themes", "sunset.toml"), 'mode = "light"\naccent = "#c2410c"\nbackground = "#fff7ed"\ndark_background = "#ffedd5"\nforeground = "#431407"\n');

@@ -16,7 +16,7 @@ export function ThemeItem({ theme, selected, onSelect }: {
 }): ReactElement {
   return (
     <CommandItem
-      value={`Theme ${theme.label}`}
+      value={theme.name}
       keywords={[
         theme.label,
         theme.mode,
@@ -54,6 +54,7 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
   onSelectTheme: (name: string) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
+  const activeTheme = themes.find((theme) => theme.name === selectedTheme);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -67,7 +68,14 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
         initialFocus={searchInput}
         finalFocus={finalFocus}
       >
-        <Command label="Search themes" filter={literalWordScore} loop>
+        {/* Reinitialize cmdk when the active theme arrives after an early open. */}
+        <Command
+          key={selectedTheme}
+          defaultValue={activeTheme?.name}
+          label="Search themes"
+          filter={literalWordScore}
+          loop
+        >
           <CommandInput ref={searchInput} placeholder="Search themes…" />
           <CommandList label="Theme results">
             <CommandEmpty>No matching themes.</CommandEmpty>
