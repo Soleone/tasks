@@ -34,9 +34,6 @@ export const DEFAULT_THEME_NAME = "default";
 /** Settings row that stores the selected theme name. */
 export const THEME_SETTING_KEY = "theme";
 
-/** Above this relative luminance an accent needs dark ink rather than white. */
-const ACCENT_LIGHTNESS = 0.32;
-
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const ASSIGNMENT = /^([A-Za-z0-9_.-]+)[ \t]*=[ \t]*(.*)$/;
 const MODES: readonly string[] = ["dark", "light", "system"];
@@ -253,16 +250,19 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
   const lighterBackground = colors.lighter_background ?? mixHex(background, foreground, dark ? 0.12 : 0.06);
   const brightForeground = colors.bright_foreground ?? foreground;
   const darkForeground = colors.dark_foreground ?? mixHex(foreground, background, 0.45);
-  // Ink on an accent fill comes from the theme's own extremes: its darkest stop
-  // for a light accent, its lightest for a dark one. The same rule covers ink
-  // on a destructive fill so `--destructive-foreground` stays readable.
-  const onAccent = colors.on_accent ?? (relativeLuminance(accent) >= ACCENT_LIGHTNESS
-    ? (dark ? darkerBackground : foreground)
-    : (dark ? brightForeground : background));
+  // Ink on a fill is the theme's own darkest or lightest stop, whichever reads
+  // better against the fill. A fixed lightness threshold misfires on mid-tone
+  // accents (ethereal, miasma, osaka-jade, solitude, vantablack): the threshold
+  // picks light ink under 3:1 while the dark stop clears 4.5:1. The same rule
+  // covers ink on a destructive fill so `--destructive-foreground` stays readable.
+  function inkOn(fill: string, darkStop: string, lightStop: string): string {
+    return contrastRatio(fill, darkStop) >= contrastRatio(fill, lightStop) ? darkStop : lightStop;
+  }
+  const onAccent = colors.on_accent
+    ?? inkOn(accent, dark ? darkerBackground : foreground, dark ? brightForeground : background);
   const red = colors.red ?? colors.color1 ?? (dark ? "#f87171" : "#b91c1c");
-  const onRed = colors.on_red ?? (relativeLuminance(red) >= ACCENT_LIGHTNESS
-    ? (dark ? darkerBackground : foreground)
-    : (dark ? brightForeground : background));
+  const onRed = colors.on_red
+    ?? inkOn(red, dark ? darkerBackground : foreground, dark ? brightForeground : background);
 
   return {
     mode,
