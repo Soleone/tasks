@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import { ChevronDown, ChevronRight, ListFilter } from "lucide-react";
+import { ChevronDown, ChevronRight, ListFilter, TriangleAlert } from "lucide-react";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
@@ -35,6 +35,8 @@ type TaskListProps = {
   total: number;
   showInactive: boolean;
   onShowInactiveChange: (show: boolean) => void;
+  showUnblocked: boolean;
+  onShowUnblockedChange: (show: boolean) => void;
   activeTaskIndex: number;
   loading: boolean;
   error: string | null;
@@ -63,6 +65,8 @@ export function TaskList({
   total,
   showInactive,
   onShowInactiveChange,
+  showUnblocked,
+  onShowUnblockedChange,
   activeTaskIndex,
   loading,
   error,
@@ -91,6 +95,8 @@ export function TaskList({
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
+  const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
 
   const visibleRows = useMemo(() => projectVisibleTaskRows(tasks, expandedIds), [tasks, expandedIds]);
   const hasMore = tasks.length < total;
@@ -127,11 +133,25 @@ export function TaskList({
     return () => window.clearTimeout(timeout);
   }, [filterFeedbackVersion]);
 
+  useEffect(() => {
+    if (unblockedFeedbackVersion === 0) return;
+    setUnblockedFeedbackOpen(true);
+    const timeout = window.setTimeout(() => setUnblockedFeedbackOpen(false), TOGGLE_FEEDBACK_DURATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [unblockedFeedbackVersion]);
+
   function toggleTaskFilter(): void {
     const next = !showInactive;
     onShowInactiveChange(next);
     setFilterFeedbackVersion((previous) => previous + 1);
     onAnnounce(next ? "Showing inactive tasks" : "Showing active tasks");
+  }
+
+  function toggleUnblockedFilter(): void {
+    const next = !showUnblocked;
+    onShowUnblockedChange(next);
+    setUnblockedFeedbackVersion((previous) => previous + 1);
+    onAnnounce(next ? "Showing unblocked tasks" : "Showing all tasks");
   }
 
   function moveActive(next: number): void {
@@ -238,6 +258,10 @@ export function TaskList({
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
       toggleTaskFilter();
+    } else if (event.key.toLowerCase() === "u") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      toggleUnblockedFilter();
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
@@ -291,7 +315,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="A B M Space Delete ArrowLeft ArrowRight"
+      aria-keyshortcuts="A U B M Space Delete ArrowLeft ArrowRight"
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
@@ -316,6 +340,26 @@ export function TaskList({
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{showInactive ? "Inactive" : "Active"}</TooltipContent>
         </Tooltip>
+        <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={showUnblocked ? "secondary" : "ghost"}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={showUnblocked ? "Show all tasks" : "Show unblocked tasks"}
+                aria-pressed={showUnblocked}
+                aria-keyshortcuts="U"
+                data-filter="task-unblocked"
+                onClick={toggleUnblockedFilter}
+              />
+            }
+          >
+            <TriangleAlert aria-hidden="true" />
+            <span className="sr-only">{showUnblocked ? "Show all tasks" : "Show unblocked tasks"}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
+        </Tooltip>
       </ButtonGroup>
       {error ? <Alert variant="destructive">
         <AlertTitle>Could not load tasks</AlertTitle>
@@ -336,7 +380,7 @@ export function TaskList({
           role="listbox"
           aria-label={`Tasks, ${visibleRows.length} visible of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="A B M Space Delete ArrowLeft ArrowRight"
+          aria-keyshortcuts="A U B M Space Delete ArrowLeft ArrowRight"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"

@@ -66,8 +66,12 @@ export async function runRuntimeProbe(): Promise<ProbeResult> {
   return parseRuntimeProbeResult(result);
 }
 
-export async function listTasks(status?: string | readonly string[], offset = 0): Promise<TaskListResult> {
-  return runBackendCommand<TaskListResult>("task.list", { ...(status !== undefined ? { status } : {}), offset });
+export async function listTasks(status?: string | readonly string[], offset = 0, unblocked = false): Promise<TaskListResult> {
+  return runBackendCommand<TaskListResult>("task.list", {
+    ...(status !== undefined ? { status } : {}),
+    ...(unblocked ? { unblocked: true } : {}),
+    offset,
+  });
 }
 
 export async function getTask(id: string): Promise<{ task: TaskRecord }> {

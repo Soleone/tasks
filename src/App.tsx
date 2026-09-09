@@ -22,8 +22,9 @@ const INACTIVE_TASK_STATUSES: TaskStatus[] = ["paused", "canceled"];
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
-function taskIsVisible(task: TaskRecord, showInactive: boolean): boolean {
-  return (showInactive ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
+function taskIsVisible(task: TaskRecord, showInactive: boolean, showUnblocked: boolean): boolean {
+  return (showInactive ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status)
+    && (!showUnblocked || task.blockedByIds.length === 0);
 }
 
 // Keep keyboard navigation inside the app; an empty new title skips the optional description.
@@ -32,6 +33,7 @@ export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
+  const [showUnblocked, setShowUnblocked] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskRecord | null>(null);
   const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,7 @@ export default function App(): ReactElement {
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const querySequence = useRef(0);
   const showInactiveRef = useRef(false);
+  const showUnblockedRef = useRef(false);
 
   // The ordered navigation table, derived from app state: while editing, the
   // editor replaces create and list. The empty list remains a focusable stop
@@ -58,7 +61,11 @@ export default function App(): ReactElement {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await listTasks(showInactiveRef.current ? INACTIVE_TASK_STATUSES : ACTIVE_TASK_STATUSES, offset);
+      const result = await listTasks(
+        showInactiveRef.current ? INACTIVE_TASK_STATUSES : ACTIVE_TASK_STATUSES,
+        offset,
+        showUnblockedRef.current,
+      );
       if (sequence !== querySequence.current) return;
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setTotal(result.total);
@@ -71,8 +78,9 @@ export default function App(): ReactElement {
 
   useEffect(() => {
     showInactiveRef.current = showInactive;
+    showUnblockedRef.current = showUnblocked;
     void refreshTasks();
-  }, [showInactive, refreshTasks]);
+  }, [showInactive, showUnblocked, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
@@ -223,7 +231,9 @@ export default function App(): ReactElement {
   }
 
   function taskSaved(task: TaskRecord): void {
-    setTasks((previous) => [task, ...previous.filter((existing) => existing.id !== task.id)]);
+    if (taskIsVisible(task, showInactive, showUnblocked)) {
+      setTasks((previous) => [task, ...previous.filter((existing) => existing.id !== task.id)]);
+    }
     setActiveTaskIndex(0);
     setAnnouncement(`${editingTask ? "Saved" : "Added"}: ${task.title}`);
     if (editingTask) returnToCapture();
@@ -232,7 +242,7 @@ export default function App(): ReactElement {
 
   function updateVisibleTask(task: TaskRecord): void {
     const wasVisible = tasks.some((existing) => existing.id === task.id);
-    if (!taskIsVisible(task, showInactive)) {
+    if (!taskIsVisible(task, showInactive, showUnblocked)) {
       if (!wasVisible) return;
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
       setTotal((previous) => Math.max(previous - 1, 0));
@@ -309,6 +319,11 @@ export default function App(): ReactElement {
           showInactive={showInactive}
           onShowInactiveChange={(next) => {
             setShowInactive(next);
+            setActiveTaskIndex(0);
+          }}
+          showUnblocked={showUnblocked}
+          onShowUnblockedChange={(next) => {
+            setShowUnblocked(next);
             setActiveTaskIndex(0);
           }}
           activeTaskIndex={activeTaskIndex}

@@ -94,6 +94,7 @@ try {
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("A"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show unblocked tasks") && item.textContent.includes("U"))');
   browser("fill", 'input[role="combobox"]', "@category");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   check('document.querySelector("[data-slot=command-item]").textContent.includes("One per task")');
@@ -338,6 +339,7 @@ try {
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
   check('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false"');
+  check('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"');
   // Delete is scoped to a focused row, never the capture input, and marks it cancelled.
   browser("focus", "input[name=title]");
   browser("press", "Delete");
@@ -434,8 +436,29 @@ try {
   browser("press", "ArrowLeft");
   waitFor('document.querySelectorAll("[role=option]").length === 5 && !document.querySelector("[data-depth=\\"1\\"]")');
 
+  // The unblocked filter uses dependency links, not task status, and can be
+  // toggled from the focused list with U.
+  const blocker = (await command("task.create", { title: "Release blocker" })).task;
+  const blocked = (await command("task.create", { title: "Blocked task" })).task;
+  await command("task.dependency.add", {
+    id: blocked.id,
+    dependsOnId: blocker.id,
+    expectedVersion: blocked.version,
+  });
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 7');
+  check('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"');
+  browser("focus", "[role=listbox]");
+  browser("press", "u");
+  waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "true"');
+  waitFor('document.querySelectorAll("[role=option]").length === 6');
+  check('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Blocked task"))');
+  check('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Release blocker"))');
+  browser("press", "u");
+  waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 7');
+  assert.equal((await command("task.list", { unblocked: true })).total, 8);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, active/inactive filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, active/inactive and unblocked filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

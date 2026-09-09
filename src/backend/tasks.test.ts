@@ -89,6 +89,38 @@ test("task.list filters by status", () => {
   }
 });
 
+test("task.list filters to unblocked tasks", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-list-unblocked-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const free = task(executeCommand(request("task.create", { title: "Free task" }, { idempotencyKey: "create-free" }), databasePath));
+    const blocker = task(executeCommand(request("task.create", { title: "Blocker task" }, { idempotencyKey: "create-blocker" }), databasePath));
+    const blocked = task(executeCommand(request("task.create", { title: "Blocked task" }, { idempotencyKey: "create-blocked" }), databasePath));
+    executeCommand(
+      request("task.dependency.add", { id: blocked.id, dependsOnId: blocker.id, expectedVersion: blocked.version }, { idempotencyKey: "add-blocker" }),
+      databasePath,
+    );
+
+    const unblocked = executeCommand(request("task.list", { unblocked: true }), databasePath);
+    assert.equal(unblocked.total, 2);
+    assert.deepEqual((unblocked.tasks as TaskRecord[]).map((item) => item.id).sort(), [free.id, blocker.id].sort());
+
+    const activeUnblocked = executeCommand(
+      request("task.list", { status: ["open"], unblocked: true }),
+      databasePath,
+    );
+    assert.equal(activeUnblocked.total, 2);
+    assert.ok(!(activeUnblocked.tasks as TaskRecord[]).some((item) => item.id === blocked.id));
+    assert.throws(
+      () => executeCommand(request("task.list", { unblocked: "yes" }), databasePath),
+      /unblocked must be a boolean/,
+    );
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task mutations persist classification, activity, and optimistic versions", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m1-mutations-"));
   const databasePath = path.join(directory, "tasks.db");

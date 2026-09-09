@@ -774,8 +774,20 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     }
   }
 
-  const where = statuses.length > 0 ? `WHERE tasks.status IN (${statuses.map(() => "?").join(", ")})` : "";
-  const params = statuses as string[];
+  const unblockedArgument = request.args.unblocked;
+  if (unblockedArgument !== undefined && typeof unblockedArgument !== "boolean") {
+    throw new CommandError("INVALID_ARGUMENT", "unblocked must be a boolean");
+  }
+  const conditions: string[] = [];
+  const params: string[] = [];
+  if (statuses.length > 0) {
+    conditions.push(`tasks.status IN (${statuses.map(() => "?").join(", ")})`);
+    params.push(...statuses as string[]);
+  }
+  if (unblockedArgument === true) {
+    conditions.push("NOT EXISTS (SELECT 1 FROM task_dependencies WHERE task_dependencies.task_id = tasks.id)");
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = database
     .prepare(
       `SELECT tasks.*, categories.slug AS category_slug, categories.label AS category_label
