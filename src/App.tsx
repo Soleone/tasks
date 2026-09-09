@@ -92,7 +92,14 @@ export default function App(): ReactElement {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.isComposing || event.repeat || event.altKey) return;
+      if (event.isComposing || event.repeat) return;
+      if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        if (themesOpen) setThemesOpen(false);
+        else openThemes();
+        return;
+      }
+      if (event.altKey) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         if (!helpOpen) helpReturnFocus.current = document.activeElement as HTMLElement;
@@ -101,7 +108,7 @@ export default function App(): ReactElement {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen]);
+  }, [helpOpen, themesOpen]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -225,12 +232,12 @@ export default function App(): ReactElement {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={openThemes} />}
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Alt+t" onClick={openThemes} />}
               >
                 <Palette aria-hidden="true" />
                 <span className="sr-only">Themes</span>
               </TooltipTrigger>
-              <TooltipContent>Themes</TooltipContent>
+              <TooltipContent>Themes <Kbd>Alt T</Kbd></TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger

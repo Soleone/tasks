@@ -7,6 +7,7 @@ import {
   ListPlus,
   MoveLeft,
   MoveRight,
+  Palette,
   SaveCheck,
   Settings2,
   Tags,
@@ -50,6 +51,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
     heading: "Workspace",
     entries: [
       { label: "Settings", hint: "Storage and export", icon: Settings2, action: "open-settings", keywords: "data export json sqlite database storage path" },
+      { label: "Themes", hint: "Workspace appearance", icon: Palette, keys: ["Alt", "T"], keywords: "alt theme colour color dark light accent palette" },
       { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
       { label: "Close or go back", icon: Undo2, keys: ["Esc"], keywords: "escape palette focus title notes list edit" },
     ],
