@@ -9,6 +9,7 @@ import {
   MoveRight,
   Palette,
   SaveCheck,
+  Settings2,
   Tags,
   Trash2,
   Undo2,
@@ -25,6 +26,8 @@ type HelpEntry = {
   icon: LucideIcon;
   keys?: string[];
   keywords?: string;
+  /** Entries the palette runs itself, rather than explaining. */
+  action?: "open-settings";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -48,6 +51,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Workspace",
     entries: [
+      { label: "Settings", hint: "Storage and export", icon: Settings2, action: "open-settings", keywords: "data export json sqlite database storage path" },
       { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
       { label: "Close or go back", icon: Undo2, keys: ["Esc"], keywords: "escape palette focus title notes list edit" },
     ],
@@ -87,13 +91,14 @@ function helpScore(value: string, search: string, keywords?: string[]): number {
   return words.reduce((score, word) => score + (label.includes(word) ? 2 : 1), 0);
 }
 
-export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedTheme, onSelectTheme }: {
+export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedTheme, onSelectTheme, onOpenSettings }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   returnFocus: HTMLElement | null;
   themes: ThemeRecord[];
   selectedTheme: string;
   onSelectTheme: (name: string) => void;
+  onOpenSettings: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
 
@@ -120,7 +125,12 @@ export function HelpPalette({ open, onOpenChange, returnFocus, themes, selectedT
                   {group.entries.map((entry) => {
                     const Icon = entry.icon;
                     return (
-                      <CommandItem key={entry.label} value={`${group.heading} ${entry.label}`} keywords={entryKeywords(entry)}>
+                      <CommandItem
+                        key={entry.label}
+                        value={`${group.heading} ${entry.label}`}
+                        keywords={entryKeywords(entry)}
+                        onSelect={entry.action === "open-settings" ? onOpenSettings : undefined}
+                      >
                         <Icon aria-hidden="true" />
                         <span className="font-medium">{entry.label}</span>
                         {entry.hint ? <span className="text-muted-foreground">{entry.hint}</span> : null}

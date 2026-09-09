@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
 import path from "node:path";
@@ -332,6 +332,75 @@ test("schema migration adds the paused task status to existing workspaces", () =
       databasePath,
     );
     assert.equal(task(paused).status, "paused");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("portable JSON export writes a readable file beside the database", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m1-portable-export-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const venue = task(
+      executeCommand(
+        request("task.create", { title: "Book venue @launch #planning", descriptionMarkdown: "- ask about capacity" }, { idempotencyKey: "portable-1" }),
+        databasePath,
+      ),
+    );
+    const invoicing = task(executeCommand(request("task.create", { title: "Send invoices" }, { idempotencyKey: "portable-2" }), databasePath));
+    executeCommand(
+      request("task.complete", { id: invoicing.id, expectedVersion: invoicing.version }, { idempotencyKey: "portable-3" }),
+      databasePath,
+    );
+
+    const info = executeCommand(request("workspace.info"), databasePath);
+    assert.equal(info.databasePath, databasePath);
+    assert.equal(info.taskCount, 2);
+
+    // A preview reports the payload without creating the export folder.
+    const preview = executeCommand(request("workspace.exportTasks", {}, { dryRun: true }), databasePath);
+    assert.equal(preview.destinationPath, null);
+    assert.equal(preview.taskCount, 2);
+    assert.equal(existsSync(path.join(directory, "exports")), false);
+
+    const exported = executeCommand(request("workspace.exportTasks"), databasePath);
+    const destinationPath = String(exported.destinationPath);
+    assert.equal(path.dirname(destinationPath), path.join(directory, "exports"));
+
+    const file = JSON.parse(readFileSync(destinationPath, "utf8")) as {
+      format: string;
+      formatVersion: number;
+      exportedAt: string;
+      taskCount: number;
+      tasks: Result[];
+    };
+    assert.equal(file.format, "tasks.tasks-export");
+    assert.equal(file.formatVersion, 1);
+    assert.equal(file.exportedAt, exported.exportedAt);
+    assert.equal(file.taskCount, 2);
+    assert.deepEqual(file.tasks.find((row) => row.id === venue.id), {
+      id: venue.id,
+      title: venue.title,
+      status: "open",
+      category: "launch",
+      tags: ["planning"],
+      notesMarkdown: "- ask about capacity",
+      createdAt: venue.createdAt,
+      updatedAt: venue.updatedAt,
+      completedAt: null,
+      canceledAt: null,
+    });
+    const completed = file.tasks.find((row) => row.id === invoicing.id);
+    assert.equal(completed?.status, "done");
+    assert.equal(completed?.category, null);
+    assert.deepEqual(completed?.tags, []);
+    assert.equal(typeof completed?.completedAt, "string");
+
+    // Repeating the export adds a file instead of overwriting the first one.
+    executeCommand(request("workspace.exportTasks"), databasePath);
+    assert.equal(readdirSync(path.join(directory, "exports")).length, 2);
+    assert.equal(existsSync(destinationPath), true);
   } finally {
     cleanDirectory(directory);
   }

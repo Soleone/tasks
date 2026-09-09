@@ -17,7 +17,7 @@ export function executeCommand(
     // Theme commands read palette files beside the database, so they need its path.
     return request.command.startsWith("theme.")
       ? executeThemeCommand(database, databasePath, request)
-      : executeTaskCommand(database, request);
+      : executeTaskCommand(database, databasePath, request);
   } finally {
     database.close();
   }

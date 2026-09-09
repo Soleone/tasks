@@ -3,7 +3,14 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { SCHEMA_VERSION, openDatabase, withTransaction } from "./database.js";
 import { CommandError } from "./errors.js";
-import type { ProtocolRequest } from "./protocol.js";
+import {
+  TASKS_EXPORT_FORMAT,
+  TASKS_EXPORT_FORMAT_VERSION,
+  type ProtocolRequest,
+  type TaskExportRecord,
+  type TaskRecord,
+  type TasksExportFile,
+} from "./protocol.js";
 
 type Row = Record<string, unknown>;
 
@@ -103,6 +110,78 @@ export function exportWorkspace(database: DatabaseSync, request: ProtocolRequest
     destinationPath: typeof destinationPath === "string" && destinationPath.trim() !== "" ? destinationPath : null,
     ...(request.readOnly || request.dryRun ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),
   };
+}
+
+export function workspaceInfo(database: DatabaseSync, databasePath: string): Record<string, unknown> {
+  const row = database.prepare("SELECT COUNT(*) AS count FROM tasks").get() as Row | undefined;
+  if (typeof row?.count !== "number") {
+    throw new CommandError("INVALID_STORAGE", "could not count tasks");
+  }
+  return { databasePath, taskCount: row.count };
+}
+
+/** Portable exports land beside the database, like the `themes/` folder. */
+function exportsDirectory(databasePath: string): string {
+  return path.join(path.dirname(databasePath), "exports");
+}
+
+// Two exports inside the same second must not overwrite each other.
+function nextExportPath(directory: string, stem: string): string {
+  for (let suffix = 1; suffix <= 1000; suffix += 1) {
+    const candidate = path.join(directory, suffix === 1 ? `${stem}.json` : `${stem}-${suffix}.json`);
+    if (!existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  throw new CommandError("EXPORT_EXISTS", `too many exports already share the stamp ${stem}`);
+}
+
+/** The portable view keeps the slugs the user typed and drops internal state. */
+function exportedTask(task: TaskRecord): TaskExportRecord {
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    category: task.category?.slug ?? null,
+    tags: task.tags.map((tag) => tag.slug),
+    notesMarkdown: task.descriptionMarkdown,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    completedAt: task.completedAt,
+    canceledAt: task.canceledAt,
+  };
+}
+
+/**
+ * Writes a readable JSON file meant for other apps. The backend resolves the
+ * destination itself, so a renderer never chooses filesystem paths; a dry run
+ * reports what would be written without touching the disk.
+ */
+export function exportTasks(databasePath: string, tasks: TaskRecord[], request: ProtocolRequest): Record<string, unknown> {
+  const exportedAt = new Date().toISOString();
+  const file: TasksExportFile = {
+    format: TASKS_EXPORT_FORMAT,
+    formatVersion: TASKS_EXPORT_FORMAT_VERSION,
+    exportedAt,
+    taskCount: tasks.length,
+    tasks: tasks.map(exportedTask),
+  };
+  if (request.readOnly || request.dryRun) {
+    return {
+      databasePath,
+      destinationPath: null,
+      taskCount: tasks.length,
+      exportedAt,
+      dryRun: true,
+      readOnly: Boolean(request.readOnly),
+    };
+  }
+
+  const directory = exportsDirectory(databasePath);
+  mkdirSync(directory, { recursive: true });
+  const destinationPath = nextExportPath(directory, `tasks-${exportedAt.slice(0, 19).replaceAll(":", "")}Z`);
+  writeFileSync(destinationPath, `${JSON.stringify(file, null, 2)}\n`);
+  return { databasePath, destinationPath, taskCount: tasks.length, exportedAt };
 }
 
 export function restoreWorkspace(request: ProtocolRequest): Record<string, unknown> {

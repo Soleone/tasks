@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { CircleHelp, Settings2 } from "lucide-react";
 import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { TaskList, type TaskListHandle } from "@/components/TaskList";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { closeBackendSession, listTasks, listThemes, setTheme } from "@/platform/backendClient";
 import { backendKind } from "@/platform/backendTransport";
 import { applyTheme } from "@/theme";
@@ -19,9 +24,11 @@ export default function App(): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
   const helpReturnFocus = useRef<HTMLElement | null>(null);
+  const settingsReturnFocus = useRef<HTMLElement | null>(null);
   const capture = useRef<HTMLDivElement>(null);
   const taskList = useRef<TaskListHandle>(null);
   const querySequence = useRef(0);
@@ -105,6 +112,19 @@ export default function App(): ReactElement {
     }
   }
 
+  function openHelp(): void {
+    helpReturnFocus.current = document.activeElement as HTMLElement;
+    setHelpOpen(true);
+  }
+
+  // From the palette the active element is its search field, which unmounts on
+  // close, so the caller passes the element to return to instead.
+  function openSettings(from?: HTMLElement | null): void {
+    settingsReturnFocus.current = from ?? (document.activeElement as HTMLElement);
+    setHelpOpen(false);
+    setSettingsOpen(true);
+  }
+
   function focusTitle(): void {
     capture.current?.querySelector<HTMLInputElement>("input[name=title]")?.focus();
   }
@@ -170,21 +190,41 @@ export default function App(): ReactElement {
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
         <header className="flex items-center justify-between gap-4">
           <h1 className="text-xl font-semibold">Tasks</h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            tabIndex={-1}
-            aria-keyshortcuts="Control+k Meta+k"
+          <ButtonGroup
             onKeyDown={(event) => {
               if (event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
                 event.preventDefault();
                 focusLastStop();
               }
             }}
-            onClick={() => {
-              helpReturnFocus.current = document.activeElement as HTMLElement;
-              setHelpOpen(true);
-            }}>Help · Ctrl/Cmd+K</Button>
+          >
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-keyshortcuts="Control+k Meta+k"
+                    onClick={openHelp}
+                  />
+                }
+              >
+                <CircleHelp aria-hidden="true" />
+                <span className="sr-only">Help</span>
+              </TooltipTrigger>
+              <TooltipContent>Help <Kbd>Ctrl/⌘ K</Kbd></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={() => openSettings()} />}
+              >
+                <Settings2 aria-hidden="true" />
+                <span className="sr-only">Settings</span>
+              </TooltipTrigger>
+              <TooltipContent>Settings</TooltipContent>
+            </Tooltip>
+          </ButtonGroup>
         </header>
 
         <div ref={capture} hidden={editingTask !== null}>
@@ -232,6 +272,12 @@ export default function App(): ReactElement {
         themes={themes}
         selectedTheme={selectedTheme}
         onSelectTheme={(name) => void chooseTheme(name)}
+        onOpenSettings={() => openSettings(helpReturnFocus.current)}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        returnFocus={() => settingsReturnFocus.current?.isConnected ? settingsReturnFocus.current : undefined}
       />
     </main>
   );

@@ -17,8 +17,10 @@ export const COMMAND_NAMES = [
   "task.reopen",
   "task.cancel",
   "activity.list",
+  "workspace.info",
   "workspace.backup",
   "workspace.export",
+  "workspace.exportTasks",
   "workspace.restore",
   "theme.list",
   "theme.set",
@@ -64,6 +66,37 @@ export type TaskRecord = {
   updatedAt: string;
   completedAt: string | null;
   canceledAt: string | null;
+};
+
+/** Identifier of the portable JSON file written by `workspace.exportTasks`. */
+export const TASKS_EXPORT_FORMAT = "tasks.tasks-export" as const;
+export const TASKS_EXPORT_FORMAT_VERSION = 1 as const;
+
+/**
+ * One task in the portable export. Slugs are what the user typed as
+ * `@category` and `#tag`, so they travel better than display labels, and
+ * internal concurrency state such as `version` is left out.
+ */
+export type TaskExportRecord = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  category: string | null;
+  tags: string[];
+  notesMarkdown: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  canceledAt: string | null;
+};
+
+/** The readable JSON file `workspace.exportTasks` writes beside the database. */
+export type TasksExportFile = {
+  format: typeof TASKS_EXPORT_FORMAT;
+  formatVersion: typeof TASKS_EXPORT_FORMAT_VERSION;
+  exportedAt: string;
+  taskCount: number;
+  tasks: TaskExportRecord[];
 };
 
 export type ActivityRecord = {

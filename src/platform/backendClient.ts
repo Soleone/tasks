@@ -12,6 +12,8 @@ import { getBackendTransport } from "./backendTransport";
 export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; total: number; limit: number; offset: number };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
+export type WorkspaceInfoResult = { databasePath: string; taskCount: number };
+export type TasksExportResult = { databasePath: string; destinationPath: string | null; taskCount: number; exportedAt: string };
 export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
 export type ThemeSetResult = { theme: ThemeRecord; selected: string };
 
@@ -105,6 +107,15 @@ export async function transitionTask(
 
 export async function listActivity(taskId?: string): Promise<ActivityListResult> {
   return runBackendCommand<ActivityListResult>("activity.list", taskId ? { taskId } : {});
+}
+
+export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {
+  return runBackendCommand<WorkspaceInfoResult>("workspace.info");
+}
+
+/** Writes a portable JSON copy beside the database and reports where it landed. */
+export async function exportTasks(): Promise<TasksExportResult> {
+  return runBackendCommand<TasksExportResult>("workspace.exportTasks");
 }
 
 export async function listThemes(): Promise<ThemeListResult> {

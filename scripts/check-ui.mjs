@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -220,6 +220,35 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
+  // Settings: the header icon group opens the dialog, and its Data section
+  // writes a portable JSON file beside the scratch database.
+  browser("find", "role", "button", "click", "--name", "Settings");
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  check('document.activeElement.textContent === "Export tasks as JSON"');
+  check('document.body.textContent.includes("Your tasks live in one SQLite file.")');
+  browser("find", "role", "button", "click", "--name", "Export tasks as JSON");
+  waitFor('document.body.textContent.includes("Exported 3 tasks")');
+  const exportedPath = evaluate('document.querySelector("[data-slot=alert-description]").textContent');
+  const exportedFile = JSON.parse(readFileSync(exportedPath, "utf8"));
+  assert.equal(exportedFile.format, "tasks.tasks-export");
+  assert.equal(exportedFile.formatVersion, 1);
+  assert.equal(exportedFile.taskCount, 3);
+  assert.ok(exportedFile.tasks.every((row) => typeof row.title === "string" && Array.isArray(row.tags)));
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  check('document.activeElement.textContent.trim() === "Settings"');
+
+  // The palette reaches the same dialog without a mouse.
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "settings");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.textContent.trim() === "Settings"');
+  browser("focus", 'input[name=title]');
+
   // Empty title skips description and goes to the list; filled title reveals it.
   browser("press", "Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
@@ -346,7 +375,7 @@ try {
   check('document.activeElement.name === "title"');
   assert.equal((await command("task.list")).total, 4);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

@@ -11,7 +11,7 @@ import {
   type TaskStatus,
 } from "./protocol.js";
 import { classifyTaskText, TaskTextError, type TaskClassification } from "./taskText.js";
-import { backupWorkspace, exportWorkspace, restoreWorkspace } from "./workspace.js";
+import { backupWorkspace, exportTasks, exportWorkspace, restoreWorkspace, workspaceInfo } from "./workspace.js";
 
 type Row = Record<string, unknown>;
 type MutationContext = {
@@ -552,6 +552,18 @@ function getTask(database: DatabaseSync, request: ProtocolRequest): Record<strin
   return { task: requireTask(database, taskId(request.args)) };
 }
 
+/** Every task in capture order, for exports that must not paginate. */
+export function readAllTasks(database: DatabaseSync): TaskRecord[] {
+  const rows = database
+    .prepare(
+      `SELECT tasks.*, categories.slug AS category_slug, categories.label AS category_label
+       FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
+       ORDER BY tasks.created_at ASC, tasks.id ASC`,
+    )
+    .all() as Row[];
+  return rows.map((row) => taskFromRow(database, row));
+}
+
 function listActivity(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
   const limit = Math.min(Math.max(optionalInteger(request.args, "limit", 50), 1), 100);
   const taskFilter = optionalString(request.args, "taskId");
@@ -586,7 +598,7 @@ function listActivity(database: DatabaseSync, request: ProtocolRequest): Record<
   return { activity, limit };
 }
 
-export function executeTaskCommand(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+export function executeTaskCommand(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   switch (request.command) {
     case "task.create":
       return createTask(database, request);
@@ -605,10 +617,14 @@ export function executeTaskCommand(database: DatabaseSync, request: ProtocolRequ
       return transitionTask(database, request);
     case "activity.list":
       return listActivity(database, request);
+    case "workspace.info":
+      return workspaceInfo(database, databasePath);
     case "workspace.backup":
       return backupWorkspace(database, request);
     case "workspace.export":
       return exportWorkspace(database, request);
+    case "workspace.exportTasks":
+      return exportTasks(databasePath, readAllTasks(database), request);
     case "workspace.restore": {
       const context = mutationContext(database, request);
       if (context.replay) {

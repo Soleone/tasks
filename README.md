@@ -76,6 +76,37 @@ To use any other omarchy theme, copy its `colors.toml` into the workspace `theme
 
 Slots the regions need but a palette omits are derived from the ones it declares, and text roles are corrected toward readability because palettes arrive from theme authors: secondary ink is pulled toward the body ink until it clears 4.5:1 on every surface it can sit on, and ink on an accent fill comes from the theme's own darkest or lightest stop.
 
+## Data and export
+
+SQLite is the only source of truth. The desktop shell, the CLI, and the browser preview all run the same typed commands against the same database file; the browser keeps no task storage of its own.
+
+The gear button in the header, or “Settings” in the Ctrl/Cmd+K palette, opens the settings dialog. Its Data section shows where the workspace database lives and exports your tasks as readable JSON: `workspace.exportTasks` writes `exports/tasks-<UTC stamp>.json` beside the database, one new file per export, shaped for another app to import:
+
+```json
+{
+  "format": "tasks.tasks-export",
+  "formatVersion": 1,
+  "exportedAt": "2026-09-08T20:51:04.113Z",
+  "taskCount": 1,
+  "tasks": [
+    {
+      "id": "…",
+      "title": "Book venue @launch #planning",
+      "status": "open",
+      "category": "launch",
+      "tags": ["planning"],
+      "notesMarkdown": "- ask about capacity\n",
+      "createdAt": "…",
+      "updatedAt": "…",
+      "completedAt": null,
+      "canceledAt": null
+    }
+  ]
+}
+```
+
+The portable file is a view, not a backup: `workspace.export` (lossless snapshot) and `workspace.backup` (consistent SQLite copy) remain the restore path over the same command surface, and the CLI can call all of them while the app is closed.
+
 ## License
 
 [MIT](LICENSE).
