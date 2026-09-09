@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import iconSvg from "../../assets/branding/ai-todo-icon-two-color-v6.svg?raw";
+import iconSvg from "../../assets/branding/ai-todo-icon-two-color-v7.svg?raw";
 
 /**
  * Theme-aware header mark. The artwork lives in the branding SVG file, not
