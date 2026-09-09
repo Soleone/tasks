@@ -5,9 +5,9 @@ import {
 } from "../backend/protocol";
 import { BackendSession } from "./backendSession";
 
-export type BackendKind = "desktop" | "browser";
+type BackendKind = "desktop" | "browser";
 
-export function backendKind(): BackendKind {
+function backendKind(): BackendKind {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
     ? "desktop"
     : "browser";

@@ -11,7 +11,6 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { closeBackendSession, listTasks, listThemes, setTheme } from "@/platform/backendClient";
-import { backendKind } from "@/platform/backendTransport";
 import { applyTheme } from "@/theme";
 
 // Keep keyboard navigation inside the app; an empty new title skips the optional description.
@@ -287,7 +286,6 @@ export default function App(): ReactElement {
           onFocusPreviousStop={focusPreviousCaptureStop}
         />}
         <p role="status" className="sr-only">{announcement}</p>
-        {backendKind() === "browser" ? <p className="text-sm text-muted-foreground">Browser preview</p> : null}
       </div>
       <HelpPalette
         open={helpOpen}
