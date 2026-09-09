@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "dev:web": "node scripts/dev-web.mjs",
+    "dev:themes": "node scripts/dev-themes.mjs",
     "dev:backend": "pnpm build:backend && node dist/backend/devServer.js",
     "build": "pnpm check && pnpm build:backend && pnpm build:web",
     "build:web": "vite build",
