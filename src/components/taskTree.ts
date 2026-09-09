@@ -55,7 +55,3 @@ export function projectVisibleTaskRows(tasks: TaskRecord[], expandedIds: Readonl
       return [rootRow, ...group.descendants.map((task) => ({ task, depth: 1 as const, hasChildren: false }))];
     });
 }
-
-export function taskRowParent(tasks: TaskRecord[], task: TaskRecord): TaskRecord | undefined {
-  return task.parentId ? tasks.find((candidate) => candidate.id === task.parentId) : undefined;
-}

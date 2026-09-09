@@ -10,7 +10,7 @@ import { ChevronDown, ChevronRight, ListFilter } from "lucide-react";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
-import { projectVisibleTaskRows, taskRowParent, type VisibleTaskRow } from "@/components/taskTree";
+import { projectVisibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -348,8 +348,6 @@ export function TaskList({
           {visibleRows.map((row, index) => {
             const { task } = row;
             const active = listFocused && index === activeTaskIndex;
-            const parent = taskRowParent(tasks, task);
-            const parentLabel = parent ? taskTitleDisplay(parent.title) : null;
             const blockedByLabels = task.blockedByIds.map((id) => {
               const blocker = tasks.find((candidate) => candidate.id === id);
               return blocker ? taskTitleDisplay(blocker.title) : null;
@@ -375,21 +373,7 @@ export function TaskList({
                   task={task}
                   variant="full"
                   indented={row.depth === 1}
-                  parentLabel={parentLabel}
                   blockedByLabels={blockedByLabels}
-                  titlePrefix={row.hasChildren ? (
-                    <span
-                      role="img"
-                      aria-label={expandedIds.has(task.id) ? "Collapse children" : "Expand children"}
-                      className="mr-1 inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleExpanded(row);
-                      }}
-                    >
-                      <DisclosureIcon aria-hidden="true" className="size-4" />
-                    </span>
-                  ) : undefined}
                   statusSlot={
                     <TaskStatusToggle
                       task={task}
@@ -400,6 +384,19 @@ export function TaskList({
                     />
                   }
                 />
+                {row.hasChildren ? (
+                  <span
+                    role="img"
+                    aria-label={expandedIds.has(task.id) ? "Collapse children" : "Expand children"}
+                    className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleExpanded(row);
+                    }}
+                  >
+                    <DisclosureIcon aria-hidden="true" className="size-4" />
+                  </span>
+                ) : null}
               </Item>
             );
           })}

@@ -125,15 +125,12 @@ export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement | 
 }
 
 /** Quiet relationship context for the full row. Never color-only. */
-export function TaskRowRelationships({ task, parentLabel, blockedByLabels }: {
+export function TaskRowRelationships({ task, blockedByLabels }: {
   task: TaskRecord;
-  parentLabel?: string | null;
   blockedByLabels?: string[];
 }): ReactElement | null {
-  const hasParent = Boolean(parentLabel) || Boolean(task.parentId);
   const blockerCount = task.blockedByIds.length;
-  const hasBlocker = blockerCount > 0;
-  if (!hasParent && !hasBlocker) return null;
+  if (blockerCount === 0) return null;
 
   const resolved = blockedByLabels ?? [];
   const unresolvedCount = Math.max(blockerCount - resolved.length, 0);
@@ -147,19 +144,11 @@ export function TaskRowRelationships({ task, parentLabel, blockedByLabels }: {
 
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
-      {parentLabel
-        ? <span>Under {parentLabel}</span>
-        : task.parentId
-          ? <span>Has parent</span>
-          : null}
-      {hasParent && hasBlocker ? <span aria-hidden="true">·</span> : null}
-      {hasBlocker ? (
-        <span className="inline-flex min-w-0 items-center gap-1">
-          <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
-          <span className="sr-only">Blocked by </span>
-          <span>{blockerText}</span>
-        </span>
-      ) : null}
+      <span className="inline-flex min-w-0 items-center gap-1">
+        <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
+        <span className="sr-only">Blocked by </span>
+        <span>{blockerText}</span>
+      </span>
     </p>
   );
 }
@@ -169,13 +158,11 @@ export function TaskRowRelationships({ task, parentLabel, blockedByLabels }: {
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with description and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, parentLabel, blockedByLabels, titlePrefix, indented = false }: {
+export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
-  parentLabel?: string | null;
   blockedByLabels?: string[];
-  titlePrefix?: ReactNode;
   indented?: boolean;
 }): ReactElement {
   return (
@@ -183,14 +170,13 @@ export function TaskRow({ task, variant, statusSlot, parentLabel, blockedByLabel
       <div className={cn("flex shrink-0 items-center justify-center", variant === "full" && "h-[1.375em]")}>{statusSlot}</div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <ItemTitle className="line-clamp-none wrap-anywhere w-full">
-          {titlePrefix}
           {taskRowDisplayTitle(task)}
         </ItemTitle>
         {variant === "full" && task.descriptionMarkdown ? (
           <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
-        {variant === "full" ? <TaskRowRelationships task={task} parentLabel={parentLabel} blockedByLabels={blockedByLabels} /> : null}
+        {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
       </div>
     </div>
   );
