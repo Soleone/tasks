@@ -9,7 +9,7 @@ type Row = Record<string, unknown>;
 
 type Snapshot = {
   formatVersion: 1;
-  schemaVersion: 1;
+  schemaVersion: number;
   exportedAt: string;
   categories: Row[];
   tags: Row[];

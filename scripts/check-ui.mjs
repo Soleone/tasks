@@ -110,6 +110,18 @@ try {
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
+  check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
+  browser("focus", "[role=listbox]");
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
+  saved[0] = (await command("task.get", { id: saved[0].id })).task;
+  assert.equal(saved[0].status, "open");
 
   // Keep a capture draft while editing, and retain stale editor contents after refresh.
   browser("fill", 'input[name=title]', "Next capture draft");
@@ -155,14 +167,14 @@ try {
   // Themes: an omarchy palette drives the regions, and the choice persists.
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
-  check('document.querySelectorAll("[cmdk-group]")[4].querySelectorAll("[data-slot=command-item]").length === 7');
+  check('document.querySelectorAll("[cmdk-group]")[4].querySelectorAll("[data-slot=command-item]").length === 8');
 
   // "theme" is a fuzzy letter subsequence of several shortcut keyword blobs, so cmdk's
   // default scorer answers it with the whole shortcuts help. Only themes may match.
   browser("fill", 'input[role="combobox"]', "theme");
   waitFor('document.querySelectorAll("[cmdk-group]:not([hidden])").length === 1');
   check('document.querySelector("[cmdk-group]:not([hidden]) [cmdk-group-heading]").textContent === "Theme"');
-  check('document.querySelectorAll("[cmdk-group]:not([hidden]) [data-slot=command-item]").length === 7');
+  check('document.querySelectorAll("[cmdk-group]:not([hidden]) [data-slot=command-item]").length === 8');
   browser("fill", 'input[role="combobox"]', "gruvbox");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
@@ -269,14 +281,14 @@ try {
   const audit = JSON.parse(browser("--json", "a11y"));
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
-  // Delete is scoped to a focused row, never the capture input.
+  // Delete is scoped to a focused row, never the capture input, and marks it cancelled.
   browser("focus", "input[name=title]");
   browser("press", "Delete");
   check('document.querySelector("[role=dialog]") === null');
   browser("focus", "[role=listbox]");
   evaluate('window.deleteList = document.activeElement; true');
   browser("press", "Delete");
-  waitFor('document.activeElement.textContent === "Delete task"');
+  waitFor('document.activeElement.textContent === "Cancel task"');
   const dialogAudit = JSON.parse(browser("--json", "a11y"));
   assert.equal(dialogAudit.data.violations.length, 0, JSON.stringify(dialogAudit.data));
   for (const width of [1280, 320]) {
@@ -292,7 +304,7 @@ try {
   const deletingId = evaluate('window.deleteList.getAttribute("aria-activedescendant").slice("task-option-".length)');
   const deletingTask = (await command("task.get", { id: deletingId })).task;
   browser("press", "Delete");
-  waitFor('document.activeElement.textContent === "Delete task"');
+  waitFor('document.activeElement.textContent === "Cancel task"');
   await command("task.update", { id: deletingId, expectedVersion: deletingTask.version, title: "Changed before delete" });
   evaluate('window.dispatchEvent(new Event("focus")); true');
   browser("press", "Enter");
@@ -301,7 +313,7 @@ try {
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]") && document.activeElement === window.deleteList');
 
-  // A committed delete with a lost reply can be confirmed again safely.
+  // A committed cancellation with a lost reply can be confirmed again safely.
   evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.deleteKeys = []; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
     const response = await window.originalFetch(...args);
@@ -312,28 +324,25 @@ try {
     return response;
   }; true`);
   browser("press", "Delete");
-  waitFor('document.activeElement.textContent === "Delete task"');
+  waitFor('document.activeElement.textContent === "Cancel task"');
   browser("press", "Enter");
-  waitFor('document.body.textContent.includes("Could not delete task")');
-  check('document.activeElement.textContent === "Delete task"');
+  waitFor('document.body.textContent.includes("Could not cancel task")');
+  check('document.activeElement.textContent === "Cancel task"');
   browser("press", "Enter");
-  waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
+  waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4');
   check('window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]');
   check('document.activeElement.matches("[role=listbox]")');
   evaluate('window.fetch = window.originalFetch; true');
-  assert.ok(!(await command("task.list")).tasks.some((task) => task.id === deletingId));
+  assert.equal((await command("task.get", { id: deletingId })).task.status, "canceled");
+  check('document.querySelector("[role=option][aria-selected=true] [data-status]").getAttribute("data-status") === "canceled"');
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option][aria-selected=true] [data-status]").getAttribute("data-status") === "open"');
+  assert.equal((await command("task.get", { id: deletingId })).task.status, "open");
   browser("reload");
-  waitFor('document.querySelectorAll("[role=option]").length === 3');
-  for (let remaining = 3; remaining > 0; remaining--) {
-    browser("focus", "[role=listbox]");
-    browser("press", "Delete");
-    waitFor('document.activeElement.textContent === "Delete task"');
-    browser("press", "Enter");
-    waitFor(`!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === ${remaining - 1}`);
-  }
-  waitFor('document.body.textContent.includes("No tasks yet")');
-  check('document.activeElement.matches("section[aria-label=\\"Saved tasks\\"]")');
-  assert.equal((await command("task.list")).total, 0);
+  waitFor('document.querySelectorAll("[role=option]").length === 4');
+  check('document.querySelectorAll(`[data-status="open"]`).length === 4');
+  check('document.activeElement.name === "title"');
+  assert.equal((await command("task.list")).total, 4);
   assert.equal(browser("errors").trim(), "");
   console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {

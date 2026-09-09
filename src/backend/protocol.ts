@@ -12,6 +12,7 @@ export const COMMAND_NAMES = [
   "task.update",
   "task.delete",
   "task.start",
+  "task.pause",
   "task.complete",
   "task.reopen",
   "task.cancel",
@@ -24,7 +25,7 @@ export const COMMAND_NAMES = [
 ] as const;
 
 export type CommandName = (typeof COMMAND_NAMES)[number];
-export type TaskStatus = "open" | "in_progress" | "done" | "canceled";
+export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type ActorKind = "human" | "agent" | "system";
 export type ThemeSource = "builtin" | "workspace";
 

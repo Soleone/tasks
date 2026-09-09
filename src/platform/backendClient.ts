@@ -90,12 +90,12 @@ export async function updateTask(
   );
 }
 
-export async function deleteTask(id: string, expectedVersion: number, options: CommandOptions): Promise<{ id: string; deleted: boolean }> {
-  return runBackendCommand("task.delete", { id, expectedVersion }, options);
+export async function deleteTask(id: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  return runBackendCommand<TaskMutationResult>("task.delete", { id, expectedVersion }, options);
 }
 
 export async function transitionTask(
-  command: "task.start" | "task.complete" | "task.reopen" | "task.cancel",
+  command: "task.start" | "task.pause" | "task.complete" | "task.reopen" | "task.cancel",
   id: string,
   expectedVersion: number,
   options: CommandOptions,

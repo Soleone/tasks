@@ -102,29 +102,39 @@ test("task mutations persist classification, activity, and optimistic versions",
       /STALE_TASK_VERSION/,
     );
 
+    const started = executeCommand(
+      request("task.start", { id: createdTask.id, expectedVersion: 2 }, { idempotencyKey: "start-1" }),
+      databasePath,
+    );
+    assert.equal(task(started).status, "in_progress");
+    const paused = executeCommand(
+      request("task.pause", { id: createdTask.id, expectedVersion: 3 }, { idempotencyKey: "pause-1" }),
+      databasePath,
+    );
+    assert.equal(task(paused).status, "paused");
     const completed = executeCommand(
-      request("task.complete", { id: createdTask.id, expectedVersion: 2 }, { idempotencyKey: "complete-1" }),
+      request("task.complete", { id: createdTask.id, expectedVersion: 4 }, { idempotencyKey: "complete-1" }),
       databasePath,
     );
     assert.equal(task(completed).status, "done");
     const reopened = executeCommand(
-      request("task.reopen", { id: createdTask.id, expectedVersion: 3 }, { idempotencyKey: "reopen-1" }),
+      request("task.reopen", { id: createdTask.id, expectedVersion: 5 }, { idempotencyKey: "reopen-1" }),
       databasePath,
     );
     assert.equal(task(reopened).status, "open");
     const canceled = executeCommand(
-      request("task.cancel", { id: createdTask.id, expectedVersion: 4 }, { idempotencyKey: "cancel-1" }),
+      request("task.cancel", { id: createdTask.id, expectedVersion: 6 }, { idempotencyKey: "cancel-1" }),
       databasePath,
     );
     assert.equal(task(canceled).status, "canceled");
 
     const repeatedCancel = executeCommand(
-      request("task.cancel", { id: createdTask.id, expectedVersion: 5 }, { idempotencyKey: "cancel-noop" }),
+      request("task.cancel", { id: createdTask.id, expectedVersion: 7 }, { idempotencyKey: "cancel-noop" }),
       databasePath,
     );
     assert.equal(repeatedCancel.changed, false);
     const activities = executeCommand(request("activity.list", { taskId: createdTask.id }), databasePath);
-    assert.equal((activities.activity as unknown[]).length, 5);
+    assert.equal((activities.activity as unknown[]).length, 7);
   } finally {
     cleanDirectory(directory);
   }
@@ -188,7 +198,7 @@ test("read-only and dry-run mutations leave every table unchanged", () => {
   }
 });
 
-test("delete protects versions, previews without writes, cascades task data, and replays receipts", () => {
+test("delete protects versions, previews, cancels, and replays receipts", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-delete-"));
   const databasePath = path.join(directory, "tasks.db");
   try {
@@ -196,7 +206,7 @@ test("delete protects versions, previews without writes, cascades task data, and
     const args = { id: created.id, expectedVersion: created.version };
     const before = executeCommand(request("workspace.export"), databasePath).snapshot as Record<string, unknown>;
     for (const options of [{ dryRun: true }, { readOnly: true }]) {
-      assert.equal(executeCommand(request("task.delete", args, { ...options, idempotencyKey: "preview" }), databasePath).dryRun, true);
+      assert.equal(executeCommand(request("task.delete", args, { ...options, idempotencyKey: `preview-${Object.keys(options)[0]}` }), databasePath).dryRun, true);
       const after = executeCommand(request("workspace.export"), databasePath).snapshot as Record<string, unknown>;
       assert.deepEqual({ ...after, exportedAt: null }, { ...before, exportedAt: null });
     }
@@ -204,7 +214,7 @@ test("delete protects versions, previews without writes, cascades task data, and
     assert.throws(() => executeCommand(request("task.delete", { id: created.id }, { idempotencyKey: "missing-version" }), databasePath), /EXPECTED_VERSION_REQUIRED/);
     assert.throws(() => executeCommand(request("task.delete", { ...args, expectedVersion: 2 }, { idempotencyKey: "stale" }), databasePath), /STALE_TASK_VERSION/);
 
-    // A receipt failure must roll back the delete and its cascading rows.
+    // A receipt failure must roll back the status change.
     const database = openDatabase(databasePath);
     database.exec("CREATE TRIGGER reject_delete_receipt BEFORE INSERT ON command_receipts WHEN NEW.command = 'task.delete' BEGIN SELECT RAISE(ABORT, 'receipt failed'); END;");
     database.close();
@@ -218,14 +228,19 @@ test("delete protects versions, previews without writes, cascades task data, and
     unlocked.close();
 
     const result = executeCommand(deletion, databasePath);
-    assert.deepEqual(result, { id: created.id, deleted: true });
+    assert.equal(task(result).status, "canceled");
+    assert.equal(result.changed, true);
     assert.deepEqual(executeCommand(deletion, databasePath), result);
-    assert.equal(executeCommand(request("task.list"), databasePath).total, 0);
-    assert.equal(countRows(databasePath, "task_tags"), 0);
-    assert.equal(countRows(databasePath, "activity"), 0);
-    assert.equal(countRows(databasePath, "command_receipts"), 2);
-    assert.throws(() => executeCommand(request("task.get", { id: created.id }), databasePath), /TASK_NOT_FOUND/);
-    assert.throws(() => executeCommand(request("task.delete", args, { idempotencyKey: "another-delete" }), databasePath), /TASK_NOT_FOUND/);
+    assert.equal(executeCommand(request("task.list"), databasePath).total, 1);
+    assert.equal(countRows(databasePath, "task_tags"), 1);
+    assert.equal(countRows(databasePath, "activity"), 2);
+    assert.equal(task(executeCommand(request("task.get", { id: created.id }), databasePath)).status, "canceled");
+    const repeatedDelete = executeCommand(
+      request("task.delete", { id: created.id, expectedVersion: 2 }, { idempotencyKey: "another-delete" }),
+      databasePath,
+    );
+    assert.equal(repeatedDelete.changed, false);
+    assert.equal(countRows(databasePath, "command_receipts"), 3);
     assert.throws(() => executeCommand(request("task.delete", { ...args, expectedVersion: 2 }, { idempotencyKey: "delete" }), databasePath), /IDEMPOTENCY_KEY_REUSED/);
   } finally {
     cleanDirectory(directory);
@@ -266,6 +281,57 @@ test("backup, JSON export, and restore preserve canonical records", () => {
     const restoredTask = executeCommand(request("task.get", { id: createdTask.id }), restoredPath);
     assert.deepEqual(task(restoredTask), createdTask);
     assert.equal(countRows(restoredPath, "activity"), 1);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("schema migration adds the paused task status to existing workspaces", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-schema-migration-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO schema_meta (key, value) VALUES ('schema_version', '1');
+    CREATE TABLE categories (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+      description_markdown TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'done', 'canceled')),
+      category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+      version INTEGER NOT NULL CHECK (version > 0),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      canceled_at TEXT
+    );
+    INSERT INTO tasks (id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at)
+      VALUES ('legacy', 'Legacy task', '', 'open', NULL, 1, 'now', 'now', NULL, NULL);
+  `);
+  legacy.close();
+
+  try {
+    const migrated = openDatabase(databasePath);
+    const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
+    const table = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as { sql: string };
+    const foreignKeys = migrated.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
+    assert.equal(schema.value, "2");
+    assert.match(table.sql, /paused/);
+    assert.equal(foreignKeys.foreign_keys, 1);
+    migrated.close();
+
+    const paused = executeCommand(
+      request("task.pause", { id: "legacy", expectedVersion: 1 }, { idempotencyKey: "migrate-pause" }),
+      databasePath,
+    );
+    assert.equal(task(paused).status, "paused");
   } finally {
     cleanDirectory(directory);
   }

@@ -31,6 +31,7 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.update",
   "task.delete",
   "task.start",
+  "task.pause",
   "task.complete",
   "task.reopen",
   "task.cancel",
@@ -69,7 +70,7 @@ function numberValue(row: Row, field: string): number {
 }
 
 function statusValue(value: unknown): TaskStatus {
-  if (value === "open" || value === "in_progress" || value === "done" || value === "canceled") {
+  if (value === "open" || value === "in_progress" || value === "paused" || value === "done" || value === "canceled") {
     return value;
   }
   throw new CommandError("INVALID_STORAGE", `database contains unsupported task status ${String(value)}`);
@@ -431,28 +432,6 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   });
 }
 
-function deleteTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
-  // Hold the writer lock across receipt lookup, version validation, and deletion.
-  return withTransaction(database, () => {
-    const context = mutationContext(database, request);
-    if (context.replay) return context.replay;
-
-    const current = requireTask(database, taskId(request.args));
-    if (expectedVersion(request.args) !== current.version) {
-      throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
-    }
-    const result = { id: current.id, deleted: true };
-    if (request.readOnly || request.dryRun) {
-      return { ...result, dryRun: true, readOnly: Boolean(request.readOnly) };
-    }
-
-    // Task tags and task activity cascade; receipts remain for safe lost-reply retries.
-    database.prepare("DELETE FROM tasks WHERE id = ?").run(current.id);
-    recordReceipt(database, request, context, result, new Date().toISOString());
-    return result;
-  });
-}
-
 function transitionTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
@@ -467,19 +446,27 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
 
   const target = request.command === "task.start"
     ? "in_progress"
-    : request.command === "task.complete"
-      ? "done"
-      : request.command === "task.reopen"
-        ? "open"
-        : "canceled";
-  let changed = current.status !== target;
-  if (request.command === "task.start" && !["open", "in_progress"].includes(current.status)) {
+    : request.command === "task.pause"
+      ? "paused"
+      : request.command === "task.complete"
+        ? "done"
+        : request.command === "task.reopen"
+          ? "open"
+          : "canceled";
+  const changed = current.status !== target;
+  if (request.command === "task.start" && !["open", "in_progress", "paused"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot start a ${current.status} task`);
   }
-  if (request.command === "task.complete" && !["open", "in_progress", "done"].includes(current.status)) {
+  if (request.command === "task.pause" && !["open", "in_progress", "paused"].includes(current.status)) {
+    throw new CommandError("INVALID_TRANSITION", `cannot pause a ${current.status} task`);
+  }
+  if (request.command === "task.complete" && !["open", "in_progress", "paused", "done"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot complete a ${current.status} task`);
   }
-  if (request.command === "task.cancel" && !["open", "in_progress", "canceled"].includes(current.status)) {
+  if (request.command === "task.cancel" && !["open", "in_progress", "paused", "canceled"].includes(current.status)) {
+    throw new CommandError("INVALID_TRANSITION", `cannot cancel a ${current.status} task`);
+  }
+  if (request.command === "task.delete" && !["open", "in_progress", "paused", "done", "canceled"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot cancel a ${current.status} task`);
   }
 
@@ -511,7 +498,14 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
         "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
       )
       .run(target, now, completedAt, canceledAt, current.id, version);
-    insertActivity(database, current.id, request, request.command.slice("task.".length), { from: current.status, to: target }, now);
+    insertActivity(
+      database,
+      current.id,
+      request,
+      request.command === "task.delete" ? "cancel" : request.command.slice("task.".length),
+      { from: current.status, to: target, ...(request.command === "task.delete" ? { source: "delete" } : {}) },
+      now,
+    );
     const task = requireTask(database, current.id);
     const result = taskResult(task, { changed: true });
     recordReceipt(database, request, context, result, now);
@@ -529,7 +523,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
       ? statusArgument
       : [statusArgument];
   for (const status of statuses) {
-    if (status !== "open" && status !== "in_progress" && status !== "done" && status !== "canceled") {
+    if (status !== "open" && status !== "in_progress" && status !== "paused" && status !== "done" && status !== "canceled") {
       throw new CommandError("INVALID_ARGUMENT", "status contains an unsupported task status");
     }
   }
@@ -603,8 +597,8 @@ export function executeTaskCommand(database: DatabaseSync, request: ProtocolRequ
     case "task.update":
       return updateTask(database, request);
     case "task.delete":
-      return deleteTask(database, request);
     case "task.start":
+    case "task.pause":
     case "task.complete":
     case "task.reopen":
     case "task.cancel":

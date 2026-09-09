@@ -9,38 +9,38 @@ type TaskDeleteDialogProps = {
   task: TaskRecord;
   open: boolean;
   onClose: () => void;
-  onDeleted: (task: TaskRecord) => void;
+  onCanceled: (task: TaskRecord) => void;
   returnFocus: () => HTMLElement | undefined;
 };
 
-export function TaskDeleteDialog({ task, open, onClose, onDeleted, returnFocus }: TaskDeleteDialogProps): ReactElement {
+export function TaskDeleteDialog({ task, open, onClose, onCanceled, returnFocus }: TaskDeleteDialogProps): ReactElement {
   const confirmButton = useRef<HTMLButtonElement>(null);
-  const deleting = useRef(false);
+  const canceling = useRef(false);
   const receipt = useRef(crypto.randomUUID());
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function confirmDelete(): Promise<void> {
-    if (deleting.current) return;
-    deleting.current = true;
+  async function confirmCancel(): Promise<void> {
+    if (canceling.current) return;
+    canceling.current = true;
     setPending(true);
     setError(null);
     try {
-      await deleteTask(task.id, task.version, { idempotencyKey: receipt.current });
-      onDeleted(task);
+      const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.current });
+      onCanceled(result.task);
       onClose();
     } catch (caught) {
       setError(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? "This task changed elsewhere. Cancel and return to the refreshed list before deleting it."
+        ? "This task changed elsewhere. Close this dialog and return to the refreshed list before cancelling it."
         : caught instanceof Error ? caught.message : String(caught));
     } finally {
-      deleting.current = false;
+      canceling.current = false;
       setPending(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !deleting.current) onClose(); }}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !canceling.current) onClose(); }}>
       <DialogContent
         showCloseButton={false}
         className="max-h-[calc(100svh-2rem)] overflow-y-auto"
@@ -53,19 +53,19 @@ export function TaskDeleteDialog({ task, open, onClose, onDeleted, returnFocus }
         }}
       >
         <DialogHeader>
-          <DialogTitle>Delete task?</DialogTitle>
+          <DialogTitle>Cancel task?</DialogTitle>
           <DialogDescription className="wrap-anywhere">
-            “{task.title}” and its activity history will be deleted. This cannot be undone.
+            “{task.title}” will be marked cancelled. You can reopen it later.
           </DialogDescription>
         </DialogHeader>
         {error ? <Alert variant="destructive">
-          <AlertTitle>Could not delete task</AlertTitle>
+          <AlertTitle>Could not cancel task</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert> : null}
         <DialogFooter>
-          <Button variant="outline" disabled={pending} onClick={onClose}>Cancel</Button>
-          <Button ref={confirmButton} focusableWhenDisabled disabled={pending} onClick={() => void confirmDelete()}>
-            {pending ? "Deleting…" : "Delete task"}
+          <Button variant="outline" disabled={pending} onClick={onClose}>Keep task</Button>
+          <Button ref={confirmButton} focusableWhenDisabled disabled={pending} onClick={() => void confirmCancel()}>
+            {pending ? "Cancelling…" : "Cancel task"}
           </Button>
         </DialogFooter>
       </DialogContent>

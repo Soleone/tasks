@@ -211,11 +211,13 @@ export default function App(): ReactElement {
           onActiveTaskIndexChange={setActiveTaskIndex}
           onAnnounce={setAnnouncement}
           onEdit={setEditingTask}
-          onDeleted={(task) => {
+          onTaskUpdated={(task) => {
+            setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+          }}
+          onCanceled={(task) => {
             ++querySequence.current;
-            setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
-            setTotal((previous) => Math.max(0, previous - 1));
-            setAnnouncement(`Deleted: ${task.title}`);
+            setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+            setAnnouncement(`Cancelled: ${task.title}`);
           }}
           onFocusTitle={focusTitle}
           onFocusPreviousStop={focusPreviousCaptureStop}

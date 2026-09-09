@@ -33,7 +33,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
     entries: [
       { label: "Add, save, or open", icon: ListPlus, keys: ["Enter"], keywords: "enter title description new line list highlighted task" },
       { label: "Save from anywhere", icon: SaveCheck, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
-      { label: "Delete task", icon: Trash2, keys: ["Delete"], keywords: "delete remove permanent task confirmation enter escape" },
+      { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
+      { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },
     ],
   },
   {

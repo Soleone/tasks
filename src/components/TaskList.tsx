@@ -7,14 +7,23 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import type { TaskRecord } from "@/backend/protocol";
+import {
+  Circle,
+  CircleCheck,
+  CirclePause,
+  CirclePlay,
+  CircleX,
+  type LucideIcon,
+} from "lucide-react";
+import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { BackendCommandError, transitionTask } from "@/platform/backendClient";
 
 export type TaskListHandle = {
   focusList: () => void;
@@ -22,11 +31,21 @@ export type TaskListHandle = {
   focusRetry: () => void;
 };
 
-const taskStatusLabels: Record<TaskRecord["status"], string> = {
-  open: "",
-  in_progress: "In progress",
-  done: "Done",
-  canceled: "Canceled",
+type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
+type StatusMeta = {
+  label: string;
+  Icon: LucideIcon;
+  color: string;
+  next: TaskStatus;
+  command: StatusCommand;
+};
+
+const taskStatusMeta: Record<TaskStatus, StatusMeta> = {
+  open: { label: "Open", Icon: Circle, color: "text-muted-foreground", next: "in_progress", command: "task.start" },
+  in_progress: { label: "In progress", Icon: CirclePlay, color: "text-primary", next: "paused", command: "task.pause" },
+  paused: { label: "Paused", Icon: CirclePause, color: "text-amber-600 dark:text-amber-400", next: "done", command: "task.complete" },
+  done: { label: "Done", Icon: CircleCheck, color: "text-emerald-600 dark:text-emerald-400", next: "open", command: "task.reopen" },
+  canceled: { label: "Cancelled", Icon: CircleX, color: "text-destructive", next: "open", command: "task.reopen" },
 };
 
 type TaskListProps = {
@@ -39,26 +58,55 @@ type TaskListProps = {
   onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
-  onDeleted: (task: TaskRecord) => void;
+  onTaskUpdated: (task: TaskRecord) => void;
+  onCanceled: (task: TaskRecord) => void;
   onFocusTitle: () => void;
   onFocusPreviousStop: () => void;
 };
 
+type StatusReceipt = {
+  version: number;
+  target: TaskStatus;
+  key: string;
+};
+
 function taskMetadata(task: TaskRecord): ReactElement | null {
-  const statusLabel = taskStatusLabels[task.status] || null;
+  const statusLabel = taskStatusMeta[task.status].label;
+  const showStatusLabel = task.status !== "open";
   const hasClassification = Boolean(task.category) || task.tags.length > 0;
-  if (!statusLabel && !hasClassification) return null;
+  if (!showStatusLabel && !hasClassification) return null;
 
   return (
     <ItemDescription className="flex flex-wrap items-center gap-1.5">
-      {statusLabel ? <span>{statusLabel}</span> : null}
-      {statusLabel && task.category ? <span aria-hidden="true">·</span> : null}
+      {showStatusLabel ? <span>{statusLabel}</span> : null}
+      {showStatusLabel && task.category ? <span aria-hidden="true">·</span> : null}
       {task.category ? <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">@{task.category.label}</Badge> : null}
-      {(statusLabel || task.category) && task.tags.length ? <span aria-hidden="true">·</span> : null}
+      {(showStatusLabel || task.category) && task.tags.length ? <span aria-hidden="true">·</span> : null}
       {task.tags.map((tag) => (
         <Badge key={tag.slug} variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">#{tag.label}</Badge>
       ))}
     </ItemDescription>
+  );
+}
+
+function StatusIndicator({ task, pending }: {
+  task: TaskRecord;
+  pending: boolean;
+}): ReactElement {
+  const status = taskStatusMeta[task.status];
+  const nextStatus = taskStatusMeta[status.next].label;
+  const Icon = status.Icon;
+  return (
+    <span
+      role="img"
+      aria-label={`Status: ${status.label}. Space changes it to ${nextStatus}.`}
+      title={`${status.label} · Space: ${nextStatus}`}
+      data-status={task.status}
+      data-status-pending={pending || undefined}
+      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors ${status.color} ${pending ? "animate-pulse opacity-60" : ""}`}
+    >
+      <Icon aria-hidden="true" />
+    </span>
   );
 }
 
@@ -72,7 +120,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onActiveTaskIndexChange,
   onAnnounce,
   onEdit,
-  onDeleted,
+  onTaskUpdated,
+  onCanceled,
   onFocusTitle,
   onFocusPreviousStop,
 }, ref): ReactElement {
@@ -81,9 +130,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const loadMore = useRef<HTMLButtonElement>(null);
   const retry = useRef<HTMLButtonElement>(null);
   const deleteReturnFocus = useRef<HTMLElement | null>(null);
+  const statusReceipts = useRef(new Map<string, StatusReceipt>());
+  const statusPending = useRef(new Set<string>());
   const [deletion, setDeletion] = useState<{ task: TaskRecord; key: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [listFocused, setListFocused] = useState(false);
+  const [statusPendingIds, setStatusPendingIds] = useState<Set<string>>(() => new Set());
 
   const hasMore = tasks.length < total;
   const activeTask = listFocused && tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
@@ -109,6 +161,40 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     });
   }
 
+  function setStatusPending(taskId: string, pending: boolean): void {
+    if (pending) statusPending.current.add(taskId);
+    else statusPending.current.delete(taskId);
+    setStatusPendingIds((previous) => {
+      const next = new Set(previous);
+      if (pending) next.add(taskId);
+      else next.delete(taskId);
+      return next;
+    });
+  }
+
+  async function toggleStatus(task: TaskRecord): Promise<void> {
+    if (statusPending.current.has(task.id)) return;
+    const status = taskStatusMeta[task.status];
+    const previousReceipt = statusReceipts.current.get(task.id);
+    const receipt = previousReceipt?.version === task.version && previousReceipt.target === status.next
+      ? previousReceipt
+      : { version: task.version, target: status.next, key: crypto.randomUUID() };
+    statusReceipts.current.set(task.id, receipt);
+    setStatusPending(task.id, true);
+    try {
+      const result = await transitionTask(status.command, task.id, task.version, { idempotencyKey: receipt.key });
+      statusReceipts.current.delete(task.id);
+      onTaskUpdated(result.task);
+      onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
+    } catch (caught) {
+      onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        ? `${task.title} changed elsewhere. Refresh and try again.`
+        : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`);
+    } finally {
+      setStatusPending(task.id, false);
+    }
+  }
+
   function openDeleteDialog(): void {
     if (!activeTask) return;
     deleteReturnFocus.current = list.current;
@@ -124,7 +210,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       return;
     }
     if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "ArrowDown") {
+    if (event.key === " ") {
+      if (event.repeat || event.target !== event.currentTarget || event.shiftKey) return;
+      event.preventDefault();
+      if (activeTask) void toggleStatus(activeTask);
+    } else if (event.key === "ArrowDown") {
       event.preventDefault();
       moveActive(activeTaskIndex + 1);
     } else if (event.key === "ArrowUp") {
@@ -178,12 +268,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           role="listbox"
           aria-label={`Tasks, ${tasks.length} of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="Delete"
+          aria-keyshortcuts="Space Delete"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2.5 outline-none"
           onFocus={() => setListFocused(true)}
-          onBlur={() => setListFocused(false)}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
+          }}
           onKeyDown={handleListKeyDown}
         >
           {tasks.map((task, index) => {
@@ -203,6 +295,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 onClick={() => onEdit(task)}
                 onMouseEnter={() => onActiveTaskIndexChange(index)}
               >
+                <ItemMedia variant="icon">
+                  <StatusIndicator task={task} pending={statusPendingIds.has(task.id)} />
+                </ItemMedia>
                 <ItemContent className="min-w-0">
                   <ItemTitle className="line-clamp-none wrap-anywhere">{displayTitle}</ItemTitle>
                   {task.descriptionMarkdown ? <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription> : null}
@@ -235,7 +330,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         task={deletion.task}
         open={deleteOpen}
         onClose={() => { setDeleteOpen(false); void onRefresh(); }}
-        onDeleted={onDeleted}
+        onCanceled={onCanceled}
         returnFocus={() => deleteReturnFocus.current?.isConnected
           ? deleteReturnFocus.current
           : list.current?.isConnected
