@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
 import type { TaskRecord } from "@/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listTasks } from "@/platform/backendClient";
 
@@ -96,6 +96,7 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   }, [candidates]);
 
   const heading = mode === "blocker" ? `Blocked by: ${taskTitleDisplay(subject.title)}` : `Move ${taskTitleDisplay(subject.title)} under…`;
+  const groupHeading = mode === "blocker" ? "Select blocker" : "Select new parent";
   const emptyText = loading ? "Loading tasks…" : error ?? "No matching tasks.";
   const showRemoveBlocker = mode === "blocker" && subject.blockedByIds.length > 0 && onRemoveBlocker;
   const blockers = useMemo(() => {
@@ -128,32 +129,38 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
           <CommandInput ref={searchInput} placeholder="Search tasks…" />
           <CommandList label="Task results">
             <CommandEmpty>{emptyText}</CommandEmpty>
-            {showRemoveBlocker && onRemoveBlocker ? blockers.map((blocker) => (
-              <CommandItem
-                key={`remove-${blocker.id}`}
-                value={`Remove blocker ${blocker.title ?? ""} ${blocker.id}`}
-                keywords={["remove", "unblock", "clear", blocker.title ?? ""]}
-                onSelect={() => onRemoveBlocker(blocker.id)}
-              >
-                <Link2Off aria-hidden="true" className="text-muted-foreground" />
-                <span className="font-medium">Remove blocker</span>
-                {blocker.title ? <span className="truncate text-muted-foreground">{blocker.title}</span> : null}
-              </CommandItem>
-            )) : null}
-            {candidates.map((task) => {
-              const displayTitle = taskTitleDisplay(task.title);
-              const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
-              return (
-                <CommandItem
-                  key={task.id}
-                  value={`${displayTitle} ${task.id}`}
-                  keywords={[task.descriptionMarkdown, task.status]}
-                  onSelect={() => onSelect(task)}
-                >
-                  <TaskRow task={task} variant={variant} statusSlot={<TaskStatusDisplay task={task} />} />
-                </CommandItem>
-              );
-            })}
+            {showRemoveBlocker && onRemoveBlocker ? (
+              <CommandGroup>
+                {blockers.map((blocker) => (
+                  <CommandItem
+                    key={`remove-${blocker.id}`}
+                    value={`Remove blocker ${blocker.title ?? ""} ${blocker.id}`}
+                    keywords={["remove", "unblock", "clear", blocker.title ?? ""]}
+                    onSelect={() => onRemoveBlocker(blocker.id)}
+                  >
+                    <Link2Off aria-hidden="true" className="text-muted-foreground" />
+                    <span className="font-medium">Remove blocker</span>
+                    {blocker.title ? <span className="truncate text-muted-foreground">{blocker.title}</span> : null}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+            <CommandGroup heading={groupHeading}>
+              {candidates.map((task) => {
+                const displayTitle = taskTitleDisplay(task.title);
+                const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
+                return (
+                  <CommandItem
+                    key={task.id}
+                    value={`${displayTitle} ${task.id}`}
+                    keywords={[task.descriptionMarkdown, task.status]}
+                    onSelect={() => onSelect(task)}
+                  >
+                    <TaskRow task={task} variant={variant} statusSlot={<TaskStatusDisplay task={task} />} />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
           </CommandList>
         </Command>
       </DialogContent>
