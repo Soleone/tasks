@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import favicon16Url from "../assets/branding/favicon-two-color-v7-16.png";
-import favicon32Url from "../assets/branding/favicon-two-color-v7-32.png";
-import favicon48Url from "../assets/branding/favicon-two-color-v7-48.png";
+import favicon16Url from "../assets/branding/favicon-two-color-v8-16.png";
+import favicon32Url from "../assets/branding/favicon-two-color-v8-32.png";
+import favicon48Url from "../assets/branding/favicon-two-color-v8-48.png";
 import App from "./App";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyStoredTheme } from "./theme";

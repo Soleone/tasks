@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Tasks">
+  <title>Tasks</title>
+  <path d="M14 25c0-9 16-16 36-16s36 7 36 16v50c0 9-16 16-36 16s-36-7-36-16V25Z" fill="var(--app-icon-bg, #000000)"/>
+  <path d="M27 52 41 66 73 34" fill="none" stroke="var(--app-icon-fg, #FFFFFF)" stroke-width="11.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
