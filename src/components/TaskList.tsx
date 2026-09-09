@@ -71,10 +71,10 @@ function taskMetadata(task: TaskRecord): ReactElement | null {
 
   return (
     <ItemDescription className="flex flex-wrap items-center gap-1.5">
-      {task.category ? <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">@{task.category.label}</Badge> : null}
+      {task.category ? <Badge variant="outline" className="h-5 border-classification-category/25 bg-classification-category/10 px-1.5 text-xs font-normal text-foreground">@{task.category.label}</Badge> : null}
       {task.category && task.tags.length ? <span aria-hidden="true">·</span> : null}
       {task.tags.map((tag) => (
-        <Badge key={tag.slug} variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">#{tag.label}</Badge>
+        <Badge key={tag.slug} variant="outline" className="h-5 border-classification-tag/25 bg-classification-tag/10 px-1.5 text-xs font-normal text-foreground">#{tag.label}</Badge>
       ))}
     </ItemDescription>
   );

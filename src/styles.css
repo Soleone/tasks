@@ -92,6 +92,8 @@
   --success: var(--om-green);
   --warning: var(--om-yellow);
   --info: var(--om-cyan);
+  --classification-category: var(--om-blue);
+  --classification-tag: var(--om-cyan);
   --border: var(--om-muted);
   --input: var(--om-muted);
   --ring: var(--om-accent);
@@ -122,6 +124,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-classification-category: var(--classification-category);
+  --color-classification-tag: var(--classification-tag);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
