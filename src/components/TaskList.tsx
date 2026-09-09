@@ -15,6 +15,7 @@ import {
   CircleX,
   type LucideIcon,
 } from "lucide-react";
+import { cn } from "cn";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
@@ -23,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BackendCommandError, transitionTask } from "@/platform/backendClient";
 
 export type TaskListHandle = {
@@ -85,24 +87,48 @@ function taskMetadata(task: TaskRecord): ReactElement | null {
   );
 }
 
-function StatusIndicator({ task, pending }: {
+const STATUS_FEEDBACK_DURATION_MS = 1800;
+
+function StatusIndicator({ task, pending, feedbackVersion }: {
   task: TaskRecord;
   pending: boolean;
+  feedbackVersion?: number;
 }): ReactElement {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const status = taskStatusMeta[task.status];
   const nextStatus = taskStatusMeta[status.next].label;
   const Icon = status.Icon;
+  const statusLabel = `Status: ${status.label}`;
+
+  useEffect(() => {
+    if (feedbackVersion === undefined) return;
+    setFeedbackOpen(true);
+    const timeout = window.setTimeout(() => setFeedbackOpen(false), STATUS_FEEDBACK_DURATION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [feedbackVersion]);
+
   return (
-    <span
-      role="img"
-      aria-label={`Status: ${status.label}. Space changes it to ${nextStatus}.`}
-      title={`${status.label} · Space: ${nextStatus}`}
-      data-status={task.status}
-      data-status-pending={pending || undefined}
-      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors ${status.color} ${pending ? "animate-pulse opacity-60" : ""}`}
-    >
-      <Icon aria-hidden="true" />
-    </span>
+    <Tooltip open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+      <TooltipTrigger
+        render={
+          <span
+            role="img"
+            aria-label={`${statusLabel}. Space changes it to ${nextStatus}.`}
+            tabIndex={-1}
+            data-status={task.status}
+            data-status-pending={pending || undefined}
+            className={cn(
+              "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
+              status.color,
+              pending && "animate-pulse opacity-60",
+            )}
+          />
+        }
+      >
+        <Icon aria-hidden="true" />
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>{statusLabel}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -132,6 +158,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [listFocused, setListFocused] = useState(false);
   const [statusPendingIds, setStatusPendingIds] = useState<Set<string>>(() => new Set());
+  const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
 
   const hasMore = tasks.length < total;
   const activeTask = listFocused && tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
@@ -181,6 +208,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const result = await transitionTask(status.command, task.id, task.version, { idempotencyKey: receipt.key });
       statusReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
+      setStatusFeedback({ taskId: task.id, version: result.task.version });
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
       onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
@@ -292,7 +320,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 onMouseEnter={() => onActiveTaskIndexChange(index)}
               >
                 <ItemMedia variant="icon">
-                  <StatusIndicator task={task} pending={statusPendingIds.has(task.id)} />
+                  <StatusIndicator
+                    task={task}
+                    pending={statusPendingIds.has(task.id)}
+                    feedbackVersion={statusFeedback?.taskId === task.id ? statusFeedback.version : undefined}
+                  />
                 </ItemMedia>
                 <ItemContent className="min-w-0">
                   <ItemTitle className="line-clamp-none wrap-anywhere">{displayTitle}</ItemTitle>

@@ -114,6 +114,9 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
+  waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Status: In progress"');
+  check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
+  check('![...document.querySelectorAll("[role=option] [data-slot=item-description]")].some((description) => description.textContent.includes("In progress"))');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   browser("press", "Space");
