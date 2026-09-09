@@ -298,7 +298,7 @@ export function TaskList({
           aria-keyshortcuts="Space Delete"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
-          className="flex w-full flex-col gap-2.5 outline-none"
+          className="flex w-full flex-col gap-2 outline-none"
           onFocus={() => setListFocused(true)}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
