@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Tasks">
+  <!--
+    Theme contract: background shapes paint with var(--app-icon-bg) and
+    foreground shapes with var(--app-icon-fg) (see src/styles.css), written as
+    inline style because var() is invalid in SVG presentation attributes. The
+    fallbacks are the original fixed colors, for standalone viewing outside
+    the app. Replacement artwork that keeps these two hooks themes
+    automatically with no component change.
+  -->
   <title>Tasks</title>
-  <rect x="3" y="3" width="94" height="94" rx="19" fill="#0B0B0D"/>
-  <path d="M18 53 39 74 74 38" fill="none" stroke="#FFFFFF" stroke-width="12.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M83 12c1.1 6.2 4.1 8.8 10 9.8-5.9 1-8.9 3.6-10 9.8-1.1-6.2-4.1-8.8-10-9.8 5.9-1 8.9-3.6 10-9.8Z" fill="#FFFFFF"/>
+  <rect x="3" y="3" width="94" height="94" rx="19" style="fill:var(--app-icon-bg, #0B0B0D)"/>
+  <path d="M18 53 39 74 74 38" fill="none" style="stroke:var(--app-icon-fg, #FFFFFF)" stroke-width="12.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M83 12c1.1 6.2 4.1 8.8 10 9.8-5.9 1-8.9 3.6-10 9.8-1.1-6.2-4.1-8.8-10-9.8 5.9-1 8.9-3.6 10-9.8Z" style="fill:var(--app-icon-fg, #FFFFFF)"/>
 </svg>

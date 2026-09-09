@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
-import logoUrl from "../assets/branding/ai-todo-icon-two-color-v6.png";
+import { AppIcon } from "@/components/AppIcon";
 import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
@@ -161,7 +161,7 @@ export default function App(): ReactElement {
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <img src={logoUrl} alt="" aria-hidden="true" width={32} height={32} className="size-8 shrink-0 rounded-lg" />
+            <AppIcon className="size-8 shrink-0" />
             <span>Tasks</span>
           </h1>
           <ButtonGroup
