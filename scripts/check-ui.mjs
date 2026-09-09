@@ -167,17 +167,19 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
-  // Themes: an omarchy palette drives the regions, and the choice persists.
-  browser("press", "Control+k");
+  // Themes: the dedicated picker drives the regions, and the choice persists.
+  const themeCount = (await command("theme.list")).themes.length;
+  browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
-  check('document.querySelectorAll("[cmdk-group]")[4].querySelectorAll("[data-slot=command-item]").length === 8');
+  check('document.querySelectorAll("[cmdk-group]").length === 1');
+  check(`document.querySelector("[cmdk-group]").querySelectorAll("[data-slot=command-item]").length === ${themeCount}`);
 
-  // "theme" is a fuzzy letter subsequence of several shortcut keyword blobs, so cmdk's
-  // default scorer answers it with the whole shortcuts help. Only themes may match.
+  // "theme" is a fuzzy letter subsequence of several shortcut keyword blobs in
+  // the help palette. The dedicated picker should only show theme results.
   browser("fill", 'input[role="combobox"]', "theme");
   waitFor('document.querySelectorAll("[cmdk-group]:not([hidden])").length === 1');
   check('document.querySelector("[cmdk-group]:not([hidden]) [cmdk-group-heading]").textContent === "Theme"');
-  check('document.querySelectorAll("[cmdk-group]:not([hidden]) [data-slot=command-item]").length === 8');
+  check(`document.querySelectorAll("[cmdk-group]:not([hidden]) [data-slot=command-item]").length === ${themeCount}`);
   browser("fill", 'input[role="combobox"]', "gruvbox");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
@@ -193,14 +195,14 @@ try {
 
   // A light palette drops the dark class, and a file beside the database joins the picker.
   writeFileSync(path.join(scratch, "themes", "sunset.toml"), 'mode = "light"\naccent = "#c2410c"\nbackground = "#fff7ed"\ndark_background = "#ffedd5"\nforeground = "#431407"\n');
-  browser("press", "Control+k");
+  browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "latte");
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Catppuccin Latte"))');
   evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.startsWith("Catppuccin Latte")).click(); true');
   waitFor('getComputedStyle(document.body).backgroundColor === "rgb(227, 228, 232)"');
   check('!document.documentElement.classList.contains("dark")');
-  browser("press", "Control+k");
+  browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "sunset");
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Sunset"))');
@@ -211,7 +213,7 @@ try {
 
   // Back to the neutral ramp: the default theme overrides no slot, so no
   // palette custom property survives on <html>.
-  browser("press", "Control+k");
+  browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "default");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');

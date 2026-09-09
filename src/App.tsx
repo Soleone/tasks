@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
+import logoUrl from "../assets/branding/ai-todo-icon-two-color-v4.png";
 import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
@@ -31,15 +32,11 @@ export default function App(): ReactElement {
   const [selectedTheme, setSelectedTheme] = useState("");
   const querySequence = useRef(0);
 
-  const showList = tasks.length > 0;
-
   // The ordered navigation table, derived from app state: while editing, the
-  // editor replaces create and list; the list is a stop only once it has
-  // tasks or an error to focus. The capture composer stays mounted while
-  // hidden, so availability must never come from the DOM.
-  const nav = useFocusNavigation(
-    editingTask ? ["edit"] : showList || loadError ? ["create", "list"] : ["create"],
-  );
+  // editor replaces create and list. The empty list remains a focusable stop
+  // so Tab can move past capture before any tasks exist. The capture composer
+  // stays mounted while hidden, so availability must never come from the DOM.
+  const nav = useFocusNavigation(editingTask ? ["edit"] : ["create", "list"]);
   const focusStack = useFocusStack();
 
   const refreshTasks = useCallback(async (offset = 0): Promise<void> => {
@@ -163,7 +160,10 @@ export default function App(): ReactElement {
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
         <header className="flex items-center justify-between gap-4">
-          <h1 className="text-xl font-semibold">Tasks</h1>
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            <img src={logoUrl} alt="" aria-hidden="true" width={32} height={32} className="size-8 shrink-0 rounded-lg" />
+            <span>Tasks</span>
+          </h1>
           <ButtonGroup
             onKeyDown={(event) => {
               if (event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
