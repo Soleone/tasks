@@ -13,10 +13,11 @@ type TaskComposerProps = {
   onSaved: (task: TaskRecord) => void;
   onCancel?: () => void;
   onTabFromDescription?: () => void;
+  onTabFromEmptyTitle?: () => void;
   onShiftTabFromTitle?: () => void;
 };
 
-export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, onShiftTabFromTitle }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, onTabFromEmptyTitle, onShiftTabFromTitle }: TaskComposerProps): ReactElement {
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -58,6 +59,9 @@ export function TaskComposer({ task, onSaved, onCancel, onTabFromDescription, on
         event.preventDefault();
         if (onShiftTabFromTitle) onShiftTabFromTitle();
         else saveButton.current?.focus();
+      } else if (!task && !title.trim() && onTabFromEmptyTitle) {
+        event.preventDefault();
+        onTabFromEmptyTitle();
       } else if (!notesOpen) {
         event.preventDefault();
         showNotes();

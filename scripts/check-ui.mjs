@@ -66,6 +66,9 @@ try {
   browser("snapshot", "-i");
   waitFor('document.activeElement.name === "title"');
   check('document.querySelector("textarea") === null');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("section[aria-label=\\"Saved tasks\\"]")');
+  browser("focus", 'input[name=title]');
   browser("find", "role", "button", "click", "--name", "Add description");
   waitFor('document.activeElement.name === "description"');
   browser("click", 'input[name=title]');
@@ -148,9 +151,7 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
-  // Severe tab control: title -> description -> list -> title, arrows move in the list.
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
+  // Empty title skips description and goes to the list; filled title reveals it.
   browser("press", "Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   check('document.activeElement.tagName !== "BUTTON"');
@@ -168,6 +169,7 @@ try {
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.name === "title"');
+  browser("fill", 'input[name=title]', "Keyboard navigation");
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
   browser("press", "Tab");

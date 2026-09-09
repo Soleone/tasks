@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { closeBackendSession, listTasks } from "@/platform/backendClient";
 import { backendKind } from "@/platform/backendTransport";
 
-// Severe tab control: Title -> revealed Description -> Task list -> back to Title.
+// Keep keyboard navigation inside the app; an empty new title skips the optional description.
 // The list is one tab stop; arrows move between tasks, Enter opens one.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -102,6 +102,10 @@ export default function App(): ReactElement {
     else focusTitle();
   }
 
+  function tabFromEmptyTitle(): void {
+    taskList.current?.focusList();
+  }
+
   function shiftTabFromTitle(): void {
     if (hasMore) taskList.current?.focusLoadMore();
     else if (showList) taskList.current?.focusList();
@@ -148,6 +152,7 @@ export default function App(): ReactElement {
           <TaskComposer
             onSaved={taskSaved}
             onTabFromDescription={tabFromDescription}
+            onTabFromEmptyTitle={tabFromEmptyTitle}
             onShiftTabFromTitle={shiftTabFromTitle}
           />
         </div>
