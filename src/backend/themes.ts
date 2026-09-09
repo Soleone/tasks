@@ -180,6 +180,34 @@ blue = "#56949f"
 magenta = "#907aa9"
 brown = "#67402b"`,
   },
+  {
+    name: "matte-black",
+    label: "Matte Black",
+    toml: `mode = "dark"
+
+accent = "#e68e0d"
+selection = "#333333"
+muted = "#515151"
+
+background = "#121212"
+dark_background = "#0c0c0c"
+darker_background = "#080808"
+lighter_background = "#242424"
+
+foreground = "#bebebe"
+dark_foreground = "#8a8a8d"
+light_foreground = "#d4d4d4"
+bright_foreground = "#eaeaea"
+
+red = "#d35f5f"
+yellow = "#b91c1c"
+orange = "#f59e0b"
+green = "#ffc107"
+cyan = "#bebebe"
+blue = "#e68e0d"
+magenta = "#d35f5f"
+brown = "#5c4a38"`,
+  },
 ];
 
 /**
