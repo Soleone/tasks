@@ -47,7 +47,7 @@ class HttpBackendTransport implements BackendTransport {
       });
     } catch {
       throw new Error(
-        `Dev backend is not reachable at ${url}. Run the matching dev command (for example, "pnpm dev:web" or "pnpm dev:themes") and reload.`,
+        `Dev backend is not reachable at ${url}. Run "pnpm dev:web" (or "pnpm dev:backend") and reload.`,
       );
     }
     if (!response.ok) {
