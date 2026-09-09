@@ -169,18 +169,23 @@ export function TaskRowRelationships({ task, parentLabel, blockedByLabels }: {
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with description and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, parentLabel, blockedByLabels }: {
+export function TaskRow({ task, variant, statusSlot, parentLabel, blockedByLabels, titlePrefix, indented = false }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
   parentLabel?: string | null;
   blockedByLabels?: string[];
+  titlePrefix?: ReactNode;
+  indented?: boolean;
 }): ReactElement {
   return (
-    <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start")}>
+    <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
       <div className={cn("flex shrink-0 items-center justify-center", variant === "full" && "h-[1.375em]")}>{statusSlot}</div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <ItemTitle className="line-clamp-none wrap-anywhere w-full">{taskRowDisplayTitle(task)}</ItemTitle>
+        <ItemTitle className="line-clamp-none wrap-anywhere w-full">
+          {titlePrefix}
+          {taskRowDisplayTitle(task)}
+        </ItemTitle>
         {variant === "full" && task.descriptionMarkdown ? (
           <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}

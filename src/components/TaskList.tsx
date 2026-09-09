@@ -1,14 +1,16 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import { ListFilter } from "lucide-react";
+import { ChevronDown, ChevronRight, ListFilter } from "lucide-react";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
+import { projectVisibleTaskRows, taskRowParent, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -88,9 +90,12 @@ export function TaskList({
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
+  const visibleRows = useMemo(() => projectVisibleTaskRows(tasks, expandedIds), [tasks, expandedIds]);
   const hasMore = tasks.length < total;
-  const activeTask = listFocused && tasks.length ? tasks[Math.min(activeTaskIndex, tasks.length - 1)] : undefined;
+  const activeRow = listFocused && visibleRows.length ? visibleRows[Math.min(activeTaskIndex, visibleRows.length - 1)] : undefined;
+  const activeTask = activeRow?.task;
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters the destination from either end.
@@ -100,20 +105,20 @@ export function TaskList({
   }), [nav]);
 
   useEffect(() => {
-    const nextIndex = Math.min(activeTaskIndex, Math.max(tasks.length - 1, 0));
+    const nextIndex = Math.min(activeTaskIndex, Math.max(visibleRows.length - 1, 0));
     if (nextIndex !== activeTaskIndex) onActiveTaskIndexChange(nextIndex);
-  }, [activeTaskIndex, onActiveTaskIndexChange, tasks.length]);
+  }, [activeTaskIndex, onActiveTaskIndexChange, visibleRows.length]);
 
   useEffect(() => {
-    if (tasks.length > 0 && document.activeElement === section.current) {
+    if (visibleRows.length > 0 && document.activeElement === section.current) {
       list.current?.focus();
       return;
     }
-    if (tasks.length === 0 && listFocused) {
+    if (visibleRows.length === 0 && listFocused) {
       setListFocused(false);
       section.current?.focus();
     }
-  }, [listFocused, tasks.length]);
+  }, [listFocused, visibleRows.length]);
 
   useEffect(() => {
     if (filterFeedbackVersion === 0) return;
@@ -130,13 +135,52 @@ export function TaskList({
   }
 
   function moveActive(next: number): void {
-    if (tasks.length === 0) return;
-    const wrapped = (next + tasks.length) % tasks.length;
+    if (visibleRows.length === 0) return;
+    const wrapped = (next + visibleRows.length) % visibleRows.length;
     onActiveTaskIndexChange(wrapped);
-    onAnnounce(`${wrapped + 1} of ${tasks.length}: ${tasks[wrapped].title}`);
+    onAnnounce(`${wrapped + 1} of ${visibleRows.length}: ${visibleRows[wrapped].task.title}`);
     requestAnimationFrame(() => {
-      document.getElementById(`task-option-${tasks[wrapped].id}`)?.scrollIntoView({ block: "nearest" });
+      document.getElementById(`task-option-${visibleRows[wrapped].task.id}`)?.scrollIntoView({ block: "nearest" });
     });
+  }
+
+  function setExpanded(taskId: string, expanded: boolean): void {
+    setExpandedIds((previous) => {
+      const next = new Set(previous);
+      if (expanded) next.add(taskId);
+      else next.delete(taskId);
+      return next;
+    });
+  }
+
+  function toggleExpanded(row: VisibleTaskRow): void {
+    if (!row.hasChildren) return;
+    setExpanded(row.task.id, !expandedIds.has(row.task.id));
+  }
+
+  function moveToParent(row: VisibleTaskRow): void {
+    if (row.depth === 0 || !row.task.parentId) return;
+    const parentIndex = visibleRows.findIndex((candidate) => candidate.task.id === row.task.parentId);
+    if (parentIndex >= 0) onActiveTaskIndexChange(parentIndex);
+  }
+
+  function handleHorizontalNavigation(key: "ArrowLeft" | "ArrowRight"): void {
+    if (!activeRow) return;
+    if (key === "ArrowRight") {
+      if (activeRow.hasChildren && !expandedIds.has(activeRow.task.id)) {
+        setExpanded(activeRow.task.id, true);
+        onAnnounce(`Expanded ${activeRow.task.title}`);
+      }
+      return;
+    }
+    if (activeRow.depth === 1) {
+      moveToParent(activeRow);
+      return;
+    }
+    if (expandedIds.has(activeRow.task.id)) {
+      setExpanded(activeRow.task.id, false);
+      onAnnounce(`Collapsed ${activeRow.task.title}`);
+    }
   }
 
   function setStatusPending(taskId: string, pending: boolean): void {
@@ -212,12 +256,15 @@ export function TaskList({
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       moveActive(activeTaskIndex - 1);
+    } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      handleHorizontalNavigation(event.key);
     } else if (event.key === "Home") {
       event.preventDefault();
       moveActive(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      moveActive(tasks.length - 1);
+      moveActive(visibleRows.length - 1);
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (activeTask) onEdit(activeTask);
@@ -244,7 +291,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="A B M Space Delete"
+      aria-keyshortcuts="A B M Space Delete ArrowLeft ArrowRight"
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
@@ -283,13 +330,13 @@ export function TaskList({
           >Retry</Button>
         </AlertDescription>
       </Alert> : null}
-      {tasks.length ? (
+      {visibleRows.length ? (
         <div
           ref={list}
           role="listbox"
-          aria-label={`Tasks, ${tasks.length} of ${total}`}
+          aria-label={`Tasks, ${visibleRows.length} visible of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="A B M Space Delete"
+          aria-keyshortcuts="A B M Space Delete ArrowLeft ArrowRight"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -298,22 +345,26 @@ export function TaskList({
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}
         >
-          {tasks.map((task, index) => {
+          {visibleRows.map((row, index) => {
+            const { task } = row;
             const active = listFocused && index === activeTaskIndex;
-            const parent = task.parentId ? tasks.find((candidate) => candidate.id === task.parentId) : undefined;
+            const parent = taskRowParent(tasks, task);
             const parentLabel = parent ? taskTitleDisplay(parent.title) : null;
             const blockedByLabels = task.blockedByIds.map((id) => {
               const blocker = tasks.find((candidate) => candidate.id === id);
               return blocker ? taskTitleDisplay(blocker.title) : null;
             }).filter((label): label is string => label !== null);
+            const DisclosureIcon = expandedIds.has(task.id) ? ChevronDown : ChevronRight;
             return (
               <Item
                 key={task.id}
                 id={`task-option-${task.id}`}
                 role="option"
                 aria-selected={active}
+                aria-expanded={row.hasChildren ? expandedIds.has(task.id) : undefined}
                 tabIndex={-1}
                 data-active={active || undefined}
+                data-depth={row.depth}
                 size="sm"
                 variant={active ? "outline" : "default"}
                 className={active ? "border-ring bg-muted" : undefined}
@@ -323,8 +374,22 @@ export function TaskList({
                 <TaskRow
                   task={task}
                   variant="full"
+                  indented={row.depth === 1}
                   parentLabel={parentLabel}
                   blockedByLabels={blockedByLabels}
+                  titlePrefix={row.hasChildren ? (
+                    <span
+                      role="img"
+                      aria-label={expandedIds.has(task.id) ? "Collapse children" : "Expand children"}
+                      className="mr-1 inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleExpanded(row);
+                      }}
+                    >
+                      <DisclosureIcon aria-hidden="true" className="size-4" />
+                    </span>
+                  ) : undefined}
                   statusSlot={
                     <TaskStatusToggle
                       task={task}

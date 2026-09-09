@@ -176,7 +176,7 @@ export function ensureSchema(database: DatabaseSync): void {
     if (needsStatusMigration) migrateTaskStatusConstraint(database);
     if (needsRelationshipMigration) migrateRelationships(database);
     createSchema(database);
-    if (needsVersion || needsStatusMigration) {
+    if (needsVersion || needsStatusMigration || needsRelationshipMigration) {
       database
         .prepare("INSERT INTO schema_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .run(String(SCHEMA_VERSION));

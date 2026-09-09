@@ -404,8 +404,38 @@ try {
   check('document.querySelectorAll(`[data-status="open"]`).length === 4');
   check('document.activeElement.name === "title"');
   assert.equal((await command("task.list")).total, 4);
+
+  // The outline is intentionally shallow in the UI. A grandchild remains
+  // visible at one indentation level rather than creating recursive nesting.
+  const treeParent = (await command("task.create", { title: "Release parent" })).task;
+  const treeChild = (await command("task.create", { title: "Package child" })).task;
+  const treeGrandchild = (await command("task.create", { title: "Deep child" })).task;
+  await command("task.move", { id: treeChild.id, parentId: treeParent.id, expectedVersion: treeChild.version });
+  await command("task.move", { id: treeGrandchild.id, parentId: treeChild.id, expectedVersion: treeGrandchild.version });
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 5');
+  check('!document.body.textContent.includes("Package child")');
+  evaluate(`(() => {
+    const row = [...document.querySelectorAll('[role=option]')].find((entry) => entry.textContent.includes('Release parent'));
+    row?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    document.querySelector('[role=listbox]')?.focus();
+    return true;
+  })()`);
+  browser("press", "ArrowRight");
+  waitFor('document.querySelectorAll("[role=option]").length === 7 && document.querySelectorAll("[data-depth=\\"1\\"]").length === 2');
+  check('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Release parent")');
+  check('document.querySelector("[data-depth=\\"1\\"] .pl-6") !== null');
+  browser("press", "ArrowDown");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").includes("' + treeGrandchild.id + '")');
+  browser("press", "ArrowDown");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").includes("' + treeChild.id + '")');
+  browser("press", "ArrowLeft");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").includes("' + treeParent.id + '")');
+  browser("press", "ArrowLeft");
+  waitFor('document.querySelectorAll("[role=option]").length === 5 && !document.querySelector("[data-depth=\\"1\\"]")');
+
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, active/inactive filtering, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, active/inactive filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

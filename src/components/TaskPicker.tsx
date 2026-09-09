@@ -38,7 +38,8 @@ function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPick
   return all.filter((task) =>
     task.id !== subject.id
     && !descendants.has(task.id)
-    && task.id !== subject.parentId,
+    && task.id !== subject.parentId
+    && task.parentId === null,
   );
 }
 

@@ -52,6 +52,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Next field or list", icon: MoveRight, keys: ["Tab"], keywords: "tab cycle description" },
       { label: "Previous field", icon: MoveLeft, keys: ["Shift", "Tab"], keywords: "shift backwards cycle" },
       { label: "Move through tasks", icon: ListChecks, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
+      { label: "Expand or collapse children", icon: ListChecks, keys: ["←", "→"], keywords: "left right arrow child children parent subtask hierarchy" },
     ],
   },
   {
