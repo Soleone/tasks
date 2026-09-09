@@ -15,6 +15,19 @@ import {
 } from "@/components/ui/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
 
+/**
+ * Keep palette searches literal. cmdk's default scorer treats any ordered
+ * letter subsequence as a match, which is surprising for keyword-rich rows.
+ */
+function literalWordScore(value: string, search: string, keywords?: string[]): number {
+  const label = value.toLowerCase()
+  const haystack = `${label} ${keywords?.join(" ").toLowerCase() ?? ""}`
+  const words = search.toLowerCase().trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return 1
+  if (!words.every((word) => haystack.includes(word))) return 0
+  return words.reduce((score, word) => score + (label.includes(word) ? 2 : 1), 0)
+}
+
 function Command({
   className,
   ...props
@@ -191,4 +204,5 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
+  literalWordScore,
 }

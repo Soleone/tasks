@@ -1,7 +1,7 @@
 import { useRef, type ReactElement } from "react";
 import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function modeLabel(mode: ThemeMode): string {
@@ -67,7 +67,7 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
         initialFocus={searchInput}
         finalFocus={finalFocus}
       >
-        <Command label="Search themes" loop>
+        <Command label="Search themes" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search themes…" />
           <CommandList label="Theme results">
             <CommandEmpty>No matching themes.</CommandEmpty>

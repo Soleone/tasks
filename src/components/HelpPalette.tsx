@@ -15,7 +15,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
@@ -71,21 +71,6 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-/**
- * cmdk's default scorer is a fuzzy subsequence match, so a query like "theme" is
- * a hit anywhere its letters appear in order. Our values concatenate a long
- * keyword blob, which turns every group into a low-score match. Require each
- * query word to appear verbatim, and rank label matches above keyword-only ones.
- */
-function helpScore(value: string, search: string, keywords?: string[]): number {
-  const label = value.toLowerCase();
-  const haystack = `${label} ${keywords?.join(" ").toLowerCase() ?? ""}`;
-  const words = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return 1;
-  if (!words.every((word) => haystack.includes(word))) return 0;
-  return words.reduce((score, word) => score + (label.includes(word) ? 2 : 1), 0);
-}
-
 export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -106,7 +91,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings }: 
         initialFocus={searchInput}
         finalFocus={finalFocus}
       >
-        <Command label="Search shortcuts and syntax" filter={helpScore} loop>
+        <Command label="Search shortcuts and syntax" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
           <CommandList label="Help results">
             <CommandEmpty>No matches. Try “Tab” or “@”.</CommandEmpty>

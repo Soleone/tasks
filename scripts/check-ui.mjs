@@ -174,8 +174,11 @@ try {
   check('document.querySelectorAll("[cmdk-group]").length === 1');
   check(`document.querySelector("[cmdk-group]").querySelectorAll("[data-slot=command-item]").length === ${themeCount}`);
 
-  // "theme" is a fuzzy letter subsequence of several shortcut keyword blobs in
-  // the help palette. The dedicated picker should only show theme results.
+  // Theme names use literal word matching, so "cat" only returns Catppuccin.
+  browser("fill", 'input[role="combobox"]', "cat");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 2');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].every((item) => item.textContent.includes("Catppuccin"))');
+  // The dedicated picker should only show theme results for a broad query.
   browser("fill", 'input[role="combobox"]', "theme");
   waitFor('document.querySelectorAll("[cmdk-group]:not([hidden])").length === 1');
   check('document.querySelector("[cmdk-group]:not([hidden]) [cmdk-group-heading]").textContent === "Theme"');
