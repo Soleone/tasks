@@ -1,3 +1,7 @@
+import type { ThemeMode, ThemePalette } from "./themePalette.js";
+
+export type { ThemeMode, ThemePalette };
+
 export const PROTOCOL_VERSION = 1 as const;
 
 export const COMMAND_NAMES = [
@@ -15,11 +19,14 @@ export const COMMAND_NAMES = [
   "workspace.backup",
   "workspace.export",
   "workspace.restore",
+  "theme.list",
+  "theme.set",
 ] as const;
 
 export type CommandName = (typeof COMMAND_NAMES)[number];
 export type TaskStatus = "open" | "in_progress" | "done" | "canceled";
 export type ActorKind = "human" | "agent" | "system";
+export type ThemeSource = "builtin" | "workspace";
 
 export type Actor = {
   kind: ActorKind;
@@ -76,6 +83,17 @@ export type RuntimeProbeResult = {
   fts5Enabled: boolean;
   searchMatches: number;
   probeValue: string;
+};
+
+/** A theme the workspace can select. `system` mode follows the OS appearance. */
+export type ThemeRecord = {
+  name: string;
+  label: string;
+  mode: ThemeMode;
+  source: ThemeSource;
+  /** Resolved palette slots to colors; empty slots fall back to the stylesheet ramp. */
+  palette: ThemePalette;
+  warnings: string[];
 };
 
 export type SuccessResponse = {

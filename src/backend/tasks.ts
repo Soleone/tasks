@@ -628,6 +628,9 @@ export function executeTaskCommand(database: DatabaseSync, request: ProtocolRequ
       withTransaction(database, () => recordReceipt(database, request, context, result, now));
       return result;
     }
+    case "theme.list":
+    case "theme.set":
+      throw new CommandError("UNKNOWN_COMMAND", `${request.command} is handled by the theme command`);
     case "runtime.probe":
       throw new CommandError("UNKNOWN_COMMAND", "runtime.probe is handled by the runtime command");
   }

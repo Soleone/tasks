@@ -5,57 +5,74 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Palette slots, named after the omarchy colors.toml keys a theme file carries.
+ * Applying a theme (src/theme/applyTheme.ts) sets these inline on <html>, so the
+ * ramp below is both the pre-theme fallback and the whole of the built-in
+ * Default theme, which overrides no slot and follows the system appearance.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --om-accent: #2563eb;
+  --om-on-accent: oklch(1 0 0);
+  --om-background: oklch(1 0 0);
+  --om-dark-background: oklch(0.985 0 0);
+  --om-lighter-background: oklch(0.97 0 0);
+  --om-selection: oklch(0.93 0.02 259);
+  --om-muted: oklch(0.922 0 0);
+  --om-foreground: oklch(0.145 0 0);
+  --om-bright-foreground: oklch(0.145 0 0);
+  --om-muted-foreground: oklch(0.556 0 0);
+  --om-red: oklch(0.577 0.245 27.325);
+  color-scheme: light;
+}
+
+.dark {
+  --om-accent: #60a5fa;
+  --om-on-accent: oklch(0.145 0 0);
+  --om-background: oklch(0.205 0 0);
+  --om-dark-background: oklch(0.145 0 0);
+  --om-lighter-background: oklch(0.269 0 0);
+  --om-selection: oklch(0.32 0.03 259);
+  --om-muted: oklch(1 0 0 / 12%);
+  --om-foreground: oklch(0.985 0 0);
+  --om-bright-foreground: oklch(0.985 0 0);
+  --om-muted-foreground: oklch(0.708 0 0);
+  --om-red: oklch(0.704 0.191 22.216);
+  color-scheme: dark;
+}
+
+/*
+ * Regions. Components use only these tokens; a theme never has to know they
+ * exist. Two names collide with omarchy and are mapped deliberately: their
+ * `accent` is the brand color, so it becomes our primary and focus ring, while
+ * shadcn's `--accent` is a quiet hover surface and takes their `selection`.
+ * Their `muted` is a de-emphasized ink, so it becomes dividers and input edges.
+ */
+:root {
+  --background: var(--om-dark-background);
+  --foreground: var(--om-foreground);
+  --card: var(--om-background);
+  --card-foreground: var(--om-foreground);
+  --popover: var(--om-background);
+  --popover-foreground: var(--om-foreground);
+  --primary: var(--om-accent);
+  --primary-foreground: var(--om-on-accent);
+  --secondary: var(--om-lighter-background);
+  --secondary-foreground: var(--om-bright-foreground);
+  --muted: var(--om-lighter-background);
+  --muted-foreground: var(--om-muted-foreground);
+  --accent: var(--om-selection);
+  --accent-foreground: var(--om-bright-foreground);
+  --destructive: var(--om-red);
+  --border: var(--om-muted);
+  --input: var(--om-muted);
+  --ring: var(--om-accent);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
 }
 
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -83,40 +100,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -128,5 +111,10 @@
 
   html {
     @apply font-sans;
+  }
+
+  ::selection {
+    background: var(--om-selection);
+    color: var(--om-bright-foreground);
   }
 }

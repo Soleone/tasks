@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,6 +9,7 @@ import { setTimeout as delay } from "node:timers/promises";
 // Requires agent-browser with Linux Chromium installed. All writes use a scratch database.
 const root = path.resolve(import.meta.dirname, "..");
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-ui-check-"));
+mkdirSync(path.join(scratch, "themes"), { recursive: true });
 const session = `tasks-ui-check-${process.pid}`;
 const server = createServer();
 async function freePort() {
@@ -151,6 +152,53 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
+  // Themes: an omarchy palette drives the regions, and the choice persists.
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('document.querySelectorAll("[cmdk-group]")[4].querySelectorAll("[data-slot=command-item]").length === 7');
+  browser("fill", 'input[role="combobox"]', "gruvbox");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('!document.querySelector("[role=dialog]") && getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)"');
+  waitFor('getComputedStyle(document.querySelector("form button[type=submit]")).backgroundColor === "rgb(125, 174, 163)"');
+  assert.equal((await command("theme.list")).selected, "gruvbox", "the workspace stores the choice");
+  const themeAudit = JSON.parse(browser("--json", "a11y"));
+  assert.equal(themeAudit.data.violations.length, 0, JSON.stringify(themeAudit.data.violations));
+
+  browser("reload");
+  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)" && document.querySelectorAll("[role=option]").length === 3');
+  check('document.documentElement.classList.contains("dark")');
+
+  // A light palette drops the dark class, and a file beside the database joins the picker.
+  writeFileSync(path.join(scratch, "themes", "sunset.toml"), 'mode = "light"\naccent = "#c2410c"\nbackground = "#fff7ed"\ndark_background = "#ffedd5"\nforeground = "#431407"\n');
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "latte");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Catppuccin Latte"))');
+  evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.startsWith("Catppuccin Latte")).click(); true');
+  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(227, 228, 232)"');
+  check('!document.documentElement.classList.contains("dark")');
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "sunset");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Sunset"))');
+  evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.startsWith("Sunset")).click(); true');
+  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(255, 237, 213)"');
+  waitFor('getComputedStyle(document.querySelector("form button[type=submit]")).backgroundColor === "rgb(194, 65, 12)"');
+  assert.equal((await command("theme.list")).selected, "sunset");
+
+  // Back to the neutral ramp: the default theme overrides no slot, so no
+  // palette custom property survives on <html>.
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "default");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('document.documentElement.getAttribute("style") === "" && getComputedStyle(document.body).backgroundColor === getComputedStyle(document.documentElement).getPropertyValue("--om-dark-background").trim()');
+  assert.equal((await command("theme.list")).selected, "default");
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 3');
+
   // Empty title skips description and goes to the list; filled title reveals it.
   browser("press", "Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
@@ -280,7 +328,7 @@ try {
   check('document.activeElement.matches("section[aria-label=\\"Saved tasks\\"]")');
   assert.equal((await command("task.list")).total, 0);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, deletion/cancellation, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

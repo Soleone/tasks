@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import type { TaskRecord } from "@/backend/protocol";
+import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { TaskList, type TaskListHandle } from "@/components/TaskList";
 import { Button } from "@/components/ui/button";
-import { closeBackendSession, listTasks } from "@/platform/backendClient";
+import { closeBackendSession, listTasks, listThemes, setTheme } from "@/platform/backendClient";
 import { backendKind } from "@/platform/backendTransport";
+import { applyTheme } from "@/theme";
 
 // Keep keyboard navigation inside the app; an empty new title skips the optional description.
 // The list is one tab stop; arrows move between tasks, Enter opens one.
@@ -18,6 +19,8 @@ export default function App(): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [themes, setThemes] = useState<ThemeRecord[]>([]);
+  const [selectedTheme, setSelectedTheme] = useState("");
   const helpReturnFocus = useRef<HTMLElement | null>(null);
   const capture = useRef<HTMLDivElement>(null);
   const taskList = useRef<TaskListHandle>(null);
@@ -53,6 +56,30 @@ export default function App(): ReactElement {
     };
   }, [refreshTasks]);
 
+  const refreshThemes = useCallback((applySelection: boolean): Promise<void> => {
+    return listThemes()
+      .then((result) => {
+        setThemes(result.themes);
+        setSelectedTheme(result.selected);
+        if (!applySelection) return;
+        const selected = result.themes.find((theme) => theme.name === result.selected);
+        if (selected) applyTheme(selected);
+      })
+      .catch(() => {
+        // The neutral ramp in styles.css stays applied without a workspace theme.
+      });
+  }, []);
+
+  useEffect(() => {
+    void refreshThemes(true);
+  }, [refreshThemes]);
+
+  // Theme files can appear or disappear while the app runs, so the picker
+  // re-reads them every time it opens.
+  useEffect(() => {
+    if (helpOpen) void refreshThemes(false);
+  }, [helpOpen, refreshThemes]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.isComposing || event.repeat || event.altKey) return;
@@ -65,6 +92,18 @@ export default function App(): ReactElement {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [helpOpen]);
+
+  async function chooseTheme(name: string): Promise<void> {
+    setHelpOpen(false);
+    try {
+      const result = await setTheme(name);
+      applyTheme(result.theme);
+      setSelectedTheme(result.selected);
+      setAnnouncement(`Theme: ${result.theme.label}`);
+    } catch (caught) {
+      setAnnouncement(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
 
   function focusTitle(): void {
     capture.current?.querySelector<HTMLInputElement>("input[name=title]")?.focus();
@@ -184,7 +223,14 @@ export default function App(): ReactElement {
         <p role="status" className="sr-only">{announcement}</p>
         {backendKind() === "browser" ? <p className="text-sm text-muted-foreground">Browser preview</p> : null}
       </div>
-      <HelpPalette open={helpOpen} onOpenChange={setHelpOpen} returnFocus={helpReturnFocus.current} />
+      <HelpPalette
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        returnFocus={helpReturnFocus.current}
+        themes={themes}
+        selectedTheme={selectedTheme}
+        onSelectTheme={(name) => void chooseTheme(name)}
+      />
     </main>
   );
 }

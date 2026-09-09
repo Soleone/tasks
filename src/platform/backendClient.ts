@@ -5,12 +5,15 @@ import {
   type ProtocolRequest,
   type RuntimeProbeResult,
   type TaskRecord,
+  type ThemeRecord,
 } from "../backend/protocol";
 import { getBackendTransport } from "./backendTransport";
 
 export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; total: number; limit: number; offset: number };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
+export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
+export type ThemeSetResult = { theme: ThemeRecord; selected: string };
 
 export type CommandOptions = {
   idempotencyKey?: string;
@@ -102,6 +105,14 @@ export async function transitionTask(
 
 export async function listActivity(taskId?: string): Promise<ActivityListResult> {
   return runBackendCommand<ActivityListResult>("activity.list", taskId ? { taskId } : {});
+}
+
+export async function listThemes(): Promise<ThemeListResult> {
+  return runBackendCommand<ThemeListResult>("theme.list");
+}
+
+export async function setTheme(name: string): Promise<ThemeSetResult> {
+  return runBackendCommand<ThemeSetResult>("theme.set", { name });
 }
 
 export async function closeBackendSession(): Promise<void> {

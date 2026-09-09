@@ -3,6 +3,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RuntimeProbeResult } from "./protocol.js";
 
+// Adding a table keeps schema version 1: older clients still read every table
+// they know, and this one is created on their next open.
 export const SCHEMA_VERSION = 1;
 
 function readString(value: unknown, field: string): string {
@@ -85,6 +87,12 @@ function createSchema(database: DatabaseSync): void {
       request_hash TEXT NOT NULL,
       response_json TEXT NOT NULL,
       created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS tasks_updated_at_idx ON tasks (updated_at DESC, id ASC);

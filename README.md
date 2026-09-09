@@ -54,6 +54,28 @@ pnpm dev:tauri
 
 `pnpm dev:tauri` should launch the current M0 shell. `pnpm build:tauri` creates a release bundle after the development launch works.
 
+## Theming
+
+The app renders through a small set of region tokens, and themes are palettes in the [omarchy](https://omarchy.org) `colors.toml` format. A palette says which color is the canvas, the surface, the raised chip, the selection, the dividers, the ink ramp, and the accent:
+
+| Region | Palette slot | Used for |
+| --- | --- | --- |
+| Canvas | `dark_background` | page behind the surfaces |
+| Surface | `background` | cards, dialogs, the command palette |
+| Raised | `lighter_background` | chips, hover, the selected row |
+| Selection | `selection` | text selection and quiet hover |
+| Dividers | `muted` | borders and input edges |
+| Ink | `foreground`, `muted_foreground`, `bright_foreground` | body, secondary, and strong text |
+| Accent | `accent` | primary buttons and the focus ring |
+
+Two names collide with omarchy and are mapped deliberately: omarchy `accent` is the brand color, so it becomes the primary button and the focus ring, while shadcn's `--accent` is a quiet hover surface and takes omarchy `selection`. Omarchy `muted` is a de-emphasized ink, so it becomes dividers rather than a surface.
+
+Built-in themes ship with the app: Default (neutral, follows the system appearance), Tokyo Night, Catppuccin Mocha, Gruvbox, Nord, Catppuccin Latte, and Rose Pine Dawn. Choose one from the Theme group in the Ctrl/Cmd+K palette, or over the shared command path with `theme.list` and `theme.set`; the choice is stored in the workspace database. Rose Pine Dawn ships a mid-tone accent whose button ink clears the 3:1 non-text floor rather than 4.5:1; themes stay faithful to their author over corrected.
+
+To use any other omarchy theme, copy its `colors.toml` into the workspace `themes/` folder beside `tasks.db` (for example `%APPDATA%\com.soleone.tasks\themes` on Windows or `~/.local/share/com.soleone.tasks/themes` on Linux) and name it `<theme-name>.toml`. It appears in the palette the next time it opens, and a file named after a built-in overrides it. A file may set only the slots it cares about: anything it leaves out falls back to the neutral ramp for its `mode`, so a short file with just an `accent` is a valid theme. Parse problems show up as the item's hint instead of breaking the list.
+
+Slots the regions need but a palette omits are derived from the ones it declares, and text roles are corrected toward readability because palettes arrive from theme authors: secondary ink is pulled toward the body ink until it clears 4.5:1 on every surface it can sit on, and ink on an accent fill comes from the theme's own darkest or lightest stop.
+
 ## License
 
 [MIT](LICENSE).
