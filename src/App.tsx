@@ -160,9 +160,9 @@ export default function App(): ReactElement {
     <main className="min-h-svh bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
         <header className="flex items-center justify-between gap-4">
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <h1 className="flex items-center gap-2 font-semibold">
             <AppIcon className="size-8 shrink-0" />
-            <span>Tasks</span>
+            <span className="text-[32px] leading-none">Tasks</span>
           </h1>
           <ButtonGroup
             onKeyDown={(event) => {

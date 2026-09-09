@@ -163,16 +163,12 @@
  * --app-icon-bg and foreground shapes with --app-icon-fg (as inline
  * `style`, since var() is invalid in SVG presentation attributes), so
  * replacement artwork using the same two hooks themes automatically. The
- * tile sits one step off the page canvas: in dark mode the surface
- * (--om-background) is the lighter step, in light mode the raised slot
- * (--om-lighter-background) is the darker step.
+ * tile is the theme accent and the mark is knocked out to the page canvas
+ * behind the icon.
  */
 :root {
-  --app-icon-bg: var(--om-lighter-background);
-  --app-icon-fg: var(--om-accent);
-}
-.dark {
-  --app-icon-bg: var(--om-background);
+  --app-icon-bg: var(--om-accent);
+  --app-icon-fg: var(--om-dark-background);
 }
 
 .app-icon > svg {
