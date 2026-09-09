@@ -71,17 +71,13 @@ type StatusReceipt = {
 };
 
 function taskMetadata(task: TaskRecord): ReactElement | null {
-  const statusLabel = taskStatusMeta[task.status].label;
-  const showStatusLabel = task.status !== "open";
   const hasClassification = Boolean(task.category) || task.tags.length > 0;
-  if (!showStatusLabel && !hasClassification) return null;
+  if (!hasClassification) return null;
 
   return (
     <ItemDescription className="flex flex-wrap items-center gap-1.5">
-      {showStatusLabel ? <span>{statusLabel}</span> : null}
-      {showStatusLabel && task.category ? <span aria-hidden="true">·</span> : null}
       {task.category ? <Badge variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">@{task.category.label}</Badge> : null}
-      {(showStatusLabel || task.category) && task.tags.length ? <span aria-hidden="true">·</span> : null}
+      {task.category && task.tags.length ? <span aria-hidden="true">·</span> : null}
       {task.tags.map((tag) => (
         <Badge key={tag.slug} variant="outline" className="h-5 px-1.5 text-xs font-normal text-muted-foreground">#{tag.label}</Badge>
       ))}
