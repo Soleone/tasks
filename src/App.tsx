@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
-import logoUrl from "../assets/branding/ai-todo-icon-two-color-v4.png";
+import logoUrl from "../assets/branding/ai-todo-icon-two-color-v6.png";
 import type { TaskRecord, ThemeRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
