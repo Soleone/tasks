@@ -63,6 +63,7 @@ type StatusReceipt = {
 };
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
+const ACTIVE_FILTER_CLASS = "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary";
 
 export function TaskList({
   tasks,
@@ -365,7 +366,8 @@ export function TaskList({
           <TooltipTrigger
             render={
               <Button
-                variant={projectFilter ? "secondary" : "ghost"}
+                variant={projectFilter ? "outline" : "ghost"}
+                className={projectFilter ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={projectFilter ? `Clear project filter: ${projectFilter.label}` : "Filter by project"}
@@ -385,7 +387,8 @@ export function TaskList({
           <TooltipTrigger
             render={
               <Button
-                variant={showInactive ? "secondary" : "ghost"}
+                variant={showInactive ? "outline" : "ghost"}
+                className={showInactive ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={showInactive ? "Show active tasks" : "Show inactive tasks"}
@@ -405,7 +408,8 @@ export function TaskList({
           <TooltipTrigger
             render={
               <Button
-                variant={showUnblocked ? "secondary" : "ghost"}
+                variant={showUnblocked ? "outline" : "ghost"}
+                className={showUnblocked ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={showUnblocked ? "Show all tasks" : "Show unblocked tasks"}

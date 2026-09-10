@@ -137,6 +137,7 @@ try {
   waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "true"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
+  check('(() => { const active = document.querySelector("[data-filter=task-activity]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "a");
   waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
