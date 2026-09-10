@@ -8,7 +8,7 @@ export const COMMAND_NAMES = [
   "runtime.probe",
   "task.create",
   "task.list",
-  "project.list",
+  "category.list",
   "tag.list",
   "task.get",
   "task.update",
@@ -37,8 +37,8 @@ export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type ActorKind = "human" | "agent" | "system";
 export type ThemeSource = "builtin" | "workspace";
 
-/** Product-facing project entries backed by the task text's @category values. */
-export type ProjectRecord = {
+/** Product-facing category entries backed by the task text's @category values. */
+export type CategoryRecord = {
   slug: string;
   label: string;
   taskCount: number;

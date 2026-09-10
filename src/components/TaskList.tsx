@@ -6,11 +6,11 @@ import {
   type ReactElement,
 } from "react";
 import { ChevronDown, ChevronRight, Flag, Folder, ListFilter, Plus, Search, Tags, TriangleAlert } from "lucide-react";
-import type { ProjectRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
+import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, type StatusPreset } from "@/components/taskFilters";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
-import { projectVisibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
+import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -65,9 +65,9 @@ type TaskListProps = {
   onOpenPriorityMenu: () => void;
   showUnblocked: boolean;
   onShowUnblockedChange: (show: boolean) => void;
-  projectFilter: ProjectRecord | null;
-  onProjectFilterChange: (project: ProjectRecord | null) => void;
-  onOpenProjectPicker: () => void;
+  categoryFilter: CategoryRecord | null;
+  onCategoryFilterChange: (category: CategoryRecord | null) => void;
+  onOpenCategoryPicker: () => void;
   tagFilter: TagRecord[];
   onTagFilterChange: (tags: TagRecord[]) => void;
   onOpenTagPicker: () => void;
@@ -113,8 +113,8 @@ type HomeShortcutActions = {
   toggleStatusPreset: () => void;
   applyPriorityFilter: (priority: TaskPriority) => void;
   toggleUnblockedFilter: () => void;
-  clearProjectFilter: () => void;
-  openProjectPicker: () => void;
+  clearCategoryFilter: () => void;
+  openCategoryPicker: () => void;
   clearTagFilter: () => void;
   openTagPicker: () => void;
   addBlocker: (task: TaskRecord) => void;
@@ -141,9 +141,9 @@ export function TaskList({
   onOpenPriorityMenu,
   showUnblocked,
   onShowUnblockedChange,
-  projectFilter,
-  onProjectFilterChange,
-  onOpenProjectPicker,
+  categoryFilter,
+  onCategoryFilterChange,
+  onOpenCategoryPicker,
   tagFilter,
   onTagFilterChange,
   onOpenTagPicker,
@@ -187,7 +187,7 @@ export function TaskList({
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
 
-  const visibleRows = useMemo(() => projectVisibleTaskRows(tasks, expandedIds), [tasks, expandedIds]);
+  const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds), [tasks, expandedIds]);
   const hasMore = tasks.length < total;
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.
@@ -292,18 +292,18 @@ export function TaskList({
     onAnnounce(next ? "Showing unblocked tasks" : "Showing all tasks");
   }
 
-  function clearProjectFilter(): void {
-    if (!projectFilter) return;
-    onProjectFilterChange(null);
-    onAnnounce("Showing tasks from all projects");
+  function clearCategoryFilter(): void {
+    if (!categoryFilter) return;
+    onCategoryFilterChange(null);
+    onAnnounce("Showing tasks from all categories");
   }
 
-  function toggleProjectFilter(): void {
-    if (projectFilter) {
-      clearProjectFilter();
+  function toggleCategoryFilter(): void {
+    if (categoryFilter) {
+      clearCategoryFilter();
       return;
     }
-    onOpenProjectPicker();
+    onOpenCategoryPicker();
   }
 
   function clearTagFilter(): void {
@@ -435,8 +435,8 @@ export function TaskList({
     toggleStatusPreset,
     applyPriorityFilter,
     toggleUnblockedFilter,
-    clearProjectFilter,
-    openProjectPicker: onOpenProjectPicker,
+    clearCategoryFilter,
+    openCategoryPicker: onOpenCategoryPicker,
     clearTagFilter,
     openTagPicker: onOpenTagPicker,
     addBlocker: onAddBlocker,
@@ -478,7 +478,7 @@ export function TaskList({
       }
       if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
       // A pending Shift+S sequence takes precedence over single-key filters:
-      // P means Paused and C means Canceled here, not project picker or create.
+      // P means Paused and C means Canceled here, not category picker or create.
       if (statusSequence.current.pending) {
         if (event.repeat) return;
         const exact = EXACT_STATUS_BY_KEY.get(event.key.toLowerCase());
@@ -494,7 +494,7 @@ export function TaskList({
         if (event.repeat) return;
         event.preventDefault();
         actions.openSearch();
-      } else if (event.key.toLowerCase() === "c" && !event.shiftKey) {
+      } else if (event.key.toLowerCase() === "n" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
         actions.createTask();
@@ -514,11 +514,11 @@ export function TaskList({
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
         actions.toggleUnblockedFilter();
-      } else if (event.key.toLowerCase() === "p") {
+      } else if (event.key.toLowerCase() === "c") {
         if (event.repeat) return;
         event.preventDefault();
-        if (event.shiftKey) actions.clearProjectFilter();
-        else actions.openProjectPicker();
+        if (event.shiftKey) actions.clearCategoryFilter();
+        else actions.openCategoryPicker();
       } else if (event.key.toLowerCase() === "t") {
         if (event.repeat) return;
         event.preventDefault();
@@ -578,7 +578,7 @@ export function TaskList({
   const filterSummary = [
     `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`,
     priorityFilter !== null ? priorityLabel : null,
-    projectFilter ? `@${projectFilter.label}` : null,
+    categoryFilter ? `@${categoryFilter.label}` : null,
     summaryTags,
     searchActive ? `“${searchQuery.trim()}”` : null,
     showUnblocked ? "unblocked" : null,
@@ -591,7 +591,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
+      aria-keyshortcuts="Escape N S A U C T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -605,7 +605,7 @@ export function TaskList({
           <Button
             size="sm"
             tabIndex={-1}
-            aria-keyshortcuts="C"
+            aria-keyshortcuts="N"
             onClick={onCreate}
           >
             <Plus aria-hidden="true" />
@@ -658,22 +658,22 @@ export function TaskList({
           <TooltipTrigger
             render={
               <Button
-                variant={projectFilter ? "outline" : "ghost"}
-                className={projectFilter ? ACTIVE_FILTER_CLASS : undefined}
+                variant={categoryFilter ? "outline" : "ghost"}
+                className={categoryFilter ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={projectFilter ? `Clear project filter: ${projectFilter.label}` : "Filter by project"}
-                aria-pressed={projectFilter !== null}
-                aria-keyshortcuts="P"
-                data-filter="task-project"
-                onClick={toggleProjectFilter}
+                aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category"}
+                aria-pressed={categoryFilter !== null}
+                aria-keyshortcuts="C Shift+C"
+                data-filter="task-category"
+                onClick={toggleCategoryFilter}
               />
             }
           >
             <Folder aria-hidden="true" />
-            <span className="sr-only">{projectFilter ? `Clear project filter: ${projectFilter.label}` : "Filter by project"}</span>
+            <span className="sr-only">{categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category"}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{projectFilter ? projectFilter.label : "Project"}</TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{categoryFilter ? categoryFilter.label : "Category"}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -768,7 +768,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
+          aria-keyshortcuts="Escape N S A U C T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -859,7 +859,7 @@ export function TaskList({
         <Empty>
           <EmptyHeader>
             <EmptyTitle>No tasks yet</EmptyTitle>
-            <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
+            <EmptyDescription>Press N or choose New task to capture.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}

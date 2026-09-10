@@ -26,10 +26,10 @@ function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
 }
 
 /**
- * Projects the loaded task set into a shallow outline. Deeper relationships
+ * Flattens the loaded task set into a shallow outline. Deeper relationships
  * stay visible as one-level descendants instead of creating an unbounded UI.
  */
-export function projectVisibleTaskRows(tasks: TaskRecord[], expandedIds: ReadonlySet<string>): VisibleTaskRow[] {
+export function visibleTaskRows(tasks: TaskRecord[], expandedIds: ReadonlySet<string>): VisibleTaskRow[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const groups = new Map<string, TaskGroup>();
 

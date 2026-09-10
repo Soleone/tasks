@@ -121,29 +121,29 @@ test("task.list filters to unblocked tasks", () => {
   }
 });
 
-test("task.list filters by project and project.list returns project entries", () => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-project-filter-"));
+test("task.list filters by category and category.list returns category entries", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-category-filter-"));
   const databasePath = path.join(directory, "tasks.db");
 
   try {
-    const alpha = task(executeCommand(request("task.create", { title: "Alpha task @Alpha" }, { idempotencyKey: "project-alpha" }), databasePath));
-    const beta = task(executeCommand(request("task.create", { title: "Beta task @Beta" }, { idempotencyKey: "project-beta" }), databasePath));
-    task(executeCommand(request("task.create", { title: "Unassigned task" }, { idempotencyKey: "project-none" }), databasePath));
+    const alpha = task(executeCommand(request("task.create", { title: "Alpha task @Alpha" }, { idempotencyKey: "category-alpha" }), databasePath));
+    const beta = task(executeCommand(request("task.create", { title: "Beta task @Beta" }, { idempotencyKey: "category-beta" }), databasePath));
+    task(executeCommand(request("task.create", { title: "Unassigned task" }, { idempotencyKey: "category-none" }), databasePath));
 
-    const projects = executeCommand(request("project.list"), databasePath) as {
-      projects: Array<{ slug: string; label: string; taskCount: number }>;
+    const categories = executeCommand(request("category.list"), databasePath) as {
+      categories: Array<{ slug: string; label: string; taskCount: number }>;
     };
-    assert.deepEqual(projects.projects, [
+    assert.deepEqual(categories.categories, [
       { slug: "alpha", label: "Alpha", taskCount: 1 },
       { slug: "beta", label: "Beta", taskCount: 1 },
     ]);
 
-    const filtered = executeCommand(request("task.list", { project: " ALPHA " }), databasePath);
+    const filtered = executeCommand(request("task.list", { category: " ALPHA " }), databasePath);
     assert.equal(filtered.total, 1);
     assert.deepEqual((filtered.tasks as TaskRecord[]).map((item) => item.id), [alpha.id]);
     assert.throws(
-      () => executeCommand(request("task.list", { project: "" }), databasePath),
-      /project must be a non-empty string/,
+      () => executeCommand(request("task.list", { category: "" }), databasePath),
+      /category must be a non-empty string/,
     );
     assert.equal(beta.category?.slug, "beta");
   } finally {
@@ -752,7 +752,7 @@ test("task.list filters by tags with AND semantics and tag.list reports counts",
   }
 });
 
-test("task.list searches title and description and accepts a category alias", () => {
+test("task.list searches title, description, and category", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-search-"));
   const databasePath = path.join(directory, "tasks.db");
   try {
@@ -776,7 +776,6 @@ test("task.list searches title and description and accepts a category alias", ()
     const byCategory = executeCommand(request("task.list", { category: " LAUNCH " }), databasePath);
     assert.equal(byCategory.total, 1);
     assert.deepEqual((byCategory.tasks as TaskRecord[]).map((item) => item.id), [titled.id]);
-    assert.throws(() => executeCommand(request("task.list", { project: "launch", category: "other" }), databasePath), /project and category must match/);
   } finally {
     cleanDirectory(directory);
   }

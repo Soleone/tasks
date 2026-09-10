@@ -8,11 +8,11 @@ Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progres
 
 - The first load opens with no dialog and moves focus to the task-list surface.
 - When tasks exist, focus is on the `listbox`; the first visible task is the active row.
-- An empty workspace focuses the `Saved tasks` list shell. From there, `C` opens capture.
+- An empty workspace focuses the `Saved tasks` list shell. From there, `N` opens capture.
 - A filtered empty workspace keeps a focusable task-list shell at roughly one task-row width and height, shows “No tasks match the current filters,” and offers a mouse-accessible Clear filters action. Clear filters is not a Tab destination because Escape resets filters from the list.
 - A load error focuses `Retry` until the first successful load can focus the list.
 - Loading or refreshing tasks must not steal focus from the current task, an open editor, or another dialog.
-- `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `C` or the command palette is the primary keyboard path.
+- `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `N` or the command palette is the primary keyboard path.
 
 The list uses a single focus stop. Arrow keys move the active row and do not add a tab stop for every task. The active row is exposed through `aria-activedescendant` and `aria-selected`.
 
@@ -21,14 +21,14 @@ The list uses a single focus stop. Arrow keys move the active row and do not add
 One compact row above the list, in this order:
 
 ```text
-[ Status ] [ Priority ] [ Project ] [ Tags ] [ Search ] [ Unblocked ]
+[ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ]
 ```
 
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers, such as “12 active tasks” or “3 in progress tasks”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
 - Priority: P0 highest through P4 lowest. Every task defaults to P2. Color is supplemental; labels stay present.
-- Project: the `@category` grouping. Single-select.
+- Category: the `@category` grouping. Single-select.
 - Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag and `Enter` closes it; `Shift+T` clears the filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
 
@@ -38,7 +38,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 
 | Key | Action |
 | --- | --- |
-| `C` | Open the New task dialog |
+| `N` | Open the New task dialog |
 | `Enter` | Edit the active task |
 | `Space` | Cycle the active task through open, in progress, paused, and done |
 | `Delete` | Open cancellation confirmation for the active task |
@@ -50,8 +50,8 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Shift+S C` | Show only Canceled tasks |
 | `0` `1` `2` `3` `4` | Filter to P0 through P4; pressing the active number clears it |
 | `U` | Toggle the unblocked-task view |
-| `P` | Open the project filter |
-| `Shift+P` | Clear the project filter |
+| `C` | Open the category filter |
+| `Shift+C` | Clear the category filter |
 | `T` | Open the tag filter |
 | `Shift+T` | Clear the tag filter |
 | `/` | Open task search |
@@ -78,7 +78,7 @@ Treat this document as the UI interaction contract when using browser automation
 - Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
 - Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The dialog's priority section is its single keyboard focus stop.
 - Clicking a filter button, the New task button, or a task status icon never moves DOM focus (the mousedown default is prevented), so the list keeps focus and arrow keys keep working. The header Help, Themes, and Settings buttons are outside the list and do take focus on click; dialogs opened from them return focus to the button.
-- Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `C` or the command palette to open capture.
+- Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `N` or the command palette to open capture.
 - Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
 - Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus and the window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.

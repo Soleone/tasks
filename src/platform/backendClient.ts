@@ -3,7 +3,7 @@ import {
   parseRuntimeProbeResult,
   type ActivityRecord,
   type ProtocolRequest,
-  type ProjectRecord,
+  type CategoryRecord,
   type RuntimeProbeResult,
   type TagRecord,
   type TaskPriority,
@@ -21,7 +21,7 @@ export type TaskListFilters = {
   category?: string;
 };
 
-export type ProjectListResult = { projects: ProjectRecord[] };
+export type CategoryListResult = { categories: CategoryRecord[] };
 export type TagListResult = { tags: TagRecord[] };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
 export type WorkspaceInfoResult = { databasePath: string; taskCount: number };
@@ -82,13 +82,13 @@ export async function listTasks(
   status?: string | readonly string[],
   offset = 0,
   unblocked = false,
-  project?: string,
+  category?: string,
   filters: TaskListFilters = {},
 ): Promise<TaskListResult> {
   return runBackendCommand<TaskListResult>("task.list", {
     ...(status !== undefined ? { status } : {}),
     ...(unblocked ? { unblocked: true } : {}),
-    ...(project !== undefined ? { project } : {}),
+    ...(category !== undefined ? { category } : {}),
     ...(filters.category !== undefined ? { category: filters.category } : {}),
     ...(filters.priority !== undefined ? { priority: filters.priority } : {}),
     ...(filters.tags !== undefined && filters.tags.length > 0 ? { tags: filters.tags } : {}),
@@ -97,8 +97,8 @@ export async function listTasks(
   });
 }
 
-export async function listProjects(): Promise<ProjectListResult> {
-  return runBackendCommand<ProjectListResult>("project.list");
+export async function listCategories(): Promise<CategoryListResult> {
+  return runBackendCommand<CategoryListResult>("category.list");
 }
 
 export async function listTags(): Promise<TagListResult> {

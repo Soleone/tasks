@@ -32,14 +32,14 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "filter-project" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
+  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Task actions",
     entries: [
-      { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture dialog" },
+      { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["N"], action: "new-task", keywords: "n create new add task capture dialog" },
       { label: "Set task priority", hint: "Focus Priority in dialog", icon: Flag, keys: ["0", "1", "2", "3", "4"], keywords: "dialog composer create edit set choose task priority p0 p1 p2 p3 p4" },
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
@@ -47,7 +47,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Exact status", hint: "Shift+S then O I D P C", icon: ListFilter, keys: ["Shift", "S"], action: "filter-status", keywords: "shift s exact open in progress done paused canceled o i d p c status" },
       { label: "Priority filter", hint: "0-4, same key clears", icon: Flag, keys: ["0", "1", "2", "3", "4"], action: "filter-priority", keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
-      { label: "Filter by project", hint: "P opens, Shift+P clears", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p shift p project folder filter clear category" },
+      { label: "Filter by category", hint: "C opens, Shift+C clears", icon: Folder, keys: ["C"], action: "filter-category", keywords: "c shift c category folder filter clear" },
       { label: "Filter by tags", hint: "T opens, Space picks, Enter closes", icon: Tags, keys: ["T"], action: "filter-tags", keywords: "t shift t space enter tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
@@ -87,13 +87,13 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onOpenProjectPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
   onCreate: () => void;
-  onOpenProjectPicker: () => void;
+  onOpenCategoryPicker: () => void;
   onOpenStatusMenu: () => void;
   onOpenPriorityMenu: () => void;
   onOpenTagPicker: () => void;
@@ -130,8 +130,8 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                       ? onOpenSettings
                       : entry.action === "new-task"
                         ? onCreate
-                        : entry.action === "filter-project"
-                          ? onOpenProjectPicker
+                        : entry.action === "filter-category"
+                          ? onOpenCategoryPicker
                           : entry.action === "filter-status"
                             ? onOpenStatusMenu
                             : entry.action === "filter-priority"

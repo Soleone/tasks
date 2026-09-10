@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import type { ProjectRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, type StatusPreset } from "@/components/taskFilters";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
 import { TagPicker } from "@/components/TagPicker";
@@ -31,7 +31,7 @@ function taskIsVisible(
   exactStatus: TaskStatus | null,
   statusPreset: StatusPreset,
   showUnblocked: boolean,
-  projectSlug: string | null,
+  categorySlug: string | null,
   priorityFilter: TaskPriority | null,
   tagSlugs: readonly string[],
   searchQuery: string,
@@ -41,7 +41,7 @@ function taskIsVisible(
     : (statusPreset === "inactive" ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
   if (!statusOk) return false;
   if (showUnblocked && task.blockedByIds.length > 0) return false;
-  if (projectSlug !== null && task.category?.slug !== projectSlug) return false;
+  if (categorySlug !== null && task.category?.slug !== categorySlug) return false;
   if (priorityFilter !== null && task.priority !== priorityFilter) return false;
   if (tagSlugs.length > 0) {
     const taskTags = new Set(task.tags.map((tag) => tag.slug));
@@ -63,7 +63,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 // The list is the default surface. Create and edit share one dialog opened
-// by the New task button, the C key, or the palette. Tab does not leave the
+// by the New task button, the N key, or the palette. Tab does not leave the
 // focused task list.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -74,8 +74,8 @@ export default function App(): ReactElement {
   const [tagFilter, setTagFilter] = useState<TagRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnblocked, setShowUnblocked] = useState(false);
-  const [projectFilter, setProjectFilter] = useState<ProjectRecord | null>(null);
-  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryRecord | null>(null);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
@@ -98,7 +98,7 @@ export default function App(): ReactElement {
   const tagFilterRef = useRef<string[]>([]);
   const searchQueryRef = useRef("");
   const showUnblockedRef = useRef(false);
-  const projectFilterRef = useRef<string | null>(null);
+  const categoryFilterRef = useRef<string | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
   composerRef.current = composer;
 
@@ -116,7 +116,7 @@ export default function App(): ReactElement {
         statuses,
         offset,
         showUnblockedRef.current,
-        projectFilterRef.current ?? undefined,
+        categoryFilterRef.current ?? undefined,
         {
           ...(priorityFilterRef.current !== null ? { priority: priorityFilterRef.current } : {}),
           ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
@@ -140,9 +140,9 @@ export default function App(): ReactElement {
     tagFilterRef.current = tagFilter.map((tag) => tag.slug);
     searchQueryRef.current = searchQuery;
     showUnblockedRef.current = showUnblocked;
-    projectFilterRef.current = projectFilter?.slug ?? null;
+    categoryFilterRef.current = categoryFilter?.slug ?? null;
     void refreshTasks();
-  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, projectFilter, refreshTasks]);
+  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, categoryFilter, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
@@ -213,8 +213,8 @@ export default function App(): ReactElement {
         return;
       }
       if (event.ctrlKey || event.metaKey) return;
-      if (event.key.toLowerCase() === "c" && !isTypingTarget(event.target)) {
-        const dialogOpen = helpOpen || themesOpen || settingsOpen || projectPickerOpen || statusMenuOpen || priorityMenuOpen || tagPickerOpen || searchOpen || picker !== null || composerRef.current !== null;
+      if (event.key.toLowerCase() === "n" && !isTypingTarget(event.target)) {
+        const dialogOpen = helpOpen || themesOpen || settingsOpen || categoryPickerOpen || statusMenuOpen || priorityMenuOpen || tagPickerOpen || searchOpen || picker !== null || composerRef.current !== null;
         if (dialogOpen) return;
         event.preventDefault();
         openCreate();
@@ -222,7 +222,7 @@ export default function App(): ReactElement {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, themesOpen, settingsOpen, projectPickerOpen, statusMenuOpen, priorityMenuOpen, tagPickerOpen, searchOpen, picker]);
+  }, [helpOpen, themesOpen, settingsOpen, categoryPickerOpen, statusMenuOpen, priorityMenuOpen, tagPickerOpen, searchOpen, picker]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -270,15 +270,15 @@ export default function App(): ReactElement {
     setPicker(null);
   }
 
-  function openProjectPicker(): void {
+  function openCategoryPicker(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("project-picker", fromPalette ?? undefined);
+    focusStack.push("category-picker", fromPalette ?? undefined);
     setHelpOpen(false);
-    setProjectPickerOpen(true);
+    setCategoryPickerOpen(true);
   }
 
-  function closeProjectPicker(): void {
-    setProjectPickerOpen(false);
+  function closeCategoryPicker(): void {
+    setCategoryPickerOpen(false);
   }
 
   function openStatusMenu(): void {
@@ -348,7 +348,7 @@ export default function App(): ReactElement {
     setPriorityFilter(null);
     setTagFilter([]);
     setSearchQuery("");
-    setProjectFilter(null);
+    setCategoryFilter(null);
     setShowUnblocked(false);
     setActiveTaskIndex(0);
     setAnnouncement("Cleared all filters");
@@ -359,19 +359,19 @@ export default function App(): ReactElement {
     || priorityFilter !== null
     || tagFilter.length > 0
     || searchQuery.trim() !== ""
-    || projectFilter !== null
+    || categoryFilter !== null
     || showUnblocked;
 
-  function clearProjectFilter(): void {
-    setProjectFilter(null);
+  function clearCategoryFilter(): void {
+    setCategoryFilter(null);
     setActiveTaskIndex(0);
   }
 
-  function chooseProject(project: ProjectRecord): void {
-    setProjectPickerOpen(false);
-    setProjectFilter(project);
+  function chooseCategory(category: CategoryRecord): void {
+    setCategoryPickerOpen(false);
+    setCategoryFilter(category);
     setActiveTaskIndex(0);
-    setAnnouncement(`Showing ${project.label} tasks`);
+    setAnnouncement(`Showing ${category.label} tasks`);
   }
 
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
@@ -424,7 +424,7 @@ export default function App(): ReactElement {
       exactStatus,
       statusPreset,
       showUnblocked,
-      projectFilter?.slug ?? null,
+      categoryFilter?.slug ?? null,
       priorityFilter,
       tagFilter.map((tag) => tag.slug),
       searchQuery,
@@ -450,7 +450,7 @@ export default function App(): ReactElement {
       exactStatus,
       statusPreset,
       showUnblocked,
-      projectFilter?.slug ?? null,
+      categoryFilter?.slug ?? null,
       priorityFilter,
       tagFilter.map((tag) => tag.slug),
       searchQuery,
@@ -534,9 +534,9 @@ export default function App(): ReactElement {
             setShowUnblocked(next);
             setActiveTaskIndex(0);
           }}
-          projectFilter={projectFilter}
-          onProjectFilterChange={clearProjectFilter}
-          onOpenProjectPicker={openProjectPicker}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={clearCategoryFilter}
+          onOpenCategoryPicker={openCategoryPicker}
           tagFilter={tagFilter}
           onTagFilterChange={chooseTags}
           onOpenTagPicker={openTagPicker}
@@ -578,7 +578,7 @@ export default function App(): ReactElement {
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
         onCreate={openCreate}
-        onOpenProjectPicker={openProjectPicker}
+        onOpenCategoryPicker={openCategoryPicker}
         onOpenStatusMenu={openStatusMenu}
         onOpenPriorityMenu={openPriorityMenu}
         onOpenTagPicker={openTagPicker}
@@ -587,11 +587,11 @@ export default function App(): ReactElement {
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
       />
-      {projectPickerOpen ? <ProjectPicker
+      {categoryPickerOpen ? <CategoryPicker
         open
-        onClose={closeProjectPicker}
-        finalFocus={() => focusStack.restore("project-picker") ?? undefined}
-        onSelect={chooseProject}
+        onClose={closeCategoryPicker}
+        finalFocus={() => focusStack.restore("category-picker") ?? undefined}
+        onSelect={chooseCategory}
       /> : null}
       {statusMenuOpen ? <StatusMenu
         open

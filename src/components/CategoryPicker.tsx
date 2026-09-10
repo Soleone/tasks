@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Folder } from "lucide-react";
-import type { ProjectRecord } from "@/backend/protocol";
+import type { CategoryRecord } from "@/backend/protocol";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listProjects } from "@/platform/backendClient";
+import { listCategories } from "@/platform/backendClient";
 
-export function ProjectPicker({ open, onClose, finalFocus, onSelect }: {
+export function CategoryPicker({ open, onClose, finalFocus, onSelect }: {
   open: boolean;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
-  onSelect: (project: ProjectRecord) => void;
+  onSelect: (category: CategoryRecord) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [projects, setProjects] = useState<ProjectRecord[]>([]);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,15 +21,15 @@ export function ProjectPicker({ open, onClose, finalFocus, onSelect }: {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listProjects()
+    listCategories()
       .then((result) => {
         if (cancelled) return;
-        setProjects(result.projects);
+        setCategories(result.categories);
       })
       .catch((caught) => {
         if (cancelled) return;
         setError(caught instanceof Error ? caught.message : String(caught));
-        setProjects([]);
+        setCategories([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -39,13 +39,13 @@ export function ProjectPicker({ open, onClose, finalFocus, onSelect }: {
     };
   }, [open]);
 
-  const emptyText = loading ? "Loading projects…" : error ?? "No projects yet. Add @category to a task.";
+  const emptyText = loading ? "Loading categories…" : error ?? "No categories yet. Add @category to a task.";
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
-        <DialogTitle>Filter by project</DialogTitle>
-        <DialogDescription>Choose a project to show only its tasks.</DialogDescription>
+        <DialogTitle>Filter by category</DialogTitle>
+        <DialogDescription>Choose a category to show only its tasks.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="overflow-hidden rounded-xl! p-0"
@@ -53,27 +53,27 @@ export function ProjectPicker({ open, onClose, finalFocus, onSelect }: {
         initialFocus={searchInput}
         finalFocus={finalFocus}
       >
-        <Command label="Filter tasks by project" filter={literalWordScore} loop>
-          <CommandInput ref={searchInput} placeholder="Search projects…" />
-          <CommandList label="Project results">
+        <Command label="Filter tasks by category" filter={literalWordScore} loop>
+          <CommandInput ref={searchInput} placeholder="Search categories…" />
+          <CommandList label="Category results">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup
               heading={(
                 <span className="inline-flex items-center gap-1.5">
                   <Folder aria-hidden="true" className="size-3.5" />
-                  Projects
+                  Categories
                 </span>
               )}
             >
-              {projects.map((project) => (
+              {categories.map((category) => (
                 <CommandItem
-                  key={project.slug}
-                  value={`${project.label} ${project.slug}`}
-                  keywords={[`${project.taskCount} tasks`]}
-                  onSelect={() => onSelect(project)}
+                  key={category.slug}
+                  value={`${category.label} ${category.slug}`}
+                  keywords={[`${category.taskCount} tasks`]}
+                  onSelect={() => onSelect(category)}
                 >
-                  <span className="font-medium">{project.label}</span>
-                  <span className="ml-auto text-muted-foreground">{project.taskCount} {project.taskCount === 1 ? "task" : "tasks"}</span>
+                  <span className="font-medium">{category.label}</span>
+                  <span className="ml-auto text-muted-foreground">{category.taskCount} {category.taskCount === 1 ? "task" : "tasks"}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

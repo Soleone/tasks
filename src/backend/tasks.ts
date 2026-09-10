@@ -786,7 +786,7 @@ function removeDependency(database: DatabaseSync, request: ProtocolRequest): Rec
   });
 }
 
-function listProjects(database: DatabaseSync): Record<string, unknown> {
+function listCategories(database: DatabaseSync): Record<string, unknown> {
   const rows = database
     .prepare(
       `SELECT categories.slug, categories.label, COUNT(tasks.id) AS task_count
@@ -797,7 +797,7 @@ function listProjects(database: DatabaseSync): Record<string, unknown> {
     )
     .all() as Row[];
   return {
-    projects: rows.map((row) => ({
+    categories: rows.map((row) => ({
       slug: stringValue(row, "slug"),
       label: stringValue(row, "label"),
       taskCount: numberValue(row, "task_count"),
@@ -862,21 +862,8 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   if (unblockedArgument !== undefined && typeof unblockedArgument !== "boolean") {
     throw new CommandError("INVALID_ARGUMENT", "unblocked must be a boolean");
   }
-  // `project` is the current UI name; `category` stays accepted as the plan's
-  // canonical name so both clients filter the same @category slug.
-  const projectArgument = request.args.project;
   const categoryArgument = request.args.category;
-  let projectSlug: string | undefined;
-  if (projectArgument !== undefined) {
-    projectSlug = normalizeSlug(projectArgument, "project");
-  }
-  if (categoryArgument !== undefined) {
-    const categorySlug = normalizeSlug(categoryArgument, "category");
-    if (projectSlug !== undefined && projectSlug !== categorySlug) {
-      throw new CommandError("INVALID_ARGUMENT", "project and category must match when both are provided");
-    }
-    projectSlug = categorySlug;
-  }
+  const categorySlug = categoryArgument === undefined ? undefined : normalizeSlug(categoryArgument, "category");
   let priorityFilter: number | undefined;
   if (request.args.priority !== undefined) {
     const priorityArgument = request.args.priority;
@@ -917,9 +904,9 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   if (unblockedArgument === true) {
     conditions.push("NOT EXISTS (SELECT 1 FROM task_dependencies WHERE task_dependencies.task_id = tasks.id)");
   }
-  if (projectSlug !== undefined) {
+  if (categorySlug !== undefined) {
     conditions.push("categories.slug = ?");
-    params.push(projectSlug);
+    params.push(categorySlug);
   }
   for (const tagSlug of tagSlugs) {
     conditions.push(`EXISTS (SELECT 1 FROM task_tags JOIN tags ON tags.id = task_tags.tag_id WHERE task_tags.task_id = tasks.id AND tags.slug = ?)`);
@@ -1006,8 +993,8 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return createTask(database, request);
     case "task.list":
       return listTasks(database, request);
-    case "project.list":
-      return listProjects(database);
+    case "category.list":
+      return listCategories(database);
     case "tag.list":
       return listTags(database);
     case "task.get":
