@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
-import { TaskComposer } from "@/components/TaskComposer";
+import { TaskComposerDialog, type ComposerState } from "@/components/TaskComposerDialog";
 import { HelpPalette } from "@/components/HelpPalette";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
@@ -27,14 +27,22 @@ function taskIsVisible(task: TaskRecord, showInactive: boolean, showUnblocked: b
     && (!showUnblocked || task.blockedByIds.length === 0);
 }
 
-// Keep keyboard navigation inside the app; an empty new title skips the optional description.
-// The list is one tab stop; arrows move between tasks, Enter opens one.
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable
+    || target.getAttribute("role") === "combobox" || target.hasAttribute("cmdk-input");
+}
+
+// The list is the default surface. Create and edit share one dialog opened
+// by the New task button, the C key, or the palette. Tab cycles New task,
+// list, back to New task, and never leaves the app.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
   const [showUnblocked, setShowUnblocked] = useState(false);
-  const [editingTask, setEditingTask] = useState<TaskRecord | null>(null);
+  const [composer, setComposer] = useState<ComposerState | null>(null);
   const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -48,13 +56,18 @@ export default function App(): ReactElement {
   const querySequence = useRef(0);
   const showInactiveRef = useRef(false);
   const showUnblockedRef = useRef(false);
+  const newTaskButton = useRef<HTMLButtonElement>(null);
+  const composerRef = useRef<ComposerState | null>(null);
+  composerRef.current = composer;
 
-  // The ordered navigation table, derived from app state: while editing, the
-  // editor replaces create and list. The empty list remains a focusable stop
-  // so Tab can move past capture before any tasks exist. The capture composer
-  // stays mounted while hidden, so availability must never come from the DOM.
-  const nav = useFocusNavigation(editingTask ? ["edit"] : ["create", "list"]);
+  const nav = useFocusNavigation(["create", "list"]);
   const focusStack = useFocusStack();
+
+  // "create" is the New task button now that the form lives in a dialog.
+  useEffect(() => nav.register("create", {
+    focusFirst: () => newTaskButton.current?.focus(),
+    focusLast: () => newTaskButton.current?.focus(),
+  }), [nav]);
 
   const refreshTasks = useCallback(async (offset = 0): Promise<void> => {
     const sequence = ++querySequence.current;
@@ -116,6 +129,24 @@ export default function App(): ReactElement {
     if (helpOpen || themesOpen) void refreshThemes(false);
   }, [helpOpen, themesOpen, refreshThemes]);
 
+  function openCreate(): void {
+    if (composerRef.current) return;
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("composer", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setComposer({ mode: "create" });
+  }
+
+  function openEdit(task: TaskRecord): void {
+    if (composerRef.current) return;
+    focusStack.push("composer");
+    setComposer({ mode: "edit", task });
+  }
+
+  function closeComposer(): void {
+    setComposer(null);
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.isComposing || event.repeat) return;
@@ -130,11 +161,19 @@ export default function App(): ReactElement {
         event.preventDefault();
         if (helpOpen) setHelpOpen(false);
         else openHelp();
+        return;
+      }
+      if (event.ctrlKey || event.metaKey) return;
+      if (event.key.toLowerCase() === "c" && !isTypingTarget(event.target)) {
+        const dialogOpen = helpOpen || themesOpen || settingsOpen || picker !== null || composerRef.current !== null;
+        if (dialogOpen) return;
+        event.preventDefault();
+        openCreate();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, themesOpen]);
+  }, [helpOpen, themesOpen, settingsOpen, picker]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -225,18 +264,19 @@ export default function App(): ReactElement {
     }
   }
 
-  function returnToCapture(): void {
-    setEditingTask(null);
-    requestAnimationFrame(() => nav.go("create"));
-  }
-
   function taskSaved(task: TaskRecord): void {
+    const creating = composerRef.current?.mode === "create";
     if (taskIsVisible(task, showInactive, showUnblocked)) {
-      setTasks((previous) => [task, ...previous.filter((existing) => existing.id !== task.id)]);
+      setTasks((previous) => creating
+        ? [task, ...previous.filter((existing) => existing.id !== task.id)]
+        : previous.map((existing) => existing.id === task.id ? task : existing));
+    } else {
+      setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
     setActiveTaskIndex(0);
-    setAnnouncement(`${editingTask ? "Saved" : "Added"}: ${task.title}`);
-    if (editingTask) returnToCapture();
+    setAnnouncement(`${creating ? "Added" : "Saved"}: ${task.title}`);
+    // Create stays open for rapid capture; edit closes back to the list.
+    if (!creating) setComposer(null);
     void refreshTasks();
   }
 
@@ -305,15 +345,7 @@ export default function App(): ReactElement {
           </ButtonGroup>
         </header>
 
-        <div hidden={editingTask !== null}>
-          <TaskComposer nav={nav} onSaved={taskSaved} />
-        </div>
-        {editingTask ? <TaskComposer key={editingTask.id} nav={nav} task={editingTask} onSaved={taskSaved} onCancel={() => {
-          returnToCapture();
-          void refreshTasks();
-        }} /> : null}
-
-        {editingTask ? null : <TaskList
+        <TaskList
           tasks={tasks}
           total={total}
           showInactive={showInactive}
@@ -331,10 +363,12 @@ export default function App(): ReactElement {
           error={loadError}
           nav={nav}
           focusStack={focusStack}
+          newTaskButtonRef={newTaskButton}
+          onCreate={openCreate}
           onRefresh={refreshTasks}
           onActiveTaskIndexChange={setActiveTaskIndex}
           onAnnounce={setAnnouncement}
-          onEdit={setEditingTask}
+          onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
           onCanceled={(task) => {
             ++querySequence.current;
@@ -343,14 +377,21 @@ export default function App(): ReactElement {
           }}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
-        />}
+        />
         <p role="status" className="sr-only">{announcement}</p>
       </div>
+      <TaskComposerDialog
+        composer={composer}
+        onClose={closeComposer}
+        onSaved={taskSaved}
+        finalFocus={() => focusStack.restore("composer")}
+      />
       <HelpPalette
         open={helpOpen}
         onOpenChange={setHelpOpen}
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
+        onCreate={openCreate}
         activeTask={tasks[activeTaskIndex]}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}

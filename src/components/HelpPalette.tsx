@@ -31,15 +31,15 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under";
+  action?: "open-settings" | "add-blocker" | "move-under" | "new-task";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Task actions",
     entries: [
-      { label: "Add, save, or open", icon: ListPlus, keys: ["Enter"], keywords: "enter title description new line list highlighted task" },
-      { label: "Save from anywhere", icon: SaveCheck, keys: ["Ctrl/⌘", "Enter"], keywords: "ctrl cmd enter title description" },
+      { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture dialog" },
+      { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
       { label: "Switch active or inactive", icon: ListFilter, keys: ["A"], keywords: "a active inactive filter paused canceled cancelled show hide" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
@@ -51,7 +51,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Navigation",
     entries: [
-      { label: "Next field or list", icon: MoveRight, keys: ["Tab"], keywords: "tab cycle description" },
+      { label: "New task or list", icon: MoveRight, keys: ["Tab"], keywords: "tab cycle new button list" },
       { label: "Previous field", icon: MoveLeft, keys: ["Shift", "Tab"], keywords: "shift backwards cycle" },
       { label: "Move through tasks", icon: ListChecks, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
       { label: "Expand or collapse children", icon: ListChecks, keys: ["←", "→"], keywords: "left right arrow child children parent subtask hierarchy" },
@@ -81,11 +81,12 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, activeTask, onAddBlocker, onMoveUnder }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, activeTask, onAddBlocker, onMoveUnder }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
+  onCreate: () => void;
   activeTask?: TaskRecord;
   onAddBlocker?: (task: TaskRecord) => void;
   onMoveUnder?: (task: TaskRecord) => void;
@@ -116,7 +117,9 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, ac
                     const Icon = entry.icon;
                     const onSelect = entry.action === "open-settings"
                       ? onOpenSettings
-                      : entry.action === "add-blocker" && activeTask && onAddBlocker
+                      : entry.action === "new-task"
+                        ? onCreate
+                        : entry.action === "add-blocker" && activeTask && onAddBlocker
                         ? () => onAddBlocker(activeTask)
                         : entry.action === "move-under" && activeTask && onMoveUnder
                           ? () => onMoveUnder(activeTask)

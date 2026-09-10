@@ -65,34 +65,39 @@ try {
   assert.ok(ready, serverLog);
   browser("open", url);
   browser("snapshot", "-i");
+  // List-first: New task is autofocused, no dialog is open, empty state guides to C.
+  waitFor('document.activeElement?.textContent?.includes("New task")');
+  check('document.querySelector("[role=dialog]") === null');
+  check('document.body.textContent.includes("Press C or choose New task")');
+  // C opens the shared create dialog with the title focused and notes closed.
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   waitFor('document.activeElement.name === "title"');
-  check('document.querySelector("textarea") === null');
+  check('document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   browser("press", "Tab");
-  waitFor('document.activeElement.matches("section[aria-label=\\"Saved tasks\\"]")');
-  browser("focus", 'input[name=title]');
-  browser("find", "role", "button", "click", "--name", "Add description");
-  waitFor('document.activeElement.name === "description"');
-  browser("click", 'input[name=title]');
-  waitFor('document.activeElement.name === "title" && document.querySelector("textarea") === null');
+  waitFor('document.activeElement?.textContent?.includes("Add description")');
   browser("press", "Enter");
-  waitFor('document.querySelector("input[name=title]").getAttribute("aria-invalid") === "true"');
-  browser("fill", 'input[name=title]', "Book venue @launch #planning");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Escape");
+  waitFor('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\') === null');
+  browser("press", "Enter");
+  waitFor('document.querySelector(\'form[aria-label="New task"] input\').getAttribute("aria-invalid") === "true"');
+  browser("fill", 'form[aria-label="New task"] input', "Book venue @launch #planning");
   browser("press", "Tab");
+  waitFor('document.activeElement?.textContent?.includes("Add description")');
+  browser("press", "Enter");
   waitFor('document.activeElement.name === "description"');
   browser("press", "Shift+Tab");
-  waitFor('document.activeElement.name === "title" && document.querySelector("textarea") === null');
+  waitFor('document.activeElement.name === "title"');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
-  browser("fill", 'textarea[name=description]', "## Shortlist");
+  browser("fill", 'form[aria-label="New task"] textarea', "## Shortlist");
   browser("press", "Enter");
   browser("keyboard", "inserttext", "- Ask about accessibility");
   assert.equal((await command("task.list")).tasks.length, 0);
-  browser("press", "Shift+Tab");
-  check('document.activeElement.name === "title"');
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("New task") && item.textContent.includes("C"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("A"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show unblocked tasks") && item.textContent.includes("U"))');
   browser("fill", 'input[role="combobox"]', "@category");
@@ -101,9 +106,10 @@ try {
   browser("press", "Escape");
   waitFor('document.activeElement.name === "description"');
   browser("press", "Escape");
-  check('document.activeElement.name === "title" && document.querySelector("textarea").value.includes("accessibility")');
+  check('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\').value.includes("accessibility")');
+  // Create stays open after save for rapid capture; the row appears behind the dialog.
   browser("press", "Control+Enter");
-  waitFor('document.activeElement.name === "title" && document.activeElement.value === ""');
+  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
   let saved = (await command("task.list")).tasks;
   assert.equal(saved.length, 1);
   assert.equal(saved[0].descriptionMarkdown, "## Shortlist\n- Ask about accessibility");
@@ -112,6 +118,10 @@ try {
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
+  // Close the create dialog to return to the list.
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.activeElement?.textContent?.includes("New task")');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
   evaluate('document.querySelector("[role=option] [data-status]").click(); true');
   waitFor('document.querySelector("form[aria-label^=Edit]") === null && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
@@ -141,11 +151,11 @@ try {
   saved[0] = (await command("task.get", { id: saved[0].id })).task;
   assert.equal(saved[0].status, "open");
 
-  // Keep a capture draft while editing, and retain stale editor contents after refresh.
-  browser("fill", 'input[name=title]', "Next capture draft");
-  evaluate('document.querySelector("[role=option]").click(); true');
-  waitFor('document.querySelector("form[aria-label^=Edit]") !== null');
-  check('document.querySelector("section") === null');
+  // Edit shares the same dialog. Stale contents survive a conflict until discard.
+  browser("focus", "[role=listbox]");
+  browser("press", "Enter");
+  waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
+  check('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
   browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
   await command("task.update", { id: saved[0].id, expectedVersion: saved[0].version, title: "Agent updated title", descriptionMarkdown: saved[0].descriptionMarkdown });
   evaluate('window.dispatchEvent(new Event("focus")); true');
@@ -153,9 +163,13 @@ try {
   waitFor('document.body.textContent.includes("This task changed elsewhere")');
   check('document.querySelector("form[aria-label^=Edit] input").value === "My unsaved title"');
   browser("find", "role", "button", "click", "--name", "Discard changes");
-  waitFor('document.activeElement.name === "title" && document.activeElement.value === "Next capture draft"');
+  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.activeElement.getAttribute("role") === "listbox"');
 
   // Simulate commit-before-lost-reply. Retrying must not duplicate the task.
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
+  browser("fill", 'form[aria-label="New task"] input', "Next capture draft");
   evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.fetch = async (...args) => {
     const response = await window.originalFetch(...args);
     if (window.loseReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create") {
@@ -166,19 +180,21 @@ try {
   }; true`);
   browser("press", "Enter");
   waitFor('document.body.textContent.includes("Could not save")');
-  check('document.querySelector("input[name=title]").value === "Next capture draft"');
+  check('document.querySelector(\'form[aria-label="New task"] input\').value === "Next capture draft"');
   browser("press", "Enter");
-  waitFor('document.activeElement.value === ""');
+  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
   assert.equal((await command("task.list")).tasks.length, 2);
   evaluate("window.fetch = window.originalFetch; true");
 
-  browser("fill", 'input[name=title]', "Ambiguous @work @home");
+  browser("fill", 'form[aria-label="New task"] input', "Ambiguous @work @home");
   browser("press", "Enter");
   waitFor('document.body.textContent.includes("only one @category")');
-  check('document.activeElement.value === "Ambiguous @work @home"');
-  browser("fill", 'input[name=title]', "Call the venue");
+  check('document.querySelector(\'form[aria-label="New task"] input\').value === "Ambiguous @work @home"');
+  browser("fill", 'form[aria-label="New task"] input', "Call the venue");
   browser("press", "Enter");
-  waitFor('document.activeElement.value === ""');
+  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
@@ -203,7 +219,7 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('!document.querySelector("[role=dialog]") && getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)"');
-  waitFor('getComputedStyle(document.querySelector("form button[type=submit]")).backgroundColor === "rgb(125, 174, 163)"');
+  waitFor('[...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task")) && getComputedStyle([...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task"))).backgroundColor === "rgb(125, 174, 163)"');
   assert.equal((await command("theme.list")).selected, "gruvbox", "the workspace stores the choice");
   const themeAudit = JSON.parse(browser("--json", "a11y"));
   assert.equal(themeAudit.data.violations.length, 0, JSON.stringify(themeAudit.data.violations));
@@ -231,7 +247,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Sunset"))');
   evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.startsWith("Sunset")).click(); true');
   waitFor('getComputedStyle(document.body).backgroundColor === "rgb(255, 237, 213)"');
-  waitFor('getComputedStyle(document.querySelector("form button[type=submit]")).backgroundColor === "rgb(194, 65, 12)"');
+  waitFor('getComputedStyle([...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task"))).backgroundColor === "rgb(194, 65, 12)"');
   assert.equal((await command("theme.list")).selected, "sunset");
 
   // Back to the neutral ramp: the default theme overrides no slot, so no
@@ -273,12 +289,10 @@ try {
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]") && document.activeElement.textContent.trim() === "Settings"');
-  browser("focus", 'input[name=title]');
 
-  // Empty title skips description and goes to the list; filled title reveals it.
-  browser("press", "Tab");
+  // Tab cycles New task and the list; C opens create from the list.
+  browser("focus", "[role=listbox]");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
-  check('document.activeElement.tagName !== "BUTTON"');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== null');
   check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
   evaluate('window.beforeNav = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
@@ -287,43 +301,34 @@ try {
   browser("press", "ArrowUp");
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.beforeNav');
   browser("press", "Tab");
-  waitFor('document.activeElement.name === "title"');
-  check('document.querySelector("[role=option][aria-selected=true]") === null');
+  waitFor('document.activeElement?.textContent?.includes("New task")');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
-  browser("press", "Shift+Tab");
-  waitFor('document.activeElement.name === "title"');
-  browser("fill", 'input[name=title]', "Keyboard navigation");
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
-  browser("press", "Tab");
-  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Escape");
-  waitFor('document.activeElement.name === "title"');
-  check('document.querySelector("[role=option][aria-selected=true]") === null');
-  // Enter on the list opens the highlighted task.
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
-  browser("press", "Tab");
-  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.getAttribute("role") === "listbox"');
+  // Enter on the list opens the highlighted task in the shared dialog.
   browser("press", "Enter");
   waitFor('document.querySelector("form[aria-label^=Edit]") !== null');
-  // Esc from the edit title goes back to the list.
   waitFor('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
   browser("press", "Escape");
-  waitFor('document.querySelectorAll("[role=option]").length === 3 && document.activeElement.name === "title"');
-  // Leave capture notes closed so the edit flow below starts from the same state as before.
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
-  browser("press", "Escape");
-  waitFor('document.activeElement.name === "title" && document.querySelector("textarea") === null');
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.getAttribute("role") === "listbox"');
 
-  evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")).click(); true');
-  browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
+  // The palette also opens the shared create dialog.
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "new task dialog");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Escape");
-  check('document.activeElement.name === "title" && document.querySelector("textarea") === null');
+  waitFor('!document.querySelector("[role=dialog]")');
+
+  browser("focus", "[role=listbox]");
+  evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")).click(); true');
+  waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
+  browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
   browser("press", "Enter");
   waitFor('document.querySelector("form[aria-label^=Edit]") === null');
   assert.ok((await command("task.list")).tasks.some((task) => task.title === "Confirm the venue"));
@@ -340,10 +345,14 @@ try {
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
   check('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false"');
   check('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"');
-  // Delete is scoped to a focused row, never the capture input, and marks it cancelled.
-  browser("focus", "input[name=title]");
+  // Delete is scoped to a focused row and marks it cancelled. C never fires while typing.
+  browser("focus", "[role=listbox]");
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Delete");
-  check('document.querySelector("[role=dialog]") === null');
+  check('document.querySelector(\'form[aria-label="New task"]\') !== null && !document.body.textContent.includes("Cancel task?")');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
   browser("focus", "[role=listbox]");
   evaluate('window.deleteList = document.activeElement; true');
   browser("press", "Delete");
@@ -404,7 +413,7 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 4');
   check('document.querySelectorAll(`[data-status="open"]`).length === 4');
-  check('document.activeElement.name === "title"');
+  check('document.activeElement?.textContent?.includes("New task")');
   assert.equal((await command("task.list")).total, 4);
 
   // The outline is intentionally shallow in the UI. A grandchild remains
@@ -458,7 +467,7 @@ try {
   waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 7');
   assert.equal((await command("task.list", { unblocked: true })).total, 8);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: capture, Markdown, keyboard/focus, help, active/inactive and unblocked filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, active/inactive and unblocked filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

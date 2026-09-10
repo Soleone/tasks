@@ -1,54 +1,53 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactElement, type RefObject } from "react";
 import type { TaskRecord } from "@/backend/protocol";
 import { createTask, updateTask, BackendCommandError } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Navigator } from "@/navigation";
 
 type TaskComposerProps = {
   task?: TaskRecord;
-  nav: Navigator;
+  titleInputRef?: RefObject<HTMLInputElement | null>;
   onSaved: (task: TaskRecord) => void;
-  onCancel?: () => void;
+  onCancel: () => void;
 };
 
-export function TaskComposer({ task, nav, onSaved, onCancel }: TaskComposerProps): ReactElement {
+// Shared create/edit form. Always rendered inside TaskComposerDialog, so Tab
+// stays native for the dialog focus trap and Escape closes through onCancel.
+export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
-  const titleInput = useRef<HTMLInputElement>(null);
+  const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
-  const saveButton = useRef<HTMLButtonElement>(null);
-  const cancelButton = useRef<HTMLButtonElement>(null);
+  const titleInput = titleInputRef ?? fallbackTitleInput;
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
+  const focusNotesOnOpen = useRef(false);
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.descriptionMarkdown ?? "");
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.descriptionMarkdown));
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dirty = title !== (task?.title ?? "") || description !== (task?.descriptionMarkdown ?? "");
 
-  // The composer is the "create" or "edit" destination. Its internal stops
-  // (title, description, buttons) stay local; the navigator only enters from
-  // either end. The refs go null when a stop unmounts, so the handles read
-  // live state without re-registering.
-  useEffect(() => nav.register(task ? "edit" : "create", {
-    focusFirst: () => titleInput.current?.focus(),
-    focusLast: () => (task
-      ? saveButton.current
-      : notesInput.current ?? titleInput.current
-    )?.focus(),
-  }), [nav, task]);
+  useEffect(() => {
+    requestAnimationFrame(() => titleInput.current?.focus());
+  }, [titleInput, task?.id]);
 
-  function focusFirstButton(): void {
-    // DOM order is Cancel then Save; the first tabbable after the
-    // description is Cancel when it exists, otherwise Save.
-    if (onCancel) cancelButton.current?.focus();
-    else saveButton.current?.focus();
+  // Focus the notes after they commit, not in the click frame: the dialog
+  // trap owns focus during entry, so a same-frame focus can be yanked and
+  // immediately blurred again.
+  useEffect(() => {
+    if (notesOpen && focusNotesOnOpen.current) {
+      focusNotesOnOpen.current = false;
+      notesInput.current?.focus();
+    }
+  }, [notesOpen]);
+
+  function showNotes(): void {
+    focusNotesOnOpen.current = true;
+    setNotesOpen(true);
   }
 
   function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
@@ -57,40 +56,15 @@ export function TaskComposer({ task, nav, onSaved, onCancel }: TaskComposerProps
       return;
     }
     if (event.key === "Escape") {
-      // In the editor, Esc from the title goes back to the list.
-      // From the description, Esc first lands on the title so notes are kept.
-      if (!pending && onCancel) {
-        event.preventDefault();
-        onCancel();
-      }
-      return;
-    }
-    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (event.shiftKey) {
-        event.preventDefault();
-        if (task) saveButton.current?.focus();
-        else nav.prev("create");
-      } else if (!task && !title.trim()) {
-        event.preventDefault();
-        nav.next("create");
-      } else if (!notesOpen) {
-        event.preventDefault();
-        showNotes();
-      } else {
-        event.preventDefault();
-        notesInput.current?.focus();
-      }
+      if (pending) return;
+      event.preventDefault();
+      onCancel();
       return;
     }
     if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
     }
-  }
-
-  function showNotes(): void {
-    setNotesOpen(true);
-    requestAnimationFrame(() => notesInput.current?.focus());
   }
 
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -125,7 +99,7 @@ export function TaskComposer({ task, nav, onSaved, onCancel }: TaskComposerProps
       requestAnimationFrame(() => titleInput.current?.focus());
     } catch (caught) {
       setError(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then return to the list and reopen the task."
+        ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then close and reopen the task."
         : caught instanceof Error ? caught.message : String(caught));
     } finally {
       saving.current = false;
@@ -134,101 +108,84 @@ export function TaskComposer({ task, nav, onSaved, onCancel }: TaskComposerProps
   }
 
   return (
-    <Card>
-      <form
-        aria-label={task ? "Edit task" : "New task"}
-        aria-busy={pending}
-        noValidate
-        onSubmit={(event) => void save(event)}
-        onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            event.currentTarget.requestSubmit();
-          }
-        }}
-      >
-        <CardContent className="flex flex-col gap-4">
-          <FieldGroup>
-            <Field data-invalid={titleError || undefined}>
-              <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
-              <Input
-                ref={titleInput}
-                id={`${id}-title`}
-                name="title"
-                autoFocus
-                autoComplete="off"
-                placeholder="What needs doing?"
-                value={title}
-                readOnly={pending}
-                required
-                aria-invalid={titleError || undefined}
-                aria-describedby={titleError ? `${id}-error` : undefined}
-                onChange={(event) => { setTitle(event.target.value); setTitleError(false); }}
-                onKeyDown={handleTitleKeyDown}
-              />
-              {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
-            </Field>
-            {notesOpen ? (
-              <Field>
-                <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
-                <Textarea
-                  ref={notesInput}
-                  id={`${id}-description`}
-                  name="description"
-                  placeholder="Write in Markdown…"
-                  rows={4}
-                  value={description}
-                  readOnly={pending}
-                  onChange={(event) => setDescription(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-                    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                      event.preventDefault();
-                      if (event.shiftKey) titleInput.current?.focus();
-                      else if (task) focusFirstButton();
-                      else nav.next("create");
-                    }
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      if (!description.trim()) setNotesOpen(false);
-                      titleInput.current?.focus();
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!description.trim()) setNotesOpen(false);
-                  }}
-                />
-              </Field>
-            ) : null}
-          </FieldGroup>
-          {error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Could not save</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-2">
-              {!notesOpen ? <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>Add description</Button> : null}
-              {onCancel ? <Button ref={cancelButton} type="button" variant="ghost" size="sm" disabled={pending} onClick={onCancel}>{dirty ? "Discard changes" : "Back to tasks"}</Button> : null}
-            </div>
-            <Button
-              ref={saveButton}
-              type="submit"
-              size="sm"
-              disabled={pending}
-              tabIndex={task ? undefined : -1}
-              onKeyDown={task ? (event) => {
-                if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    <form
+      aria-label={task ? "Edit task" : "New task"}
+      aria-busy={pending}
+      noValidate
+      onSubmit={(event) => void save(event)}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          event.currentTarget.requestSubmit();
+        }
+      }}
+      className="flex flex-col gap-4"
+    >
+      <FieldGroup>
+        <Field data-invalid={titleError || undefined}>
+          <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
+          <Input
+            ref={titleInput}
+            id={`${id}-title`}
+            name="title"
+            autoComplete="off"
+            placeholder="What needs doing?"
+            value={title}
+            readOnly={pending}
+            required
+            aria-invalid={titleError || undefined}
+            aria-describedby={titleError ? `${id}-error` : undefined}
+            onChange={(event) => { setTitle(event.target.value); setTitleError(false); }}
+            onKeyDown={handleTitleKeyDown}
+          />
+          {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
+        </Field>
+        {notesOpen ? (
+          <Field>
+            <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
+            <Textarea
+              ref={notesInput}
+              id={`${id}-description`}
+              name="description"
+              placeholder="Write in Markdown…"
+              rows={4}
+              value={description}
+              readOnly={pending}
+              onChange={(event) => setDescription(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                if (event.key === "Escape") {
                   event.preventDefault();
+                  event.stopPropagation();
+                  if (pending) return;
+                  if (!description.trim()) setNotesOpen(false);
                   titleInput.current?.focus();
                 }
-              } : undefined}
-            >{pending ? "Saving…" : task ? "Save changes" : "Add task"}</Button>
-          </div>
-        </CardContent>
-      </form>
-    </Card>
+              }}
+            />
+          </Field>
+        ) : null}
+      </FieldGroup>
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not save</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {!notesOpen ? <Button type="button" variant="ghost" size="sm" onClick={showNotes}>Add description</Button> : null}
+          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onCancel}>
+            {task ? "Discard changes" : "Close"}
+          </Button>
+        </div>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={pending}
+        >{pending ? "Saving…" : task ? "Save changes" : "Add task"}</Button>
+      </div>
+    </form>
   );
 }

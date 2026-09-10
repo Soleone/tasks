@@ -5,8 +5,9 @@ import {
   useState,
   type KeyboardEvent,
   type ReactElement,
+  type RefObject,
 } from "react";
-import { ChevronDown, ChevronRight, ListFilter, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, ListFilter, Plus, TriangleAlert } from "lucide-react";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
@@ -42,6 +43,8 @@ type TaskListProps = {
   error: string | null;
   nav: Navigator;
   focusStack: FocusStack;
+  newTaskButtonRef: RefObject<HTMLButtonElement | null>;
+  onCreate: () => void;
   onRefresh: (offset?: number) => Promise<void>;
   onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
@@ -72,6 +75,8 @@ export function TaskList({
   error,
   nav,
   focusStack,
+  newTaskButtonRef,
+  onCreate,
   onRefresh,
   onActiveTaskIndexChange,
   onAnnounce,
@@ -254,7 +259,11 @@ export function TaskList({
       return;
     }
     if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key.toLowerCase() === "a") {
+    if (event.key.toLowerCase() === "c") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      onCreate();
+    } else if (event.key.toLowerCase() === "a") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
       toggleTaskFilter();
@@ -315,11 +324,28 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="A U B M Space Delete ArrowLeft ArrowRight"
+      aria-keyshortcuts="C A U B M Space Delete ArrowLeft ArrowRight"
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
-      <ButtonGroup aria-label="Task list filters and sorting" className="self-end">
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          ref={newTaskButtonRef}
+          size="sm"
+          autoFocus
+          aria-keyshortcuts="C"
+          onClick={onCreate}
+          onKeyDown={(event) => {
+            if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
+            event.preventDefault();
+            if (event.shiftKey) nav.last();
+            else nav.next("create");
+          }}
+        >
+          <Plus aria-hidden="true" />
+          New task
+        </Button>
+      <ButtonGroup aria-label="Task list filters and sorting">
         <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
           <TooltipTrigger
             render={
@@ -361,6 +387,7 @@ export function TaskList({
           <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
         </Tooltip>
       </ButtonGroup>
+      </div>
       {error ? <Alert variant="destructive">
         <AlertTitle>Could not load tasks</AlertTitle>
         <AlertDescription>
@@ -380,7 +407,7 @@ export function TaskList({
           role="listbox"
           aria-label={`Tasks, ${visibleRows.length} visible of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="A U B M Space Delete ArrowLeft ArrowRight"
+          aria-keyshortcuts="C A U B M Space Delete ArrowLeft ArrowRight"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -449,7 +476,7 @@ export function TaskList({
         <Empty>
           <EmptyHeader>
             <EmptyTitle>No tasks yet</EmptyTitle>
-            <EmptyDescription>Write a title above and press Enter.</EmptyDescription>
+            <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}

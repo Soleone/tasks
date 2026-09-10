@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 
 /**
- * The surfaces linear keyboard navigation moves between. Intra-destination
- * stops (title -> description, list -> load-more) stay inside the owning
- * component; modal surfaces live on the focus stack, not in this table.
+ * The surfaces linear keyboard navigation moves between. The composer is a
+ * modal dialog on the focus stack, not a destination: "create" is the New
+ * task button, and the list is the default stop.
  */
-export type DestinationId = "create" | "edit" | "list";
+export type DestinationId = "create" | "list";
 
 export type DestinationHandle = {
   /** Enter from the previous destination. */
