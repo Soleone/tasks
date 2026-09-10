@@ -556,11 +556,18 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "0");
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0');
+  waitFor('document.activeElement.matches("[role=listbox]") && document.querySelector("[data-empty-state=filtered]") !== null');
   check('document.body.textContent.includes("No tasks match the current filters")');
-  check('document.querySelector("[role=listbox]") === null || document.body.textContent.includes("Clear filters")');
+  check('document.querySelector("[data-empty-state=filtered] button").tabIndex === -1');
+  check('(() => { const list = document.querySelector("[role=listbox]"); const empty = document.querySelector("[data-empty-state=filtered]"); if (!list || !empty) return false; const listBox = list.getBoundingClientRect(); const emptyBox = empty.getBoundingClientRect(); return Math.abs(emptyBox.width - listBox.width) < 1 && emptyBox.height >= 48 && emptyBox.height <= 120; })()');
+  evaluate('window.filteredEmptyList = document.activeElement; true');
+  browser("press", "Tab");
+  waitFor('document.activeElement === window.filteredEmptyList');
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
   // Escape resets all filters, returning to the full Active view.
   browser("press", "Escape");
-  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9 && document.activeElement.matches("[role=listbox]")');
   // Filtering again, then the same key clears the priority filter.
   browser("focus", "[role=listbox]");
   browser("press", "0");

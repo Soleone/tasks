@@ -9,7 +9,7 @@ Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progres
 - The first load opens with no dialog and moves focus to the task-list surface.
 - When tasks exist, focus is on the `listbox`; the first visible task is the active row.
 - An empty workspace focuses the `Saved tasks` list shell. From there, `C` opens capture.
-- A filtered empty workspace shows “No tasks match the current filters” with a Clear filters action.
+- A filtered empty workspace keeps a focusable task-list shell at roughly one task-row width and height, shows “No tasks match the current filters,” and offers a mouse-accessible Clear filters action. Clear filters is not a Tab destination because Escape resets filters from the list.
 - A load error focuses `Retry` until the first successful load can focus the list.
 - Loading or refreshing tasks must not steal focus from the current task, an open editor, or another dialog.
 - `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `C` or the command palette is the primary keyboard path.

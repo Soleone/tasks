@@ -169,13 +169,8 @@ export function TaskList({
   useEffect(() => {
     if (visibleRows.length > 0 && document.activeElement === section.current) {
       list.current?.focus();
-      return;
     }
-    if (visibleRows.length === 0 && listFocused) {
-      setListFocused(false);
-      section.current?.focus();
-    }
-  }, [listFocused, visibleRows.length]);
+  }, [visibleRows.length]);
 
   useEffect(() => {
     if (filterFeedbackVersion === 0) return;
@@ -483,13 +478,14 @@ export function TaskList({
   const tagLabel = tagFilter.length > 0 ? `${tagFilter.length} tag${tagFilter.length === 1 ? "" : "s"}` : "Tags";
   const searchActive = searchQuery.trim() !== "";
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
+  const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
 
   return (
     <section
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
+      aria-keyshortcuts="Escape C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -647,13 +643,13 @@ export function TaskList({
           >Retry</Button>
         </AlertDescription>
       </Alert> : null}
-      {visibleRows.length ? (
+      {showListSurface ? (
         <div
           ref={list}
           role="listbox"
-          aria-label={`Tasks, ${visibleRows.length} visible of ${total}`}
+          aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
+          aria-keyshortcuts="Escape C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -717,24 +713,35 @@ export function TaskList({
               </Item>
             );
           })}
+          {isFilteredEmpty ? (
+            <Item
+              data-empty-state="filtered"
+              size="sm"
+              className="min-h-16 border-dashed border-border bg-transparent"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">No tasks match the current filters</p>
+                <p className="mt-1 text-sm text-muted-foreground">Try different filters or clear them.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                tabIndex={-1}
+                onClick={() => {
+                  onClearAllFilters();
+                  list.current?.focus();
+                }}
+              >Clear filters</Button>
+            </Item>
+          ) : null}
         </div>
       ) : !loading && !error ? (
-        isFilteredEmpty ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No tasks match the current filters</EmptyTitle>
-              <EmptyDescription>Try different filters or clear them to see everything.</EmptyDescription>
-            </EmptyHeader>
-            <Button variant="outline" size="sm" onClick={onClearAllFilters}>Clear filters</Button>
-          </Empty>
-        ) : (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No tasks yet</EmptyTitle>
-              <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No tasks yet</EmptyTitle>
+            <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : null}
       {loading ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : null}
       {statusSequence.current.pending ? (
