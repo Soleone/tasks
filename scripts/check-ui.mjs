@@ -65,8 +65,8 @@ try {
   assert.ok(ready, serverLog);
   browser("open", url);
   browser("snapshot", "-i");
-  // List-first: New task is autofocused, no dialog is open, empty state guides to C.
-  waitFor('document.activeElement?.textContent?.includes("New task")');
+  // The task list is home: no dialog opens and the empty list shell owns focus.
+  waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
   check('document.querySelector("[role=dialog]") === null');
   check('document.body.textContent.includes("Press C or choose New task")');
   // C opens the shared create dialog with the title focused and notes closed.
@@ -121,7 +121,7 @@ try {
   // Close the create dialog to return to the list.
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
-  waitFor('document.activeElement?.textContent?.includes("New task")');
+  waitFor('document.activeElement?.getAttribute("role") === "listbox"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
   evaluate('document.querySelector("[role=option] [data-status]").click(); true');
   waitFor('document.querySelector("form[aria-label^=Edit]") === null && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
@@ -413,7 +413,7 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 4');
   check('document.querySelectorAll(`[data-status="open"]`).length === 4');
-  check('document.activeElement?.textContent?.includes("New task")');
+  check('document.activeElement?.getAttribute("role") === "listbox"');
   assert.equal((await command("task.list")).total, 4);
 
   // The outline is intentionally shallow in the UI. A grandchild remains

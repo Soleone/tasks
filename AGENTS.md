@@ -1,6 +1,6 @@
 # Working on Tasks
 
-Read [GUIDELINES.md](GUIDELINES.md) for project principles and [PLAN.md](PLAN.md) for scope, confirmed decisions, and milestone exit criteria.
+Read [GUIDELINES.md](GUIDELINES.md) for project principles and [PLAN.md](PLAN.md) for scope, confirmed decisions, and milestone exit criteria. Read [docs/usage-guide.md](docs/usage-guide.md) for the keyboard-first home-screen contract and UI focus behavior.
 
 The project now has an M0 scaffold. Continue with the runtime/packaging proof and process-lifecycle checks before expanding the task UI. Do not turn the probe surface into a broad feature scaffold. Use the commands in [README.md](README.md), and record native-platform blockers rather than treating browser builds as desktop validation.
 

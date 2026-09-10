@@ -89,6 +89,7 @@ export function TaskList({
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const loadMore = useRef<HTMLButtonElement>(null);
+  const initialHomeFocusPending = useRef(true);
   const retry = useRef<HTMLButtonElement>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
   const statusPending = useRef(new Set<string>());
@@ -119,6 +120,16 @@ export function TaskList({
     const nextIndex = Math.min(activeTaskIndex, Math.max(visibleRows.length - 1, 0));
     if (nextIndex !== activeTaskIndex) onActiveTaskIndexChange(nextIndex);
   }, [activeTaskIndex, onActiveTaskIndexChange, visibleRows.length]);
+
+  // The task list is the home surface. Wait for the first query so focus
+  // lands on the list, or its empty/error state, instead of the capture action.
+  useEffect(() => {
+    if (!initialHomeFocusPending.current || loading) return;
+    const home = list.current ?? (error ? retry.current : section.current);
+    if (!home) return;
+    home.focus();
+    if (!error) initialHomeFocusPending.current = false;
+  }, [error, loading, visibleRows.length]);
 
   useEffect(() => {
     if (visibleRows.length > 0 && document.activeElement === section.current) {
@@ -325,6 +336,9 @@ export function TaskList({
       tabIndex={-1}
       aria-label="Saved tasks"
       aria-keyshortcuts="C A U B M Space Delete ArrowLeft ArrowRight"
+      onFocus={(event) => {
+        if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
+      }}
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
@@ -332,7 +346,7 @@ export function TaskList({
         <Button
           ref={newTaskButtonRef}
           size="sm"
-          autoFocus
+          tabIndex={-1}
           aria-keyshortcuts="C"
           onClick={onCreate}
           onKeyDown={(event) => {
