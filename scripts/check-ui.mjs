@@ -107,6 +107,20 @@ try {
   }
   browser("press", "2");
   waitFor('document.querySelector(\'[role="radiogroup"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "ArrowRight");
+  waitFor('document.activeElement.matches("[role=radiogroup]") && document.querySelector(\'[role="radiogroup"] [data-priority="P3"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "ArrowLeft");
+  waitFor('document.activeElement.matches("[role=radiogroup]") && document.querySelector(\'[role="radiogroup"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "0");
+  waitFor('document.querySelector(\'[role="radiogroup"] [data-priority="P0"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "ArrowLeft");
+  waitFor('document.activeElement.matches("[role=radiogroup]") && document.querySelector(\'[role="radiogroup"] [data-priority="P0"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "4");
+  waitFor('document.querySelector(\'[role="radiogroup"] [data-priority="P4"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "ArrowRight");
+  waitFor('document.activeElement.matches("[role=radiogroup]") && document.querySelector(\'[role="radiogroup"] [data-priority="P4"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "2");
+  waitFor('document.querySelector(\'[role="radiogroup"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "title"');
   browser("press", "Tab");
@@ -425,7 +439,7 @@ try {
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   browser("press", "4");
   waitFor('document.querySelector(\'form[aria-label="Edit task"] [data-priority="P4"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
-  browser("press", "Control+Enter");
+  browser("press", "Enter");
   waitFor('document.querySelector("form[aria-label^=Edit]") === null');
   assert.ok((await command("task.list")).tasks.some((task) => task.title === "Confirm the venue" && task.priority === 4));
 

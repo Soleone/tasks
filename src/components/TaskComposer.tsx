@@ -72,6 +72,18 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
       else titleInput.current?.focus();
       return;
     }
+    if (event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+      if (event.repeat) return;
+      event.preventDefault();
+      event.currentTarget.closest("form")?.requestSubmit();
+      return;
+    }
+    if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      const delta = event.key === "ArrowLeft" ? -1 : 1;
+      setPriority((current) => Math.min(4, Math.max(0, current + delta)) as TaskPriority);
+      return;
+    }
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     const value = Number(event.key);
     if (!Number.isInteger(value) || value < 0 || value > 4) return;
@@ -221,7 +233,7 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
             aria-labelledby={`${id}-priority-label`}
             aria-describedby={`${id}-priority-help`}
             aria-activedescendant={`${id}-priority-${priority}`}
-            aria-keyshortcuts="0 1 2 3 4"
+            aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
             aria-disabled={pending || undefined}
             tabIndex={0}
             data-priority-section
@@ -254,7 +266,7 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
               );
             })}
           </ButtonGroup>
-          <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 to choose.</FieldDescription>
+          <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription>
         </Field>
       </FieldGroup>
       {error ? (
