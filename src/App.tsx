@@ -19,7 +19,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme } from "@/platform/backendClient";
+import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme, transitionTask } from "@/platform/backendClient";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 
@@ -485,6 +485,27 @@ export default function App(): ReactElement {
     }
   }
 
+  async function pauseTaskFromPalette(task: TaskRecord): Promise<void> {
+    const current = tasks.find((candidate) => candidate.id === task.id) ?? task;
+    setHelpOpen(false);
+    if (current.status === "done" || current.status === "canceled") {
+      setAnnouncement(`${current.title} is ${current.status === "done" ? "done" : "cancelled"}. Reopen it before pausing.`);
+      return;
+    }
+    try {
+      const result = current.status === "paused"
+        ? await transitionTask("task.start", current.id, current.version, { idempotencyKey: crypto.randomUUID() })
+        : await transitionTask("task.pause", current.id, current.version, { idempotencyKey: crypto.randomUUID() });
+      updateVisibleTask(result.task);
+      setAnnouncement(`${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`);
+    } catch (caught) {
+      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        ? `${current.title} changed elsewhere. Refresh and try again.`
+        : caught instanceof Error ? caught.message : String(caught));
+      void refreshTasks();
+    }
+  }
+
   function taskSaved(task: TaskRecord): void {
     const creating = composerRef.current?.mode === "create";
     const visible = taskIsVisible(
@@ -660,6 +681,7 @@ export default function App(): ReactElement {
         activeTask={tasks[activeTaskIndex]}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
+        onPauseTask={(task) => void pauseTaskFromPalette(task)}
       />
       {categoryPickerOpen ? <CategoryPicker
         open

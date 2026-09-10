@@ -48,6 +48,11 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, on
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
+  const pauseHint = task.status === "open" || task.status === "in_progress"
+    ? " Press P to pause."
+    : task.status === "paused"
+      ? " Press P to resume."
+      : "";
 
   useEffect(() => {
     if (feedbackVersion === undefined) return;
@@ -62,7 +67,7 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, on
         render={
           <span
             role="img"
-            aria-label={`Status: ${status.label}. Click or press Space to change it to ${nextLabel}.`}
+            aria-label={`Status: ${status.label}. Click or press Space to change it to ${nextLabel}.${pauseHint}`}
             tabIndex={-1}
             data-status={task.status}
             data-status-pending={pending || undefined}

@@ -3,6 +3,7 @@ import {
   ArrowDownUp,
   Circle,
   CircleHelp,
+  CirclePause,
   Clock,
   CornerDownRight,
   FileText,
@@ -35,7 +36,7 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "new-child-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
+  action?: "open-settings" | "add-blocker" | "move-under" | "pause-task" | "new-task" | "new-child-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -46,7 +47,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "New child task", hint: "Use the selected task as parent", icon: CornerDownRight, keys: ["Shift", "N"], action: "new-child-task", keywords: "shift n create child subtask parent selected task capture" },
       { label: "Set task priority", hint: "Focus Priority in dialog", icon: Flag, keys: ["0", "1", "2", "3", "4", "←", "→"], keywords: "dialog composer create edit set choose task priority p0 p1 p2 p3 p4 arrow left right" },
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
-      { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
+      { label: "Change task status", hint: "Space: open, in progress, done", icon: ListChecks, keys: ["Space"], keywords: "space open in progress done status cycle complete" },
+      { label: "Pause or resume task", hint: "P pauses, again resumes", icon: CirclePause, keys: ["P"], action: "pause-task", keywords: "p pause resume sleep park soft cancel paused in progress" },
       { label: "Set active task priority", hint: "0-4 on the list", icon: Flag, keys: ["0", "1", "2", "3", "4"], keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number" },
       { label: "Switch active or inactive", hint: "F then S, A works too", icon: Circle, keys: ["F", "S"], action: "filter-status", keywords: "f s a active inactive filter paused done canceled cancelled show hide toggle" },
       { label: "Exact status", hint: "F then O I D P X", icon: Circle, keys: ["F", "O/I/D/P/X"], action: "filter-status", keywords: "f exact open in progress done paused canceled o i d p x status" },
@@ -95,7 +97,7 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder, onPauseTask }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
@@ -110,6 +112,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
   activeTask?: TaskRecord;
   onAddBlocker?: (task: TaskRecord) => void;
   onMoveUnder?: (task: TaskRecord) => void;
+  onPauseTask?: (task: TaskRecord) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
 
@@ -153,7 +156,9 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                                   ? onOpenSearch
                                   : entry.action === "add-blocker" && activeTask && onAddBlocker
                                     ? () => onAddBlocker(activeTask)
-                                    : entry.action === "move-under" && activeTask && onMoveUnder
+                                    : entry.action === "pause-task" && activeTask && onPauseTask
+                                      ? () => onPauseTask(activeTask)
+                                      : entry.action === "move-under" && activeTask && onMoveUnder
                                       ? () => onMoveUnder(activeTask)
                                       : undefined;
                     return (

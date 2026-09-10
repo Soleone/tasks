@@ -134,6 +134,8 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter shortcuts") && item.textContent.includes("F"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Sort tasks") && item.textContent.includes("C/U/R"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show timestamps") && item.textContent.includes("V"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Change task status") && item.textContent.includes("open"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Pause or resume task") && item.textContent.includes("P"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Set active task priority") && item.textContent.includes("0"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Priority filter") && item.textContent.includes("0"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Set task priority") && item.textContent.includes("Focus Priority"))');
@@ -188,22 +190,39 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, newest first"');
-  // Active now includes paused: in_progress -> paused stays visible.
-  browser("press", "Space");
+  // P pauses without leaving Active; it stays visible because paused is active.
+  browser("press", "p");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Press P to resume")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=option]")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
-  // paused -> done leaves the Active view; Inactive shows done.
+  // P again resumes a paused task to in progress.
+  browser("press", "p");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
+  // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
   // done -> open leaves Inactive; Active shows open again.
+  browser("press", "Space");
+  waitFor('!document.querySelector("[role=option]")');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
+  // Paused Space still completes: pause, then Space moves paused to done.
+  browser("press", "p");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("press", "Space");
+  waitFor('!document.querySelector("[role=option]")');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "f");
@@ -883,7 +902,7 @@ try {
   assert.equal((await command("task.get", { id: detachChild.id })).task.parentId, null);
 
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/O modes, sort and timestamps, status presets and exact filters, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/O modes, sort and timestamps, status presets and exact filters, Space forward-progress plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));
