@@ -48,7 +48,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Priority filter", hint: "0-4, same key clears", icon: Flag, keys: ["0", "1", "2", "3", "4"], action: "filter-priority", keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
       { label: "Filter by project", hint: "P opens, Shift+P clears", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p shift p project folder filter clear category" },
-      { label: "Filter by tags", hint: "T opens, Shift+T clears", icon: Tags, keys: ["T"], action: "filter-tags", keywords: "t shift t tags filter clear multi and" },
+      { label: "Filter by tags", hint: "T opens, Space picks, Enter closes", icon: Tags, keys: ["T"], action: "filter-tags", keywords: "t shift t space enter tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },

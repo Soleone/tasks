@@ -831,6 +831,14 @@ function normalizeSlug(value: unknown, field: string): string {
   return value.trim().toLowerCase();
 }
 
+function normalizeTagSlug(value: unknown): string {
+  const slug = normalizeSlug(value, "tags");
+  if (!/^[a-z][a-z0-9_-]*$/.test(slug)) {
+    throw new CommandError("INVALID_ARGUMENT", "tags must start with a letter and contain only letters, numbers, underscores, and hyphens");
+  }
+  return slug;
+}
+
 function escapeLikePattern(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
 }
@@ -884,7 +892,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     if (rawTags.length === 0) {
       throw new CommandError("INVALID_ARGUMENT", "tags must be a non-empty string or array of strings");
     }
-    tagSlugs = rawTags.map((tag) => normalizeSlug(tag, "tags"));
+    tagSlugs = rawTags.map(normalizeTagSlug);
     tagSlugs = [...new Set(tagSlugs)].sort();
   }
   let searchPattern: string | undefined;

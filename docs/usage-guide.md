@@ -29,7 +29,7 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
 - Priority: P0 highest through P4 lowest. Every task defaults to P2. Color is supplemental; labels stay present.
 - Project: the `@category` grouping. Single-select.
-- Tags: `#tags` multi-select with AND semantics.
+- Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag and `Enter` closes it; `Shift+T` clears the filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
 
 ## Keyboard shortcuts

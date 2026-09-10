@@ -643,17 +643,18 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "planning");
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
-  evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("planning") && item.textContent.includes("task")).click(); true');
-  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true"');
-  // Picker stays open for multi-select; pick product to narrow to AND.
+  browser("press", "Space");
+  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=dialog]") !== null');
+  // Picker stays open for multi-select; pick product to narrow to AND with Space.
   check('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "product");
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("product"))');
-  evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("product") && item.textContent.includes("task")).click(); true');
+  browser("press", "Space");
   waitFor('document.querySelectorAll(\'[role=listbox][aria-label^="Tasks"] [role=option]\').length === 1');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · #planning #product"');
   check('document.querySelector(\'[role=listbox][aria-label^="Tasks"] [role=option]\').textContent.includes("Tag cockpit")');
-  browser("press", "Escape");
+  // Enter closes the picker without changing the current multi-selection.
+  browser("press", "Enter");
   waitFor('!document.querySelector("[role=dialog]")');
   browser("focus", "[role=listbox]");
   browser("press", "Shift+t");

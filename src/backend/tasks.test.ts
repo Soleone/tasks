@@ -744,6 +744,8 @@ test("task.list filters by tags with AND semantics and tag.list reports counts",
     assert.equal(missing.total, 0);
     assert.throws(() => executeCommand(request("task.list", { tags: [] }), databasePath), /tags must be a non-empty string/);
     assert.throws(() => executeCommand(request("task.list", { tags: [""] }), databasePath), /tags must be a non-empty string/);
+    assert.throws(() => executeCommand(request("task.list", { tags: "two words" }), databasePath), /tags must start with a letter/);
+    assert.throws(() => executeCommand(request("task.list", { tags: "not.valid" }), databasePath), /tags must start with a letter/);
     assert.equal(planning.tags[0]?.slug, "planning");
   } finally {
     cleanDirectory(directory);

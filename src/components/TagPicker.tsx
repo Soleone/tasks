@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { Check, Tags } from "lucide-react";
 import type { TagRecord } from "@/backend/protocol";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
@@ -52,11 +52,27 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
     onChange(next);
   }
 
+  function handlePickerKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== " " && event.code !== "Space") return;
+
+    const commandRoot = searchInput.current?.closest("[cmdk-root]");
+    const activeItem = commandRoot?.querySelector<HTMLElement>('[cmdk-item][aria-selected="true"]');
+    if (!activeItem || activeItem.getAttribute("aria-disabled") === "true") return;
+    event.preventDefault();
+    activeItem.click();
+  }
+
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
         <DialogTitle>Filter by tags</DialogTitle>
-        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. T opens, Shift+T clears.</DialogDescription>
+        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter closes. T opens, Shift+T clears.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="overflow-hidden rounded-xl! p-0"
@@ -65,7 +81,7 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
         finalFocus={finalFocus}
       >
         <Command label="Filter tasks by tags" filter={literalWordScore} loop shouldFilter>
-          <CommandInput ref={searchInput} placeholder="Search tags…" />
+          <CommandInput ref={searchInput} placeholder="Search tags…" onKeyDown={handlePickerKeyDown} />
           <CommandList label="Tag results">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup
