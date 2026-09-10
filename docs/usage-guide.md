@@ -42,7 +42,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Shift+N` | Open New task with the active task as parent |
 | `Enter` | Edit the active task |
 | `Space` | Cycle the active task through open, in progress, paused, and done |
-| `Delete` | Open cancellation confirmation for the active task |
+| `Delete` | Immediately cancel the active task |
 | `S` | Switch between active and inactive task views (`A` works too) |
 | `Shift+S O` | Show only Open tasks |
 | `Shift+S I` | Show only In progress tasks |

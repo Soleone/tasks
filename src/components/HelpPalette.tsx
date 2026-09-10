@@ -53,7 +53,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
-      { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },
+      { label: "Cancel task", hint: "Delete cancels immediately", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status immediate" },
     ],
   },
   {

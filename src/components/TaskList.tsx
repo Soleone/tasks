@@ -8,7 +8,6 @@ import {
 import { ChevronDown, ChevronRight, Circle, Flag, Folder, Plus, Search, ShieldBan, Tags } from "lucide-react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
-import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,8 +16,8 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { preventFocusSteal, type FocusStack, type Navigator } from "@/navigation";
-import { BackendCommandError, transitionTask } from "@/platform/backendClient";
+import { preventFocusSteal, type Navigator } from "@/navigation";
+import { BackendCommandError, deleteTask, transitionTask } from "@/platform/backendClient";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 
@@ -80,7 +79,6 @@ type TaskListProps = {
   loading: boolean;
   error: string | null;
   nav: Navigator;
-  focusStack: FocusStack;
   onCreate: (parentId?: string) => void;
   onRefresh: (offset?: number) => Promise<void>;
   onActiveTaskIndexChange: (index: number) => void;
@@ -98,12 +96,17 @@ type StatusReceipt = {
   key: string;
 };
 
+type DeleteReceipt = {
+  version: number;
+  key: string;
+};
+
 type HomeShortcutActions = {
   hasActiveFilters: boolean;
   activeTask: TaskRecord | undefined;
   activeTaskIndex: number;
   visibleRowCount: number;
-  openDeleteDialog: () => void;
+  deleteActiveTask: () => Promise<void>;
   clearStatusSequence: () => void;
   clearAllFilters: () => void;
   startStatusSequence: () => void;
@@ -156,7 +159,6 @@ export function TaskList({
   loading,
   error,
   nav,
-  focusStack,
   onCreate,
   onRefresh,
   onActiveTaskIndexChange,
@@ -174,10 +176,10 @@ export function TaskList({
   const retry = useRef<HTMLButtonElement>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
   const statusPending = useRef(new Set<string>());
+  const deleteReceipts = useRef(new Map<string, DeleteReceipt>());
+  const deletePending = useRef(new Set<string>());
   const statusSequence = useRef<{ pending: boolean; timeout: number | null }>({ pending: false, timeout: null });
   const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
-  const [deletion, setDeletion] = useState<{ task: TaskRecord; key: string } | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [listFocused, setListFocused] = useState(false);
   const [statusPendingIds, setStatusPendingIds] = useState<Set<string>>(() => new Set());
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
@@ -413,11 +415,29 @@ export function TaskList({
     }
   }
 
-  function openDeleteDialog(): void {
-    if (!activeTask) return;
-    focusStack.push("delete", list.current);
-    setDeletion({ task: activeTask, key: crypto.randomUUID() });
-    setDeleteOpen(true);
+  async function deleteActiveTask(): Promise<void> {
+    if (!activeTask || deletePending.current.has(activeTask.id)) return;
+    const task = activeTask;
+    const previousReceipt = deleteReceipts.current.get(task.id);
+    const receipt = previousReceipt?.version === task.version
+      ? previousReceipt
+      : { version: task.version, key: crypto.randomUUID() };
+    deleteReceipts.current.set(task.id, receipt);
+    deletePending.current.add(task.id);
+    try {
+      const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
+      deleteReceipts.current.delete(task.id);
+      onCanceled(result.task);
+    } catch (caught) {
+      if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+        onAnnounce(`${task.title} changed elsewhere. Refresh and try again.`);
+        void onRefresh();
+      } else {
+        onAnnounce(`Could not cancel ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`);
+      }
+    } finally {
+      deletePending.current.delete(task.id);
+    }
   }
 
   homeShortcutActions.current = {
@@ -425,7 +445,7 @@ export function TaskList({
     activeTask,
     activeTaskIndex,
     visibleRowCount: visibleRows.length,
-    openDeleteDialog,
+    deleteActiveTask,
     clearStatusSequence,
     clearAllFilters: onClearAllFilters,
     startStatusSequence,
@@ -464,7 +484,7 @@ export function TaskList({
       if (event.key === "Delete") {
         if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
         event.preventDefault();
-        actions.openDeleteDialog();
+        void actions.deleteActiveTask();
         return;
       }
       if (event.key === "Escape") {
@@ -878,17 +898,6 @@ export function TaskList({
           onClick={() => void onRefresh(tasks.length)}
         >Load more tasks</Button>
       ) : null}
-      {deletion ? <TaskDeleteDialog
-        key={deletion.key}
-        task={deletion.task}
-        open={deleteOpen}
-        onClose={() => { setDeleteOpen(false); void onRefresh(); }}
-        onCanceled={onCanceled}
-        returnFocus={() => focusStack.restore("delete")
-          ?? (list.current?.isConnected
-            ? list.current
-            : section.current ?? undefined)}
-      /> : null}
     </section>
   );
 }

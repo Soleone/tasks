@@ -455,43 +455,42 @@ try {
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
   check('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false"');
   check('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"');
-  // Delete is scoped to a focused row and marks it cancelled. N never fires while typing.
+  // Delete is scoped to a focused row and cancels it immediately. N never fires while typing.
   browser("focus", "[role=listbox]");
   browser("press", "n");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Delete");
-  check('document.querySelector(\'form[aria-label="New task"]\') !== null && !document.body.textContent.includes("Cancel task?")');
+  check('document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[role=dialog]")].some((dialog) => dialog.textContent.includes("Cancel task?"))');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
   browser("focus", "[role=listbox]");
-  evaluate('window.deleteList = document.activeElement; true');
+  const deletedId = evaluate('window.deleteList = document.activeElement; window.deletedId = document.activeElement.getAttribute("aria-activedescendant").slice("task-option-".length); window.deletedId');
   browser("press", "Delete");
-  waitFor('document.activeElement.textContent === "Cancel task"');
-  const dialogAudit = JSON.parse(browser("--json", "a11y"));
-  assert.equal(dialogAudit.data.violations.length, 0, JSON.stringify(dialogAudit.data));
-  for (const width of [1280, 320]) {
-    browser("set", "viewport", String(width), "844");
-    check('document.documentElement.scrollWidth <= innerWidth');
-    browser("screenshot", path.join(tmpdir(), `tasks-delete-dialog-${width}.png`));
-  }
-  browser("press", "Escape");
-  waitFor('document.activeElement === window.deleteList && !document.querySelector("[role=dialog]")');
-  assert.equal((await command("task.list")).tasks.length, 4);
+  waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
+  check('document.activeElement === window.deleteList');
+  assert.equal((await command("task.get", { id: deletedId })).task.status, "canceled");
 
-  // Keep the original version while confirmation is open, even across a refresh.
-  const deletingId = evaluate('window.deleteList.getAttribute("aria-activedescendant").slice("task-option-".length)');
-  const deletingTask = (await command("task.get", { id: deletingId })).task;
+  // Canceled tasks are easy to recover through the inactive filter.
+  browser("press", "a");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
+  browser("press", "Space");
+  waitFor('!document.querySelector("[role=option]")');
+  assert.equal((await command("task.get", { id: deletedId })).task.status, "open");
+  browser("press", "a");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4');
+
+  // A stale immediate cancellation is rejected and refreshes the row.
+  const staleId = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").slice("task-option-".length)');
+  const staleTask = (await command("task.get", { id: staleId })).task;
+  await command("task.update", { id: staleId, expectedVersion: staleTask.version, title: "Changed before delete" });
   browser("press", "Delete");
-  waitFor('document.activeElement.textContent === "Cancel task"');
-  await command("task.update", { id: deletingId, expectedVersion: deletingTask.version, title: "Changed before delete" });
-  evaluate('window.dispatchEvent(new Event("focus")); true');
-  browser("press", "Enter");
-  waitFor('document.body.textContent.includes("This task changed elsewhere")');
-  assert.equal((await command("task.list")).tasks.length, 4);
-  browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]") && document.activeElement === window.deleteList');
+  waitFor('document.body.textContent.includes("changed elsewhere")');
+  waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Changed before delete"');
+  check('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4');
 
-  // A committed cancellation with a lost reply can be confirmed again safely.
+  // A committed cancellation with a lost reply can be retried safely.
+  const lostId = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").slice("task-option-".length)');
   evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.deleteKeys = []; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
     const response = await window.originalFetch(...args);
@@ -502,22 +501,20 @@ try {
     return response;
   }; true`);
   browser("press", "Delete");
-  waitFor('document.activeElement.textContent === "Cancel task"');
-  browser("press", "Enter");
-  waitFor('document.body.textContent.includes("Could not cancel task")');
-  check('document.activeElement.textContent === "Cancel task"');
-  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("Could not cancel")');
+  check('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4');
+  browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
   check('window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]');
   check('document.activeElement.matches("[role=listbox]")');
   evaluate('window.fetch = window.originalFetch; true');
-  assert.equal((await command("task.get", { id: deletingId })).task.status, "canceled");
+  assert.equal((await command("task.get", { id: lostId })).task.status, "canceled");
   browser("press", "a");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
-  assert.equal((await command("task.get", { id: deletingId })).task.status, "open");
+  assert.equal((await command("task.get", { id: lostId })).task.status, "open");
   browser("press", "a");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4');
   browser("reload");

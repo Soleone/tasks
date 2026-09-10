@@ -66,8 +66,8 @@ export function preventFocusSteal(event: { preventDefault: () => void }): void {
 }
 
 /**
- * Return-focus bookkeeping for modal layers (commands, themes, settings,
- * delete). Each layer pushes under its own id and restores it on close, so
+ * Return-focus bookkeeping for modal layers (commands, themes, and settings).
+ * Each layer pushes under its own id and restores it on close, so
  * layers compose and one can hand its target to the next (palette -> settings).
  */
 export function useFocusStack(): FocusStack {

@@ -535,7 +535,6 @@ export default function App(): ReactElement {
           loading={loading}
           error={loadError}
           nav={nav}
-          focusStack={focusStack}
           onCreate={openCreate}
           onRefresh={refreshTasks}
           onActiveTaskIndexChange={setActiveTaskIndex}
