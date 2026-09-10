@@ -24,7 +24,7 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent
-        className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md"
+        className="overflow-y-auto sm:max-w-md"
         initialFocus={titleInput as RefObject<HTMLElement>}
         finalFocus={finalFocus}
       >

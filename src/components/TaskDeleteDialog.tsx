@@ -43,7 +43,7 @@ export function TaskDeleteDialog({ task, open, onClose, onCanceled, returnFocus 
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !canceling.current) onClose(); }}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[calc(100svh-2rem)] overflow-y-auto"
+        className="overflow-y-auto"
         initialFocus={confirmButton}
         finalFocus={returnFocus}
         onKeyDown={(event) => {

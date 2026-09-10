@@ -70,7 +70,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus }: SettingsDialo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md"
+        className="overflow-y-auto sm:max-w-md"
         initialFocus={exportButton}
         finalFocus={finalFocus}
       >

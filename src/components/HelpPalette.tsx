@@ -100,7 +100,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
         <DialogDescription>Keyboard help, @categories and #tags.</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
+        className="overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
         initialFocus={searchInput}
         finalFocus={finalFocus}

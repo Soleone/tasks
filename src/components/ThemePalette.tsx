@@ -63,7 +63,7 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
         <DialogDescription>Choose the workspace theme.</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0"
+        className="overflow-hidden rounded-xl! p-0"
         showCloseButton={false}
         initialFocus={searchInput}
         finalFocus={finalFocus}
