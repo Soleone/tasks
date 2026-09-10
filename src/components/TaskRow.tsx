@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
-import { Folder, ShieldBan } from "lucide-react";
+import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { TaskRecord } from "@/backend/protocol";
+import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
@@ -144,17 +145,39 @@ export function TaskRowRelationships({ task, blockedByLabels }: {
   );
 }
 
+/** Quiet created/updated line for the time footer. Updated hides on its creation day. */
+export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement {
+  const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      <span className="inline-flex min-w-0 items-center gap-1" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
+        <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="sr-only">Created </span>
+        <span>{formatTaskDate(task.createdAt)}</span>
+      </span>
+      {showUpdated ? (
+        <span className="inline-flex min-w-0 items-center gap-1" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
+          <RotateCcwClock className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="sr-only">Updated </span>
+          <span>{formatTaskDate(task.updatedAt)}</span>
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
 /**
  * Shared task presentation. The parent owns the outer wrapper (list option
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with description and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false }: {
+export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showTimestamps = false }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
   blockedByLabels?: string[];
   indented?: boolean;
+  showTimestamps?: boolean;
 }): ReactElement {
   return (
     <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
@@ -167,6 +190,7 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
           <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
+        {variant === "full" && showTimestamps ? <TaskRowTimestamps task={task} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
       </div>
     </div>

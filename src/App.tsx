@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
-import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, type StatusPreset } from "@/components/taskFilters";
+import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
@@ -25,6 +25,38 @@ import { applyTheme } from "@/theme";
 
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
+
+const SORT_FIELD_KEY = "tasks.sortField";
+const SORT_DIRECTION_KEY = "tasks.sortDirection";
+const SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
+
+function readStored(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Without storage the choice lasts for this session.
+  }
+}
+
+function readSortField(): SortField {
+  return readStored(SORT_FIELD_KEY) === "created" ? "created" : "updated";
+}
+
+function readSortDirection(): SortDirection {
+  return readStored(SORT_DIRECTION_KEY) === "asc" ? "asc" : "desc";
+}
+
+function readShowTimestamps(): boolean {
+  return readStored(SHOW_TIMESTAMPS_KEY) === "true";
+}
 
 function taskIsVisible(
   task: TaskRecord,
@@ -67,6 +99,9 @@ export default function App(): ReactElement {
   const [tagFilter, setTagFilter] = useState<TagRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnblocked, setShowUnblocked] = useState(false);
+  const [showTimestamps, setShowTimestamps] = useState(readShowTimestamps);
+  const [sortField, setSortField] = useState(readSortField);
+  const [sortDirection, setSortDirection] = useState(readSortDirection);
   const [categoryFilter, setCategoryFilter] = useState<CategoryRecord | null>(null);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
@@ -91,6 +126,8 @@ export default function App(): ReactElement {
   const tagFilterRef = useRef<string[]>([]);
   const searchQueryRef = useRef("");
   const showUnblockedRef = useRef(false);
+  const sortFieldRef = useRef<SortField>("updated");
+  const sortDirectionRef = useRef<SortDirection>("desc");
   const categoryFilterRef = useRef<string | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
   composerRef.current = composer;
@@ -114,6 +151,8 @@ export default function App(): ReactElement {
           ...(priorityFilterRef.current !== null ? { priority: priorityFilterRef.current } : {}),
           ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
           ...(searchQueryRef.current.trim() !== "" ? { search: searchQueryRef.current.trim() } : {}),
+          sort: sortFieldRef.current,
+          direction: sortDirectionRef.current,
         },
       );
       if (sequence !== querySequence.current) return;
@@ -133,9 +172,11 @@ export default function App(): ReactElement {
     tagFilterRef.current = tagFilter.map((tag) => tag.slug);
     searchQueryRef.current = searchQuery;
     showUnblockedRef.current = showUnblocked;
+    sortFieldRef.current = sortField;
+    sortDirectionRef.current = sortDirection;
     categoryFilterRef.current = categoryFilter?.slug ?? null;
     void refreshTasks();
-  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, categoryFilter, refreshTasks]);
+  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, sortField, sortDirection, categoryFilter, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
@@ -303,6 +344,29 @@ export default function App(): ReactElement {
       setStatusPreset((previous) => (previous === "active" ? "inactive" : "active"));
     }
     setActiveTaskIndex(0);
+  }
+
+  function chooseSortField(field: SortField): void {
+    if (field === sortField) return;
+    setSortField(field);
+    setActiveTaskIndex(0);
+    writeStored(SORT_FIELD_KEY, field);
+    setAnnouncement(`Sorted ${sortSummary(field, sortDirection)}`);
+  }
+
+  function reverseSort(): void {
+    const next = sortDirection === "desc" ? "asc" : "desc";
+    setSortDirection(next);
+    setActiveTaskIndex(0);
+    writeStored(SORT_DIRECTION_KEY, next);
+    setAnnouncement(`Sorted ${sortSummary(sortField, next)}`);
+  }
+
+  function toggleTimestamps(): void {
+    const next = !showTimestamps;
+    setShowTimestamps(next);
+    writeStored(SHOW_TIMESTAMPS_KEY, String(next));
+    setAnnouncement(next ? "Showing timestamps" : "Hiding timestamps");
   }
 
   function chooseExactStatus(status: TaskStatus | null): void {
@@ -538,6 +602,12 @@ export default function App(): ReactElement {
             setShowUnblocked(next);
             setActiveTaskIndex(0);
           }}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSortFieldChange={chooseSortField}
+          onReverseSort={reverseSort}
+          showTimestamps={showTimestamps}
+          onToggleTimestamps={toggleTimestamps}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
           onOpenCategoryPicker={openCategoryPicker}

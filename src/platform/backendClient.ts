@@ -19,6 +19,8 @@ export type TaskListFilters = {
   tags?: string[];
   search?: string;
   category?: string;
+  sort?: "created" | "updated";
+  direction?: "asc" | "desc";
 };
 
 export type CategoryListResult = { categories: CategoryRecord[] };
@@ -93,6 +95,8 @@ export async function listTasks(
     ...(filters.priority !== undefined ? { priority: filters.priority } : {}),
     ...(filters.tags !== undefined && filters.tags.length > 0 ? { tags: filters.tags } : {}),
     ...(filters.search !== undefined && filters.search.trim() !== "" ? { search: filters.search.trim() } : {}),
+    ...(filters.sort !== undefined ? { sort: filters.sort } : {}),
+    ...(filters.direction !== undefined ? { direction: filters.direction } : {}),
     offset,
   });
 }

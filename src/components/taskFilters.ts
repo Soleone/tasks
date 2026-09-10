@@ -58,7 +58,15 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "in_progress", label: "In progress", key: "I" },
   { status: "done", label: "Done", key: "D" },
   { status: "paused", label: "Paused", key: "P" },
-  { status: "canceled", label: "Canceled", key: "C" },
+  { status: "canceled", label: "Canceled", key: "X" },
 ];
 
 export const STATUS_SEQUENCE_TIMEOUT_MS = 2000;
+
+export type SortField = "created" | "updated";
+export type SortDirection = "asc" | "desc";
+
+/** Quiet count-line suffix, e.g. by updated, newest first. */
+export function sortSummary(field: SortField, direction: SortDirection): string {
+  return `by ${field}, ${direction === "desc" ? "newest first" : "oldest first"}`;
+}

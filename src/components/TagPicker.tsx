@@ -76,7 +76,7 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
         <DialogTitle>Filter by tags</DialogTitle>
-        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. T opens, Shift+T clears.</DialogDescription>
+        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="overflow-hidden rounded-xl! p-0"
@@ -116,11 +116,10 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
               {selected.length > 0 ? (
                 <CommandItem
                   value="Clear tags"
-                  keywords={["clear reset all shift t"]}
+                  keywords={["clear reset all"]}
                   onSelect={() => onChange([])}
                 >
                   <span className="font-medium">Clear tags</span>
-                  <span className="text-muted-foreground">Shift+T</span>
                 </CommandItem>
               ) : null}
             </CommandGroup>

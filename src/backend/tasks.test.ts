@@ -788,6 +788,35 @@ test("task.list searches title, description, and category", () => {
   }
 });
 
+test("task.list sorts by created and updated with direction", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-sort-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const oldest = task(executeCommand(request("task.create", { title: "Oldest" }, { idempotencyKey: "sort-oldest" }), databasePath));
+    const middle = task(executeCommand(request("task.create", { title: "Middle" }, { idempotencyKey: "sort-middle" }), databasePath));
+    const newest = task(executeCommand(request("task.create", { title: "Newest" }, { idempotencyKey: "sort-newest" }), databasePath));
+    // Pin timestamps so the order is deterministic: created and updated run opposite ways.
+    const database = new DatabaseSync(databasePath);
+    try {
+      const stamp = database.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE id = ?");
+      stamp.run("2026-01-01T00:00:00.000Z", "2026-03-03T00:00:00.000Z", oldest.id);
+      stamp.run("2026-01-02T00:00:00.000Z", "2026-03-02T00:00:00.000Z", middle.id);
+      stamp.run("2026-01-03T00:00:00.000Z", "2026-03-01T00:00:00.000Z", newest.id);
+    } finally {
+      database.close();
+    }
+    const ids = (result: Result): string[] => (result.tasks as TaskRecord[]).map((item) => item.id);
+    assert.deepEqual(ids(executeCommand(request("task.list"), databasePath)), [oldest.id, middle.id, newest.id]);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "updated", direction: "asc" }), databasePath)), [newest.id, middle.id, oldest.id]);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created" }), databasePath)), [newest.id, middle.id, oldest.id]);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created", direction: "asc" }), databasePath)), [oldest.id, middle.id, newest.id]);
+    assert.throws(() => executeCommand(request("task.list", { sort: "priority" }), databasePath), /sort must be created or updated/);
+    assert.throws(() => executeCommand(request("task.list", { direction: "sideways" }), databasePath), /direction must be asc or desc/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("schema version 3 workspaces migrate tasks to priority P2", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-priority-migration-"));
   const databasePath = path.join(directory, "tasks.db");

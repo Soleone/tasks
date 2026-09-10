@@ -901,6 +901,17 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     const trimmed = searchArgument.trim().slice(0, 200);
     searchPattern = `%${escapeLikePattern(trimmed)}%`;
   }
+  const sortArgument = request.args.sort ?? "updated";
+  if (sortArgument !== "created" && sortArgument !== "updated") {
+    throw new CommandError("INVALID_ARGUMENT", "sort must be created or updated");
+  }
+  const directionArgument = request.args.direction ?? "desc";
+  if (directionArgument !== "asc" && directionArgument !== "desc") {
+    throw new CommandError("INVALID_ARGUMENT", "direction must be asc or desc");
+  }
+  // Both values are allow-listed above, so interpolation is safe.
+  const orderBy = sortArgument === "created" ? "tasks.created_at" : "tasks.updated_at";
+  const orderDirection = directionArgument === "asc" ? "ASC" : "DESC";
   const conditions: string[] = [];
   const params: Array<string | number> = [];
   if (statuses.length > 0) {
@@ -932,7 +943,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
       `SELECT tasks.*, categories.slug AS category_slug, categories.label AS category_label
        FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
        ${where}
-       ORDER BY tasks.updated_at DESC, tasks.id ASC
+       ORDER BY ${orderBy} ${orderDirection}, tasks.id ASC
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as Row[];

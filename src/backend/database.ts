@@ -103,6 +103,7 @@ function createSchema(database: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS tasks_updated_at_idx ON tasks (updated_at DESC, id ASC);
+    CREATE INDEX IF NOT EXISTS tasks_created_at_idx ON tasks (created_at DESC, id ASC);
     CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks (status, updated_at DESC, id ASC);
     CREATE INDEX IF NOT EXISTS tasks_parent_idx ON tasks (parent_id);
     CREATE INDEX IF NOT EXISTS task_dependencies_task_idx ON task_dependencies (task_id);

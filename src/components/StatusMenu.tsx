@@ -20,7 +20,7 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
         <DialogTitle>Filter by status</DialogTitle>
-        <DialogDescription>Choose Active, Inactive, or one exact status. S toggles presets; Shift+S then O, I, D, P, or C picks an exact status.</DialogDescription>
+        <DialogDescription>Choose Active, Inactive, or one exact status. F then S toggles presets; F then O, I, D, P, or X picks an exact status.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="overflow-hidden rounded-xl! p-0"
@@ -35,7 +35,7 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
             <CommandGroup heading="Presets">
               <CommandItem
                 value="Preset Active"
-                keywords={["s active open in progress paused toggle"]}
+                keywords={["f s active open in progress paused toggle"]}
                 onSelect={() => onSelect("active", null)}
               >
                 <Circle aria-hidden="true" />
@@ -45,7 +45,7 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
               </CommandItem>
               <CommandItem
                 value="Preset Inactive"
-                keywords={["s inactive done canceled toggle"]}
+                keywords={["f s inactive done canceled toggle"]}
                 onSelect={() => onSelect("inactive", null)}
               >
                 <Circle aria-hidden="true" />
@@ -62,14 +62,14 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
                   <CommandItem
                     key={entry.status}
                     value={`Status ${entry.label}`}
-                    keywords={[`shift s ${entry.key.toLowerCase()} ${entry.label.toLowerCase()}`]}
+                    keywords={[`f ${entry.key.toLowerCase()} ${entry.label.toLowerCase()}`]}
                     onSelect={() => onSelect(undefined, entry.status)}
                   >
                     <span className={cn("inline-flex size-4 shrink-0 items-center justify-center", status.color)}>
                       <StatusIcon aria-hidden="true" />
                     </span>
                     <span className="font-medium">{entry.label}</span>
-                    <span className="text-muted-foreground">Shift+S {entry.key}</span>
+                    <span className="text-muted-foreground">F {entry.key}</span>
                     {exactStatus === entry.status ? <Check aria-hidden="true" className="ml-auto" /> : null}
                   </CommandItem>
                 );
