@@ -5,7 +5,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock, Clock3, Flag, Folder, Plus, RotateCcwClock, Search, ShieldBan, Tags } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock, Clock3, Flag, Folder, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
@@ -907,7 +907,7 @@ export function TaskList({
               />
             }
           >
-            <ShieldBan aria-hidden="true" />
+            <ShieldCheck aria-hidden="true" />
             <span className="sr-only">{showUnblocked ? "Show all tasks" : "Show unblocked tasks"}</span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
