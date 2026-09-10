@@ -1,8 +1,10 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactElement, type RefObject } from "react";
-import type { TaskRecord } from "@/backend/protocol";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type RefObject } from "react";
+import type { TaskPriority, TaskRecord } from "@/backend/protocol";
+import { PRIORITY_META } from "@/components/taskFilters";
 import { createTask, updateTask, BackendCommandError } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,18 +16,23 @@ type TaskComposerProps = {
   onCancel: () => void;
 };
 
+const PRIORITY_ORDER: TaskPriority[] = [0, 1, 2, 3, 4];
+
 // Shared create/edit form. Fields own direct keyboard navigation; action
-// buttons remain mouse-accessible backups and are never Tab destinations.
+// buttons and the priority toggle remain mouse-accessible backups and are
+// never Tab destinations. Priority on the list is handled by the 0-4 keys.
 export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   const titleInput = titleInputRef ?? fallbackTitleInput;
+  const priorityRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.descriptionMarkdown ?? "");
+  const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.descriptionMarkdown));
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
@@ -49,6 +56,31 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
   function showNotes(): void {
     focusNotesOnOpen.current = true;
     setNotesOpen(true);
+  }
+
+  function focusPriority(value: TaskPriority): void {
+    setPriority(value);
+    requestAnimationFrame(() => {
+      priorityRefs.current[value]?.focus();
+    });
+  }
+
+  function handlePriorityKeyDown(event: KeyboardEvent<HTMLButtonElement>, value: TaskPriority): void {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    const index = PRIORITY_ORDER.indexOf(value);
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      focusPriority(PRIORITY_ORDER[(index + 1) % PRIORITY_ORDER.length] as TaskPriority);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      focusPriority(PRIORITY_ORDER[(index - 1 + PRIORITY_ORDER.length) % PRIORITY_ORDER.length] as TaskPriority);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusPriority(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusPriority(4);
+    }
   }
 
   function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
@@ -88,19 +120,20 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
     setPending(true);
     setError(null);
     // A lost reply must be retried with the same receipt, not a second write.
-    const payload = JSON.stringify([title, description]);
+    const payload = JSON.stringify([title, description, priority, task?.id ?? "new"]);
     if (receipt.current?.payload !== payload) {
       receipt.current = { payload, key: crypto.randomUUID() };
     }
     const options = { idempotencyKey: receipt.current.key };
     try {
       const result = task
-        ? await updateTask(task.id, title, description, task.version, options)
-        : await createTask(title, description, options);
+        ? await updateTask(task.id, title, description, task.version, { ...options, priority })
+        : await createTask(title, description, { ...options, priority });
       receipt.current = null;
       if (!task) {
         setTitle("");
         setDescription("");
+        setPriority(2);
         setNotesOpen(false);
       }
       onSaved(result.task);
@@ -182,6 +215,36 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
             />
           </Field>
         ) : null}
+        <Field>
+          <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
+          <ButtonGroup role="radiogroup" aria-labelledby={`${id}-priority-label`} aria-label="Task priority">
+            {PRIORITY_META.map((meta) => {
+              const selected = priority === meta.value;
+              return (
+                <Button
+                  key={meta.value}
+                  ref={(element) => {
+                    priorityRefs.current[meta.value] = element;
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  variant={selected ? "secondary" : "ghost"}
+                  size="sm"
+                  tabIndex={-1}
+                  aria-label={`${meta.shortLabel}: ${meta.label}`}
+                  data-priority={meta.shortLabel}
+                  disabled={pending}
+                  onClick={() => setPriority(meta.value)}
+                  onKeyDown={(event) => handlePriorityKeyDown(event, meta.value)}
+                >
+                  <span aria-hidden="true" className={`inline-block size-2 rounded-full ${meta.dot}`} />
+                  {meta.shortLabel}
+                </Button>
+              );
+            })}
+          </ButtonGroup>
+        </Field>
       </FieldGroup>
       {error ? (
         <Alert variant="destructive">

@@ -95,6 +95,7 @@ The gear button in the header, or “Settings” in the Ctrl/Cmd+K palette, open
       "id": "…",
       "title": "Book venue @launch #planning",
       "status": "open",
+      "priority": 2,
       "category": "launch",
       "tags": ["planning"],
       "notesMarkdown": "- ask about capacity\n",

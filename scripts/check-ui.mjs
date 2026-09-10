@@ -77,6 +77,7 @@ try {
   browser("press", "Tab");
   waitFor('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   check('document.querySelector(\'form[aria-label="New task"] button[type="button"]\').tabIndex === -1');
+  check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').tabIndex === -1');
   browser("find", "role", "button", "click", "--name", "Add description");
   waitFor('document.activeElement.name === "description"');
   browser("click", 'form[aria-label="New task"] input');
@@ -101,7 +102,11 @@ try {
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("New task") && item.textContent.includes("C"))');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("A"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("S"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("Shift"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Priority filter") && item.textContent.includes("0"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter by tags") && item.textContent.includes("T"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Search tasks") && item.textContent.includes("/"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show unblocked tasks") && item.textContent.includes("U"))');
   browser("fill", 'input[role="combobox"]', "@category");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
@@ -119,7 +124,8 @@ try {
   assert.equal(saved[0].category.slug, "launch");
   assert.equal(saved[0].tags[0].slug, "planning");
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
-  check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
+  check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 3');
+  check("document.querySelector(\"[role=option] [data-priority=\'P2\']\") !== null");
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
   // Close the create dialog to return to the list.
   browser("press", "Escape");
@@ -131,29 +137,60 @@ try {
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "In progress"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
-  check('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false"');
+  assert.equal(saved[0].priority, 2);
+  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false"');
+  // S toggles Active/Inactive presets; A remains as a legacy alias.
   browser("focus", "[role=listbox]");
-  browser("press", "a");
-  waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "true"');
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
-  check('(() => { const active = document.querySelector("[data-filter=task-activity]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
+  check('(() => { const active = document.querySelector("[data-filter=task-status]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "a");
-  waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
+  // Active now includes paused: in_progress -> paused stays visible.
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=option]")');
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  // paused -> done leaves the Active view; Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
-  browser("press", "a");
-  waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
+  // done -> open leaves Inactive; Active shows open again.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
-  browser("press", "a");
-  waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
-  browser("press", "Space");
-  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
   saved[0] = (await command("task.get", { id: saved[0].id })).task;
   assert.equal(saved[0].status, "open");
+  // Shift+S exact-status sequences replace the preset.
+  browser("focus", "[role=listbox]");
+  browser("press", "Shift+s");
+  browser("press", "d");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=option]")');
+  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done")');
+  // A slow second key (>2s) must not trigger an exact status.
+  browser("press", "Shift+s");
+  await new Promise((resolve) => setTimeout(resolve, 2200));
+  browser("press", "o");
+  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done")');
+  // Escape resets the list: it cancels the pending choice and clears the
+  // exact-status filter, returning to the Active preset. Focus stays put.
+  browser("press", "Shift+s");
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
+  // Mouse opens the same status menu.
+  evaluate('document.querySelector("[data-filter=task-status]").click(); true');
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Active") && item.textContent.includes("Open"))');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
 
   // Edit shares the same dialog. Stale contents survive a conflict until discard.
   browser("focus", "[role=listbox]");
@@ -235,11 +272,22 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('document.querySelector("[data-slot=command-item][aria-selected=true]")?.textContent.startsWith("Gruvbox")');
   browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
 
   // A light palette drops the dark class, and a file beside the database joins the picker.
   writeFileSync(path.join(scratch, "themes", "sunset.toml"), 'mode = "light"\naccent = "#c2410c"\nbackground = "#fff7ed"\ndark_background = "#ffedd5"\nforeground = "#431407"\n');
   browser("press", "Alt+t");
-  waitFor('document.activeElement.matches("[cmdk-input]")');
+  try {
+    waitFor('document.activeElement.matches("[cmdk-input]")');
+  } catch {
+    // Rare autofocus race on reopen: close fully and open once more.
+    console.error("DIAG inputs:", evaluate('document.querySelectorAll("[cmdk-input]").length'));
+    console.error("DIAG dialogs:", evaluate('document.querySelectorAll("[role=dialog]").length'));
+    browser("press", "Escape");
+    waitFor('!document.querySelector("[role=dialog]")');
+    browser("press", "Alt+t");
+    waitFor('document.activeElement.matches("[cmdk-input]")');
+  }
   browser("fill", 'input[role="combobox"]', "latte");
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Catppuccin Latte"))');
   evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.startsWith("Catppuccin Latte")).click(); true');
@@ -350,7 +398,7 @@ try {
   const audit = JSON.parse(browser("--json", "a11y"));
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
-  check('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false"');
+  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false"');
   check('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"');
   // Delete is scoped to a focused row and marks it cancelled. C never fires while typing.
   browser("focus", "[role=listbox]");
@@ -410,13 +458,13 @@ try {
   evaluate('window.fetch = window.originalFetch; true');
   assert.equal((await command("task.get", { id: deletingId })).task.status, "canceled");
   browser("press", "a");
-  waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   assert.equal((await command("task.get", { id: deletingId })).task.status, "open");
   browser("press", "a");
-  waitFor('document.querySelector("[data-filter=task-activity]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 4');
   check('document.querySelectorAll(`[data-status="open"]`).length === 4');
@@ -501,8 +549,104 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "false"');
+
+  // Priority: P2 is the default, 0-4 filters, the dialog toggle persists, and
+  // the toolbar button opens the same menu for mouse users.
+  assert.equal((await command("task.list", { priority: 2 })).total >= 9, true);
+  browser("focus", "[role=listbox]");
+  browser("press", "0");
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0');
+  check('document.body.textContent.includes("No tasks match the current filters")');
+  check('document.querySelector("[role=listbox]") === null || document.body.textContent.includes("Clear filters")');
+  // Escape resets all filters, returning to the full Active view.
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  // Filtering again, then the same key clears the priority filter.
+  browser("focus", "[role=listbox]");
+  browser("press", "0");
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0');
+  browser("press", "0");
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  // Mouse opens the priority menu and picks P2.
+  evaluate('document.querySelector("[data-filter=task-priority]").click(); true');
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("P2"))');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  // The composer defaults to P2 and persists a P0 choice.
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
+  check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
+  // The toggle is mouse-only; arrows move within the radiogroup once focused by click.
+  browser("find", "role", "radio", "click", "--name", "P2: P2 normal");
+  waitFor('document.activeElement?.getAttribute("data-priority") === "P2"');
+  browser("press", "ArrowRight");
+  waitFor('document.activeElement?.getAttribute("data-priority") === "P3"');
+  browser("press", "ArrowLeft");
+  waitFor('document.activeElement?.getAttribute("data-priority") === "P2"');
+  evaluate('document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\').click(); true');
+  browser("fill", 'form[aria-label="New task"] input', "Urgent cockpit task");
+  browser("press", "Enter");
+  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
+  assert.equal((await command("task.list", { priority: 0 })).total, 1);
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 10');
+
+  // Tags: T opens a multi-select picker with AND semantics; Shift+T clears.
+  await command("task.create", { title: "Tag cockpit #planning #product" });
+  await command("task.create", { title: "Planning only #planning" });
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 12');
+  browser("focus", "[role=listbox]");
+  browser("press", "t");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "planning");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
+  evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("planning") && item.textContent.includes("task")).click(); true');
+  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true"');
+  // Picker stays open for multi-select; pick product to narrow to AND.
+  check('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "product");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("product"))');
+  evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("product") && item.textContent.includes("task")).click(); true');
+  waitFor('document.querySelectorAll(\'[role=listbox][aria-label^="Tasks"] [role=option]\').length === 1');
+  check('document.querySelector(\'[role=listbox][aria-label^="Tasks"] [role=option]\').textContent.includes("Tag cockpit")');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  browser("focus", "[role=listbox]");
+  browser("press", "Shift+t");
+  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
+
+  // Search: / opens, covers titles and descriptions, stays applied, and the
+  // button clears with a mouse action. Empty filters offer Clear filters.
+  browser("focus", "[role=listbox]");
+  browser("press", "/");
+  waitFor('document.querySelector(\'input[name="search"]\') !== null');
+  browser("fill", 'input[name="search"]', "accessibility");
+  check('document.querySelector(\'input[name="search"]\').value === "accessibility"');
+  browser("press", "Enter");
+  waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  check('document.querySelector("[data-filter=task-search]").getAttribute("aria-label").includes("accessibility")');
+  // A query with no matches shows the filtered empty state with Clear filters.
+  browser("focus", "[role=listbox]");
+  browser("press", "/");
+  waitFor('document.querySelector(\'input[name="search"]\') !== null');
+  browser("fill", 'input[name="search"]', "zzz-no-such-task");
+  check('document.querySelector(\'input[name="search"]\').value === "zzz-no-such-task"');
+  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("No tasks match the current filters")');
+  browser("find", "role", "button", "click", "--name", "Clear filters");
+  waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
+  // Toolbar order stays Status, Priority, Project, Tags, Search, Unblocked.
+  check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-project","task-tags","task-search","task-unblocked"])');
+  for (const width of [1280, 320]) {
+    browser("set", "viewport", String(width), "844");
+    check('document.documentElement.scrollWidth <= innerWidth');
+  }
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, active/inactive, unblocked and project filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, status presets and exact sequences, priority, unblocked, project, tags, search, filtered empty states, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

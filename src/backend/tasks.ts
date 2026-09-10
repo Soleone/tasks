@@ -7,6 +7,7 @@ import {
   type Actor,
   type ClassificationToken,
   type ProtocolRequest,
+  type TaskPriority,
   type TaskRecord,
   type TaskStatus,
 } from "./protocol.js";
@@ -70,6 +71,24 @@ function numberValue(row: Row, field: string): number {
     throw new CommandError("INVALID_STORAGE", `database field ${field} is not numeric`);
   }
   return value;
+}
+
+function priorityValue(value: unknown): TaskPriority {
+  if (value === 0 || value === 1 || value === 2 || value === 3 || value === 4) {
+    return value;
+  }
+  throw new CommandError("INVALID_STORAGE", `database contains unsupported task priority ${String(value)}`);
+}
+
+function optionalPriority(args: Row, name: string): TaskPriority | undefined {
+  const value = args[name];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === 0 || value === 1 || value === 2 || value === 3 || value === 4) {
+    return value;
+  }
+  throw new CommandError("INVALID_ARGUMENT", `${name} must be an integer from 0 to 4`);
 }
 
 function statusValue(value: unknown): TaskStatus {
@@ -235,6 +254,7 @@ function taskFromRow(database: DatabaseSync, row: Row): TaskRecord {
     title: stringValue(row, "title"),
     descriptionMarkdown: stringValue(row, "description_markdown"),
     status: statusValue(row.status),
+    priority: row.priority === undefined ? 2 : priorityValue(row.priority),
     category: categoryFromRow(row),
     tags: tagRows.map((tag) => ({ slug: stringValue(tag, "tag_slug"), label: stringValue(tag, "tag_label") })),
     parentId: nullableStringValue(row, "parent_id"),
@@ -384,13 +404,14 @@ function taskResult(task: TaskRecord, extras: Record<string, unknown> = {}): Rec
   return { task, ...extras };
 }
 
-function previewTask(input: PreparedTask, status: TaskStatus = "open"): TaskRecord {
+function previewTask(input: PreparedTask, status: TaskStatus = "open", priority: TaskPriority = 2): TaskRecord {
   const now = new Date().toISOString();
   return {
     id: "preview",
     title: input.title,
     descriptionMarkdown: input.descriptionMarkdown,
     status,
+    priority,
     category: input.classification.category,
     tags: input.classification.tags,
     parentId: null,
@@ -410,6 +431,7 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   }
 
   const input = taskInput(request.args);
+  const priority = optionalPriority(request.args, "priority") ?? 2;
   const parentArg = request.args.parentId;
   let parentId: string | null = null;
   if (parentArg !== undefined && parentArg !== null) {
@@ -420,7 +442,7 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
     requireParentTask(database, parentId);
   }
   if (request.readOnly || request.dryRun) {
-    return taskResult({ ...previewTask(input), parentId }, { dryRun: true, readOnly: Boolean(request.readOnly) });
+    return taskResult({ ...previewTask(input, "open", priority), parentId, priority }, { dryRun: true, readOnly: Boolean(request.readOnly) });
   }
 
   const now = new Date().toISOString();
@@ -429,12 +451,12 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
     database
       .prepare(
         `INSERT INTO tasks
-          (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at)
-         VALUES (?, ?, ?, 'open', NULL, ?, 1, ?, ?, NULL, NULL)`,
+          (id, title, description_markdown, status, category_id, parent_id, priority, version, created_at, updated_at, completed_at, canceled_at)
+         VALUES (?, ?, ?, 'open', NULL, ?, ?, 1, ?, ?, NULL, NULL)`,
       )
-      .run(id, input.title, input.descriptionMarkdown, parentId, now, now);
+      .run(id, input.title, input.descriptionMarkdown, parentId, priority, now, now);
     upsertClassification(database, id, input.classification, now);
-    insertActivity(database, id, request, "created", { title: input.title, ...(parentId ? { parentId } : {}) }, now);
+    insertActivity(database, id, request, "created", { title: input.title, priority, ...(parentId ? { parentId } : {}) }, now);
     const task = requireTask(database, id);
     const result = taskResult(task);
     recordReceipt(database, request, context, result, now);
@@ -480,9 +502,11 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   const changed =
     input.title !== current.title ||
     input.descriptionMarkdown !== current.descriptionMarkdown ||
-    !classificationMatches(current, input.classification);
+    !classificationMatches(current, input.classification) ||
+    (request.args.priority !== undefined && optionalPriority(request.args, "priority") !== current.priority);
+  const nextPriority = optionalPriority(request.args, "priority") ?? current.priority;
   if (request.readOnly || request.dryRun) {
-    return taskResult({ ...current, title: input.title, descriptionMarkdown: input.descriptionMarkdown }, {
+    return taskResult({ ...current, title: input.title, descriptionMarkdown: input.descriptionMarkdown, priority: nextPriority }, {
       dryRun: true,
       readOnly: Boolean(request.readOnly),
       changed,
@@ -499,15 +523,18 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   const now = new Date().toISOString();
   return withTransaction(database, () => {
     database
-      .prepare("UPDATE tasks SET title = ?, description_markdown = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
-      .run(input.title, input.descriptionMarkdown, now, current.id, version);
+      .prepare("UPDATE tasks SET title = ?, description_markdown = ?, priority = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+      .run(input.title, input.descriptionMarkdown, nextPriority, now, current.id, version);
     upsertClassification(database, current.id, input.classification, now);
     insertActivity(
       database,
       current.id,
       request,
       "updated",
-      { before: { title: current.title, descriptionMarkdown: current.descriptionMarkdown }, after: { title: input.title, descriptionMarkdown: input.descriptionMarkdown } },
+      {
+        before: { title: current.title, descriptionMarkdown: current.descriptionMarkdown, priority: current.priority },
+        after: { title: input.title, descriptionMarkdown: input.descriptionMarkdown, priority: nextPriority },
+      },
       now,
     );
     const task = requireTask(database, current.id);
@@ -778,6 +805,36 @@ function listProjects(database: DatabaseSync): Record<string, unknown> {
   };
 }
 
+function listTags(database: DatabaseSync): Record<string, unknown> {
+  const rows = database
+    .prepare(
+      `SELECT tags.slug, tags.label, COUNT(task_tags.task_id) AS task_count
+       FROM tags
+       JOIN task_tags ON task_tags.tag_id = tags.id
+       GROUP BY tags.id, tags.slug, tags.label
+       ORDER BY tags.label COLLATE NOCASE ASC, tags.slug ASC`,
+    )
+    .all() as Row[];
+  return {
+    tags: rows.map((row) => ({
+      slug: stringValue(row, "slug"),
+      label: stringValue(row, "label"),
+      taskCount: numberValue(row, "task_count"),
+    })),
+  };
+}
+
+function normalizeSlug(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new CommandError("INVALID_ARGUMENT", `${field} must be a non-empty string`);
+  }
+  return value.trim().toLowerCase();
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
+}
+
 function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
   const limit = Math.min(Math.max(optionalInteger(request.args, "limit", 50), 1), 100);
   const offset = Math.max(optionalInteger(request.args, "offset", 0), 0);
@@ -797,19 +854,57 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   if (unblockedArgument !== undefined && typeof unblockedArgument !== "boolean") {
     throw new CommandError("INVALID_ARGUMENT", "unblocked must be a boolean");
   }
+  // `project` is the current UI name; `category` stays accepted as the plan's
+  // canonical name so both clients filter the same @category slug.
   const projectArgument = request.args.project;
+  const categoryArgument = request.args.category;
   let projectSlug: string | undefined;
   if (projectArgument !== undefined) {
-    if (typeof projectArgument !== "string" || projectArgument.trim() === "") {
-      throw new CommandError("INVALID_ARGUMENT", "project must be a non-empty string");
+    projectSlug = normalizeSlug(projectArgument, "project");
+  }
+  if (categoryArgument !== undefined) {
+    const categorySlug = normalizeSlug(categoryArgument, "category");
+    if (projectSlug !== undefined && projectSlug !== categorySlug) {
+      throw new CommandError("INVALID_ARGUMENT", "project and category must match when both are provided");
     }
-    projectSlug = projectArgument.trim().toLowerCase();
+    projectSlug = categorySlug;
+  }
+  let priorityFilter: number | undefined;
+  if (request.args.priority !== undefined) {
+    const priorityArgument = request.args.priority;
+    if (typeof priorityArgument !== "number" || !Number.isInteger(priorityArgument) || priorityArgument < 0 || priorityArgument > 4) {
+      throw new CommandError("INVALID_ARGUMENT", "priority must be an integer from 0 to 4");
+    }
+    priorityFilter = priorityArgument;
+  }
+  let tagSlugs: string[] = [];
+  if (request.args.tags !== undefined) {
+    const tagsArgument = request.args.tags;
+    const rawTags = Array.isArray(tagsArgument) ? tagsArgument : [tagsArgument];
+    if (rawTags.length === 0) {
+      throw new CommandError("INVALID_ARGUMENT", "tags must be a non-empty string or array of strings");
+    }
+    tagSlugs = rawTags.map((tag) => normalizeSlug(tag, "tags"));
+    tagSlugs = [...new Set(tagSlugs)].sort();
+  }
+  let searchPattern: string | undefined;
+  if (request.args.search !== undefined) {
+    const searchArgument = request.args.search;
+    if (typeof searchArgument !== "string" || searchArgument.trim() === "") {
+      throw new CommandError("INVALID_ARGUMENT", "search must be a non-empty string");
+    }
+    const trimmed = searchArgument.trim().slice(0, 200);
+    searchPattern = `%${escapeLikePattern(trimmed)}%`;
   }
   const conditions: string[] = [];
-  const params: string[] = [];
+  const params: Array<string | number> = [];
   if (statuses.length > 0) {
     conditions.push(`tasks.status IN (${statuses.map(() => "?").join(", ")})`);
     params.push(...statuses as string[]);
+  }
+  if (priorityFilter !== undefined) {
+    conditions.push("tasks.priority = ?");
+    params.push(priorityFilter);
   }
   if (unblockedArgument === true) {
     conditions.push("NOT EXISTS (SELECT 1 FROM task_dependencies WHERE task_dependencies.task_id = tasks.id)");
@@ -817,6 +912,14 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   if (projectSlug !== undefined) {
     conditions.push("categories.slug = ?");
     params.push(projectSlug);
+  }
+  for (const tagSlug of tagSlugs) {
+    conditions.push(`EXISTS (SELECT 1 FROM task_tags JOIN tags ON tags.id = task_tags.tag_id WHERE task_tags.task_id = tasks.id AND tags.slug = ?)`);
+    params.push(tagSlug);
+  }
+  if (searchPattern !== undefined) {
+    conditions.push(`(tasks.title LIKE ? ESCAPE '\\' OR tasks.description_markdown LIKE ? ESCAPE '\\')`);
+    params.push(searchPattern, searchPattern);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = database
@@ -897,6 +1000,8 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return listTasks(database, request);
     case "project.list":
       return listProjects(database);
+    case "tag.list":
+      return listTags(database);
     case "task.get":
       return getTask(database, request);
     case "task.update":

@@ -3,7 +3,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RuntimeProbeResult } from "./protocol.js";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 function readString(value: unknown, field: string): string {
   if (typeof value !== "object" || value === null || !(field in value)) {
@@ -56,6 +56,7 @@ function createSchema(database: DatabaseSync): void {
       status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'paused', 'done', 'canceled')),
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
       parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+      priority INTEGER NOT NULL DEFAULT 2 CHECK (priority IN (0, 1, 2, 3, 4)),
       version INTEGER NOT NULL CHECK (version > 0),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -119,14 +120,15 @@ function migrateTaskStatusConstraint(database: DatabaseSync): void {
       status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'paused', 'done', 'canceled')),
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
       parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+      priority INTEGER NOT NULL DEFAULT 2 CHECK (priority IN (0, 1, 2, 3, 4)),
       version INTEGER NOT NULL CHECK (version > 0),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       completed_at TEXT,
       canceled_at TEXT
     );
-    INSERT INTO tasks_v2 (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at)
-      SELECT id, title, description_markdown, status, category_id, NULL, version, created_at, updated_at, completed_at, canceled_at
+    INSERT INTO tasks_v2 (id, title, description_markdown, status, category_id, parent_id, priority, version, created_at, updated_at, completed_at, canceled_at)
+      SELECT id, title, description_markdown, status, category_id, NULL, 2, version, created_at, updated_at, completed_at, canceled_at
       FROM tasks;
     DROP TABLE tasks;
     ALTER TABLE tasks_v2 RENAME TO tasks;
@@ -151,6 +153,18 @@ function migrateRelationships(database: DatabaseSync): void {
   `);
 }
 
+function migratePriority(database: DatabaseSync): void {
+  const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").all() as Array<{ name: string }>;
+  if (tables.length === 0) return;
+  const columns = database.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === 'priority')) {
+    database.exec('ALTER TABLE tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 2 CHECK (priority IN (0, 1, 2, 3, 4))');
+  }
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks (priority, updated_at DESC, id ASC);
+  `);
+}
+
 export function ensureSchema(database: DatabaseSync): void {
   database.exec("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);");
   const row = database.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as
@@ -161,13 +175,14 @@ export function ensureSchema(database: DatabaseSync): void {
   if (version !== undefined && (!Number.isInteger(version) || version > SCHEMA_VERSION)) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is newer than ${SCHEMA_VERSION}`);
   }
-  if (version !== undefined && version !== 1 && version !== 2 && version !== SCHEMA_VERSION) {
+  if (version !== undefined && version !== 1 && version !== 2 && version !== 3 && version !== SCHEMA_VERSION) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is not supported`);
   }
 
   const needsVersion = version === undefined;
   const needsStatusMigration = version === 1;
   const needsRelationshipMigration = version === 1 || version === 2;
+  const needsPriorityMigration = version === 1 || version === 2 || version === 3;
   // SQLite cannot change a table constraint in place. Foreign keys are disabled
   // only for the atomic table replacement, then restored before the connection
   // is returned to callers.
@@ -176,7 +191,8 @@ export function ensureSchema(database: DatabaseSync): void {
     if (needsStatusMigration) migrateTaskStatusConstraint(database);
     if (needsRelationshipMigration) migrateRelationships(database);
     createSchema(database);
-    if (needsVersion || needsStatusMigration || needsRelationshipMigration) {
+    migratePriority(database);
+    if (needsVersion || needsStatusMigration || needsRelationshipMigration || needsPriorityMigration) {
       database
         .prepare("INSERT INTO schema_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .run(String(SCHEMA_VERSION));

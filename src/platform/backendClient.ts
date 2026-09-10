@@ -5,6 +5,8 @@ import {
   type ProtocolRequest,
   type ProjectRecord,
   type RuntimeProbeResult,
+  type TagRecord,
+  type TaskPriority,
   type TaskRecord,
   type ThemeRecord,
 } from "../backend/protocol";
@@ -12,7 +14,15 @@ import { getBackendTransport } from "./backendTransport";
 
 export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; total: number; limit: number; offset: number };
+export type TaskListFilters = {
+  priority?: TaskPriority;
+  tags?: string[];
+  search?: string;
+  category?: string;
+};
+
 export type ProjectListResult = { projects: ProjectRecord[] };
+export type TagListResult = { tags: TagRecord[] };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
 export type WorkspaceInfoResult = { databasePath: string; taskCount: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; taskCount: number; exportedAt: string };
@@ -73,11 +83,16 @@ export async function listTasks(
   offset = 0,
   unblocked = false,
   project?: string,
+  filters: TaskListFilters = {},
 ): Promise<TaskListResult> {
   return runBackendCommand<TaskListResult>("task.list", {
     ...(status !== undefined ? { status } : {}),
     ...(unblocked ? { unblocked: true } : {}),
     ...(project !== undefined ? { project } : {}),
+    ...(filters.category !== undefined ? { category: filters.category } : {}),
+    ...(filters.priority !== undefined ? { priority: filters.priority } : {}),
+    ...(filters.tags !== undefined && filters.tags.length > 0 ? { tags: filters.tags } : {}),
+    ...(filters.search !== undefined && filters.search.trim() !== "" ? { search: filters.search.trim() } : {}),
     offset,
   });
 }
@@ -86,13 +101,17 @@ export async function listProjects(): Promise<ProjectListResult> {
   return runBackendCommand<ProjectListResult>("project.list");
 }
 
+export async function listTags(): Promise<TagListResult> {
+  return runBackendCommand<TagListResult>("tag.list");
+}
+
 export async function getTask(id: string): Promise<{ task: TaskRecord }> {
   return runBackendCommand<{ task: TaskRecord }>("task.get", { id });
 }
 
-export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string }): Promise<TaskMutationResult> {
-  const { parentId, ...commandOptions } = options;
-  return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown, ...(parentId ? { parentId } : {}) }, commandOptions);
+export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string; priority?: TaskPriority }): Promise<TaskMutationResult> {
+  const { parentId, priority, ...commandOptions } = options;
+  return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown, ...(parentId ? { parentId } : {}), ...(priority !== undefined ? { priority } : {}) }, commandOptions);
 }
 
 export async function updateTask(
@@ -100,11 +119,11 @@ export async function updateTask(
   title: string,
   descriptionMarkdown: string,
   expectedVersion: number,
-  options: CommandOptions,
+  options: CommandOptions & { priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
   return runBackendCommand<TaskMutationResult>(
     "task.update",
-    { id, title, descriptionMarkdown, expectedVersion },
+    { id, title, descriptionMarkdown, expectedVersion, ...(options.priority !== undefined ? { priority: options.priority } : {}) },
     options,
   );
 }

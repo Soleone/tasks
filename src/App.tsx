@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import type { ProjectRecord, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import type { ProjectRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, type StatusPreset } from "@/components/taskFilters";
 import { ProjectPicker } from "@/components/ProjectPicker";
+import { StatusMenu } from "@/components/StatusMenu";
+import { PriorityMenu } from "@/components/PriorityMenu";
+import { TagPicker } from "@/components/TagPicker";
+import { SearchDialog } from "@/components/SearchDialog";
 import { TaskComposerDialog, type ComposerState } from "@/components/TaskComposerDialog";
 import { HelpPalette } from "@/components/HelpPalette";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
@@ -18,15 +23,36 @@ import { BackendCommandError, addDependency, closeBackendSession, listTasks, lis
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 
-const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "done"];
-const INACTIVE_TASK_STATUSES: TaskStatus[] = ["paused", "canceled"];
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
-function taskIsVisible(task: TaskRecord, showInactive: boolean, showUnblocked: boolean, projectSlug: string | null): boolean {
-  return (showInactive ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status)
-    && (!showUnblocked || task.blockedByIds.length === 0)
-    && (projectSlug === null || task.category?.slug === projectSlug);
+function taskIsVisible(
+  task: TaskRecord,
+  exactStatus: TaskStatus | null,
+  statusPreset: StatusPreset,
+  showUnblocked: boolean,
+  projectSlug: string | null,
+  priorityFilter: TaskPriority | null,
+  tagSlugs: readonly string[],
+  searchQuery: string,
+): boolean {
+  const statusOk = exactStatus !== null
+    ? task.status === exactStatus
+    : (statusPreset === "inactive" ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
+  if (!statusOk) return false;
+  if (showUnblocked && task.blockedByIds.length > 0) return false;
+  if (projectSlug !== null && task.category?.slug !== projectSlug) return false;
+  if (priorityFilter !== null && task.priority !== priorityFilter) return false;
+  if (tagSlugs.length > 0) {
+    const taskTags = new Set(task.tags.map((tag) => tag.slug));
+    if (!tagSlugs.every((slug) => taskTags.has(slug))) return false;
+  }
+  if (searchQuery.trim() !== "") {
+    const needle = searchQuery.trim().toLowerCase();
+    const haystack = `${task.title}\n${task.descriptionMarkdown}`.toLowerCase();
+    if (!haystack.includes(needle)) return false;
+  }
+  return true;
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -42,10 +68,18 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [total, setTotal] = useState(0);
-  const [showInactive, setShowInactive] = useState(false);
+  const [statusPreset, setStatusPreset] = useState<StatusPreset>("active");
+  const [exactStatus, setExactStatus] = useState<TaskStatus | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(null);
+  const [tagFilter, setTagFilter] = useState<TagRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [showUnblocked, setShowUnblocked] = useState(false);
   const [projectFilter, setProjectFilter] = useState<ProjectRecord | null>(null);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [composer, setComposer] = useState<ComposerState | null>(null);
   const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -58,7 +92,11 @@ export default function App(): ReactElement {
   const [selectedTheme, setSelectedTheme] = useState("");
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const querySequence = useRef(0);
-  const showInactiveRef = useRef(false);
+  const statusPresetRef = useRef<StatusPreset>("active");
+  const exactStatusRef = useRef<TaskStatus | null>(null);
+  const priorityFilterRef = useRef<TaskPriority | null>(null);
+  const tagFilterRef = useRef<string[]>([]);
+  const searchQueryRef = useRef("");
   const showUnblockedRef = useRef(false);
   const projectFilterRef = useRef<string | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
@@ -72,11 +110,18 @@ export default function App(): ReactElement {
     setLoading(true);
     setLoadError(null);
     try {
+      const exact = exactStatusRef.current;
+      const statuses = exact !== null ? [exact] : presetStatuses(statusPresetRef.current);
       const result = await listTasks(
-        showInactiveRef.current ? INACTIVE_TASK_STATUSES : ACTIVE_TASK_STATUSES,
+        statuses,
         offset,
         showUnblockedRef.current,
         projectFilterRef.current ?? undefined,
+        {
+          ...(priorityFilterRef.current !== null ? { priority: priorityFilterRef.current } : {}),
+          ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
+          ...(searchQueryRef.current.trim() !== "" ? { search: searchQueryRef.current.trim() } : {}),
+        },
       );
       if (sequence !== querySequence.current) return;
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
@@ -89,11 +134,15 @@ export default function App(): ReactElement {
   }, []);
 
   useEffect(() => {
-    showInactiveRef.current = showInactive;
+    statusPresetRef.current = statusPreset;
+    exactStatusRef.current = exactStatus;
+    priorityFilterRef.current = priorityFilter;
+    tagFilterRef.current = tagFilter.map((tag) => tag.slug);
+    searchQueryRef.current = searchQuery;
     showUnblockedRef.current = showUnblocked;
     projectFilterRef.current = projectFilter?.slug ?? null;
     void refreshTasks();
-  }, [showInactive, showUnblocked, projectFilter, refreshTasks]);
+  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, projectFilter, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
@@ -165,7 +214,7 @@ export default function App(): ReactElement {
       }
       if (event.ctrlKey || event.metaKey) return;
       if (event.key.toLowerCase() === "c" && !isTypingTarget(event.target)) {
-        const dialogOpen = helpOpen || themesOpen || settingsOpen || projectPickerOpen || picker !== null || composerRef.current !== null;
+        const dialogOpen = helpOpen || themesOpen || settingsOpen || projectPickerOpen || statusMenuOpen || priorityMenuOpen || tagPickerOpen || searchOpen || picker !== null || composerRef.current !== null;
         if (dialogOpen) return;
         event.preventDefault();
         openCreate();
@@ -173,7 +222,7 @@ export default function App(): ReactElement {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, themesOpen, settingsOpen, projectPickerOpen, picker]);
+  }, [helpOpen, themesOpen, settingsOpen, projectPickerOpen, statusMenuOpen, priorityMenuOpen, tagPickerOpen, searchOpen, picker]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -232,16 +281,97 @@ export default function App(): ReactElement {
     setProjectPickerOpen(false);
   }
 
+  function openStatusMenu(): void {
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("status-menu", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setStatusMenuOpen(true);
+  }
+
+  function openPriorityMenu(): void {
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("priority-menu", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setPriorityMenuOpen(true);
+  }
+
+  function openTagPicker(): void {
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("tag-picker", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setTagPickerOpen(true);
+  }
+
+  function openSearch(): void {
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("search", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setSearchOpen(true);
+  }
+
+  function toggleStatusPreset(): void {
+    // Clearing an exact status returns to the current preset; otherwise toggle.
+    if (exactStatus !== null) {
+      setExactStatus(null);
+    } else {
+      setStatusPreset((previous) => (previous === "active" ? "inactive" : "active"));
+    }
+    setActiveTaskIndex(0);
+  }
+
+  function chooseExactStatus(status: TaskStatus | null): void {
+    setStatusMenuOpen(false);
+    setExactStatus(status);
+    setActiveTaskIndex(0);
+  }
+
+  function choosePriority(priority: TaskPriority | null): void {
+    setPriorityMenuOpen(false);
+    setPriorityFilter(priority);
+    setActiveTaskIndex(0);
+  }
+
+  function chooseTags(tags: TagRecord[]): void {
+    setTagFilter(tags);
+    setActiveTaskIndex(0);
+  }
+
+  function chooseSearch(query: string): void {
+    setSearchOpen(false);
+    setSearchQuery(query.trim());
+    setActiveTaskIndex(0);
+  }
+
+  function clearAllFilters(): void {
+    setExactStatus(null);
+    setStatusPreset("active");
+    setPriorityFilter(null);
+    setTagFilter([]);
+    setSearchQuery("");
+    setProjectFilter(null);
+    setShowUnblocked(false);
+    setActiveTaskIndex(0);
+    setAnnouncement("Cleared all filters");
+  }
+
+  const hasActiveFilters = exactStatus !== null
+    || statusPreset !== "active"
+    || priorityFilter !== null
+    || tagFilter.length > 0
+    || searchQuery.trim() !== ""
+    || projectFilter !== null
+    || showUnblocked;
+
+  function clearProjectFilter(): void {
+    setProjectFilter(null);
+    setActiveTaskIndex(0);
+  }
+
   function chooseProject(project: ProjectRecord): void {
     setProjectPickerOpen(false);
     setProjectFilter(project);
     setActiveTaskIndex(0);
     setAnnouncement(`Showing ${project.label} tasks`);
-  }
-
-  function clearProjectFilter(): void {
-    setProjectFilter(null);
-    setActiveTaskIndex(0);
   }
 
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
@@ -289,7 +419,17 @@ export default function App(): ReactElement {
 
   function taskSaved(task: TaskRecord): void {
     const creating = composerRef.current?.mode === "create";
-    if (taskIsVisible(task, showInactive, showUnblocked, projectFilter?.slug ?? null)) {
+    const visible = taskIsVisible(
+      task,
+      exactStatus,
+      statusPreset,
+      showUnblocked,
+      projectFilter?.slug ?? null,
+      priorityFilter,
+      tagFilter.map((tag) => tag.slug),
+      searchQuery,
+    );
+    if (visible) {
       setTasks((previous) => creating
         ? [task, ...previous.filter((existing) => existing.id !== task.id)]
         : previous.map((existing) => existing.id === task.id ? task : existing));
@@ -305,7 +445,17 @@ export default function App(): ReactElement {
 
   function updateVisibleTask(task: TaskRecord): void {
     const wasVisible = tasks.some((existing) => existing.id === task.id);
-    if (!taskIsVisible(task, showInactive, showUnblocked, projectFilter?.slug ?? null)) {
+    const visible = taskIsVisible(
+      task,
+      exactStatus,
+      statusPreset,
+      showUnblocked,
+      projectFilter?.slug ?? null,
+      priorityFilter,
+      tagFilter.map((tag) => tag.slug),
+      searchQuery,
+    );
+    if (!visible) {
       if (!wasVisible) return;
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
       setTotal((previous) => Math.max(previous - 1, 0));
@@ -371,11 +521,14 @@ export default function App(): ReactElement {
         <TaskList
           tasks={tasks}
           total={total}
-          showInactive={showInactive}
-          onShowInactiveChange={(next) => {
-            setShowInactive(next);
-            setActiveTaskIndex(0);
-          }}
+          statusPreset={statusPreset}
+          exactStatus={exactStatus}
+          onToggleStatusPreset={toggleStatusPreset}
+          onExactStatus={chooseExactStatus}
+          onOpenStatusMenu={openStatusMenu}
+          priorityFilter={priorityFilter}
+          onPriorityFilter={choosePriority}
+          onOpenPriorityMenu={openPriorityMenu}
           showUnblocked={showUnblocked}
           onShowUnblockedChange={(next) => {
             setShowUnblocked(next);
@@ -384,6 +537,14 @@ export default function App(): ReactElement {
           projectFilter={projectFilter}
           onProjectFilterChange={clearProjectFilter}
           onOpenProjectPicker={openProjectPicker}
+          tagFilter={tagFilter}
+          onTagFilterChange={chooseTags}
+          onOpenTagPicker={openTagPicker}
+          searchQuery={searchQuery}
+          onSearchChange={chooseSearch}
+          onOpenSearch={openSearch}
+          hasActiveFilters={hasActiveFilters}
+          onClearAllFilters={clearAllFilters}
           activeTaskIndex={activeTaskIndex}
           loading={loading}
           error={loadError}
@@ -418,6 +579,10 @@ export default function App(): ReactElement {
         onOpenSettings={openSettings}
         onCreate={openCreate}
         onOpenProjectPicker={openProjectPicker}
+        onOpenStatusMenu={openStatusMenu}
+        onOpenPriorityMenu={openPriorityMenu}
+        onOpenTagPicker={openTagPicker}
+        onOpenSearch={openSearch}
         activeTask={tasks[activeTaskIndex]}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
@@ -427,6 +592,43 @@ export default function App(): ReactElement {
         onClose={closeProjectPicker}
         finalFocus={() => focusStack.restore("project-picker") ?? undefined}
         onSelect={chooseProject}
+      /> : null}
+      {statusMenuOpen ? <StatusMenu
+        open
+        onClose={() => setStatusMenuOpen(false)}
+        finalFocus={() => focusStack.restore("status-menu") ?? undefined}
+        preset={statusPreset}
+        exactStatus={exactStatus}
+        onSelect={(preset, exact) => {
+          setStatusMenuOpen(false);
+          if (exact !== undefined) setExactStatus(exact);
+          if (preset !== undefined) {
+            setStatusPreset(preset);
+            if (exact === undefined) setExactStatus(null);
+          }
+          setActiveTaskIndex(0);
+        }}
+      /> : null}
+      {priorityMenuOpen ? <PriorityMenu
+        open
+        onClose={() => setPriorityMenuOpen(false)}
+        finalFocus={() => focusStack.restore("priority-menu") ?? undefined}
+        selected={priorityFilter}
+        onSelect={choosePriority}
+      /> : null}
+      {tagPickerOpen ? <TagPicker
+        open
+        onClose={() => setTagPickerOpen(false)}
+        finalFocus={() => focusStack.restore("tag-picker") ?? undefined}
+        selected={tagFilter}
+        onChange={chooseTags}
+      /> : null}
+      {searchOpen ? <SearchDialog
+        open
+        onClose={() => setSearchOpen(false)}
+        finalFocus={() => focusStack.restore("search") ?? undefined}
+        initialQuery={searchQuery}
+        onSelect={chooseSearch}
       /> : null}
       {picker ? <TaskPicker
         open

@@ -3,6 +3,7 @@ import {
   CircleHelp,
   CornerDownRight,
   FileText,
+  Flag,
   Folder,
   Link2,
   ListChecks,
@@ -11,6 +12,7 @@ import {
   MoveLeft,
   Palette,
   SaveCheck,
+  Search,
   Settings2,
   Tags,
   Trash2,
@@ -30,7 +32,7 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "filter-project";
+  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "filter-project" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -40,9 +42,13 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture dialog" },
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
-      { label: "Switch active or inactive", icon: ListFilter, keys: ["A"], keywords: "a active inactive filter paused canceled cancelled show hide" },
+      { label: "Switch active or inactive", hint: "S toggles, A works too", icon: ListFilter, keys: ["S"], action: "filter-status", keywords: "s a active inactive filter paused done canceled cancelled show hide toggle" },
+      { label: "Exact status", hint: "Shift+S then O I D P C", icon: ListFilter, keys: ["Shift", "S"], action: "filter-status", keywords: "shift s exact open in progress done paused canceled o i d p c status" },
+      { label: "Priority filter", hint: "0-4, same key clears", icon: Flag, keys: ["0", "1", "2", "3", "4"], action: "filter-priority", keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
-      { label: "Filter by project", hint: "P opens, Shift+P clears", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p shift p project folder filter clear" },
+      { label: "Filter by project", hint: "P opens, Shift+P clears", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p shift p project folder filter clear category" },
+      { label: "Filter by tags", hint: "T opens, Shift+T clears", icon: Tags, keys: ["T"], action: "filter-tags", keywords: "t shift t tags filter clear multi and" },
+      { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
       { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },
@@ -62,7 +68,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Settings", hint: "Storage and export", icon: Settings2, action: "open-settings", keywords: "data export json sqlite database storage path" },
       { label: "Themes", hint: "Workspace appearance", icon: Palette, keys: ["Alt", "T"], keywords: "alt theme colour color dark light accent palette" },
       { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
-      { label: "Close or go back", icon: Undo2, keys: ["Esc"], keywords: "escape palette focus title notes list edit" },
+      { label: "Close or go back", hint: "Esc resets list filters", icon: Undo2, keys: ["Esc"], keywords: "escape palette focus title notes list edit reset clear filters" },
     ],
   },
   {
@@ -80,13 +86,17 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onOpenProjectPicker, activeTask, onAddBlocker, onMoveUnder }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onOpenProjectPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
   onCreate: () => void;
   onOpenProjectPicker: () => void;
+  onOpenStatusMenu: () => void;
+  onOpenPriorityMenu: () => void;
+  onOpenTagPicker: () => void;
+  onOpenSearch: () => void;
   activeTask?: TaskRecord;
   onAddBlocker?: (task: TaskRecord) => void;
   onMoveUnder?: (task: TaskRecord) => void;
@@ -121,11 +131,19 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                         ? onCreate
                         : entry.action === "filter-project"
                           ? onOpenProjectPicker
-                          : entry.action === "add-blocker" && activeTask && onAddBlocker
-                            ? () => onAddBlocker(activeTask)
-                            : entry.action === "move-under" && activeTask && onMoveUnder
-                              ? () => onMoveUnder(activeTask)
-                              : undefined;
+                          : entry.action === "filter-status"
+                            ? onOpenStatusMenu
+                            : entry.action === "filter-priority"
+                              ? onOpenPriorityMenu
+                              : entry.action === "filter-tags"
+                                ? onOpenTagPicker
+                                : entry.action === "filter-search"
+                                  ? onOpenSearch
+                                  : entry.action === "add-blocker" && activeTask && onAddBlocker
+                                    ? () => onAddBlocker(activeTask)
+                                    : entry.action === "move-under" && activeTask && onMoveUnder
+                                      ? () => onMoveUnder(activeTask)
+                                      : undefined;
                     return (
                       <CommandItem
                         key={entry.label}

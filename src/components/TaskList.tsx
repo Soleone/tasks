@@ -6,8 +6,9 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import { ChevronDown, ChevronRight, Folder, ListFilter, Plus, TriangleAlert } from "lucide-react";
-import type { ProjectRecord, TaskRecord, TaskStatus } from "@/backend/protocol";
+import { ChevronDown, ChevronRight, Flag, Folder, ListFilter, Plus, Search, Tags, TriangleAlert } from "lucide-react";
+import type { ProjectRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
+import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, type StatusPreset } from "@/components/taskFilters";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
 import { projectVisibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
@@ -30,16 +31,32 @@ const taskStatusTransition: Record<TaskStatus, { next: TaskStatus; command: Stat
   canceled: { next: "open", command: "task.reopen" },
 };
 
+const EXACT_STATUS_BY_KEY = new Map(EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]));
+
 type TaskListProps = {
   tasks: TaskRecord[];
   total: number;
-  showInactive: boolean;
-  onShowInactiveChange: (show: boolean) => void;
+  statusPreset: StatusPreset;
+  exactStatus: TaskStatus | null;
+  onToggleStatusPreset: () => void;
+  onExactStatus: (status: TaskStatus | null) => void;
+  onOpenStatusMenu: () => void;
+  priorityFilter: TaskPriority | null;
+  onPriorityFilter: (priority: TaskPriority | null) => void;
+  onOpenPriorityMenu: () => void;
   showUnblocked: boolean;
   onShowUnblockedChange: (show: boolean) => void;
   projectFilter: ProjectRecord | null;
   onProjectFilterChange: (project: ProjectRecord | null) => void;
   onOpenProjectPicker: () => void;
+  tagFilter: TagRecord[];
+  onTagFilterChange: (tags: TagRecord[]) => void;
+  onOpenTagPicker: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  onOpenSearch: () => void;
+  hasActiveFilters: boolean;
+  onClearAllFilters: () => void;
   activeTaskIndex: number;
   loading: boolean;
   error: string | null;
@@ -68,13 +85,27 @@ const ACTIVE_FILTER_CLASS = "border-primary/50 bg-primary/10 text-primary hover:
 export function TaskList({
   tasks,
   total,
-  showInactive,
-  onShowInactiveChange,
+  statusPreset,
+  exactStatus,
+  onToggleStatusPreset,
+  onExactStatus,
+  onOpenStatusMenu,
+  priorityFilter,
+  onPriorityFilter,
+  onOpenPriorityMenu,
   showUnblocked,
   onShowUnblockedChange,
   projectFilter,
   onProjectFilterChange,
   onOpenProjectPicker,
+  tagFilter,
+  onTagFilterChange,
+  onOpenTagPicker,
+  searchQuery,
+  onSearchChange,
+  onOpenSearch,
+  hasActiveFilters,
+  onClearAllFilters,
   activeTaskIndex,
   loading,
   error,
@@ -97,6 +128,7 @@ export function TaskList({
   const retry = useRef<HTMLButtonElement>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
   const statusPending = useRef(new Set<string>());
+  const statusSequence = useRef<{ pending: boolean; timeout: number | null }>({ pending: false, timeout: null });
   const [deletion, setDeletion] = useState<{ task: TaskRecord; key: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [listFocused, setListFocused] = useState(false);
@@ -159,11 +191,53 @@ export function TaskList({
     return () => window.clearTimeout(timeout);
   }, [unblockedFeedbackVersion]);
 
-  function toggleTaskFilter(): void {
-    const next = !showInactive;
-    onShowInactiveChange(next);
+  // Reset a pending Shift+S sequence on unmount, blur, hiding, or Escape.
+  // Modals steal focus from the list, so blur covers modal transitions too.
+  useEffect(() => {
+    const clear = (): void => {
+      if (statusSequence.current.timeout !== null) window.clearTimeout(statusSequence.current.timeout);
+      statusSequence.current = { pending: false, timeout: null };
+    };
+    const onBlur = (): void => clear();
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden") clear();
+    };
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clear();
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  function clearStatusSequence(): void {
+    if (statusSequence.current.timeout !== null) window.clearTimeout(statusSequence.current.timeout);
+    statusSequence.current = { pending: false, timeout: null };
+  }
+
+  function startStatusSequence(): void {
+    clearStatusSequence();
+    statusSequence.current.pending = true;
+    statusSequence.current.timeout = window.setTimeout(() => {
+      clearStatusSequence();
+      onAnnounce("Status choice timed out. Press Shift+S then O, I, D, P, or C within 2 seconds.");
+    }, STATUS_SEQUENCE_TIMEOUT_MS);
+    onAnnounce("Press O for Open, I for In progress, D for Done, P for Paused, or C for Canceled.");
+  }
+
+  function toggleStatusPreset(): void {
+    clearStatusSequence();
+    onToggleStatusPreset();
     setFilterFeedbackVersion((previous) => previous + 1);
-    onAnnounce(next ? "Showing inactive tasks" : "Showing active tasks");
+    onAnnounce(statusPreset === "active" && exactStatus === null ? "Showing inactive tasks" : "Showing active tasks");
+  }
+
+  function applyExactStatus(status: TaskStatus): void {
+    clearStatusSequence();
+    onExactStatus(status);
+    const label = EXACT_STATUS_META.find((entry) => entry.status === status)?.label ?? status;
+    onAnnounce(`Showing ${label} tasks`);
   }
 
   function toggleUnblockedFilter(): void {
@@ -185,6 +259,29 @@ export function TaskList({
       return;
     }
     onOpenProjectPicker();
+  }
+
+  function clearTagFilter(): void {
+    if (tagFilter.length === 0) return;
+    onTagFilterChange([]);
+    onAnnounce("Cleared tag filters");
+  }
+
+  function clearSearch(): void {
+    if (searchQuery.trim() === "") return;
+    onSearchChange("");
+    onAnnounce("Cleared search");
+  }
+
+  function applyPriorityFilter(priority: TaskPriority): void {
+    if (priorityFilter === priority) {
+      onPriorityFilter(null);
+      onAnnounce("Showing all priorities");
+      return;
+    }
+    onPriorityFilter(priority);
+    const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
+    onAnnounce(`Showing ${label} tasks`);
   }
 
   function moveActive(next: number): void {
@@ -286,15 +383,49 @@ export function TaskList({
       openDeleteDialog();
       return;
     }
-    if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key.toLowerCase() === "c") {
-      if (event.repeat || event.shiftKey) return;
+    if (event.key === "Escape") {
+      // Escape resets the list: it cancels a pending Shift+S choice and
+      // clears every filter. Focus stays put.
+      event.preventDefault();
+      const wasPending = statusSequence.current.pending;
+      clearStatusSequence();
+      if (wasPending || hasActiveFilters) onClearAllFilters();
+      return;
+    }
+    if (event.nativeEvent.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
+    // A pending Shift+S sequence takes precedence over single-key filters:
+    // P means Paused and C means Canceled here, not project picker or create.
+    if (statusSequence.current.pending) {
+      if (event.repeat) return;
+      const exact = EXACT_STATUS_BY_KEY.get(event.key.toLowerCase());
+      if (exact) {
+        event.preventDefault();
+        applyExactStatus(exact);
+        return;
+      }
+      // Any other key cancels the sequence and falls through to normal handling.
+      clearStatusSequence();
+    }
+    if (event.key === "/") {
+      if (event.repeat) return;
+      event.preventDefault();
+      onOpenSearch();
+    } else if (event.key.toLowerCase() === "c" && !event.shiftKey) {
+      if (event.repeat) return;
       event.preventDefault();
       onCreate();
+    } else if (event.key.toLowerCase() === "s" && !event.repeat) {
+      event.preventDefault();
+      if (event.shiftKey) startStatusSequence();
+      else toggleStatusPreset();
     } else if (event.key.toLowerCase() === "a") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
-      toggleTaskFilter();
+      toggleStatusPreset();
+    } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
+      if (event.repeat) return;
+      event.preventDefault();
+      applyPriorityFilter(Number(event.key) as TaskPriority);
     } else if (event.key.toLowerCase() === "u") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
@@ -304,6 +435,11 @@ export function TaskList({
       event.preventDefault();
       if (event.shiftKey) clearProjectFilter();
       else onOpenProjectPicker();
+    } else if (event.key.toLowerCase() === "t") {
+      if (event.repeat) return;
+      event.preventDefault();
+      if (event.shiftKey) clearTagFilter();
+      else onOpenTagPicker();
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
@@ -334,17 +470,26 @@ export function TaskList({
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (activeTask) onEdit(activeTask);
-    } else if (event.key === "Escape" || event.key === "Tab") {
-      event.preventDefault();
-    }
+    } else if (event.key === "Tab") event.preventDefault();
   }
+
+  const statusActive = exactStatus !== null || statusPreset === "inactive";
+  const statusLabel = exactStatus !== null
+    ? EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus
+    : statusPreset === "active" ? "Active" : "Inactive";
+  const priorityLabel = priorityFilter !== null
+    ? PRIORITY_META.find((meta) => meta.value === priorityFilter)?.shortLabel ?? `P${priorityFilter}`
+    : "Priority";
+  const tagLabel = tagFilter.length > 0 ? `${tagFilter.length} tag${tagFilter.length === 1 ? "" : "s"}` : "Tags";
+  const searchActive = searchQuery.trim() !== "";
+  const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
 
   return (
     <section
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="C A U P B M Space Delete ArrowLeft ArrowRight"
+      aria-keyshortcuts="C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -361,7 +506,49 @@ export function TaskList({
           <Plus aria-hidden="true" />
           New task
         </Button>
-      <ButtonGroup aria-label="Task list filters and sorting">
+      <ButtonGroup aria-label="Task list filters">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={statusActive ? "outline" : "ghost"}
+                className={statusActive ? ACTIVE_FILTER_CLASS : undefined}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={exactStatus !== null ? `Status filter: ${statusLabel}. Open status menu.` : `Status filter: ${statusLabel}. Open status menu or press S to toggle.`}
+                aria-pressed={statusActive}
+                aria-keyshortcuts="S"
+                data-filter="task-status"
+                onClick={onOpenStatusMenu}
+              />
+            }
+          >
+            <ListFilter aria-hidden="true" />
+            <span className="sr-only">{`Status: ${statusLabel}`}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{statusLabel}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={priorityFilter !== null ? "outline" : "ghost"}
+                className={priorityFilter !== null ? ACTIVE_FILTER_CLASS : undefined}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={priorityFilter !== null ? `Priority filter: ${priorityLabel}. Open priority menu.` : "Filter by priority"}
+                aria-pressed={priorityFilter !== null}
+                aria-keyshortcuts="0 1 2 3 4"
+                data-filter="task-priority"
+                onClick={onOpenPriorityMenu}
+              />
+            }
+          >
+            <Flag aria-hidden="true" />
+            <span className="sr-only">{`Priority: ${priorityLabel}`}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{priorityLabel}</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger
             render={
@@ -383,26 +570,47 @@ export function TaskList({
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{projectFilter ? projectFilter.label : "Project"}</TooltipContent>
         </Tooltip>
-        <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
+        <Tooltip>
           <TooltipTrigger
             render={
               <Button
-                variant={showInactive ? "outline" : "ghost"}
-                className={showInactive ? ACTIVE_FILTER_CLASS : undefined}
+                variant={tagFilter.length > 0 ? "outline" : "ghost"}
+                className={tagFilter.length > 0 ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={showInactive ? "Show active tasks" : "Show inactive tasks"}
-                aria-pressed={showInactive}
-                aria-keyshortcuts="A"
-                data-filter="task-activity"
-                onClick={toggleTaskFilter}
+                aria-label={tagFilter.length > 0 ? `Tag filter: ${tagFilter.map((tag) => tag.label).join(", ")}. Open tag picker.` : "Filter by tags"}
+                aria-pressed={tagFilter.length > 0}
+                aria-keyshortcuts="T"
+                data-filter="task-tags"
+                onClick={onOpenTagPicker}
               />
             }
           >
-            <ListFilter aria-hidden="true" />
-            <span className="sr-only">{showInactive ? "Show active tasks" : "Show inactive tasks"}</span>
+            <Tags aria-hidden="true" />
+            <span className="sr-only">{`Tags: ${tagLabel}`}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{showInactive ? "Inactive" : "Active"}</TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{tagFilter.length > 0 ? tagFilter.map((tag) => tag.label).join(", ") : "Tags"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={searchActive ? "outline" : "ghost"}
+                className={searchActive ? ACTIVE_FILTER_CLASS : undefined}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={searchActive ? `Search: ${searchQuery.trim()}. Open search or clear.` : "Search tasks"}
+                aria-pressed={searchActive}
+                aria-keyshortcuts="/"
+                data-filter="task-search"
+                onClick={onOpenSearch}
+              />
+            }
+          >
+            <Search aria-hidden="true" />
+            <span className="sr-only">{searchActive ? `Search: ${searchQuery.trim()}` : "Search"}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{searchActive ? searchQuery.trim() : "Search"}</TooltipContent>
         </Tooltip>
         <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
           <TooltipTrigger
@@ -445,7 +653,7 @@ export function TaskList({
           role="listbox"
           aria-label={`Tasks, ${visibleRows.length} visible of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="C A U P B M Space Delete ArrowLeft ArrowRight"
+          aria-keyshortcuts="C S A U P T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -511,14 +719,31 @@ export function TaskList({
           })}
         </div>
       ) : !loading && !error ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>No tasks yet</EmptyTitle>
-            <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        isFilteredEmpty ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No tasks match the current filters</EmptyTitle>
+              <EmptyDescription>Try different filters or clear them to see everything.</EmptyDescription>
+            </EmptyHeader>
+            <Button variant="outline" size="sm" onClick={onClearAllFilters}>Clear filters</Button>
+          </Empty>
+        ) : (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No tasks yet</EmptyTitle>
+              <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )
       ) : null}
       {loading ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : null}
+      {statusSequence.current.pending ? (
+        <p role="status" className="text-xs text-muted-foreground">Status: press O, I, D, P, or C (Esc cancels).</p>
+      ) : null}
+      <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
+        <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
+        <TooltipContent side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>
+      </Tooltip>
       {hasMore ? (
         <Button
           ref={loadMore}

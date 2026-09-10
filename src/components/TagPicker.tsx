@@ -1,0 +1,112 @@
+import { useEffect, useRef, useState, type ReactElement } from "react";
+import { Check, Tags } from "lucide-react";
+import type { TagRecord } from "@/backend/protocol";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { listTags } from "@/platform/backendClient";
+
+export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
+  open: boolean;
+  onClose: () => void;
+  finalFocus: () => HTMLElement | undefined;
+  selected: TagRecord[];
+  /** Live updates; the picker stays open for multi-select. */
+  onChange: (tags: TagRecord[]) => void;
+}): ReactElement {
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [tags, setTags] = useState<TagRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    listTags()
+      .then((result) => {
+        if (cancelled) return;
+        setTags(result.tags);
+      })
+      .catch((caught) => {
+        if (cancelled) return;
+        setError(caught instanceof Error ? caught.message : String(caught));
+        setTags([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const emptyText = loading ? "Loading tags…" : error ?? "No tags yet. Add #tag to a task.";
+  const selectedSlugs = new Set(selected.map((tag) => tag.slug));
+
+  function toggle(tag: TagRecord): void {
+    const exists = selectedSlugs.has(tag.slug);
+    const next = exists
+      ? selected.filter((entry) => entry.slug !== tag.slug)
+      : [...selected, tag];
+    onChange(next);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Filter by tags</DialogTitle>
+        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. T opens, Shift+T clears.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        className="overflow-hidden rounded-xl! p-0"
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+      >
+        <Command label="Filter tasks by tags" filter={literalWordScore} loop shouldFilter>
+          <CommandInput ref={searchInput} placeholder="Search tags…" />
+          <CommandList label="Tag results">
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup
+              heading={(
+                <span className="inline-flex items-center gap-1.5">
+                  <Tags aria-hidden="true" className="size-3.5" />
+                  Tags{selected.length > 0 ? ` (${selected.length} selected)` : ""}
+                </span>
+              )}
+            >
+              {tags.map((tag) => {
+                const checked = selectedSlugs.has(tag.slug);
+                return (
+                  <CommandItem
+                    key={tag.slug}
+                    value={`${tag.label} ${tag.slug}`}
+                    keywords={[`${tag.taskCount} tasks`]}
+                    onSelect={() => toggle(tag)}
+                  >
+                    <span aria-hidden="true" className="inline-flex size-4 items-center justify-center rounded border">
+                      {checked ? <Check aria-hidden="true" className="size-3" /> : null}
+                    </span>
+                    <span className="font-medium">{tag.label}</span>
+                    <span className="ml-auto text-muted-foreground">{tag.taskCount} {tag.taskCount === 1 ? "task" : "tasks"}</span>
+                  </CommandItem>
+                );
+              })}
+              {selected.length > 0 ? (
+                <CommandItem
+                  value="Clear tags"
+                  keywords={["clear reset all shift t"]}
+                  onSelect={() => onChange([])}
+                >
+                  <span className="font-medium">Clear tags</span>
+                  <span className="text-muted-foreground">Shift+T</span>
+                </CommandItem>
+              ) : null}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+}

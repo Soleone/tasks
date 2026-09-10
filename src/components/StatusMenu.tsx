@@ -1,0 +1,75 @@
+import { useRef, type ReactElement } from "react";
+import { Check, ListFilter } from "lucide-react";
+import type { TaskStatus } from "@/backend/protocol";
+import { EXACT_STATUS_META, type StatusPreset } from "@/components/taskFilters";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onSelect }: {
+  open: boolean;
+  onClose: () => void;
+  finalFocus: () => HTMLElement | undefined;
+  preset: StatusPreset;
+  exactStatus: TaskStatus | null;
+  onSelect: (preset?: StatusPreset, exact?: TaskStatus | null) => void;
+}): ReactElement {
+  const searchInput = useRef<HTMLInputElement>(null);
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Filter by status</DialogTitle>
+        <DialogDescription>Choose Active, Inactive, or one exact status. S toggles presets; Shift+S then O, I, D, P, or C picks an exact status.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        className="overflow-hidden rounded-xl! p-0"
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+      >
+        <Command label="Filter tasks by status" filter={literalWordScore} loop>
+          <CommandInput ref={searchInput} placeholder="Search statuses…" />
+          <CommandList label="Status results">
+            <CommandEmpty>No matching status.</CommandEmpty>
+            <CommandGroup heading="Presets">
+              <CommandItem
+                value="Preset Active"
+                keywords={["s active open in progress paused toggle"]}
+                onSelect={() => onSelect("active", null)}
+              >
+                <ListFilter aria-hidden="true" />
+                <span className="font-medium">Active</span>
+                <span className="text-muted-foreground">Open, in progress, paused</span>
+                {exactStatus === null && preset === "active" ? <Check aria-hidden="true" className="ml-auto" /> : null}
+              </CommandItem>
+              <CommandItem
+                value="Preset Inactive"
+                keywords={["s inactive done canceled toggle"]}
+                onSelect={() => onSelect("inactive", null)}
+              >
+                <ListFilter aria-hidden="true" />
+                <span className="font-medium">Inactive</span>
+                <span className="text-muted-foreground">Done, canceled</span>
+                {exactStatus === null && preset === "inactive" ? <Check aria-hidden="true" className="ml-auto" /> : null}
+              </CommandItem>
+            </CommandGroup>
+            <CommandGroup heading="Exact status">
+              {EXACT_STATUS_META.map((entry) => (
+                <CommandItem
+                  key={entry.status}
+                  value={`Status ${entry.label}`}
+                  keywords={[`shift s ${entry.key.toLowerCase()} ${entry.label.toLowerCase()}`]}
+                  onSelect={() => onSelect(undefined, entry.status)}
+                >
+                  <span className="font-medium">{entry.label}</span>
+                  <span className="text-muted-foreground">Shift+S {entry.key}</span>
+                  {exactStatus === entry.status ? <Check aria-hidden="true" className="ml-auto" /> : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -9,6 +9,7 @@ export const COMMAND_NAMES = [
   "task.create",
   "task.list",
   "project.list",
+  "tag.list",
   "task.get",
   "task.update",
   "task.delete",
@@ -32,11 +33,19 @@ export const COMMAND_NAMES = [
 
 export type CommandName = (typeof COMMAND_NAMES)[number];
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
+export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type ActorKind = "human" | "agent" | "system";
 export type ThemeSource = "builtin" | "workspace";
 
 /** Product-facing project entries backed by the task text's @category values. */
 export type ProjectRecord = {
+  slug: string;
+  label: string;
+  taskCount: number;
+};
+
+/** Product-facing tag entries backed by the task text's #tag values. */
+export type TagRecord = {
   slug: string;
   label: string;
   taskCount: number;
@@ -70,6 +79,7 @@ export type TaskRecord = {
   title: string;
   descriptionMarkdown: string;
   status: TaskStatus;
+  priority: TaskPriority;
   category: ClassificationToken | null;
   tags: ClassificationToken[];
   parentId: string | null;
@@ -94,6 +104,7 @@ export type TaskExportRecord = {
   id: string;
   title: string;
   status: TaskStatus;
+  priority: TaskPriority;
   category: string | null;
   tags: string[];
   parentId: string | null;

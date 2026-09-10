@@ -12,6 +12,7 @@ import {
 import { cn } from "cn";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
+import { priorityMeta } from "@/components/taskFilters";
 import { Badge } from "@/components/ui/badge";
 import { ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -105,12 +106,22 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, on
   );
 }
 
-export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement | null {
+export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement {
+  const meta = priorityMeta(task.priority ?? 2);
   const hasClassification = Boolean(task.category) || task.tags.length > 0;
-  if (!hasClassification) return null;
 
   return (
     <ItemDescription className="flex flex-wrap items-center gap-1.5">
+      <Badge
+        variant="outline"
+        data-priority={meta.shortLabel}
+        aria-label={`Priority ${meta.label}`}
+        title={`Priority ${meta.label}`}
+        className="h-5 px-1.5 text-xs font-normal"
+      >
+        <span aria-hidden="true" className={`inline-block size-1.5 rounded-full ${meta.dot}`} />
+        {meta.shortLabel}
+      </Badge>
       {task.category ? (
         <Badge variant="outline" className="h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground">
           <Folder data-icon="inline-start" aria-hidden="true" />
@@ -120,6 +131,7 @@ export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement | 
       {task.tags.map((tag) => (
         <Badge key={tag.slug} variant="outline" className="h-5 border-classification-tag bg-classification-tag px-1.5 text-xs font-normal text-classification-foreground">{tag.label}</Badge>
       ))}
+      {!hasClassification ? <span className="sr-only">No category or tags</span> : null}
     </ItemDescription>
   );
 }

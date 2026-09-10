@@ -76,7 +76,7 @@ function readSnapshot(sourcePath: string): Snapshot {
   } catch (error) {
     throw new CommandError("INVALID_SNAPSHOT", error instanceof Error ? error.message : "could not read snapshot");
   }
-  if (!isRecord(value) || value.formatVersion !== 1 || (value.schemaVersion !== 2 && value.schemaVersion !== SCHEMA_VERSION)) {
+  if (!isRecord(value) || value.formatVersion !== 1 || (value.schemaVersion !== 2 && value.schemaVersion !== 3 && value.schemaVersion !== SCHEMA_VERSION)) {
     throw new CommandError("UNSUPPORTED_SNAPSHOT", "snapshot format or schema version is not supported");
   }
 
@@ -148,6 +148,7 @@ function exportedTask(task: TaskRecord): TaskExportRecord {
     id: task.id,
     title: task.title,
     status: task.status,
+    priority: task.priority,
     category: task.category?.slug ?? null,
     tags: task.tags.map((tag) => tag.slug),
     parentId: task.parentId,
@@ -226,9 +227,12 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
           .run(stringValue(row, "id"), stringValue(row, "slug"), stringValue(row, "label"), stringValue(row, "created_at"), stringValue(row, "updated_at"));
       }
       for (const row of snapshot.tasks) {
+        const priority = typeof row.priority === "number" && Number.isInteger(row.priority) && row.priority >= 0 && row.priority <= 4
+          ? row.priority
+          : 2;
         restored
           .prepare(
-            "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, priority, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             stringValue(row, "id"),
@@ -236,6 +240,7 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
             stringValue(row, "description_markdown"),
             stringValue(row, "status"),
             row.category_id === null ? null : stringValue(row, "category_id"),
+            priority,
             numberValue(row, "version"),
             stringValue(row, "created_at"),
             stringValue(row, "updated_at"),

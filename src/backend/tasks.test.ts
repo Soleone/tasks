@@ -410,12 +410,16 @@ test("schema migration adds the paused task status to existing workspaces", () =
     const table = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as { sql: string };
     const dependencyTable = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_dependencies'").get() as { sql: string };
     const foreignKeys = migrated.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
-    assert.equal(schema.value, "3");
+    assert.equal(schema.value, "4");
     assert.match(table.sql, /paused/);
     assert.match(table.sql, /parent_id/);
+    assert.match(table.sql, /priority/);
     assert.match(dependencyTable.sql, /depends_on_id/);
     assert.equal(foreignKeys.foreign_keys, 1);
     migrated.close();
+
+    const legacyTask = task(executeCommand(request("task.get", { id: "legacy" }), databasePath));
+    assert.equal(legacyTask.priority, 2);
 
     const paused = executeCommand(
       request("task.pause", { id: "legacy", expectedVersion: 1 }, { idempotencyKey: "migrate-pause" }),
@@ -473,6 +477,7 @@ test("portable JSON export writes a readable file beside the database", () => {
       id: venue.id,
       title: venue.title,
       status: "open",
+      priority: 2,
       category: "launch",
       tags: ["planning"],
       parentId: null,
@@ -675,6 +680,131 @@ test("relationship snapshots round-trip through export and restore", () => {
     const restored = executeCommand(request("workspace.restore", { sourcePath: exportPath, destinationPath: restoredPath }, { idempotencyKey: "snap-restore" }), databasePath);
     assert.equal(restored.taskCount, 3);
     assert.deepEqual(task(executeCommand(request("task.get", { id: child.id }), restoredPath)), blocked);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("priority defaults to P2, persists edits, and filters task.list", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-priority-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const normal = task(executeCommand(request("task.create", { title: "Normal task" }, { idempotencyKey: "priority-default" }), databasePath));
+    assert.equal(normal.priority, 2);
+    const urgent = task(executeCommand(request("task.create", { title: "Urgent task", priority: 0 }, { idempotencyKey: "priority-p0" }), databasePath));
+    assert.equal(urgent.priority, 0);
+    assert.throws(() => executeCommand(request("task.create", { title: "Bad", priority: 5 }, { idempotencyKey: "priority-bad" }), databasePath), /priority must be an integer from 0 to 4/);
+    assert.throws(() => executeCommand(request("task.create", { title: "Bad", priority: "P0" }, { idempotencyKey: "priority-bad-type" }), databasePath), /priority must be an integer from 0 to 4/);
+
+    const edited = task(executeCommand(request("task.update", { id: normal.id, expectedVersion: normal.version, priority: 1 }, { idempotencyKey: "priority-edit" }), databasePath));
+    assert.equal(edited.priority, 1);
+    assert.equal(edited.version, normal.version + 1);
+    const noop = executeCommand(request("task.update", { id: normal.id, expectedVersion: edited.version, priority: 1 }, { idempotencyKey: "priority-noop" }), databasePath);
+    assert.equal(noop.changed, false);
+    assert.throws(() => executeCommand(request("task.update", { id: normal.id, expectedVersion: edited.version, priority: 9 }, { idempotencyKey: "priority-bad-update" }), databasePath), /priority must be an integer from 0 to 4/);
+
+    const preview = executeCommand(request("task.create", { title: "Preview", priority: 4 }, { idempotencyKey: "priority-preview", dryRun: true }), databasePath);
+    assert.equal(task(preview).priority, 4);
+    assert.equal(countRows(databasePath, "tasks"), 2);
+
+    const p0 = executeCommand(request("task.list", { priority: 0 }), databasePath);
+    assert.equal(p0.total, 1);
+    assert.deepEqual((p0.tasks as TaskRecord[]).map((item) => item.id), [urgent.id]);
+    const p1 = executeCommand(request("task.list", { priority: 1 }), databasePath);
+    assert.equal(p1.total, 1);
+    assert.throws(() => executeCommand(request("task.list", { priority: 5 }), databasePath), /priority must be an integer from 0 to 4/);
+    assert.throws(() => executeCommand(request("task.list", { priority: "P0" }), databasePath), /priority must be an integer from 0 to 4/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("task.list filters by tags with AND semantics and tag.list reports counts", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-tag-filter-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const both = task(executeCommand(request("task.create", { title: "Both #planning #product" }, { idempotencyKey: "tag-both" }), databasePath));
+    const planning = task(executeCommand(request("task.create", { title: "Planning only #planning" }, { idempotencyKey: "tag-planning" }), databasePath));
+    task(executeCommand(request("task.create", { title: "Untagged" }, { idempotencyKey: "tag-none" }), databasePath));
+
+    const tags = executeCommand(request("tag.list"), databasePath) as { tags: Array<{ slug: string; label: string; taskCount: number }> };
+    assert.deepEqual(tags.tags, [
+      { slug: "planning", label: "planning", taskCount: 2 },
+      { slug: "product", label: "product", taskCount: 1 },
+    ]);
+
+    const planningOnly = executeCommand(request("task.list", { tags: ["planning"] }), databasePath);
+    assert.equal(planningOnly.total, 2);
+    const andMatch = executeCommand(request("task.list", { tags: ["planning", "product"] }), databasePath);
+    assert.equal(andMatch.total, 1);
+    assert.deepEqual((andMatch.tasks as TaskRecord[]).map((item) => item.id), [both.id]);
+    const singleString = executeCommand(request("task.list", { tags: " PLANNING " }), databasePath);
+    assert.equal(singleString.total, 2);
+    const missing = executeCommand(request("task.list", { tags: ["nope"] }), databasePath);
+    assert.equal(missing.total, 0);
+    assert.throws(() => executeCommand(request("task.list", { tags: [] }), databasePath), /tags must be a non-empty string/);
+    assert.throws(() => executeCommand(request("task.list", { tags: [""] }), databasePath), /tags must be a non-empty string/);
+    assert.equal(planning.tags[0]?.slug, "planning");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("task.list searches title and description and accepts a category alias", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-search-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const titled = task(executeCommand(request("task.create", { title: "Book venue @launch" }, { idempotencyKey: "search-title" }), databasePath));
+    const noted = task(executeCommand(request("task.create", { title: "Plain task", descriptionMarkdown: "Ask about accessibility" }, { idempotencyKey: "search-notes" }), databasePath));
+    task(executeCommand(request("task.create", { title: "Unrelated" }, { idempotencyKey: "search-other" }), databasePath));
+
+    const byTitle = executeCommand(request("task.list", { search: "venue" }), databasePath);
+    assert.equal(byTitle.total, 1);
+    assert.deepEqual((byTitle.tasks as TaskRecord[]).map((item) => item.id), [titled.id]);
+    const byNotes = executeCommand(request("task.list", { search: "accessibility" }), databasePath);
+    assert.equal(byNotes.total, 1);
+    assert.deepEqual((byNotes.tasks as TaskRecord[]).map((item) => item.id), [noted.id]);
+    const caseInsensitive = executeCommand(request("task.list", { search: "VENUE" }), databasePath);
+    assert.equal(caseInsensitive.total, 1);
+    const combined = executeCommand(request("task.list", { search: "task", tags: ["nope"] }), databasePath);
+    assert.equal(combined.total, 0);
+    assert.throws(() => executeCommand(request("task.list", { search: "" }), databasePath), /search must be a non-empty string/);
+    assert.throws(() => executeCommand(request("task.list", { search: 42 }), databasePath), /search must be a non-empty string/);
+
+    const byCategory = executeCommand(request("task.list", { category: " LAUNCH " }), databasePath);
+    assert.equal(byCategory.total, 1);
+    assert.deepEqual((byCategory.tasks as TaskRecord[]).map((item) => item.id), [titled.id]);
+    assert.throws(() => executeCommand(request("task.list", { project: "launch", category: "other" }), databasePath), /project and category must match/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("schema version 3 workspaces migrate tasks to priority P2", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-priority-migration-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO schema_meta (key, value) VALUES ('schema_version', '3');
+    CREATE TABLE categories (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, label TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE tags (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, label TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE tasks (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL, description_markdown TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL, category_id TEXT, parent_id TEXT, version INTEGER NOT NULL,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, canceled_at TEXT
+    );
+    INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at)
+      VALUES ('old', 'Old task', '', 'open', NULL, NULL, 1, 'now', 'now', NULL, NULL);
+  `);
+  legacy.close();
+  try {
+    const migrated = openDatabase(databasePath);
+    const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
+    assert.equal(schema.value, "4");
+    migrated.close();
+    const migratedTask = task(executeCommand(request("task.get", { id: "old" }), databasePath));
+    assert.equal(migratedTask.priority, 2);
   } finally {
     cleanDirectory(directory);
   }
