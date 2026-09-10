@@ -504,7 +504,7 @@ export function TaskList({
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <Button
             size="sm"
