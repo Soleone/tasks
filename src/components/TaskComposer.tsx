@@ -16,6 +16,8 @@ type TaskComposerProps = {
   onCancel: () => void;
 };
 
+const ACTIVE_PRIORITY_CLASS = "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary";
+
 // Shared create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
@@ -234,7 +236,8 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  variant={selected ? "secondary" : "ghost"}
+                  variant={selected ? "outline" : "ghost"}
+                  className={selected ? ACTIVE_PRIORITY_CLASS : undefined}
                   size="sm"
                   tabIndex={-1}
                   aria-label={`${meta.shortLabel}: ${meta.label}`}

@@ -629,6 +629,7 @@ try {
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
+  check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').classList.contains("bg-primary/10")');
   check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
   browser("find", "role", "radio", "click", "--name", "P2: P2 normal");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
