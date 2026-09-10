@@ -514,11 +514,10 @@ export function TaskList({
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
         actions.toggleUnblockedFilter();
-      } else if (event.key.toLowerCase() === "c") {
+      } else if (event.key.toLowerCase() === "c" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
-        if (event.shiftKey) actions.clearCategoryFilter();
-        else actions.openCategoryPicker();
+        actions.openCategoryPicker();
       } else if (event.key.toLowerCase() === "t") {
         if (event.repeat) return;
         event.preventDefault();
@@ -664,7 +663,7 @@ export function TaskList({
                 tabIndex={-1}
                 aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category"}
                 aria-pressed={categoryFilter !== null}
-                aria-keyshortcuts="C Shift+C"
+                aria-keyshortcuts="C"
                 data-filter="task-category"
                 onClick={toggleCategoryFilter}
               />

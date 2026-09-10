@@ -47,7 +47,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Exact status", hint: "Shift+S then O I D P C", icon: ListFilter, keys: ["Shift", "S"], action: "filter-status", keywords: "shift s exact open in progress done paused canceled o i d p c status" },
       { label: "Priority filter", hint: "0-4, same key clears", icon: Flag, keys: ["0", "1", "2", "3", "4"], action: "filter-priority", keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
-      { label: "Filter by category", hint: "C opens, Shift+C clears", icon: Folder, keys: ["C"], action: "filter-category", keywords: "c shift c category folder filter clear" },
+      { label: "Filter by category", hint: "C opens", icon: Folder, keys: ["C"], action: "filter-category", keywords: "c category folder filter" },
       { label: "Filter by tags", hint: "T opens, Space picks, Enter closes", icon: Tags, keys: ["T"], action: "filter-tags", keywords: "t shift t space enter tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },

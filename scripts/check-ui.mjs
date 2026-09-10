@@ -113,7 +113,7 @@ try {
   waitFor('document.activeElement.name === "description"');
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("New task") && item.textContent.includes("C"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("New task") && item.textContent.includes("N"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("S"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("Shift"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Priority filter") && item.textContent.includes("0"))');
@@ -584,7 +584,7 @@ try {
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-category]").getAttribute("aria-label").includes("roadmap")');
   browser("focus", "[role=listbox]");
-  browser("press", "Shift+c");
+  browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
   evaluate('document.querySelector("[data-filter=task-category]").click(); true');
   waitFor('document.activeElement.matches("[cmdk-input]")');
@@ -631,7 +631,7 @@ try {
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').classList.contains("bg-primary/10")');
   check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
-  browser("find", "role", "radio", "click", "--name", "P2: P2 normal");
+  browser("find", "role", "radio", "click", "--name", "P2: normal");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   evaluate('document.querySelector(\'form[aria-label="New task"] [data-priority="P3"]\').click(); true');
   waitFor('document.querySelector(\'form[aria-label="New task"] [data-priority="P3"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');

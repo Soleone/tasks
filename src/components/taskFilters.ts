@@ -18,11 +18,11 @@ export type PriorityMeta = {
 };
 
 export const PRIORITY_META: PriorityMeta[] = [
-  { value: 0, label: "P0 highest", shortLabel: "P0", dot: "bg-red-500" },
-  { value: 1, label: "P1 high", shortLabel: "P1", dot: "bg-yellow-500" },
-  { value: 2, label: "P2 normal", shortLabel: "P2", dot: "bg-green-500" },
-  { value: 3, label: "P3 low", shortLabel: "P3", dot: "bg-blue-500" },
-  { value: 4, label: "P4 lowest", shortLabel: "P4", dot: "bg-muted-foreground" },
+  { value: 0, label: "highest", shortLabel: "P0", dot: "bg-red-500" },
+  { value: 1, label: "high", shortLabel: "P1", dot: "bg-yellow-500" },
+  { value: 2, label: "normal", shortLabel: "P2", dot: "bg-green-500" },
+  { value: 3, label: "low", shortLabel: "P3", dot: "bg-blue-500" },
+  { value: 4, label: "lowest", shortLabel: "P4", dot: "bg-muted-foreground" },
 ];
 
 export function priorityMeta(value: TaskPriority): PriorityMeta {

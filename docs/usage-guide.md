@@ -27,7 +27,7 @@ One compact row above the list, in this order:
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers, such as “12 active tasks” or “3 in progress tasks”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
-- Priority: P0 highest through P4 lowest. Every task defaults to P2. Color is supplemental; labels stay present.
+- Priority: Highest through lowest. Every task defaults to P2. Color is supplemental; labels stay present.
 - Category: the `@category` grouping. Single-select.
 - Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag and `Enter` closes it; `Shift+T` clears the filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
@@ -51,7 +51,6 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `0` `1` `2` `3` `4` | Filter to P0 through P4; pressing the active number clears it |
 | `U` | Toggle the unblocked-task view |
 | `C` | Open the category filter |
-| `Shift+C` | Clear the category filter |
 | `T` | Open the tag filter |
 | `Shift+T` | Clear the tag filter |
 | `/` | Open task search |
