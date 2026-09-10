@@ -27,6 +27,8 @@ These shortcuts assume focus is on the task list unless noted otherwise.
 | `Delete` | Open cancellation confirmation for the active task |
 | `A` | Switch between active and inactive task views |
 | `U` | Toggle the unblocked-task view |
+| `P` | Open the project filter |
+| `Shift+P` | Clear the project filter |
 | `B` | Add a blocker to the active task |
 | `M` | Move the active task under another task |
 | `Up` / `Down` | Move through visible tasks |

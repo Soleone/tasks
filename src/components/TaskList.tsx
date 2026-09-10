@@ -176,10 +176,15 @@ export function TaskList({
     onAnnounce(next ? "Showing unblocked tasks" : "Showing all tasks");
   }
 
+  function clearProjectFilter(): void {
+    if (!projectFilter) return;
+    onProjectFilterChange(null);
+    onAnnounce("Showing tasks from all projects");
+  }
+
   function toggleProjectFilter(): void {
     if (projectFilter) {
-      onProjectFilterChange(null);
-      onAnnounce("Showing tasks from all projects");
+      clearProjectFilter();
       return;
     }
     onOpenProjectPicker();
@@ -298,9 +303,10 @@ export function TaskList({
       event.preventDefault();
       toggleUnblockedFilter();
     } else if (event.key.toLowerCase() === "p") {
-      if (event.repeat || event.shiftKey) return;
+      if (event.repeat) return;
       event.preventDefault();
-      onOpenProjectPicker();
+      if (event.shiftKey) clearProjectFilter();
+      else onOpenProjectPicker();
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();

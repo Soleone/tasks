@@ -42,7 +42,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
       { label: "Switch active or inactive", icon: ListFilter, keys: ["A"], keywords: "a active inactive filter paused canceled cancelled show hide" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
-      { label: "Filter by project", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p project folder filter" },
+      { label: "Filter by project", hint: "P opens, Shift+P clears", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p shift p project folder filter clear" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
       { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },

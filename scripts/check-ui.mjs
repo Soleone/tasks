@@ -486,8 +486,11 @@ try {
   waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-project]").getAttribute("aria-label").includes("roadmap")');
-  evaluate('document.querySelector("[data-filter=task-project]").click(); true');
+  browser("focus", "[role=listbox]");
+  browser("press", "Shift+p");
   waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  evaluate('document.querySelector("[data-filter=task-project]").click(); true');
+  waitFor('document.activeElement.matches("[cmdk-input]")');
   evaluate('document.querySelector("[data-filter=task-project]").click(); true');
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("press", "Escape");
