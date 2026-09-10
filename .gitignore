@@ -8,4 +8,4 @@ src-tauri/binaries/*
 !src-tauri/binaries/.gitkeep
 .env
 .DS_Store
-.sift/
+/.sift
