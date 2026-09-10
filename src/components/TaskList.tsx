@@ -81,7 +81,7 @@ type TaskListProps = {
   error: string | null;
   nav: Navigator;
   focusStack: FocusStack;
-  onCreate: () => void;
+  onCreate: (parentId?: string) => void;
   onRefresh: (offset?: number) => Promise<void>;
   onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
@@ -109,7 +109,7 @@ type HomeShortcutActions = {
   startStatusSequence: () => void;
   applyExactStatus: (status: TaskStatus) => void;
   openSearch: () => void;
-  createTask: () => void;
+  createTask: (parentId?: string) => void;
   toggleStatusPreset: () => void;
   applyPriorityFilter: (priority: TaskPriority) => void;
   toggleUnblockedFilter: () => void;
@@ -494,10 +494,10 @@ export function TaskList({
         if (event.repeat) return;
         event.preventDefault();
         actions.openSearch();
-      } else if (event.key.toLowerCase() === "n" && !event.shiftKey) {
+      } else if (event.key.toLowerCase() === "n") {
         if (event.repeat) return;
         event.preventDefault();
-        actions.createTask();
+        actions.createTask(event.shiftKey ? actions.activeTask?.id : undefined);
       } else if (event.key.toLowerCase() === "s" && !event.repeat) {
         event.preventDefault();
         if (event.shiftKey) actions.startStatusSequence();
@@ -590,7 +590,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape N S A U C T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
+      aria-keyshortcuts="Escape N Shift+N S A U C T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -605,7 +605,7 @@ export function TaskList({
             size="sm"
             tabIndex={-1}
             aria-keyshortcuts="N"
-            onClick={onCreate}
+            onClick={() => onCreate()}
           >
             <Plus aria-hidden="true" />
             New task
@@ -767,7 +767,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape N S A U C T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
+          aria-keyshortcuts="Escape N Shift+N S A U C T B M Space Delete ArrowLeft ArrowRight 0 1 2 3 4 /"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"

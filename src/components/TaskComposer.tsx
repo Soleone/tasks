@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type TaskComposerProps = {
   task?: TaskRecord;
+  parentId?: string;
   titleInputRef?: RefObject<HTMLInputElement | null>;
   onSaved: (task: TaskRecord) => void;
   onCancel: () => void;
@@ -21,7 +22,7 @@ const ACTIVE_PRIORITY_CLASS = "border-primary/50 bg-primary/10 text-primary hove
 // Shared create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, parentId, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -129,7 +130,7 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
     setPending(true);
     setError(null);
     // A lost reply must be retried with the same receipt, not a second write.
-    const payload = JSON.stringify([title, description, priority, task?.id ?? "new"]);
+    const payload = JSON.stringify([title, description, priority, task?.id ?? "new", parentId ?? null]);
     if (receipt.current?.payload !== payload) {
       receipt.current = { payload, key: crypto.randomUUID() };
     }
@@ -137,7 +138,7 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
     try {
       const result = task
         ? await updateTask(task.id, title, description, task.version, { ...options, priority })
-        : await createTask(title, description, { ...options, priority });
+        : await createTask(title, description, { ...options, parentId, priority });
       receipt.current = null;
       if (!task) {
         setTitle("");

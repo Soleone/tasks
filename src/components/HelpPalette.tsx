@@ -32,7 +32,7 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
+  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "new-child-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -40,6 +40,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
     heading: "Task actions",
     entries: [
       { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["N"], action: "new-task", keywords: "n create new add task capture dialog" },
+      { label: "New child task", hint: "Use the selected task as parent", icon: CornerDownRight, keys: ["Shift", "N"], action: "new-child-task", keywords: "shift n create child subtask parent selected task capture" },
       { label: "Set task priority", hint: "Focus Priority in dialog", icon: Flag, keys: ["0", "1", "2", "3", "4", "←", "→"], keywords: "dialog composer create edit set choose task priority p0 p1 p2 p3 p4 arrow left right" },
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
@@ -87,12 +88,13 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
   onCreate: () => void;
+  onCreateChild?: (task: TaskRecord) => void;
   onOpenCategoryPicker: () => void;
   onOpenStatusMenu: () => void;
   onOpenPriorityMenu: () => void;
@@ -130,7 +132,9 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                       ? onOpenSettings
                       : entry.action === "new-task"
                         ? onCreate
-                        : entry.action === "filter-category"
+                        : entry.action === "new-child-task" && activeTask && onCreateChild
+                          ? () => onCreateChild(activeTask)
+                          : entry.action === "filter-category"
                           ? onOpenCategoryPicker
                           : entry.action === "filter-status"
                             ? onOpenStatusMenu

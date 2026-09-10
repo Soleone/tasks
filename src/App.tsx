@@ -55,13 +55,6 @@ function taskIsVisible(
   return true;
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable
-    || target.getAttribute("role") === "combobox" || target.hasAttribute("cmdk-input");
-}
-
 // The list is the default surface. Create and edit share one dialog opened
 // by the New task button, the N key, or the palette. Tab does not leave the
 // focused task list.
@@ -178,12 +171,12 @@ export default function App(): ReactElement {
     if (helpOpen || themesOpen) void refreshThemes(false);
   }, [helpOpen, themesOpen, refreshThemes]);
 
-  function openCreate(): void {
+  function openCreate(parentId?: string): void {
     if (composerRef.current) return;
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
     focusStack.push("composer", fromPalette ?? undefined);
     setHelpOpen(false);
-    setComposer({ mode: "create" });
+    setComposer(parentId ? { mode: "create", parentId } : { mode: "create" });
   }
 
   function openEdit(task: TaskRecord): void {
@@ -212,17 +205,10 @@ export default function App(): ReactElement {
         else openHelp();
         return;
       }
-      if (event.ctrlKey || event.metaKey) return;
-      if (event.key.toLowerCase() === "n" && !isTypingTarget(event.target)) {
-        const dialogOpen = helpOpen || themesOpen || settingsOpen || categoryPickerOpen || statusMenuOpen || priorityMenuOpen || tagPickerOpen || searchOpen || picker !== null || composerRef.current !== null;
-        if (dialogOpen) return;
-        event.preventDefault();
-        openCreate();
-      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, themesOpen, settingsOpen, categoryPickerOpen, statusMenuOpen, priorityMenuOpen, tagPickerOpen, searchOpen, picker]);
+  }, [helpOpen, themesOpen]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -578,6 +564,7 @@ export default function App(): ReactElement {
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
         onCreate={openCreate}
+        onCreateChild={(task) => openCreate(task.id)}
         onOpenCategoryPicker={openCategoryPicker}
         onOpenStatusMenu={openStatusMenu}
         onOpenPriorityMenu={openPriorityMenu}

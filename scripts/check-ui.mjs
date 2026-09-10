@@ -721,6 +721,21 @@ try {
     check('document.documentElement.scrollWidth <= innerWidth');
   }
   check('(() => { const summary = document.querySelector("[data-filter-summary]"); if (!summary) return false; const style = getComputedStyle(summary); return style.whiteSpace === "nowrap" && style.overflow === "hidden" && summary.getBoundingClientRect().height <= 20; })()');
+  // Shift+N keeps the same composer flow and assigns the selected task as parent.
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === document.querySelector("[role=option]")?.id');
+  const parentId = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").replace("task-option-", "")');
+  browser("press", "Shift+n");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
+  waitFor('document.activeElement.name === "title"');
+  browser("fill", 'form[aria-label="New task"] input', "Venue follow-up");
+  browser("press", "Control+Enter");
+  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
+  const child = (await command("task.list")).tasks.find((task) => task.title === "Venue follow-up");
+  assert.equal(child?.parentId, parentId);
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement?.getAttribute("role") === "listbox"');
   assert.equal(browser("errors").trim(), "");
   console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, status presets and exact sequences, priority, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
