@@ -1,7 +1,8 @@
 import { useRef, type ReactElement } from "react";
-import { Check, ListFilter } from "lucide-react";
+import { Check, Circle } from "lucide-react";
+import { cn } from "cn";
 import type { TaskStatus } from "@/backend/protocol";
-import { EXACT_STATUS_META, type StatusPreset } from "@/components/taskFilters";
+import { EXACT_STATUS_META, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -37,7 +38,7 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
                 keywords={["s active open in progress paused toggle"]}
                 onSelect={() => onSelect("active", null)}
               >
-                <ListFilter aria-hidden="true" />
+                <Circle aria-hidden="true" />
                 <span className="font-medium">Active</span>
                 <span className="text-muted-foreground">Open, in progress, paused</span>
                 {exactStatus === null && preset === "active" ? <Check aria-hidden="true" className="ml-auto" /> : null}
@@ -47,25 +48,32 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
                 keywords={["s inactive done canceled toggle"]}
                 onSelect={() => onSelect("inactive", null)}
               >
-                <ListFilter aria-hidden="true" />
+                <Circle aria-hidden="true" />
                 <span className="font-medium">Inactive</span>
                 <span className="text-muted-foreground">Done, canceled</span>
                 {exactStatus === null && preset === "inactive" ? <Check aria-hidden="true" className="ml-auto" /> : null}
               </CommandItem>
             </CommandGroup>
             <CommandGroup heading="Exact status">
-              {EXACT_STATUS_META.map((entry) => (
-                <CommandItem
-                  key={entry.status}
-                  value={`Status ${entry.label}`}
-                  keywords={[`shift s ${entry.key.toLowerCase()} ${entry.label.toLowerCase()}`]}
-                  onSelect={() => onSelect(undefined, entry.status)}
-                >
-                  <span className="font-medium">{entry.label}</span>
-                  <span className="text-muted-foreground">Shift+S {entry.key}</span>
-                  {exactStatus === entry.status ? <Check aria-hidden="true" className="ml-auto" /> : null}
-                </CommandItem>
-              ))}
+              {EXACT_STATUS_META.map((entry) => {
+                const status = taskStatusMeta[entry.status];
+                const StatusIcon = status.Icon;
+                return (
+                  <CommandItem
+                    key={entry.status}
+                    value={`Status ${entry.label}`}
+                    keywords={[`shift s ${entry.key.toLowerCase()} ${entry.label.toLowerCase()}`]}
+                    onSelect={() => onSelect(undefined, entry.status)}
+                  >
+                    <span className={cn("inline-flex size-4 shrink-0 items-center justify-center", status.color)}>
+                      <StatusIcon aria-hidden="true" />
+                    </span>
+                    <span className="font-medium">{entry.label}</span>
+                    <span className="text-muted-foreground">Shift+S {entry.key}</span>
+                    {exactStatus === entry.status ? <Check aria-hidden="true" className="ml-auto" /> : null}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

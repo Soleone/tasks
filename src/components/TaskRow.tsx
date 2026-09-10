@@ -1,38 +1,15 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
-import {
-  Circle,
-  CircleCheck,
-  CirclePause,
-  CirclePlay,
-  CircleX,
-  Folder,
-  TriangleAlert,
-  type LucideIcon,
-} from "lucide-react";
+import { Folder, ShieldBan } from "lucide-react";
 import { cn } from "cn";
-import type { TaskRecord, TaskStatus } from "@/backend/protocol";
+import type { TaskRecord } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
-import { priorityMeta } from "@/components/taskFilters";
+import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type TaskRowVariant = "full" | "compact";
-
-type StatusMeta = {
-  label: string;
-  Icon: LucideIcon;
-  color: string;
-};
-
-export const taskStatusMeta: Record<TaskStatus, StatusMeta> = {
-  open: { label: "Open", Icon: Circle, color: "text-muted-foreground" },
-  in_progress: { label: "In progress", Icon: CirclePlay, color: "text-primary" },
-  paused: { label: "Paused", Icon: CirclePause, color: "text-warning" },
-  done: { label: "Done", Icon: CircleCheck, color: "text-success" },
-  canceled: { label: "Cancelled", Icon: CircleX, color: "text-destructive" },
-};
 
 /** Visible title without the @category/#tag tokens the backend parses. */
 export function taskTitleDisplay(title: string): string {
@@ -159,7 +136,7 @@ export function TaskRowRelationships({ task, blockedByLabels }: {
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
       <span className="inline-flex min-w-0 items-center gap-1">
-        <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
+        <ShieldBan className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
         <span className="sr-only">Blocked by </span>
         <span>{blockerText}</span>
       </span>

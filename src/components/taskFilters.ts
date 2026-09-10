@@ -1,4 +1,26 @@
+import {
+  Circle,
+  CircleCheck,
+  CirclePause,
+  CirclePlay,
+  CircleX,
+  type LucideIcon,
+} from "lucide-react";
 import type { TaskPriority, TaskStatus } from "@/backend/protocol";
+
+type TaskStatusMeta = {
+  label: string;
+  Icon: LucideIcon;
+  color: string;
+};
+
+export const taskStatusMeta: Record<TaskStatus, TaskStatusMeta> = {
+  open: { label: "Open", Icon: Circle, color: "text-muted-foreground" },
+  in_progress: { label: "In progress", Icon: CirclePlay, color: "text-primary" },
+  paused: { label: "Paused", Icon: CirclePause, color: "text-warning" },
+  done: { label: "Done", Icon: CircleCheck, color: "text-success" },
+  canceled: { label: "Cancelled", Icon: CircleX, color: "text-destructive" },
+};
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "paused"];
 export const INACTIVE_TASK_STATUSES: TaskStatus[] = ["done", "canceled"];

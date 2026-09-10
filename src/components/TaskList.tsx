@@ -5,11 +5,11 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { ChevronDown, ChevronRight, Flag, Folder, ListFilter, Plus, Search, Tags, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, Circle, Flag, Folder, Plus, Search, ShieldBan, Tags } from "lucide-react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
-import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, type StatusPreset } from "@/components/taskFilters";
+import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
-import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
+import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -627,7 +627,7 @@ export function TaskList({
               />
             }
           >
-            <ListFilter aria-hidden="true" />
+            <Circle aria-hidden="true" />
             <span className="sr-only">{`Status: ${statusLabel}`}</span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{statusLabel}</TooltipContent>
@@ -732,7 +732,7 @@ export function TaskList({
               />
             }
           >
-            <TriangleAlert aria-hidden="true" />
+            <ShieldBan aria-hidden="true" />
             <span className="sr-only">{showUnblocked ? "Show all tasks" : "Show unblocked tasks"}</span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
