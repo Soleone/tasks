@@ -61,18 +61,11 @@ export default function App(): ReactElement {
   const showInactiveRef = useRef(false);
   const showUnblockedRef = useRef(false);
   const projectFilterRef = useRef<string | null>(null);
-  const newTaskButton = useRef<HTMLButtonElement>(null);
   const composerRef = useRef<ComposerState | null>(null);
   composerRef.current = composer;
 
-  const nav = useFocusNavigation(["create", "list"]);
+  const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
-
-  // "create" is the New task button now that the form lives in a dialog.
-  useEffect(() => nav.register("create", {
-    focusFirst: () => newTaskButton.current?.focus(),
-    focusLast: () => newTaskButton.current?.focus(),
-  }), [nav]);
 
   const refreshTasks = useCallback(async (offset = 0): Promise<void> => {
     const sequence = ++querySequence.current;
@@ -396,7 +389,6 @@ export default function App(): ReactElement {
           error={loadError}
           nav={nav}
           focusStack={focusStack}
-          newTaskButtonRef={newTaskButton}
           onCreate={openCreate}
           onRefresh={refreshTasks}
           onActiveTaskIndexChange={setActiveTaskIndex}

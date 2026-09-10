@@ -5,7 +5,6 @@ import {
   useState,
   type KeyboardEvent,
   type ReactElement,
-  type RefObject,
 } from "react";
 import { ChevronDown, ChevronRight, Folder, ListFilter, Plus, TriangleAlert } from "lucide-react";
 import type { ProjectRecord, TaskRecord, TaskStatus } from "@/backend/protocol";
@@ -46,7 +45,6 @@ type TaskListProps = {
   error: string | null;
   nav: Navigator;
   focusStack: FocusStack;
-  newTaskButtonRef: RefObject<HTMLButtonElement | null>;
   onCreate: () => void;
   onRefresh: (offset?: number) => Promise<void>;
   onActiveTaskIndexChange: (index: number) => void;
@@ -81,7 +79,6 @@ export function TaskList({
   error,
   nav,
   focusStack,
-  newTaskButtonRef,
   onCreate,
   onRefresh,
   onActiveTaskIndexChange,
@@ -116,9 +113,8 @@ export function TaskList({
   const activeTask = activeRow?.task;
 
   // The list owns its internal tail (load-more, retry); the navigator only
-  // enters the destination from either end.
+  // enters it through explicit navigation.
   useEffect(() => nav.register("list", {
-    focusFirst: () => (list.current ?? retry.current ?? section.current)?.focus(),
     focusLast: () => (loadMore.current ?? list.current ?? retry.current ?? section.current)?.focus(),
   }), [nav]);
 
@@ -337,10 +333,9 @@ export function TaskList({
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (activeTask) onEdit(activeTask);
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" || event.key === "Tab") {
       event.preventDefault();
-      nav.go("create");
-    } else if (event.key === "Tab") event.preventDefault();
+    }
   }
 
   return (
@@ -357,7 +352,6 @@ export function TaskList({
     >
       <div className="flex items-center justify-between gap-2">
         <Button
-          ref={newTaskButtonRef}
           size="sm"
           tabIndex={-1}
           aria-keyshortcuts="C"

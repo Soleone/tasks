@@ -1,15 +1,12 @@
 import { useEffect, useRef } from "react";
 
 /**
- * The surfaces that can receive explicit focus. The composer is a modal
- * dialog on the focus stack, not a destination: "create" is the New task
- * button, and the list is the default stop. Tab stays inert on the list.
+ * The surface that can receive explicit home focus. Modal surfaces, including
+ * the task composer, use the focus stack instead of becoming Tab destinations.
  */
-export type DestinationId = "create" | "list";
+export type DestinationId = "list";
 
 export type DestinationHandle = {
-  /** Focus the front of a destination. */
-  focusFirst: () => void;
   /** Focus the tail of a destination. */
   focusLast: () => void;
 };
@@ -18,14 +15,11 @@ export type Navigator = {
   register: (id: DestinationId, handle: DestinationHandle) => () => void;
   /** Focus the tail of the final destination (Shift+Tab on a header button). */
   last: () => void;
-  /** Jump straight to a destination's front. */
-  go: (id: DestinationId) => void;
 };
 
 /**
  * Navigation over an ordered destination table. `order` comes from app state,
- * never from the DOM: the capture composer stays mounted while hidden during
- * editing, so DOM presence would route focus into a hidden subtree.
+ * never from the DOM, so modal surfaces cannot become accidental destinations.
  */
 export function useFocusNavigation(order: DestinationId[]): Navigator {
   const handles = useRef(new Map<DestinationId, DestinationHandle>());
@@ -50,7 +44,6 @@ export function useFocusNavigation(order: DestinationId[]): Navigator {
         const ids = available();
         if (ids.length) handles.current.get(ids[ids.length - 1])?.focusLast();
       },
-      go: (id) => handles.current.get(id)?.focusFirst(),
     };
   }
   return navigator.current;

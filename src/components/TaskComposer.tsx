@@ -14,8 +14,8 @@ type TaskComposerProps = {
   onCancel: () => void;
 };
 
-// Shared create/edit form. Always rendered inside TaskComposerDialog, so Tab
-// stays native for the dialog focus trap and Escape closes through onCancel.
+// Shared create/edit form. Fields own direct keyboard navigation; action
+// buttons remain mouse-accessible backups and are never Tab destinations.
 export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
@@ -30,6 +30,7 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dirty = title !== (task?.title ?? "") || description !== (task?.descriptionMarkdown ?? "");
 
   useEffect(() => {
     requestAnimationFrame(() => titleInput.current?.focus());
@@ -59,6 +60,13 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
       if (pending) return;
       event.preventDefault();
       onCancel();
+      return;
+    }
+    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      if (notesOpen) notesInput.current?.focus();
+      else if (!task && !title.trim()) return;
+      else showNotes();
       return;
     }
     if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -153,8 +161,16 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
               value={description}
               readOnly={pending}
               onChange={(event) => setDescription(event.target.value)}
+              onBlur={() => {
+                if (!description.trim()) setNotesOpen(false);
+              }}
               onKeyDown={(event) => {
                 if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                  event.preventDefault();
+                  titleInput.current?.focus();
+                  return;
+                }
                 if (event.key === "Escape") {
                   event.preventDefault();
                   event.stopPropagation();
@@ -175,14 +191,15 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          {!notesOpen ? <Button type="button" variant="ghost" size="sm" onClick={showNotes}>Add description</Button> : null}
-          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onCancel}>
-            {task ? "Discard changes" : "Close"}
+          {!notesOpen ? <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>Add description</Button> : null}
+          <Button type="button" variant="ghost" size="sm" tabIndex={-1} disabled={pending} onClick={onCancel}>
+            {task ? (dirty ? "Discard changes" : "Back to tasks") : "Close"}
           </Button>
         </div>
         <Button
           type="submit"
           size="sm"
+          tabIndex={-1}
           disabled={pending}
         >{pending ? "Saving…" : task ? "Save changes" : "Add task"}</Button>
       </div>

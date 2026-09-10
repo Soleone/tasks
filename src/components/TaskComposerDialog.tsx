@@ -27,6 +27,9 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
         className="overflow-y-auto sm:max-w-md"
         initialFocus={titleInput as RefObject<HTMLElement>}
         finalFocus={finalFocus}
+        onKeyDownCapture={(event) => {
+          if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) event.preventDefault();
+        }}
       >
         <DialogHeader>
           <DialogTitle>{task ? "Edit task" : "New task"}</DialogTitle>
