@@ -1,25 +1,21 @@
 import { useEffect, useRef } from "react";
 
 /**
- * The surfaces linear keyboard navigation moves between. The composer is a
- * modal dialog on the focus stack, not a destination: "create" is the New
- * task button, and the list is the default stop.
+ * The surfaces that can receive explicit focus. The composer is a modal
+ * dialog on the focus stack, not a destination: "create" is the New task
+ * button, and the list is the default stop. Tab stays inert on the list.
  */
 export type DestinationId = "create" | "list";
 
 export type DestinationHandle = {
-  /** Enter from the previous destination. */
+  /** Focus the front of a destination. */
   focusFirst: () => void;
-  /** Enter from the next destination, or when wrapping backwards. */
+  /** Focus the tail of a destination. */
   focusLast: () => void;
 };
 
 export type Navigator = {
   register: (id: DestinationId, handle: DestinationHandle) => () => void;
-  /** Move to the destination after `from`, wrapping, entering at its front. */
-  next: (from: DestinationId) => void;
-  /** Move to the destination before `from`, wrapping, entering at its tail. */
-  prev: (from: DestinationId) => void;
   /** Focus the tail of the final destination (Shift+Tab on a header button). */
   last: () => void;
   /** Jump straight to a destination's front. */
@@ -43,14 +39,6 @@ export function useFocusNavigation(order: DestinationId[]): Navigator {
   if (!navigator.current) {
     const available = (): DestinationId[] =>
       orderRef.current.filter((id) => handles.current.has(id));
-    const step = (from: DestinationId, direction: 1 | -1): void => {
-      const ids = available();
-      if (!ids.length) return;
-      const index = (ids.indexOf(from) + direction + ids.length) % ids.length;
-      const handle = handles.current.get(ids[index]);
-      if (direction === 1) handle?.focusFirst();
-      else handle?.focusLast();
-    };
     navigator.current = {
       register(id, handle) {
         handles.current.set(id, handle);
@@ -58,8 +46,6 @@ export function useFocusNavigation(order: DestinationId[]): Navigator {
           if (handles.current.get(id) === handle) handles.current.delete(id);
         };
       },
-      next: (from) => step(from, 1),
-      prev: (from) => step(from, -1),
       last() {
         const ids = available();
         if (ids.length) handles.current.get(ids[ids.length - 1])?.focusLast();

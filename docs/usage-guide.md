@@ -11,7 +11,7 @@ Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progres
 - An empty workspace focuses the `Saved tasks` list shell. From there, `C` opens capture.
 - A load error focuses `Retry` until the first successful load can focus the list.
 - Loading or refreshing tasks must not steal focus from the current task, an open editor, or another dialog.
-- `New task` is an action beside the list, not the launch focus. `C`, the command palette, or the button can open it.
+- `New task` is an action beside the list, not the launch focus or a tab stop. `C`, the command palette, or the button can open it.
 
 The list uses a single focus stop. Arrow keys move the active row and do not add a tab stop for every task. The active row is exposed through `aria-activedescendant` and `aria-selected`.
 
@@ -32,8 +32,7 @@ These shortcuts assume focus is on the task list unless noted otherwise.
 | `Up` / `Down` | Move through visible tasks |
 | `Home` / `End` | Jump to the first or last visible task |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
-| `Tab` | Move from the list to Load more, when present, then to New task |
-| `Shift+Tab` | Move backward through the list and New task stops |
+| `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
 | `Escape` | Leave the list for the New task action |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
@@ -49,9 +48,10 @@ Treat this document as the UI interaction contract when using browser automation
 - Start UI checks from the task list. Do not assume the New task button is focused or that a dialog is already open.
 - Wait for the initial focus contract: a populated workspace should have `document.activeElement` on `[role="listbox"]`; an empty workspace should focus `[aria-label="Saved tasks"]`.
 - Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
+- Do not add Tab navigation from the task list. The New task button is intentionally `tabIndex=-1`; use `C`, the command palette, or the button itself to open capture.
 - Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
-- Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, `src/navigation.ts` owns linear stops such as list and New task, and the focus stack owns modal return targets.
+- Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, `src/navigation.ts` owns explicit destinations such as list and New task, and the focus stack owns modal return targets.
 - Do not add `autoFocus` to a secondary action to solve initial focus. Initial focus belongs in the list lifecycle, after the first query has rendered the correct empty, error, or populated state.
 - Refreshes must preserve focus and unsaved dialog content. A new data result should update the active row without moving the user's focus unless the focused element no longer exists.
 - Keep the end-to-end assertions in `scripts/check-ui.mjs` aligned with this guide. Run `pnpm test:ui` when Chromium and `agent-browser` are available; use a scratch database only.

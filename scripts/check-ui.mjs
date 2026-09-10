@@ -290,20 +290,21 @@ try {
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]") && document.activeElement.textContent.trim() === "Settings"');
 
-  // Tab cycles New task and the list; C opens create from the list.
+  // Tab does not leave the task list; C opens create from the list.
   browser("focus", "[role=listbox]");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== null');
   check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
-  evaluate('window.beforeNav = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
+  check('[...document.querySelectorAll("button")].find((button) => button.textContent.includes("New task"))?.tabIndex === -1');
+  evaluate('window.beforeNav = document.activeElement; window.beforeActiveId = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
   browser("press", "ArrowDown");
-  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== window.beforeNav');
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== window.beforeActiveId');
   browser("press", "ArrowUp");
-  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.beforeNav');
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.beforeActiveId');
   browser("press", "Tab");
-  waitFor('document.activeElement?.textContent?.includes("New task")');
+  waitFor('document.activeElement === window.beforeNav');
   browser("press", "Shift+Tab");
-  waitFor('document.activeElement.getAttribute("role") === "listbox"');
+  waitFor('document.activeElement === window.beforeNav');
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Escape");
@@ -477,6 +478,7 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "p");
   waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('document.querySelectorAll("[cmdk-group-heading] svg").length === 1');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("roadmap"))');
   browser("fill", 'input[role="combobox"]', "roadmap");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');

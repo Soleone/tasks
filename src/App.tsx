@@ -37,8 +37,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 // The list is the default surface. Create and edit share one dialog opened
-// by the New task button, the C key, or the palette. Tab cycles New task,
-// list, back to New task, and never leaves the app.
+// by the New task button, the C key, or the palette. Tab does not leave the
+// focused task list.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [total, setTotal] = useState(0);

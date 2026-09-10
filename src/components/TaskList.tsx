@@ -334,19 +334,7 @@ export function TaskList({
     } else if (event.key === "Escape") {
       event.preventDefault();
       nav.go("create");
-    } else if (event.key === "Tab") {
-      event.preventDefault();
-      if (event.shiftKey) nav.prev("list");
-      else if (hasMore) loadMore.current?.focus();
-      else nav.next("list");
-    }
-  }
-
-  function handleBoundaryTab(event: KeyboardEvent<HTMLButtonElement>): void {
-    if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
-    event.preventDefault();
-    if (event.shiftKey) list.current?.focus();
-    else nav.next("list");
+    } else if (event.key === "Tab") event.preventDefault();
   }
 
   return (
@@ -368,12 +356,6 @@ export function TaskList({
           tabIndex={-1}
           aria-keyshortcuts="C"
           onClick={onCreate}
-          onKeyDown={(event) => {
-            if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
-            event.preventDefault();
-            if (event.shiftKey) nav.last();
-            else nav.next("create");
-          }}
         >
           <Plus aria-hidden="true" />
           New task
@@ -450,7 +432,6 @@ export function TaskList({
             variant="outline"
             size="sm"
             onClick={() => void onRefresh()}
-            onKeyDown={handleBoundaryTab}
           >Retry</Button>
         </AlertDescription>
       </Alert> : null}
@@ -540,7 +521,6 @@ export function TaskList({
           variant="ghost"
           disabled={loading}
           onClick={() => void onRefresh(tasks.length)}
-          onKeyDown={handleBoundaryTab}
         >Load more tasks</Button>
       ) : null}
       {deletion ? <TaskDeleteDialog

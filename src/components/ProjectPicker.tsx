@@ -57,7 +57,14 @@ export function ProjectPicker({ open, onClose, finalFocus, onSelect }: {
           <CommandInput ref={searchInput} placeholder="Search projects…" />
           <CommandList label="Project results">
             <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup heading="Projects">
+            <CommandGroup
+              heading={(
+                <span className="inline-flex items-center gap-1.5">
+                  <Folder aria-hidden="true" className="size-3.5" />
+                  Projects
+                </span>
+              )}
+            >
               {projects.map((project) => (
                 <CommandItem
                   key={project.slug}
@@ -65,7 +72,6 @@ export function ProjectPicker({ open, onClose, finalFocus, onSelect }: {
                   keywords={[`${project.taskCount} tasks`]}
                   onSelect={() => onSelect(project)}
                 >
-                  <Folder aria-hidden="true" />
                   <span className="font-medium">{project.label}</span>
                   <span className="ml-auto text-muted-foreground">{project.taskCount} {project.taskCount === 1 ? "task" : "tasks"}</span>
                 </CommandItem>
