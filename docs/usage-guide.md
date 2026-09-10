@@ -1,6 +1,8 @@
 # Usage and interaction guide
 
-Tasks is a keyboard-first task app. The saved-task list is the home screen and the primary place to begin work. Mouse controls remain available when a pointer is easier or keyboard access is unavailable, but new UI should not make the user leave the list just to start an action.
+Tasks is a keyboard-first, not keyboard-only, app. The saved-task list is the home screen and the primary place to begin work. Every action must also have a mouse-accessible path in the UI, such as a button, menu item, inline control, or compact icon toolbar with an accessible label and tooltip. Mouse controls remain secondary, but they must be complete when a pointer is easier or keyboard access is unavailable.
+
+Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progressive disclosure, and existing surfaces over large duplicate controls or dashboard clutter. A keyboard shortcut alone is not enough, and a mouse affordance should not require adding a noisy control to every row.
 
 ## Home-screen contract
 
@@ -46,7 +48,8 @@ Treat this document as the UI interaction contract when using browser automation
 
 - Start UI checks from the task list. Do not assume the New task button is focused or that a dialog is already open.
 - Wait for the initial focus contract: a populated workspace should have `document.activeElement` on `[role="listbox"]`; an empty workspace should focus `[aria-label="Saved tasks"]`.
-- Prefer keyboard events for the primary path. Use a mouse click only when testing pointer support or when the action is intentionally pointer-specific.
+- Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
+- Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
 - Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, `src/navigation.ts` owns linear stops such as list and New task, and the focus stack owns modal return targets.
 - Do not add `autoFocus` to a secondary action to solve initial focus. Initial focus belongs in the list lifecycle, after the first query has rendered the correct empty, error, or populated state.
