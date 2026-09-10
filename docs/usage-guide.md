@@ -65,7 +65,7 @@ These shortcuts assume focus is on the task list unless noted otherwise. Typing 
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
 
-Inside the task dialog, `Tab` and `Shift+Tab` move directly between the title and description fields when the description is open; a non-empty title opens and focuses the description. An empty create title does not open the optional description. Action buttons are backup mouse controls, not Tab destinations; use `Enter` or `Ctrl/⌘+Enter` to save and `Escape` to close or step back from the description. The dialog has a single-select P0-P4 toggle defaulting to P2; it is a mouse control, while the `0`-`4` keys filter the list. Create stays open after a successful save for rapid capture; editing closes back to the list. Dialogs return focus to the control or list that opened them.
+Inside the task dialog, `Tab` and `Shift+Tab` move through the title, optional description, and the single priority section. A non-empty title opens and focuses the description; an empty create title does not open the optional description. Focus the priority section itself, not an individual P0-P4 button, then press `0`-`4` to choose the task priority. Those number keys filter the list only when the list is focused. Action buttons are backup mouse controls, not Tab destinations; use `Enter` or `Ctrl/⌘+Enter` to save and `Escape` to close or step back from the description. The priority defaults to P2. Create stays open after a successful save for rapid capture; editing closes back to the list. Dialogs return focus to the control or list that opened them.
 
 Use `@category` and `#tags` in task text. The command palette explains the complete current shortcut and syntax surface, so update it when a keyboard action changes.
 
@@ -76,7 +76,7 @@ Treat this document as the UI interaction contract when using browser automation
 - Start UI checks from the task list. Do not assume the New task button is focused or that a dialog is already open.
 - Wait for the initial focus contract: a populated workspace should have `document.activeElement` on `[role="listbox"]`; an empty workspace should focus `[aria-label="Saved tasks"]`.
 - Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
-- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the dialog priority toggle.
+- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The dialog's priority section is its single keyboard focus stop.
 - Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `C` or the command palette to open capture.
 - Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.

@@ -77,6 +77,7 @@ try {
   browser("press", "Tab");
   waitFor('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   check('document.querySelector(\'form[aria-label="New task"] button[type="button"]\').tabIndex === -1');
+  check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').tabIndex === -1');
   browser("find", "role", "button", "click", "--name", "Add description");
   waitFor('document.activeElement.name === "description"');
@@ -96,6 +97,16 @@ try {
   browser("keyboard", "inserttext", "- Ask about accessibility");
   assert.equal((await command("task.list")).tasks.length, 0);
   browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
+  check('document.activeElement.hasAttribute("data-priority-section")');
+  check('[...document.querySelectorAll(\'[role="radiogroup"] [role="radio"]\')].every((radio) => radio.tabIndex === -1)');
+  for (const value of ["0", "1", "2", "3", "4"]) {
+    browser("press", value);
+    waitFor(`document.activeElement.matches("[role=radiogroup]") && document.querySelector('[role="radiogroup"] [data-priority="P${value}"]').getAttribute("aria-checked") === "true"`);
+  }
+  browser("press", "2");
+  waitFor('document.querySelector(\'[role="radiogroup"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
+  browser("press", "Tab");
   waitFor('document.activeElement.name === "title"');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
@@ -105,6 +116,7 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("S"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("Shift"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Priority filter") && item.textContent.includes("0"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Set task priority") && item.textContent.includes("Focus Priority"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter by tags") && item.textContent.includes("T"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Search tasks") && item.textContent.includes("/"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show unblocked tasks") && item.textContent.includes("U"))');
@@ -384,9 +396,15 @@ try {
   evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")).click(); true');
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
   browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
-  browser("press", "Enter");
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
+  browser("press", "4");
+  waitFor('document.querySelector(\'form[aria-label="Edit task"] [data-priority="P4"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
+  browser("press", "Control+Enter");
   waitFor('document.querySelector("form[aria-label^=Edit]") === null');
-  assert.ok((await command("task.list")).tasks.some((task) => task.title === "Confirm the venue"));
+  assert.ok((await command("task.list")).tasks.some((task) => task.title === "Confirm the venue" && task.priority === 4));
 
   await command("task.create", { title: "Check ".repeat(60), descriptionMarkdown: "Long notes ".repeat(100) });
   browser("reload");
@@ -550,8 +568,8 @@ try {
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "false"');
 
-  // Priority: P2 is the default, 0-4 filters, the dialog toggle persists, and
-  // the toolbar button opens the same menu for mouse users.
+  // Priority: P2 is the default, 0-4 filters on the list, and the dialog
+  // section sets the task priority without putting individual buttons in Tab order.
   assert.equal((await command("task.list", { priority: 2 })).total >= 9, true);
   browser("focus", "[role=listbox]");
   browser("press", "0");
@@ -580,20 +598,24 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("P2"))');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
-  // The composer defaults to P2 and persists a P0 choice.
+  // The composer defaults to P2. Pointer selection works too, but the group
+  // remains the one keyboard focus target.
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
-  // The toggle is mouse-only; arrows move within the radiogroup once focused by click.
+  check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
   browser("find", "role", "radio", "click", "--name", "P2: P2 normal");
-  waitFor('document.activeElement?.getAttribute("data-priority") === "P2"');
-  browser("press", "ArrowRight");
-  waitFor('document.activeElement?.getAttribute("data-priority") === "P3"');
-  browser("press", "ArrowLeft");
-  waitFor('document.activeElement?.getAttribute("data-priority") === "P2"');
-  evaluate('document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\').click(); true');
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
+  evaluate('document.querySelector(\'form[aria-label="New task"] [data-priority="P3"]\').click(); true');
+  waitFor('document.querySelector(\'form[aria-label="New task"] [data-priority="P3"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
   browser("fill", 'form[aria-label="New task"] input', "Urgent cockpit task");
-  browser("press", "Enter");
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
+  browser("press", "0");
+  waitFor('document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
+  browser("press", "Control+Enter");
   waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
   assert.equal((await command("task.list", { priority: 0 })).total, 1);
   browser("press", "Escape");

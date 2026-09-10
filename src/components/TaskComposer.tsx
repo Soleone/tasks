@@ -5,7 +5,7 @@ import { createTask, updateTask, BackendCommandError } from "@/platform/backendC
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -16,17 +16,15 @@ type TaskComposerProps = {
   onCancel: () => void;
 };
 
-const PRIORITY_ORDER: TaskPriority[] = [0, 1, 2, 3, 4];
-
-// Shared create/edit form. Fields own direct keyboard navigation; action
-// buttons and the priority toggle remain mouse-accessible backups and are
-// never Tab destinations. Priority on the list is handled by the 0-4 keys.
+// Shared create/edit form. Fields and the priority section own direct
+// keyboard navigation; action buttons remain mouse-accessible backups and are
+// never Tab destinations.
 export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   const titleInput = titleInputRef ?? fallbackTitleInput;
-  const priorityRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const prioritySection = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
@@ -37,7 +35,9 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dirty = title !== (task?.title ?? "") || description !== (task?.descriptionMarkdown ?? "");
+  const dirty = title !== (task?.title ?? "")
+    || description !== (task?.descriptionMarkdown ?? "")
+    || priority !== (task?.priority ?? 2);
 
   useEffect(() => {
     requestAnimationFrame(() => titleInput.current?.focus());
@@ -58,29 +58,23 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
     setNotesOpen(true);
   }
 
-  function focusPriority(value: TaskPriority): void {
-    setPriority(value);
-    requestAnimationFrame(() => {
-      priorityRefs.current[value]?.focus();
-    });
+  function focusPrioritySection(): void {
+    prioritySection.current?.focus();
   }
 
-  function handlePriorityKeyDown(event: KeyboardEvent<HTMLButtonElement>, value: TaskPriority): void {
-    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    const index = PRIORITY_ORDER.indexOf(value);
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+  function handlePriorityKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
+    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      focusPriority(PRIORITY_ORDER[(index + 1) % PRIORITY_ORDER.length] as TaskPriority);
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      event.preventDefault();
-      focusPriority(PRIORITY_ORDER[(index - 1 + PRIORITY_ORDER.length) % PRIORITY_ORDER.length] as TaskPriority);
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      focusPriority(0);
-    } else if (event.key === "End") {
-      event.preventDefault();
-      focusPriority(4);
+      if (event.shiftKey && notesOpen) notesInput.current?.focus();
+      else titleInput.current?.focus();
+      return;
     }
+    if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    const value = Number(event.key);
+    if (!Number.isInteger(value) || value < 0 || value > 4) return;
+    event.preventDefault();
+    setPriority(value as TaskPriority);
   }
 
   function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
@@ -96,7 +90,8 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      if (notesOpen) notesInput.current?.focus();
+      if (event.shiftKey) focusPrioritySection();
+      else if (notesOpen) notesInput.current?.focus();
       else if (!task && !title.trim()) return;
       else showNotes();
       return;
@@ -201,7 +196,8 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
                 if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                 if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
                   event.preventDefault();
-                  titleInput.current?.focus();
+                  if (event.shiftKey) titleInput.current?.focus();
+                  else focusPrioritySection();
                   return;
                 }
                 if (event.key === "Escape") {
@@ -217,15 +213,24 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
         ) : null}
         <Field>
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
-          <ButtonGroup role="radiogroup" aria-labelledby={`${id}-priority-label`} aria-label="Task priority">
+          <ButtonGroup
+            ref={prioritySection}
+            role="radiogroup"
+            aria-labelledby={`${id}-priority-label`}
+            aria-describedby={`${id}-priority-help`}
+            aria-activedescendant={`${id}-priority-${priority}`}
+            aria-keyshortcuts="0 1 2 3 4"
+            aria-disabled={pending || undefined}
+            tabIndex={0}
+            data-priority-section
+            onKeyDown={handlePriorityKeyDown}
+          >
             {PRIORITY_META.map((meta) => {
               const selected = priority === meta.value;
               return (
                 <Button
                   key={meta.value}
-                  ref={(element) => {
-                    priorityRefs.current[meta.value] = element;
-                  }}
+                  id={`${id}-priority-${meta.value}`}
                   type="button"
                   role="radio"
                   aria-checked={selected}
@@ -235,8 +240,10 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
                   aria-label={`${meta.shortLabel}: ${meta.label}`}
                   data-priority={meta.shortLabel}
                   disabled={pending}
-                  onClick={() => setPriority(meta.value)}
-                  onKeyDown={(event) => handlePriorityKeyDown(event, meta.value)}
+                  onClick={() => {
+                    setPriority(meta.value);
+                    prioritySection.current?.focus();
+                  }}
                 >
                   <span aria-hidden="true" className={`inline-block size-2 rounded-full ${meta.dot}`} />
                   {meta.shortLabel}
@@ -244,6 +251,7 @@ export function TaskComposer({ task, titleInputRef, onSaved, onCancel }: TaskCom
               );
             })}
           </ButtonGroup>
+          <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 to choose.</FieldDescription>
         </Field>
       </FieldGroup>
       {error ? (

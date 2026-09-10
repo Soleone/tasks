@@ -40,6 +40,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
     heading: "Task actions",
     entries: [
       { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture dialog" },
+      { label: "Set task priority", hint: "Focus Priority in dialog", icon: Flag, keys: ["0", "1", "2", "3", "4"], keywords: "dialog composer create edit set choose task priority p0 p1 p2 p3 p4" },
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
       { label: "Switch active or inactive", hint: "S toggles, A works too", icon: ListFilter, keys: ["S"], action: "filter-status", keywords: "s a active inactive filter paused done canceled cancelled show hide toggle" },
