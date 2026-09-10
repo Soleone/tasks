@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import type { TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import type { ProjectRecord, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import { ProjectPicker } from "@/components/ProjectPicker";
 import { TaskComposerDialog, type ComposerState } from "@/components/TaskComposerDialog";
 import { HelpPalette } from "@/components/HelpPalette";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
@@ -22,9 +23,10 @@ const INACTIVE_TASK_STATUSES: TaskStatus[] = ["paused", "canceled"];
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
-function taskIsVisible(task: TaskRecord, showInactive: boolean, showUnblocked: boolean): boolean {
+function taskIsVisible(task: TaskRecord, showInactive: boolean, showUnblocked: boolean, projectSlug: string | null): boolean {
   return (showInactive ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status)
-    && (!showUnblocked || task.blockedByIds.length === 0);
+    && (!showUnblocked || task.blockedByIds.length === 0)
+    && (projectSlug === null || task.category?.slug === projectSlug);
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -42,6 +44,8 @@ export default function App(): ReactElement {
   const [total, setTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
   const [showUnblocked, setShowUnblocked] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<ProjectRecord | null>(null);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [composer, setComposer] = useState<ComposerState | null>(null);
   const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -56,6 +60,7 @@ export default function App(): ReactElement {
   const querySequence = useRef(0);
   const showInactiveRef = useRef(false);
   const showUnblockedRef = useRef(false);
+  const projectFilterRef = useRef<string | null>(null);
   const newTaskButton = useRef<HTMLButtonElement>(null);
   const composerRef = useRef<ComposerState | null>(null);
   composerRef.current = composer;
@@ -78,6 +83,7 @@ export default function App(): ReactElement {
         showInactiveRef.current ? INACTIVE_TASK_STATUSES : ACTIVE_TASK_STATUSES,
         offset,
         showUnblockedRef.current,
+        projectFilterRef.current ?? undefined,
       );
       if (sequence !== querySequence.current) return;
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
@@ -92,8 +98,9 @@ export default function App(): ReactElement {
   useEffect(() => {
     showInactiveRef.current = showInactive;
     showUnblockedRef.current = showUnblocked;
+    projectFilterRef.current = projectFilter?.slug ?? null;
     void refreshTasks();
-  }, [showInactive, showUnblocked, refreshTasks]);
+  }, [showInactive, showUnblocked, projectFilter, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
@@ -165,7 +172,7 @@ export default function App(): ReactElement {
       }
       if (event.ctrlKey || event.metaKey) return;
       if (event.key.toLowerCase() === "c" && !isTypingTarget(event.target)) {
-        const dialogOpen = helpOpen || themesOpen || settingsOpen || picker !== null || composerRef.current !== null;
+        const dialogOpen = helpOpen || themesOpen || settingsOpen || projectPickerOpen || picker !== null || composerRef.current !== null;
         if (dialogOpen) return;
         event.preventDefault();
         openCreate();
@@ -173,7 +180,7 @@ export default function App(): ReactElement {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, themesOpen, settingsOpen, picker]);
+  }, [helpOpen, themesOpen, settingsOpen, projectPickerOpen, picker]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -221,6 +228,29 @@ export default function App(): ReactElement {
     setPicker(null);
   }
 
+  function openProjectPicker(): void {
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("project-picker", fromPalette ?? undefined);
+    setHelpOpen(false);
+    setProjectPickerOpen(true);
+  }
+
+  function closeProjectPicker(): void {
+    setProjectPickerOpen(false);
+  }
+
+  function chooseProject(project: ProjectRecord): void {
+    setProjectPickerOpen(false);
+    setProjectFilter(project);
+    setActiveTaskIndex(0);
+    setAnnouncement(`Showing ${project.label} tasks`);
+  }
+
+  function clearProjectFilter(): void {
+    setProjectFilter(null);
+    setActiveTaskIndex(0);
+  }
+
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
     if (!picker) return;
     const { subject } = picker;
@@ -266,7 +296,7 @@ export default function App(): ReactElement {
 
   function taskSaved(task: TaskRecord): void {
     const creating = composerRef.current?.mode === "create";
-    if (taskIsVisible(task, showInactive, showUnblocked)) {
+    if (taskIsVisible(task, showInactive, showUnblocked, projectFilter?.slug ?? null)) {
       setTasks((previous) => creating
         ? [task, ...previous.filter((existing) => existing.id !== task.id)]
         : previous.map((existing) => existing.id === task.id ? task : existing));
@@ -282,7 +312,7 @@ export default function App(): ReactElement {
 
   function updateVisibleTask(task: TaskRecord): void {
     const wasVisible = tasks.some((existing) => existing.id === task.id);
-    if (!taskIsVisible(task, showInactive, showUnblocked)) {
+    if (!taskIsVisible(task, showInactive, showUnblocked, projectFilter?.slug ?? null)) {
       if (!wasVisible) return;
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
       setTotal((previous) => Math.max(previous - 1, 0));
@@ -358,6 +388,9 @@ export default function App(): ReactElement {
             setShowUnblocked(next);
             setActiveTaskIndex(0);
           }}
+          projectFilter={projectFilter}
+          onProjectFilterChange={clearProjectFilter}
+          onOpenProjectPicker={openProjectPicker}
           activeTaskIndex={activeTaskIndex}
           loading={loading}
           error={loadError}
@@ -392,10 +425,17 @@ export default function App(): ReactElement {
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
         onCreate={openCreate}
+        onOpenProjectPicker={openProjectPicker}
         activeTask={tasks[activeTaskIndex]}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
       />
+      {projectPickerOpen ? <ProjectPicker
+        open
+        onClose={closeProjectPicker}
+        finalFocus={() => focusStack.restore("project-picker") ?? undefined}
+        onSelect={chooseProject}
+      /> : null}
       {picker ? <TaskPicker
         open
         mode={picker.mode}

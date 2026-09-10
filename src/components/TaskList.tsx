@@ -7,8 +7,8 @@ import {
   type ReactElement,
   type RefObject,
 } from "react";
-import { ChevronDown, ChevronRight, ListFilter, Plus, TriangleAlert } from "lucide-react";
-import type { TaskRecord, TaskStatus } from "@/backend/protocol";
+import { ChevronDown, ChevronRight, Folder, ListFilter, Plus, TriangleAlert } from "lucide-react";
+import type { ProjectRecord, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { TaskDeleteDialog } from "@/components/TaskDeleteDialog";
 import { TaskRow, TaskStatusToggle, taskStatusMeta, taskTitleDisplay } from "@/components/TaskRow";
 import { projectVisibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
@@ -38,6 +38,9 @@ type TaskListProps = {
   onShowInactiveChange: (show: boolean) => void;
   showUnblocked: boolean;
   onShowUnblockedChange: (show: boolean) => void;
+  projectFilter: ProjectRecord | null;
+  onProjectFilterChange: (project: ProjectRecord | null) => void;
+  onOpenProjectPicker: () => void;
   activeTaskIndex: number;
   loading: boolean;
   error: string | null;
@@ -70,6 +73,9 @@ export function TaskList({
   onShowInactiveChange,
   showUnblocked,
   onShowUnblockedChange,
+  projectFilter,
+  onProjectFilterChange,
+  onOpenProjectPicker,
   activeTaskIndex,
   loading,
   error,
@@ -168,6 +174,15 @@ export function TaskList({
     onShowUnblockedChange(next);
     setUnblockedFeedbackVersion((previous) => previous + 1);
     onAnnounce(next ? "Showing unblocked tasks" : "Showing all tasks");
+  }
+
+  function toggleProjectFilter(): void {
+    if (projectFilter) {
+      onProjectFilterChange(null);
+      onAnnounce("Showing tasks from all projects");
+      return;
+    }
+    onOpenProjectPicker();
   }
 
   function moveActive(next: number): void {
@@ -282,6 +297,10 @@ export function TaskList({
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
       toggleUnblockedFilter();
+    } else if (event.key.toLowerCase() === "p") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      onOpenProjectPicker();
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
@@ -335,7 +354,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="C A U B M Space Delete ArrowLeft ArrowRight"
+      aria-keyshortcuts="C A U P B M Space Delete ArrowLeft ArrowRight"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -360,6 +379,26 @@ export function TaskList({
           New task
         </Button>
       <ButtonGroup aria-label="Task list filters and sorting">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={projectFilter ? "secondary" : "ghost"}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={projectFilter ? `Clear project filter: ${projectFilter.label}` : "Filter by project"}
+                aria-pressed={projectFilter !== null}
+                aria-keyshortcuts="P"
+                data-filter="task-project"
+                onClick={toggleProjectFilter}
+              />
+            }
+          >
+            <Folder aria-hidden="true" />
+            <span className="sr-only">{projectFilter ? `Clear project filter: ${projectFilter.label}` : "Filter by project"}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{projectFilter ? projectFilter.label : "Project"}</TooltipContent>
+        </Tooltip>
         <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
           <TooltipTrigger
             render={
@@ -421,7 +460,7 @@ export function TaskList({
           role="listbox"
           aria-label={`Tasks, ${visibleRows.length} visible of ${total}`}
           aria-orientation="vertical"
-          aria-keyshortcuts="C A U B M Space Delete ArrowLeft ArrowRight"
+          aria-keyshortcuts="C A U P B M Space Delete ArrowLeft ArrowRight"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"

@@ -3,6 +3,7 @@ import {
   parseRuntimeProbeResult,
   type ActivityRecord,
   type ProtocolRequest,
+  type ProjectRecord,
   type RuntimeProbeResult,
   type TaskRecord,
   type ThemeRecord,
@@ -11,6 +12,7 @@ import { getBackendTransport } from "./backendTransport";
 
 export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; total: number; limit: number; offset: number };
+export type ProjectListResult = { projects: ProjectRecord[] };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
 export type WorkspaceInfoResult = { databasePath: string; taskCount: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; taskCount: number; exportedAt: string };
@@ -66,12 +68,22 @@ export async function runRuntimeProbe(): Promise<ProbeResult> {
   return parseRuntimeProbeResult(result);
 }
 
-export async function listTasks(status?: string | readonly string[], offset = 0, unblocked = false): Promise<TaskListResult> {
+export async function listTasks(
+  status?: string | readonly string[],
+  offset = 0,
+  unblocked = false,
+  project?: string,
+): Promise<TaskListResult> {
   return runBackendCommand<TaskListResult>("task.list", {
     ...(status !== undefined ? { status } : {}),
     ...(unblocked ? { unblocked: true } : {}),
+    ...(project !== undefined ? { project } : {}),
     offset,
   });
+}
+
+export async function listProjects(): Promise<ProjectListResult> {
+  return runBackendCommand<ProjectListResult>("project.list");
 }
 
 export async function getTask(id: string): Promise<{ task: TaskRecord }> {

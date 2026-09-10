@@ -8,6 +8,7 @@ export const COMMAND_NAMES = [
   "runtime.probe",
   "task.create",
   "task.list",
+  "project.list",
   "task.get",
   "task.update",
   "task.delete",
@@ -33,6 +34,13 @@ export type CommandName = (typeof COMMAND_NAMES)[number];
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type ActorKind = "human" | "agent" | "system";
 export type ThemeSource = "builtin" | "workspace";
+
+/** Product-facing project entries backed by the task text's @category values. */
+export type ProjectRecord = {
+  slug: string;
+  label: string;
+  taskCount: number;
+};
 
 export type Actor = {
   kind: ActorKind;

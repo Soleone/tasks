@@ -121,6 +121,36 @@ test("task.list filters to unblocked tasks", () => {
   }
 });
 
+test("task.list filters by project and project.list returns project entries", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-project-filter-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const alpha = task(executeCommand(request("task.create", { title: "Alpha task @Alpha" }, { idempotencyKey: "project-alpha" }), databasePath));
+    const beta = task(executeCommand(request("task.create", { title: "Beta task @Beta" }, { idempotencyKey: "project-beta" }), databasePath));
+    task(executeCommand(request("task.create", { title: "Unassigned task" }, { idempotencyKey: "project-none" }), databasePath));
+
+    const projects = executeCommand(request("project.list"), databasePath) as {
+      projects: Array<{ slug: string; label: string; taskCount: number }>;
+    };
+    assert.deepEqual(projects.projects, [
+      { slug: "alpha", label: "Alpha", taskCount: 1 },
+      { slug: "beta", label: "Beta", taskCount: 1 },
+    ]);
+
+    const filtered = executeCommand(request("task.list", { project: " ALPHA " }), databasePath);
+    assert.equal(filtered.total, 1);
+    assert.deepEqual((filtered.tasks as TaskRecord[]).map((item) => item.id), [alpha.id]);
+    assert.throws(
+      () => executeCommand(request("task.list", { project: "" }), databasePath),
+      /project must be a non-empty string/,
+    );
+    assert.equal(beta.category?.slug, "beta");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task mutations persist classification, activity, and optimistic versions", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m1-mutations-"));
   const databasePath = path.join(directory, "tasks.db");

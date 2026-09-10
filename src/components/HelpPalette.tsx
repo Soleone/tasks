@@ -31,7 +31,7 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "new-task";
+  action?: "open-settings" | "add-blocker" | "move-under" | "new-task" | "filter-project";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -43,6 +43,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Change task status", icon: ListChecks, keys: ["Space"], keywords: "space open in progress paused done status cycle" },
       { label: "Switch active or inactive", icon: ListFilter, keys: ["A"], keywords: "a active inactive filter paused canceled cancelled show hide" },
       { label: "Show unblocked tasks", icon: TriangleAlert, keys: ["U"], keywords: "u unblocked ready available no blockers dependency depends prerequisite" },
+      { label: "Filter by project", icon: Folder, keys: ["P"], action: "filter-project", keywords: "p project folder filter" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
       { label: "Cancel task", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status confirmation enter escape" },
@@ -81,12 +82,13 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, activeTask, onAddBlocker, onMoveUnder }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onOpenProjectPicker, activeTask, onAddBlocker, onMoveUnder }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
   onCreate: () => void;
+  onOpenProjectPicker: () => void;
   activeTask?: TaskRecord;
   onAddBlocker?: (task: TaskRecord) => void;
   onMoveUnder?: (task: TaskRecord) => void;
@@ -119,11 +121,13 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                       ? onOpenSettings
                       : entry.action === "new-task"
                         ? onCreate
-                        : entry.action === "add-blocker" && activeTask && onAddBlocker
-                        ? () => onAddBlocker(activeTask)
-                        : entry.action === "move-under" && activeTask && onMoveUnder
-                          ? () => onMoveUnder(activeTask)
-                          : undefined;
+                        : entry.action === "filter-project"
+                          ? onOpenProjectPicker
+                          : entry.action === "add-blocker" && activeTask && onAddBlocker
+                            ? () => onAddBlocker(activeTask)
+                            : entry.action === "move-under" && activeTask && onMoveUnder
+                              ? () => onMoveUnder(activeTask)
+                              : undefined;
                     return (
                       <CommandItem
                         key={entry.label}

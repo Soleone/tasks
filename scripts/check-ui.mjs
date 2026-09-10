@@ -466,8 +466,32 @@ try {
   browser("press", "u");
   waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 7');
   assert.equal((await command("task.list", { unblocked: true })).total, 8);
+
+  // P opens the project selector. Choosing a project enables the Folder
+  // filter button; clicking it again clears the project filter.
+  await command("task.create", { title: "Roadmap task @roadmap" });
+  await command("task.create", { title: "Launch follow-up @launch" });
+  browser("reload");
+  waitFor('document.querySelectorAll("[role=option]").length === 9');
+  check('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "false"');
+  browser("focus", "[role=listbox]");
+  browser("press", "p");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("roadmap"))');
+  browser("fill", 'input[role="combobox"]', "roadmap");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
+  check('document.querySelector("[data-filter=task-project]").getAttribute("aria-label").includes("roadmap")');
+  evaluate('document.querySelector("[data-filter=task-project]").click(); true');
+  waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  evaluate('document.querySelector("[data-filter=task-project]").click(); true');
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "false"');
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, active/inactive and unblocked filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, active/inactive, unblocked and project filtering, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

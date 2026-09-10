@@ -759,6 +759,25 @@ function removeDependency(database: DatabaseSync, request: ProtocolRequest): Rec
   });
 }
 
+function listProjects(database: DatabaseSync): Record<string, unknown> {
+  const rows = database
+    .prepare(
+      `SELECT categories.slug, categories.label, COUNT(tasks.id) AS task_count
+       FROM categories
+       JOIN tasks ON tasks.category_id = categories.id
+       GROUP BY categories.id, categories.slug, categories.label
+       ORDER BY categories.label COLLATE NOCASE ASC, categories.slug ASC`,
+    )
+    .all() as Row[];
+  return {
+    projects: rows.map((row) => ({
+      slug: stringValue(row, "slug"),
+      label: stringValue(row, "label"),
+      taskCount: numberValue(row, "task_count"),
+    })),
+  };
+}
+
 function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
   const limit = Math.min(Math.max(optionalInteger(request.args, "limit", 50), 1), 100);
   const offset = Math.max(optionalInteger(request.args, "offset", 0), 0);
@@ -778,6 +797,14 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   if (unblockedArgument !== undefined && typeof unblockedArgument !== "boolean") {
     throw new CommandError("INVALID_ARGUMENT", "unblocked must be a boolean");
   }
+  const projectArgument = request.args.project;
+  let projectSlug: string | undefined;
+  if (projectArgument !== undefined) {
+    if (typeof projectArgument !== "string" || projectArgument.trim() === "") {
+      throw new CommandError("INVALID_ARGUMENT", "project must be a non-empty string");
+    }
+    projectSlug = projectArgument.trim().toLowerCase();
+  }
   const conditions: string[] = [];
   const params: string[] = [];
   if (statuses.length > 0) {
@@ -786,6 +813,10 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   }
   if (unblockedArgument === true) {
     conditions.push("NOT EXISTS (SELECT 1 FROM task_dependencies WHERE task_dependencies.task_id = tasks.id)");
+  }
+  if (projectSlug !== undefined) {
+    conditions.push("categories.slug = ?");
+    params.push(projectSlug);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = database
@@ -797,7 +828,9 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as Row[];
-  const totalRow = database.prepare(`SELECT COUNT(*) AS count FROM tasks ${where}`).get(...params) as Row;
+  const totalRow = database
+    .prepare(`SELECT COUNT(*) AS count FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id ${where}`)
+    .get(...params) as Row;
   return {
     tasks: rows.map((row) => taskFromRow(database, row)),
     total: numberValue(totalRow, "count"),
@@ -862,6 +895,8 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return createTask(database, request);
     case "task.list":
       return listTasks(database, request);
+    case "project.list":
+      return listProjects(database);
     case "task.get":
       return getTask(database, request);
     case "task.update":
