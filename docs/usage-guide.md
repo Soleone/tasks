@@ -24,7 +24,7 @@ One compact row above the list, in this order:
 [ Status ] [ Priority ] [ Project ] [ Tags ] [ Search ] [ Unblocked ]
 ```
 
-Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip; there is no second summary row. Every shortcut below has a mouse path through its menu or dialog.
+Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers, such as “12 active tasks” or “3 in progress tasks”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
 - Priority: P0 highest through P4 lowest. Every task defaults to P2. Color is supplemental; labels stay present.

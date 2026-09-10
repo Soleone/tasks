@@ -477,6 +477,18 @@ export function TaskList({
     : "Priority";
   const tagLabel = tagFilter.length > 0 ? `${tagFilter.length} tag${tagFilter.length === 1 ? "" : "s"}` : "Tags";
   const searchActive = searchQuery.trim() !== "";
+  const summaryStatus = statusLabel.toLowerCase();
+  const summaryTags = tagFilter.length > 2
+    ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
+    : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
+  const filterSummary = [
+    `${total} ${summaryStatus} ${total === 1 ? "task" : "tasks"}`,
+    priorityFilter !== null ? priorityLabel : null,
+    projectFilter ? `@${projectFilter.label}` : null,
+    summaryTags,
+    searchActive ? `“${searchQuery.trim()}”` : null,
+    showUnblocked ? "unblocked" : null,
+  ].filter((part): part is string => part !== null).join(" · ");
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
   const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
 
@@ -492,17 +504,18 @@ export function TaskList({
       className="flex flex-col gap-4"
       onKeyDown={handleListKeyDown}
     >
-      <div className="flex items-center justify-between gap-2">
-        <Button
-          size="sm"
-          tabIndex={-1}
-          aria-keyshortcuts="C"
-          onClick={onCreate}
-        >
-          <Plus aria-hidden="true" />
-          New task
-        </Button>
-      <ButtonGroup aria-label="Task list filters">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            size="sm"
+            tabIndex={-1}
+            aria-keyshortcuts="C"
+            onClick={onCreate}
+          >
+            <Plus aria-hidden="true" />
+            New task
+          </Button>
+          <ButtonGroup aria-label="Task list filters">
         <Tooltip>
           <TooltipTrigger
             render={
@@ -629,7 +642,17 @@ export function TaskList({
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
         </Tooltip>
-      </ButtonGroup>
+          </ButtonGroup>
+        </div>
+        <p
+          data-filter-summary
+          aria-live="polite"
+          aria-atomic="true"
+          title={filterSummary}
+          className="truncate text-xs leading-4 text-muted-foreground"
+        >
+          {filterSummary}
+        </p>
       </div>
       {error ? <Alert variant="destructive">
         <AlertTitle>Could not load tasks</AlertTitle>

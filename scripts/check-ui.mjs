@@ -69,6 +69,7 @@ try {
   waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
   check('document.querySelector("[role=dialog]") === null');
   check('document.body.textContent.includes("Press C or choose New task")');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   // C opens the shared create dialog with the title focused and notes closed.
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
@@ -136,6 +137,7 @@ try {
   assert.equal(saved[0].category.slug, "launch");
   assert.equal(saved[0].tags[0].slug, "planning");
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 3');
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\") !== null");
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
@@ -147,6 +149,7 @@ try {
   evaluate('document.querySelector("[role=option] [data-status]").click(); true');
   waitFor('document.querySelector("form[aria-label^=Edit]") === null && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "In progress"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
   assert.equal(saved[0].priority, 2);
@@ -156,12 +159,14 @@ try {
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 inactive tasks"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('(() => { const active = document.querySelector("[data-filter=task-status]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "a");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   // Active now includes paused: in_progress -> paused stays visible.
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
@@ -187,6 +192,7 @@ try {
   browser("press", "d");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=option]")');
   check('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done")');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 done tasks"');
   // A slow second key (>2s) must not trigger an exact status.
   browser("press", "Shift+s");
   await new Promise((resolve) => setTimeout(resolve, 2200));
@@ -250,6 +256,7 @@ try {
   waitFor('!document.querySelector("[role=dialog]")');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "3 active tasks"');
 
   // Themes: the dedicated picker drives the regions, and the choice persists.
   const themeCount = (await command("theme.list")).themes.length;
@@ -533,6 +540,7 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "u");
   waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "true"');
+  check('document.querySelector("[data-filter-summary]")?.textContent.includes("unblocked")');
   waitFor('document.querySelectorAll("[role=option]").length === 6');
   check('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Blocked task"))');
   check('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Release blocker"))');
@@ -556,6 +564,7 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-project]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · @roadmap"');
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-project]").getAttribute("aria-label").includes("roadmap")');
   browser("focus", "[role=listbox]");
@@ -574,6 +583,7 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "0");
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · P0"');
   waitFor('document.activeElement.matches("[role=listbox]") && document.querySelector("[data-empty-state=filtered]") !== null');
   check('document.body.textContent.includes("No tasks match the current filters")');
   check('document.querySelector("[data-empty-state=filtered] button").tabIndex === -1');
@@ -641,6 +651,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("product"))');
   evaluate('[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("product") && item.textContent.includes("task")).click(); true');
   waitFor('document.querySelectorAll(\'[role=listbox][aria-label^="Tasks"] [role=option]\').length === 1');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · #planning #product"');
   check('document.querySelector(\'[role=listbox][aria-label^="Tasks"] [role=option]\').textContent.includes("Tag cockpit")');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
@@ -657,6 +668,7 @@ try {
   check('document.querySelector(\'input[name="search"]\').value === "accessibility"');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · “accessibility”"');
   check('document.querySelector("[data-filter=task-search]").getAttribute("aria-label").includes("accessibility")');
   // A query with no matches shows the filtered empty state with Clear filters.
   browser("focus", "[role=listbox]");
@@ -666,14 +678,17 @@ try {
   check('document.querySelector(\'input[name="search"]\').value === "zzz-no-such-task"');
   browser("press", "Enter");
   waitFor('document.body.textContent.includes("No tasks match the current filters")');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · “zzz-no-such-task”"');
   browser("find", "role", "button", "click", "--name", "Clear filters");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   // Toolbar order stays Status, Priority, Project, Tags, Search, Unblocked.
   check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-project","task-tags","task-search","task-unblocked"])');
   for (const width of [1280, 320]) {
     browser("set", "viewport", String(width), "844");
     check('document.documentElement.scrollWidth <= innerWidth');
   }
+  check('(() => { const summary = document.querySelector("[data-filter-summary]"); if (!summary) return false; const style = getComputedStyle(summary); return style.whiteSpace === "nowrap" && style.overflow === "hidden" && summary.getBoundingClientRect().height <= 20; })()');
   assert.equal(browser("errors").trim(), "");
   console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, status presets and exact sequences, priority, unblocked, project, tags, search, filtered empty states, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
