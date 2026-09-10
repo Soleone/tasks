@@ -98,6 +98,33 @@ type StatusReceipt = {
   key: string;
 };
 
+type HomeShortcutActions = {
+  hasActiveFilters: boolean;
+  activeTask: TaskRecord | undefined;
+  activeTaskIndex: number;
+  visibleRowCount: number;
+  openDeleteDialog: () => void;
+  clearStatusSequence: () => void;
+  clearAllFilters: () => void;
+  startStatusSequence: () => void;
+  applyExactStatus: (status: TaskStatus) => void;
+  openSearch: () => void;
+  createTask: () => void;
+  toggleStatusPreset: () => void;
+  applyPriorityFilter: (priority: TaskPriority) => void;
+  toggleUnblockedFilter: () => void;
+  clearProjectFilter: () => void;
+  openProjectPicker: () => void;
+  clearTagFilter: () => void;
+  openTagPicker: () => void;
+  addBlocker: (task: TaskRecord) => void;
+  moveUnder: (task: TaskRecord) => void;
+  toggleStatus: (task: TaskRecord) => Promise<void>;
+  moveActive: (next: number) => void;
+  handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
+  editTask: (task: TaskRecord) => void;
+};
+
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 const ACTIVE_FILTER_CLASS = "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary";
 
@@ -148,6 +175,7 @@ export function TaskList({
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
   const statusPending = useRef(new Set<string>());
   const statusSequence = useRef<{ pending: boolean; timeout: number | null }>({ pending: false, timeout: null });
+  const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
   const [deletion, setDeletion] = useState<{ task: TaskRecord; key: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [listFocused, setListFocused] = useState(false);
@@ -392,12 +420,40 @@ export function TaskList({
     setDeleteOpen(true);
   }
 
-  // Home shortcuts live on the window, not on list focus, so a toolbar click
-  // or empty-area focus loss never breaks arrows and single-key filters.
-  // Typing targets and open dialogs always win; Space/Enter on real buttons
-  // stay native. Runs after every render so the listener never goes stale.
+  homeShortcutActions.current = {
+    hasActiveFilters,
+    activeTask,
+    activeTaskIndex,
+    visibleRowCount: visibleRows.length,
+    openDeleteDialog,
+    clearStatusSequence,
+    clearAllFilters: onClearAllFilters,
+    startStatusSequence,
+    applyExactStatus,
+    openSearch: onOpenSearch,
+    createTask: onCreate,
+    toggleStatusPreset,
+    applyPriorityFilter,
+    toggleUnblockedFilter,
+    clearProjectFilter,
+    openProjectPicker: onOpenProjectPicker,
+    clearTagFilter,
+    openTagPicker: onOpenTagPicker,
+    addBlocker: onAddBlocker,
+    moveUnder: onMoveUnder,
+    toggleStatus,
+    moveActive,
+    handleHorizontalNavigation,
+    editTask: onEdit,
+  };
+
+  // Keep one window listener so state changes cannot leave a gap between
+  // removing an old listener and installing its replacement. The ref is
+  // updated during render, so the listener always invokes current actions.
   useEffect(() => {
     function onWindowKeyDown(event: KeyboardEvent): void {
+      const actions = homeShortcutActions.current;
+      if (!actions) return;
       if (event.key === "Tab") {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         if (event.target === list.current || event.target === section.current) event.preventDefault();
@@ -408,7 +464,7 @@ export function TaskList({
       if (event.key === "Delete") {
         if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
         event.preventDefault();
-        openDeleteDialog();
+        actions.openDeleteDialog();
         return;
       }
       if (event.key === "Escape") {
@@ -416,8 +472,8 @@ export function TaskList({
         // clears every filter. Focus stays put.
         event.preventDefault();
         const wasPending = statusSequence.current.pending;
-        clearStatusSequence();
-        if (wasPending || hasActiveFilters) onClearAllFilters();
+        actions.clearStatusSequence();
+        if (wasPending || actions.hasActiveFilters) actions.clearAllFilters();
         return;
       }
       if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -428,83 +484,82 @@ export function TaskList({
         const exact = EXACT_STATUS_BY_KEY.get(event.key.toLowerCase());
         if (exact) {
           event.preventDefault();
-          applyExactStatus(exact);
+          actions.applyExactStatus(exact);
           return;
         }
         // Any other key cancels the sequence and falls through to normal handling.
-        clearStatusSequence();
+        actions.clearStatusSequence();
       }
       if (event.key === "/") {
         if (event.repeat) return;
         event.preventDefault();
-        onOpenSearch();
+        actions.openSearch();
       } else if (event.key.toLowerCase() === "c" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
-        onCreate();
+        actions.createTask();
       } else if (event.key.toLowerCase() === "s" && !event.repeat) {
         event.preventDefault();
-        if (event.shiftKey) startStatusSequence();
-        else toggleStatusPreset();
+        if (event.shiftKey) actions.startStatusSequence();
+        else actions.toggleStatusPreset();
       } else if (event.key.toLowerCase() === "a") {
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
-        toggleStatusPreset();
+        actions.toggleStatusPreset();
       } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
-        applyPriorityFilter(Number(event.key) as TaskPriority);
+        actions.applyPriorityFilter(Number(event.key) as TaskPriority);
       } else if (event.key.toLowerCase() === "u") {
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
-        toggleUnblockedFilter();
+        actions.toggleUnblockedFilter();
       } else if (event.key.toLowerCase() === "p") {
         if (event.repeat) return;
         event.preventDefault();
-        if (event.shiftKey) clearProjectFilter();
-        else onOpenProjectPicker();
+        if (event.shiftKey) actions.clearProjectFilter();
+        else actions.openProjectPicker();
       } else if (event.key.toLowerCase() === "t") {
         if (event.repeat) return;
         event.preventDefault();
-        if (event.shiftKey) clearTagFilter();
-        else onOpenTagPicker();
+        if (event.shiftKey) actions.clearTagFilter();
+        else actions.openTagPicker();
       } else if (event.key.toLowerCase() === "b") {
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
-        if (activeTask) onAddBlocker(activeTask);
+        if (actions.activeTask) actions.addBlocker(actions.activeTask);
       } else if (event.key.toLowerCase() === "m") {
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
-        if (activeTask) onMoveUnder(activeTask);
+        if (actions.activeTask) actions.moveUnder(actions.activeTask);
       } else if (event.key === " ") {
         if (event.repeat || event.shiftKey || isNativeButtonAction(event.target)) return;
         event.preventDefault();
-        if (activeTask) void toggleStatus(activeTask);
+        if (actions.activeTask) void actions.toggleStatus(actions.activeTask);
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
-        moveActive(activeTaskIndex + 1);
+        actions.moveActive(actions.activeTaskIndex + 1);
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
-        moveActive(activeTaskIndex - 1);
+        actions.moveActive(actions.activeTaskIndex - 1);
       } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
         event.preventDefault();
-        handleHorizontalNavigation(event.key);
+        actions.handleHorizontalNavigation(event.key);
       } else if (event.key === "Home") {
         event.preventDefault();
-        moveActive(0);
+        actions.moveActive(0);
       } else if (event.key === "End") {
         event.preventDefault();
-        moveActive(visibleRows.length - 1);
+        actions.moveActive(actions.visibleRowCount - 1);
       } else if (event.key === "Enter") {
         if (isNativeButtonAction(event.target)) return;
         event.preventDefault();
-        if (activeTask) onEdit(activeTask);
+        if (actions.activeTask) actions.editTask(actions.activeTask);
       }
     }
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
-  });
-
+    window.addEventListener("keydown", onWindowKeyDown, true);
+    return () => window.removeEventListener("keydown", onWindowKeyDown, true);
+  }, []);
 
   const statusActive = exactStatus !== null || statusPreset === "inactive";
   const statusLabel = exactStatus !== null
@@ -519,8 +574,9 @@ export function TaskList({
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
+  const summaryTaskCount = visibleRows.length;
   const filterSummary = [
-    `${total} ${summaryStatus} ${total === 1 ? "task" : "tasks"}`,
+    `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`,
     priorityFilter !== null ? priorityLabel : null,
     projectFilter ? `@${projectFilter.label}` : null,
     summaryTags,
