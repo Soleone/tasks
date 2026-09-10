@@ -380,6 +380,24 @@ export default function App(): ReactElement {
     }
   }
 
+  async function pickerRemoveParent(): Promise<void> {
+    if (!picker) return;
+    const { subject } = picker;
+    const current = tasks.find((task) => task.id === subject.id) ?? subject;
+    const subjectTitle = taskTitleDisplay(current.title);
+    setPicker(null);
+    try {
+      const result = await moveTask(current.id, null, current.version, { idempotencyKey: crypto.randomUUID() });
+      updateVisibleTask(result.task);
+      setAnnouncement(`${subjectTitle} is now a top-level task`);
+    } catch (caught) {
+      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        ? `${current.title} changed elsewhere. Refresh and try again.`
+        : caught instanceof Error ? caught.message : String(caught));
+      void refreshTasks();
+    }
+  }
+
   async function pickerSelected(target: TaskRecord): Promise<void> {
     if (!picker) return;
     const { mode, subject } = picker;
@@ -624,6 +642,7 @@ export default function App(): ReactElement {
         finalFocus={() => focusStack.restore("picker") ?? undefined}
         onSelect={(target) => void pickerSelected(target)}
         onRemoveBlocker={(blockerId) => void pickerRemoveBlocker(blockerId)}
+        onRemoveParent={() => void pickerRemoveParent()}
       /> : null}
       <ThemePalette
         open={themesOpen}

@@ -746,8 +746,33 @@ try {
   assert.equal(child?.parentId, parentId);
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]") && document.activeElement?.getAttribute("role") === "listbox"');
+
+  // M opens a move picker. Nested tasks can remove their parent from a
+  // separate group above the new-parent results.
+  const detachParent = (await command("task.create", { title: "Detach parent" })).task;
+  const detachChild = (await command("task.create", { title: "Detach child", parentId: detachParent.id })).task;
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Detach parent"))');
+  evaluate(`(() => {
+    const row = [...document.querySelectorAll('[role=option]')].find((entry) => entry.textContent.includes('Detach parent'));
+    row?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    row?.querySelector('[aria-label="Expand children"]')?.click();
+    document.querySelector('[role=listbox]')?.focus();
+    return true;
+  })()`);
+  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Detach parent")');
+  browser("press", "ArrowDown");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === "task-option-' + detachChild.id + '"');
+  browser("press", "m");
+  waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Remove parent")');
+  check('JSON.stringify([...document.querySelectorAll("[cmdk-group-heading]")].map((heading) => heading.textContent.trim())) === JSON.stringify(["Current parent", "Select new parent"])');
+  check('document.querySelector("[data-slot=command-item]")?.textContent.includes("Remove parent")');
+  evaluate('([...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("Remove parent"))?.click(), true)');
+  waitFor('document.body.textContent.includes("Detach child is now a top-level task")');
+  assert.equal((await command("task.get", { id: detachChild.id })).task.parentId, null);
+
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, status presets and exact sequences, priority, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, status presets and exact sequences, priority, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

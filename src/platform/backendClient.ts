@@ -141,7 +141,7 @@ export async function transitionTask(
   return runBackendCommand<TaskMutationResult>(command, { id, expectedVersion }, options);
 }
 
-export async function moveTask(id: string, parentId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+export async function moveTask(id: string, parentId: string | null, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
   return runBackendCommand<TaskMutationResult>("task.move", { id, parentId, expectedVersion }, options);
 }
 

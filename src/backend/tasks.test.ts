@@ -584,16 +584,23 @@ test("parent moves validate versions, parents, and cycles without cascading stat
       () => executeCommand(request("task.move", { id: parent.id, parentId: child.id, expectedVersion: parent.version }, { idempotencyKey: "move-cycle" }), databasePath),
       /PARENT_CYCLE/,
     );
+
+    const detached = task(
+      executeCommand(request("task.move", { id: child.id, parentId: null, expectedVersion: moved.version }, { idempotencyKey: "move-remove-parent" }), databasePath),
+    );
+    assert.equal(detached.parentId, null);
+    assert.equal(detached.version, moved.version + 1);
+    assert.equal(detached.status, child.status);
     assert.throws(
-      () => executeCommand(request("task.move", { id: child.id, parentId: "missing", expectedVersion: moved.version }, { idempotencyKey: "move-missing" }), databasePath),
+      () => executeCommand(request("task.move", { id: child.id, parentId: "missing", expectedVersion: detached.version }, { idempotencyKey: "move-missing" }), databasePath),
       /PARENT_NOT_FOUND/,
     );
     assert.throws(
-      () => executeCommand(request("task.move", { id: child.id, expectedVersion: moved.version }, { idempotencyKey: "move-no-parent" }), databasePath),
+      () => executeCommand(request("task.move", { id: child.id, expectedVersion: detached.version }, { idempotencyKey: "move-no-parent" }), databasePath),
       /INVALID_ARGUMENT/,
     );
 
-    const preview = executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: moved.version }, { idempotencyKey: "move-preview", dryRun: true }), databasePath);
+    const preview = executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: detached.version }, { idempotencyKey: "move-preview", dryRun: true }), databasePath);
     assert.equal(preview.dryRun, true);
 
     const completedParent = task(

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { Link2Off } from "lucide-react";
+import { Link2Off, Unlink } from "lucide-react";
 import type { TaskRecord } from "@/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
@@ -43,7 +43,7 @@ function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPick
   );
 }
 
-export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect, onRemoveBlocker }: {
+export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect, onRemoveBlocker, onRemoveParent }: {
   open: boolean;
   mode: TaskPickerMode;
   subject: TaskRecord;
@@ -51,6 +51,7 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   finalFocus: () => HTMLElement | undefined;
   onSelect: (target: TaskRecord) => void;
   onRemoveBlocker?: (blockerId: string) => void;
+  onRemoveParent?: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
   const [fetched, setFetched] = useState<TaskRecord[]>([]);
@@ -99,7 +100,10 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   const heading = mode === "blocker" ? `Blocked by: ${taskTitleDisplay(subject.title)}` : `Move ${taskTitleDisplay(subject.title)} under…`;
   const groupHeading = mode === "blocker" ? "Select blocker" : "Select new parent";
   const emptyText = loading ? "Loading tasks…" : error ?? "No matching tasks.";
+  const showRemoveParent = mode === "move" && subject.parentId !== null && onRemoveParent !== undefined;
   const showRemoveBlocker = mode === "blocker" && subject.blockedByIds.length > 0 && onRemoveBlocker;
+  const currentParent = subject.parentId === null ? null : fetched.find((task) => task.id === subject.parentId) ?? null;
+  const currentParentTitle = currentParent ? taskTitleDisplay(currentParent.title) : null;
   const blockers = useMemo(() => {
     if (!showRemoveBlocker) return [];
     return subject.blockedByIds.map((id) => {
@@ -117,7 +121,9 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
             ? showRemoveBlocker
               ? "Remove the current blocker, or search tasks and press Enter to mark this task blocked by the selected task."
               : "Search tasks and press Enter to mark this task blocked by the selected task."
-            : "Search tasks and press Enter to move this task under the selected task."}
+            : showRemoveParent
+              ? "Remove the current parent, or search tasks and press Enter to move this task under the selected task."
+              : "Search tasks and press Enter to move this task under the selected task."}
         </DialogDescription>
       </DialogHeader>
       <DialogContent
@@ -130,6 +136,19 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
           <CommandInput ref={searchInput} placeholder="Search tasks…" />
           <CommandList label="Task results">
             <CommandEmpty>{emptyText}</CommandEmpty>
+            {showRemoveParent ? (
+              <CommandGroup heading="Current parent">
+                <CommandItem
+                  value={`Remove parent ${currentParentTitle ?? ""} ${subject.parentId ?? ""}`}
+                  keywords={["remove", "parent", "unparent", "detach", "clear", currentParentTitle ?? ""]}
+                  onSelect={() => onRemoveParent?.()}
+                >
+                  <Unlink aria-hidden="true" className="text-muted-foreground" />
+                  <span className="font-medium">Remove parent</span>
+                  {currentParentTitle ? <span className="truncate text-muted-foreground">{currentParentTitle}</span> : null}
+                </CommandItem>
+              </CommandGroup>
+            ) : null}
             {showRemoveBlocker && onRemoveBlocker ? (
               <CommandGroup>
                 {blockers.map((blocker) => (

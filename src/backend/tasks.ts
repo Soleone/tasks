@@ -638,20 +638,30 @@ function moveTask(database: DatabaseSync, request: ProtocolRequest): Record<stri
   }
 
   const parentArg = request.args.parentId;
-  if (typeof parentArg !== "string" || parentArg.trim() === "") {
+  if (parentArg === undefined) {
     throw new CommandError("INVALID_ARGUMENT", "parentId is required");
   }
-  const parentId = parentArg;
-  if (parentId === current.id) {
-    throw new CommandError("INVALID_PARENT", "a task cannot be its own parent");
+  let parentId: string | null;
+  if (parentArg === null) {
+    parentId = null;
+  } else {
+    if (typeof parentArg !== "string" || parentArg.trim() === "") {
+      throw new CommandError("INVALID_ARGUMENT", "parentId must be null or a non-empty string");
+    }
+    parentId = parentArg;
   }
-  requireParentTask(database, parentId);
-  const descendants = collectDescendantIds(database, current.id);
-  if (descendants.has(parentId)) {
-    throw new CommandError("PARENT_CYCLE", "a task cannot move under its own descendant");
-  }
-  if (collectParentChain(database, parentId).includes(current.id)) {
-    throw new CommandError("PARENT_CYCLE", "this move would create a parent cycle");
+  if (parentId !== null) {
+    if (parentId === current.id) {
+      throw new CommandError("INVALID_PARENT", "a task cannot be its own parent");
+    }
+    requireParentTask(database, parentId);
+    const descendants = collectDescendantIds(database, current.id);
+    if (descendants.has(parentId)) {
+      throw new CommandError("PARENT_CYCLE", "a task cannot move under its own descendant");
+    }
+    if (collectParentChain(database, parentId).includes(current.id)) {
+      throw new CommandError("PARENT_CYCLE", "this move would create a parent cycle");
+    }
   }
 
   const changed = current.parentId !== parentId;

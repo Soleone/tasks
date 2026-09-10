@@ -56,7 +56,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Shift+T` | Clear the tag filter |
 | `/` | Open task search |
 | `B` | Add a blocker to the active task |
-| `M` | Move the active task under another task |
+| `M` | Open the move picker, including Remove parent for nested tasks |
 | `Up` / `Down` | Move through visible tasks |
 | `Home` / `End` | Jump to the first or last visible task |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
@@ -79,7 +79,7 @@ Treat this document as the UI interaction contract when using browser automation
 - Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The dialog's priority section is its single keyboard focus stop.
 - Clicking a filter button, the New task button, or a task status icon never moves DOM focus (the mousedown default is prevented), so the list keeps focus and arrow keys keep working. The header Help, Themes, and Settings buttons are outside the list and do take focus on click; dialogs opened from them return focus to the button.
 - Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `N` or the command palette to open capture.
-- Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row.
+- Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row. The move picker puts its Remove parent action in a separate group above new-parent results when the task is nested.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
 - Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus and the window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.
 - Do not add `autoFocus` to a secondary action to solve initial focus. Initial focus belongs in the list lifecycle, after the first query has rendered the correct empty, error, or populated state.
