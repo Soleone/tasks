@@ -57,6 +57,15 @@ export type FocusStack = {
 };
 
 /**
+ * Backup buttons are mouse-only (tabIndex -1). Prevent the mousedown default
+ * so clicking them never moves DOM focus off the list; the click still fires
+ * and arrow keys keep working.
+ */
+export function preventFocusSteal(event: { preventDefault: () => void }): void {
+  event.preventDefault();
+}
+
+/**
  * Return-focus bookkeeping for modal layers (commands, themes, settings,
  * delete). Each layer pushes under its own id and restores it on close, so
  * layers compose and one can hand its target to the next (palette -> settings).

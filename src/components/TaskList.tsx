@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
   type ReactElement,
 } from "react";
 import { ChevronDown, ChevronRight, Flag, Folder, ListFilter, Plus, Search, Tags, TriangleAlert } from "lucide-react";
@@ -18,7 +17,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { FocusStack, Navigator } from "@/navigation";
+import { preventFocusSteal, type FocusStack, type Navigator } from "@/navigation";
 import { BackendCommandError, transitionTask } from "@/platform/backendClient";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
@@ -32,6 +31,26 @@ const taskStatusTransition: Record<TaskStatus, { next: TaskStatus; command: Stat
 };
 
 const EXACT_STATUS_BY_KEY = new Map(EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]));
+
+// Home shortcuts work anywhere on the home surface, not only when the listbox
+// is focused. Typing targets and open dialogs always win.
+function isHomeTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.closest('[role="dialog"], [role="menu"], [data-slot="command"]')) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+    || target.isContentEditable
+    || target.getAttribute("role") === "combobox"
+    || target.hasAttribute("cmdk-input");
+}
+
+// Space and Enter keep their native meaning on real buttons (Retry, Load
+// more, Clear filters). Backup buttons are tabIndex -1 and mouse-only, so
+// list commands win there.
+function isNativeButtonAction(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest('button:not([tabindex="-1"]), a[href], input, textarea, select') !== null;
+}
 
 type TaskListProps = {
   tasks: TaskRecord[];
@@ -142,7 +161,10 @@ export function TaskList({
 
   const visibleRows = useMemo(() => projectVisibleTaskRows(tasks, expandedIds), [tasks, expandedIds]);
   const hasMore = tasks.length < total;
-  const activeRow = listFocused && visibleRows.length ? visibleRows[Math.min(activeTaskIndex, visibleRows.length - 1)] : undefined;
+  // The active row is list state, not focus state, so it survives toolbar
+  // clicks and empty-area focus loss. Focus stays a screen-reader concern.
+  const clampedActiveIndex = visibleRows.length ? Math.min(activeTaskIndex, visibleRows.length - 1) : 0;
+  const activeRow = visibleRows.length ? visibleRows[clampedActiveIndex] : undefined;
   const activeTask = activeRow?.task;
 
   // The list owns its internal tail (load-more, retry); the navigator only
@@ -370,103 +392,119 @@ export function TaskList({
     setDeleteOpen(true);
   }
 
-  function handleListKeyDown(event: KeyboardEvent<HTMLElement>): void {
-    if (event.target !== list.current && event.target !== section.current) return;
-    if (event.key === "Delete") {
-      if (event.repeat || event.nativeEvent.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-      event.preventDefault();
-      openDeleteDialog();
-      return;
-    }
-    if (event.key === "Escape") {
-      // Escape resets the list: it cancels a pending Shift+S choice and
-      // clears every filter. Focus stays put.
-      event.preventDefault();
-      const wasPending = statusSequence.current.pending;
-      clearStatusSequence();
-      if (wasPending || hasActiveFilters) onClearAllFilters();
-      return;
-    }
-    if (event.nativeEvent.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
-    // A pending Shift+S sequence takes precedence over single-key filters:
-    // P means Paused and C means Canceled here, not project picker or create.
-    if (statusSequence.current.pending) {
-      if (event.repeat) return;
-      const exact = EXACT_STATUS_BY_KEY.get(event.key.toLowerCase());
-      if (exact) {
-        event.preventDefault();
-        applyExactStatus(exact);
+  // Home shortcuts live on the window, not on list focus, so a toolbar click
+  // or empty-area focus loss never breaks arrows and single-key filters.
+  // Typing targets and open dialogs always win; Space/Enter on real buttons
+  // stay native. Runs after every render so the listener never goes stale.
+  useEffect(() => {
+    function onWindowKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Tab") {
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        if (event.target === list.current || event.target === section.current) event.preventDefault();
         return;
       }
-      // Any other key cancels the sequence and falls through to normal handling.
-      clearStatusSequence();
+      if (document.querySelector('[role="dialog"]')) return;
+      if (isHomeTypingTarget(event.target)) return;
+      if (event.key === "Delete") {
+        if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+        event.preventDefault();
+        openDeleteDialog();
+        return;
+      }
+      if (event.key === "Escape") {
+        // Escape resets the list: it cancels a pending Shift+S choice and
+        // clears every filter. Focus stays put.
+        event.preventDefault();
+        const wasPending = statusSequence.current.pending;
+        clearStatusSequence();
+        if (wasPending || hasActiveFilters) onClearAllFilters();
+        return;
+      }
+      if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
+      // A pending Shift+S sequence takes precedence over single-key filters:
+      // P means Paused and C means Canceled here, not project picker or create.
+      if (statusSequence.current.pending) {
+        if (event.repeat) return;
+        const exact = EXACT_STATUS_BY_KEY.get(event.key.toLowerCase());
+        if (exact) {
+          event.preventDefault();
+          applyExactStatus(exact);
+          return;
+        }
+        // Any other key cancels the sequence and falls through to normal handling.
+        clearStatusSequence();
+      }
+      if (event.key === "/") {
+        if (event.repeat) return;
+        event.preventDefault();
+        onOpenSearch();
+      } else if (event.key.toLowerCase() === "c" && !event.shiftKey) {
+        if (event.repeat) return;
+        event.preventDefault();
+        onCreate();
+      } else if (event.key.toLowerCase() === "s" && !event.repeat) {
+        event.preventDefault();
+        if (event.shiftKey) startStatusSequence();
+        else toggleStatusPreset();
+      } else if (event.key.toLowerCase() === "a") {
+        if (event.repeat || event.shiftKey) return;
+        event.preventDefault();
+        toggleStatusPreset();
+      } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
+        if (event.repeat) return;
+        event.preventDefault();
+        applyPriorityFilter(Number(event.key) as TaskPriority);
+      } else if (event.key.toLowerCase() === "u") {
+        if (event.repeat || event.shiftKey) return;
+        event.preventDefault();
+        toggleUnblockedFilter();
+      } else if (event.key.toLowerCase() === "p") {
+        if (event.repeat) return;
+        event.preventDefault();
+        if (event.shiftKey) clearProjectFilter();
+        else onOpenProjectPicker();
+      } else if (event.key.toLowerCase() === "t") {
+        if (event.repeat) return;
+        event.preventDefault();
+        if (event.shiftKey) clearTagFilter();
+        else onOpenTagPicker();
+      } else if (event.key.toLowerCase() === "b") {
+        if (event.repeat || event.shiftKey) return;
+        event.preventDefault();
+        if (activeTask) onAddBlocker(activeTask);
+      } else if (event.key.toLowerCase() === "m") {
+        if (event.repeat || event.shiftKey) return;
+        event.preventDefault();
+        if (activeTask) onMoveUnder(activeTask);
+      } else if (event.key === " ") {
+        if (event.repeat || event.shiftKey || isNativeButtonAction(event.target)) return;
+        event.preventDefault();
+        if (activeTask) void toggleStatus(activeTask);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveActive(activeTaskIndex + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveActive(activeTaskIndex - 1);
+      } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        handleHorizontalNavigation(event.key);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        moveActive(0);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        moveActive(visibleRows.length - 1);
+      } else if (event.key === "Enter") {
+        if (isNativeButtonAction(event.target)) return;
+        event.preventDefault();
+        if (activeTask) onEdit(activeTask);
+      }
     }
-    if (event.key === "/") {
-      if (event.repeat) return;
-      event.preventDefault();
-      onOpenSearch();
-    } else if (event.key.toLowerCase() === "c" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      onCreate();
-    } else if (event.key.toLowerCase() === "s" && !event.repeat) {
-      event.preventDefault();
-      if (event.shiftKey) startStatusSequence();
-      else toggleStatusPreset();
-    } else if (event.key.toLowerCase() === "a") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      toggleStatusPreset();
-    } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      applyPriorityFilter(Number(event.key) as TaskPriority);
-    } else if (event.key.toLowerCase() === "u") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      toggleUnblockedFilter();
-    } else if (event.key.toLowerCase() === "p") {
-      if (event.repeat) return;
-      event.preventDefault();
-      if (event.shiftKey) clearProjectFilter();
-      else onOpenProjectPicker();
-    } else if (event.key.toLowerCase() === "t") {
-      if (event.repeat) return;
-      event.preventDefault();
-      if (event.shiftKey) clearTagFilter();
-      else onOpenTagPicker();
-    } else if (event.key.toLowerCase() === "b") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      if (activeTask) onAddBlocker(activeTask);
-    } else if (event.key.toLowerCase() === "m") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      if (activeTask) onMoveUnder(activeTask);
-    } else if (event.key === " ") {
-      if (event.repeat || event.target !== list.current || event.shiftKey) return;
-      event.preventDefault();
-      if (activeTask) void toggleStatus(activeTask);
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      moveActive(activeTaskIndex + 1);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      moveActive(activeTaskIndex - 1);
-    } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-      event.preventDefault();
-      handleHorizontalNavigation(event.key);
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      moveActive(0);
-    } else if (event.key === "End") {
-      event.preventDefault();
-      moveActive(visibleRows.length - 1);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      if (activeTask) onEdit(activeTask);
-    } else if (event.key === "Tab") event.preventDefault();
-  }
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => window.removeEventListener("keydown", onWindowKeyDown);
+  });
+
 
   const statusActive = exactStatus !== null || statusPreset === "inactive";
   const statusLabel = exactStatus !== null
@@ -502,7 +540,9 @@ export function TaskList({
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
       className="flex flex-col gap-4"
-      onKeyDown={handleListKeyDown}
+      onMouseDown={(event) => {
+        if (event.target instanceof HTMLElement && event.target.closest('[tabindex="-1"]')) preventFocusSteal(event);
+      }}
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
@@ -683,7 +723,7 @@ export function TaskList({
         >
           {visibleRows.map((row, index) => {
             const { task } = row;
-            const active = listFocused && index === activeTaskIndex;
+            const active = index === clampedActiveIndex;
             const blockedByLabels = task.blockedByIds.map((id) => {
               const blocker = tasks.find((candidate) => candidate.id === id);
               return blocker ? taskTitleDisplay(blocker.title) : null;
@@ -725,6 +765,7 @@ export function TaskList({
                     role="img"
                     aria-label={expandedIds.has(task.id) ? "Collapse children" : "Expand children"}
                     className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
+                    onMouseDown={preventFocusSteal}
                     onClick={(event) => {
                       event.stopPropagation();
                       toggleExpanded(row);

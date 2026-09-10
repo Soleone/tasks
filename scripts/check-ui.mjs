@@ -378,6 +378,22 @@ try {
   waitFor('document.activeElement === window.beforeNav');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement === window.beforeNav');
+  // Toolbar clicks never steal list focus (real mouse), and arrows keep
+  // working even when focus is elsewhere on the home surface.
+  browser("click", "[data-filter=task-unblocked]");
+  waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "true"');
+  check('document.activeElement === window.beforeNav');
+  evaluate('window.beforeToolbarNav = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
+  browser("press", "ArrowDown");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== window.beforeToolbarNav');
+  evaluate('document.activeElement.blur(); true');
+  check('document.activeElement.tagName === "BODY"');
+  evaluate('window.beforeBlurNav = document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"); true');
+  browser("press", "ArrowDown");
+  waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== window.beforeBlurNav');
+  browser("focus", "[role=listbox]");
+  browser("press", "u");
+  waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"');
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Escape");

@@ -13,6 +13,7 @@ import { cn } from "cn";
 import type { TaskRecord, TaskStatus } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { priorityMeta } from "@/components/taskFilters";
+import { preventFocusSteal } from "@/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -92,6 +93,7 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, on
               status.color,
               pending && "animate-pulse opacity-60",
             )}
+            onMouseDown={preventFocusSteal}
             onClick={(event) => {
               event.stopPropagation();
               onToggle(task);
