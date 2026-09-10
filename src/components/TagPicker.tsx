@@ -54,15 +54,19 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
 
   function handlePickerKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (event.key === "Enter") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-    if (event.key !== " " && event.code !== "Space") return;
+    const isSpace = event.key === " " || event.code === "Space";
+    if (event.key !== "Enter" && !isSpace) return;
 
     const commandRoot = searchInput.current?.closest("[cmdk-root]");
     const activeItem = commandRoot?.querySelector<HTMLElement>('[cmdk-item][aria-selected="true"]');
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (selected.length === 0 && activeItem && activeItem.getAttribute("aria-disabled") !== "true") {
+        activeItem.click();
+      }
+      onClose();
+      return;
+    }
     if (!activeItem || activeItem.getAttribute("aria-disabled") === "true") return;
     event.preventDefault();
     activeItem.click();
@@ -72,7 +76,7 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
         <DialogTitle>Filter by tags</DialogTitle>
-        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter closes. T opens, Shift+T clears.</DialogDescription>
+        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. T opens, Shift+T clears.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="overflow-hidden rounded-xl! p-0"

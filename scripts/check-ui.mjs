@@ -687,6 +687,19 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "Shift+t");
   waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
+  // With no selection, Enter picks the highlighted tag before closing the picker.
+  const planningCount = (await command("task.list", { tags: ["planning"] })).total;
+  browser("focus", "[role=listbox]");
+  browser("press", "t");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "planning");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
+  browser("press", "Enter");
+  waitFor('!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true"');
+  check(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning"`);
+  browser("focus", "[role=listbox]");
+  browser("press", "Shift+t");
+  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
 
   // Search: / opens, covers titles and descriptions, stays applied, and the
   // button clears with a mouse action. Empty filters offer Clear filters.
