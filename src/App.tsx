@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { CircleHelp, Palette, Settings2 } from "lucide-react";
+import { CircleHelp, Palette, Settings2, SquareCheck } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
@@ -99,6 +99,11 @@ type StatusUndoEntry = {
   wasActive: boolean;
 };
 
+type Toast = {
+  message: string;
+  kind: "completion" | "undo";
+};
+
 const UNDO_TOAST_DURATION_MS = 3000;
 
 function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
@@ -145,10 +150,10 @@ export default function App(): ReactElement {
   const [selectedTheme, setSelectedTheme] = useState("");
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
-  const [undoToast, setUndoToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
   const querySequence = useRef(0);
   const statusUndoRef = useRef<StatusUndoEntry | null>(null);
-  const undoToastTimer = useRef<number | null>(null);
+  const toastTimer = useRef<number | null>(null);
   const statusPresetRef = useRef<StatusPreset>("active");
   const exactStatusRef = useRef<TaskStatus | null>(null);
   const priorityFilterRef = useRef<TaskPriority | null>(null);
@@ -539,11 +544,11 @@ export default function App(): ReactElement {
 
   function recordStatusUndo(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
     if (previous.status === current.status) return;
-    if (undoToastTimer.current !== null) {
-      window.clearTimeout(undoToastTimer.current);
-      undoToastTimer.current = null;
+    if (toastTimer.current !== null) {
+      window.clearTimeout(toastTimer.current);
+      toastTimer.current = null;
     }
-    setUndoToast(null);
+    setToast(null);
     const entry: StatusUndoEntry = {
       kind: "status",
       taskId: current.id,
@@ -563,12 +568,12 @@ export default function App(): ReactElement {
     setStatusUndo(null);
   }
 
-  function showUndoToast(message: string): void {
-    if (undoToastTimer.current !== null) window.clearTimeout(undoToastTimer.current);
-    setUndoToast(message);
-    undoToastTimer.current = window.setTimeout(() => {
-      setUndoToast(null);
-      undoToastTimer.current = null;
+  function showToast(message: string, kind: Toast["kind"]): void {
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    setToast({ message, kind });
+    toastTimer.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimer.current = null;
     }, UNDO_TOAST_DURATION_MS);
   }
 
@@ -605,7 +610,7 @@ export default function App(): ReactElement {
       retireStatusUndo();
       const label = taskStatusMeta[restored.status]?.label ?? restored.status;
       setAnnouncement(`${restored.title}: ${label}`);
-      showUndoToast(`Undo status change to ${label}`);
+      showToast(`Undo status change to ${label}`, "undo");
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
@@ -622,7 +627,7 @@ export default function App(): ReactElement {
   }, [statusUndo]);
 
   useEffect(() => () => {
-    if (undoToastTimer.current !== null) window.clearTimeout(undoToastTimer.current);
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
   }, []);
 
   function taskSaved(task: TaskRecord): void {
@@ -684,6 +689,7 @@ export default function App(): ReactElement {
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
     if (current && (current as { changed?: boolean }).changed === false) return;
     recordStatusUndo(previous, current, wasActive);
+    if (current.status === "done") showToast("Task completed", "completion");
   }
 
   return (
@@ -795,9 +801,10 @@ export default function App(): ReactElement {
           onMoveUnder={(task) => openPicker("move", task)}
         />
         <p role="status" className="sr-only">{announcement}</p>
-        {undoToast ? (
-          <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
-            {undoToast}
+        {toast ? (
+          <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
+            {toast.kind === "completion" ? <SquareCheck aria-hidden="true" className="size-4 shrink-0 text-primary" /> : null}
+            <span>{toast.message}</span>
           </div>
         ) : null}
       </div>

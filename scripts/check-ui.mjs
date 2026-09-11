@@ -211,6 +211,8 @@ try {
   // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task completed")');
+  check('document.querySelector("[data-undo-toast] svg")?.classList.contains("text-primary") === true');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
