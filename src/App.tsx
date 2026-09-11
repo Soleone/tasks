@@ -805,8 +805,8 @@ export default function App(): ReactElement {
         <p role="status" className="sr-only">{announcement}</p>
         {toast ? (
           <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
-            {toast.kind === "completion" ? <SquareCheck aria-hidden="true" className="size-4 shrink-0 text-primary" /> : null}
-            {toast.kind === "cancellation" ? <CircleX aria-hidden="true" className="size-4 shrink-0 text-destructive" /> : null}
+            {toast.kind === "completion" ? <SquareCheck aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
+            {toast.kind === "cancellation" ? <CircleX aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
             <span>{toast.message}</span>
           </div>
         ) : null}
