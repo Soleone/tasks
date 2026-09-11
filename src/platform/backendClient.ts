@@ -13,7 +13,7 @@ import {
 import { getBackendTransport } from "./backendTransport";
 
 export type ProbeResult = RuntimeProbeResult;
-export type TaskListResult = { tasks: TaskRecord[]; total: number; limit: number; offset: number };
+export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number };
 export type TaskListFilters = {
   priority?: TaskPriority;
   tags?: string[];
@@ -21,6 +21,7 @@ export type TaskListFilters = {
   category?: string;
   sort?: "created" | "updated";
   direction?: "asc" | "desc";
+  includeAncestors?: boolean;
 };
 
 export type CategoryListResult = { categories: CategoryRecord[] };
@@ -97,6 +98,7 @@ export async function listTasks(
     ...(filters.search !== undefined && filters.search.trim() !== "" ? { search: filters.search.trim() } : {}),
     ...(filters.sort !== undefined ? { sort: filters.sort } : {}),
     ...(filters.direction !== undefined ? { direction: filters.direction } : {}),
+    ...(filters.includeAncestors ? { includeAncestors: true } : {}),
     offset,
   });
 }

@@ -350,6 +350,22 @@ function requireTask(database: DatabaseSync, taskId: string): TaskRecord {
   return task;
 }
 
+function ancestorTasksFor(database: DatabaseSync, tasks: TaskRecord[]): TaskRecord[] {
+  const ancestors = new Map<string, TaskRecord>();
+  for (const task of tasks) {
+    const seen = new Set<string>([task.id]);
+    let parentId = task.parentId;
+    while (parentId !== null && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = ancestors.get(parentId) ?? findTask(database, parentId);
+      if (!parent) break;
+      ancestors.set(parent.id, parent);
+      parentId = parent.parentId;
+    }
+  }
+  return [...ancestors.values()];
+}
+
 function taskId(args: Row): string {
   return requiredString(args, "id");
 }
@@ -979,6 +995,10 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
   if (unblockedArgument !== undefined && typeof unblockedArgument !== "boolean") {
     throw new CommandError("INVALID_ARGUMENT", "unblocked must be a boolean");
   }
+  const includeAncestorsArgument = request.args.includeAncestors;
+  if (includeAncestorsArgument !== undefined && typeof includeAncestorsArgument !== "boolean") {
+    throw new CommandError("INVALID_ARGUMENT", "includeAncestors must be a boolean");
+  }
   const categoryArgument = request.args.category;
   const categorySlug = categoryArgument === undefined ? undefined : normalizeSlug(categoryArgument, "category");
   let priorityFilter: number | undefined;
@@ -1054,11 +1074,13 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as Row[];
+  const tasks = rows.map((row) => taskFromRow(database, row));
   const totalRow = database
     .prepare(`SELECT COUNT(*) AS count FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id ${where}`)
     .get(...params) as Row;
   return {
-    tasks: rows.map((row) => taskFromRow(database, row)),
+    tasks,
+    contextTasks: includeAncestorsArgument === true ? ancestorTasksFor(database, tasks) : [],
     total: numberValue(totalRow, "count"),
     limit,
     offset,

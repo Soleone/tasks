@@ -88,6 +88,23 @@ function taskIsVisible(
   return true;
 }
 
+function contextAncestorIds(tasks: readonly TaskRecord[], knownTasks: readonly TaskRecord[]): Set<string> {
+  const byId = new Map(knownTasks.map((task) => [task.id, task]));
+  const contextIds = new Set<string>();
+  for (const task of tasks) {
+    const seen = new Set<string>([task.id]);
+    let parentId = task.parentId;
+    while (parentId !== null && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      contextIds.add(parent.id);
+      parentId = parent.parentId;
+    }
+  }
+  return contextIds;
+}
+
 type StatusUndoEntry = {
   kind: "status";
   taskId: string;
@@ -128,6 +145,7 @@ function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, dir
 // focused task list.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
+  const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>("active");
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(null);
@@ -193,10 +211,17 @@ export default function App(): ReactElement {
           ...(searchQueryRef.current.trim() !== "" ? { search: searchQueryRef.current.trim() } : {}),
           sort: sortFieldRef.current,
           direction: sortDirectionRef.current,
+          includeAncestors: true,
         },
       );
       if (sequence !== querySequence.current) return;
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
+      setContextTasks((previous) => {
+        if (!offset) return result.contextTasks;
+        const next = new Map(previous.map((task) => [task.id, task]));
+        for (const task of result.contextTasks) next.set(task.id, task);
+        return [...next.values()];
+      });
       setTotal(result.total);
     } catch (caught) {
       if (sequence === querySequence.current) setLoadError(caught instanceof Error ? caught.message : String(caught));
@@ -662,6 +687,17 @@ export default function App(): ReactElement {
     void refreshTasks();
   }
 
+  function syncContextTasks(nextTasks: TaskRecord[], candidate?: TaskRecord): void {
+    setContextTasks((previous) => {
+      const visibleIds = new Set(nextTasks.map((entry) => entry.id));
+      const knownTasks = [...previous, ...nextTasks, ...(candidate ? [candidate] : [])];
+      const requiredContextIds = contextAncestorIds(nextTasks, knownTasks);
+      const byId = new Map(previous.map((entry) => [entry.id, entry]));
+      if (candidate) byId.set(candidate.id, candidate);
+      return [...byId.values()].filter((entry) => !visibleIds.has(entry.id) && requiredContextIds.has(entry.id));
+    });
+  }
+
   function updateVisibleTask(task: TaskRecord): void {
     const wasVisible = tasks.some((existing) => existing.id === task.id);
     const visible = taskIsVisible(
@@ -675,21 +711,26 @@ export default function App(): ReactElement {
       searchQuery,
     );
     if (!visible) {
-      if (!wasVisible) return;
-      setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
+      if (!wasVisible) {
+        syncContextTasks(tasks, task);
+        return;
+      }
+      const nextTasks = tasks.filter((existing) => existing.id !== task.id);
+      setTasks(nextTasks);
       setTotal((previous) => Math.max(previous - 1, 0));
+      syncContextTasks(nextTasks, task);
       return;
     }
     if (!wasVisible) {
-      setTasks((previous) => {
-        const next = [...previous, task];
-        next.sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
-        return next;
-      });
+      const nextTasks = [...tasks, task].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
+      setTasks(nextTasks);
       setTotal((previous) => previous + 1);
+      syncContextTasks(nextTasks);
       return;
     }
-    setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+    const nextTasks = tasks.map((existing) => existing.id === task.id ? task : existing);
+    setTasks(nextTasks);
+    syncContextTasks(nextTasks);
   }
 
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
@@ -756,6 +797,7 @@ export default function App(): ReactElement {
 
         <TaskList
           tasks={tasks}
+          contextTasks={contextTasks}
           total={total}
           statusPreset={statusPreset}
           exactStatus={exactStatus}

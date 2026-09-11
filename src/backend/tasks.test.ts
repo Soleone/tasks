@@ -89,6 +89,37 @@ test("task.list filters by status", () => {
   }
 });
 
+test("task.list can include filtered-out parent context without changing matches", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-list-context-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const parent = task(executeCommand(request("task.create", { title: "Completed parent" }, { idempotencyKey: "context-parent" }), databasePath));
+    const child = task(executeCommand(request("task.create", { title: "Active child", parentId: parent.id }, { idempotencyKey: "context-child" }), databasePath));
+    executeCommand(
+      request("task.complete", { id: parent.id, expectedVersion: parent.version }, { idempotencyKey: "context-complete" }),
+      databasePath,
+    );
+
+    const active = executeCommand(
+      request("task.list", { status: ["open"], includeAncestors: true }),
+      databasePath,
+    );
+    assert.equal(active.total, 1);
+    assert.deepEqual((active.tasks as TaskRecord[]).map((item) => item.id), [child.id]);
+    assert.deepEqual((active.contextTasks as TaskRecord[]).map((item) => item.id), [parent.id]);
+
+    const withoutContext = executeCommand(request("task.list", { status: ["open"] }), databasePath);
+    assert.deepEqual(withoutContext.contextTasks, []);
+    assert.throws(
+      () => executeCommand(request("task.list", { includeAncestors: "yes" }), databasePath),
+      /includeAncestors must be a boolean/,
+    );
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task.list filters to unblocked tasks", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-list-unblocked-"));
   const databasePath = path.join(directory, "tasks.db");

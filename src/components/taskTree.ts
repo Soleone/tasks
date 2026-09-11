@@ -4,6 +4,7 @@ export type VisibleTaskRow = {
   task: TaskRecord;
   depth: 0 | 1;
   hasChildren: boolean;
+  contextOnly: boolean;
 };
 
 type TaskGroup = {
@@ -29,14 +30,19 @@ function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
  * Flattens the loaded task set into a shallow outline. Deeper relationships
  * stay visible as one-level descendants instead of creating an unbounded UI.
  */
-export function visibleTaskRows(tasks: TaskRecord[], expandedIds: ReadonlySet<string>): VisibleTaskRow[] {
-  const byId = new Map(tasks.map((task) => [task.id, task]));
+export function visibleTaskRows(
+  tasks: TaskRecord[],
+  expandedIds: ReadonlySet<string>,
+  contextTasks: TaskRecord[] = [],
+): VisibleTaskRow[] {
+  const matchingIds = new Set(tasks.map((task) => task.id));
+  const byId = new Map([...contextTasks, ...tasks].map((task) => [task.id, task]));
   const groups = new Map<string, TaskGroup>();
 
   tasks.forEach((task, index) => {
     const rootId = rootFor(task, byId);
     const root = byId.get(rootId) ?? task;
-    const group = groups.get(rootId) ?? { root, descendants: [], rootIndex: tasks.indexOf(root) };
+    const group = groups.get(rootId) ?? { root, descendants: [], rootIndex: index };
     if (task.id === rootId) group.root = task;
     else group.descendants.push(task);
     group.rootIndex = Math.min(group.rootIndex, index);
@@ -50,8 +56,14 @@ export function visibleTaskRows(tasks: TaskRecord[], expandedIds: ReadonlySet<st
         task: group.root,
         depth: 0,
         hasChildren: group.descendants.length > 0,
+        contextOnly: !matchingIds.has(group.root.id),
       };
       if (!expandedIds.has(group.root.id)) return [rootRow];
-      return [rootRow, ...group.descendants.map((task) => ({ task, depth: 1 as const, hasChildren: false }))];
+      return [rootRow, ...group.descendants.map((task) => ({
+        task,
+        depth: 1 as const,
+        hasChildren: false,
+        contextOnly: false,
+      }))];
     });
 }

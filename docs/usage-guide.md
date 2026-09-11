@@ -35,6 +35,7 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 - Search: titles and descriptions. The query stays applied after the dialog closes.
 - Sort: Created or Updated date, newest or oldest first. Updated/newest is the default. The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated.
 - View: Details toggles optional task descriptions and the per-task time footer together. Off by default; a display preference, not a filter, so `Escape` never clears it. Blocked-by context remains visible either way.
+- Hierarchy: Status and other filters do not sever parent links. When a matching child belongs to an excluded ancestor, the ancestor appears as a muted `Parent context` row, does not count toward the filtered total, and remains expandable.
 
 ## Task details
 

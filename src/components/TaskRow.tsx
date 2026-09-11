@@ -184,13 +184,14 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with optional details and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false }: {
+export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false, contextOnly = false }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
   blockedByLabels?: string[];
   indented?: boolean;
   showDetails?: boolean;
+  contextOnly?: boolean;
 }): ReactElement {
   return (
     <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
@@ -207,6 +208,9 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
+        {variant === "full" && contextOnly ? (
+          <p data-parent-context className="text-xs text-muted-foreground">Parent context · {taskStatusMeta[task.status].label}</p>
+        ) : null}
         {variant === "full" && showDetails ? <TaskRowTimestamps task={task} /> : null}
       </div>
     </div>

@@ -66,6 +66,7 @@ function isNativeButtonAction(target: EventTarget | null): boolean {
 
 type TaskListProps = {
   tasks: TaskRecord[];
+  contextTasks: TaskRecord[];
   total: number;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
@@ -165,6 +166,7 @@ const ACTIVE_TOOLBAR_GROUP_CLASS = `${TOOLBAR_GROUP_CLASS} ring-2 ring-ring ring
 
 export function TaskList({
   tasks,
+  contextTasks,
   total,
   statusPreset,
   exactStatus,
@@ -234,7 +236,7 @@ export function TaskList({
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
 
-  const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds), [tasks, expandedIds]);
+  const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks), [tasks, expandedIds, contextTasks]);
   const hasMore = tasks.length < total;
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.
@@ -840,7 +842,7 @@ export function TaskList({
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
-  const summaryTaskCount = visibleRows.length;
+  const summaryTaskCount = visibleRows.filter((row) => !row.contextOnly).length;
   const sortSummaryText = sortField === "updated" && sortDirection === "desc"
     ? null
     : sortSummary(sortField, sortDirection);
@@ -1149,7 +1151,9 @@ export function TaskList({
         <div
           ref={list}
           role="listbox"
-          aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
+          aria-label={visibleRows.length
+            ? `Tasks, ${visibleRows.length} visible task rows, ${total} matching tasks`
+            : "Tasks, no visible matches"}
           aria-orientation="vertical"
           aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
@@ -1175,12 +1179,14 @@ export function TaskList({
                 role="option"
                 aria-selected={active}
                 aria-expanded={row.hasChildren ? expandedIds.has(task.id) : undefined}
+                aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, parent context` : undefined}
                 tabIndex={-1}
                 data-active={active || undefined}
+                data-context-parent={row.contextOnly || undefined}
                 data-depth={row.depth}
                 size="sm"
                 variant={active ? "outline" : "default"}
-                className={active ? "border-ring bg-muted" : undefined}
+                className={active ? "border-ring bg-muted" : row.contextOnly ? "bg-muted/50 text-muted-foreground" : undefined}
                 onClick={() => onEdit(task)}
                 onMouseEnter={() => onActiveTaskIndexChange(index)}
               >
@@ -1190,6 +1196,7 @@ export function TaskList({
                   indented={row.depth === 1}
                   blockedByLabels={blockedByLabels}
                   showDetails={showDetails}
+                  contextOnly={row.contextOnly}
                   statusSlot={
                     <TaskStatusToggle
                       task={task}
