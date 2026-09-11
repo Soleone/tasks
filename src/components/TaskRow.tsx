@@ -164,7 +164,7 @@ export function TaskRowRelationships({ task, blockedByLabels }: {
 export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+    <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
       {showUpdated ? (
         <span className="inline-flex min-w-0 items-center gap-1" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
           <RotateCcwClock className="size-3.5 shrink-0" aria-hidden="true" />
