@@ -817,6 +817,161 @@ test("task.list sorts by created and updated with direction", () => {
   }
 });
 
+test("status undo restores paused after done with exact timestamps", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = task(executeCommand(request("task.create", { title: "Undo paused" }, { idempotencyKey: "undo-create" }), databasePath));
+    const started = task(executeCommand(request("task.start", { id: created.id, expectedVersion: created.version }, { idempotencyKey: "undo-start" }), databasePath));
+    const paused = task(executeCommand(request("task.pause", { id: started.id, expectedVersion: started.version }, { idempotencyKey: "undo-pause" }), databasePath));
+    const done = task(executeCommand(request("task.complete", { id: paused.id, expectedVersion: paused.version }, { idempotencyKey: "undo-complete" }), databasePath));
+    assert.equal(done.status, "done");
+    assert.equal(typeof done.completedAt, "string");
+
+    const undone = executeCommand(
+      request("task.status.undo", { id: done.id, expectedVersion: done.version }, { idempotencyKey: "undo-1" }),
+      databasePath,
+    );
+    const restored = task(undone);
+    assert.equal(restored.status, "paused");
+    assert.equal(restored.version, done.version + 1);
+    assert.equal(restored.completedAt, null);
+    assert.equal(restored.canceledAt, null);
+    assert.equal(undone.changed, true);
+    assert.equal(typeof undone.undoneSeq, "number");
+
+    const activities = executeCommand(request("activity.list", { taskId: created.id }), databasePath) as {
+      activity: Array<{ action: string; details: Record<string, unknown> }>;
+    };
+    const latest = activities.activity[0];
+    assert.equal(latest.action, "undone");
+    assert.deepEqual({ from: latest.details.from, to: latest.details.to }, { from: "done", to: "paused" });
+    assert.equal(typeof latest.details.undoneSeq, "number");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("status undo covers open, done, and cancellation transitions", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-cases-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const openTask = task(executeCommand(request("task.create", { title: "Open case" }, { idempotencyKey: "case-open-create" }), databasePath));
+    const inProgress = task(executeCommand(request("task.start", { id: openTask.id, expectedVersion: openTask.version }, { idempotencyKey: "case-start" }), databasePath));
+    assert.equal(inProgress.status, "in_progress");
+    const backToOpen = task(executeCommand(request("task.status.undo", { id: inProgress.id, expectedVersion: inProgress.version }, { idempotencyKey: "case-undo-start" }), databasePath));
+    assert.equal(backToOpen.status, "open");
+
+    const doneBase = task(executeCommand(request("task.create", { title: "Done case" }, { idempotencyKey: "case-done-create" }), databasePath));
+    const doneStarted = task(executeCommand(request("task.start", { id: doneBase.id, expectedVersion: doneBase.version }, { idempotencyKey: "case-done-start" }), databasePath));
+    const done = task(executeCommand(request("task.complete", { id: doneStarted.id, expectedVersion: doneStarted.version }, { idempotencyKey: "case-done-complete" }), databasePath));
+    const reopened = task(executeCommand(request("task.reopen", { id: done.id, expectedVersion: done.version }, { idempotencyKey: "case-reopen" }), databasePath));
+    assert.equal(reopened.status, "open");
+    const backToDone = task(executeCommand(request("task.status.undo", { id: reopened.id, expectedVersion: reopened.version }, { idempotencyKey: "case-undo-reopen" }), databasePath));
+    assert.equal(backToDone.status, "done");
+    assert.equal(typeof backToDone.completedAt, "string");
+
+    const cancelBase = task(executeCommand(request("task.create", { title: "Cancel case" }, { idempotencyKey: "case-cancel-create" }), databasePath));
+    const canceled = task(executeCommand(request("task.delete", { id: cancelBase.id, expectedVersion: cancelBase.version }, { idempotencyKey: "case-cancel" }), databasePath));
+    assert.equal(canceled.status, "canceled");
+    assert.equal(typeof canceled.canceledAt, "string");
+    const backFromCancel = task(executeCommand(request("task.status.undo", { id: canceled.id, expectedVersion: canceled.version }, { idempotencyKey: "case-undo-cancel" }), databasePath));
+    assert.equal(backFromCancel.status, "open");
+    assert.equal(backFromCancel.canceledAt, null);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("status undo rejects stale versions without writing", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-stale-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = task(executeCommand(request("task.create", { title: "Stale undo" }, { idempotencyKey: "stale-create" }), databasePath));
+    const done = task(executeCommand(request("task.start", { id: created.id, expectedVersion: created.version }, { idempotencyKey: "stale-start" }), databasePath));
+    const beforeTasks = countRows(databasePath, "tasks");
+    const beforeActivity = countRows(databasePath, "activity");
+    const beforeReceipts = countRows(databasePath, "command_receipts");
+    assert.throws(
+      () => executeCommand(request("task.status.undo", { id: done.id, expectedVersion: created.version }, { idempotencyKey: "stale-undo" }), databasePath),
+      /STALE_TASK_VERSION/,
+    );
+    assert.equal(countRows(databasePath, "tasks"), beforeTasks);
+    assert.equal(countRows(databasePath, "activity"), beforeActivity);
+    assert.equal(countRows(databasePath, "command_receipts"), beforeReceipts);
+    assert.equal(task(executeCommand(request("task.get", { id: created.id }), databasePath)).status, "in_progress");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("status undo is unavailable after an intervening mutation", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-intervening-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = task(executeCommand(request("task.create", { title: "Intervening" }, { idempotencyKey: "inter-create" }), databasePath));
+    const done = task(executeCommand(request("task.complete", { id: created.id, expectedVersion: created.version }, { idempotencyKey: "inter-complete" }), databasePath));
+    const edited = task(executeCommand(request("task.update", { id: done.id, expectedVersion: done.version, title: "Intervening edited" }, { idempotencyKey: "inter-edit" }), databasePath));
+    assert.throws(
+      () => executeCommand(request("task.status.undo", { id: edited.id, expectedVersion: edited.version }, { idempotencyKey: "inter-undo" }), databasePath),
+      /UNDO_UNAVAILABLE/,
+    );
+    assert.equal(task(executeCommand(request("task.get", { id: created.id }), databasePath)).title, "Intervening edited");
+
+    const second = task(executeCommand(request("task.create", { title: "Second" }, { idempotencyKey: "inter-second" }), databasePath));
+    const secondDone = task(executeCommand(request("task.complete", { id: second.id, expectedVersion: second.version }, { idempotencyKey: "inter-second-done" }), databasePath));
+    const undoneOnce = task(executeCommand(request("task.status.undo", { id: secondDone.id, expectedVersion: secondDone.version }, { idempotencyKey: "inter-second-undo" }), databasePath));
+    assert.equal(undoneOnce.status, "open");
+    assert.throws(
+      () => executeCommand(request("task.status.undo", { id: undoneOnce.id, expectedVersion: undoneOnce.version }, { idempotencyKey: "inter-second-undo-again" }), databasePath),
+      /UNDO_UNAVAILABLE/,
+    );
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("status undo replays the same idempotency key without a second mutation", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-idem-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = task(executeCommand(request("task.create", { title: "Idempotent undo" }, { idempotencyKey: "idem-create" }), databasePath));
+    const done = task(executeCommand(request("task.complete", { id: created.id, expectedVersion: created.version }, { idempotencyKey: "idem-complete" }), databasePath));
+    const first = executeCommand(request("task.status.undo", { id: done.id, expectedVersion: done.version }, { idempotencyKey: "idem-undo" }), databasePath);
+    const activityAfterFirst = countRows(databasePath, "activity");
+    const replay = executeCommand(request("task.status.undo", { id: done.id, expectedVersion: done.version }, { idempotencyKey: "idem-undo" }), databasePath);
+    assert.deepEqual(replay, first);
+    assert.equal(countRows(databasePath, "activity"), activityAfterFirst);
+    assert.equal(task(executeCommand(request("task.get", { id: created.id }), databasePath)).version, task(first).version);
+    assert.throws(
+      () => executeCommand(request("task.status.undo", { id: task(first).id, expectedVersion: task(first).version }, { idempotencyKey: "idem-undo" }), databasePath),
+      /IDEMPOTENCY_KEY_REUSED/,
+    );
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("status undo previews leave every table unchanged", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-preview-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = task(executeCommand(request("task.create", { title: "Preview undo" }, { idempotencyKey: "preview-create" }), databasePath));
+    const done = task(executeCommand(request("task.complete", { id: created.id, expectedVersion: created.version }, { idempotencyKey: "preview-complete" }), databasePath));
+    const tables = ["tasks", "categories", "tags", "task_tags", "task_dependencies", "activity", "command_receipts"];
+    const before = tables.map((tableName) => countRows(databasePath, tableName));
+    const dry = executeCommand(request("task.status.undo", { id: done.id, expectedVersion: done.version }, { idempotencyKey: "preview-dry", dryRun: true }), databasePath);
+    assert.equal(dry.dryRun, true);
+    assert.equal(task(dry).status, "open");
+    const readOnly = executeCommand(request("task.status.undo", { id: done.id, expectedVersion: done.version }, { idempotencyKey: "preview-ro", readOnly: true }), databasePath);
+    assert.equal(readOnly.dryRun, true);
+    assert.deepEqual(tables.map((tableName) => countRows(databasePath, tableName)), before);
+    assert.equal(task(executeCommand(request("task.get", { id: created.id }), databasePath)).status, "done");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("schema version 3 workspaces migrate tasks to priority P2", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-priority-migration-"));
   const databasePath = path.join(directory, "tasks.db");

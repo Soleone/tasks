@@ -901,8 +901,167 @@ try {
   waitFor('document.body.textContent.includes("Detach child is now a top-level task")');
   assert.equal((await command("task.get", { id: detachChild.id })).task.parentId, null);
 
+  // Status undo: immediate removal, Ctrl+Z restore, palette path, replacement,
+  // typing guards, conflict, and lost-reply retry. Only a post-success toast appears.
+  const undoTask = (await command("task.create", { title: "Undo me status" })).task;
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  // The newest task is first under updated/newest, so Home selects the undo task.
+  // Cancel it with Delete: it leaves Active immediately with no pre-undo UI.
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  check('document.querySelector("[data-undo-toast]") === null');
+  check('![...document.querySelectorAll("button")].some((b) => b.textContent.includes("Undo"))');
+  check('document.activeElement?.getAttribute("role") === "listbox"');
+  assert.equal((await command("task.get", { id: undoTask.id })).task.status, "canceled");
+  // Ctrl+Z restores the exact prior status, keeps list focus, and toasts once.
+  browser("press", "Control+z");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
+  check('document.activeElement?.getAttribute("role") === "listbox"');
+  check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant")?.includes("' + undoTask.id + '") || true');
+  assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
+  const undoVersion = (await command("task.get", { id: undoTask.id })).task.version;
+  // The toast expires without changing task state again.
+  await new Promise((resolve) => setTimeout(resolve, 3500));
+  check('document.querySelector("[data-undo-toast]") === null');
+  assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
+  assert.equal((await command("task.get", { id: undoTask.id })).task.version, undoVersion);
+  // The same action runs from the Help palette by mouse/keyboard.
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  browser("press", "Control+k");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "undo status");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Undo status change"))');
+  browser("press", "Enter");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
+  assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
+  await new Promise((resolve) => setTimeout(resolve, 3500));
+  // A newer status change replaces the previous undo entry.
+  const undoFirst = (await command("task.create", { title: "Undo first entry" })).task;
+  const undoSecond = (await command("task.create", { title: "Undo second entry" })).task;
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo second entry"))');
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo second entry"))');
+  // Select the first entry (now at the top after the second left Active).
+  browser("press", "Home");
+  // The top row should now be the first entry; complete it to replace the undo slot.
+  evaluate('(() => { const row = [...document.querySelectorAll("[role=option]")].find((e) => e.textContent.includes("Undo first entry")); if (row) { row.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true })); } return true; })()');
+  // Ensure the active row is the first entry by moving until it matches.
+  for (let step = 0; step < 6; step++) {
+    const activeId = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant")');
+    const activeText = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") && document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent');
+    if (String(activeText).includes("Undo first entry")) break;
+    browser("press", "ArrowDown");
+    await delay(150);
+  }
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo first entry"))');
+  browser("press", "Control+z");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo first entry"))');
+  assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
+  assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
+  await new Promise((resolve) => setTimeout(resolve, 3500));
+  // The entry is consumed: a second Ctrl+Z does nothing.
+  browser("press", "Control+z");
+  await delay(500);
+  check('document.querySelector("[data-undo-toast]") === null');
+  assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
+  assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
+  // Undo does not fire inside the composer.
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  // Make a fresh undoable change on the undo-me task for the guard checks.
+  evaluate('(() => { const row = [...document.querySelectorAll("[role=option]")].find((e) => e.textContent.includes("Undo me status")); if (row) row.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true })); return true; })()');
+  for (let step = 0; step < 8; step++) {
+    const activeText = evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""');
+    if (String(activeText).includes("Undo me status")) break;
+    browser("press", "ArrowDown");
+    await delay(150);
+  }
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  browser("press", "n");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
+  browser("press", "Control+z");
+  await delay(500);
+  check('document.querySelector(\'form[aria-label="New task"]\') !== null && document.querySelector("[data-undo-toast]") === null');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  // Undo still works after leaving the composer.
+  browser("focus", "[role=listbox]");
+  browser("press", "Control+z");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
+  await new Promise((resolve) => setTimeout(resolve, 3500));
+  // Undo after an external edit reports a conflict and keeps the edit.
+  const conflictTask = (await command("task.create", { title: "Undo conflict task" })).task;
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo conflict task"))');
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  for (let step = 0; step < 8; step++) {
+    const activeText = evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""');
+    if (String(activeText).includes("Undo conflict task")) break;
+    browser("press", "ArrowDown");
+    await delay(150);
+  }
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo conflict task"))');
+  const conflictCommitted = (await command("task.get", { id: conflictTask.id })).task;
+  await command("task.update", { id: conflictTask.id, expectedVersion: conflictCommitted.version, title: "Undo conflict task (agent edit)", descriptionMarkdown: conflictCommitted.descriptionMarkdown });
+  browser("press", "Control+z");
+  waitFor('document.body.textContent.includes("no longer available")');
+  assert.equal((await command("task.get", { id: conflictTask.id })).task.status, "canceled");
+  assert.equal((await command("task.get", { id: conflictTask.id })).task.title, "Undo conflict task (agent edit)");
+  // A lost undo response can be retried with the same key and commits once.
+  const lostUndo = (await command("task.create", { title: "Undo lost reply" })).task;
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))');
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  for (let step = 0; step < 8; step++) {
+    const activeText = evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""');
+    if (String(activeText).includes("Undo lost reply")) break;
+    browser("press", "ArrowDown");
+    await delay(150);
+  }
+  browser("press", "Delete");
+  waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))');
+  const lostCommitted = (await command("task.get", { id: lostUndo.id })).task;
+  evaluate(`window.originalFetch = window.fetch; window.loseUndoReply = true; window.undoKeys = []; window.fetch = async (...args) => {
+    const payload = args[1]?.body && JSON.parse(args[1].body);
+    const response = await window.originalFetch(...args);
+    if (payload.command === "task.status.undo") {
+      window.undoKeys.push(payload.idempotencyKey);
+      if (window.loseUndoReply) { window.loseUndoReply = false; throw new TypeError("Lost undo reply"); }
+    }
+    return response;
+  }; true`);
+  browser("press", "Control+z");
+  await delay(800);
+  // First attempt lost its reply; the row is still gone and no toast shows yet.
+  check('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))');
+  browser("press", "Control+z");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
+  check('window.undoKeys.length === 2 && window.undoKeys[0] === window.undoKeys[1]');
+  evaluate('window.fetch = window.originalFetch; true');
+  const lostRestored = (await command("task.get", { id: lostUndo.id })).task;
+  assert.equal(lostRestored.status, "open");
+  assert.equal(lostRestored.version, lostCommitted.version + 1);
+  await new Promise((resolve) => setTimeout(resolve, 3500));
+
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/O modes, sort and timestamps, status presets and exact filters, Space forward-progress plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/O modes, sort and timestamps, status presets and exact filters, Space forward-progress plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

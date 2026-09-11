@@ -36,6 +36,7 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.complete",
   "task.reopen",
   "task.cancel",
+  "task.status.undo",
   "task.move",
   "task.dependency.add",
   "task.dependency.remove",
@@ -615,11 +616,117 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
       current.id,
       request,
       request.command === "task.delete" ? "cancel" : request.command.slice("task.".length),
-      { from: current.status, to: target, ...(request.command === "task.delete" ? { source: "delete" } : {}) },
+      {
+        from: current.status,
+        to: target,
+        beforeCompletedAt: current.completedAt,
+        beforeCanceledAt: current.canceledAt,
+        afterCompletedAt: completedAt,
+        afterCanceledAt: canceledAt,
+        ...(request.command === "task.delete" ? { source: "delete" } : {}),
+      },
       now,
     );
     const task = requireTask(database, current.id);
     const result = taskResult(task, { changed: true });
+    recordReceipt(database, request, context, result, now);
+    return result;
+  });
+}
+
+const STATUS_UNDO_ACTIONS = new Set(["start", "pause", "complete", "reopen", "cancel"]);
+
+function statusFromDetail(value: unknown): TaskStatus | null {
+  if (value === "open" || value === "in_progress" || value === "paused" || value === "done" || value === "canceled") {
+    return value;
+  }
+  return null;
+}
+
+function undoStatus(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) {
+    return context.replay;
+  }
+
+  const current = requireTask(database, taskId(request.args));
+  const version = expectedVersion(request.args);
+  if (version !== current.version) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
+  }
+
+  const latest = database
+    .prepare(
+      `SELECT seq, action, details_json FROM activity WHERE task_id = ? ORDER BY seq DESC LIMIT 1`,
+    )
+    .get(current.id) as Row | undefined;
+  if (!latest) {
+    throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
+  }
+  const action = stringValue(latest, "action");
+  if (!STATUS_UNDO_ACTIONS.has(action)) {
+    throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
+  }
+  let details: Row = {};
+  try {
+    const parsed = JSON.parse(stringValue(latest, "details_json"));
+    if (isRecord(parsed)) details = parsed;
+  } catch {
+    throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
+  }
+  const from = statusFromDetail(details.from);
+  const to = statusFromDetail(details.to);
+  const undoneSeq = numberValue(latest, "seq");
+  if (!from || !to || to !== current.status) {
+    throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} changed after the last status change`);
+  }
+
+  const beforeCompleted = typeof details.beforeCompletedAt === "string" || details.beforeCompletedAt === null
+    ? (details.beforeCompletedAt as string | null)
+    : undefined;
+  const beforeCanceled = typeof details.beforeCanceledAt === "string" || details.beforeCanceledAt === null
+    ? (details.beforeCanceledAt as string | null)
+    : undefined;
+  const now = new Date().toISOString();
+  const restoredCompletedAt = beforeCompleted !== undefined
+    ? beforeCompleted
+    : from === "done"
+      ? now
+      : null;
+  const restoredCanceledAt = beforeCanceled !== undefined
+    ? beforeCanceled
+    : from === "canceled"
+      ? now
+      : null;
+
+  const preview: TaskRecord = {
+    ...current,
+    status: from,
+    version: current.version + 1,
+    updatedAt: now,
+    completedAt: restoredCompletedAt,
+    canceledAt: restoredCanceledAt,
+  };
+  if (request.readOnly || request.dryRun) {
+    return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed: true, undoneSeq });
+  }
+
+  return withTransaction(database, () => {
+    database
+      .prepare(
+        "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
+      )
+      .run(from, now, restoredCompletedAt, restoredCanceledAt, current.id, version);
+    insertActivity(
+      database,
+      current.id,
+      request,
+      "undone",
+      { from: current.status, to: from, undoneSeq, undoneAction: action },
+      now,
+    );
+    const restored = requireTask(database, current.id);
+    const result = taskResult(restored, { changed: true, undoneSeq });
     recordReceipt(database, request, context, result, now);
     return result;
   });
@@ -1035,6 +1142,8 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
     case "task.reopen":
     case "task.cancel":
       return transitionTask(database, request);
+    case "task.status.undo":
+      return undoStatus(database, request);
     case "activity.list":
       return listActivity(database, request);
     case "workspace.info":

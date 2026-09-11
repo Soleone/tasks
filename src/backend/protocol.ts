@@ -18,6 +18,7 @@ export const COMMAND_NAMES = [
   "task.complete",
   "task.reopen",
   "task.cancel",
+  "task.status.undo",
   "task.move",
   "task.dependency.add",
   "task.dependency.remove",

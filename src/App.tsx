@@ -19,9 +19,10 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme, transitionTask } from "@/platform/backendClient";
+import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme, transitionTask, undoStatusChange } from "@/platform/backendClient";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
+import { taskStatusMeta } from "@/components/taskFilters";
 
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
@@ -87,6 +88,30 @@ function taskIsVisible(
   return true;
 }
 
+type StatusUndoEntry = {
+  kind: "status";
+  taskId: string;
+  title: string;
+  from: TaskStatus;
+  to: TaskStatus;
+  version: number;
+  key: string;
+  wasActive: boolean;
+};
+
+const UNDO_TOAST_DURATION_MS = 3000;
+
+function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
+  const keyA = field === "created" ? a.createdAt : a.updatedAt;
+  const keyB = field === "created" ? b.createdAt : b.updatedAt;
+  if (keyA !== keyB) {
+    const newerFirst = direction === "desc";
+    if (keyA > keyB) return newerFirst ? -1 : 1;
+    return newerFirst ? 1 : -1;
+  }
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 // The list is the default surface. Create and edit share one dialog opened
 // by the New task button, the N key, or the palette. Tab does not leave the
 // focused task list.
@@ -119,7 +144,11 @@ export default function App(): ReactElement {
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
+  const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
+  const [undoToast, setUndoToast] = useState<string | null>(null);
   const querySequence = useRef(0);
+  const statusUndoRef = useRef<StatusUndoEntry | null>(null);
+  const undoToastTimer = useRef<number | null>(null);
   const statusPresetRef = useRef<StatusPreset>("active");
   const exactStatusRef = useRef<TaskStatus | null>(null);
   const priorityFilterRef = useRef<TaskPriority | null>(null);
@@ -487,6 +516,7 @@ export default function App(): ReactElement {
 
   async function pauseTaskFromPalette(task: TaskRecord): Promise<void> {
     const current = tasks.find((candidate) => candidate.id === task.id) ?? task;
+    const wasActive = tasks[activeTaskIndex]?.id === current.id;
     setHelpOpen(false);
     if (current.status === "done" || current.status === "canceled") {
       setAnnouncement(`${current.title} is ${current.status === "done" ? "done" : "cancelled"}. Reopen it before pausing.`);
@@ -497,6 +527,7 @@ export default function App(): ReactElement {
         ? await transitionTask("task.start", current.id, current.version, { idempotencyKey: crypto.randomUUID() })
         : await transitionTask("task.pause", current.id, current.version, { idempotencyKey: crypto.randomUUID() });
       updateVisibleTask(result.task);
+      if (result.changed !== false) recordStatusUndo(current, result.task, wasActive);
       setAnnouncement(`${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`);
     } catch (caught) {
       setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
@@ -505,6 +536,94 @@ export default function App(): ReactElement {
       void refreshTasks();
     }
   }
+
+  function recordStatusUndo(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
+    if (previous.status === current.status) return;
+    if (undoToastTimer.current !== null) {
+      window.clearTimeout(undoToastTimer.current);
+      undoToastTimer.current = null;
+    }
+    setUndoToast(null);
+    const entry: StatusUndoEntry = {
+      kind: "status",
+      taskId: current.id,
+      title: current.title,
+      from: previous.status,
+      to: current.status,
+      version: current.version,
+      key: crypto.randomUUID(),
+      wasActive,
+    };
+    statusUndoRef.current = entry;
+    setStatusUndo(entry);
+  }
+
+  function retireStatusUndo(): void {
+    statusUndoRef.current = null;
+    setStatusUndo(null);
+  }
+
+  function showUndoToast(message: string): void {
+    if (undoToastTimer.current !== null) window.clearTimeout(undoToastTimer.current);
+    setUndoToast(message);
+    undoToastTimer.current = window.setTimeout(() => {
+      setUndoToast(null);
+      undoToastTimer.current = null;
+    }, UNDO_TOAST_DURATION_MS);
+  }
+
+  async function handleUndoStatus(): Promise<void> {
+    const entry = statusUndoRef.current;
+    if (!entry) return;
+    try {
+      const result = await undoStatusChange(entry.taskId, entry.version, { idempotencyKey: entry.key });
+      const restored = result.task;
+      const visible = taskIsVisible(
+        restored,
+        exactStatus,
+        statusPreset,
+        showUnblocked,
+        categoryFilter?.slug ?? null,
+        priorityFilter,
+        tagFilter.map((tag) => tag.slug),
+        searchQuery,
+      );
+      if (visible) {
+        const alreadyPresent = tasks.some((existing) => existing.id === restored.id);
+        const nextTasks = alreadyPresent
+          ? tasks.map((existing) => existing.id === restored.id ? restored : existing)
+          : [...tasks, restored].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
+        setTasks(nextTasks);
+        if (!alreadyPresent) setTotal((previous) => previous + 1);
+        if (entry.wasActive) {
+          const index = nextTasks.findIndex((existing) => existing.id === restored.id);
+          if (index >= 0) setActiveTaskIndex(index);
+        }
+      } else {
+        setTasks((previous) => previous.map((existing) => existing.id === restored.id ? restored : existing));
+      }
+      retireStatusUndo();
+      const label = taskStatusMeta[restored.status]?.label ?? restored.status;
+      setAnnouncement(`${restored.title}: ${label}`);
+      showUndoToast(`Undo status change to ${label}`);
+    } catch (caught) {
+      if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
+        retireStatusUndo();
+        setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
+        void refreshTasks();
+        return;
+      }
+      setAnnouncement(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
+
+  useEffect(() => {
+    statusUndoRef.current = statusUndo;
+  }, [statusUndo]);
+
+  useEffect(() => () => {
+    if (undoToastTimer.current !== null) window.clearTimeout(undoToastTimer.current);
+  }, []);
 
   function taskSaved(task: TaskRecord): void {
     const creating = composerRef.current?.mode === "create";
@@ -550,7 +669,21 @@ export default function App(): ReactElement {
       setTotal((previous) => Math.max(previous - 1, 0));
       return;
     }
+    if (!wasVisible) {
+      setTasks((previous) => {
+        const next = [...previous, task];
+        next.sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
+        return next;
+      });
+      setTotal((previous) => previous + 1);
+      return;
+    }
     setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+  }
+
+  function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
+    if (current && (current as { changed?: boolean }).changed === false) return;
+    recordStatusUndo(previous, current, wasActive);
   }
 
   return (
@@ -650,6 +783,9 @@ export default function App(): ReactElement {
           onAnnounce={setAnnouncement}
           onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
+          onStatusChanged={handleStatusChanged}
+          canUndoStatus={statusUndo !== null}
+          onUndoStatus={() => void handleUndoStatus()}
           onCanceled={(task) => {
             ++querySequence.current;
             updateVisibleTask(task);
@@ -659,6 +795,11 @@ export default function App(): ReactElement {
           onMoveUnder={(task) => openPicker("move", task)}
         />
         <p role="status" className="sr-only">{announcement}</p>
+        {undoToast ? (
+          <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
+            {undoToast}
+          </div>
+        ) : null}
       </div>
       <TaskComposerDialog
         composer={composer}
@@ -682,6 +823,11 @@ export default function App(): ReactElement {
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
+        canUndoStatus={statusUndo !== null}
+        onUndoStatus={() => {
+          setHelpOpen(false);
+          void handleUndoStatus();
+        }}
       />
       {categoryPickerOpen ? <CategoryPicker
         open

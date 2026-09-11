@@ -145,6 +145,14 @@ export async function transitionTask(
   return runBackendCommand<TaskMutationResult>(command, { id, expectedVersion }, options);
 }
 
+export async function undoStatusChange(
+  id: string,
+  expectedVersion: number,
+  options: CommandOptions,
+): Promise<TaskMutationResult & { undoneSeq?: number }> {
+  return runBackendCommand<TaskMutationResult & { undoneSeq?: number }>("task.status.undo", { id, expectedVersion }, options);
+}
+
 export async function moveTask(id: string, parentId: string | null, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
   return runBackendCommand<TaskMutationResult>("task.move", { id, parentId, expectedVersion }, options);
 }

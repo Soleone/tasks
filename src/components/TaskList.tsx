@@ -96,6 +96,9 @@ type TaskListProps = {
   onAnnounce: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
   onTaskUpdated: (task: TaskRecord) => void;
+  onStatusChanged?: (previous: TaskRecord, current: TaskRecord, wasActive: boolean) => void;
+  canUndoStatus?: boolean;
+  onUndoStatus?: () => void;
   onCanceled: (task: TaskRecord) => void;
   onAddBlocker: (task: TaskRecord) => void;
   onMoveUnder: (task: TaskRecord) => void;
@@ -117,6 +120,8 @@ type HomeShortcutActions = {
   activeTask: TaskRecord | undefined;
   activeTaskIndex: number;
   visibleRowCount: number;
+  canUndoStatus: boolean;
+  undoStatus: () => void;
   deleteActiveTask: () => Promise<void>;
   clearPendingMode: () => void;
   clearAllFilters: () => void;
@@ -187,6 +192,9 @@ export function TaskList({
   onAnnounce,
   onEdit,
   onTaskUpdated,
+  onStatusChanged,
+  canUndoStatus,
+  onUndoStatus,
   onCanceled,
   onAddBlocker,
   onMoveUnder,
@@ -444,10 +452,12 @@ export function TaskList({
       : { version: task.version, target: transition.next, key: crypto.randomUUID() };
     statusReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
+    const wasActive = activeTask?.id === task.id;
     try {
       const result = await transitionTask(transition.command, task.id, task.version, { idempotencyKey: receipt.key });
       statusReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
+      if (result.changed !== false) onStatusChanged?.(task, result.task, wasActive);
       setStatusFeedback({ taskId: task.id, version: result.task.version });
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
@@ -473,10 +483,12 @@ export function TaskList({
       : { version: task.version, target, key: crypto.randomUUID() };
     statusReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
+    const wasActivePause = activeTask?.id === task.id;
     try {
       const result = await transitionTask(command, task.id, task.version, { idempotencyKey: receipt.key });
       statusReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
+      if (result.changed !== false) onStatusChanged?.(task, result.task, wasActivePause);
       setStatusFeedback({ taskId: task.id, version: result.task.version });
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
@@ -523,6 +535,7 @@ export function TaskList({
     try {
       const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
       deleteReceipts.current.delete(task.id);
+      if (result.changed !== false) onStatusChanged?.(task, result.task, true);
       onCanceled(result.task);
     } catch (caught) {
       if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
@@ -541,6 +554,8 @@ export function TaskList({
     activeTask,
     activeTaskIndex,
     visibleRowCount: visibleRows.length,
+    canUndoStatus: Boolean(canUndoStatus),
+    undoStatus: () => onUndoStatus?.(),
     deleteActiveTask,
     clearPendingMode,
     clearAllFilters: onClearAllFilters,
@@ -582,6 +597,13 @@ export function TaskList({
       }
       if (document.querySelector('[role="dialog"]')) return;
       if (isHomeTypingTarget(event.target)) return;
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
+        if (event.repeat || event.isComposing || event.keyCode === 229 || event.shiftKey) return;
+        if (!actions.canUndoStatus) return;
+        event.preventDefault();
+        actions.undoStatus();
+        return;
+      }
       if (event.key === "Delete") {
         if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
         event.preventDefault();
@@ -764,7 +786,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V"
+      aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1029,7 +1051,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V"
+          aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
