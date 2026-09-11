@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { Link2Off, Unlink } from "lucide-react";
+import { Link2Off } from "lucide-react";
 import type { TaskRecord } from "@/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
@@ -143,7 +143,7 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
                   keywords={["remove", "parent", "unparent", "detach", "clear", currentParentTitle ?? ""]}
                   onSelect={() => onRemoveParent?.()}
                 >
-                  <Unlink aria-hidden="true" className="text-muted-foreground" />
+                  <Link2Off aria-hidden="true" className="text-muted-foreground" />
                   <span className="font-medium">Remove parent</span>
                   {currentParentTitle ? <span className="truncate text-muted-foreground">{currentParentTitle}</span> : null}
                 </CommandItem>
