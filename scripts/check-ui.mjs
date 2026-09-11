@@ -159,8 +159,9 @@ try {
   assert.equal(saved[0].tags[0].slug, "planning");
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, desc"');
-  check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 3');
-  check("document.querySelector(\"[role=option] [data-priority=\'P2\']\") !== null");
+  check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
+  check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.textContent === \"\"");
+  check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
   // Close the create dialog to return to the list.
   browser("press", "Escape");
@@ -843,9 +844,12 @@ try {
   check('document.querySelector("[title^=\\"Updated\\"]") === null');
   // Stamp two rows older: recent timestamps use relative labels and the
   // updated line appears only where the day differs from creation.
+  const updatedAt = new Date();
+  updatedAt.setDate(updatedAt.getDate() - 2);
+  updatedAt.setHours(12, 0, 0, 0);
   const stampDb = new DatabaseSync(path.join(scratch, "tasks.db"));
-  stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title LIKE 'Tag cockpit%'").run("2026-01-05T12:00:00.000Z", "2026-09-08T12:00:00.000Z");
-  stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title = 'Planning only #planning'").run("2026-01-06T12:00:00.000Z", "2026-09-08T12:00:00.000Z");
+  stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title LIKE 'Tag cockpit%'").run("2026-01-05T12:00:00.000Z", updatedAt.toISOString());
+  stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title = 'Planning only #planning'").run("2026-01-06T12:00:00.000Z", updatedAt.toISOString());
   stampDb.close();
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"');

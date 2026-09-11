@@ -36,6 +36,26 @@ export function TaskStatusDisplay({ task }: { task: TaskRecord }): ReactElement 
   );
 }
 
+export function TaskPriorityDisplay({ task }: { task: TaskRecord }): ReactElement {
+  const meta = priorityMeta(task.priority ?? 2);
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={`inline-block size-2 shrink-0 rounded-full ${meta.dot}`}
+            role="img"
+            aria-label={`Priority ${meta.label}`}
+            data-priority={meta.shortLabel}
+            tabIndex={-1}
+          />
+        }
+      />
+      <TooltipContent side="top" sideOffset={8}>Priority {meta.label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 const STATUS_FEEDBACK_DURATION_MS = 900;
 
 export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, previousLabel, onToggle }: {
@@ -93,21 +113,10 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
 }
 
 export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement {
-  const meta = priorityMeta(task.priority ?? 2);
   const hasClassification = Boolean(task.category) || task.tags.length > 0;
 
   return (
     <ItemDescription className="flex flex-wrap items-center gap-1.5">
-      <Badge
-        variant="outline"
-        data-priority={meta.shortLabel}
-        aria-label={`Priority ${meta.label}`}
-        title={`Priority ${meta.label}`}
-        className="h-5 px-1.5 text-xs font-normal"
-      >
-        <span aria-hidden="true" className={`inline-block size-1.5 rounded-full ${meta.dot}`} />
-        {meta.shortLabel}
-      </Badge>
       {task.category ? (
         <Badge variant="outline" className="h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground">
           <Folder data-icon="inline-start" aria-hidden="true" />
@@ -185,7 +194,10 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
 }): ReactElement {
   return (
     <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
-      <div className={cn("flex shrink-0 items-center justify-center", variant === "full" && "h-[1.375em]")}>{statusSlot}</div>
+      <div className={cn("flex shrink-0 items-center justify-center gap-1.5", variant === "full" && "h-[1.375em]")}>
+        {statusSlot}
+        {variant === "full" ? <TaskPriorityDisplay task={task} /> : null}
+      </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <ItemTitle className="line-clamp-none wrap-anywhere w-full">
           {taskRowDisplayTitle(task)}
