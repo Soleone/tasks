@@ -58,8 +58,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Filter by category", hint: "F then C opens", icon: Folder, keys: ["F", "C"], action: "filter-category", keywords: "f c category folder filter" },
       { label: "Filter by tags", hint: "F then T opens, Space picks, Enter closes", icon: Tags, keys: ["F", "T"], action: "filter-tags", keywords: "f t tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
-      { label: "Filter shortcuts", hint: "F focuses toolbar, then a key", icon: ListFilter, keys: ["F"], keywords: "f filter mode preset exact status priority category tags unblocked focus" },
-      { label: "Sort tasks", hint: "O focuses toolbar, then C U R", icon: ArrowDownUp, keys: ["O", "C/U/R"], keywords: "o order sort created updated reverse newest oldest direction focus" },
+      { label: "Filter shortcuts", hint: "F focuses toolbar; F again closes", icon: ListFilter, keys: ["F"], keywords: "f filter mode preset exact status priority category tags unblocked focus close toggle" },
+      { label: "Sort tasks", hint: "O focuses toolbar; O again closes", icon: ArrowDownUp, keys: ["O", "C/U/R"], keywords: "o order sort created updated reverse newest oldest direction focus close toggle" },
       { label: "Show task details", hint: "Descriptions and timestamps", icon: ListChevronsUpDown, keys: ["V"], keywords: "v view details description notes timestamps created updated time footer today yesterday date" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
@@ -80,7 +80,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Settings", hint: "Storage and export", icon: Settings2, action: "open-settings", keywords: "data export json sqlite database storage path" },
       { label: "Themes", hint: "Workspace appearance", icon: Palette, keys: ["Alt", "T"], keywords: "alt theme colour color dark light accent palette" },
       { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
-      { label: "Close or go back", hint: "Esc returns from toolbar; list resets filters", icon: Undo2, keys: ["Esc"], keywords: "escape palette toolbar focus title notes list edit reset clear filters mode" },
+      { label: "Close or go back", hint: "Esc returns from toolbar; F/O also closes it", icon: Undo2, keys: ["Esc", "F/O"], keywords: "escape palette toolbar focus title notes list edit reset clear filters mode close toggle" }
     ],
   },
   {

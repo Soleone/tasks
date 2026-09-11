@@ -196,6 +196,12 @@ try {
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=filter]") === null');
   check('document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=filters]").className.includes("ring-ring ring-offset-2")');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5');
+  // Pressing the focus key again closes the mode, while Escape remains a
+  // second close path.
+  browser("press", "f");
+  waitFor('document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-shortcut-guide]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
+  browser("press", "f");
+  waitFor('document.activeElement.matches("[data-toolbar=filters]") && document.querySelector("[data-shortcut-guide=filter]") !== null');
   // F then S toggles Active/Inactive presets; F then A remains as an alias.
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
@@ -871,6 +877,11 @@ try {
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=sort]") === null');
   check('document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=sort]").className.includes("ring-ring ring-offset-2")');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.sortListTop) < 0.5');
+  // O also closes and reopens the focused sort toolbar.
+  browser("press", "o");
+  waitFor('document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-shortcut-guide]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
+  browser("press", "o");
+  waitFor('document.activeElement.matches("[data-toolbar=sort]") && document.querySelector("[data-shortcut-guide=sort]") !== null');
   browser("press", "c");
   waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, desc"');

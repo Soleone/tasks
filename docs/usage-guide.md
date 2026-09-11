@@ -26,7 +26,7 @@ One compact row above the list, in three groups in this order:
 
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count, active qualifiers, and sort state, such as “12 active tasks, by updated, desc”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
-`F` moves focus to the whole filter button group and `O` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
+`F` moves focus to the whole filter button group and `O` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen, the same focus key is pressed again, or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
 
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
 - Priority: Highest through lowest. Every task defaults to P2. Task rows show the priority as a colored dot with an accessible label and tooltip; filters and the editor keep the text labels.
@@ -55,7 +55,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Delete` | Immediately cancel the active task |
 | `Ctrl/⌘+Z` | Undo the last task-list status change; also in the shortcuts palette. A newer status change replaces it, and the toast confirms the restore |
 | `0` `1` `2` `3` `4` | Set the active task to P0 through P4 |
-| `F` | Focus the filter toolbar; the next key picks a filter |
+| `F` | Focus the filter toolbar; the next key picks a filter, or press `F` again to return to the list |
 | `F then S` | Switch between active and inactive task views (`A` works too) |
 | `F then O` / `I` / `D` / `P` / `X` | Show only Open / In progress / Done / Paused / Canceled tasks |
 | `F then 0`–`4` | Filter to P0 through P4; pressing the active number clears it |
@@ -63,7 +63,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `F then C` | Open the category filter |
 | `F then T` | Open the tag filter |
 | `/` | Open task search; works from the task list or filter toolbar |
-| `O` | Focus the sort toolbar; the next key picks a sort |
+| `O` | Focus the sort toolbar; the next key picks a sort, or press `O` again to return to the list |
 | `O then C` | Sort by created date |
 | `O then U` | Sort by updated date |
 | `O then R` | Reverse the newest/oldest direction |
@@ -74,7 +74,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Home` / `End` | Jump to the first or last visible task |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
-| `Escape` | Return from the filter or sort toolbar to the task list; otherwise reset all filters |
+| `Escape` | Return from the filter or sort toolbar to the task list; otherwise reset all filters; `F`/`O` also close their focused toolbar |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
 

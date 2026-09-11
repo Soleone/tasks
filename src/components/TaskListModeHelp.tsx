@@ -27,13 +27,15 @@ type ShortcutGroup = {
 type ModeGuide = {
   title: string;
   description: string;
+  closeKey: string;
   groups: ShortcutGroup[];
 };
 
 const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   filter: {
     title: "Filter",
-    description: "Choose a filter option.",
+    description: "Choose a filter option, or press F or Escape to return to the task list.",
+    closeKey: "F",
     groups: [
       {
         id: "status",
@@ -61,7 +63,8 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   },
   sort: {
     title: "Sort",
-    description: "Choose a sort option.",
+    description: "Choose a sort option, or press O or Escape to return to the task list.",
+    closeKey: "O",
     groups: [
       {
         id: "order",
@@ -104,7 +107,11 @@ export function TaskListModeHelp({ mode, onDismiss }: { mode: TaskListMode; onDi
         <PopoverHeader className="flex-row items-center justify-between gap-4">
           <PopoverTitle>{guide.title}</PopoverTitle>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Kbd data-shortcut-key="Escape">Esc</Kbd>
+            <KbdGroup>
+              <Kbd data-shortcut-key={guide.closeKey}>{guide.closeKey}</Kbd>
+              <span aria-hidden="true">or</span>
+              <Kbd data-shortcut-key="Escape">Esc</Kbd>
+            </KbdGroup>
             <span>close</span>
           </span>
         </PopoverHeader>

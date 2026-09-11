@@ -294,8 +294,8 @@ export function TaskList({
   }
 
   // Toolbar modes are explicit focus states. They are cleared when focus leaves
-  // the app or the page is hidden; choosing an option and Escape return to the
-  // task list directly.
+  // the app or the page is hidden; choosing an option, the mode key, or Escape
+  // returns to the task list directly.
   useEffect(() => {
     const clear = (): void => clearToolbarMode();
     const onVisibility = (): void => {
@@ -320,8 +320,8 @@ export function TaskList({
     activateToolbarMode(mode);
     (mode === "filter" ? filterToolbar.current : sortToolbar.current)?.focus();
     onAnnounce(mode === "filter"
-      ? "Filter toolbar focused. Choose a filter or press Escape to return to the task list."
-      : "Sort toolbar focused. Choose a sort or press Escape to return to the task list.");
+      ? "Filter toolbar focused. Choose a filter, press F again, or press Escape to return to the task list."
+      : "Sort toolbar focused. Choose a sort, press O again, or press Escape to return to the task list.");
   }
 
   function startFilterMode(): void {
@@ -669,6 +669,11 @@ export function TaskList({
           return;
         }
         const key = event.key.toLowerCase();
+        if (key === "f" && !event.shiftKey) {
+          event.preventDefault();
+          actions.returnToList();
+          return;
+        }
         if ((key === "s" || key === "a") && !event.shiftKey) {
           event.preventDefault();
           actions.toggleStatusPreset();
@@ -716,6 +721,11 @@ export function TaskList({
           return;
         }
         const key = event.key.toLowerCase();
+        if (key === "o" && !event.shiftKey) {
+          event.preventDefault();
+          actions.returnToList();
+          return;
+        }
         if (key === "c" && !event.shiftKey) {
           event.preventDefault();
           actions.applySortField("created");
