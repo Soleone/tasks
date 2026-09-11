@@ -43,8 +43,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Task actions",
     entries: [
-      { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["N"], action: "new-task", keywords: "n create new add task capture dialog" },
-      { label: "New child task", hint: "Use the selected task as parent", icon: CornerDownRight, keys: ["Shift", "N"], action: "new-child-task", keywords: "shift n create child subtask parent selected task capture" },
+      { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture dialog" },
+      { label: "New child task", hint: "Use the selected task as parent", icon: CornerDownRight, keys: ["Shift", "C"], action: "new-child-task", keywords: "shift c create child subtask parent selected task capture" },
       { label: "Set task priority", hint: "Focus Priority in dialog", icon: Flag, keys: ["0", "1", "2", "3", "4", "←", "→"], keywords: "dialog composer create edit set choose task priority p0 p1 p2 p3 p4 arrow left right" },
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", hint: "Space forward, Shift+Space back", icon: ListChecks, keys: ["Space", "Shift+Space"], keywords: "space shift space reverse backward open in progress done status cycle complete" },
@@ -59,7 +59,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Filter by tags", hint: "F then T opens, Space picks, Enter closes", icon: Tags, keys: ["F", "T"], action: "filter-tags", keywords: "f t tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Filter shortcuts", hint: "F focuses toolbar; F again closes", icon: ListFilter, keys: ["F"], keywords: "f filter mode preset exact status priority category tags unblocked focus close toggle" },
-      { label: "Sort tasks", hint: "O focuses toolbar; O again closes", icon: ArrowDownUp, keys: ["O", "C/U/R"], keywords: "o order sort created updated reverse newest oldest direction focus close toggle" },
+      { label: "Sort tasks", hint: "S focuses toolbar; S again closes", icon: ArrowDownUp, keys: ["S", "C/U/R"], keywords: "s order sort created updated reverse newest oldest direction focus close toggle" },
       { label: "Show task details", hint: "Descriptions and timestamps", icon: ListChevronsUpDown, keys: ["V"], keywords: "v view details description notes timestamps created updated time footer today yesterday date" },
       { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
       { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
@@ -80,7 +80,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Settings", hint: "Storage and export", icon: Settings2, action: "open-settings", keywords: "data export json sqlite database storage path" },
       { label: "Themes", hint: "Workspace appearance", icon: Palette, keys: ["Alt", "T"], keywords: "alt theme colour color dark light accent palette" },
       { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
-      { label: "Close or go back", hint: "Esc returns from toolbar; F/O also closes it", icon: Undo2, keys: ["Esc", "F/O"], keywords: "escape palette toolbar focus title notes list edit reset clear filters mode close toggle" }
+      { label: "Close or go back", hint: "Esc returns from toolbar; F/S also closes it", icon: Undo2, keys: ["Esc", "F/S"], keywords: "escape palette toolbar focus title notes list edit reset clear filters mode close toggle" }
     ],
   },
   {

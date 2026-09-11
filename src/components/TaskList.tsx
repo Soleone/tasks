@@ -321,7 +321,7 @@ export function TaskList({
     (mode === "filter" ? filterToolbar.current : sortToolbar.current)?.focus();
     onAnnounce(mode === "filter"
       ? "Filter toolbar focused. Choose a filter, press F again, or press Escape to return to the task list."
-      : "Sort toolbar focused. Choose a sort, press O again, or press Escape to return to the task list.");
+      : "Sort toolbar focused. Choose a sort, press S again, or press Escape to return to the task list.");
   }
 
   function startFilterMode(): void {
@@ -721,7 +721,7 @@ export function TaskList({
           return;
         }
         const key = event.key.toLowerCase();
-        if (key === "o" && !event.shiftKey) {
+        if (key === "s" && !event.shiftKey) {
           event.preventDefault();
           actions.returnToList();
           return;
@@ -741,10 +741,6 @@ export function TaskList({
           actions.reverseSort();
           return;
         }
-        if (key === "s" && !event.shiftKey) {
-          event.preventDefault();
-          actions.announce("Sorting by status is not available yet. Press C for created or U for updated.");
-        }
         event.preventDefault();
         return;
       }
@@ -758,7 +754,7 @@ export function TaskList({
         if (event.repeat) return;
         event.preventDefault();
         actions.openSearch();
-      } else if (event.key.toLowerCase() === "n") {
+      } else if (event.key.toLowerCase() === "c") {
         if (event.repeat) return;
         event.preventDefault();
         actions.createTask(event.shiftKey ? actions.activeTask?.id : undefined);
@@ -766,7 +762,7 @@ export function TaskList({
         if (event.repeat) return;
         event.preventDefault();
         actions.startFilterMode();
-      } else if (event.key.toLowerCase() === "o" && !event.shiftKey) {
+      } else if (event.key.toLowerCase() === "s" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
         actions.startSortMode();
@@ -854,7 +850,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C S A U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -868,7 +864,7 @@ export function TaskList({
           <Button
             size="sm"
             tabIndex={-1}
-            aria-keyshortcuts="N"
+            aria-keyshortcuts="C"
             onClick={() => onCreate()}
           >
             <Plus aria-hidden="true" />
@@ -1019,7 +1015,7 @@ export function TaskList({
           <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"
-            aria-keyshortcuts="O C U R"
+            aria-keyshortcuts="S C U R"
             tabIndex={-1}
             data-toolbar="sort"
             data-toolbar-active={toolbarMode === "sort" || undefined}
@@ -1037,7 +1033,7 @@ export function TaskList({
                 className={sortField === "created" ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={`Sort by created date. Press O then C.`}
+                aria-label={`Sort by created date. Press S then C.`}
                 aria-pressed={sortField === "created"}
                 aria-keyshortcuts="C"
                 data-sort="task-sort-created"
@@ -1058,7 +1054,7 @@ export function TaskList({
                 className={sortField === "updated" ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={`Sort by updated date. Press O then U.`}
+                aria-label={`Sort by updated date. Press S then U.`}
                 aria-pressed={sortField === "updated"}
                 aria-keyshortcuts="U"
                 data-sort="task-sort-updated"
@@ -1078,7 +1074,7 @@ export function TaskList({
                 variant="ghost"
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={sortDirection === "desc" ? "Newest first. Activate to show oldest first. Press O then R." : "Oldest first. Activate to show newest first. Press O then R."}
+                aria-label={sortDirection === "desc" ? "Newest first. Activate to show oldest first. Press S then R." : "Oldest first. Activate to show newest first. Press S then R."}
                 aria-keyshortcuts="R"
                 data-sort="task-sort-reverse"
                 onClick={reverseSort}
@@ -1144,7 +1140,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape C Shift+C S A U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -1237,7 +1233,7 @@ export function TaskList({
         <Empty>
           <EmptyHeader>
             <EmptyTitle>No tasks yet</EmptyTitle>
-            <EmptyDescription>Press N or choose New task to capture.</EmptyDescription>
+            <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}

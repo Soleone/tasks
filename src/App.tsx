@@ -119,7 +119,7 @@ function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, dir
 }
 
 // The list is the default surface. Create and edit share one dialog opened
-// by the New task button, the N key, or the palette. Tab does not leave the
+// by the New task button, the C key, or the palette. Tab does not leave the
 // focused task list.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);

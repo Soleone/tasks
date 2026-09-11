@@ -63,8 +63,8 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   },
   sort: {
     title: "Sort",
-    description: "Choose a sort option, or press O or Escape to return to the task list.",
-    closeKey: "O",
+    description: "Choose a sort option, or press S or Escape to return to the task list.",
+    closeKey: "S",
     groups: [
       {
         id: "order",

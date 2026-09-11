@@ -8,11 +8,11 @@ Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progres
 
 - The first load opens with no dialog and moves focus to the task-list surface.
 - When tasks exist, focus is on the `listbox`; the first visible task is the active row.
-- An empty workspace focuses the `Saved tasks` list shell. From there, `N` opens capture.
+- An empty workspace focuses the `Saved tasks` list shell. From there, `C` opens capture.
 - A filtered empty workspace keeps a focusable task-list shell at roughly one task-row width and height, shows “No tasks match the current filters,” and offers a mouse-accessible Clear filters action. Clear filters is not a Tab destination because Escape resets filters from the list.
 - A load error focuses `Retry` until the first successful load can focus the list.
 - Loading or refreshing tasks must not steal focus from the current task, an open editor, or another dialog.
-- `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `N` or the command palette is the primary keyboard path.
+- `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `C` or the command palette is the primary keyboard path.
 
 The list uses a single focus stop. Arrow keys move the active row and do not add a tab stop for every task. The active row is exposed through `aria-activedescendant` and `aria-selected`.
 
@@ -26,7 +26,7 @@ One compact row above the list, in three groups in this order:
 
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count, active qualifiers, and sort state, such as “12 active tasks, by updated, desc”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
-`F` moves focus to the whole filter button group and `O` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen, the same focus key is pressed again, or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
+`F` moves focus to the whole filter button group and `S` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen, the same focus key is pressed again, or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
 
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
 - Priority: Highest through lowest. Every task defaults to P2. Task rows show the priority as a colored dot with an accessible label and tooltip; filters and the editor keep the text labels.
@@ -46,8 +46,8 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 
 | Key | Action |
 | --- | --- |
-| `N` | Open the New task dialog |
-| `Shift+N` | Open New task with the active task as parent |
+| `C` | Open the New task dialog |
+| `Shift+C` | Open New task with the active task as parent |
 | `Enter` | Edit the active task |
 | `Space` | Move the active task forward: open to in progress, in progress or paused to done, done or canceled back to open |
 | `Shift+Space` | Move the active task backward: open to done, in progress to open, paused or done to in progress, canceled to open |
@@ -63,10 +63,10 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `F then C` | Open the category filter |
 | `F then T` | Open the tag filter |
 | `/` | Open task search; works from the task list or filter toolbar |
-| `O` | Focus the sort toolbar; the next key picks a sort, or press `O` again to return to the list |
-| `O then C` | Sort by created date |
-| `O then U` | Sort by updated date |
-| `O then R` | Reverse the newest/oldest direction |
+| `S` | Focus the sort toolbar; the next key picks a sort, or press `S` again to return to the list |
+| `S then C` | Sort by created date |
+| `S then U` | Sort by updated date |
+| `S then R` | Reverse the newest/oldest direction |
 | `V` | Toggle task descriptions and the time footer |
 | `B` | Add a blocker to the active task |
 | `M` | Open the move picker, including Remove parent for nested tasks |
@@ -74,7 +74,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Home` / `End` | Jump to the first or last visible task |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
-| `Escape` | Return from the filter or sort toolbar to the task list; otherwise reset all filters; `F`/`O` also close their focused toolbar |
+| `Escape` | Return from the filter or sort toolbar to the task list; otherwise reset all filters; `F`/`S` also close their focused toolbar |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
 
@@ -89,9 +89,9 @@ Treat this document as the UI interaction contract when using browser automation
 - Start UI checks from the task list. Do not assume the New task button is focused or that a dialog is already open.
 - Wait for the initial focus contract: a populated workspace should have `document.activeElement` on `[role="listbox"]`; an empty workspace should focus `[aria-label="Saved tasks"]`.
 - Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
-- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The filter and sort button groups are programmatic focus stops for `F` and `O`, not normal Tab destinations. The dialog's priority section is its single keyboard focus stop.
+- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The filter and sort button groups are programmatic focus stops for `F` and `S`, not normal Tab destinations. The dialog's priority section is its single keyboard focus stop.
 - Clicking a toolbar button, the New task button, or a task status icon never moves DOM focus (the mousedown default is prevented), so the list keeps focus and arrow keys keep working. The header Help, Themes, and Settings buttons are outside the list and do take focus on click; dialogs opened from them return focus to the button.
-- Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `N` or the command palette to open capture.
+- Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `C` or the command palette to open capture.
 - Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row. The move picker puts its Remove parent action in a separate group above new-parent results when the task is nested.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
 - Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, toolbar focus modes, and window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.
