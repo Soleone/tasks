@@ -14,7 +14,7 @@ import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TaskList } from "@/components/TaskList";
-import { taskGroupIndex } from "@/components/taskTree";
+import { taskGroupOrder } from "@/components/taskTree";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
@@ -195,7 +195,7 @@ export default function App(): ReactElement {
   const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
 
-  const refreshTasks = useCallback(async (offset = 0): Promise<void> => {
+  const refreshTasks = useCallback(async (offset = 0, preserveContextOrder = false): Promise<void> => {
     const sequence = ++querySequence.current;
     setLoading(true);
     setLoadError(null);
@@ -217,7 +217,7 @@ export default function App(): ReactElement {
         },
       );
       if (sequence !== querySequence.current) return;
-      if (!offset) setContextOrder(new Map());
+      if (!offset && !preserveContextOrder) setContextOrder(new Map());
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setContextTasks((previous) => {
         if (!offset) return result.contextTasks;
@@ -652,7 +652,7 @@ export default function App(): ReactElement {
       const label = taskStatusMeta[restored.status]?.label ?? restored.status;
       setAnnouncement(`${restored.title}: ${label}`);
       showToast({ message: `Undo status change to ${label}` });
-      if (entry.from === "canceled" || entry.to === "canceled") void refreshTasks();
+      if (entry.from === "canceled" || entry.to === "canceled") void refreshTasks(0, true);
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
@@ -726,10 +726,15 @@ export default function App(): ReactElement {
         syncContextTasks(tasks, task);
         return;
       }
-      const previousIndex = taskGroupIndex(tasks, contextTasks, task.id) ?? tasks.findIndex((existing) => existing.id === task.id);
+      const currentGroupOrder = taskGroupOrder(tasks, contextTasks);
       setContextOrder((previous) => {
         const next = new Map(previous);
-        next.set(task.id, previousIndex);
+        let nextOrder = Math.max(-1, ...next.values()) + 1;
+        for (const rootId of currentGroupOrder.keys()) {
+          if (next.has(rootId)) continue;
+          next.set(rootId, nextOrder);
+          nextOrder += 1;
+        }
         return next;
       });
       const nextTasks = tasks.filter((existing) => existing.id !== task.id);
@@ -738,12 +743,6 @@ export default function App(): ReactElement {
       syncContextTasks(nextTasks, task);
       return;
     }
-    setContextOrder((previous) => {
-      if (!previous.has(task.id)) return previous;
-      const next = new Map(previous);
-      next.delete(task.id);
-      return next;
-    });
     if (!wasVisible) {
       const nextTasks = [...tasks, task].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
       setTasks(nextTasks);
@@ -760,7 +759,7 @@ export default function App(): ReactElement {
     recordStatusUndo(previous, current, wasActive);
     const message = STATUS_CHANGE_TOASTS[current.status];
     if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
-    if (previous.status === "canceled" || current.status === "canceled") void refreshTasks();
+    if (previous.status === "canceled" || current.status === "canceled") void refreshTasks(0, true);
   }
 
   const ToastIcon = toast?.Icon;
@@ -871,7 +870,7 @@ export default function App(): ReactElement {
             ++querySequence.current;
             updateVisibleTask(task);
             setAnnouncement(`Canceled: ${task.title}`);
-            void refreshTasks();
+            void refreshTasks(0, true);
           }}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}

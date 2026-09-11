@@ -26,17 +26,14 @@ function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
   return current.id;
 }
 
-export function taskGroupIndex(tasks: TaskRecord[], contextTasks: TaskRecord[], taskId: string): number | null {
-  const task = tasks.find((entry) => entry.id === taskId);
-  if (!task) return null;
+export function taskGroupOrder(tasks: TaskRecord[], contextTasks: TaskRecord[]): Map<string, number> {
   const byId = new Map([...contextTasks, ...tasks].map((entry) => [entry.id, entry]));
-  const rootId = rootFor(task, byId);
-  let firstIndex: number | null = null;
-  tasks.forEach((entry, index) => {
-    if (rootFor(entry, byId) !== rootId) return;
-    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
-  });
-  return firstIndex;
+  const order = new Map<string, number>();
+  for (const task of tasks) {
+    const rootId = rootFor(task, byId);
+    if (!order.has(rootId)) order.set(rootId, order.size);
+  }
+  return order;
 }
 
 /**

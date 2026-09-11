@@ -1181,20 +1181,34 @@ try {
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active context child"))');
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${contextVisibleCount} active task${contextVisibleCount === 1 ? "" : "s"}"`);
 
-  // Canceled parents use the same context treatment as completed parents.
+  // Canceled parents use the same context treatment as completed parents,
+  // including during the refresh needed to update canceled relationships.
   const canceledContextParent = (await command("task.create", { title: "Canceled context parent" })).task;
   await command("task.create", { title: "Active canceled-context child", parentId: canceledContextParent.id });
-  await command("task.delete", { id: canceledContextParent.id, expectedVersion: canceledContextParent.version });
+  const otherCanceledParent = (await command("task.create", { title: "Other canceled context parent" })).task;
+  await command("task.create", { title: "Other canceled-context child", parentId: otherCanceledParent.id });
+  await command("task.update", {
+    id: canceledContextParent.id,
+    expectedVersion: canceledContextParent.version,
+    title: "Canceled context parent updated",
+  });
   browser("reload");
-  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Canceled context parent"))');
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Canceled context parent updated"))');
   evaluate(`(() => {
-    const row = [...document.querySelectorAll('[role=option]')].find((entry) => entry.textContent.includes('Canceled context parent'));
+    const row = [...document.querySelectorAll('[role=option]')].find((entry) => entry.textContent.includes('Canceled context parent updated'));
     row?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
     document.querySelector('[role=listbox]')?.focus();
     return true;
   })()`);
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Canceled context parent")');
+  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  const canceledParentIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Canceled context parent updated"))');
+
+  browser("press", "Delete");
+  waitFor('document.querySelector("[role=option][data-context-parent][aria-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  const canceledContextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Canceled context parent updated"))');
+
+  check(`${canceledContextAfterIndex} === ${canceledParentIndex}`);
   check('document.querySelector("[role=option][data-context-parent] [data-status=canceled]") !== null');
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active canceled-context child"))');
 
