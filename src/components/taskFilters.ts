@@ -2,7 +2,7 @@ import {
   Circle,
   CircleCheck,
   CirclePause,
-  CircleDashed,
+  RotateCw,
   CircleX,
   type LucideIcon,
 } from "lucide-react";
@@ -16,7 +16,7 @@ type TaskStatusMeta = {
 
 export const taskStatusMeta: Record<TaskStatus, TaskStatusMeta> = {
   open: { label: "Open", Icon: Circle, color: "text-muted-foreground" },
-  in_progress: { label: "In progress", Icon: CircleDashed, color: "text-primary" },
+  in_progress: { label: "In progress", Icon: RotateCw, color: "text-primary" },
   paused: { label: "Paused", Icon: CirclePause, color: "text-warning" },
   done: { label: "Done", Icon: CircleCheck, color: "text-success" },
   canceled: { label: "Canceled", Icon: CircleX, color: "text-destructive" },
