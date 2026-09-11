@@ -2,14 +2,15 @@
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** Today, Yesterday, Sep 8 (this year), or Dec 10, 2025. Local calendar days. */
+/** Recent past dates use relative wording; older dates use calendar dates. */
 export function formatTaskDate(iso: string, now = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   const startOfDay = (value: Date): number => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
   const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / (24 * 60 * 60 * 1000));
-  if (daysAgo === 0) return "Today";
-  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo === 0) return "today";
+  if (daysAgo === 1) return "yesterday";
+  if (daysAgo > 1 && daysAgo < 7) return `${daysAgo} days ago`;
   const monthDay = `${MONTHS[date.getMonth()]} ${date.getDate()}`;
   return date.getFullYear() === now.getFullYear() ? monthDay : `${monthDay}, ${date.getFullYear()}`;
 }

@@ -9,10 +9,12 @@ function iso(year: number, monthIndex: number, day: number, hour = 12, minute = 
   return new Date(year, monthIndex, day, hour, minute).toISOString();
 }
 
-test("formatTaskDate names today, yesterday, this year, and other years", () => {
-  assert.equal(formatTaskDate(iso(2026, 8, 10, 8), NOW), "Today");
-  assert.equal(formatTaskDate(iso(2026, 8, 9, 23, 59), NOW), "Yesterday");
-  assert.equal(formatTaskDate(iso(2026, 8, 8), NOW), "Sep 8");
+test("formatTaskDate names recent relative dates and older calendar dates", () => {
+  assert.equal(formatTaskDate(iso(2026, 8, 10, 8), NOW), "today");
+  assert.equal(formatTaskDate(iso(2026, 8, 9, 23, 59), NOW), "yesterday");
+  assert.equal(formatTaskDate(iso(2026, 8, 8), NOW), "2 days ago");
+  assert.equal(formatTaskDate(iso(2026, 8, 4), NOW), "6 days ago");
+  assert.equal(formatTaskDate(iso(2026, 8, 3), NOW), "Sep 3");
   assert.equal(formatTaskDate(iso(2026, 0, 1), NOW), "Jan 1");
   assert.equal(formatTaskDate(iso(2025, 11, 10), NOW), "Dec 10, 2025");
   assert.equal(formatTaskDate(iso(2026, 8, 11), NOW), "Sep 11");

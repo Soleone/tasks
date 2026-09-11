@@ -159,14 +159,12 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
       {showUpdated ? (
         <span className="inline-flex min-w-0 items-center gap-1" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
           <RotateCcwClock className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="sr-only">Updated </span>
-          <span>{formatTaskDate(task.updatedAt)}</span>
+          <span>Updated {formatTaskDate(task.updatedAt)}</span>
         </span>
       ) : null}
       <span className="inline-flex min-w-0 items-center gap-1" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
         <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="sr-only">Created </span>
-        <span>{formatTaskDate(task.createdAt)}</span>
+        <span>Created {formatTaskDate(task.createdAt)}</span>
       </span>
     </p>
   );

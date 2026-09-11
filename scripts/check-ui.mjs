@@ -829,16 +829,18 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "v");
   waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
+  check('[...document.querySelectorAll("[role=option]")].every((row) => row.textContent.includes("Created today"))');
   check('[...document.querySelectorAll("[role=option]")].every((row) => row.querySelector("[title^=\\"Created\\"]") !== null)');
   check('document.querySelector("[title^=\\"Updated\\"]") === null');
-  // Stamp two rows older: their created dates shorten and the updated line
-  // appears only where the day differs from the creation day.
+  // Stamp two rows older: recent timestamps use relative labels and the
+  // updated line appears only where the day differs from creation.
   const stampDb = new DatabaseSync(path.join(scratch, "tasks.db"));
-  stampDb.prepare("UPDATE tasks SET created_at = ? WHERE title LIKE 'Tag cockpit%'").run("2026-01-05T12:00:00.000Z");
-  stampDb.prepare("UPDATE tasks SET created_at = ? WHERE title = 'Planning only #planning'").run("2026-01-06T12:00:00.000Z");
+  stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title LIKE 'Tag cockpit%'").run("2026-01-05T12:00:00.000Z", "2026-09-08T12:00:00.000Z");
+  stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title = 'Planning only #planning'").run("2026-01-06T12:00:00.000Z", "2026-09-08T12:00:00.000Z");
   stampDb.close();
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
+  check('[...document.querySelectorAll("[role=option]")].filter((row) => row.textContent.includes("Updated 2 days ago")).length === 2');
   check('document.querySelector("[title^=\\"Created Jan 5, 2026\\"]") !== null');
   check('document.querySelectorAll("[title^=\\"Updated\\"]").length === 2');
   check('[...document.querySelectorAll("[role=option]")].filter((row) => row.querySelector("[title^=\\"Updated\\"]")).every((row) => { const timestamps = [...row.querySelectorAll("[title^=\\"Updated\\"], [title^=\\"Created\\"]")]; return timestamps[0]?.title.startsWith("Updated") && timestamps[1]?.title.startsWith("Created"); })');
