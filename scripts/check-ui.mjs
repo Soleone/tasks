@@ -826,6 +826,7 @@ try {
   waitFor('document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
   check('document.querySelector("[title^=\\"Created Jan 5, 2026\\"]") !== null');
   check('document.querySelectorAll("[title^=\\"Updated\\"]").length === 2');
+  check('[...document.querySelectorAll("[role=option]")].filter((row) => row.querySelector("[title^=\\"Updated\\"]")).every((row) => { const timestamps = [...row.querySelectorAll("[title^=\\"Updated\\"], [title^=\\"Created\\"]")]; return timestamps[0]?.title.startsWith("Updated") && timestamps[1]?.title.startsWith("Created"); })');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, newest first"');
   // Sort by created, then reverse; the stamped rows pin the order.
   browser("focus", "[role=listbox]");

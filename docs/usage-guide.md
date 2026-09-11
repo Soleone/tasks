@@ -36,7 +36,7 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 
 ## Time footer
 
-Hidden unless Times is on (`V`). One quiet final row in the full task view: the created date always, the updated date only when it falls on another day. Dates read Today, Yesterday, Sep 8 (this year), or Dec 10, 2025; hovering a date shows the full local timestamp with time.
+Hidden unless Times is on (`V`). One quiet final row in the full task view: the updated date leads when it falls on another day, followed by the created date; otherwise only the created date appears. Dates read Today, Yesterday, Sep 8 (this year), or Dec 10, 2025; hovering a date shows the full local timestamp with time.
 
 ## Keyboard shortcuts
 

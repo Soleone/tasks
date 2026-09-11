@@ -150,16 +150,11 @@ export function TaskRowRelationships({ task, blockedByLabels }: {
   );
 }
 
-/** Quiet created/updated line for the time footer. Updated hides on its creation day. */
+/** Quiet created/updated line for the time footer. Updated leads when it differs. */
 export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-      <span className="inline-flex min-w-0 items-center gap-1" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
-        <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="sr-only">Created </span>
-        <span>{formatTaskDate(task.createdAt)}</span>
-      </span>
       {showUpdated ? (
         <span className="inline-flex min-w-0 items-center gap-1" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
           <RotateCcwClock className="size-3.5 shrink-0" aria-hidden="true" />
@@ -167,6 +162,11 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
           <span>{formatTaskDate(task.updatedAt)}</span>
         </span>
       ) : null}
+      <span className="inline-flex min-w-0 items-center gap-1" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
+        <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="sr-only">Created </span>
+        <span>{formatTaskDate(task.createdAt)}</span>
+      </span>
     </p>
   );
 }
