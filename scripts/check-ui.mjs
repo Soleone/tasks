@@ -221,19 +221,20 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, desc"');
-  // P pauses without leaving Active; it stays visible because paused is active.
+  // P pauses and removes the task from Active. The toast explains the hidden row.
   browser("press", "p");
-  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task paused")');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · by updated, desc"');
+  // Paused belongs to Inactive, where P can resume it to in progress.
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Press P to resume")');
-  browser("press", "f");
-  browser("press", "s");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=option]")');
-  browser("press", "f");
-  browser("press", "s");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
-  // P again resumes a paused task to in progress.
   browser("press", "p");
-  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
+  waitFor('!document.querySelector("[role=option]")');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
@@ -250,14 +251,15 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   browser("press", "Shift+Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
-  // Paused Space still completes: pause, then Space moves paused to done.
+  // Paused Space still completes: pause, switch to Inactive, then move paused to done.
   browser("press", "p");
-  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
-  browser("press", "Space");
-  waitFor('!document.querySelector("[role=option]")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task paused")');
   browser("press", "f");
   browser("press", "s");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked done")');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   browser("press", "f");

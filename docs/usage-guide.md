@@ -28,7 +28,7 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 
 `F` moves focus to the whole filter button group and `S` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen, the same focus key is pressed again, or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
 
-- Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
+- Status: Active means open or in progress. Inactive means paused, done, or canceled. The `canceled` spelling stays canonical.
 - Priority: Highest through lowest. Every task defaults to P2. Task rows show the priority as a colored dot with an accessible label and tooltip; filters and the editor keep the text labels.
 - Category: the `@category` grouping. Single-select.
 - Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag; `Enter` selects it first when none are selected, then closes; a `Clear tags` row empties the filter.
@@ -51,7 +51,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Enter` | Edit the active task |
 | `Space` | Move the active task forward: open to in progress, in progress or paused to done, done or canceled back to open |
 | `Shift+Space` | Move the active task backward: open to done, in progress to open, paused or done to in progress, canceled to open |
-| `P` | Pause an open or in-progress task, or resume a paused task to in progress. The palette entry runs the same action by mouse. |
+| `P` | Pause an open or in-progress task, hiding it from Active, or resume a paused task to in progress. The palette entry runs the same action by mouse. |
 | `Delete` | Immediately cancel the active task |
 | `Ctrl/⌘+Z` | Undo the last task-list status change; also in the shortcuts palette. A newer status change replaces it, and the toast confirms the restore |
 | `0` `1` `2` `3` `4` | Set the active task to P0 through P4 |

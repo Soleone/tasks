@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { CircleHelp, CircleX, Palette, Settings2, SquareCheck } from "lucide-react";
+import { CircleHelp, CirclePause, CircleX, Palette, Settings2, SquareCheck, type LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
@@ -102,7 +102,13 @@ type StatusUndoEntry = {
 
 type Toast = {
   message: string;
-  kind: "completion" | "cancellation" | "undo";
+  Icon?: LucideIcon;
+};
+
+const STATUS_CHANGE_TOASTS: Partial<Record<TaskStatus, Toast>> = {
+  paused: { message: "Task paused and hidden from Active view", Icon: CirclePause },
+  done: { message: "Task marked done", Icon: SquareCheck },
+  canceled: { message: "Task canceled", Icon: CircleX },
 };
 
 const UNDO_TOAST_DURATION_MS = 3000;
@@ -533,7 +539,7 @@ export default function App(): ReactElement {
         ? await transitionTask("task.start", current.id, current.version, { idempotencyKey: crypto.randomUUID() })
         : await transitionTask("task.pause", current.id, current.version, { idempotencyKey: crypto.randomUUID() });
       updateVisibleTask(result.task);
-      if (result.changed !== false) recordStatusUndo(current, result.task, wasActive);
+      if (result.changed !== false) handleStatusChanged(current, result.task, wasActive);
       setAnnouncement(`${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`);
     } catch (caught) {
       setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
@@ -569,9 +575,9 @@ export default function App(): ReactElement {
     setStatusUndo(null);
   }
 
-  function showToast(message: string, kind: Toast["kind"]): void {
+  function showToast(nextToast: Toast): void {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
-    setToast({ message, kind });
+    setToast(nextToast);
     toastTimer.current = window.setTimeout(() => {
       setToast(null);
       toastTimer.current = null;
@@ -611,7 +617,7 @@ export default function App(): ReactElement {
       retireStatusUndo();
       const label = taskStatusMeta[restored.status]?.label ?? restored.status;
       setAnnouncement(`${restored.title}: ${label}`);
-      showToast(`Undo status change to ${label}`, "undo");
+      showToast({ message: `Undo status change to ${label}` });
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
@@ -688,11 +694,12 @@ export default function App(): ReactElement {
   }
 
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
-    if (current && (current as { changed?: boolean }).changed === false) return;
     recordStatusUndo(previous, current, wasActive);
-    if (current.status === "done") showToast("Task marked done", "completion");
-    if (current.status === "canceled") showToast("Task canceled", "cancellation");
+    const toast = STATUS_CHANGE_TOASTS[current.status];
+    if (toast) showToast(toast);
   }
+
+  const ToastIcon = toast?.Icon;
 
   return (
     <main className="min-h-svh bg-background text-foreground">
@@ -805,8 +812,7 @@ export default function App(): ReactElement {
         <p role="status" className="sr-only">{announcement}</p>
         {toast ? (
           <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
-            {toast.kind === "completion" ? <SquareCheck aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
-            {toast.kind === "cancellation" ? <CircleX aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
+            {ToastIcon ? <ToastIcon aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
             <span>{toast.message}</span>
           </div>
         ) : null}

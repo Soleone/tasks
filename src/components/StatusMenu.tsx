@@ -35,22 +35,22 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
             <CommandGroup heading="Presets">
               <CommandItem
                 value="Preset Active"
-                keywords={["f s active open in progress paused toggle"]}
+                keywords={["f s active open in progress toggle"]}
                 onSelect={() => onSelect("active", null)}
               >
                 <Circle aria-hidden="true" />
                 <span className="font-medium">Active</span>
-                <span className="text-muted-foreground">Open, in progress, paused</span>
+                <span className="text-muted-foreground">Open, in progress</span>
                 {exactStatus === null && preset === "active" ? <Check aria-hidden="true" className="ml-auto" /> : null}
               </CommandItem>
               <CommandItem
                 value="Preset Inactive"
-                keywords={["f s inactive done canceled toggle"]}
+                keywords={["f s inactive paused done canceled toggle"]}
                 onSelect={() => onSelect("inactive", null)}
               >
                 <Circle aria-hidden="true" />
                 <span className="font-medium">Inactive</span>
-                <span className="text-muted-foreground">Done, canceled</span>
+                <span className="text-muted-foreground">Paused, done, canceled</span>
                 {exactStatus === null && preset === "inactive" ? <Check aria-hidden="true" className="ml-auto" /> : null}
               </CommandItem>
             </CommandGroup>
