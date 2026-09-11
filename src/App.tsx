@@ -106,7 +106,7 @@ type Toast = {
 };
 
 const STATUS_CHANGE_TOASTS: Partial<Record<TaskStatus, Toast>> = {
-  paused: { message: "Task paused and hidden from Active view", Icon: CirclePause },
+  paused: { message: "Task paused", Icon: CirclePause },
   done: { message: "Task marked done", Icon: SquareCheck },
   canceled: { message: "Task canceled", Icon: CircleX },
 };
