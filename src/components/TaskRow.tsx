@@ -195,8 +195,8 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
           <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
-        {variant === "full" && showTimestamps ? <TaskRowTimestamps task={task} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
+        {variant === "full" && showTimestamps ? <TaskRowTimestamps task={task} /> : null}
       </div>
     </div>
   );

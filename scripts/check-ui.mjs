@@ -614,6 +614,15 @@ try {
   waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 7');
   assert.equal((await command("task.list", { unblocked: true })).total, 8);
 
+  // Relationship context stays in the default row order; the optional time
+  // footer is the final row even when a task is blocked.
+  browser("focus", "[role=listbox]");
+  browser("press", "v");
+  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
+  check('(() => { const row = [...document.querySelectorAll("[role=option]")].find((item) => item.textContent.includes("Blocked task")); if (!row) return false; const paragraphs = [...row.querySelectorAll("p")]; const relationship = paragraphs.find((entry) => entry.textContent.includes("Release blocker")); const timestamp = paragraphs.find((entry) => entry.querySelector("[title^=\\"Created\\"]")); return relationship !== undefined && timestamp !== undefined && paragraphs.indexOf(relationship) < paragraphs.indexOf(timestamp) && paragraphs.indexOf(timestamp) === paragraphs.length - 1; })()');
+  browser("press", "v");
+  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "false"');
+
   // F then C opens the category selector. Choosing a category enables the Folder
   // filter button; clicking it again clears the category filter.
   await command("task.create", { title: "Roadmap task @roadmap" });
