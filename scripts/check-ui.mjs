@@ -202,7 +202,7 @@ try {
   waitFor('document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-shortcut-guide]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
   browser("press", "f");
   waitFor('document.activeElement.matches("[data-toolbar=filters]") && document.querySelector("[data-shortcut-guide=filter]") !== null');
-  // F then S toggles Active/Inactive presets; F then A remains as an alias.
+  // F then S toggles the Active/Inactive presets.
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
@@ -210,8 +210,14 @@ try {
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('(() => { const active = document.querySelector("[data-filter=task-status]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   waitFor('!document.querySelector("[role=option]")');
+  // A no longer aliases the status preset.
   browser("press", "f");
   browser("press", "a");
+  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true"');
+  browser("press", "Escape");
+  waitFor('document.activeElement.matches("[role=listbox]")');
+  browser("press", "f");
+  browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, desc"');
@@ -533,14 +539,14 @@ try {
 
   // Canceled tasks are easy to recover through the inactive filter.
   browser("press", "f");
-  browser("press", "a");
+  browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   assert.equal((await command("task.get", { id: deletedId })).task.status, "open");
   browser("press", "f");
-  browser("press", "a");
+  browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4');
 
   // A stale immediate cancellation is rejected and refreshes the row.
@@ -573,14 +579,14 @@ try {
   evaluate('window.fetch = window.originalFetch; true');
   assert.equal((await command("task.get", { id: lostId })).task.status, "canceled");
   browser("press", "f");
-  browser("press", "a");
+  browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   assert.equal((await command("task.get", { id: lostId })).task.status, "open");
   browser("press", "f");
-  browser("press", "a");
+  browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 4');

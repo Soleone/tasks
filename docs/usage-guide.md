@@ -56,7 +56,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Ctrl/⌘+Z` | Undo the last task-list status change; also in the shortcuts palette. A newer status change replaces it, and the toast confirms the restore |
 | `0` `1` `2` `3` `4` | Set the active task to P0 through P4 |
 | `F` | Focus the filter toolbar; the next key picks a filter, or press `F` again to return to the list |
-| `F then S` | Switch between active and inactive task views (`A` works too) |
+| `F then S` | Switch between active and inactive task views |
 | `F then O` / `I` / `D` / `P` / `X` | Show only Open / In progress / Done / Paused / Canceled tasks |
 | `F then 0`–`4` | Filter to P0 through P4; pressing the active number clears it |
 | `F then U` | Toggle the unblocked-task view |

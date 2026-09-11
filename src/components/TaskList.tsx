@@ -674,7 +674,7 @@ export function TaskList({
           actions.returnToList();
           return;
         }
-        if ((key === "s" || key === "a") && !event.shiftKey) {
+        if (key === "s" && !event.shiftKey) {
           event.preventDefault();
           actions.toggleStatusPreset();
           return;
@@ -850,7 +850,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C S A U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -875,7 +875,7 @@ export function TaskList({
           <ButtonGroup
             ref={filterToolbar}
             aria-label="Task list filters"
-            aria-keyshortcuts="F S A O I D P X 0 1 2 3 4 C T U /"
+            aria-keyshortcuts="F S O I D P X 0 1 2 3 4 C T U /"
             tabIndex={-1}
             data-toolbar="filters"
             data-toolbar-active={toolbarMode === "filter" || undefined}
@@ -1140,7 +1140,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape C Shift+C S A U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
