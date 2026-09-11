@@ -70,7 +70,7 @@ try {
   waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
   check('document.querySelector("[role=dialog]") === null');
   check('document.body.textContent.includes("Press C or choose New task")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   // C opens the shared create dialog with the title focused and notes closed.
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
@@ -158,7 +158,7 @@ try {
   assert.equal(saved[0].category.slug, "launch");
   assert.equal(saved[0].tags[0].slug, "planning");
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.textContent === \"\"");
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");
@@ -177,7 +177,7 @@ try {
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
   assert.equal(saved[0].priority, 2);
@@ -206,7 +206,7 @@ try {
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 inactive tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 inactive tasks"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('(() => { const active = document.querySelector("[data-filter=task-status]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   waitFor('!document.querySelector("[role=option]")');
@@ -220,11 +220,11 @@ try {
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   // P pauses and removes the task from Active. The toast explains the hidden row.
   browser("press", "p");
   waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task paused")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   // Paused belongs to Inactive, where P can resume it to in progress.
   browser("press", "f");
   browser("press", "s");
@@ -277,7 +277,7 @@ try {
   check('document.activeElement.matches("[data-toolbar=filters]")');
   browser("press", "d");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done") && document.activeElement.matches("[role=listbox]")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 done tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 done tasks"');
   // Escape from the focused toolbar returns to the list without changing the
   // current filter. Escape on the list still clears all filters.
   browser("press", "f");
@@ -339,7 +339,7 @@ try {
   waitFor('!document.querySelector("[role=dialog]")');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "3 active tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "3 active tasks"');
 
   // Themes: the dedicated picker drives the regions, and the choice persists.
   const themeCount = (await command("theme.list")).themes.length;
@@ -682,7 +682,7 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1 && document.activeElement.matches("[role=listbox]")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · @roadmap · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · @roadmap"');
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-category]").getAttribute("aria-label").includes("roadmap")');
   browser("focus", "[role=listbox]");
@@ -713,7 +713,7 @@ try {
   browser("press", "f");
   browser("press", "0");
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · P0 · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · P0"');
   waitFor('document.activeElement.matches("[role=listbox]") && document.querySelector("[data-empty-state=filtered]") !== null');
   check('document.body.textContent.includes("No tasks match the current filters")');
   check('document.querySelector("[data-empty-state=filtered] button").tabIndex === -1');
@@ -802,7 +802,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("product"))');
   browser("press", "Space");
   waitFor('document.querySelectorAll(\'[role=listbox][aria-label^="Tasks"] [role=option]\').length === 1');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · #planning #product · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · #planning #product"');
   check('document.querySelector(\'[role=listbox][aria-label^="Tasks"] [role=option]\').textContent.includes("Tag cockpit")');
   // Enter closes the picker without changing the current multi-selection.
   browser("press", "Enter");
@@ -826,7 +826,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
   browser("press", "Enter");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
-  check(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning · by updated, desc"`);
+  check(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning"`);
   browser("focus", "[role=listbox]");
   browser("press", "f");
   browser("press", "t");
@@ -855,7 +855,7 @@ try {
   check('document.querySelector(\'input[name="search"]\').value === "accessibility"');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · “accessibility” · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · “accessibility”"');
   check('document.querySelector("[data-filter=task-search]").getAttribute("aria-label").includes("accessibility")');
   // A query with no matches shows the filtered empty state with Clear filters.
   browser("focus", "[role=listbox]");
@@ -865,10 +865,10 @@ try {
   check('document.querySelector(\'input[name="search"]\').value === "zzz-no-such-task"');
   browser("press", "Enter");
   waitFor('document.body.textContent.includes("No tasks match the current filters")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · “zzz-no-such-task” · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · “zzz-no-such-task”"');
   browser("find", "role", "button", "click", "--name", "Clear filters");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   // Task details and sorting: V toggles descriptions plus the time footer,
   // S drives the sort, and both survive a reload through localStorage.
   check('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false"');
@@ -896,7 +896,7 @@ try {
   check('document.querySelector("[title^=\\"Created Jan 5, 2026\\"]") !== null');
   check('document.querySelectorAll("[title^=\\"Updated\\"]").length === 2');
   check('[...document.querySelectorAll("[role=option]")].filter((row) => row.querySelector("[title^=\\"Updated\\"]")).every((row) => { const timestamps = [...row.querySelectorAll("[title^=\\"Updated\\"], [title^=\\"Created\\"]")]; return timestamps[0]?.title.startsWith("Updated") && timestamps[1]?.title.startsWith("Created"); })');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   // Sort by created, then reverse; the stamped rows pin the order. S focuses
   // the whole sort toolbar and a choice returns focus to the list.
   browser("focus", "[role=listbox]");
@@ -927,7 +927,7 @@ try {
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, asc"');
   browser("press", "s");
   browser("press", "r");
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, desc"');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   browser("press", "v");
   waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null');
   evaluate('document.querySelector("[data-sort=task-sort-created]").click(); true');
@@ -938,7 +938,7 @@ try {
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, desc"');
   evaluate('document.querySelector("[data-sort=task-sort-updated]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, desc"');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   evaluate('document.querySelector("[data-view=task-details]").click(); true');
   waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true" && document.querySelector("[data-task-description]") !== null && document.querySelector("[title^=\\"Created\\"]") !== null');
   evaluate('document.querySelector("[data-view=task-details]").click(); true');

@@ -841,6 +841,9 @@ export function TaskList({
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
   const summaryTaskCount = visibleRows.length;
+  const sortSummaryText = sortField === "updated" && sortDirection === "desc"
+    ? null
+    : sortSummary(sortField, sortDirection);
   const filterSummary = [
     `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`,
     priorityFilter !== null ? priorityLabel : null,
@@ -848,7 +851,7 @@ export function TaskList({
     summaryTags,
     searchActive ? `“${searchQuery.trim()}”` : null,
     showUnblocked ? "unblocked" : null,
-    sortSummary(sortField, sortDirection),
+    sortSummaryText,
   ].filter((part): part is string => part !== null).join(" · ");
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
   const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));

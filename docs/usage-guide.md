@@ -24,7 +24,7 @@ One compact row above the list, in three groups in this order:
 [ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ] [ Created Updated Reverse ] [ Details ]
 ```
 
-Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count, active qualifiers, and sort state, such as “12 active tasks, by updated, desc”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
+Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers; it adds the sort state only when sorting is not updated/newest, such as “12 active tasks” or “12 active tasks · by created, desc”. Omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
 `F` moves focus to the whole filter button group and `S` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen, the same focus key is pressed again, or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
 

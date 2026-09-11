@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -30,7 +29,6 @@ export function SearchDialog({ open, onClose, finalFocus, initialQuery, onSelect
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogHeader className="sr-only">
         <DialogTitle>Search tasks</DialogTitle>
-        <DialogDescription>Search covers titles and descriptions. The query stays applied after this closes.</DialogDescription>
       </DialogHeader>
       <DialogContent
         className="sm:max-w-md"
@@ -39,10 +37,6 @@ export function SearchDialog({ open, onClose, finalFocus, initialQuery, onSelect
         finalFocus={finalFocus}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Search aria-hidden="true" className="size-4" />
-            Search tasks
-          </DialogTitle>
           <DialogDescription>Titles and descriptions. No autocomplete; combines with every other filter.</DialogDescription>
         </DialogHeader>
         <form
