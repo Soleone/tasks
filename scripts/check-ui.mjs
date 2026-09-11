@@ -1167,17 +1167,37 @@ try {
   })()`);
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Completed context parent")');
+  const contextParentIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option][aria-expanded=true] [data-status=in_progress]") !== null');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option][data-context-parent][aria-expanded=true]")?.textContent.includes("Completed context parent")');
   const contextVisibleCount = evaluate('document.querySelectorAll("[role=option]:not([data-context-parent])").length');
-  check('document.querySelector("[data-parent-context]")?.textContent === "Parent context · Done"');
+  const contextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
+  check(`document.querySelector("[data-parent-context]")?.textContent === "Parent context · Done"`);
+  check(`${contextAfterIndex} === ${contextParentIndex}`);
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active context child"))');
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${contextVisibleCount} active task${contextVisibleCount === 1 ? "" : "s"}"`);
 
+  // Canceled parents use the same context treatment as completed parents.
+  const canceledContextParent = (await command("task.create", { title: "Canceled context parent" })).task;
+  await command("task.create", { title: "Active canceled-context child", parentId: canceledContextParent.id });
+  await command("task.delete", { id: canceledContextParent.id, expectedVersion: canceledContextParent.version });
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Canceled context parent"))');
+  evaluate(`(() => {
+    const row = [...document.querySelectorAll('[role=option]')].find((entry) => entry.textContent.includes('Canceled context parent'));
+    row?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    document.querySelector('[role=listbox]')?.focus();
+    return true;
+  })()`);
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Canceled context parent")');
+  check('document.querySelector("[role=option][data-context-parent] [data-status=canceled]") !== null');
+  check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active canceled-context child"))');
+
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed-parent context, move-parent removal, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

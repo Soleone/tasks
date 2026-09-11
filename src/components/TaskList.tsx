@@ -67,6 +67,7 @@ function isNativeButtonAction(target: EventTarget | null): boolean {
 type TaskListProps = {
   tasks: TaskRecord[];
   contextTasks: TaskRecord[];
+  contextOrder: ReadonlyMap<string, number>;
   total: number;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
@@ -167,6 +168,7 @@ const ACTIVE_TOOLBAR_GROUP_CLASS = `${TOOLBAR_GROUP_CLASS} ring-2 ring-ring ring
 export function TaskList({
   tasks,
   contextTasks,
+  contextOrder,
   total,
   statusPreset,
   exactStatus,
@@ -236,7 +238,7 @@ export function TaskList({
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
 
-  const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks), [tasks, expandedIds, contextTasks]);
+  const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
   const hasMore = tasks.length < total;
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.

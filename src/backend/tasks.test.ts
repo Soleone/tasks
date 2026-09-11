@@ -100,14 +100,20 @@ test("task.list can include filtered-out parent context without changing matches
       request("task.complete", { id: parent.id, expectedVersion: parent.version }, { idempotencyKey: "context-complete" }),
       databasePath,
     );
+    const canceledParent = task(executeCommand(request("task.create", { title: "Canceled parent" }, { idempotencyKey: "canceled-context-parent" }), databasePath));
+    const canceledChild = task(executeCommand(request("task.create", { title: "Active canceled child", parentId: canceledParent.id }, { idempotencyKey: "canceled-context-child" }), databasePath));
+    executeCommand(
+      request("task.delete", { id: canceledParent.id, expectedVersion: canceledParent.version }, { idempotencyKey: "canceled-context-delete" }),
+      databasePath,
+    );
 
     const active = executeCommand(
       request("task.list", { status: ["open"], includeAncestors: true }),
       databasePath,
     );
-    assert.equal(active.total, 1);
-    assert.deepEqual((active.tasks as TaskRecord[]).map((item) => item.id), [child.id]);
-    assert.deepEqual((active.contextTasks as TaskRecord[]).map((item) => item.id), [parent.id]);
+    assert.equal(active.total, 2);
+    assert.deepEqual((active.tasks as TaskRecord[]).map((item) => item.id).sort(), [child.id, canceledChild.id].sort());
+    assert.deepEqual((active.contextTasks as TaskRecord[]).map((item) => item.id).sort(), [parent.id, canceledParent.id].sort());
 
     const withoutContext = executeCommand(request("task.list", { status: ["open"] }), databasePath);
     assert.deepEqual(withoutContext.contextTasks, []);

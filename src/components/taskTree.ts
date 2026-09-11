@@ -34,6 +34,7 @@ export function visibleTaskRows(
   tasks: TaskRecord[],
   expandedIds: ReadonlySet<string>,
   contextTasks: TaskRecord[] = [],
+  rootOrder: ReadonlyMap<string, number> = new Map(),
 ): VisibleTaskRow[] {
   const matchingIds = new Set(tasks.map((task) => task.id));
   const byId = new Map([...contextTasks, ...tasks].map((task) => [task.id, task]));
@@ -42,10 +43,10 @@ export function visibleTaskRows(
   tasks.forEach((task, index) => {
     const rootId = rootFor(task, byId);
     const root = byId.get(rootId) ?? task;
-    const group = groups.get(rootId) ?? { root, descendants: [], rootIndex: index };
+    const group = groups.get(rootId) ?? { root, descendants: [], rootIndex: rootOrder.get(rootId) ?? index };
     if (task.id === rootId) group.root = task;
     else group.descendants.push(task);
-    group.rootIndex = Math.min(group.rootIndex, index);
+    if (!rootOrder.has(rootId)) group.rootIndex = Math.min(group.rootIndex, index);
     groups.set(rootId, group);
   });
 

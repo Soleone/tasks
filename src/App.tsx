@@ -146,6 +146,7 @@ function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, dir
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
+  const [contextOrder, setContextOrder] = useState<Map<string, number>>(() => new Map());
   const [total, setTotal] = useState(0);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>("active");
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(null);
@@ -215,6 +216,7 @@ export default function App(): ReactElement {
         },
       );
       if (sequence !== querySequence.current) return;
+      if (!offset) setContextOrder(new Map());
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setContextTasks((previous) => {
         if (!offset) return result.contextTasks;
@@ -715,12 +717,24 @@ export default function App(): ReactElement {
         syncContextTasks(tasks, task);
         return;
       }
+      const previousIndex = tasks.findIndex((existing) => existing.id === task.id);
+      setContextOrder((previous) => {
+        const next = new Map(previous);
+        next.set(task.id, previousIndex);
+        return next;
+      });
       const nextTasks = tasks.filter((existing) => existing.id !== task.id);
       setTasks(nextTasks);
       setTotal((previous) => Math.max(previous - 1, 0));
       syncContextTasks(nextTasks, task);
       return;
     }
+    setContextOrder((previous) => {
+      if (!previous.has(task.id)) return previous;
+      const next = new Map(previous);
+      next.delete(task.id);
+      return next;
+    });
     if (!wasVisible) {
       const nextTasks = [...tasks, task].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
       setTasks(nextTasks);
@@ -798,6 +812,7 @@ export default function App(): ReactElement {
         <TaskList
           tasks={tasks}
           contextTasks={contextTasks}
+          contextOrder={contextOrder}
           total={total}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
