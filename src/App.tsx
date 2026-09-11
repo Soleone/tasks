@@ -14,6 +14,7 @@ import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { TaskList } from "@/components/TaskList";
+import { taskGroupIndex } from "@/components/taskTree";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
@@ -717,7 +718,7 @@ export default function App(): ReactElement {
         syncContextTasks(tasks, task);
         return;
       }
-      const previousIndex = tasks.findIndex((existing) => existing.id === task.id);
+      const previousIndex = taskGroupIndex(tasks, contextTasks, task.id) ?? tasks.findIndex((existing) => existing.id === task.id);
       setContextOrder((previous) => {
         const next = new Map(previous);
         next.set(task.id, previousIndex);

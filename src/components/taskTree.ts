@@ -26,6 +26,19 @@ function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
   return current.id;
 }
 
+export function taskGroupIndex(tasks: TaskRecord[], contextTasks: TaskRecord[], taskId: string): number | null {
+  const task = tasks.find((entry) => entry.id === taskId);
+  if (!task) return null;
+  const byId = new Map([...contextTasks, ...tasks].map((entry) => [entry.id, entry]));
+  const rootId = rootFor(task, byId);
+  let firstIndex: number | null = null;
+  tasks.forEach((entry, index) => {
+    if (rootFor(entry, byId) !== rootId) return;
+    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+  });
+  return firstIndex;
+}
+
 /**
  * Flattens the loaded task set into a shallow outline. Deeper relationships
  * stay visible as one-level descendants instead of creating an unbounded UI.

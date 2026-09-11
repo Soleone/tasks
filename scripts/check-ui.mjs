@@ -1156,6 +1156,8 @@ try {
   // remain in the current view. The context row stays expandable and is not
   // counted as an active task.
   const contextParent = (await command("task.create", { title: "Completed context parent" })).task;
+  const otherContextParent = (await command("task.create", { title: "Other context parent" })).task;
+  await command("task.create", { title: "Other context child", parentId: otherContextParent.id });
   await command("task.create", { title: "Active context child", parentId: contextParent.id });
   browser("reload");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Completed context parent"))');
