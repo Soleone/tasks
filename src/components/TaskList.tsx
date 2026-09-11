@@ -795,7 +795,6 @@ export function TaskList({
       }}
     >
       <div className="flex flex-col gap-2">
-        {modeHint ? <TaskListModeHelp mode={modeHint} /> : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             size="sm"
@@ -806,7 +805,8 @@ export function TaskList({
             <Plus aria-hidden="true" />
             New task
           </Button>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="relative flex flex-wrap items-center justify-end gap-2">
+          {modeHint ? <TaskListModeHelp mode={modeHint} onDismiss={clearPendingMode} /> : null}
           <ButtonGroup aria-label="Task list filters">
         <Tooltip>
           <TooltipTrigger
