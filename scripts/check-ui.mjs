@@ -628,7 +628,7 @@ try {
   browser("press", "ArrowLeft");
   waitFor('document.querySelectorAll("[role=option]").length === 5 && !document.querySelector("[data-depth=\\"1\\"]")');
 
-  // The unblocked filter uses dependency links, not task status, and can be
+  // The unblocked filter ignores canceled dependency targets and can be
   // toggled from the focused list with F then U.
   const blocker = (await command("task.create", { title: "Release blocker" })).task;
   const blocked = (await command("task.create", { title: "Blocked task" })).task;

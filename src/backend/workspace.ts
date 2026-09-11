@@ -152,7 +152,8 @@ function exportedTask(task: TaskRecord): TaskExportRecord {
     category: task.category?.slug ?? null,
     tags: task.tags.map((tag) => tag.slug),
     parentId: task.parentId,
-    blockedByIds: task.blockedByIds,
+    // The portable view preserves dependency edges, including canceled targets.
+    blockedByIds: task.dependencyIds,
     notesMarkdown: task.descriptionMarkdown,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,

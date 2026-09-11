@@ -231,15 +231,29 @@ function categoryFromRow(row: Row | undefined): ClassificationToken | null {
   return { slug: stringValue(row, "category_slug"), label: stringValue(row, "category_label") };
 }
 
-function blockedByIdsForTask(database: DatabaseSync, taskId: string): string[] {
+function dependencyIdsForTask(database: DatabaseSync, taskId: string): { dependencyIds: string[]; blockedByIds: string[] } {
   const rows = database
-    .prepare("SELECT depends_on_id FROM task_dependencies WHERE task_id = ? ORDER BY depends_on_id ASC")
+    .prepare(
+      `SELECT task_dependencies.depends_on_id, dependencies.status AS depends_on_status
+       FROM task_dependencies
+       JOIN tasks AS dependencies ON dependencies.id = task_dependencies.depends_on_id
+       WHERE task_dependencies.task_id = ?
+       ORDER BY task_dependencies.depends_on_id ASC`,
+    )
     .all(taskId) as Row[];
-  return rows.map((row) => stringValue(row, "depends_on_id"));
+  const dependencies = rows.map((row) => ({
+    id: stringValue(row, "depends_on_id"),
+    status: statusValue(row["depends_on_status"]),
+  }));
+  return {
+    dependencyIds: dependencies.map((dependency) => dependency.id),
+    blockedByIds: dependencies.filter((dependency) => dependency.status !== "canceled").map((dependency) => dependency.id),
+  };
 }
 
 function taskFromRow(database: DatabaseSync, row: Row): TaskRecord {
   const taskId = stringValue(row, "id");
+  const dependencies = dependencyIdsForTask(database, taskId);
   const tagRows = database
     .prepare(
       `SELECT tags.slug AS tag_slug, tags.label AS tag_label
@@ -259,7 +273,8 @@ function taskFromRow(database: DatabaseSync, row: Row): TaskRecord {
     category: categoryFromRow(row),
     tags: tagRows.map((tag) => ({ slug: stringValue(tag, "tag_slug"), label: stringValue(tag, "tag_label") })),
     parentId: nullableStringValue(row, "parent_id"),
-    blockedByIds: blockedByIdsForTask(database, taskId),
+    dependencyIds: dependencies.dependencyIds,
+    blockedByIds: dependencies.blockedByIds,
     version: numberValue(row, "version"),
     createdAt: stringValue(row, "created_at"),
     updatedAt: stringValue(row, "updated_at"),
@@ -278,9 +293,12 @@ function parentIdValue(row: Row): string | null {
 }
 
 function requireParentTask(database: DatabaseSync, parentId: string): void {
-  const row = database.prepare("SELECT id FROM tasks WHERE id = ?").get(parentId) as Row | undefined;
+  const row = database.prepare("SELECT status FROM tasks WHERE id = ?").get(parentId) as Row | undefined;
   if (!row) {
     throw new CommandError("PARENT_NOT_FOUND", `parent task ${parentId} was not found`);
+  }
+  if (statusValue(row.status) === "canceled") {
+    throw new CommandError("INVALID_PARENT", "a canceled task cannot be used as a parent; reopen it first");
   }
 }
 
@@ -432,6 +450,7 @@ function previewTask(input: PreparedTask, status: TaskStatus = "open", priority:
     category: input.classification.category,
     tags: input.classification.tags,
     parentId: null,
+    dependencyIds: [],
     blockedByIds: [],
     version: 1,
     createdAt: now,
@@ -832,18 +851,27 @@ function addDependency(database: DatabaseSync, request: ProtocolRequest): Record
   if (dependsOnId === current.id) {
     throw new CommandError("INVALID_DEPENDENCY", "a task cannot depend on itself");
   }
-  requireTask(database, dependsOnId);
+  const dependency = requireTask(database, dependsOnId);
   const existing = database
     .prepare("SELECT 1 AS found FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?")
     .get(current.id, dependsOnId) as Row | undefined;
   const changed = !existing;
+  if (changed && dependency.status === "canceled") {
+    throw new CommandError("INVALID_DEPENDENCY", "a canceled task cannot be used as a blocker; reopen it first");
+  }
   if (changed && reachesThroughDependencies(database, dependsOnId, current.id)) {
     throw new CommandError("DEPENDENCY_CYCLE", "this dependency would create a cycle");
   }
 
   if (request.readOnly || request.dryRun) {
     return taskResult(
-      { ...current, blockedByIds: changed ? [...current.blockedByIds, dependsOnId].sort() : current.blockedByIds },
+      {
+        ...current,
+        dependencyIds: changed ? [...current.dependencyIds, dependsOnId].sort() : current.dependencyIds,
+        blockedByIds: changed && dependency.status !== "canceled"
+          ? [...current.blockedByIds, dependsOnId].sort()
+          : current.blockedByIds,
+      },
       { dryRun: true, readOnly: Boolean(request.readOnly), changed },
     );
   }
@@ -893,7 +921,11 @@ function removeDependency(database: DatabaseSync, request: ProtocolRequest): Rec
 
   if (request.readOnly || request.dryRun) {
     return taskResult(
-      { ...current, blockedByIds: current.blockedByIds.filter((id) => id !== dependsOnId) },
+      {
+        ...current,
+        dependencyIds: current.dependencyIds.filter((id) => id !== dependsOnId),
+        blockedByIds: current.blockedByIds.filter((id) => id !== dependsOnId),
+      },
       { dryRun: true, readOnly: Boolean(request.readOnly), changed },
     );
   }
@@ -924,7 +956,7 @@ function listCategories(database: DatabaseSync): Record<string, unknown> {
     .prepare(
       `SELECT categories.slug, categories.label, COUNT(tasks.id) AS task_count
        FROM categories
-       JOIN tasks ON tasks.category_id = categories.id
+       JOIN tasks ON tasks.category_id = categories.id AND tasks.status <> 'canceled'
        GROUP BY categories.id, categories.slug, categories.label
        ORDER BY categories.label COLLATE NOCASE ASC, categories.slug ASC`,
     )
@@ -944,6 +976,7 @@ function listTags(database: DatabaseSync): Record<string, unknown> {
       `SELECT tags.slug, tags.label, COUNT(task_tags.task_id) AS task_count
        FROM tags
        JOIN task_tags ON task_tags.tag_id = tags.id
+       JOIN tasks ON tasks.id = task_tags.task_id AND tasks.status <> 'canceled'
        GROUP BY tags.id, tags.slug, tags.label
        ORDER BY tags.label COLLATE NOCASE ASC, tags.slug ASC`,
     )
@@ -1050,7 +1083,13 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     params.push(priorityFilter);
   }
   if (unblockedArgument === true) {
-    conditions.push("NOT EXISTS (SELECT 1 FROM task_dependencies WHERE task_dependencies.task_id = tasks.id)");
+    conditions.push(`NOT EXISTS (
+      SELECT 1
+      FROM task_dependencies
+      JOIN tasks AS dependencies ON dependencies.id = task_dependencies.depends_on_id
+      WHERE task_dependencies.task_id = tasks.id
+        AND dependencies.status <> 'canceled'
+    )`);
   }
   if (categorySlug !== undefined) {
     conditions.push("categories.slug = ?");

@@ -84,6 +84,9 @@ export type TaskRecord = {
   category: ClassificationToken | null;
   tags: ClassificationToken[];
   parentId: string | null;
+  /** Direct dependency links, including canceled targets, for editing and history. */
+  dependencyIds: string[];
+  /** Direct dependencies that currently block this task. Canceled targets are omitted. */
   blockedByIds: string[];
   version: number;
   createdAt: string;

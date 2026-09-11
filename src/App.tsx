@@ -282,6 +282,13 @@ export default function App(): ReactElement {
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
+    if (parentId) {
+      const parent = tasks.find((task) => task.id === parentId);
+      if (parent?.status === "canceled") {
+        setAnnouncement(`${taskTitleDisplay(parent.title)} is canceled. Reopen it before creating a child.`);
+        return;
+      }
+    }
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
     focusStack.push("composer", fromPalette ?? undefined);
     setHelpOpen(false);
@@ -645,6 +652,7 @@ export default function App(): ReactElement {
       const label = taskStatusMeta[restored.status]?.label ?? restored.status;
       setAnnouncement(`${restored.title}: ${label}`);
       showToast({ message: `Undo status change to ${label}` });
+      if (entry.from === "canceled" || entry.to === "canceled") void refreshTasks();
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
@@ -752,6 +760,7 @@ export default function App(): ReactElement {
     recordStatusUndo(previous, current, wasActive);
     const message = STATUS_CHANGE_TOASTS[current.status];
     if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
+    if (previous.status === "canceled" || current.status === "canceled") void refreshTasks();
   }
 
   const ToastIcon = toast?.Icon;
@@ -862,6 +871,7 @@ export default function App(): ReactElement {
             ++querySequence.current;
             updateVisibleTask(task);
             setAnnouncement(`Canceled: ${task.title}`);
+            void refreshTasks();
           }}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}

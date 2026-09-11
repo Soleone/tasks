@@ -158,6 +158,55 @@ test("task.list filters to unblocked tasks", () => {
   }
 });
 
+test("canceled dependencies no longer block readiness", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-canceled-dependency-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const blocker = task(executeCommand(request("task.create", { title: "Canceled blocker" }, { idempotencyKey: "canceled-blocker" }), databasePath));
+    const blocked = task(executeCommand(request("task.create", { title: "Dependent task" }, { idempotencyKey: "canceled-dependent" }), databasePath));
+    const linked = task(
+      executeCommand(
+        request("task.dependency.add", { id: blocked.id, dependsOnId: blocker.id, expectedVersion: blocked.version }, { idempotencyKey: "canceled-link" }),
+        databasePath,
+      ),
+    );
+    assert.deepEqual(linked.dependencyIds, [blocker.id]);
+    assert.deepEqual(linked.blockedByIds, [blocker.id]);
+
+    const canceled = task(
+      executeCommand(request("task.delete", { id: blocker.id, expectedVersion: blocker.version }, { idempotencyKey: "canceled-blocker-delete" }), databasePath),
+    );
+    assert.equal(canceled.status, "canceled");
+
+    const afterCancel = task(executeCommand(request("task.get", { id: blocked.id }), databasePath));
+    assert.deepEqual(afterCancel.dependencyIds, [blocker.id]);
+    assert.deepEqual(afterCancel.blockedByIds, []);
+    const unblocked = executeCommand(request("task.list", { status: ["open"], unblocked: true }), databasePath);
+    assert.ok((unblocked.tasks as TaskRecord[]).some((item) => item.id === blocked.id));
+
+    const another = task(executeCommand(request("task.create", { title: "Another task" }, { idempotencyKey: "canceled-another" }), databasePath));
+    assert.throws(
+      () => executeCommand(
+        request("task.dependency.add", { id: another.id, dependsOnId: blocker.id, expectedVersion: another.version }, { idempotencyKey: "canceled-link-rejected" }),
+        databasePath,
+      ),
+      /a canceled task cannot be used as a blocker/,
+    );
+
+    const reopened = task(
+      executeCommand(request("task.reopen", { id: blocker.id, expectedVersion: canceled.version }, { idempotencyKey: "canceled-blocker-reopen" }), databasePath),
+    );
+    assert.equal(reopened.status, "open");
+    const afterReopen = task(executeCommand(request("task.get", { id: blocked.id }), databasePath));
+    assert.deepEqual(afterReopen.blockedByIds, [blocker.id]);
+    const blockedAgain = executeCommand(request("task.list", { status: ["open"], unblocked: true }), databasePath);
+    assert.ok(!(blockedAgain.tasks as TaskRecord[]).some((item) => item.id === blocked.id));
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task.list filters by category and category.list returns category entries", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-category-filter-"));
   const databasePath = path.join(directory, "tasks.db");
@@ -183,6 +232,30 @@ test("task.list filters by category and category.list returns category entries",
       /category must be a non-empty string/,
     );
     assert.equal(beta.category?.slug, "beta");
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("category and tag lists omit labels used only by canceled tasks", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-classification-status-filter-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const live = task(executeCommand(request("task.create", { title: "Live @Keep #keep" }, { idempotencyKey: "classification-live" }), databasePath));
+    const canceledOnly = task(executeCommand(request("task.create", { title: "Canceled @Gone #gone" }, { idempotencyKey: "classification-canceled" }), databasePath));
+    executeCommand(request("task.delete", { id: canceledOnly.id, expectedVersion: canceledOnly.version }, { idempotencyKey: "classification-delete" }), databasePath);
+
+    const categories = executeCommand(request("category.list"), databasePath) as {
+      categories: Array<{ slug: string; label: string; taskCount: number }>;
+    };
+    assert.deepEqual(categories.categories, [{ slug: "keep", label: "Keep", taskCount: 1 }]);
+
+    const tags = executeCommand(request("tag.list"), databasePath) as {
+      tags: Array<{ slug: string; label: string; taskCount: number }>;
+    };
+    assert.deepEqual(tags.tags, [{ slug: "keep", label: "keep", taskCount: 1 }]);
+    assert.equal(live.category?.slug, "keep");
   } finally {
     cleanDirectory(directory);
   }
@@ -603,6 +676,25 @@ test("parent moves validate versions, parents, and cycles without cascading stat
     const parent = task(executeCommand(request("task.create", { title: "Parent" }, { idempotencyKey: "parent" }), databasePath));
     const child = task(executeCommand(request("task.create", { title: "Child" }, { idempotencyKey: "child" }), databasePath));
     assert.equal(child.parentId, null);
+
+    const canceledParent = task(executeCommand(request("task.create", { title: "Canceled parent" }, { idempotencyKey: "canceled-parent" }), databasePath));
+    const canceledParentResult = task(
+      executeCommand(request("task.delete", { id: canceledParent.id, expectedVersion: canceledParent.version }, { idempotencyKey: "cancel-parent" }), databasePath),
+    );
+    assert.equal(canceledParentResult.status, "canceled");
+    assert.throws(
+      () => executeCommand(request("task.create", { title: "Child of canceled", parentId: canceledParent.id }, { idempotencyKey: "canceled-child" }), databasePath),
+      /a canceled task cannot be used as a parent/,
+    );
+    assert.throws(
+      () => executeCommand(request("task.move", { id: child.id, parentId: canceledParent.id, expectedVersion: child.version }, { idempotencyKey: "move-under-canceled" }), databasePath),
+      /a canceled task cannot be used as a parent/,
+    );
+
+    const retainedParent = task(executeCommand(request("task.create", { title: "Retained parent" }, { idempotencyKey: "retained-parent" }), databasePath));
+    const retainedChild = task(executeCommand(request("task.create", { title: "Retained child", parentId: retainedParent.id }, { idempotencyKey: "retained-child" }), databasePath));
+    executeCommand(request("task.delete", { id: retainedParent.id, expectedVersion: retainedParent.version }, { idempotencyKey: "cancel-retained-parent" }), databasePath);
+    assert.equal(task(executeCommand(request("task.get", { id: retainedChild.id }), databasePath)).parentId, retainedParent.id);
 
     const moved = task(
       executeCommand(request("task.move", { id: child.id, parentId: parent.id, expectedVersion: child.version }, { idempotencyKey: "move-1" }), databasePath),

@@ -4,11 +4,11 @@ import type { TaskRecord } from "@/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listTasks } from "@/platform/backendClient";
+import { getTask, listTasks } from "@/platform/backendClient";
 
 export type TaskPickerMode = "blocker" | "move";
 
-const PICKER_LIMIT = 100;
+const NON_CANCELED_TASK_STATUSES = ["open", "in_progress", "paused", "done"] as const;
 
 function collectDescendantIds(candidates: TaskRecord[], rootId: string): Set<string> {
   const childrenByParent = new Map<string, string[]>();
@@ -30,12 +30,13 @@ function collectDescendantIds(candidates: TaskRecord[], rootId: string): Set<str
 }
 
 function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPickerMode): TaskRecord[] {
+  const selectable = all.filter((task) => task.status !== "canceled");
   if (mode === "blocker") {
-    const blocked = new Set(subject.blockedByIds);
-    return all.filter((task) => task.id !== subject.id && !blocked.has(task.id));
+    const blocked = new Set(subject.dependencyIds);
+    return selectable.filter((task) => task.id !== subject.id && !blocked.has(task.id));
   }
   const descendants = collectDescendantIds(all, subject.id);
-  return all.filter((task) =>
+  return selectable.filter((task) =>
     task.id !== subject.id
     && !descendants.has(task.id)
     && task.id !== subject.parentId
@@ -63,12 +64,22 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
     let cancelled = false;
     setLoading(true);
     setError(null);
-    // Bounded candidate set; the backend stays authoritative on cycles and
-    // duplicates the picker cannot see past the limit.
-    listTasks(undefined, 0)
-      .then((result) => {
+    // Candidate tasks exclude canceled rows at the query boundary. Fetch
+    // current relationship targets separately so canceled dependencies and
+    // parents remain available for removal and context.
+    const relationshipIds = [...new Set([
+      ...(subject.parentId ? [subject.parentId] : []),
+      ...subject.dependencyIds,
+    ])];
+    Promise.all([
+      listTasks(NON_CANCELED_TASK_STATUSES, 0),
+      Promise.all(relationshipIds.map((id) => getTask(id))),
+    ])
+      .then(([result, relationships]) => {
         if (cancelled) return;
-        setFetched(result.tasks.slice(0, PICKER_LIMIT));
+        const byId = new Map(result.tasks.map((task) => [task.id, task]));
+        for (const relationship of relationships) byId.set(relationship.task.id, relationship.task);
+        setFetched([...byId.values()]);
       })
       .catch((caught) => {
         if (cancelled) return;
@@ -101,16 +112,16 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   const groupHeading = mode === "blocker" ? "Select blocker" : "Select new parent";
   const emptyText = loading ? "Loading tasks…" : error ?? "No matching tasks.";
   const showRemoveParent = mode === "move" && subject.parentId !== null && onRemoveParent !== undefined;
-  const showRemoveBlocker = mode === "blocker" && subject.blockedByIds.length > 0 && onRemoveBlocker;
+  const showRemoveBlocker = mode === "blocker" && subject.dependencyIds.length > 0 && onRemoveBlocker;
   const currentParent = subject.parentId === null ? null : fetched.find((task) => task.id === subject.parentId) ?? null;
   const currentParentTitle = currentParent ? taskTitleDisplay(currentParent.title) : null;
   const blockers = useMemo(() => {
     if (!showRemoveBlocker) return [];
-    return subject.blockedByIds.map((id) => {
+    return subject.dependencyIds.map((id) => {
       const blocker = fetched.find((task) => task.id === id) ?? null;
-      return { id, title: blocker ? taskTitleDisplay(blocker.title) : null };
+      return { id, task: blocker, title: blocker ? taskTitleDisplay(blocker.title) : null };
     });
-  }, [showRemoveBlocker, subject.blockedByIds, fetched]);
+  }, [showRemoveBlocker, subject.dependencyIds, fetched]);
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -159,6 +170,7 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
                     onSelect={() => onRemoveBlocker(blocker.id)}
                   >
                     <Link2Off aria-hidden="true" className="text-muted-foreground" />
+                    {blocker.task ? <TaskStatusDisplay task={blocker.task} /> : null}
                     <span className="font-medium">Remove blocker</span>
                     {blocker.title ? <span className="truncate text-muted-foreground">{blocker.title}</span> : null}
                   </CommandItem>

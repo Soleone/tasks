@@ -30,16 +30,17 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 
 - Status: Active means open or in progress. Inactive means paused, done, or canceled. The `canceled` spelling stays canonical.
 - Priority: Highest through lowest. Every task defaults to P2. Task rows show the priority as a colored dot with an accessible label and tooltip; filters and the editor keep the text labels.
-- Category: the `@category` grouping. Single-select.
-- Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag; `Enter` selects it first when none are selected, then closes; a `Clear tags` row empties the filter.
+- Category: the `@category` grouping. Single-select. The picker omits categories used only by canceled tasks.
+- Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag; `Enter` selects it first when none are selected, then closes; a `Clear tags` row empties the filter. Tags used only by canceled tasks are omitted.
+- Relationships: canceled tasks cannot be chosen as new parents or blockers, and a new child cannot be created under a canceled parent. Existing parent and dependency links remain available for removal. A canceled dependency does not count as a blocker for the Unblocked filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
 - Sort: Created or Updated date, newest or oldest first. Updated/newest is the default. The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated.
-- View: Details toggles optional task descriptions and the per-task time footer together. Off by default; a display preference, not a filter, so `Escape` never clears it. Blocked-by context remains visible either way.
+- View: Details toggles optional task descriptions and the per-task time footer together. Off by default; a display preference, not a filter, so `Escape` never clears it. Active blocked-by context remains visible either way.
 - Hierarchy: Status and other filters do not sever parent links. When a matching child belongs to an excluded ancestor, the ancestor appears as a muted `Parent context` row, does not count toward the filtered total, and remains expandable.
 
 ## Task details
 
-Descriptions and timestamps are hidden unless Details is on (`V`). One quiet final row in the full task view: the updated date leads when it falls on another day, followed by the created date; otherwise only the created date appears. Each timestamp is labeled Created or Updated. Recent dates read `today`, `yesterday`, or `2 days ago`; older dates use `Sep 8` (this year) or `Dec 10, 2025`. Hovering a date shows the full local timestamp with time. Blocked-by context stays visible when Details is off.
+Descriptions and timestamps are hidden unless Details is on (`V`). One quiet final row in the full task view: the updated date leads when it falls on another day, followed by the created date; otherwise only the created date appears. Each timestamp is labeled Created or Updated. Recent dates read `today`, `yesterday`, or `2 days ago`; older dates use `Sep 8` (this year) or `Dec 10, 2025`. Hovering a date shows the full local timestamp with time. Active blocked-by context stays visible when Details is off.
 
 ## Keyboard shortcuts
 
