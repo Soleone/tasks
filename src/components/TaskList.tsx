@@ -7,9 +7,9 @@ import {
 } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
-import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
+import { EXACT_STATUS_META, PRIORITY_META, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
-import { TaskListModeHelp, type TaskListMode } from "@/components/TaskListModeHelp";
+import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { BackendCommandError, deleteTask, transitionTask, updateTask } from "@/p
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 type StatusTransition = { next: TaskStatus; command: StatusCommand };
+type ToolbarMode = "filter" | "sort";
 
 // Paused is a separate pause/resume state, but both Space directions keep it
 // reachable: forward completes it, while reverse returns it to in progress.
@@ -130,7 +131,7 @@ type HomeShortcutActions = {
   canUndoStatus: boolean;
   undoStatus: () => void;
   deleteActiveTask: () => Promise<void>;
-  clearPendingMode: () => void;
+  returnToList: () => void;
   clearAllFilters: () => void;
   startFilterMode: () => void;
   startSortMode: () => void;
@@ -159,6 +160,8 @@ type HomeShortcutActions = {
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 const ACTIVE_FILTER_CLASS = "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary";
+const TOOLBAR_GROUP_CLASS = "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const ACTIVE_TOOLBAR_GROUP_CLASS = `${TOOLBAR_GROUP_CLASS} ring-2 ring-ring ring-offset-2 ring-offset-background`;
 
 export function TaskList({
   tasks,
@@ -209,6 +212,8 @@ export function TaskList({
 }: TaskListProps): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const filterToolbar = useRef<HTMLDivElement>(null);
+  const sortToolbar = useRef<HTMLDivElement>(null);
   const loadMore = useRef<HTMLButtonElement>(null);
   const initialHomeFocusPending = useRef(true);
   const retry = useRef<HTMLButtonElement>(null);
@@ -217,11 +222,11 @@ export function TaskList({
   const deletePending = useRef(new Set<string>());
   const priorityReceipts = useRef(new Map<string, { version: number; key: string }>());
   const mutationPending = useRef(new Set<string>());
-  const modeSequence = useRef<{ mode: TaskListMode | null; timeout: number | null }>({ mode: null, timeout: null });
+  const toolbarModeRef = useRef<ToolbarMode | null>(null);
   const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
   const [listFocused, setListFocused] = useState(false);
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
-  const [modeHint, setModeHint] = useState<TaskListMode | null>(null);
+  const [toolbarMode, setToolbarMode] = useState<ToolbarMode | null>(null);
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
@@ -278,81 +283,110 @@ export function TaskList({
     return () => window.clearTimeout(timeout);
   }, [unblockedFeedbackVersion]);
 
-  // Reset a pending F/O mode on unmount, blur, hiding, or Escape.
-  // Modals steal focus from the list, so blur covers modal transitions too.
+  function clearToolbarMode(): void {
+    toolbarModeRef.current = null;
+    setToolbarMode(null);
+  }
+
+  function returnToList(): void {
+    clearToolbarMode();
+    (list.current ?? (error ? retry.current : section.current))?.focus();
+  }
+
+  // Toolbar modes are explicit focus states. They are cleared when focus leaves
+  // the app or the page is hidden; choosing an option and Escape return to the
+  // task list directly.
   useEffect(() => {
-    const clear = (): void => {
-      if (modeSequence.current.timeout !== null) window.clearTimeout(modeSequence.current.timeout);
-      modeSequence.current = { mode: null, timeout: null };
-      setModeHint(null);
-    };
-    const onBlur = (): void => clear();
+    const clear = (): void => clearToolbarMode();
     const onVisibility = (): void => {
       if (document.visibilityState === "hidden") clear();
     };
-    window.addEventListener("blur", onBlur);
+    window.addEventListener("blur", clear);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clear();
-      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("blur", clear);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
-  function clearPendingMode(): void {
-    if (modeSequence.current.timeout !== null) window.clearTimeout(modeSequence.current.timeout);
-    modeSequence.current = { mode: null, timeout: null };
-    setModeHint(null);
+  function activateToolbarMode(mode: ToolbarMode): void {
+    toolbarModeRef.current = mode;
+    setToolbarMode(mode);
   }
 
-  function startPendingMode(mode: TaskListMode, hint: string, expiredHint: string): void {
-    clearPendingMode();
-    modeSequence.current.mode = mode;
-    modeSequence.current.timeout = window.setTimeout(() => {
-      clearPendingMode();
-      onAnnounce(expiredHint);
-    }, STATUS_SEQUENCE_TIMEOUT_MS);
-    setModeHint(mode);
-    onAnnounce(hint);
+  function startToolbarMode(mode: ToolbarMode): void {
+    clearToolbarMode();
+    activateToolbarMode(mode);
+    (mode === "filter" ? filterToolbar.current : sortToolbar.current)?.focus();
+    onAnnounce(mode === "filter"
+      ? "Filter toolbar focused. Choose a filter or press Escape to return to the task list."
+      : "Sort toolbar focused. Choose a sort or press Escape to return to the task list.");
   }
 
   function startFilterMode(): void {
-    startPendingMode(
-      "filter",
-      "Filter mode. Choose a filter.",
-      "Filter choice timed out. Press F, then a filter key, within 2 seconds.",
-    );
+    startToolbarMode("filter");
   }
 
   function startSortMode(): void {
-    startPendingMode(
-      "sort",
-      "Sort mode. Choose a sort.",
-      "Sort choice timed out. Press O, then C, U, or R, within 2 seconds.",
-    );
+    startToolbarMode("sort");
+  }
+
+  function focusListBeforeToolbarDialog(): void {
+    if (!document.querySelector('[role="dialog"]')) returnToList();
+  }
+
+  function openStatusMenu(): void {
+    focusListBeforeToolbarDialog();
+    onOpenStatusMenu();
+  }
+
+  function openPriorityMenu(): void {
+    focusListBeforeToolbarDialog();
+    onOpenPriorityMenu();
+  }
+
+  function openCategoryPicker(): void {
+    focusListBeforeToolbarDialog();
+    onOpenCategoryPicker();
+  }
+
+  function openTagPicker(): void {
+    focusListBeforeToolbarDialog();
+    onOpenTagPicker();
+  }
+
+  function openSearch(): void {
+    focusListBeforeToolbarDialog();
+    onOpenSearch();
   }
 
   function toggleStatusPreset(): void {
-    clearPendingMode();
+    returnToList();
     onToggleStatusPreset();
     setFilterFeedbackVersion((previous) => previous + 1);
     onAnnounce(statusPreset === "active" && exactStatus === null ? "Showing inactive tasks" : "Showing active tasks");
   }
 
   function applyExactStatus(status: TaskStatus): void {
-    clearPendingMode();
+    returnToList();
     onExactStatus(status);
     const label = EXACT_STATUS_META.find((entry) => entry.status === status)?.label ?? status;
     onAnnounce(`Showing ${label} tasks`);
   }
 
   function applySortField(field: SortField): void {
-    clearPendingMode();
+    returnToList();
     onSortFieldChange(field);
   }
 
+  function reverseSort(): void {
+    returnToList();
+    onReverseSort();
+  }
+
   function toggleUnblockedFilter(): void {
-    clearPendingMode();
+    returnToList();
     const next = !showUnblocked;
     onShowUnblockedChange(next);
     setUnblockedFeedbackVersion((previous) => previous + 1);
@@ -360,6 +394,7 @@ export function TaskList({
   }
 
   function clearCategoryFilter(): void {
+    returnToList();
     if (!categoryFilter) return;
     onCategoryFilterChange(null);
     onAnnounce("Showing tasks from all categories");
@@ -370,17 +405,18 @@ export function TaskList({
       clearCategoryFilter();
       return;
     }
-    onOpenCategoryPicker();
+    openCategoryPicker();
   }
 
   function clearSearch(): void {
+    returnToList();
     if (searchQuery.trim() === "") return;
     onSearchChange("");
     onAnnounce("Cleared search");
   }
 
   function applyPriorityFilter(priority: TaskPriority): void {
-    clearPendingMode();
+    returnToList();
     if (priorityFilter === priority) {
       onPriorityFilter(null);
       onAnnounce("Showing all priorities");
@@ -551,23 +587,23 @@ export function TaskList({
     canUndoStatus: Boolean(canUndoStatus),
     undoStatus: () => onUndoStatus?.(),
     deleteActiveTask,
-    clearPendingMode,
+    returnToList,
     clearAllFilters: onClearAllFilters,
     startFilterMode,
     startSortMode,
     applyExactStatus,
     applySortField,
-    reverseSort: onReverseSort,
+    reverseSort,
     toggleDetailsView: onToggleDetails,
     setPriority: setTaskPriority,
     announce: onAnnounce,
-    openSearch: onOpenSearch,
+    openSearch,
     createTask: onCreate,
     toggleStatusPreset,
     applyPriorityFilter,
     toggleUnblockedFilter,
-    openCategoryPicker: onOpenCategoryPicker,
-    openTagPicker: onOpenTagPicker,
+    openCategoryPicker,
+    openTagPicker,
     addBlocker: onAddBlocker,
     moveUnder: onMoveUnder,
     toggleStatus,
@@ -587,40 +623,51 @@ export function TaskList({
       if (!actions) return;
       if (event.key === "Tab") {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
-        if (event.target === list.current || event.target === section.current) event.preventDefault();
+        if (toolbarModeRef.current !== null || event.target === list.current || event.target === section.current) event.preventDefault();
         return;
       }
       if (document.querySelector('[role="dialog"]')) return;
       if (isHomeTypingTarget(event.target)) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (toolbarModeRef.current !== null) {
+          actions.returnToList();
+          return;
+        }
+        if (actions.hasActiveFilters) actions.clearAllFilters();
+        return;
+      }
+      if (toolbarModeRef.current !== null && event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
+        // Let the app-level theme shortcut continue, but make its modal return
+        // target the task list rather than this temporary toolbar surface.
+        actions.returnToList();
+        return;
+      }
+      if (toolbarModeRef.current !== null && (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+        // The help palette is another app-level shortcut with a modal return
+        // target. Clear the toolbar first for the same reason as themes.
+        actions.returnToList();
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
+        if (toolbarModeRef.current !== null) return;
         if (event.repeat || event.isComposing || event.keyCode === 229 || event.shiftKey) return;
         if (!actions.canUndoStatus) return;
         event.preventDefault();
         actions.undoStatus();
         return;
       }
-      if (event.key === "Delete") {
-        if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-        event.preventDefault();
-        void actions.deleteActiveTask();
-        return;
-      }
-      if (event.key === "Escape") {
-        // Escape first exits a pending F/O mode; only with no mode pending
-        // does it clear every filter. Focus stays put.
-        event.preventDefault();
-        const wasPending = modeSequence.current.mode !== null;
-        actions.clearPendingMode();
-        if (!wasPending && actions.hasActiveFilters) actions.clearAllFilters();
-        return;
-      }
       if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
-      // A pending F/O mode takes precedence: filter keys act only in filter
-      // mode and sort keys only in sort mode. Anything else cancels the mode
-      // and falls through to normal handling.
-      const pendingMode = modeSequence.current.mode;
-      if (pendingMode === "filter") {
-        if (event.repeat) return;
+
+      // A toolbar mode owns the keyboard until an option is chosen or Escape
+      // returns focus to the task list. It has no timeout or fall-through to
+      // unrelated home shortcuts.
+      const activeToolbarMode = toolbarModeRef.current;
+      if (activeToolbarMode === "filter") {
+        if (event.repeat) {
+          event.preventDefault();
+          return;
+        }
         const key = event.key.toLowerCase();
         if ((key === "s" || key === "a") && !event.shiftKey) {
           event.preventDefault();
@@ -642,15 +689,11 @@ export function TaskList({
         }
         if (key === "c" && !event.shiftKey) {
           event.preventDefault();
-          // A modal takes over from here, so the mode ends with it.
-          actions.clearPendingMode();
           actions.openCategoryPicker();
           return;
         }
         if (key === "t" && !event.shiftKey) {
           event.preventDefault();
-          // A modal takes over from here, so the mode ends with it.
-          actions.clearPendingMode();
           actions.openTagPicker();
           return;
         }
@@ -659,9 +702,19 @@ export function TaskList({
           actions.toggleUnblockedFilter();
           return;
         }
-        actions.clearPendingMode();
-      } else if (pendingMode === "sort") {
-        if (event.repeat) return;
+        if (key === "/" && !event.shiftKey) {
+          event.preventDefault();
+          actions.openSearch();
+          return;
+        }
+        event.preventDefault();
+        return;
+      }
+      if (activeToolbarMode === "sort") {
+        if (event.repeat) {
+          event.preventDefault();
+          return;
+        }
         const key = event.key.toLowerCase();
         if (key === "c" && !event.shiftKey) {
           event.preventDefault();
@@ -681,9 +734,15 @@ export function TaskList({
         if (key === "s" && !event.shiftKey) {
           event.preventDefault();
           actions.announce("Sorting by status is not available yet. Press C for created or U for updated.");
-          return;
         }
-        actions.clearPendingMode();
+        event.preventDefault();
+        return;
+      }
+      if (event.key === "Delete") {
+        if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+        event.preventDefault();
+        void actions.deleteActiveTask();
+        return;
       }
       if (event.key === "/") {
         if (event.repeat) return;
@@ -805,9 +864,21 @@ export function TaskList({
             <Plus aria-hidden="true" />
             New task
           </Button>
-          <div className="relative flex flex-wrap items-center justify-end gap-2">
-          {modeHint ? <TaskListModeHelp mode={modeHint} onDismiss={clearPendingMode} /> : null}
-          <ButtonGroup aria-label="Task list filters">
+          <div className="relative flex flex-wrap items-center justify-end gap-1">
+          {toolbarMode ? <TaskListModeHelp mode={toolbarMode} onDismiss={returnToList} /> : null}
+          <ButtonGroup
+            ref={filterToolbar}
+            aria-label="Task list filters"
+            aria-keyshortcuts="F S A O I D P X 0 1 2 3 4 C T U /"
+            tabIndex={-1}
+            data-toolbar="filters"
+            data-toolbar-active={toolbarMode === "filter" || undefined}
+            className={toolbarMode === "filter" ? ACTIVE_TOOLBAR_GROUP_CLASS : TOOLBAR_GROUP_CLASS}
+            onFocus={() => activateToolbarMode("filter")}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
+            }}
+          >
         <Tooltip>
           <TooltipTrigger
             render={
@@ -820,7 +891,7 @@ export function TaskList({
                 aria-pressed={statusActive}
                 aria-keyshortcuts="S"
                 data-filter="task-status"
-                onClick={onOpenStatusMenu}
+                onClick={openStatusMenu}
               />
             }
           >
@@ -841,7 +912,7 @@ export function TaskList({
                 aria-pressed={priorityFilter !== null}
                 aria-keyshortcuts="0 1 2 3 4"
                 data-filter="task-priority"
-                onClick={onOpenPriorityMenu}
+                onClick={openPriorityMenu}
               />
             }
           >
@@ -883,7 +954,7 @@ export function TaskList({
                 aria-pressed={tagFilter.length > 0}
                 aria-keyshortcuts="T"
                 data-filter="task-tags"
-                onClick={onOpenTagPicker}
+                onClick={openTagPicker}
               />
             }
           >
@@ -904,7 +975,7 @@ export function TaskList({
                 aria-pressed={searchActive}
                 aria-keyshortcuts="/"
                 data-filter="task-search"
-                onClick={onOpenSearch}
+                onClick={openSearch}
               />
             }
           >
@@ -935,7 +1006,19 @@ export function TaskList({
           <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
-          <ButtonGroup aria-label="Task list sort">
+          <ButtonGroup
+            ref={sortToolbar}
+            aria-label="Task list sort"
+            aria-keyshortcuts="O C U R"
+            tabIndex={-1}
+            data-toolbar="sort"
+            data-toolbar-active={toolbarMode === "sort" || undefined}
+            className={toolbarMode === "sort" ? ACTIVE_TOOLBAR_GROUP_CLASS : TOOLBAR_GROUP_CLASS}
+            onFocus={() => activateToolbarMode("sort")}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
+            }}
+          >
         <Tooltip>
           <TooltipTrigger
             render={
@@ -948,7 +1031,7 @@ export function TaskList({
                 aria-pressed={sortField === "created"}
                 aria-keyshortcuts="C"
                 data-sort="task-sort-created"
-                onClick={() => onSortFieldChange("created")}
+                onClick={() => applySortField("created")}
               />
             }
           >
@@ -969,7 +1052,7 @@ export function TaskList({
                 aria-pressed={sortField === "updated"}
                 aria-keyshortcuts="U"
                 data-sort="task-sort-updated"
-                onClick={() => onSortFieldChange("updated")}
+                onClick={() => applySortField("updated")}
               />
             }
           >
@@ -988,7 +1071,7 @@ export function TaskList({
                 aria-label={sortDirection === "desc" ? "Newest first. Activate to show oldest first. Press O then R." : "Oldest first. Activate to show newest first. Press O then R."}
                 aria-keyshortcuts="R"
                 data-sort="task-sort-reverse"
-                onClick={onReverseSort}
+                onClick={reverseSort}
               />
             }
           >
@@ -1149,6 +1232,7 @@ export function TaskList({
         </Empty>
       ) : null}
       {loading ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : null}
+
       <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
         <TooltipContent side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>

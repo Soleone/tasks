@@ -61,8 +61,6 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "canceled", label: "Canceled", key: "X" },
 ];
 
-export const STATUS_SEQUENCE_TIMEOUT_MS = 2000;
-
 export type SortField = "created" | "updated";
 export type SortDirection = "asc" | "desc";
 

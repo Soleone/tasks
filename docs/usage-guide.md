@@ -26,6 +26,8 @@ One compact row above the list, in three groups in this order:
 
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count, active qualifiers, and sort state, such as “12 active tasks, by updated, desc”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
+`F` moves focus to the whole filter button group and `O` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
+
 - Status: Active means open, in progress, or paused. Inactive means done or canceled. The `canceled` spelling stays canonical.
 - Priority: Highest through lowest. Every task defaults to P2. Task rows show the priority as a colored dot with an accessible label and tooltip; filters and the editor keep the text labels.
 - Category: the `@category` grouping. Single-select.
@@ -40,7 +42,7 @@ Descriptions and timestamps are hidden unless Details is on (`V`). One quiet fin
 
 ## Keyboard shortcuts
 
-These shortcuts work anywhere on the home screen, even when focus is not on the task list. Typing in title, description, search, or picker inputs disables them, as does any open dialog. Filter keys act only in filter mode (after `F`); sort keys only in sort mode (after `O`). A pending mode resets on timeout (2 seconds), `Escape`, blur, hiding, or modal transitions.
+These shortcuts work anywhere on the home screen, even when focus is not on the task list. Typing in title, description, search, or picker inputs disables them, as does any open dialog. Filter keys act only while the filter toolbar is focused; sort keys act only while the sort toolbar is focused. A toolbar mode ends when an option is chosen, focus leaves the app, the page is hidden, or `Escape` returns focus to the task list.
 
 | Key | Action |
 | --- | --- |
@@ -53,15 +55,15 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Delete` | Immediately cancel the active task |
 | `Ctrl/⌘+Z` | Undo the last task-list status change; also in the shortcuts palette. A newer status change replaces it, and the toast confirms the restore |
 | `0` `1` `2` `3` `4` | Set the active task to P0 through P4 |
-| `F` | Enter filter mode; the next key picks a filter |
+| `F` | Focus the filter toolbar; the next key picks a filter |
 | `F then S` | Switch between active and inactive task views (`A` works too) |
 | `F then O` / `I` / `D` / `P` / `X` | Show only Open / In progress / Done / Paused / Canceled tasks |
 | `F then 0`–`4` | Filter to P0 through P4; pressing the active number clears it |
 | `F then U` | Toggle the unblocked-task view |
 | `F then C` | Open the category filter |
 | `F then T` | Open the tag filter |
-| `/` | Open task search; works with or without a pending mode |
-| `O` | Enter sort mode; the next key picks a sort |
+| `/` | Open task search; works from the task list or filter toolbar |
+| `O` | Focus the sort toolbar; the next key picks a sort |
 | `O then C` | Sort by created date |
 | `O then U` | Sort by updated date |
 | `O then R` | Reverse the newest/oldest direction |
@@ -72,7 +74,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Home` / `End` | Jump to the first or last visible task |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
-| `Escape` | Exit a pending `F`/`O` mode, otherwise reset all filters; list focus stays put |
+| `Escape` | Return from the filter or sort toolbar to the task list; otherwise reset all filters |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
 
@@ -87,12 +89,12 @@ Treat this document as the UI interaction contract when using browser automation
 - Start UI checks from the task list. Do not assume the New task button is focused or that a dialog is already open.
 - Wait for the initial focus contract: a populated workspace should have `document.activeElement` on `[role="listbox"]`; an empty workspace should focus `[aria-label="Saved tasks"]`.
 - Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
-- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The dialog's priority section is its single keyboard focus stop.
+- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The filter and sort button groups are programmatic focus stops for `F` and `O`, not normal Tab destinations. The dialog's priority section is its single keyboard focus stop.
 - Clicking a toolbar button, the New task button, or a task status icon never moves DOM focus (the mousedown default is prevented), so the list keeps focus and arrow keys keep working. The header Help, Themes, and Settings buttons are outside the list and do take focus on click; dialogs opened from them return focus to the button.
 - Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `N` or the command palette to open capture.
 - Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row. The move picker puts its Remove parent action in a separate group above new-parent results when the task is nested.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
-- Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus and the window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.
+- Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, toolbar focus modes, and window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.
 - Do not add `autoFocus` to a secondary action to solve initial focus. Initial focus belongs in the list lifecycle, after the first query has rendered the correct empty, error, or populated state.
 - Refreshes must preserve focus and unsaved dialog content. A new data result should update the active row without moving the user's focus unless the focused element no longer exists.
 - Keep the end-to-end assertions in `scripts/check-ui.mjs` aligned with this guide. Run `pnpm test:ui` when Chromium and `agent-browser` are available; use a scratch database only.

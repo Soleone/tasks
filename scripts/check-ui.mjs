@@ -182,20 +182,23 @@ try {
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
   assert.equal(saved[0].priority, 2);
   check('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false"');
-  // F opens a compact popover above the toolbar without moving the list.
+  // F focuses the entire filter toolbar and opens a compact shortcut popover
+  // without moving the list. The focus ring remains until a choice or Escape.
   browser("focus", "[role=listbox]");
-  evaluate('window.filterToolbarTop = document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top; window.filterListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top; true');
+  evaluate('window.filterToolbarTop = document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY; window.filterListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY; true');
   browser("press", "f");
+  waitFor('document.activeElement.matches("[data-toolbar=filters]")');
   waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-group=status]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-group=more]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=open] [data-shortcut-key=\\"O\\"]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=priority] [data-shortcut-key=\\"0–4\\"]") !== null');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=filter]") === null');
-  check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top - window.filterListTop) < 0.5');
+  check('document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=filters]").className.includes("ring-ring ring-offset-2")');
+  check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5');
   // F then S toggles Active/Inactive presets; F then A remains as an alias.
   browser("press", "s");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]")');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 inactive tasks · by updated, desc"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
@@ -250,25 +253,24 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
   saved[0] = (await command("task.get", { id: saved[0].id })).task;
   assert.equal(saved[0].status, "open");
-  // F-mode exact-status choices replace the preset.
+  // F-mode exact-status choices replace the preset and return focus to the
+  // task list. The mode has no time limit.
   browser("focus", "[role=listbox]");
   browser("press", "f");
+  waitFor('document.activeElement.matches("[data-toolbar=filters]")');
+  await delay(2200);
+  check('document.activeElement.matches("[data-toolbar=filters]")');
   browser("press", "d");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=option]")');
-  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done")');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done") && document.activeElement.matches("[role=listbox]")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 done tasks · by updated, desc"');
-  // A slow second key (>2s) must not trigger an exact status.
+  // Escape from the focused toolbar returns to the list without changing the
+  // current filter. Escape on the list still clears all filters.
   browser("press", "f");
-  await new Promise((resolve) => setTimeout(resolve, 2200));
-  browser("press", "d");
-  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done")');
-  // Escape first exits the pending mode and leaves the filter alone; a
-  // second Escape clears the exact-status filter. Focus stays put.
-  browser("press", "f");
+  waitFor('document.activeElement.matches("[data-toolbar=filters]")');
   browser("press", "Escape");
-  check('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done") && !document.querySelector("[role=option]")');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-label").includes("Done") && document.activeElement.matches("[role=listbox]")');
   browser("press", "Escape");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open" && document.activeElement.matches("[role=listbox]")');
   // Mouse opens the same status menu.
   evaluate('document.querySelector("[data-filter=task-status]").click(); true');
   waitFor('document.activeElement.matches("[cmdk-input]")');
@@ -662,7 +664,7 @@ try {
   browser("fill", 'input[role="combobox"]', "roadmap");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
-  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1 && document.activeElement.matches("[role=listbox]")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · @roadmap · by updated, desc"');
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-category]").getAttribute("aria-label").includes("roadmap")');
@@ -796,7 +798,7 @@ try {
   browser("fill", 'input[role="combobox"]', "planning");
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
   browser("press", "Enter");
-  waitFor('!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true"');
+  waitFor('!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning · by updated, desc"`);
   browser("focus", "[role=listbox]");
   browser("press", "f");
@@ -858,16 +860,19 @@ try {
   check('document.querySelectorAll("[title^=\\"Updated\\"]").length === 2');
   check('[...document.querySelectorAll("[role=option]")].filter((row) => row.querySelector("[title^=\\"Updated\\"]")).every((row) => { const timestamps = [...row.querySelectorAll("[title^=\\"Updated\\"], [title^=\\"Created\\"]")]; return timestamps[0]?.title.startsWith("Updated") && timestamps[1]?.title.startsWith("Created"); })');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, desc"');
-  // Sort by created, then reverse; the stamped rows pin the order.
+  // Sort by created, then reverse; the stamped rows pin the order. O focuses
+  // the whole sort toolbar and a choice returns focus to the list.
   browser("focus", "[role=listbox]");
-  evaluate('window.sortToolbarTop = document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top; window.sortListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top; true');
+  evaluate('window.sortToolbarTop = document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY; window.sortListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY; true');
   browser("press", "o");
+  waitFor('document.activeElement.matches("[data-toolbar=sort]")');
   waitFor('document.querySelector("[data-shortcut-guide=sort]") !== null');
   check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 3');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=sort]") === null');
-  check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top - window.sortListTop) < 0.5');
+  check('document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=sort]").className.includes("ring-ring ring-offset-2")');
+  check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.sortListTop) < 0.5');
   browser("press", "c");
-  waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]")');
+  waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, desc"');
   check('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].slice(-2).map((title) => title.textContent)) === JSON.stringify(["Planning only", "Tag cockpit"])');
   browser("press", "o");
