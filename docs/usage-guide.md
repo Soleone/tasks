@@ -21,7 +21,7 @@ The list uses a single focus stop. Arrow keys move the active row and do not add
 One compact row above the list, in three groups in this order:
 
 ```text
-[ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ] [ Created Updated Reverse ] [ Times ]
+[ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ] [ Created Updated Reverse ] [ Details ]
 ```
 
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count, active qualifiers, and sort state, such as “12 active tasks, by updated, newest first”; omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
@@ -32,11 +32,11 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 - Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag; `Enter` selects it first when none are selected, then closes; a `Clear tags` row empties the filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
 - Sort: Created or Updated date, newest or oldest first. Updated/newest is the default. The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated.
-- View: Times toggles the per-task time footer. Off by default; a display preference, not a filter, so `Escape` never clears it.
+- View: Details toggles optional task descriptions and the per-task time footer together. Off by default; a display preference, not a filter, so `Escape` never clears it. Blocked-by context remains visible either way.
 
-## Time footer
+## Task details
 
-Hidden unless Times is on (`V`). One quiet final row in the full task view: the updated date leads when it falls on another day, followed by the created date; otherwise only the created date appears. Each timestamp is labeled Created or Updated. Recent dates read `today`, `yesterday`, or `2 days ago`; older dates use `Sep 8` (this year) or `Dec 10, 2025`. Hovering a date shows the full local timestamp with time.
+Descriptions and timestamps are hidden unless Details is on (`V`). One quiet final row in the full task view: the updated date leads when it falls on another day, followed by the created date; otherwise only the created date appears. Each timestamp is labeled Created or Updated. Recent dates read `today`, `yesterday`, or `2 days ago`; older dates use `Sep 8` (this year) or `Dec 10, 2025`. Hovering a date shows the full local timestamp with time. Blocked-by context stays visible when Details is off.
 
 ## Keyboard shortcuts
 
@@ -65,7 +65,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `O then C` | Sort by created date |
 | `O then U` | Sort by updated date |
 | `O then R` | Reverse the newest/oldest direction |
-| `V` | Toggle the time footer |
+| `V` | Toggle task descriptions and the time footer |
 | `B` | Add a blocker to the active task |
 | `M` | Open the move picker, including Remove parent for nested tasks |
 | `Up` / `Down` | Move through visible tasks |

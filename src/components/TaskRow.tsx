@@ -173,15 +173,15 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
 /**
  * Shared task presentation. The parent owns the outer wrapper (list option
  * or picker result), selection styling, and activation; this renders the
- * status slot plus title, with description and metadata only in full mode.
+ * status slot plus title, with optional details and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showTimestamps = false }: {
+export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
   blockedByLabels?: string[];
   indented?: boolean;
-  showTimestamps?: boolean;
+  showDetails?: boolean;
 }): ReactElement {
   return (
     <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
@@ -190,12 +190,12 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
         <ItemTitle className="line-clamp-none wrap-anywhere w-full">
           {taskRowDisplayTitle(task)}
         </ItemTitle>
-        {variant === "full" && task.descriptionMarkdown ? (
-          <ItemDescription className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
+        {variant === "full" && showDetails && task.descriptionMarkdown ? (
+          <ItemDescription data-task-description className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
-        {variant === "full" && showTimestamps ? <TaskRowTimestamps task={task} /> : null}
+        {variant === "full" && showDetails ? <TaskRowTimestamps task={task} /> : null}
       </div>
     </div>
   );

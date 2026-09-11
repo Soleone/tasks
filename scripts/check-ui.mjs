@@ -133,7 +133,7 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("O/I/D/P/X"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter shortcuts") && item.textContent.includes("F"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Sort tasks") && item.textContent.includes("C/U/R"))');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show timestamps") && item.textContent.includes("V"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show task details") && item.textContent.includes("V"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Change task status") && item.textContent.includes("Shift+Space"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Pause or resume task") && item.textContent.includes("P"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Set active task priority") && item.textContent.includes("0"))');
@@ -631,14 +631,17 @@ try {
   waitFor('document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 7');
   assert.equal((await command("task.list", { unblocked: true })).total, 8);
 
-  // Relationship context stays in the default row order; the optional time
-  // footer is the final row even when a task is blocked.
+  // Relationship context stays visible in compact rows; when details are on,
+  // the optional time footer remains the final row even when a task is blocked.
   browser("focus", "[role=listbox]");
+  check('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false"');
+  check('(() => { const row = [...document.querySelectorAll("[role=option]")].find((item) => item.textContent.includes("Blocked task")); if (!row) return false; const paragraphs = [...row.querySelectorAll("p")]; const relationship = paragraphs.find((entry) => entry.textContent.includes("Release blocker")); return relationship !== undefined && row.querySelector("[data-task-description]") === null && row.querySelector("[title^=\\"Created\\"]") === null; })()');
   browser("press", "v");
-  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
+  waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"');
   check('(() => { const row = [...document.querySelectorAll("[role=option]")].find((item) => item.textContent.includes("Blocked task")); if (!row) return false; const paragraphs = [...row.querySelectorAll("p")]; const relationship = paragraphs.find((entry) => entry.textContent.includes("Release blocker")); const timestamp = paragraphs.find((entry) => entry.querySelector("[title^=\\"Created\\"]")); return relationship !== undefined && timestamp !== undefined && paragraphs.indexOf(relationship) < paragraphs.indexOf(timestamp) && paragraphs.indexOf(timestamp) === paragraphs.length - 1; })()');
   browser("press", "v");
-  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "false"');
+  waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false"');
+  check('(() => { const row = [...document.querySelectorAll("[role=option]")].find((item) => item.textContent.includes("Blocked task")); return row?.querySelector("[data-task-description]") === null && row?.querySelector("[title^=\\"Created\\"]") === null && row?.textContent.includes("Release blocker"); })()');
 
   // F then C opens the category selector. Choosing a category enables the Folder
   // filter button; clicking it again clears the category filter.
@@ -824,15 +827,17 @@ try {
   browser("find", "role", "button", "click", "--name", "Clear filters");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, newest first"');
-  // Timestamps and sorting: V toggles the time footer, O drives the sort,
-  // and both survive a reload through localStorage.
-  check('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "false"');
+  // Task details and sorting: V toggles descriptions plus the time footer,
+  // O drives the sort, and both survive a reload through localStorage.
+  check('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false"');
+  check('document.querySelector("[data-task-description]") === null');
   check('document.querySelector("[title^=\\"Created\\"]") === null');
   browser("focus", "[role=listbox]");
   browser("press", "v");
-  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
+  waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"');
   check('[...document.querySelectorAll("[role=option]")].every((row) => row.textContent.includes("Created today"))');
   check('[...document.querySelectorAll("[role=option]")].every((row) => row.querySelector("[title^=\\"Created\\"]") !== null)');
+  check('(() => { const row = [...document.querySelectorAll("[role=option]")].find((item) => item.textContent.includes("Agent updated title")); return row?.querySelector("[data-task-description]")?.textContent.includes("Shortlist") === true; })()');
   check('document.querySelector("[title^=\\"Updated\\"]") === null');
   // Stamp two rows older: recent timestamps use relative labels and the
   // updated line appears only where the day differs from creation.
@@ -841,7 +846,7 @@ try {
   stampDb.prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title = 'Planning only #planning'").run("2026-01-06T12:00:00.000Z", "2026-09-08T12:00:00.000Z");
   stampDb.close();
   browser("reload");
-  waitFor('document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true"');
+  waitFor('document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"');
   check('[...document.querySelectorAll("[role=option]")].filter((row) => row.textContent.includes("Updated 2 days ago")).length === 2');
   check('document.querySelector("[title^=\\"Created Jan 5, 2026\\"]") !== null');
   check('document.querySelectorAll("[title^=\\"Updated\\"]").length === 2');
@@ -863,7 +868,7 @@ try {
   browser("press", "r");
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, oldest first"');
   check('document.querySelector("[role=option] [data-slot=item-title]").textContent === "Tag cockpit"');
-  // Back to updated/newest, footer off; mouse covers the same controls.
+  // Back to updated/newest, details off; mouse covers the same controls.
   browser("press", "o");
   browser("press", "u");
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, oldest first"');
@@ -871,7 +876,7 @@ try {
   browser("press", "r");
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, newest first"');
   browser("press", "v");
-  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "false" && document.querySelector("[title^=\\"Created\\"]") === null');
+  waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null');
   evaluate('document.querySelector("[data-sort=task-sort-created]").click(); true');
   waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true"');
   check('document.activeElement.getAttribute("role") === "listbox"');
@@ -881,15 +886,15 @@ try {
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, newest first"');
   evaluate('document.querySelector("[data-sort=task-sort-updated]").click(); true');
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, newest first"');
-  evaluate('document.querySelector("[data-view=task-timestamps]").click(); true');
-  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "true" && document.querySelector("[title^=\\"Created\\"]") !== null');
-  evaluate('document.querySelector("[data-view=task-timestamps]").click(); true');
-  waitFor('document.querySelector("[data-view=task-timestamps]").getAttribute("aria-pressed") === "false" && document.querySelector("[title^=\\"Created\\"]") === null');
+  evaluate('document.querySelector("[data-view=task-details]").click(); true');
+  waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true" && document.querySelector("[data-task-description]") !== null && document.querySelector("[title^=\\"Created\\"]") !== null');
+  evaluate('document.querySelector("[data-view=task-details]").click(); true');
+  waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null');
   // Toolbar order stays Status, Priority, Category, Tags, Search, Unblocked,
   // then the sort and view groups in their own button groups.
   check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-category","task-tags","task-search","task-unblocked"])');
   check('JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-reverse"])');
-  check('document.querySelector("[data-view=task-timestamps]") !== null');
+  check('document.querySelector("[data-view=task-details]") !== null');
   for (const width of [1280, 320]) {
     browser("set", "viewport", String(width), "844");
     check('document.documentElement.scrollWidth <= innerWidth');
@@ -1095,7 +1100,7 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 3500));
 
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/O modes, sort and timestamps, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/O modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, move-parent removal, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

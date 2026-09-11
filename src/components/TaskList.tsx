@@ -5,7 +5,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock, Clock3, Flag, Folder, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
@@ -80,8 +80,8 @@ type TaskListProps = {
   sortDirection: SortDirection;
   onSortFieldChange: (field: SortField) => void;
   onReverseSort: () => void;
-  showTimestamps: boolean;
-  onToggleTimestamps: () => void;
+  showDetails: boolean;
+  onToggleDetails: () => void;
   categoryFilter: CategoryRecord | null;
   onCategoryFilterChange: (category: CategoryRecord | null) => void;
   onOpenCategoryPicker: () => void;
@@ -137,7 +137,7 @@ type HomeShortcutActions = {
   applyExactStatus: (status: TaskStatus) => void;
   applySortField: (field: SortField) => void;
   reverseSort: () => void;
-  toggleTimestampsView: () => void;
+  toggleDetailsView: () => void;
   setPriority: (task: TaskRecord, priority: TaskPriority) => Promise<void>;
   announce: (message: string) => void;
   openSearch: () => void;
@@ -177,8 +177,8 @@ export function TaskList({
   sortDirection,
   onSortFieldChange,
   onReverseSort,
-  showTimestamps,
-  onToggleTimestamps,
+  showDetails,
+  onToggleDetails,
   categoryFilter,
   onCategoryFilterChange,
   onOpenCategoryPicker,
@@ -558,7 +558,7 @@ export function TaskList({
     applyExactStatus,
     applySortField,
     reverseSort: onReverseSort,
-    toggleTimestampsView: onToggleTimestamps,
+    toggleDetailsView: onToggleDetails,
     setPriority: setTaskPriority,
     announce: onAnnounce,
     openSearch: onOpenSearch,
@@ -704,7 +704,7 @@ export function TaskList({
       } else if (event.key.toLowerCase() === "v" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
-        actions.toggleTimestampsView();
+        actions.toggleDetailsView();
       } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
@@ -1003,22 +1003,22 @@ export function TaskList({
           <TooltipTrigger
             render={
               <Button
-                variant={showTimestamps ? "outline" : "ghost"}
-                className={showTimestamps ? ACTIVE_FILTER_CLASS : undefined}
+                variant={showDetails ? "outline" : "ghost"}
+                className={showDetails ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={showTimestamps ? "Hide timestamps. Press V." : "Show timestamps. Press V."}
-                aria-pressed={showTimestamps}
+                aria-label={showDetails ? "Hide descriptions and timestamps. Press V." : "Show descriptions and timestamps. Press V."}
+                aria-pressed={showDetails}
                 aria-keyshortcuts="V"
-                data-view="task-timestamps"
-                onClick={onToggleTimestamps}
+                data-view="task-details"
+                onClick={onToggleDetails}
               />
             }
           >
-            <Clock aria-hidden="true" />
-            <span className="sr-only">{showTimestamps ? "Hide timestamps" : "Show timestamps"}</span>
+            <ListChevronsUpDown aria-hidden="true" />
+            <span className="sr-only">{showDetails ? "Hide descriptions and timestamps" : "Show descriptions and timestamps"}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{showTimestamps ? "Hide times" : "Show times"}</TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{showDetails ? "Hide details" : "Show details"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
           </div>
@@ -1089,7 +1089,7 @@ export function TaskList({
                   variant="full"
                   indented={row.depth === 1}
                   blockedByLabels={blockedByLabels}
-                  showTimestamps={showTimestamps}
+                  showDetails={showDetails}
                   statusSlot={
                     <TaskStatusToggle
                       task={task}

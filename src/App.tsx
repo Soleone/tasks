@@ -29,7 +29,8 @@ const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
 const SORT_FIELD_KEY = "tasks.sortField";
 const SORT_DIRECTION_KEY = "tasks.sortDirection";
-const SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
+const SHOW_DETAILS_KEY = "tasks.showDetails";
+const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 
 function readStored(key: string): string | null {
   try {
@@ -55,8 +56,8 @@ function readSortDirection(): SortDirection {
   return readStored(SORT_DIRECTION_KEY) === "asc" ? "asc" : "desc";
 }
 
-function readShowTimestamps(): boolean {
-  return readStored(SHOW_TIMESTAMPS_KEY) === "true";
+function readShowDetails(): boolean {
+  return (readStored(SHOW_DETAILS_KEY) ?? readStored(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true";
 }
 
 function taskIsVisible(
@@ -129,7 +130,7 @@ export default function App(): ReactElement {
   const [tagFilter, setTagFilter] = useState<TagRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnblocked, setShowUnblocked] = useState(false);
-  const [showTimestamps, setShowTimestamps] = useState(readShowTimestamps);
+  const [showDetails, setShowDetails] = useState(readShowDetails);
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
   const [categoryFilter, setCategoryFilter] = useState<CategoryRecord | null>(null);
@@ -396,11 +397,11 @@ export default function App(): ReactElement {
     setAnnouncement(`Sorted ${sortSummary(sortField, next)}`);
   }
 
-  function toggleTimestamps(): void {
-    const next = !showTimestamps;
-    setShowTimestamps(next);
-    writeStored(SHOW_TIMESTAMPS_KEY, String(next));
-    setAnnouncement(next ? "Showing timestamps" : "Hiding timestamps");
+  function toggleDetails(): void {
+    const next = !showDetails;
+    setShowDetails(next);
+    writeStored(SHOW_DETAILS_KEY, String(next));
+    setAnnouncement(next ? "Showing task details" : "Hiding task details");
   }
 
   function chooseExactStatus(status: TaskStatus | null): void {
@@ -766,8 +767,8 @@ export default function App(): ReactElement {
           sortDirection={sortDirection}
           onSortFieldChange={chooseSortField}
           onReverseSort={reverseSort}
-          showTimestamps={showTimestamps}
-          onToggleTimestamps={toggleTimestamps}
+          showDetails={showDetails}
+          onToggleDetails={toggleDetails}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
           onOpenCategoryPicker={openCategoryPicker}
