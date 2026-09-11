@@ -9,6 +9,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock, Clock3, F
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, STATUS_SEQUENCE_TIMEOUT_MS, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
+import { TaskListModeHelp, type TaskListMode } from "@/components/TaskListModeHelp";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -209,11 +210,11 @@ export function TaskList({
   const deletePending = useRef(new Set<string>());
   const priorityReceipts = useRef(new Map<string, { version: number; key: string }>());
   const mutationPending = useRef(new Set<string>());
-  const modeSequence = useRef<{ mode: "filter" | "sort" | null; timeout: number | null }>({ mode: null, timeout: null });
+  const modeSequence = useRef<{ mode: TaskListMode | null; timeout: number | null }>({ mode: null, timeout: null });
   const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
   const [listFocused, setListFocused] = useState(false);
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
-  const [modeHint, setModeHint] = useState<"filter" | "sort" | null>(null);
+  const [modeHint, setModeHint] = useState<TaskListMode | null>(null);
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
@@ -297,7 +298,7 @@ export function TaskList({
     setModeHint(null);
   }
 
-  function startPendingMode(mode: "filter" | "sort", hint: string, expiredHint: string): void {
+  function startPendingMode(mode: TaskListMode, hint: string, expiredHint: string): void {
     clearPendingMode();
     modeSequence.current.mode = mode;
     modeSequence.current.timeout = window.setTimeout(() => {
@@ -311,7 +312,7 @@ export function TaskList({
   function startFilterMode(): void {
     startPendingMode(
       "filter",
-      "Filters: S preset, O open, I in progress, D done, P paused, X canceled, 0-4 priority, C category, T tags, U unblocked.",
+      "Filter mode. Choose a filter.",
       "Filter choice timed out. Press F, then a filter key, within 2 seconds.",
     );
   }
@@ -319,7 +320,7 @@ export function TaskList({
   function startSortMode(): void {
     startPendingMode(
       "sort",
-      "Sort: C created, U updated, R reverse direction.",
+      "Sort mode. Choose a sort.",
       "Sort choice timed out. Press O, then C, U, or R, within 2 seconds.",
     );
   }
@@ -796,6 +797,7 @@ export function TaskList({
       }}
     >
       <div className="flex flex-col gap-2">
+        {modeHint ? <TaskListModeHelp mode={modeHint} /> : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             size="sm"
@@ -1148,12 +1150,6 @@ export function TaskList({
         </Empty>
       ) : null}
       {loading ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : null}
-      {modeHint === "filter" ? (
-        <p role="status" className="text-xs text-muted-foreground">Filters: press S, O, I, D, P, X, 0-4, C, T, or U (Esc exits).</p>
-      ) : null}
-      {modeHint === "sort" ? (
-        <p role="status" className="text-xs text-muted-foreground">Sort: press C, U, or R (Esc exits).</p>
-      ) : null}
       <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
         <TooltipContent side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>

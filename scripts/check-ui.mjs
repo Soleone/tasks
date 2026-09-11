@@ -175,11 +175,16 @@ try {
   check('document.querySelector("[role=option] [data-status]").getAttribute("title") === null');
   assert.equal(saved[0].priority, 2);
   check('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false"');
-  // F then S toggles Active/Inactive presets; F then A remains as an alias.
+  // F opens a contextual guide above the toolbar before the second key.
   browser("focus", "[role=listbox]");
   browser("press", "f");
+  waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
+  check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=open] [data-shortcut-key=\\"O\\"]") !== null');
+  check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=priority] [data-shortcut-key=\\"0\\"]") !== null');
+  check('Boolean(document.querySelector("[data-shortcut-guide=filter]")?.compareDocumentPosition(document.querySelector("[aria-label=\\"Task list filters\\"]")) & Node.DOCUMENT_POSITION_FOLLOWING)');
+  // F then S toggles Active/Inactive presets; F then A remains as an alias.
   browser("press", "s");
-  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true"');
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]")');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 inactive tasks · by updated, newest first"');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
@@ -831,8 +836,11 @@ try {
   // Sort by created, then reverse; the stamped rows pin the order.
   browser("focus", "[role=listbox]");
   browser("press", "o");
+  waitFor('document.querySelector("[data-shortcut-guide=sort]") !== null');
+  check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 3');
+  check('Boolean(document.querySelector("[data-shortcut-guide=sort]")?.compareDocumentPosition(document.querySelector("[aria-label=\\"Task list sort\\"]")) & Node.DOCUMENT_POSITION_FOLLOWING)');
   browser("press", "c");
-  waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true"');
+  waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, newest first"');
   check('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].slice(-2).map((title) => title.textContent)) === JSON.stringify(["Planning only", "Tag cockpit"])');
   browser("press", "o");
