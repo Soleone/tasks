@@ -55,8 +55,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Exact status", hint: "F then O I D P X", icon: Circle, keys: ["F", "O/I/D/P/X"], action: "filter-status", keywords: "f exact open in progress done paused canceled o i d p x status" },
       { label: "Priority filter", hint: "F then 0-4, same key clears", icon: Flag, keys: ["F", "0-4"], action: "filter-priority", keywords: "f 0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter" },
       { label: "Show unblocked tasks", icon: ShieldCheck, keys: ["F", "U"], keywords: "f u unblocked ready available no blockers dependency depends prerequisite" },
-      { label: "Filter by category", hint: "F then C opens", icon: Folder, keys: ["F", "C"], action: "filter-category", keywords: "f c category folder filter" },
-      { label: "Filter by tags", hint: "F then T opens, Space picks, Enter closes", icon: Tags, keys: ["F", "T"], action: "filter-tags", keywords: "f t tags filter clear multi and" },
+      { label: "Filter by category", hint: "@ opens; F then C also works", icon: Folder, keys: ["@", "F → C"], action: "filter-category", keywords: "@ f c category folder filter" },
+      { label: "Filter by tags", hint: "# opens; F then T also works, Space picks, Enter closes", icon: Tags, keys: ["#", "F → T"], action: "filter-tags", keywords: "# f t tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Filter shortcuts", hint: "F focuses toolbar; F again closes", icon: ListFilter, keys: ["F"], keywords: "f filter mode preset exact status priority category tags unblocked focus close toggle" },
       { label: "Sort tasks", hint: "S focuses toolbar; S again closes", icon: ArrowDownUp, keys: ["S", "C/U/R"], keywords: "s order sort created updated reverse newest oldest direction focus close toggle" },
@@ -134,7 +134,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
         <Command label="Search shortcuts and syntax" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
           <CommandList label="Help results">
-            <CommandEmpty>No matches. Try “Tab” or “@”.</CommandEmpty>
+            <CommandEmpty>No matches. Try “Tab”, “@”, or “#”.</CommandEmpty>
             {helpGroups.map((group, groupIndex) => (
               <Fragment key={group.heading}>
                 {groupIndex > 0 ? <CommandSeparator /> : null}

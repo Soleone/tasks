@@ -754,6 +754,14 @@ export function TaskList({
         if (event.repeat) return;
         event.preventDefault();
         actions.openSearch();
+      } else if (event.key === "@") {
+        if (event.repeat) return;
+        event.preventDefault();
+        actions.openCategoryPicker();
+      } else if (event.key === "#") {
+        if (event.repeat) return;
+        event.preventDefault();
+        actions.openTagPicker();
       } else if (event.key.toLowerCase() === "c") {
         if (event.repeat) return;
         event.preventDefault();
@@ -850,7 +858,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / @ # F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -935,9 +943,9 @@ export function TaskList({
                 className={categoryFilter ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category. Press F then C."}
+                aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category. Press @ or F then C."}
                 aria-pressed={categoryFilter !== null}
-                aria-keyshortcuts="C"
+                aria-keyshortcuts="@ C"
                 data-filter="task-category"
                 onClick={toggleCategoryFilter}
               />
@@ -956,9 +964,9 @@ export function TaskList({
                 className={tagFilter.length > 0 ? ACTIVE_FILTER_CLASS : undefined}
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={tagFilter.length > 0 ? `Tag filter: ${tagFilter.map((tag) => tag.label).join(", ")}. Open tag picker.` : "Filter by tags. Press F then T."}
+                aria-label={tagFilter.length > 0 ? `Tag filter: ${tagFilter.map((tag) => tag.label).join(", ")}. Open tag picker.` : "Filter by tags. Press # or F then T."}
                 aria-pressed={tagFilter.length > 0}
-                aria-keyshortcuts="T"
+                aria-keyshortcuts="# T"
                 data-filter="task-tags"
                 onClick={openTagPicker}
               />
@@ -1140,7 +1148,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"

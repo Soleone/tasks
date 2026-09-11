@@ -60,6 +60,8 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `F then O` / `I` / `D` / `P` / `X` | Show only Open / In progress / Done / Paused / Canceled tasks |
 | `F then 0`–`4` | Filter to P0 through P4; pressing the active number clears it |
 | `F then U` | Toggle the unblocked-task view |
+| `@` | Open the category filter with its search field focused |
+| `#` | Open the tag filter with its search field focused |
 | `F then C` | Open the category filter |
 | `F then T` | Open the tag filter |
 | `/` | Open task search; works from the task list or filter toolbar |

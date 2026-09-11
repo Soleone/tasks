@@ -691,6 +691,16 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"');
+  // @ opens the category picker directly with its search field ready for typing.
+  browser("focus", "[role=listbox]");
+  browser("press", "@");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "launch");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
 
   // Priority: P2 is the default, F then 0-4 filters on the list, bare 0-4
   // sets the active task, and the dialog section sets the task priority
@@ -822,6 +832,16 @@ try {
   waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false"');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 12');
+  // # opens the tag picker directly with its search field ready for typing.
+  browser("focus", "[role=listbox]");
+  browser("press", "#");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "planning");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
+  browser("press", "Enter");
+  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=dialog]") && document.activeElement.matches("[role=listbox]")');
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
 
   // Search: / opens, covers titles and descriptions, stays applied, and the
   // button clears with a mouse action. Empty filters offer Clear filters.
