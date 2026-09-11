@@ -19,7 +19,7 @@ export const taskStatusMeta: Record<TaskStatus, TaskStatusMeta> = {
   in_progress: { label: "In progress", Icon: CircleDashed, color: "text-primary" },
   paused: { label: "Paused", Icon: CirclePause, color: "text-warning" },
   done: { label: "Done", Icon: CircleCheck, color: "text-success" },
-  canceled: { label: "Cancelled", Icon: CircleX, color: "text-destructive" },
+  canceled: { label: "Canceled", Icon: CircleX, color: "text-destructive" },
 };
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "paused"];

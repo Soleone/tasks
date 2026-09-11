@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { CircleHelp, Palette, Settings2, SquareCheck } from "lucide-react";
+import { CircleHelp, CircleX, Palette, Settings2, SquareCheck } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
@@ -102,7 +102,7 @@ type StatusUndoEntry = {
 
 type Toast = {
   message: string;
-  kind: "completion" | "undo";
+  kind: "completion" | "cancellation" | "undo";
 };
 
 const UNDO_TOAST_DURATION_MS = 3000;
@@ -525,7 +525,7 @@ export default function App(): ReactElement {
     const wasActive = tasks[activeTaskIndex]?.id === current.id;
     setHelpOpen(false);
     if (current.status === "done" || current.status === "canceled") {
-      setAnnouncement(`${current.title} is ${current.status === "done" ? "done" : "cancelled"}. Reopen it before pausing.`);
+      setAnnouncement(`${current.title} is ${taskStatusMeta[current.status].label.toLowerCase()}. Reopen it before pausing.`);
       return;
     }
     try {
@@ -690,7 +690,8 @@ export default function App(): ReactElement {
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
     if (current && (current as { changed?: boolean }).changed === false) return;
     recordStatusUndo(previous, current, wasActive);
-    if (current.status === "done") showToast("Task completed", "completion");
+    if (current.status === "done") showToast("Task marked done", "completion");
+    if (current.status === "canceled") showToast("Task canceled", "cancellation");
   }
 
   return (
@@ -796,7 +797,7 @@ export default function App(): ReactElement {
           onCanceled={(task) => {
             ++querySequence.current;
             updateVisibleTask(task);
-            setAnnouncement(`Cancelled: ${task.title}`);
+            setAnnouncement(`Canceled: ${task.title}`);
           }}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
@@ -805,6 +806,7 @@ export default function App(): ReactElement {
         {toast ? (
           <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
             {toast.kind === "completion" ? <SquareCheck aria-hidden="true" className="size-4 shrink-0 text-primary" /> : null}
+            {toast.kind === "cancellation" ? <CircleX aria-hidden="true" className="size-4 shrink-0 text-destructive" /> : null}
             <span>{toast.message}</span>
           </div>
         ) : null}

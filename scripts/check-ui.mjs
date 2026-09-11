@@ -237,7 +237,7 @@ try {
   // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task completed")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked done")');
   check('document.querySelector("[data-undo-toast] svg")?.classList.contains("text-primary") === true');
   browser("press", "f");
   browser("press", "s");
@@ -534,6 +534,7 @@ try {
   const deletedId = evaluate('window.deleteList = document.activeElement; window.deletedId = document.activeElement.getAttribute("aria-activedescendant").slice("task-option-".length); window.deletedId');
   browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task canceled")');
   check('document.activeElement === window.deleteList');
   assert.equal((await command("task.get", { id: deletedId })).task.status, "canceled");
 
@@ -574,6 +575,7 @@ try {
   check('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4');
   browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task canceled")');
   check('window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]');
   check('document.activeElement.matches("[role=listbox]")');
   evaluate('window.fetch = window.originalFetch; true');
@@ -976,10 +978,10 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "Home");
   // The newest task is first under updated/newest, so Home selects the undo task.
-  // Cancel it with Delete: it leaves Active immediately with no pre-undo UI.
+  // Cancel it with Delete: it leaves Active immediately and shows a success toast.
   browser("press", "Delete");
   waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
-  check('document.querySelector("[data-undo-toast]") === null');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task canceled")');
   check('![...document.querySelectorAll("button")].some((b) => b.textContent.includes("Undo"))');
   check('document.activeElement?.getAttribute("role") === "listbox"');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "canceled");
@@ -1061,7 +1063,7 @@ try {
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Control+z");
   await delay(500);
-  check('document.querySelector(\'form[aria-label="New task"]\') !== null && document.querySelector("[data-undo-toast]") === null');
+  check('document.querySelector(\'form[aria-label="New task"]\') !== null && !document.querySelector("[data-undo-toast]")?.textContent.includes("Undo status change")');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
   // Undo still works after leaving the composer.
