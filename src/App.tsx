@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { CircleHelp, CirclePause, CircleX, Palette, Settings2, SquareCheck, type LucideIcon } from "lucide-react";
+import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
-import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
+import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
@@ -22,7 +22,6 @@ import { useFocusNavigation, useFocusStack } from "@/navigation";
 import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme, transitionTask, undoStatusChange } from "@/platform/backendClient";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
-import { taskStatusMeta } from "@/components/taskFilters";
 
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
@@ -105,10 +104,10 @@ type Toast = {
   Icon?: LucideIcon;
 };
 
-const STATUS_CHANGE_TOASTS: Partial<Record<TaskStatus, Toast>> = {
-  paused: { message: "Task paused", Icon: CirclePause },
-  done: { message: "Task marked done", Icon: SquareCheck },
-  canceled: { message: "Task canceled", Icon: CircleX },
+const STATUS_CHANGE_TOASTS: Partial<Record<TaskStatus, string>> = {
+  paused: "Task paused",
+  done: "Task marked done",
+  canceled: "Task canceled",
 };
 
 const UNDO_TOAST_DURATION_MS = 3000;
@@ -695,8 +694,8 @@ export default function App(): ReactElement {
 
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
     recordStatusUndo(previous, current, wasActive);
-    const toast = STATUS_CHANGE_TOASTS[current.status];
-    if (toast) showToast(toast);
+    const message = STATUS_CHANGE_TOASTS[current.status];
+    if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
   }
 
   const ToastIcon = toast?.Icon;

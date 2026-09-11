@@ -240,6 +240,7 @@ try {
   waitFor('!document.querySelector("[role=option]")');
   waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked done")');
   check('document.querySelector("[data-undo-toast] svg")?.classList.contains("text-background") === true');
+  check('document.querySelector("[data-undo-toast] svg")?.classList.contains("lucide-circle-check") === true');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
