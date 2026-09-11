@@ -1176,9 +1176,9 @@ try {
   waitFor('document.querySelector("[role=option][data-context-parent][aria-expanded=true]")?.textContent.includes("Completed context parent")');
   const contextVisibleCount = evaluate('document.querySelectorAll("[role=option]:not([data-context-parent])").length');
   const contextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
-  check(`document.querySelector("[data-parent-context]")?.textContent === "Parent context · Done"`);
   check(`${contextAfterIndex} === ${contextParentIndex}`);
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active context child"))');
+  check(`document.querySelector("[data-parent-context]")?.textContent === "Still visible because children aren't done yet."`);
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${contextVisibleCount} active task${contextVisibleCount === 1 ? "" : "s"}"`);
 
   // Canceled parents use the same context treatment as completed parents,
@@ -1210,6 +1210,7 @@ try {
 
   check(`${canceledContextAfterIndex} === ${canceledParentIndex}`);
   check('document.querySelector("[role=option][data-context-parent] [data-status=canceled]") !== null');
+  check(`document.querySelector("[data-parent-context]")?.textContent === "Still visible because children aren't canceled yet."`);
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active canceled-context child"))');
 
   assert.equal(browser("errors").trim(), "");

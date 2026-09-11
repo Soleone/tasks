@@ -21,6 +21,11 @@ export function taskRowDisplayTitle(task: TaskRecord): string {
   return taskTitleDisplay(task.title);
 }
 
+export function taskContextMessage(task: TaskRecord): string {
+  const status = taskStatusMeta[task.status].label.toLowerCase();
+  return `Still visible because children aren't ${status} yet.`;
+}
+
 /** Informational status icon. Interactive toggling stays with the list. */
 export function TaskStatusDisplay({ task }: { task: TaskRecord }): ReactElement {
   const status = taskStatusMeta[task.status];
@@ -209,7 +214,7 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
         {variant === "full" ? <TaskRowMetadata task={task} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
         {variant === "full" && contextOnly ? (
-          <p data-parent-context className="text-xs text-muted-foreground">Parent context · {taskStatusMeta[task.status].label}</p>
+          <p data-parent-context className="text-xs text-muted-foreground">{taskContextMessage(task)}</p>
         ) : null}
         {variant === "full" && showDetails ? <TaskRowTimestamps task={task} /> : null}
       </div>

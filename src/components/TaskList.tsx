@@ -8,7 +8,7 @@ import {
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
-import { TaskRow, TaskStatusToggle, taskTitleDisplay } from "@/components/TaskRow";
+import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -1181,7 +1181,7 @@ export function TaskList({
                 role="option"
                 aria-selected={active}
                 aria-expanded={row.hasChildren ? expandedIds.has(task.id) : undefined}
-                aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, parent context` : undefined}
+                aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
                 tabIndex={-1}
                 data-active={active || undefined}
                 data-context-parent={row.contextOnly || undefined}
