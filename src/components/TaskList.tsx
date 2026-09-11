@@ -21,17 +21,23 @@ import { preventFocusSteal, type Navigator } from "@/navigation";
 import { BackendCommandError, deleteTask, transitionTask, updateTask } from "@/platform/backendClient";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
+type StatusTransition = { next: TaskStatus; command: StatusCommand };
 
-// Space is the forward-progress key: open -> in progress -> done -> open.
-// Paused stays out of the cycle because it is a rare soft-cancel state;
-// use P to pause or resume instead so overshooting to done never hides
-// a task you meant to park.
-
-const taskStatusTransition: Record<TaskStatus, { next: TaskStatus; command: StatusCommand }> = {
+// Paused is a separate pause/resume state, but both Space directions keep it
+// reachable: forward completes it, while reverse returns it to in progress.
+const forwardStatusTransition: Record<TaskStatus, StatusTransition> = {
   open: { next: "in_progress", command: "task.start" },
   in_progress: { next: "done", command: "task.complete" },
   paused: { next: "done", command: "task.complete" },
   done: { next: "open", command: "task.reopen" },
+  canceled: { next: "open", command: "task.reopen" },
+};
+
+const reverseStatusTransition: Record<TaskStatus, StatusTransition> = {
+  open: { next: "done", command: "task.complete" },
+  in_progress: { next: "open", command: "task.reopen" },
+  paused: { next: "in_progress", command: "task.start" },
+  done: { next: "in_progress", command: "task.start" },
   canceled: { next: "open", command: "task.reopen" },
 };
 
@@ -144,6 +150,7 @@ type HomeShortcutActions = {
   addBlocker: (task: TaskRecord) => void;
   moveUnder: (task: TaskRecord) => void;
   toggleStatus: (task: TaskRecord) => Promise<void>;
+  reverseStatus: (task: TaskRecord) => Promise<void>;
   pauseTask: (task: TaskRecord) => Promise<void>;
   moveActive: (next: number) => void;
   handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
@@ -444,9 +451,8 @@ export function TaskList({
     });
   }
 
-  async function toggleStatus(task: TaskRecord): Promise<void> {
+  async function changeStatus(task: TaskRecord, transition: StatusTransition): Promise<void> {
     if (mutationPending.current.has(task.id)) return;
-    const transition = taskStatusTransition[task.status];
     const previousReceipt = statusReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version && previousReceipt.target === transition.next
       ? previousReceipt
@@ -470,35 +476,22 @@ export function TaskList({
     }
   }
 
-  async function pauseTask(task: TaskRecord): Promise<void> {
-    if (mutationPending.current.has(task.id)) return;
+  function toggleStatus(task: TaskRecord): Promise<void> {
+    return changeStatus(task, forwardStatusTransition[task.status]);
+  }
+
+  function reverseStatus(task: TaskRecord): Promise<void> {
+    return changeStatus(task, reverseStatusTransition[task.status]);
+  }
+
+  function pauseTask(task: TaskRecord): Promise<void> {
     if (task.status === "done" || task.status === "canceled") {
       onAnnounce(`${task.title} is ${taskStatusMeta[task.status].label.toLowerCase()}. Reopen it before pausing.`);
-      return;
+      return Promise.resolve();
     }
     const target: TaskStatus = task.status === "paused" ? "in_progress" : "paused";
     const command: StatusCommand = task.status === "paused" ? "task.start" : "task.pause";
-    const previousReceipt = statusReceipts.current.get(task.id);
-    const receipt = previousReceipt?.version === task.version && previousReceipt.target === target
-      ? previousReceipt
-      : { version: task.version, target, key: crypto.randomUUID() };
-    statusReceipts.current.set(task.id, receipt);
-    setMutationPending(task.id, true);
-    const wasActivePause = activeTask?.id === task.id;
-    try {
-      const result = await transitionTask(command, task.id, task.version, { idempotencyKey: receipt.key });
-      statusReceipts.current.delete(task.id);
-      onTaskUpdated(result.task);
-      if (result.changed !== false) onStatusChanged?.(task, result.task, wasActivePause);
-      setStatusFeedback({ taskId: task.id, version: result.task.version });
-      onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
-    } catch (caught) {
-      onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${task.title} changed elsewhere. Refresh and try again.`
-        : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`);
-    } finally {
-      setMutationPending(task.id, false);
-    }
+    return changeStatus(task, { next: target, command });
   }
 
   async function setTaskPriority(task: TaskRecord, priority: TaskPriority): Promise<void> {
@@ -578,6 +571,7 @@ export function TaskList({
     addBlocker: onAddBlocker,
     moveUnder: onMoveUnder,
     toggleStatus,
+    reverseStatus,
     pauseTask,
     moveActive,
     handleHorizontalNavigation,
@@ -728,9 +722,13 @@ export function TaskList({
         event.preventDefault();
         if (actions.activeTask) void actions.pauseTask(actions.activeTask);
       } else if (event.key === " ") {
-        if (event.repeat || event.shiftKey || isNativeButtonAction(event.target)) return;
+        if (event.repeat || isNativeButtonAction(event.target)) return;
         event.preventDefault();
-        if (actions.activeTask) void actions.toggleStatus(actions.activeTask);
+        if (actions.activeTask) {
+          void (event.shiftKey
+            ? actions.reverseStatus(actions.activeTask)
+            : actions.toggleStatus(actions.activeTask));
+        }
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         actions.moveActive(actions.activeTaskIndex + 1);
@@ -787,7 +785,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1053,7 +1051,7 @@ export function TaskList({
           role="listbox"
           aria-label={visibleRows.length ? `Tasks, ${visibleRows.length} visible of ${total}` : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape N Shift+N S A U C T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -1097,7 +1095,8 @@ export function TaskList({
                       task={task}
                       pending={mutationPendingIds.has(task.id)}
                       feedbackVersion={statusFeedback?.taskId === task.id ? statusFeedback.version : undefined}
-                      nextLabel={taskStatusMeta[taskStatusTransition[task.status].next].label}
+                      nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
+                      previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
                       onToggle={(nextTask) => void toggleStatus(nextTask)}
                     />
                   }

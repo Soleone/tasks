@@ -567,7 +567,7 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
           ? "open"
           : "canceled";
   const changed = current.status !== target;
-  if (request.command === "task.start" && !["open", "in_progress", "paused"].includes(current.status)) {
+  if (request.command === "task.start" && !["open", "in_progress", "paused", "done"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot start a ${current.status} task`);
   }
   if (request.command === "task.pause" && !["open", "in_progress", "paused"].includes(current.status)) {

@@ -38,11 +38,12 @@ export function TaskStatusDisplay({ task }: { task: TaskRecord }): ReactElement 
 
 const STATUS_FEEDBACK_DURATION_MS = 900;
 
-export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, onToggle }: {
+export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, previousLabel, onToggle }: {
   task: TaskRecord;
   pending: boolean;
   feedbackVersion?: number;
   nextLabel: string;
+  previousLabel: string;
   onToggle: (task: TaskRecord) => void;
 }): ReactElement {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -67,7 +68,7 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, on
         render={
           <span
             role="img"
-            aria-label={`Status: ${status.label}. Click or press Space to change it to ${nextLabel}.${pauseHint}`}
+            aria-label={`Status: ${status.label}. Click or press Space to change it to ${nextLabel}; press Shift+Space to change it to ${previousLabel}.${pauseHint}`}
             tabIndex={-1}
             data-status={task.status}
             data-status-pending={pending || undefined}

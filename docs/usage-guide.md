@@ -48,6 +48,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Shift+N` | Open New task with the active task as parent |
 | `Enter` | Edit the active task |
 | `Space` | Move the active task forward: open to in progress, in progress or paused to done, done or canceled back to open |
+| `Shift+Space` | Move the active task backward: open to done, in progress to open, paused or done to in progress, canceled to open |
 | `P` | Pause an open or in-progress task, or resume a paused task to in progress. The palette entry runs the same action by mouse. |
 | `Delete` | Immediately cancel the active task |
 | `Ctrl/⌘+Z` | Undo the last task-list status change; also in the shortcuts palette. A newer status change replaces it, and the toast confirms the restore |

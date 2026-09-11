@@ -204,24 +204,29 @@ test("task mutations persist classification, activity, and optimistic versions",
       databasePath,
     );
     assert.equal(task(completed).status, "done");
+    const restarted = executeCommand(
+      request("task.start", { id: createdTask.id, expectedVersion: 5 }, { idempotencyKey: "restart-1" }),
+      databasePath,
+    );
+    assert.equal(task(restarted).status, "in_progress");
     const reopened = executeCommand(
-      request("task.reopen", { id: createdTask.id, expectedVersion: 5 }, { idempotencyKey: "reopen-1" }),
+      request("task.reopen", { id: createdTask.id, expectedVersion: 6 }, { idempotencyKey: "reopen-1" }),
       databasePath,
     );
     assert.equal(task(reopened).status, "open");
     const canceled = executeCommand(
-      request("task.cancel", { id: createdTask.id, expectedVersion: 6 }, { idempotencyKey: "cancel-1" }),
+      request("task.cancel", { id: createdTask.id, expectedVersion: 7 }, { idempotencyKey: "cancel-1" }),
       databasePath,
     );
     assert.equal(task(canceled).status, "canceled");
 
     const repeatedCancel = executeCommand(
-      request("task.cancel", { id: createdTask.id, expectedVersion: 7 }, { idempotencyKey: "cancel-noop" }),
+      request("task.cancel", { id: createdTask.id, expectedVersion: 8 }, { idempotencyKey: "cancel-noop" }),
       databasePath,
     );
     assert.equal(repeatedCancel.changed, false);
     const activities = executeCommand(request("activity.list", { taskId: createdTask.id }), databasePath);
-    assert.equal((activities.activity as unknown[]).length, 7);
+    assert.equal((activities.activity as unknown[]).length, 8);
   } finally {
     cleanDirectory(directory);
   }
