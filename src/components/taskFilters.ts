@@ -66,7 +66,7 @@ export const STATUS_SEQUENCE_TIMEOUT_MS = 2000;
 export type SortField = "created" | "updated";
 export type SortDirection = "asc" | "desc";
 
-/** Quiet count-line suffix, e.g. by updated, newest first. */
+/** Quiet count-line suffix, e.g. by updated, desc. */
 export function sortSummary(field: SortField, direction: SortDirection): string {
-  return `by ${field}, ${direction === "desc" ? "newest first" : "oldest first"}`;
+  return `by ${field}, ${direction}`;
 }
