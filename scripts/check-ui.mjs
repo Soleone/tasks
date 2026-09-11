@@ -186,6 +186,8 @@ try {
   evaluate('window.filterToolbarTop = document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top; window.filterListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top; true');
   browser("press", "f");
   waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
+  check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-group=status]") !== null');
+  check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-group=more]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=open] [data-shortcut-key=\\"O\\"]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=priority] [data-shortcut-key=\\"0–4\\"]") !== null');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=filter]") === null');
