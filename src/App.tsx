@@ -13,7 +13,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { TaskList } from "@/components/TaskList";
+import { TaskList, type TaskListHandle } from "@/components/TaskList";
 import { taskGroupOrder } from "@/components/taskTree";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -49,7 +49,8 @@ function writeStored(key: string, value: string): void {
 }
 
 function readSortField(): SortField {
-  return readStored(SORT_FIELD_KEY) === "created" ? "created" : "updated";
+  const stored = readStored(SORT_FIELD_KEY);
+  return stored === "created" || stored === "manual" ? stored : "updated";
 }
 
 function readSortDirection(): SortDirection {
@@ -131,6 +132,7 @@ const STATUS_CHANGE_TOASTS: Partial<Record<TaskStatus, string>> = {
 const UNDO_TOAST_DURATION_MS = 3000;
 
 function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
+  if (field === "manual") return 0;
   const keyA = field === "created" ? a.createdAt : a.updatedAt;
   const keyB = field === "created" ? b.createdAt : b.updatedAt;
   if (keyA !== keyB) {
@@ -190,12 +192,13 @@ export default function App(): ReactElement {
   const sortDirectionRef = useRef<SortDirection>("desc");
   const categoryFilterRef = useRef<string | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
+  const taskListRef = useRef<TaskListHandle>(null);
   composerRef.current = composer;
 
   const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
 
-  const refreshTasks = useCallback(async (offset = 0, preserveContextOrder = false): Promise<void> => {
+  const refreshTasks = useCallback(async (offset = 0, preserveContextOrder = false): Promise<boolean> => {
     const sequence = ++querySequence.current;
     setLoading(true);
     setLoadError(null);
@@ -216,7 +219,7 @@ export default function App(): ReactElement {
           includeAncestors: true,
         },
       );
-      if (sequence !== querySequence.current) return;
+      if (sequence !== querySequence.current) return false;
       if (!offset && !preserveContextOrder) setContextOrder(new Map());
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setContextTasks((previous) => {
@@ -226,8 +229,10 @@ export default function App(): ReactElement {
         return [...next.values()];
       });
       setTotal(result.total);
+      return true;
     } catch (caught) {
       if (sequence === querySequence.current) setLoadError(caught instanceof Error ? caught.message : String(caught));
+      return false;
     } finally {
       if (sequence === querySequence.current) setLoading(false);
     }
@@ -372,6 +377,10 @@ export default function App(): ReactElement {
     setPicker(null);
   }
 
+  function finishIdentityPreservingRefresh(): void {
+    window.requestAnimationFrame(() => taskListRef.current?.finishIdentityPreservingRefresh());
+  }
+
   function openCategoryPicker(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
     focusStack.push("category-picker", fromPalette ?? undefined);
@@ -423,13 +432,15 @@ export default function App(): ReactElement {
 
   function chooseSortField(field: SortField): void {
     if (field === sortField) return;
+    sortFieldRef.current = field;
     setSortField(field);
     setActiveTaskIndex(0);
     writeStored(SORT_FIELD_KEY, field);
-    setAnnouncement(`Sorted ${sortSummary(field, sortDirection)}`);
+    setAnnouncement(field === "manual" ? "Sorted by manual order" : `Sorted ${sortSummary(field, sortDirection)}`);
   }
 
   function reverseSort(): void {
+    if (sortField === "manual") return;
     const next = sortDirection === "desc" ? "asc" : "desc";
     setSortDirection(next);
     setActiveTaskIndex(0);
@@ -527,7 +538,10 @@ export default function App(): ReactElement {
     setPicker(null);
     try {
       const result = await moveTask(current.id, null, current.version, { idempotencyKey: crypto.randomUUID() });
+      const refreshManualOrder = result.changed !== false && sortFieldRef.current === "manual";
+      if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
+      if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
       setAnnouncement(`${subjectTitle} is now a top-level task`);
     } catch (caught) {
       setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
@@ -546,7 +560,10 @@ export default function App(): ReactElement {
       const result = mode === "blocker"
         ? await addDependency(current.id, target.id, current.version, { idempotencyKey: crypto.randomUUID() })
         : await moveTask(current.id, target.id, current.version, { idempotencyKey: crypto.randomUUID() });
+      const refreshManualOrder = mode === "move" && result.changed !== false && sortFieldRef.current === "manual";
+      if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
+      if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
       const subjectTitle = taskTitleDisplay(current.title);
       const targetTitle = taskTitleDisplay(target.title);
       setAnnouncement(mode === "blocker"
@@ -652,7 +669,7 @@ export default function App(): ReactElement {
       const label = taskStatusMeta[restored.status]?.label ?? restored.status;
       setAnnouncement(`${restored.title}: ${label}`);
       showToast({ message: `Undo status change to ${label}` });
-      if (entry.from === "canceled" || entry.to === "canceled") void refreshTasks(0, true);
+      if (sortField === "manual" || entry.from === "canceled" || entry.to === "canceled") void refreshTasks(0, true);
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
@@ -748,6 +765,7 @@ export default function App(): ReactElement {
       setTasks(nextTasks);
       setTotal((previous) => previous + 1);
       syncContextTasks(nextTasks);
+      if (sortField === "manual") void refreshTasks(0, true);
       return;
     }
     const nextTasks = tasks.map((existing) => existing.id === task.id ? task : existing);
@@ -819,6 +837,7 @@ export default function App(): ReactElement {
         </header>
 
         <TaskList
+          ref={taskListRef}
           tasks={tasks}
           contextTasks={contextTasks}
           contextOrder={contextOrder}

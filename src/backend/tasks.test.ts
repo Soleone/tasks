@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
 import path from "node:path";
@@ -42,6 +42,21 @@ function countRows(databasePath: string, table: string): number {
 
 function cleanDirectory(directory: string): void {
   rmSync(directory, { recursive: true, force: true });
+}
+
+function siblingPositions(databasePath: string, parentId: string | null = null): Array<{ id: string; position: number; version: number }> {
+  const database = new DatabaseSync(databasePath);
+  try {
+    return (database
+      .prepare("SELECT id, position, version FROM tasks WHERE parent_id IS ? ORDER BY position ASC, id ASC")
+      .all(parentId) as Array<{ id: string; position: number; version: number }>).map((row) => ({
+        id: row.id,
+        position: row.position,
+        version: row.version,
+      }));
+  } finally {
+    database.close();
+  }
 }
 
 test("classification respects boundaries, code, URLs, headings, and one category", () => {
@@ -514,8 +529,9 @@ test("schema migration adds the paused task status to existing workspaces", () =
       completed_at TEXT,
       canceled_at TEXT
     );
-    INSERT INTO tasks (id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at)
-      VALUES ('legacy', 'Legacy task', '', 'open', NULL, 1, 'now', 'now', NULL, NULL);
+    INSERT INTO tasks (id, title, description_markdown, status, category_id, version, created_at, updated_at, completed_at, canceled_at) VALUES
+      ('legacy', 'Legacy task', '', 'open', NULL, 1, '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z', NULL, NULL),
+      ('legacy-old', 'Older legacy task', '', 'open', NULL, 1, '2026-01-02T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL, NULL);
   `);
   legacy.close();
 
@@ -525,7 +541,7 @@ test("schema migration adds the paused task status to existing workspaces", () =
     const table = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as { sql: string };
     const dependencyTable = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_dependencies'").get() as { sql: string };
     const foreignKeys = migrated.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
-    assert.equal(schema.value, "4");
+    assert.equal(schema.value, "5");
     assert.match(table.sql, /paused/);
     assert.match(table.sql, /parent_id/);
     assert.match(table.sql, /priority/);
@@ -533,6 +549,10 @@ test("schema migration adds the paused task status to existing workspaces", () =
     assert.equal(foreignKeys.foreign_keys, 1);
     migrated.close();
 
+    assert.deepEqual(siblingPositions(databasePath), [
+      { id: "legacy", position: 0, version: 1 },
+      { id: "legacy-old", position: 1, version: 1 },
+    ]);
     const legacyTask = task(executeCommand(request("task.get", { id: "legacy" }), databasePath));
     assert.equal(legacyTask.priority, 2);
 
@@ -585,11 +605,12 @@ test("portable JSON export writes a readable file beside the database", () => {
       tasks: Result[];
     };
     assert.equal(file.format, "tasks.tasks-export");
-    assert.equal(file.formatVersion, 1);
+    assert.equal(file.formatVersion, 2);
     assert.equal(file.exportedAt, exported.exportedAt);
     assert.equal(file.taskCount, 2);
     assert.deepEqual(file.tasks.find((row) => row.id === venue.id), {
       id: venue.id,
+      siblingOrder: 1,
       title: venue.title,
       status: "open",
       priority: 2,
@@ -814,6 +835,14 @@ test("relationship snapshots round-trip through export and restore", () => {
     const blocked = task(
       executeCommand(request("task.dependency.add", { id: child.id, dependsOnId: blocker.id, expectedVersion: child.version }, { idempotencyKey: "snap-block" }), databasePath),
     );
+    const positioned = openDatabase(databasePath);
+    try {
+      positioned.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(0, blocker.id);
+      positioned.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(1, parent.id);
+      positioned.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(0, child.id);
+    } finally {
+      positioned.close();
+    }
     assert.equal(child.parentId, parent.id);
     assert.deepEqual(blocked.blockedByIds, [blocker.id]);
 
@@ -821,6 +850,7 @@ test("relationship snapshots round-trip through export and restore", () => {
     const restored = executeCommand(request("workspace.restore", { sourcePath: exportPath, destinationPath: restoredPath }, { idempotencyKey: "snap-restore" }), databasePath);
     assert.equal(restored.taskCount, 3);
     assert.deepEqual(task(executeCommand(request("task.get", { id: child.id }), restoredPath)), blocked);
+    assert.deepEqual(siblingPositions(restoredPath), siblingPositions(databasePath));
   } finally {
     cleanDirectory(directory);
   }
@@ -944,8 +974,181 @@ test("task.list sorts by created and updated with direction", () => {
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "updated", direction: "asc" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created", direction: "asc" }), databasePath)), [oldest.id, middle.id, newest.id]);
-    assert.throws(() => executeCommand(request("task.list", { sort: "priority" }), databasePath), /sort must be created or updated/);
+    assert.throws(() => executeCommand(request("task.list", { sort: "priority" }), databasePath), /sort must be created, updated, or manual/);
     assert.throws(() => executeCommand(request("task.list", { direction: "sideways" }), databasePath), /direction must be asc or desc/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("manual ordering supports explicit placements, dense positions, and task versions", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-manual-reorder-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const created = ["A", "B", "C", "D"].map((title) =>
+      task(executeCommand(request("task.create", { title }, { idempotencyKey: `manual-create-${title}` }), databasePath)),
+    );
+    const byTitle = new Map(created.map((item) => [item.title, item]));
+    const database = new DatabaseSync(databasePath);
+    try {
+      database.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(0, byTitle.get("A")!.id);
+      database.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(1, byTitle.get("B")!.id);
+      database.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(2, byTitle.get("C")!.id);
+      database.prepare("UPDATE tasks SET position = ? WHERE id = ?").run(3, byTitle.get("D")!.id);
+    } finally {
+      database.close();
+    }
+
+    const ids = (result: Result): string[] => (result.tasks as TaskRecord[]).map((item) => item.title);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "manual" }), databasePath)), ["A", "B", "C", "D"]);
+    assert.deepEqual(
+      ids(executeCommand(request("task.reorder", {
+        tasks: [{ id: byTitle.get("C")?.id, expectedVersion: 1 }],
+        placement: { beforeId: byTitle.get("A")?.id },
+      }, { idempotencyKey: "manual-before" }), databasePath)),
+      ["C"],
+    );
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "manual" }), databasePath)), ["C", "A", "B", "D"]);
+    assert.equal(siblingPositions(databasePath).every((row, index) => row.position === index), true);
+    assert.equal(task(executeCommand(request("task.get", { id: byTitle.get("C")?.id }), databasePath)).version, 2);
+    const afterReorder = task(executeCommand(request("task.get", { id: byTitle.get("C")?.id }), databasePath));
+
+    executeCommand(request("task.reorder", {
+      tasks: [{ id: byTitle.get("C")?.id, expectedVersion: 2 }],
+      placement: { afterId: byTitle.get("D")?.id },
+    }, { idempotencyKey: "manual-after" }), databasePath);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "manual" }), databasePath)), ["A", "B", "D", "C"]);
+    executeCommand(request("task.reorder", {
+      tasks: [{ id: byTitle.get("D")?.id, expectedVersion: 1 }],
+      placement: { first: true },
+    }, { idempotencyKey: "manual-first" }), databasePath);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "manual" }), databasePath)), ["D", "A", "B", "C"]);
+    executeCommand(request("task.reorder", {
+      tasks: [{ id: byTitle.get("D")?.id, expectedVersion: 2 }],
+      placement: { last: true },
+    }, { idempotencyKey: "manual-last" }), databasePath);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "manual" }), databasePath)), ["A", "B", "C", "D"]);
+
+    const multi = executeCommand(request("task.reorder", {
+      tasks: [
+        { id: byTitle.get("B")?.id, expectedVersion: 1 },
+        { id: byTitle.get("C")?.id, expectedVersion: 3 },
+      ],
+      placement: { first: true },
+    }, { idempotencyKey: "manual-multi" }), databasePath);
+    assert.equal(multi.changed, true);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "manual" }), databasePath)), ["B", "C", "A", "D"]);
+    assert.deepEqual(siblingPositions(databasePath).map((row) => row.position), [0, 1, 2, 3]);
+
+    const noOpBefore = siblingPositions(databasePath);
+    const noOpTask = task(executeCommand(request("task.get", { id: byTitle.get("B")?.id }), databasePath));
+    const noOp = executeCommand(request("task.reorder", {
+      tasks: [{ id: noOpTask.id, expectedVersion: noOpTask.version }],
+      placement: { first: true },
+    }, { idempotencyKey: "manual-noop" }), databasePath);
+    assert.equal(noOp.changed, false);
+    assert.deepEqual(siblingPositions(databasePath), noOpBefore);
+    assert.deepEqual(task(executeCommand(request("task.get", { id: afterReorder.id }), databasePath)).updatedAt, afterReorder.updatedAt);
+
+    assert.throws(() => executeCommand(request("task.reorder", {
+      tasks: [
+        { id: byTitle.get("C")?.id, expectedVersion: 4 },
+        { id: byTitle.get("B")?.id, expectedVersion: 2 },
+      ],
+      placement: { last: true },
+    }, { idempotencyKey: "manual-wrong-order" }), databasePath), /INVALID_REORDER_ORDER/);
+    assert.throws(() => executeCommand(request("task.reorder", {
+      tasks: [{ id: byTitle.get("B")?.id, expectedVersion: 1 }],
+      placement: { beforeId: byTitle.get("C")?.id },
+    }, { idempotencyKey: "manual-stale" }), databasePath), /STALE_TASK_VERSION/);
+
+    const parent = task(executeCommand(request("task.create", { title: "Parent" }, { idempotencyKey: "manual-parent" }), databasePath));
+    const child = task(executeCommand(request("task.create", { title: "Child", parentId: parent.id }, { idempotencyKey: "manual-child" }), databasePath));
+    assert.throws(() => executeCommand(request("task.reorder", {
+      tasks: [{ id: child.id, expectedVersion: child.version }],
+      placement: { beforeId: parent.id },
+    }, { idempotencyKey: "manual-cross-scope" }), databasePath), /INVALID_REORDER_SCOPE/);
+    assert.throws(() => executeCommand(request("task.reorder", {
+      tasks: [{ id: child.id, expectedVersion: child.version }, { id: parent.id, expectedVersion: parent.version }],
+      placement: { first: true },
+    }, { idempotencyKey: "manual-mixed-scope" }), databasePath), /INVALID_REORDER_SCOPE/);
+
+    const beforeRollback = siblingPositions(databasePath);
+    const rollbackTarget = task(executeCommand(request("task.get", { id: byTitle.get("D")?.id }), databasePath));
+    const rollbackRequest = request("task.reorder", {
+      tasks: [{ id: rollbackTarget.id, expectedVersion: rollbackTarget.version }],
+      placement: { beforeId: byTitle.get("A")?.id },
+    }, { idempotencyKey: "manual-rollback" });
+    const withFailure = openDatabase(databasePath);
+    withFailure.exec("CREATE TRIGGER reject_reorder_activity BEFORE INSERT ON activity WHEN NEW.action = 'reordered' BEGIN SELECT RAISE(ABORT, 'reorder activity failed'); END;");
+    withFailure.close();
+    assert.throws(() => executeCommand(rollbackRequest, databasePath), /reorder activity failed/);
+    assert.deepEqual(siblingPositions(databasePath), beforeRollback);
+    const withoutFailure = openDatabase(databasePath);
+    withoutFailure.exec("DROP TRIGGER reject_reorder_activity");
+    withoutFailure.close();
+    const retried = executeCommand(rollbackRequest, databasePath);
+    assert.equal(retried.changed, true);
+    assert.deepEqual(executeCommand(rollbackRequest, databasePath), retried);
+
+    const activity = executeCommand(request("activity.list", { taskId: byTitle.get("D")?.id }), databasePath) as { activity: Array<{ action: string; details: Record<string, unknown> }> };
+    const reorderActivity = activity.activity.find((entry) => entry.action === "reordered");
+    assert.equal(typeof reorderActivity?.details.before, "object");
+    assert.equal(typeof reorderActivity?.details.after, "object");
+    assert.deepEqual(reorderActivity?.details.siblingScope, { parentId: null });
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("manual ordering keeps hidden siblings and context pagination stable", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-manual-filter-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const visibleA = task(executeCommand(request("task.create", { title: "Visible A @manual-filter" }, { idempotencyKey: "filter-a" }), databasePath));
+    const hidden = task(executeCommand(request("task.create", { title: "Hidden sibling" }, { idempotencyKey: "filter-hidden" }), databasePath));
+    const visibleB = task(executeCommand(request("task.create", { title: "Visible B @manual-filter" }, { idempotencyKey: "filter-b" }), databasePath));
+    const parent = task(executeCommand(request("task.create", { title: "Hidden parent" }, { idempotencyKey: "filter-parent" }), databasePath));
+    const child = task(executeCommand(request("task.create", { title: "Visible child @manual-filter", parentId: parent.id }, { idempotencyKey: "filter-child" }), databasePath));
+    const database = new DatabaseSync(databasePath);
+    try {
+      const update = database.prepare("UPDATE tasks SET position = ? WHERE id = ?");
+      update.run(0, visibleA.id);
+      update.run(1, hidden.id);
+      update.run(2, visibleB.id);
+      update.run(3, parent.id);
+      update.run(0, child.id);
+    } finally {
+      database.close();
+    }
+
+    const filtered = executeCommand(request("task.list", { category: "manual-filter", sort: "manual", includeAncestors: true }), databasePath);
+    assert.deepEqual((filtered.tasks as TaskRecord[]).map((row) => row.title), [
+      "Visible A @manual-filter",
+      "Visible B @manual-filter",
+      "Visible child @manual-filter",
+    ]);
+    assert.equal(filtered.total, 3);
+    assert.deepEqual((filtered.contextTasks as TaskRecord[]).map((row) => row.title), ["Hidden parent"]);
+    const reordered = executeCommand(request("task.reorder", {
+      tasks: [{ id: visibleB.id, expectedVersion: visibleB.version }],
+      placement: { beforeId: visibleA.id },
+    }, { idempotencyKey: "filter-reorder" }), databasePath);
+    assert.equal(reordered.changed, true);
+    assert.deepEqual((executeCommand(request("task.list", { sort: "manual" }), databasePath).tasks as TaskRecord[]).map((row) => row.title), [
+      "Visible B @manual-filter",
+      "Visible A @manual-filter",
+      "Hidden sibling",
+      "Hidden parent",
+      "Visible child @manual-filter",
+    ]);
+    assert.deepEqual(siblingPositions(databasePath).filter((row) => [visibleA.id, hidden.id, visibleB.id].includes(row.id)).map((row) => row.id), [visibleB.id, visibleA.id, hidden.id]);
+
+    const page = executeCommand(request("task.list", { category: "manual-filter", sort: "manual", includeAncestors: true, limit: 2, offset: 2 }), databasePath);
+    assert.equal(page.total, 3);
+    assert.equal((page.tasks as TaskRecord[]).length, 1);
+    assert.equal((page.tasks as TaskRecord[])[0]?.id, child.id);
+    assert.equal((page.contextTasks as TaskRecord[]).some((row) => row.id === parent.id), true);
   } finally {
     cleanDirectory(directory);
   }
@@ -1106,6 +1309,108 @@ test("status undo previews leave every table unchanged", () => {
   }
 });
 
+test("older workspace snapshots receive deterministic manual positions on restore", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-old-snapshot-order-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const snapshotPath = path.join(directory, "legacy", "tasks.json");
+  const restoredPath = path.join(directory, "restored", "tasks.db");
+  try {
+    const first = task(executeCommand(request("task.create", { title: "First" }, { idempotencyKey: "old-snapshot-first" }), databasePath));
+    const second = task(executeCommand(request("task.create", { title: "Second" }, { idempotencyKey: "old-snapshot-second" }), databasePath));
+    const database = openDatabase(databasePath);
+    try {
+      database.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run("2026-02-01T00:00:00.000Z", first.id);
+      database.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run("2026-01-01T00:00:00.000Z", second.id);
+    } finally {
+      database.close();
+    }
+    const refreshed = executeCommand(request("workspace.export"), databasePath).snapshot as Record<string, unknown> & { tasks: Array<Record<string, unknown>> };
+    refreshed.schemaVersion = 4;
+    refreshed.tasks = refreshed.tasks.map(({ position: _position, ...row }) => row);
+    mkdirSync(path.dirname(snapshotPath), { recursive: true });
+    writeFileSync(snapshotPath, `${JSON.stringify(refreshed)}\n`);
+    executeCommand(request("workspace.restore", { sourcePath: snapshotPath, destinationPath: restoredPath }, { idempotencyKey: "old-snapshot-restore" }), databasePath);
+    assert.deepEqual(siblingPositions(restoredPath), [
+      { id: first.id, position: 0, version: first.version },
+      { id: second.id, position: 1, version: second.version },
+    ]);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("schema version 2 workspaces migrate priority and manual positions", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-schema2-migration-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO schema_meta (key, value) VALUES ('schema_version', '2');
+    CREATE TABLE categories (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, label TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE tags (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, label TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE tasks (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL, description_markdown TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL, category_id TEXT, parent_id TEXT, version INTEGER NOT NULL,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, canceled_at TEXT
+    );
+    INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, version, created_at, updated_at, completed_at, canceled_at) VALUES
+      ('root', 'Root', '', 'open', NULL, NULL, 1, 'now', '2026-01-01T00:00:00.000Z', NULL, NULL),
+      ('child', 'Child', '', 'open', NULL, 'root', 1, 'now', '2026-02-01T00:00:00.000Z', NULL, NULL);
+  `);
+  legacy.close();
+  try {
+    const migrated = openDatabase(databasePath);
+    const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
+    const migratedColumns = migrated.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
+    assert.equal(schema.value, "5");
+    assert.equal(migratedColumns.some((column) => column.name === "priority"), true);
+    assert.equal(migratedColumns.some((column) => column.name === "position"), true);
+    migrated.close();
+    assert.deepEqual(siblingPositions(databasePath, null), [{ id: "root", position: 0, version: 1 }]);
+    assert.deepEqual(siblingPositions(databasePath, "root"), [{ id: "child", position: 0, version: 1 }]);
+    assert.equal(task(executeCommand(request("task.get", { id: "root" }), databasePath)).priority, 2);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
+test("schema version 4 workspaces migrate deterministic manual positions", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-order-migration-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const legacy = new DatabaseSync(databasePath);
+  legacy.exec(`
+    CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO schema_meta (key, value) VALUES ('schema_version', '4');
+    CREATE TABLE categories (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, label TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE tags (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, label TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE tasks (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL, description_markdown TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL, category_id TEXT, parent_id TEXT, priority INTEGER NOT NULL DEFAULT 2,
+      version INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, completed_at TEXT, canceled_at TEXT
+    );
+    INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, priority, version, created_at, updated_at, completed_at, canceled_at) VALUES
+      ('z', 'Z', '', 'open', NULL, NULL, 2, 1, 'now', '2026-01-01T00:00:00.000Z', NULL, NULL),
+      ('a', 'A', '', 'open', NULL, NULL, 2, 1, 'now', '2026-01-01T00:00:00.000Z', NULL, NULL),
+      ('m', 'M', '', 'open', NULL, NULL, 2, 1, 'now', '2026-02-01T00:00:00.000Z', NULL, NULL);
+  `);
+  legacy.close();
+  try {
+    const migrated = openDatabase(databasePath);
+    const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
+    const columns = migrated.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
+    assert.equal(schema.value, "5");
+    assert.equal(columns.some((column) => column.name === "position"), true);
+    migrated.close();
+    assert.deepEqual(siblingPositions(databasePath), [
+      { id: "m", position: 0, version: 1 },
+      { id: "a", position: 1, version: 1 },
+      { id: "z", position: 2, version: 1 },
+    ]);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("schema version 3 workspaces migrate tasks to priority P2", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-priority-migration-"));
   const databasePath = path.join(directory, "tasks.db");
@@ -1127,7 +1432,7 @@ test("schema version 3 workspaces migrate tasks to priority P2", () => {
   try {
     const migrated = openDatabase(databasePath);
     const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
-    assert.equal(schema.value, "4");
+    assert.equal(schema.value, "5");
     migrated.close();
     const migratedTask = task(executeCommand(request("task.get", { id: "old" }), databasePath));
     assert.equal(migratedTask.priority, 2);

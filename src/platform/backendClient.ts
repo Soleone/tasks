@@ -6,8 +6,11 @@ import {
   type CategoryRecord,
   type RuntimeProbeResult,
   type TagRecord,
+  type TaskListSort,
   type TaskPriority,
   type TaskRecord,
+  type TaskReorderPlacement,
+  type TaskReorderTask,
   type ThemeRecord,
 } from "../backend/protocol";
 import { getBackendTransport } from "./backendTransport";
@@ -19,7 +22,7 @@ export type TaskListFilters = {
   tags?: string[];
   search?: string;
   category?: string;
-  sort?: "created" | "updated";
+  sort?: TaskListSort;
   direction?: "asc" | "desc";
   includeAncestors?: boolean;
 };
@@ -41,6 +44,12 @@ export type CommandOptions = {
 export type TaskMutationResult = {
   task: TaskRecord;
   changed?: boolean;
+  dryRun?: boolean;
+  readOnly?: boolean;
+};
+export type TaskReorderResult = {
+  tasks: TaskRecord[];
+  changed: boolean;
   dryRun?: boolean;
   readOnly?: boolean;
 };
@@ -157,6 +166,14 @@ export async function undoStatusChange(
 
 export async function moveTask(id: string, parentId: string | null, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
   return runBackendCommand<TaskMutationResult>("task.move", { id, parentId, expectedVersion }, options);
+}
+
+export async function reorderTasks(
+  tasks: TaskReorderTask[],
+  placement: TaskReorderPlacement,
+  options: CommandOptions,
+): Promise<TaskReorderResult> {
+  return runBackendCommand<TaskReorderResult>("task.reorder", { tasks, placement }, options);
 }
 
 export async function addDependency(id: string, dependsOnId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {

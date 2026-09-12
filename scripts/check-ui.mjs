@@ -132,7 +132,9 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("S"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("O/I/D/P/X"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter shortcuts") && item.textContent.includes("F"))');
-  check('(() => { const item = [...document.querySelectorAll("[data-slot=command-item]")].find((entry) => entry.textContent.includes("Sort tasks")); const keys = item?.querySelectorAll("[data-slot=command-shortcut] [data-slot=kbd]"); return keys?.[0]?.textContent === "S" && item?.textContent.includes("C/U/R"); })()');
+  check('(() => { const item = [...document.querySelectorAll("[data-slot=command-item]")].find((entry) => entry.textContent.includes("Sort tasks")); const keys = item?.querySelectorAll("[data-slot=command-shortcut] [data-slot=kbd]"); return keys?.[0]?.textContent === "S" && item?.textContent.includes("C/U/M/R"); })()');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Select a task range") && item.textContent.includes("Shift+↑/↓"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move selected tasks") && item.textContent.includes("Ctrl/⌘+↑/↓"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show task details") && item.textContent.includes("V"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Change task status") && item.textContent.includes("Shift+Space"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Pause or resume task") && item.textContent.includes("P"))');
@@ -427,8 +429,9 @@ try {
   const exportedPath = evaluate('document.querySelector("[data-slot=alert-description]").textContent');
   const exportedFile = JSON.parse(readFileSync(exportedPath, "utf8"));
   assert.equal(exportedFile.format, "tasks.tasks-export");
-  assert.equal(exportedFile.formatVersion, 1);
+  assert.equal(exportedFile.formatVersion, 2);
   assert.equal(exportedFile.taskCount, 3);
+  assert.ok(exportedFile.tasks.every((row) => Number.isInteger(row.siblingOrder) && row.siblingOrder >= 0));
   assert.ok(exportedFile.tasks.every((row) => typeof row.title === "string" && Array.isArray(row.tags)));
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
@@ -687,6 +690,7 @@ try {
   check('document.querySelector("[data-filter=task-category]").getAttribute("aria-label").includes("roadmap")');
   browser("focus", "[role=listbox]");
   browser("press", "Escape");
+  browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
   evaluate('document.querySelector("[data-filter=task-category]").click(); true');
   waitFor('document.activeElement.matches("[cmdk-input]")');
@@ -702,6 +706,7 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
+  browser("press", "Escape");
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
 
@@ -724,7 +729,8 @@ try {
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
-  // Escape resets all filters, returning to the full Active view.
+  // Escape clears selection first, then resets all filters, returning to the full Active view.
+  browser("press", "Escape");
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9 && document.activeElement.matches("[role=listbox]")');
   // Filtering again, then the same key clears the priority filter.
@@ -844,6 +850,7 @@ try {
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=dialog]") && document.activeElement.matches("[role=listbox]")');
   browser("press", "Escape");
+  browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
 
   // Search: / opens, covers titles and descriptions, stays applied, and the
@@ -904,7 +911,7 @@ try {
   browser("press", "s");
   waitFor('document.activeElement.matches("[data-toolbar=sort]")');
   waitFor('document.querySelector("[data-shortcut-guide=sort]") !== null');
-  check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 3');
+  check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 4');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=sort]") === null');
   check('document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=sort]").className.includes("ring-ring ring-offset-2")');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.sortListTop) < 0.5');
@@ -915,16 +922,16 @@ try {
   waitFor('document.activeElement.matches("[data-toolbar=sort]") && document.querySelector("[data-shortcut-guide=sort]") !== null');
   browser("press", "c");
   waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, desc"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   check('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].slice(-2).map((title) => title.textContent)) === JSON.stringify(["Planning only", "Tag cockpit"])');
   browser("press", "s");
   browser("press", "r");
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, asc"');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   check('document.querySelector("[role=option] [data-slot=item-title]").textContent === "Tag cockpit"');
   // Back to updated/newest, details off; mouse covers the same controls.
   browser("press", "s");
   browser("press", "u");
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by updated, asc"');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   browser("press", "s");
   browser("press", "r");
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
@@ -934,9 +941,9 @@ try {
   waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true"');
   check('document.activeElement.getAttribute("role") === "listbox"');
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, asc"');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks · by created, desc"');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   evaluate('document.querySelector("[data-sort=task-sort-updated]").click(); true');
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   evaluate('document.querySelector("[data-view=task-details]").click(); true');
@@ -946,7 +953,7 @@ try {
   // Toolbar order stays Status, Priority, Category, Tags, Search, Unblocked,
   // then the sort and view groups in their own button groups.
   check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-category","task-tags","task-search","task-unblocked"])');
-  check('JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-reverse"])');
+  check('JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-manual","task-sort-reverse"])');
   check('document.querySelector("[data-view=task-details]") !== null');
   for (const width of [1280, 320]) {
     browser("set", "viewport", String(width), "844");
@@ -1213,8 +1220,318 @@ try {
   check(`document.querySelector("[data-parent-context]")?.textContent === "Still visible because children aren't canceled yet."`);
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active canceled-context child"))');
 
+  // Manual order: category-filtered roots can be moved with the keyboard and
+  // pointer toolbar while hidden, unfiltered siblings keep their place.
+  function filterManualCategory() {
+    browser("focus", "[role=listbox]");
+    browser("press", "@");
+    waitFor('document.activeElement.matches("[cmdk-input]")');
+    browser("fill", 'input[role="combobox"]', "manual-order-ui");
+    waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+    browser("press", "Enter");
+    waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true"');
+  }
+  for (const title of ["Manual A", "Manual B", "Manual C", "Manual D"]) {
+    await command("task.create", { title: `${title} @manual-order-ui` });
+  }
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual A"))');
+  browser("focus", "[role=listbox]");
+  browser("press", "@");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("fill", 'input[role="combobox"]', "manual-order-ui");
+  waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
+  browser("press", "Enter");
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 4');
+  browser("focus", "[role=listbox]");
+  browser("press", "s");
+  browser("press", "m");
+  waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
+  check('document.querySelector("[data-sort=task-sort-reverse]").disabled === true');
+  const manualOrder = () => JSON.parse(evaluate('JSON.stringify([...document.querySelectorAll("[role=option]")].map((row) => row.querySelector("[data-slot=item-title]")?.textContent))'));
+  assert.deepEqual(manualOrder(), ["Manual D", "Manual C", "Manual B", "Manual A"]);
+  // Pointer entry still activates a row, while a stale enter immediately
+  // after keyboard movement cannot steal the keyboard-selected row.
+  const pointerSecondId = evaluate('document.querySelectorAll("[role=option]")[1]?.id');
+  browser("hover", `[role=option]#${pointerSecondId}`);
+  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(pointerSecondId)}`);
+  browser("press", "Home");
+  const pointerFirstId = evaluate('document.querySelector("[role=option]")?.id');
+  browser("press", "ArrowDown");
+  evaluate(`document.getElementById(${JSON.stringify(pointerFirstId)})?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); true`);
+  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") !== ${JSON.stringify(pointerFirstId)}`);
+  browser("press", "Home");
+  browser("press", "ArrowDown");
+  waitFor('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent.includes("Manual C")');
+  browser("press", "Control+ArrowDown");
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual C", "Manual A"])');
+  check('document.activeElement.matches("[role=listbox]") && document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").includes("task-option-")');
+  browser("press", "Control+Home");
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual C", "Manual D", "Manual B", "Manual A"])');
+  browser("press", "Control+End");
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual A", "Manual C"])');
+  browser("press", "Control+ArrowUp");
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual C", "Manual A"])');
+  // Shift selection stays within the sibling scope and uses the dashed style;
+  // the toolbar supplies the equivalent mouse path without taking focus.
+  browser("press", "Home");
+  browser("press", "Shift+ArrowDown");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2 && document.querySelector("[data-selection-toolbar]")?.textContent.includes("2 tasks selected")');
+  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => row.className.includes("border-dashed"))');
+  browser("press", "Control+ArrowDown");
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual C", "Manual D", "Manual B", "Manual A"])');
+  browser("click", '[data-reorder-action="end"]');
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual C", "Manual A", "Manual D", "Manual B"])');
+  check('document.activeElement.matches("[role=listbox]") && document.querySelector("[role=listbox]").getAttribute("aria-multiselectable") === "true"');
+  check('[...document.querySelectorAll("[data-reorder-action]")].every((button) => button.getAttribute("aria-label") && button.getAttribute("aria-keyshortcuts"))');
+  browser("hover", '[data-reorder-action="up"]');
+  waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Move up"');
+  // Ctrl/Cmd-click toggles individual rows, while Shift-click selects the
+  // visible sibling range without making rows or controls tab destinations.
+  browser("press", "Escape");
+  evaluate('(() => { const row = document.querySelector("[role=option]"); row?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); return true; })()');
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  evaluate('(() => { const row = document.querySelector("[role=option]"); row?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); return true; })()');
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
+  evaluate('(() => { const rows = [...document.querySelectorAll("[role=option]")]; rows[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); rows[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true })); return true; })()');
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 3 && document.querySelector("[data-selection-toolbar]")?.textContent.includes("3 tasks selected")');
+  browser("press", "Escape");
+  browser("press", "Home");
+  browser("press", "Shift+End");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 4 && document.querySelector("[data-selection-toolbar]")?.textContent.includes("4 tasks selected")');
+  browser("press", "Escape");
+  // The first move from a date sort changes to Manual, refreshes, and resolves
+  // the adjacent target in the refreshed manual order rather than the date order.
+  browser("press", "s");
+  browser("press", "c");
+  waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true"');
+  browser("press", "End");
+  waitFor('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent.includes("Manual A")');
+  browser("press", "Control+ArrowUp");
+  waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true" && JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual A", "Manual C", "Manual D", "Manual B"])');
+
+  // A failed first-switch refresh must stop before task.reorder. The normal
+  // background refresh path still reports its error in the list.
+  browser("press", "Escape");
+  browser("press", "s");
+  browser("press", "c");
+  waitFor('document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"');
+  browser("press", "Home");
+  evaluate(`window.originalFetchForRefreshFailure = window.fetch; window.failedRefreshReorders = 0; window.failTaskListRefresh = true; window.fetch = async (...args) => {
+    const payload = args[1]?.body && JSON.parse(args[1].body);
+    if (payload?.command === "task.list" && window.failTaskListRefresh) throw new TypeError("forced refresh failure");
+    if (payload?.command === "task.reorder") window.failedRefreshReorders += 1;
+    return window.originalFetchForRefreshFailure(...args);
+  }; true`);
+  browser("press", "Control+ArrowDown");
+  waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Could not refresh tasks")');
+  check('window.failedRefreshReorders === 0');
+  evaluate('window.failTaskListRefresh = false; window.fetch = window.originalFetchForRefreshFailure; true');
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual A"))');
+  filterManualCategory();
+  browser("focus", "[role=listbox]");
+  browser("press", "s");
+  browser("press", "m");
+  waitFor('document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"');
+
+  // A date-sorted range may list IDs in a different order than the refreshed
+  // manual scope. Membership is the conflict check; the reorder payload uses
+  // the refreshed manual-scope order.
+  browser("press", "s");
+  browser("press", "c");
+  waitFor('document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"');
+  browser("press", "Home");
+  browser("press", "Shift+ArrowDown");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2');
+  const selectedCreatedIds = JSON.parse(evaluate('JSON.stringify([...document.querySelectorAll("[role=option][aria-selected=true]")].map((row) => row.id.replace("task-option-", "")))'));
+  const manualBeforeMembership = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
+  const expectedManualSelectionIds = manualBeforeMembership.filter((id) => selectedCreatedIds.includes(id));
+  evaluate(`window.originalFetchForMembership = window.fetch; window.membershipReorders = []; window.fetch = async (...args) => {
+    const payload = args[1]?.body && JSON.parse(args[1].body);
+    if (payload?.command === "task.reorder") window.membershipReorders.push(payload);
+    return window.originalFetchForMembership(...args);
+  }; true`);
+  browser("press", "Control+ArrowDown");
+  waitFor('window.membershipReorders.length === 1');
+  check(`JSON.stringify(window.membershipReorders[0].args.tasks.map((task) => task.id)) === ${JSON.stringify(JSON.stringify(expectedManualSelectionIds))}`);
+  evaluate('window.fetch = window.originalFetchForMembership; true');
+  // A root move carries its expanded child, while a child move remains inside
+  // its actual parent scope.
+  const manualParent = (await command("task.create", { title: "Manual parent @manual-order-ui" })).task;
+  await command("task.create", { title: "Manual child @manual-order-ui", parentId: manualParent.id });
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual parent"))');
+  filterManualCategory();
+  browser("focus", "[role=listbox]");
+  browser("press", "s");
+  browser("press", "m");
+  waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true"');
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Manual parent")');
+  browser("press", "Control+ArrowDown");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual child"))');
+  const parentRowIndex = evaluate('[...document.querySelectorAll("[role=option]")].findIndex((item) => item.textContent.includes("Manual parent"))');
+  const childRowIndex = evaluate('[...document.querySelectorAll("[role=option]")].findIndex((item) => item.textContent.includes("Manual child"))');
+  check(`${childRowIndex} === ${parentRowIndex + 1}`);
+  check('document.querySelectorAll("[data-depth=\\"1\\"]").length >= 1');
+  await command("task.create", { title: "Manual child two @manual-order-ui", parentId: manualParent.id });
+  browser("reload");
+  filterManualCategory();
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  for (let step = 0; step < 8; step++) {
+    const activeText = evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""');
+    if (String(activeText).includes("Manual parent")) break;
+    browser("press", "ArrowDown");
+  }
+  browser("press", "ArrowRight");
+  waitFor('document.querySelectorAll("[data-depth=\\"1\\"]").length >= 2 && [...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual child two"))');
+  browser("press", "ArrowDown");
+  browser("press", "Control+ArrowDown");
+  waitFor('document.querySelectorAll("[data-depth=\\"1\\"]")[0]?.querySelector("[data-slot=item-title]")?.textContent === "Manual child"');
+  browser("press", "ArrowLeft");
+  browser("press", "ArrowLeft");
+  waitFor('document.querySelectorAll("[data-depth=\\"1\\"]").length === 0');
+  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.hasAttribute("data-depth") || row.getAttribute("data-depth") === "0")');
+
+  // Parent moves refresh the authoritative manual tree and keep the active and
+  // selected IDs stable through both picker paths.
+  const parentMoveTarget = (await command("task.create", { title: "Manual move target @manual-order-ui" })).task;
+  await command("task.create", { title: "Manual move existing child @manual-order-ui", parentId: parentMoveTarget.id });
+  const parentMoveSubject = (await command("task.create", { title: "Manual move subject @manual-order-ui" })).task;
+  browser("reload");
+  waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual move subject"))');
+  filterManualCategory();
+  browser("focus", "[role=listbox]");
+  const parentMoveTargetRowId = evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Manual move target"))?.id');
+  browser("hover", `#${parentMoveTargetRowId}`);
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Manual move target")');
+  const parentMoveSubjectRowId = evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Manual move subject"))?.id');
+  browser("hover", `#${parentMoveSubjectRowId}`);
+  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === "task-option-${parentMoveSubject.id}"`);
+  evaluate(`window.originalFetchForParentMove = window.fetch; window.parentMoveLists = []; window.fetch = async (...args) => {
+    const payload = args[1]?.body && JSON.parse(args[1].body);
+    if (payload?.command === "task.list") window.parentMoveLists.push(payload);
+    return window.originalFetchForParentMove(...args);
+  }; true`);
+  browser("press", "m");
+  waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Select new parent")');
+  browser("fill", 'input[role="combobox"]', "Manual move target");
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Manual move target"))');
+  browser("press", "Enter");
+  waitFor('document.body.textContent.includes("Manual move subject moved under Manual move target")');
+  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === "task-option-${parentMoveSubject.id}"`);
+  check(`document.querySelector("[role=option][id=task-option-${parentMoveSubject.id}]")?.getAttribute("aria-selected") === "true"`);
+  check('window.parentMoveLists.some((payload) => payload.args?.offset === 0 && payload.args?.sort === "manual")');
+  assert.equal((await command("task.get", { id: parentMoveSubject.id })).task.parentId, parentMoveTarget.id);
+  // Remove parent through the same picker and require another manual refresh.
+  evaluate('window.parentMoveLists = []; true');
+  browser("press", "m");
+  waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Remove parent")');
+  evaluate('([...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("Remove parent"))?.click(), true)');
+  waitFor('document.body.textContent.includes("Manual move subject is now a top-level task")');
+  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === "task-option-${parentMoveSubject.id}"`);
+  check(`document.querySelector("[role=option][id=task-option-${parentMoveSubject.id}]")?.getAttribute("aria-selected") === "true"`);
+  check('window.parentMoveLists.some((payload) => payload.args?.offset === 0 && payload.args?.sort === "manual")');
+  assert.equal((await command("task.get", { id: parentMoveSubject.id })).task.parentId, null);
+  evaluate('window.fetch = window.originalFetchForParentMove; true');
+
+  // A hidden sibling must not become an implicit boundary target. The visible
+  // first root stays put on Ctrl+Up even when an excluded sibling follows it.
+  const hiddenManual = (await command("task.create", { title: "Manual hidden @manual-hidden-order" })).task;
+  const allManualBeforeHiddenPlacement = (await command("task.list", { sort: "manual" })).tasks;
+  const firstVisibleManualRoot = allManualBeforeHiddenPlacement.find((task) => task.parentId === null && task.category?.slug === "manual-order-ui");
+  assert.ok(firstVisibleManualRoot);
+  await command("task.reorder", {
+    tasks: [{ id: hiddenManual.id, expectedVersion: hiddenManual.version }],
+    placement: { afterId: firstVisibleManualRoot.id },
+  });
+  browser("reload");
+  waitFor('document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"');
+  filterManualCategory();
+  browser("focus", "[role=listbox]");
+  browser("press", "Home");
+  const visibleManualBeforeBoundary = JSON.parse(evaluate('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent))'));
+  const fullManualBeforeBoundary = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
+  browser("press", "Control+ArrowUp");
+  waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Already at the beginning")');
+  assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), fullManualBeforeBoundary);
+  browser("press", "Control+ArrowDown");
+  waitFor(`JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent).slice(0, 2)) === JSON.stringify(${JSON.stringify(visibleManualBeforeBoundary.slice(0, 2).reverse())})`);
+  browser("reload");
+  waitFor('document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"');
+  check('localStorage.getItem("tasks.sortField") === "manual"');
+
+  // Unsupported filters keep the visible projection read-only and explain
+  // which condition must be cleared before movement is available.
+  async function assertReorderBlocked(setup, reason) {
+    await setup();
+    evaluate('(() => { const row = [...document.querySelectorAll("[role=option]")].find((entry) => !entry.hasAttribute("data-context-parent")); row?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true })); document.querySelector("[role=listbox]")?.focus(); return true; })()');
+    const before = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
+    browser("press", "Control+ArrowDown");
+    waitFor(`document.querySelector("p.sr-only[role=status]")?.textContent.includes(${JSON.stringify(reason)})`);
+    check('[...document.querySelectorAll("[data-reorder-action]")].every((button) => button.getAttribute("aria-disabled") === "true")');
+    assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), before);
+    browser("press", "Escape");
+    browser("press", "Escape");
+    waitFor('document.querySelector("[data-filter=task-search]")?.getAttribute("aria-pressed") === "false" && document.querySelector("[data-filter=task-tags]")?.getAttribute("aria-pressed") === "false" && document.querySelector("[data-filter=task-priority]")?.getAttribute("aria-pressed") === "false" && document.querySelector("[data-filter=task-unblocked]")?.getAttribute("aria-pressed") === "false" && document.querySelector("[data-filter=task-status]")?.getAttribute("aria-pressed") === "false"');
+  }
+  await assertReorderBlocked(async () => {
+    browser("focus", "[role=listbox]");
+    browser("press", "/");
+    waitFor('document.querySelector("input[name=search]") !== null');
+    browser("fill", "input[name=search]", "Manual");
+    browser("press", "Enter");
+    waitFor('document.querySelector("[data-filter=task-search]")?.getAttribute("aria-pressed") === "true"');
+  }, "Clear search");
+  await assertReorderBlocked(async () => {
+    browser("focus", "[role=listbox]");
+    browser("press", "#");
+    waitFor('document.activeElement.matches("[cmdk-input]")');
+    browser("fill", 'input[role="combobox"]', "planning");
+    browser("press", "Enter");
+    waitFor('document.querySelector("[data-filter=task-tags]")?.getAttribute("aria-pressed") === "true"');
+  }, "Clear the tag filter");
+  await assertReorderBlocked(async () => {
+    browser("focus", "[role=listbox]");
+    browser("press", "f");
+    browser("press", "0");
+    waitFor('document.querySelector("[data-filter=task-priority]")?.getAttribute("aria-pressed") === "true"');
+  }, "Clear the priority filter");
+  await assertReorderBlocked(async () => {
+    browser("focus", "[role=listbox]");
+    browser("press", "f");
+    browser("press", "u");
+    waitFor('document.querySelector("[data-filter=task-unblocked]")?.getAttribute("aria-pressed") === "true"');
+  }, "Clear the Unblocked filter");
+  await assertReorderBlocked(async () => {
+    browser("focus", "[role=listbox]");
+    browser("press", "f");
+    browser("press", "s");
+    waitFor('document.querySelector("[data-filter=task-status]")?.getAttribute("aria-pressed") === "true"');
+  }, "Clear the inactive filter");
+  await assertReorderBlocked(async () => {
+    browser("focus", "[role=listbox]");
+    browser("press", "f");
+    browser("press", "o");
+    waitFor('document.querySelector("[data-filter=task-status]")?.getAttribute("aria-pressed") === "true"');
+  }, "Clear the exact-status filter");
+
+  // Context-only ancestors remain visible for hierarchy but are independently
+  // excluded from reorder, even after all other filters are cleared.
+  waitFor('document.querySelector("[role=option][data-context-parent]") !== null');
+  const contextOnlyId = evaluate('document.querySelector("[role=option][data-context-parent]")?.id');
+  assert.ok(contextOnlyId);
+  evaluate(`document.getElementById(${JSON.stringify(contextOnlyId)})?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true })); document.querySelector("[role=listbox]")?.focus(); true`);
+  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(contextOnlyId)}`);
+  const contextOrderBeforeReorder = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
+  browser("press", "Control+ArrowDown");
+  waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")');
+  assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), contextOrderBeforeReorder);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

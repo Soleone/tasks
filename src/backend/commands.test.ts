@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { executeCommand } from "./commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
-import { parseLine, parseRequest, parseResponse, parseRuntimeProbeResult, ProtocolError } from "./protocol.js";
+import { parseLine, parseRequest, parseResponse, parseRuntimeProbeResult, parseTaskReorderArgs, ProtocolError } from "./protocol.js";
 
 test("runtime probe persists a WAL database and searches with FTS5", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m0-"));
@@ -62,6 +62,38 @@ test("protocol rejects unsupported or malformed requests", () => {
     () => parseLine("not json"),
     (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_JSON",
   );
+});
+
+test("protocol validates manual reorder placements and optimistic versions", () => {
+  const parsed = parseTaskReorderArgs({
+    tasks: [{ id: "one", expectedVersion: 3 }, { id: "two", expectedVersion: 1 }],
+    placement: { afterId: "three" },
+  });
+  assert.deepEqual(parsed, {
+    tasks: [{ id: "one", expectedVersion: 3 }, { id: "two", expectedVersion: 1 }],
+    placement: { afterId: "three" },
+  });
+  assert.deepEqual(
+    parseRequest({ version: 1, requestId: "reorder", command: "task.reorder", args: { tasks: [{ id: "one", expectedVersion: 1 }], placement: { first: true } } }),
+    {
+      version: 1,
+      requestId: "reorder",
+      command: "task.reorder",
+      args: { tasks: [{ id: "one", expectedVersion: 1 }], placement: { first: true } },
+      actor: { kind: "agent", label: "cli" },
+      idempotencyKey: undefined,
+      readOnly: undefined,
+      dryRun: undefined,
+    },
+  );
+  for (const args of [
+    {},
+    { tasks: [{ id: "one", expectedVersion: 1 }], placement: { first: true, last: true } },
+    { tasks: [{ id: "one", expectedVersion: 0 }], placement: { first: true } },
+    { tasks: [{ id: "one", expectedVersion: 1 }, { id: "one", expectedVersion: 1 }], placement: { first: true } },
+  ]) {
+    assert.throws(() => parseTaskReorderArgs(args), (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_REQUEST");
+  }
 });
 
 test("protocol validates backend responses before the UI consumes them", () => {

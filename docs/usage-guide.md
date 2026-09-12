@@ -21,10 +21,10 @@ The list uses a single focus stop. Arrow keys move the active row and do not add
 One compact row above the list, in three groups in this order:
 
 ```text
-[ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ] [ Created Updated Reverse ] [ Details ]
+[ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ] [ Created Updated Manual Reverse ] [ Details ]
 ```
 
-Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers; it adds the sort state only when sorting is not updated/newest, such as “12 active tasks” or “12 active tasks · by created, desc”. Omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
+Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers, such as “12 active tasks”. It never includes the sort state. Omit filler like “Showing” and truncate rather than wrap. Every shortcut below has a mouse path through its menu or dialog.
 
 `F` moves focus to the whole filter button group and `S` moves focus to the whole sort button group. The focused group has a visible focus ring and owns its keyboard shortcuts until an option is chosen, the same focus key is pressed again, or `Escape` returns focus to the task list. These are explicit focus modes with no timeout. Category, tag, and search dialogs opened from a toolbar mode return focus to the task list when they close.
 
@@ -34,9 +34,10 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 - Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag; `Enter` selects it first when none are selected, then closes; a `Clear tags` row empties the filter. Tags used only by canceled tasks are omitted.
 - Relationships: canceled tasks cannot be chosen as new parents or blockers, and a new child cannot be created under a canceled parent. Existing parent and dependency links remain available for removal. A canceled dependency does not count as a blocker for the Unblocked filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
-- Sort: Created or Updated date, newest or oldest first. Updated/newest is the default. The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated.
+- Sort: Created or Updated date, Manual order, and newest or oldest direction for date sorts. Updated/newest is the default. Manual order is a persistent sibling order shared by the UI, CLI, and agents; reverse is unavailable for it. The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated, and list-ordered is manual.
 - View: Details toggles optional task descriptions and the per-task time footer together. Off by default; a display preference, not a filter, so `Escape` never clears it. Active blocked-by context remains visible either way.
 - Hierarchy: Status and other filters do not sever parent links. When a matching child belongs to an excluded ancestor, the ancestor appears as a muted explanatory row, does not count toward the filtered total, and remains expandable.
+- Manual ordering: Every sibling scope has a dense persistent order. New tasks and tasks moved under a new parent enter first. Root moves carry their descendants; child moves stay inside the current parent. Canceled and reopened tasks keep their position. Manual ordering is unavailable while a context-only ancestor is active.
 
 ## Task details
 
@@ -70,15 +71,21 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `S` | Focus the sort toolbar; the next key picks a sort, or press `S` again to return to the list |
 | `S then C` | Sort by created date |
 | `S then U` | Sort by updated date |
-| `S then R` | Reverse the newest/oldest direction |
+| `S then M` | Sort by manual sibling order |
+| `S then R` | Reverse the newest/oldest direction for date sorts |
 | `V` | Toggle task descriptions and the time footer |
 | `B` | Add a blocker to the active task |
 | `M` | Open the move picker, including Remove parent for nested tasks |
-| `Up` / `Down` | Move through visible tasks |
+| `Ctrl/⌘+Up` / `Ctrl/⌘+Down` | Move the active task, or selected sibling range, one visible sibling slot in Manual order |
+| `Ctrl/⌘+Home` / `Ctrl/⌘+End` | Move the active task, or selected sibling range, to the beginning or end of its visible sibling scope; the first move switches to Manual order |
+| `Up` / `Down` | Move through visible tasks and collapse selection to the new active row |
+| `Shift+Up` / `Shift+Down` | Extend the selection through visible siblings without moving them |
+| `Shift+Home` / `Shift+End` | Select from the anchor to the first or last visible sibling |
 | `Home` / `End` | Jump to the first or last visible task |
+| `Ctrl/⌘` with movement keys | Reorder only in the default Active view, optionally narrowed to one category; search, tags, priority, Unblocked, inactive, exact-status, and context-only rows report what to clear |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
-| `Escape` | Return from the filter or sort toolbar to the task list; otherwise reset all filters; `F`/`S` also close their focused toolbar |
+| `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear a selection first and press it again to reset all filters; `F`/`S` also close their focused toolbar |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
 
@@ -96,11 +103,11 @@ Treat this document as the UI interaction contract when using browser automation
 - Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The filter and sort button groups are programmatic focus stops for `F` and `S`, not normal Tab destinations. The dialog's priority section is its single keyboard focus stop.
 - Clicking a toolbar button, the New task button, or a task status icon never moves DOM focus (the mousedown default is prevented), so the list keeps focus and arrow keys keep working. The header Help, Themes, and Settings buttons are outside the list and do take focus on click; dialogs opened from them return focus to the button.
 - Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `C` or the command palette to open capture.
-- Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row. The move picker puts its Remove parent action in a separate group above new-parent results when the task is nested.
+- Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row. The selected-task toolbar exposes Move up, Move down, Move to beginning, and Move to end without adding controls to every row. Ctrl/Cmd-click toggles a row in the selection and Shift-click selects a sibling range; ordinary click still edits. The move picker puts its Remove parent action in a separate group above new-parent results when the task is nested.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
 - Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, toolbar focus modes, and window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.
 - Do not add `autoFocus` to a secondary action to solve initial focus. Initial focus belongs in the list lifecycle, after the first query has rendered the correct empty, error, or populated state.
 - Refreshes must preserve focus and unsaved dialog content. A new data result should update the active row without moving the user's focus unless the focused element no longer exists.
 - Keep the end-to-end assertions in `scripts/check-ui.mjs` aligned with this guide. Run `pnpm test:ui` when Chromium and `agent-browser` are available; use a scratch database only.
 
-The backend and standalone CLI are separate keyboard-free agent surfaces that use the same typed command path and SQLite workspace. UI focus does not replace those interfaces, and UI-only behavior must not introduce duplicate task or storage rules.
+The backend and standalone CLI are separate keyboard-free agent surfaces that use the same typed command path and SQLite workspace. `task.list` accepts `sort: "manual"`; `task.reorder` accepts an explicit `tasks` list with expected versions and one `beforeId`, `afterId`, `first`, or `last` placement. UI focus does not replace those interfaces, and UI-only behavior must not introduce duplicate task or storage rules.

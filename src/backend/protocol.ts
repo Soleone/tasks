@@ -8,6 +8,7 @@ export const COMMAND_NAMES = [
   "runtime.probe",
   "task.create",
   "task.list",
+  "task.reorder",
   "category.list",
   "tag.list",
   "task.get",
@@ -36,6 +37,17 @@ export type CommandName = (typeof COMMAND_NAMES)[number];
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type ActorKind = "human" | "agent" | "system";
+export type TaskListSort = "created" | "updated" | "manual";
+export type TaskReorderTask = { id: string; expectedVersion: number };
+export type TaskReorderPlacement =
+  | { beforeId: string }
+  | { afterId: string }
+  | { first: true }
+  | { last: true };
+export type TaskReorderArgs = {
+  tasks: TaskReorderTask[];
+  placement: TaskReorderPlacement;
+};
 export type ThemeSource = "builtin" | "workspace";
 
 /** Product-facing category entries backed by the task text's @category values. */
@@ -97,7 +109,7 @@ export type TaskRecord = {
 
 /** Identifier of the portable JSON file written by `workspace.exportTasks`. */
 export const TASKS_EXPORT_FORMAT = "tasks.tasks-export" as const;
-export const TASKS_EXPORT_FORMAT_VERSION = 1 as const;
+export const TASKS_EXPORT_FORMAT_VERSION = 2 as const;
 
 /**
  * One task in the portable export. Slugs are what the user typed as
@@ -106,6 +118,8 @@ export const TASKS_EXPORT_FORMAT_VERSION = 1 as const;
  */
 export type TaskExportRecord = {
   id: string;
+  /** Stable zero-based order within the task's parent sibling scope. */
+  siblingOrder: number;
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
@@ -227,6 +241,52 @@ function parseActor(value: unknown): Actor {
   return { kind, label: requiredString(value.label, "actor.label") };
 }
 
+function parseTaskReorderId(value: unknown, field: string): string {
+  return requiredString(value, field);
+}
+
+export function parseTaskReorderArgs(value: unknown): TaskReorderArgs {
+  if (!isRecord(value)) {
+    throw new ProtocolError("INVALID_REQUEST", "task.reorder args must be an object");
+  }
+  if (!Array.isArray(value.tasks) || value.tasks.length === 0) {
+    throw new ProtocolError("INVALID_REQUEST", "task.reorder tasks must be a non-empty array");
+  }
+
+  const seen = new Set<string>();
+  const tasks = value.tasks.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new ProtocolError("INVALID_REQUEST", `task.reorder tasks[${index}] must be an object`);
+    }
+    const id = parseTaskReorderId(entry.id, `task.reorder tasks[${index}].id`);
+    if (seen.has(id)) {
+      throw new ProtocolError("INVALID_REQUEST", "task.reorder tasks must not contain duplicate ids");
+    }
+    seen.add(id);
+    if (typeof entry.expectedVersion !== "number" || !Number.isInteger(entry.expectedVersion) || entry.expectedVersion < 1) {
+      throw new ProtocolError("INVALID_REQUEST", `task.reorder tasks[${index}].expectedVersion must be a positive integer`);
+    }
+    return { id, expectedVersion: entry.expectedVersion };
+  });
+
+  if (!isRecord(value.placement)) {
+    throw new ProtocolError("INVALID_REQUEST", "task.reorder placement must be an object");
+  }
+  const placementKeys = Object.keys(value.placement);
+  if (placementKeys.length !== 1 || !["beforeId", "afterId", "first", "last"].includes(placementKeys[0] ?? "")) {
+    throw new ProtocolError("INVALID_REQUEST", "task.reorder placement must specify exactly one of beforeId, afterId, first, or last");
+  }
+  const placementKey = placementKeys[0] as "beforeId" | "afterId" | "first" | "last";
+  if (placementKey === "beforeId" || placementKey === "afterId") {
+    const id = parseTaskReorderId(value.placement[placementKey], `task.reorder placement.${placementKey}`);
+    return { tasks, placement: { [placementKey]: id } as TaskReorderPlacement };
+  }
+  if (value.placement[placementKey] !== true) {
+    throw new ProtocolError("INVALID_REQUEST", `task.reorder placement.${placementKey} must be true`);
+  }
+  return { tasks, placement: { [placementKey]: true } as TaskReorderPlacement };
+}
+
 export function parseRequest(value: unknown): ProtocolRequest {
   if (!isRecord(value)) {
     throw new ProtocolError("INVALID_REQUEST", "request must be a JSON object");
@@ -252,6 +312,13 @@ export function parseRequest(value: unknown): ProtocolRequest {
 
   if (value.command === "runtime.probe" && Object.keys(args).length > 0) {
     throw new ProtocolError("INVALID_REQUEST", "runtime.probe does not accept arguments");
+  }
+  if (value.command === "task.list" && args.sort !== undefined
+    && args.sort !== "created" && args.sort !== "updated" && args.sort !== "manual") {
+    throw new ProtocolError("INVALID_REQUEST", "task.list sort must be created, updated, or manual");
+  }
+  if (value.command === "task.reorder") {
+    parseTaskReorderArgs(args);
   }
 
   const idempotencyKey = value.idempotencyKey === undefined ? undefined : requiredString(value.idempotencyKey, "idempotencyKey");

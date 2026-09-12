@@ -3,7 +3,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RuntimeProbeResult } from "./protocol.js";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 function readString(value: unknown, field: string): string {
   if (typeof value !== "object" || value === null || !(field in value)) {
@@ -56,6 +56,7 @@ function createSchema(database: DatabaseSync): void {
       status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'paused', 'done', 'canceled')),
       category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
       parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+      position INTEGER NOT NULL,
       priority INTEGER NOT NULL DEFAULT 2 CHECK (priority IN (0, 1, 2, 3, 4)),
       version INTEGER NOT NULL CHECK (version > 0),
       created_at TEXT NOT NULL,
@@ -166,6 +167,33 @@ function migratePriority(database: DatabaseSync): void {
   `);
 }
 
+function migrateTaskOrdering(database: DatabaseSync): void {
+  const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").all() as Array<{ name: string }>;
+  if (tables.length === 0) return;
+  const columns = database.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === 'position')) {
+    database.exec('ALTER TABLE tasks ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
+  }
+
+  // The first manual order mirrors the existing Updated/newest list. The id
+  // tie-break keeps migration deterministic when timestamps collide.
+  database.exec(`
+    UPDATE tasks
+    SET position = (
+      SELECT COUNT(*)
+      FROM tasks AS siblings
+      WHERE (siblings.parent_id = tasks.parent_id
+        OR (siblings.parent_id IS NULL AND tasks.parent_id IS NULL))
+        AND (siblings.updated_at > tasks.updated_at
+          OR (siblings.updated_at = tasks.updated_at AND siblings.id < tasks.id))
+    );
+  `);
+}
+
+function ensureTaskOrderingIndex(database: DatabaseSync): void {
+  database.exec("CREATE INDEX IF NOT EXISTS tasks_parent_position_idx ON tasks (parent_id, position, id)");
+}
+
 export function ensureSchema(database: DatabaseSync): void {
   database.exec("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);");
   const row = database.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as
@@ -176,7 +204,7 @@ export function ensureSchema(database: DatabaseSync): void {
   if (version !== undefined && (!Number.isInteger(version) || version > SCHEMA_VERSION)) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is newer than ${SCHEMA_VERSION}`);
   }
-  if (version !== undefined && version !== 1 && version !== 2 && version !== 3 && version !== SCHEMA_VERSION) {
+  if (version !== undefined && version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== SCHEMA_VERSION) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is not supported`);
   }
 
@@ -184,6 +212,7 @@ export function ensureSchema(database: DatabaseSync): void {
   const needsStatusMigration = version === 1;
   const needsRelationshipMigration = version === 1 || version === 2;
   const needsPriorityMigration = version === 1 || version === 2 || version === 3;
+  const needsOrderingMigration = version === undefined || version === 1 || version === 2 || version === 3 || version === 4;
   // SQLite cannot change a table constraint in place. Foreign keys are disabled
   // only for the atomic table replacement, then restored before the connection
   // is returned to callers.
@@ -193,7 +222,9 @@ export function ensureSchema(database: DatabaseSync): void {
     if (needsRelationshipMigration) migrateRelationships(database);
     createSchema(database);
     migratePriority(database);
-    if (needsVersion || needsStatusMigration || needsRelationshipMigration || needsPriorityMigration) {
+    if (needsOrderingMigration) migrateTaskOrdering(database);
+    ensureTaskOrderingIndex(database);
+    if (needsVersion || needsStatusMigration || needsRelationshipMigration || needsPriorityMigration || needsOrderingMigration) {
       database
         .prepare("INSERT INTO schema_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .run(String(SCHEMA_VERSION));

@@ -47,6 +47,41 @@ function numberValue(row: Row, field: string): number {
   return value;
 }
 
+function nullableParentId(row: Row): string | null {
+  const value = row.parent_id;
+  if (value === null || value === undefined) return null;
+  return stringValue(row, "parent_id");
+}
+
+function snapshotPositionMap(snapshot: Snapshot): Map<string, number> {
+  const hasPositions = snapshot.schemaVersion === SCHEMA_VERSION
+    && snapshot.tasks.every((row) => typeof row.position === "number" && Number.isInteger(row.position) && row.position >= 0);
+  if (hasPositions) {
+    return new Map(snapshot.tasks.map((row) => [stringValue(row, "id"), numberValue(row, "position")]));
+  }
+
+  const positions = new Map<string, number>();
+  const siblings = new Map<string, Row[]>();
+  for (const row of snapshot.tasks) {
+    const parentKey = nullableParentId(row) ?? "";
+    const group = siblings.get(parentKey) ?? [];
+    group.push(row);
+    siblings.set(parentKey, group);
+  }
+  for (const group of siblings.values()) {
+    group.sort((left, right) => {
+      const leftUpdated = stringValue(left, "updated_at");
+      const rightUpdated = stringValue(right, "updated_at");
+      if (leftUpdated !== rightUpdated) return leftUpdated > rightUpdated ? -1 : 1;
+      const leftId = stringValue(left, "id");
+      const rightId = stringValue(right, "id");
+      return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+    });
+    group.forEach((row, index) => positions.set(stringValue(row, "id"), index));
+  }
+  return positions;
+}
+
 function requiredPath(args: Row, name: string): string {
   const value = args[name];
   if (typeof value !== "string" || value.trim() === "") {
@@ -76,7 +111,7 @@ function readSnapshot(sourcePath: string): Snapshot {
   } catch (error) {
     throw new CommandError("INVALID_SNAPSHOT", error instanceof Error ? error.message : "could not read snapshot");
   }
-  if (!isRecord(value) || value.formatVersion !== 1 || (value.schemaVersion !== 2 && value.schemaVersion !== 3 && value.schemaVersion !== SCHEMA_VERSION)) {
+  if (!isRecord(value) || value.formatVersion !== 1 || (value.schemaVersion !== 2 && value.schemaVersion !== 3 && value.schemaVersion !== 4 && value.schemaVersion !== SCHEMA_VERSION)) {
     throw new CommandError("UNSUPPORTED_SNAPSHOT", "snapshot format or schema version is not supported");
   }
 
@@ -143,9 +178,10 @@ function nextExportPath(directory: string, stem: string): string {
 }
 
 /** The portable view keeps the slugs the user typed and drops internal state. */
-function exportedTask(task: TaskRecord): TaskExportRecord {
+function exportedTask(task: TaskRecord, siblingOrder: number): TaskExportRecord {
   return {
     id: task.id,
+    siblingOrder,
     title: task.title,
     status: task.status,
     priority: task.priority,
@@ -167,14 +203,19 @@ function exportedTask(task: TaskRecord): TaskExportRecord {
  * destination itself, so a renderer never chooses filesystem paths; a dry run
  * reports what would be written without touching the disk.
  */
-export function exportTasks(databasePath: string, tasks: TaskRecord[], request: ProtocolRequest): Record<string, unknown> {
+export function exportTasks(
+  databasePath: string,
+  tasks: TaskRecord[],
+  siblingOrders: ReadonlyMap<string, number>,
+  request: ProtocolRequest,
+): Record<string, unknown> {
   const exportedAt = new Date().toISOString();
   const file: TasksExportFile = {
     format: TASKS_EXPORT_FORMAT,
     formatVersion: TASKS_EXPORT_FORMAT_VERSION,
     exportedAt,
     taskCount: tasks.length,
-    tasks: tasks.map(exportedTask),
+    tasks: tasks.map((task) => exportedTask(task, siblingOrders.get(task.id) ?? 0)),
   };
   if (request.readOnly || request.dryRun) {
     return {
@@ -198,6 +239,7 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
   const sourcePath = requiredPath(request.args, "sourcePath");
   const destinationPath = requiredPath(request.args, "destinationPath");
   const snapshot = readSnapshot(sourcePath);
+  const positions = snapshotPositionMap(snapshot);
   if (request.readOnly || request.dryRun) {
     return {
       destinationPath,
@@ -233,7 +275,7 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
           : 2;
         restored
           .prepare(
-            "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, priority, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, position, priority, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             stringValue(row, "id"),
@@ -241,6 +283,7 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
             stringValue(row, "description_markdown"),
             stringValue(row, "status"),
             row.category_id === null ? null : stringValue(row, "category_id"),
+            positions.get(stringValue(row, "id")) ?? 0,
             priority,
             numberValue(row, "version"),
             stringValue(row, "created_at"),

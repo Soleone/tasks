@@ -72,7 +72,8 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
         options: [
           { id: "created", label: "Created", keys: ["C"] },
           { id: "updated", label: "Updated", keys: ["U"] },
-          { id: "reverse", label: "Reverse", keys: ["R"] },
+          { id: "manual", label: "Manual order", keys: ["M"] },
+          { id: "reverse", label: "Reverse date direction", keys: ["R"] },
         ],
       },
     ],

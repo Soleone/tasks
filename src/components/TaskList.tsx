@@ -1,13 +1,15 @@
 import {
+  forwardRef,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type ReactElement,
 } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
-import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
-import { EXACT_STATUS_META, PRIORITY_META, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
+import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus } from "@/backend/protocol";
+import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
@@ -18,7 +20,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Item } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
-import { BackendCommandError, deleteTask, transitionTask, updateTask } from "@/platform/backendClient";
+import { BackendCommandError, deleteTask, reorderTasks, transitionTask, updateTask } from "@/platform/backendClient";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 type StatusTransition = { next: TaskStatus; command: StatusCommand };
@@ -64,6 +66,11 @@ function isNativeButtonAction(target: EventTarget | null): boolean {
   return target.closest('button:not([tabindex="-1"]), a[href], input, textarea, select') !== null;
 }
 
+export type TaskListHandle = {
+  startIdentityPreservingRefresh: () => void;
+  finishIdentityPreservingRefresh: () => void;
+};
+
 type TaskListProps = {
   tasks: TaskRecord[];
   contextTasks: TaskRecord[];
@@ -101,7 +108,7 @@ type TaskListProps = {
   error: string | null;
   nav: Navigator;
   onCreate: (parentId?: string) => void;
-  onRefresh: (offset?: number) => Promise<void>;
+  onRefresh: (offset?: number) => Promise<boolean>;
   onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
@@ -155,7 +162,10 @@ type HomeShortcutActions = {
   toggleStatus: (task: TaskRecord) => Promise<void>;
   reverseStatus: (task: TaskRecord) => Promise<void>;
   pauseTask: (task: TaskRecord) => Promise<void>;
-  moveActive: (next: number) => void;
+  moveActive: (next: number, extend?: boolean) => void;
+  selectBoundary: (end: "start" | "end") => void;
+  reorderSelection: (direction: "up" | "down" | "start" | "end") => Promise<void>;
+  clearSelection: () => boolean;
   handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
   editTask: (task: TaskRecord) => void;
 };
@@ -165,7 +175,7 @@ const ACTIVE_FILTER_CLASS = "border-primary/50 bg-primary/10 text-primary hover:
 const TOOLBAR_GROUP_CLASS = "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const ACTIVE_TOOLBAR_GROUP_CLASS = `${TOOLBAR_GROUP_CLASS} ring-2 ring-ring ring-offset-2 ring-offset-background`;
 
-export function TaskList({
+export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
   contextTasks,
   contextOrder,
@@ -213,7 +223,7 @@ export function TaskList({
   onCanceled,
   onAddBlocker,
   onMoveUnder,
-}: TaskListProps): ReactElement {
+}: TaskListProps, ref): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const filterToolbar = useRef<HTMLDivElement>(null);
@@ -237,14 +247,83 @@ export function TaskList({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const visibleRowsRef = useRef<VisibleTaskRow[]>([]);
+  const selectedIdsRef = useRef<Set<string>>(new Set());
+  const selectionClearedRef = useRef(false);
+  const selectionAnchorRef = useRef<string | null>(null);
+  const pendingActiveIdRef = useRef<string | null>(null);
+  const suppressMouseActiveRef = useRef(false);
+  const restoreActiveIdRef = useRef<string | null>(null);
+  const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
+  const identityRefreshPendingRef = useRef(false);
+  const activeTaskIdRef = useRef<string | null>(null);
+  const reorderPending = useRef(false);
+  const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
   const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
   const hasMore = tasks.length < total;
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.
   const clampedActiveIndex = visibleRows.length ? Math.min(activeTaskIndex, visibleRows.length - 1) : 0;
-  const activeRow = visibleRows.length ? visibleRows[clampedActiveIndex] : undefined;
+  const pendingActiveIndex = pendingActiveIdRef.current === null
+    ? -1
+    : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
+  const activeIndex = pendingActiveIndex >= 0 ? pendingActiveIndex : clampedActiveIndex;
+  const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
   const activeTask = activeRow?.task;
+  visibleRowsRef.current = visibleRows;
+  selectedIdsRef.current = selectedIds;
+  activeTaskIdRef.current = activeTask?.id ?? null;
+
+  useImperativeHandle(ref, () => ({
+    startIdentityPreservingRefresh: () => {
+      identityRefreshPendingRef.current = true;
+      restoreActiveIdRef.current = activeTaskIdRef.current;
+      restoreSelectionIdsRef.current = new Set(selectedIdsRef.current);
+    },
+    finishIdentityPreservingRefresh: () => {
+      identityRefreshPendingRef.current = false;
+      restoreActiveIdRef.current = null;
+      restoreSelectionIdsRef.current = null;
+    },
+  }), []);
+
+  useEffect(() => {
+    const pendingActiveId = pendingActiveIdRef.current;
+    if (pendingActiveId !== null) {
+      const pendingIndex = visibleRows.findIndex((row) => row.task.id === pendingActiveId);
+      if (pendingIndex < 0) pendingActiveIdRef.current = null;
+      else if (activeTaskIndex !== pendingIndex) onActiveTaskIndexChange(pendingIndex);
+      else pendingActiveIdRef.current = null;
+    }
+
+    const selectableIds = new Set(visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id));
+    const restoredActiveId = restoreActiveIdRef.current;
+    if (restoredActiveId !== null) {
+      const restoredIndex = visibleRows.findIndex((row) => row.task.id === restoredActiveId);
+      if (restoredIndex >= 0) {
+        onActiveTaskIndexChange(restoredIndex);
+      } else if (visibleRows.length > 0) {
+        onActiveTaskIndexChange(Math.min(activeTaskIndex, visibleRows.length - 1));
+        onAnnounce("The moved task is outside the loaded page.");
+      }
+      if (!identityRefreshPendingRef.current) restoreActiveIdRef.current = null;
+    }
+
+    const requestedSelection = restoreSelectionIdsRef.current ?? selectedIdsRef.current;
+    const nextSelection = new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
+    const visibleActive = visibleRows[activeIndex];
+    if (nextSelection.size === 0 && visibleActive && !visibleActive.contextOnly && !selectionClearedRef.current) nextSelection.add(visibleActive.task.id);
+    const changed = nextSelection.size !== selectedIdsRef.current.size
+      || [...nextSelection].some((id) => !selectedIdsRef.current.has(id));
+    if (changed) setSelectedIds(nextSelection);
+    selectedIdsRef.current = nextSelection;
+    if (selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
+      selectionAnchorRef.current = nextSelection.values().next().value ?? null;
+    }
+    if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
+  }, [activeIndex, activeTaskIndex, onActiveTaskIndexChange, onAnnounce, selectedIds, visibleRows]);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
@@ -431,14 +510,307 @@ export function TaskList({
     onAnnounce(`Showing ${label} tasks`);
   }
 
-  function moveActive(next: number): void {
+  function selectableSiblingRows(row: VisibleTaskRow, rows: readonly VisibleTaskRow[] = visibleRowsRef.current): VisibleTaskRow[] {
+    return rows.filter((candidate) => !candidate.contextOnly && candidate.task.parentId === row.task.parentId);
+  }
+
+  function setSelection(ids: Iterable<string>, anchorId: string | null): void {
+    const next = new Set(ids);
+    selectedIdsRef.current = next;
+    selectionClearedRef.current = next.size === 0;
+    selectionAnchorRef.current = anchorId;
+    setSelectedIds(next);
+  }
+
+  function selectOnly(row: VisibleTaskRow): void {
+    if (row.contextOnly) {
+      setSelection([], null);
+      return;
+    }
+    setSelection([row.task.id], row.task.id);
+  }
+
+  function selectRangeTo(row: VisibleTaskRow): void {
+    if (row.contextOnly) {
+      onAnnounce("Context-only ancestors cannot be selected.");
+      return;
+    }
+    const scope = selectableSiblingRows(row);
+    const anchorId = selectionAnchorRef.current;
+    const anchorIndex = anchorId === null ? -1 : scope.findIndex((candidate) => candidate.task.id === anchorId);
+    const targetIndex = scope.findIndex((candidate) => candidate.task.id === row.task.id);
+    if (anchorId === null || targetIndex < 0) {
+      selectOnly(row);
+      return;
+    }
+    if (anchorIndex < 0) {
+      selectOnly(row);
+      onAnnounce("Selection is limited to one visible sibling scope.");
+      return;
+    }
+    const start = Math.min(anchorIndex, targetIndex);
+    const end = Math.max(anchorIndex, targetIndex);
+    const count = end - start + 1;
+    setSelection(scope.slice(start, end + 1).map((candidate) => candidate.task.id), anchorId);
+    onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
+  }
+
+  function activatePointerRow(index: number): void {
+    if (suppressMouseActiveRef.current) return;
+    pendingActiveIdRef.current = null;
+    onActiveTaskIndexChange(index);
+  }
+
+  function moveActive(next: number, extend = false): void {
     if (visibleRows.length === 0) return;
+    // A keyboard move can cause a hovered row to be re-entered while React
+    // updates selection. Do not let that stale pointer position undo it.
+    suppressMouseActiveRef.current = true;
+    window.setTimeout(() => { suppressMouseActiveRef.current = false; }, 100);
+    if (extend) {
+      const current = visibleRows[activeIndex];
+      if (!current || current.contextOnly) {
+        onAnnounce("Selection is limited to visible sibling tasks.");
+        return;
+      }
+      const scope = selectableSiblingRows(current);
+      const currentScopeIndex = scope.findIndex((candidate) => candidate.task.id === current.task.id);
+      const step = next > activeTaskIndex ? 1 : -1;
+      const target = scope[currentScopeIndex + step];
+      if (!target) {
+        onAnnounce(step > 0 ? "Selection is at the last sibling." : "Selection is at the first sibling.");
+        return;
+      }
+      const targetIndex = visibleRows.findIndex((candidate) => candidate.task.id === target.task.id);
+      if (targetIndex < 0) return;
+      pendingActiveIdRef.current = target.task.id;
+      onActiveTaskIndexChange(targetIndex);
+      selectRangeTo(target);
+      requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
+      return;
+    }
+
     const wrapped = (next + visibleRows.length) % visibleRows.length;
+    const target = visibleRows[wrapped];
+    pendingActiveIdRef.current = target.task.id;
     onActiveTaskIndexChange(wrapped);
-    onAnnounce(`${wrapped + 1} of ${visibleRows.length}: ${visibleRows[wrapped].task.title}`);
-    requestAnimationFrame(() => {
-      document.getElementById(`task-option-${visibleRows[wrapped].task.id}`)?.scrollIntoView({ block: "nearest" });
-    });
+    selectOnly(target);
+    onAnnounce(`${wrapped + 1} of ${visibleRows.length}: ${target.task.title}`);
+    requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
+  }
+
+  function selectBoundary(end: "start" | "end"): void {
+    suppressMouseActiveRef.current = true;
+    window.setTimeout(() => { suppressMouseActiveRef.current = false; }, 100);
+    const current = activeRow;
+    if (!current || current.contextOnly) {
+      onAnnounce("Selection is limited to visible sibling tasks.");
+      return;
+    }
+    const scope = selectableSiblingRows(current);
+    const target = end === "start" ? scope[0] : scope[scope.length - 1];
+    if (!target) return;
+    pendingActiveIdRef.current = target.task.id;
+    onActiveTaskIndexChange(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
+    selectRangeTo(target);
+    requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
+  }
+
+  function clearSelection(): boolean {
+    if (selectedIdsRef.current.size === 0) return false;
+    setSelection([], null);
+    onAnnounce("Selection cleared");
+    return true;
+  }
+
+  function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
+    if (!row) return "No task is selected.";
+    if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
+    if (exactStatus !== null) return "Clear the exact-status filter before reordering.";
+    if (statusPreset !== "active") return "Clear the inactive filter before reordering.";
+    if (showUnblocked) return "Clear the Unblocked filter before reordering.";
+    if (priorityFilter !== null) return "Clear the priority filter before reordering.";
+    if (tagFilter.length > 0) return "Clear the tag filter before reordering.";
+    if (searchQuery.trim() !== "") return "Clear search before reordering.";
+    return null;
+  }
+
+  function selectedRowsForReorder(row: VisibleTaskRow, rows: readonly VisibleTaskRow[]): VisibleTaskRow[] | null {
+    if (row.contextOnly) return null;
+    const scope = selectableSiblingRows(row, rows);
+    const selected = scope.filter((candidate) => selectedIdsRef.current.has(candidate.task.id));
+    if (selected.length === 0) return selectedIdsRef.current.size === 0 ? [row] : null;
+    if ([...selectedIdsRef.current].some((id) => !selected.some((candidate) => candidate.task.id === id))) return null;
+    return selected;
+  }
+
+  function placementForMove(
+    direction: "up" | "down" | "start" | "end",
+    row: VisibleTaskRow,
+    selected: readonly VisibleTaskRow[],
+    rows: readonly VisibleTaskRow[],
+  ): TaskReorderPlacement | null {
+    const scope = selectableSiblingRows(row, rows);
+    const selectedIds = new Set(selected.map((candidate) => candidate.task.id));
+    const firstSelected = scope.findIndex((candidate) => selectedIds.has(candidate.task.id));
+    const lastSelected = scope.length - 1 - [...scope].reverse().findIndex((candidate) => selectedIds.has(candidate.task.id));
+    if (firstSelected < 0 || lastSelected < 0) return null;
+    if (direction === "start") {
+      return firstSelected === 0 ? null : { beforeId: scope[0].task.id };
+    }
+    if (direction === "end") {
+      return lastSelected === scope.length - 1 ? null : { afterId: scope[scope.length - 1].task.id };
+    }
+    if (direction === "up") {
+      if (firstSelected === 0) return null;
+      const previous = scope.slice(0, firstSelected).reverse().find((candidate) => !selectedIds.has(candidate.task.id));
+      return previous ? { beforeId: previous.task.id } : null;
+    }
+    if (lastSelected === scope.length - 1) return null;
+    const next = scope.slice(lastSelected + 1).find((candidate) => !selectedIds.has(candidate.task.id));
+    return next ? { afterId: next.task.id } : null;
+  }
+
+  function selectionMembershipMatches(rows: readonly VisibleTaskRow[], ids: readonly string[]): boolean {
+    if (rows.length !== ids.length) return false;
+    const rowIds = new Set(rows.map((row) => row.task.id));
+    return rowIds.size === ids.length && ids.every((id) => rowIds.has(id));
+  }
+
+  function placementTargetId(placement: TaskReorderPlacement): string {
+    if ("beforeId" in placement) return placement.beforeId;
+    if ("afterId" in placement) return placement.afterId;
+    throw new Error("manual movement requires an explicit visible target");
+  }
+
+  function waitForListRender(): Promise<void> {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  async function reorderSelection(direction: "up" | "down" | "start" | "end"): Promise<void> {
+    if (reorderPending.current) return;
+    const sourceRows = visibleRowsRef.current;
+    const sourceActiveId = activeRow?.task.id;
+    const sourceRow = sourceActiveId === undefined
+      ? sourceRows[activeIndex]
+      : sourceRows.find((candidate) => candidate.task.id === sourceActiveId);
+    const reason = reorderDisabledReason(sourceRow);
+    if (reason) {
+      onAnnounce(reason);
+      return;
+    }
+    if (!sourceRow) return;
+    const sourceSelected = selectedRowsForReorder(sourceRow, sourceRows);
+    if (!sourceSelected) {
+      setSelection([], sourceRow.contextOnly ? null : sourceRow.task.id);
+      onAnnounce("Selection is limited to one visible sibling scope.");
+      return;
+    }
+    const selectedIdSnapshot = sourceSelected.map((candidate) => candidate.task.id);
+    const switchedToManual = sortField !== "manual";
+    reorderPending.current = true;
+    try {
+      let placement: TaskReorderPlacement | null = null;
+      let refreshedSelectionOrder: VisibleTaskRow[] | null = null;
+      if (switchedToManual) {
+        onSortFieldChange("manual");
+        // Let the sort-change effect start before issuing the authoritative
+        // refresh used to resolve the visible manual-order target.
+        await waitForListRender();
+        try {
+          if (!await onRefresh(0)) {
+            onAnnounce("Could not refresh tasks. No move was made.");
+            return;
+          }
+        } catch {
+          onAnnounce("Could not refresh tasks. No move was made.");
+          return;
+        }
+        await waitForListRender();
+        const refreshedRows = visibleRowsRef.current;
+        const refreshedActive = refreshedRows.find((candidate) => candidate.task.id === sourceRow.task.id);
+        if (!refreshedActive || refreshedActive.contextOnly) {
+          onAnnounce("The selected task changed during refresh. No move was made.");
+          return;
+        }
+        const refreshedSelected = selectedRowsForReorder(refreshedActive, refreshedRows);
+        if (!refreshedSelected || !selectionMembershipMatches(refreshedSelected, selectedIdSnapshot)) {
+          onAnnounce("The selected task changed during refresh. No move was made.");
+          return;
+        }
+        refreshedSelectionOrder = refreshedSelected;
+        placement = placementForMove(direction, refreshedActive, refreshedSelected, refreshedRows);
+      } else {
+        placement = placementForMove(direction, sourceRow, sourceSelected, sourceRows);
+      }
+      if (!placement) {
+        const boundary = direction === "up" || direction === "start" ? "Already at the beginning." : "Already at the end.";
+        onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
+        return;
+      }
+
+      const currentRows = visibleRowsRef.current;
+      const currentActive = currentRows.find((candidate) => candidate.task.id === sourceRow.task.id);
+      if (!currentActive || currentActive.contextOnly) {
+        onAnnounce("The selected task changed during refresh. No move was made.");
+        return;
+      }
+      const currentSelected = selectedRowsForReorder(currentActive, currentRows);
+      if (!currentSelected || !selectionMembershipMatches(currentSelected, selectedIdSnapshot)) {
+        onAnnounce("The selected task changed during refresh. No move was made.");
+        return;
+      }
+      const commandSelection = refreshedSelectionOrder === null
+        ? currentSelected
+        : refreshedSelectionOrder.map((row) => currentSelected.find((candidate) => candidate.task.id === row.task.id)).filter((row): row is VisibleTaskRow => row !== undefined);
+      if (commandSelection.length !== currentSelected.length) {
+        onAnnounce("The selected task changed during refresh. No move was made.");
+        return;
+      }
+      const target = currentRows.find((candidate) => candidate.task.id === placementTargetId(placement));
+      if (!target || target.contextOnly || target.task.parentId !== currentActive.task.parentId) {
+        onAnnounce("The task or move target changed during refresh. No move was made.");
+        return;
+      }
+      const commandTasks = commandSelection.map((candidate) => ({ id: candidate.task.id, expectedVersion: candidate.task.version }));
+      const signature = JSON.stringify({ tasks: commandTasks, placement });
+      const receipt = reorderReceipt.current?.signature === signature
+        ? reorderReceipt.current
+        : { signature, key: crypto.randomUUID() };
+      reorderReceipt.current = receipt;
+      currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, true));
+      try {
+        const result = await reorderTasks(commandTasks, placement, { idempotencyKey: receipt.key });
+        reorderReceipt.current = null;
+        if (result.changed === false) {
+          const boundary = direction === "up" || direction === "start" ? "Already at the beginning." : "Already at the end.";
+          onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
+          return;
+        }
+        restoreActiveIdRef.current = sourceRow.task.id;
+        restoreSelectionIdsRef.current = new Set(selectedIdSnapshot);
+        await onRefresh(0);
+        await waitForListRender();
+        const move = `${currentSelected.length} task${currentSelected.length === 1 ? "" : "s"} moved ${direction === "start" ? "to the beginning" : direction === "end" ? "to the end" : direction}.`;
+        onAnnounce(switchedToManual ? `Switched to manual order. ${move}` : move);
+        list.current?.focus();
+      } catch (caught) {
+        if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+          reorderReceipt.current = null;
+          onAnnounce("A selected task changed elsewhere. Refresh and try again.");
+          void onRefresh(0);
+        } else if (caught instanceof BackendCommandError) {
+          reorderReceipt.current = null;
+          onAnnounce(caught.message);
+        } else {
+          onAnnounce(`Could not move the selected task${currentSelected.length === 1 ? "" : "s"}. Try again.`);
+        }
+      } finally {
+        currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, false));
+      }
+    } finally {
+      reorderPending.current = false;
+    }
   }
 
   function setExpanded(taskId: string, expanded: boolean): void {
@@ -586,7 +958,7 @@ export function TaskList({
   homeShortcutActions.current = {
     hasActiveFilters,
     activeTask,
-    activeTaskIndex,
+    activeTaskIndex: activeIndex,
     visibleRowCount: visibleRows.length,
     canUndoStatus: Boolean(canUndoStatus),
     undoStatus: () => onUndoStatus?.(),
@@ -614,6 +986,9 @@ export function TaskList({
     reverseStatus,
     pauseTask,
     moveActive,
+    selectBoundary,
+    reorderSelection,
+    clearSelection,
     handleHorizontalNavigation,
     editTask: onEdit,
   };
@@ -638,6 +1013,7 @@ export function TaskList({
           actions.returnToList();
           return;
         }
+        if (actions.clearSelection()) return;
         if (actions.hasActiveFilters) actions.clearAllFilters();
         return;
       }
@@ -660,6 +1036,45 @@ export function TaskList({
         event.preventDefault();
         actions.undoStatus();
         return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+        const moveDirection = event.key === "ArrowUp"
+          ? "up"
+          : event.key === "ArrowDown"
+            ? "down"
+            : event.key === "Home"
+              ? "start"
+              : event.key === "End"
+                ? "end"
+                : null;
+        if (moveDirection !== null) {
+          if (event.repeat || event.isComposing || event.keyCode === 229) return;
+          event.preventDefault();
+          void actions.reorderSelection(moveDirection);
+          return;
+        }
+      }
+      if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          actions.moveActive(actions.activeTaskIndex - 1, true);
+          return;
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          actions.moveActive(actions.activeTaskIndex + 1, true);
+          return;
+        }
+        if (event.key === "Home") {
+          event.preventDefault();
+          actions.selectBoundary("start");
+          return;
+        }
+        if (event.key === "End") {
+          event.preventDefault();
+          actions.selectBoundary("end");
+          return;
+        }
       }
       if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
 
@@ -738,6 +1153,11 @@ export function TaskList({
         if (key === "u" && !event.shiftKey) {
           event.preventDefault();
           actions.applySortField("updated");
+          return;
+        }
+        if (key === "m" && !event.shiftKey) {
+          event.preventDefault();
+          actions.applySortField("manual");
           return;
         }
         if (key === "r" && !event.shiftKey) {
@@ -845,9 +1265,6 @@ export function TaskList({
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
   const summaryTaskCount = visibleRows.filter((row) => !row.contextOnly).length;
-  const sortSummaryText = sortField === "updated" && sortDirection === "desc"
-    ? null
-    : sortSummary(sortField, sortDirection);
   const filterSummary = [
     `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`,
     priorityFilter !== null ? priorityLabel : null,
@@ -855,17 +1272,19 @@ export function TaskList({
     summaryTags,
     searchActive ? `“${searchQuery.trim()}”` : null,
     showUnblocked ? "unblocked" : null,
-    sortSummaryText,
   ].filter((part): part is string => part !== null).join(" · ");
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
   const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
+  const selectionCount = selectedIds.size;
+  const selectionLabel = `${selectionCount} task${selectionCount === 1 ? "" : "s"} selected`;
+  const reorderAvailabilityReason = reorderDisabledReason(activeRow);
 
   return (
     <section
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1030,7 +1449,7 @@ export function TaskList({
           <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"
-            aria-keyshortcuts="S C U R"
+            aria-keyshortcuts="S C U M R"
             tabIndex={-1}
             data-toolbar="sort"
             data-toolbar-active={toolbarMode === "sort" || undefined}
@@ -1086,10 +1505,36 @@ export function TaskList({
           <TooltipTrigger
             render={
               <Button
+                variant={sortField === "manual" ? "outline" : "ghost"}
+                className={sortField === "manual" ? ACTIVE_FILTER_CLASS : undefined}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label="Sort by manual order. Press S then M."
+                aria-pressed={sortField === "manual"}
+                aria-keyshortcuts="M"
+                data-sort="task-sort-manual"
+                onClick={() => applySortField("manual")}
+              />
+            }
+          >
+            <ListOrdered aria-hidden="true" />
+            <span className="sr-only">Sort by manual order</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>Manual order</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
                 variant="ghost"
                 size="icon-sm"
                 tabIndex={-1}
-                aria-label={sortDirection === "desc" ? "Newest first. Activate to show oldest first. Press S then R." : "Oldest first. Activate to show newest first. Press S then R."}
+                disabled={sortField === "manual"}
+                aria-label={sortField === "manual"
+                  ? "Reverse is unavailable for manual order."
+                  : sortDirection === "desc"
+                    ? "Newest first. Activate to show oldest first. Press S then R."
+                    : "Oldest first. Activate to show newest first. Press S then R."}
                 aria-keyshortcuts="R"
                 data-sort="task-sort-reverse"
                 onClick={reverseSort}
@@ -1099,7 +1544,7 @@ export function TaskList({
             {sortDirection === "desc" ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
             <span className="sr-only">{sortDirection === "desc" ? "Newest first" : "Oldest first"}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{sortField === "manual" ? "Unavailable for manual order" : sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
           <ButtonGroup aria-label="Task list view">
@@ -1136,6 +1581,92 @@ export function TaskList({
         >
           {filterSummary}
         </p>
+        {selectionCount > 0 && activeRow && !activeRow.contextOnly ? (
+          <div
+            role="toolbar"
+            aria-label={reorderAvailabilityReason
+              ? `Move selected tasks, ${selectionLabel}. ${reorderAvailabilityReason}`
+              : `Move selected tasks, ${selectionLabel}`}
+            aria-live="polite"
+            aria-controls="task-list"
+            data-selection-toolbar
+            className="flex items-center gap-1 rounded-md border border-dashed border-primary/50 bg-primary/5 px-2 py-1"
+          >
+            <span className="mr-1 text-xs text-muted-foreground" data-selection-count>{selectionLabel}</span>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-label="Move up"
+                    aria-disabled={reorderAvailabilityReason !== null || undefined}
+                    aria-keyshortcuts="Control+ArrowUp Meta+ArrowUp"
+                    data-reorder-action="up"
+                    onMouseDown={preventFocusSteal}
+                    onClick={() => void reorderSelection("up")}
+                  />
+                }
+              ><ArrowUp aria-hidden="true" /></TooltipTrigger>
+              <TooltipContent side="top" sideOffset={8}>{reorderAvailabilityReason ?? "Move up"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-label="Move down"
+                    aria-disabled={reorderAvailabilityReason !== null || undefined}
+                    aria-keyshortcuts="Control+ArrowDown Meta+ArrowDown"
+                    data-reorder-action="down"
+                    onMouseDown={preventFocusSteal}
+                    onClick={() => void reorderSelection("down")}
+                  />
+                }
+              ><ArrowDown aria-hidden="true" /></TooltipTrigger>
+              <TooltipContent side="top" sideOffset={8}>{reorderAvailabilityReason ?? "Move down"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-label="Move to beginning"
+                    aria-disabled={reorderAvailabilityReason !== null || undefined}
+                    aria-keyshortcuts="Control+Home Meta+Home"
+                    data-reorder-action="start"
+                    onMouseDown={preventFocusSteal}
+                    onClick={() => void reorderSelection("start")}
+                  />
+                }
+              ><ChevronDown aria-hidden="true" className="rotate-180" /></TooltipTrigger>
+              <TooltipContent side="top" sideOffset={8}>{reorderAvailabilityReason ?? "Move to beginning"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-label="Move to end"
+                    aria-disabled={reorderAvailabilityReason !== null || undefined}
+                    aria-keyshortcuts="Control+End Meta+End"
+                    data-reorder-action="end"
+                    onMouseDown={preventFocusSteal}
+                    onClick={() => void reorderSelection("end")}
+                  />
+                }
+              ><ChevronDown aria-hidden="true" /></TooltipTrigger>
+              <TooltipContent side="top" sideOffset={8}>{reorderAvailabilityReason ?? "Move to end"}</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : null}
       </div>
       {error ? <Alert variant="destructive">
         <AlertTitle>Could not load tasks</AlertTitle>
@@ -1152,12 +1683,14 @@ export function TaskList({
       {showListSurface ? (
         <div
           ref={list}
+          id="task-list"
           role="listbox"
           aria-label={visibleRows.length
-            ? `Tasks, ${visibleRows.length} visible task rows, ${total} matching tasks`
+            ? `Tasks, ${visibleRows.length} visible task rows, ${total} matching tasks, ${selectionLabel}`
             : "Tasks, no visible matches"}
           aria-orientation="vertical"
-          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+          aria-multiselectable="true"
+          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
@@ -1168,7 +1701,7 @@ export function TaskList({
         >
           {visibleRows.map((row, index) => {
             const { task } = row;
-            const active = index === clampedActiveIndex;
+            const active = index === activeIndex;
             const blockedByLabels = task.blockedByIds.map((id) => {
               const blocker = tasks.find((candidate) => candidate.id === id);
               return blocker ? taskTitleDisplay(blocker.title) : null;
@@ -1179,18 +1712,53 @@ export function TaskList({
                 key={task.id}
                 id={`task-option-${task.id}`}
                 role="option"
-                aria-selected={active}
+                aria-selected={selectedIds.has(task.id)}
                 aria-expanded={row.hasChildren ? expandedIds.has(task.id) : undefined}
                 aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
                 tabIndex={-1}
                 data-active={active || undefined}
+                data-selected={selectedIds.has(task.id) || undefined}
                 data-context-parent={row.contextOnly || undefined}
                 data-depth={row.depth}
                 size="sm"
                 variant={active ? "outline" : "default"}
-                className={active ? "border-ring bg-muted" : row.contextOnly ? "bg-muted/50 text-muted-foreground" : undefined}
-                onClick={() => onEdit(task)}
-                onMouseEnter={() => onActiveTaskIndexChange(index)}
+                className={active
+                  ? selectedIds.has(task.id)
+                    ? "border-ring border-dashed bg-muted"
+                    : "border-ring bg-muted"
+                  : selectedIds.has(task.id)
+                    ? "border-dashed border-primary/60 bg-primary/5"
+                    : row.contextOnly ? "bg-muted/50 text-muted-foreground" : undefined}
+                onClick={(event) => {
+                  pendingActiveIdRef.current = null;
+                  if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
+                    onAnnounce("Context-only ancestors cannot be selected.");
+                    return;
+                  }
+                  if (event.shiftKey) {
+                    onActiveTaskIndexChange(index);
+                    selectRangeTo(row);
+                    return;
+                  }
+                  if (event.ctrlKey || event.metaKey) {
+                    onActiveTaskIndexChange(index);
+                    const scope = selectableSiblingRows(row);
+                    const sameScope = scope.length > 0 && [...selectedIdsRef.current].every((id) => scope.some((candidate) => candidate.task.id === id));
+                    if (!sameScope) {
+                      selectOnly(row);
+                      return;
+                    }
+                    const next = new Set(selectedIdsRef.current);
+                    if (next.has(task.id)) next.delete(task.id);
+                    else next.add(task.id);
+                    setSelection(next, task.id);
+                    onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
+                    return;
+                  }
+                  onEdit(task);
+                }}
+                onMouseEnter={() => activatePointerRow(index)}
+                onMouseMove={() => activatePointerRow(index)}
               >
                 <TaskRow
                   task={task}
@@ -1273,4 +1841,4 @@ export function TaskList({
       ) : null}
     </section>
   );
-}
+});

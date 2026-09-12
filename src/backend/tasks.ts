@@ -9,6 +9,9 @@ import {
   type ProtocolRequest,
   type TaskPriority,
   type TaskRecord,
+  type TaskReorderArgs,
+  type TaskReorderPlacement,
+  type TaskReorderTask,
   type TaskStatus,
 } from "./protocol.js";
 import { classifyTaskText, TaskTextError, type TaskClassification } from "./taskText.js";
@@ -38,6 +41,7 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.cancel",
   "task.status.undo",
   "task.move",
+  "task.reorder",
   "task.dependency.add",
   "task.dependency.remove",
   "workspace.restore",
@@ -292,6 +296,23 @@ function parentIdValue(row: Row): string | null {
   return value;
 }
 
+function siblingIds(database: DatabaseSync, parentId: string | null): string[] {
+  const rows = database
+    .prepare("SELECT id FROM tasks WHERE parent_id IS ? ORDER BY position ASC, id ASC")
+    .all(parentId) as Row[];
+  return rows.map((row) => stringValue(row, "id"));
+}
+
+function densifySiblingScope(database: DatabaseSync, parentId: string | null): void {
+  const ids = siblingIds(database, parentId);
+  const update = database.prepare("UPDATE tasks SET position = ? WHERE id = ?");
+  ids.forEach((id, index) => update.run(index, id));
+}
+
+function insertAtSiblingStart(database: DatabaseSync, parentId: string | null): void {
+  database.prepare("UPDATE tasks SET position = position + 1 WHERE parent_id IS ?").run(parentId);
+}
+
 function requireParentTask(database: DatabaseSync, parentId: string): void {
   const row = database.prepare("SELECT status FROM tasks WHERE id = ?").get(parentId) as Row | undefined;
   if (!row) {
@@ -369,6 +390,7 @@ function requireTask(database: DatabaseSync, taskId: string): TaskRecord {
 }
 
 function ancestorTasksFor(database: DatabaseSync, tasks: TaskRecord[]): TaskRecord[] {
+  const matchingIds = new Set(tasks.map((task) => task.id));
   const ancestors = new Map<string, TaskRecord>();
   for (const task of tasks) {
     const seen = new Set<string>([task.id]);
@@ -377,7 +399,7 @@ function ancestorTasksFor(database: DatabaseSync, tasks: TaskRecord[]): TaskReco
       seen.add(parentId);
       const parent = ancestors.get(parentId) ?? findTask(database, parentId);
       if (!parent) break;
-      ancestors.set(parent.id, parent);
+      if (!matchingIds.has(parent.id)) ancestors.set(parent.id, parent);
       parentId = parent.parentId;
     }
   }
@@ -484,11 +506,12 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   const now = new Date().toISOString();
   return withTransaction(database, () => {
     const id = randomUUID();
+    insertAtSiblingStart(database, parentId);
     database
       .prepare(
         `INSERT INTO tasks
-          (id, title, description_markdown, status, category_id, parent_id, priority, version, created_at, updated_at, completed_at, canceled_at)
-         VALUES (?, ?, ?, 'open', NULL, ?, ?, 1, ?, ?, NULL, NULL)`,
+          (id, title, description_markdown, status, category_id, parent_id, position, priority, version, created_at, updated_at, completed_at, canceled_at)
+         VALUES (?, ?, ?, 'open', NULL, ?, 0, ?, 1, ?, ?, NULL, NULL)`,
       )
       .run(id, input.title, input.descriptionMarkdown, parentId, priority, now, now);
     upsertClassification(database, id, input.classification, now);
@@ -820,9 +843,17 @@ function moveTask(database: DatabaseSync, request: ProtocolRequest): Record<stri
 
   const now = new Date().toISOString();
   return withTransaction(database, () => {
-    database
-      .prepare("UPDATE tasks SET parent_id = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+    const moved = database
+      .prepare("UPDATE tasks SET parent_id = ?, position = 0, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
       .run(parentId, now, current.id, version);
+    if (moved.changes !== 1) {
+      throw new CommandError("STALE_TASK_VERSION", `task ${current.id} changed while it was being moved`);
+    }
+    database
+      .prepare("UPDATE tasks SET position = position + 1 WHERE parent_id IS ? AND id <> ?")
+      .run(parentId, current.id);
+    densifySiblingScope(database, current.parentId);
+    densifySiblingScope(database, parentId);
     insertActivity(database, current.id, request, "moved", { before: { parentId: current.parentId }, after: { parentId } }, now);
     const task = requireTask(database, current.id);
     const result = taskResult(task, { changed: true });
@@ -951,6 +982,218 @@ function removeDependency(database: DatabaseSync, request: ProtocolRequest): Rec
   });
 }
 
+type StoredSibling = {
+  id: string;
+  position: number;
+  version: number;
+};
+
+type ReorderPlan = {
+  tasks: TaskReorderTask[];
+  parentId: string | null;
+  siblings: StoredSibling[];
+  finalIds: string[];
+  changed: boolean;
+};
+
+function reorderArguments(args: Row): TaskReorderArgs {
+  const rawTasks = args.tasks;
+  if (!Array.isArray(rawTasks) || rawTasks.length === 0) {
+    throw new CommandError("INVALID_ARGUMENT", "tasks must be a non-empty array");
+  }
+  const selectedIds = new Set<string>();
+  const tasks: TaskReorderTask[] = rawTasks.map((rawTask, index) => {
+    if (!isRecord(rawTask)) {
+      throw new CommandError("INVALID_ARGUMENT", `tasks[${index}] must be an object`);
+    }
+    const id = rawTask.id;
+    if (typeof id !== "string" || id.trim() === "") {
+      throw new CommandError("INVALID_ARGUMENT", `tasks[${index}].id must be a non-empty string`);
+    }
+    if (selectedIds.has(id)) {
+      throw new CommandError("INVALID_ARGUMENT", "tasks must not contain duplicate ids");
+    }
+    selectedIds.add(id);
+    const version = rawTask.expectedVersion;
+    if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
+      throw new CommandError("EXPECTED_VERSION_REQUIRED", `tasks[${index}].expectedVersion must be a positive integer`);
+    }
+    return { id, expectedVersion: version };
+  });
+
+  if (!isRecord(args.placement)) {
+    throw new CommandError("INVALID_ARGUMENT", "placement must be an object");
+  }
+  const keys = Object.keys(args.placement);
+  if (keys.length !== 1 || !["beforeId", "afterId", "first", "last"].includes(keys[0] ?? "")) {
+    throw new CommandError("INVALID_ARGUMENT", "placement must specify exactly one of beforeId, afterId, first, or last");
+  }
+  const key = keys[0] as "beforeId" | "afterId" | "first" | "last";
+  if (key === "beforeId" || key === "afterId") {
+    const target = args.placement[key];
+    if (typeof target !== "string" || target.trim() === "") {
+      throw new CommandError("INVALID_ARGUMENT", `placement.${key} must be a non-empty string`);
+    }
+    return { tasks, placement: { [key]: target } as TaskReorderPlacement };
+  }
+  if (args.placement[key] !== true) {
+    throw new CommandError("INVALID_ARGUMENT", `placement.${key} must be true`);
+  }
+  return { tasks, placement: { [key]: true } as TaskReorderPlacement };
+}
+
+function storedSiblings(database: DatabaseSync, parentId: string | null): StoredSibling[] {
+  const rows = database
+    .prepare("SELECT id, position, version FROM tasks WHERE parent_id IS ? ORDER BY position ASC, id ASC")
+    .all(parentId) as Row[];
+  return rows.map((row) => {
+    const position = numberValue(row, "position");
+    const version = numberValue(row, "version");
+    if (!Number.isInteger(position) || position < 0 || !Number.isInteger(version) || version < 1) {
+      throw new CommandError("INVALID_STORAGE", "database contains an invalid task ordering row");
+    }
+    return { id: stringValue(row, "id"), position, version };
+  });
+}
+
+function reorderPlan(database: DatabaseSync, request: ProtocolRequest): ReorderPlan {
+  const { tasks, placement } = reorderArguments(request.args);
+  let parentId: string | null = null;
+  let parentInitialized = false;
+  for (const selected of tasks) {
+    const row = database.prepare("SELECT id, parent_id, position, version FROM tasks WHERE id = ?").get(selected.id) as Row | undefined;
+    if (!row) {
+      throw new CommandError("TASK_NOT_FOUND", `task ${selected.id} was not found`);
+    }
+    const rowParentId = parentIdValue(row);
+    if (parentInitialized && rowParentId !== parentId) {
+      throw new CommandError("INVALID_REORDER_SCOPE", "all reordered tasks must share one parent");
+    }
+    parentId = rowParentId;
+    parentInitialized = true;
+    const currentVersion = numberValue(row, "version");
+    if (selected.expectedVersion !== currentVersion) {
+      throw new CommandError("STALE_TASK_VERSION", `task ${selected.id} is at version ${currentVersion}`);
+    }
+    const position = numberValue(row, "position");
+    if (!Number.isInteger(position) || position < 0) {
+      throw new CommandError("INVALID_STORAGE", `task ${selected.id} has an invalid position`);
+    }
+  }
+
+  const siblings = storedSiblings(database, parentId);
+  const selectedIds = new Set(tasks.map((selected) => selected.id));
+  const orderedSelectedIds = siblings.filter((sibling) => selectedIds.has(sibling.id)).map((sibling) => sibling.id);
+  if (orderedSelectedIds.length !== tasks.length || orderedSelectedIds.some((id, index) => id !== tasks[index]?.id)) {
+    throw new CommandError("INVALID_REORDER_ORDER", "reordered tasks must be supplied in their current sibling order");
+  }
+
+  let targetId: string | undefined;
+  let insertAt: number;
+  if ("beforeId" in placement) {
+    targetId = placement.beforeId;
+    insertAt = -1;
+  } else if ("afterId" in placement) {
+    targetId = placement.afterId;
+    insertAt = -1;
+  } else {
+    insertAt = "first" in placement ? 0 : siblings.length - selectedIds.size;
+  }
+
+  const remaining = siblings.filter((sibling) => !selectedIds.has(sibling.id));
+  if (targetId !== undefined) {
+    const target = database.prepare("SELECT id, parent_id FROM tasks WHERE id = ?").get(targetId) as Row | undefined;
+    if (!target) {
+      throw new CommandError("TASK_NOT_FOUND", `placement target ${targetId} was not found`);
+    }
+    if (selectedIds.has(targetId)) {
+      throw new CommandError("INVALID_REORDER_PLACEMENT", "placement target cannot be selected");
+    }
+    if (parentIdValue(target) !== parentId) {
+      throw new CommandError("INVALID_REORDER_SCOPE", "placement target must share the task parent");
+    }
+    const targetIndex = remaining.findIndex((sibling) => sibling.id === targetId);
+    insertAt = "beforeId" in placement ? targetIndex : targetIndex + 1;
+  }
+
+  const finalIds = [
+    ...remaining.slice(0, insertAt).map((sibling) => sibling.id),
+    ...orderedSelectedIds,
+    ...remaining.slice(insertAt).map((sibling) => sibling.id),
+  ];
+  const changed = finalIds.some((id, index) => id !== siblings[index]?.id);
+  return { tasks, parentId, siblings, finalIds, changed };
+}
+
+function reorderTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) return context.replay;
+
+  if (request.readOnly || request.dryRun) {
+    const plan = reorderPlan(database, request);
+    return {
+      changed: plan.changed,
+      tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
+      dryRun: true,
+      readOnly: Boolean(request.readOnly),
+    };
+  }
+
+  return withTransaction(database, () => {
+    const transactionContext = mutationContext(database, request);
+    if (transactionContext.replay) return transactionContext.replay;
+    const plan = reorderPlan(database, request);
+    if (!plan.changed) {
+      const result = {
+        changed: false,
+        tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
+      };
+      recordReceipt(database, request, transactionContext, result, new Date().toISOString());
+      return result;
+    }
+
+    const selectedById = new Map(plan.tasks.map((selected) => [selected.id, selected]));
+    const beforeById = new Map(plan.siblings.map((sibling) => [sibling.id, sibling.position]));
+    const updatePosition = database.prepare("UPDATE tasks SET position = ? WHERE id = ?");
+    const updateSelected = database.prepare("UPDATE tasks SET position = ?, version = version + 1 WHERE id = ? AND version = ?");
+    plan.finalIds.forEach((id, position) => {
+      const selected = selectedById.get(id);
+      if (selected) {
+        const result = updateSelected.run(position, id, selected.expectedVersion);
+        if (result.changes !== 1) {
+          throw new CommandError("STALE_TASK_VERSION", `task ${id} changed while it was being reordered`);
+        }
+      } else {
+        updatePosition.run(position, id);
+      }
+    });
+
+    const now = new Date().toISOString();
+    for (const selected of plan.tasks) {
+      const beforePosition = beforeById.get(selected.id);
+      const afterPosition = plan.finalIds.indexOf(selected.id);
+      insertActivity(
+        database,
+        selected.id,
+        request,
+        "reordered",
+        {
+          before: { position: beforePosition },
+          after: { position: afterPosition },
+          siblingScope: { parentId: plan.parentId },
+        },
+        now,
+      );
+    }
+    const result = {
+      changed: true,
+      tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
+    };
+    recordReceipt(database, request, transactionContext, result, now);
+    return result;
+  });
+}
+
 function listCategories(database: DatabaseSync): Record<string, unknown> {
   const rows = database
     .prepare(
@@ -1062,8 +1305,8 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     searchPattern = `%${escapeLikePattern(trimmed)}%`;
   }
   const sortArgument = request.args.sort ?? "updated";
-  if (sortArgument !== "created" && sortArgument !== "updated") {
-    throw new CommandError("INVALID_ARGUMENT", "sort must be created or updated");
+  if (sortArgument !== "created" && sortArgument !== "updated" && sortArgument !== "manual") {
+    throw new CommandError("INVALID_ARGUMENT", "sort must be created, updated, or manual");
   }
   const directionArgument = request.args.direction ?? "desc";
   if (directionArgument !== "asc" && directionArgument !== "desc") {
@@ -1104,12 +1347,25 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     params.push(searchPattern, searchPattern);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  // Encode IDs and terminate each segment so a parent subtree stays together even when IDs share a prefix.
+  const manualOrder = `WITH RECURSIVE task_tree(id, order_path) AS (
+    SELECT root.id, printf('%020d:%s/', root.position, hex(CAST(root.id AS BLOB)))
+    FROM tasks AS root
+    WHERE root.parent_id IS NULL
+      OR NOT EXISTS (SELECT 1 FROM tasks AS parent WHERE parent.id = root.parent_id)
+    UNION ALL
+    SELECT child.id, task_tree.order_path || printf('%020d:%s/', child.position, hex(CAST(child.id AS BLOB)))
+    FROM tasks AS child
+    JOIN task_tree ON task_tree.id = child.parent_id
+  )`;
   const rows = database
     .prepare(
-      `SELECT tasks.*, categories.slug AS category_slug, categories.label AS category_label
+      `${sortArgument === "manual" ? manualOrder : ""}
+       SELECT tasks.*, categories.slug AS category_slug, categories.label AS category_label
        FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
+       ${sortArgument === "manual" ? "JOIN task_tree ON task_tree.id = tasks.id" : ""}
        ${where}
-       ORDER BY ${orderBy} ${orderDirection}, tasks.id ASC
+       ORDER BY ${sortArgument === "manual" ? "task_tree.order_path ASC" : `${orderBy} ${orderDirection}, tasks.id ASC`}
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as Row[];
@@ -1140,6 +1396,11 @@ export function readAllTasks(database: DatabaseSync): TaskRecord[] {
     )
     .all() as Row[];
   return rows.map((row) => taskFromRow(database, row));
+}
+
+function readTaskPositions(database: DatabaseSync): Map<string, number> {
+  const rows = database.prepare("SELECT id, position FROM tasks").all() as Row[];
+  return new Map(rows.map((row) => [stringValue(row, "id"), numberValue(row, "position")]));
 }
 
 function listActivity(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
@@ -1182,6 +1443,8 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return createTask(database, request);
     case "task.list":
       return listTasks(database, request);
+    case "task.reorder":
+      return reorderTask(database, request);
     case "category.list":
       return listCategories(database);
     case "tag.list":
@@ -1214,7 +1477,7 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
     case "workspace.export":
       return exportWorkspace(database, request);
     case "workspace.exportTasks":
-      return exportTasks(databasePath, readAllTasks(database), request);
+      return exportTasks(databasePath, readAllTasks(database), readTaskPositions(database), request);
     case "workspace.restore": {
       const context = mutationContext(database, request);
       if (context.replay) {

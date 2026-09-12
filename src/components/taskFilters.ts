@@ -61,10 +61,10 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "canceled", label: "Canceled", key: "X" },
 ];
 
-export type SortField = "created" | "updated";
+export type SortField = "created" | "updated" | "manual";
 export type SortDirection = "asc" | "desc";
 
-/** Quiet count-line suffix, e.g. by updated, desc. */
+/** Quiet status message for a selected sort. */
 export function sortSummary(field: SortField, direction: SortDirection): string {
-  return `by ${field}, ${direction}`;
+  return field === "manual" ? "manual order" : `by ${field}, ${direction}`;
 }
