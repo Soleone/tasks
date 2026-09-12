@@ -1852,8 +1852,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </EmptyHeader>
         </Empty>
       ) : null}
-      {loading ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : null}
-
       <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
         <TooltipContent side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>
