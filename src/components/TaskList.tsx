@@ -1406,27 +1406,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{tagFilter.length > 0 ? tagFilter.map((tag) => tag.label).join(", ") : "Tags"}</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant={searchActive ? "outline" : "ghost"}
-                className={searchActive ? ACTIVE_FILTER_CLASS : undefined}
-                size="icon-sm"
-                tabIndex={-1}
-                aria-label={searchActive ? `Search: ${searchQuery.trim()}. Open search or clear.` : "Search tasks"}
-                aria-pressed={searchActive}
-                aria-keyshortcuts="/"
-                data-filter="task-search"
-                onClick={openSearch}
-              />
-            }
-          >
-            <Search aria-hidden="true" />
-            <span className="sr-only">{searchActive ? `Search: ${searchQuery.trim()}` : "Search"}</span>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{searchActive ? searchQuery.trim() : "Search"}</TooltipContent>
-        </Tooltip>
         <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
           <TooltipTrigger
             render={
@@ -1447,6 +1426,27 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             <span className="sr-only">{showUnblocked ? "Show all tasks" : "Show unblocked tasks"}</span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{showUnblocked ? "Unblocked" : "All tasks"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant={searchActive ? "outline" : "ghost"}
+                className={searchActive ? ACTIVE_FILTER_CLASS : undefined}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={searchActive ? `Search: ${searchQuery.trim()}. Open search or clear.` : "Search tasks"}
+                aria-pressed={searchActive}
+                aria-keyshortcuts="/"
+                data-filter="task-search"
+                onClick={openSearch}
+              />
+            }
+          >
+            <Search aria-hidden="true" />
+            <span className="sr-only">{searchActive ? `Search: ${searchQuery.trim()}` : "Search"}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{searchActive ? searchQuery.trim() : "Search"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
           <ButtonGroup

@@ -21,7 +21,7 @@ The list uses a single focus stop. Arrow keys move the active row and do not add
 One compact row above the list, in three groups in this order:
 
 ```text
-[ Status ] [ Priority ] [ Category ] [ Tags ] [ Search ] [ Unblocked ] [ Created Updated Manual Reverse ] [ Details Move ]
+[ Status ] [ Priority ] [ Category ] [ Tags ] [ Unblocked ] [ Search ] [ Created Updated Manual Reverse ] [ Details Move ]
 ```
 
 Unblocked is an existing extension after the plan's five dimensions. Each button shows its active value through its pressed state, label, and tooltip. A single muted line directly below the toolbar reports the filtered count and active qualifiers, such as “12 active tasks”. It never includes the sort state. Omit filler like “Showing” and truncate rather than wrap. Every keyboard action below has a mouse path through its menu or dialog. Move controls are the one mouse-only button: the popover is closed by default and opens below the toolbar without reflowing the page.

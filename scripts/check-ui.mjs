@@ -950,9 +950,9 @@ try {
   waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true" && document.querySelector("[data-task-description]") !== null && document.querySelector("[title^=\\"Created\\"]") !== null');
   evaluate('document.querySelector("[data-view=task-details]").click(); true');
   waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null');
-  // Toolbar order stays Status, Priority, Category, Tags, Search, Unblocked,
+  // Toolbar order stays Status, Priority, Category, Tags, Unblocked, Search,
   // then the sort and view groups in their own button groups.
-  check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-category","task-tags","task-search","task-unblocked"])');
+  check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-category","task-tags","task-unblocked","task-search"])');
   check('JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-manual","task-sort-reverse"])');
   check('document.querySelector("[data-view=task-details]") !== null');
   for (const width of [1280, 320]) {
