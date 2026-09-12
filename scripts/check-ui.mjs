@@ -133,8 +133,8 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("O/I/D/P/X"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter shortcuts") && item.textContent.includes("F"))');
   check('(() => { const item = [...document.querySelectorAll("[data-slot=command-item]")].find((entry) => entry.textContent.includes("Sort tasks")); const keys = item?.querySelectorAll("[data-slot=command-shortcut] [data-slot=kbd]"); return keys?.[0]?.textContent === "S" && item?.textContent.includes("C/U/M/R"); })()');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Select a task range") && item.textContent.includes("Shift+↑/↓"))');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move selected tasks") && item.textContent.includes("Ctrl/⌘+↑/↓"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move active task") && item.textContent.includes("Ctrl/⌘+↑/↓"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].every((item) => !item.textContent.includes("Select a task range"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show task details") && item.textContent.includes("V"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Change task status") && item.textContent.includes("Shift+Space"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Pause or resume task") && item.textContent.includes("P"))');
@@ -729,7 +729,7 @@ try {
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
-  // Escape clears selection first, then resets all filters, returning to the full Active view.
+  // Escape resets filters, returning to the full Active view.
   browser("press", "Escape");
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9 && document.activeElement.matches("[role=listbox]")');
@@ -1223,6 +1223,7 @@ try {
   // Manual order: category-filtered roots can be moved with the keyboard and
   // pointer toolbar while hidden, unfiltered siblings keep their place.
   function filterManualCategory() {
+    waitFor('document.querySelector("[role=listbox]") !== null');
     browser("focus", "[role=listbox]");
     browser("press", "@");
     waitFor('document.activeElement.matches("[cmdk-input]")');
@@ -1272,34 +1273,31 @@ try {
   waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual A", "Manual C"])');
   browser("press", "Control+ArrowUp");
   waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual C", "Manual A"])');
-  // Shift selection stays within the sibling scope and uses the dashed style;
-  // the toolbar supplies the equivalent mouse path without taking focus.
+  // The active row remains the only selection. Move controls are hidden until
+  // their mouse-only button is opened, and the popover does not reflow the list.
   browser("press", "Home");
-  browser("press", "Shift+ArrowDown");
-  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2 && document.querySelector("[data-selection-toolbar]")?.textContent.includes("2 tasks selected")');
-  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => row.className.includes("border-dashed"))');
-  browser("press", "Control+ArrowDown");
-  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual C", "Manual D", "Manual B", "Manual A"])');
-  browser("click", '[data-reorder-action="end"]');
-  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual C", "Manual A", "Manual D", "Manual B"])');
-  check('document.activeElement.matches("[role=listbox]") && document.querySelector("[role=listbox]").getAttribute("aria-multiselectable") === "true"');
-  check('[...document.querySelectorAll("[data-reorder-action]")].every((button) => button.getAttribute("aria-label") && button.getAttribute("aria-keyshortcuts"))');
+  check('document.querySelector("[role=listbox]").getAttribute("aria-multiselectable") === null');
+  check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.className.includes("border-dashed"))');
+  check('document.querySelector("[data-selection-toolbar]") === null');
+  evaluate('window.manualListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY; true');
+  check('document.querySelector("[data-move-controls]") === null');
+  check('document.querySelector("[data-move-controls-toggle]").hasAttribute("aria-keyshortcuts") === false');
+  browser("click", "[data-move-controls-toggle]");
+  waitFor('document.querySelector("[data-move-controls]") !== null && document.querySelector("[data-move-controls-toggle]").getAttribute("aria-pressed") === "true"');
+  browser("hover", "[role=listbox]");
+  check('(() => { const move = document.querySelector("[data-move-controls-toggle]"); const manual = document.querySelector("[data-sort=task-sort-manual]"); if (!move || !manual) return false; const moveStyle = getComputedStyle(move); const manualStyle = getComputedStyle(manual); return moveStyle.backgroundColor === manualStyle.backgroundColor && moveStyle.color === manualStyle.color; })()');
+  check('Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.manualListTop) < 0.5');
+  check('[...document.querySelectorAll("[data-reorder-action]")].every((button) => button.getAttribute("aria-label") && !button.hasAttribute("aria-keyshortcuts"))');
   browser("hover", '[data-reorder-action="up"]');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Move up"');
-  // Ctrl/Cmd-click toggles individual rows, while Shift-click selects the
-  // visible sibling range without making rows or controls tab destinations.
-  browser("press", "Escape");
-  evaluate('(() => { const row = document.querySelector("[role=option]"); row?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); return true; })()');
-  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
-  evaluate('(() => { const row = document.querySelector("[role=option]"); row?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); return true; })()');
-  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
-  evaluate('(() => { const rows = [...document.querySelectorAll("[role=option]")]; rows[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); rows[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true })); return true; })()');
-  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 3 && document.querySelector("[data-selection-toolbar]")?.textContent.includes("3 tasks selected")');
-  browser("press", "Escape");
-  browser("press", "Home");
-  browser("press", "Shift+End");
-  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 4 && document.querySelector("[data-selection-toolbar]")?.textContent.includes("4 tasks selected")');
-  browser("press", "Escape");
+  browser("click", '[data-reorder-action="down"]');
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual B", "Manual D", "Manual C", "Manual A"])');
+  check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1 && document.querySelector("[data-selection-toolbar]") === null');
+  browser("click", "[data-move-controls-toggle]");
+  waitFor('document.querySelector("[data-move-controls]") === null');
+  browser("press", "Control+Home");
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual C", "Manual A"])');
   // The first move from a date sort changes to Manual, refreshes, and resolves
   // the adjacent target in the refreshed manual order rather than the date order.
   browser("press", "s");
@@ -1308,7 +1306,7 @@ try {
   browser("press", "End");
   waitFor('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent.includes("Manual A")');
   browser("press", "Control+ArrowUp");
-  waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true" && JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual A", "Manual C", "Manual D", "Manual B"])');
+  waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true" && JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual A", "Manual C"])');
 
   // A failed first-switch refresh must stop before task.reorder. The normal
   // background refresh path still reports its error in the list.
@@ -1335,27 +1333,6 @@ try {
   browser("press", "m");
   waitFor('document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"');
 
-  // A date-sorted range may list IDs in a different order than the refreshed
-  // manual scope. Membership is the conflict check; the reorder payload uses
-  // the refreshed manual-scope order.
-  browser("press", "s");
-  browser("press", "c");
-  waitFor('document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"');
-  browser("press", "Home");
-  browser("press", "Shift+ArrowDown");
-  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2');
-  const selectedCreatedIds = JSON.parse(evaluate('JSON.stringify([...document.querySelectorAll("[role=option][aria-selected=true]")].map((row) => row.id.replace("task-option-", "")))'));
-  const manualBeforeMembership = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
-  const expectedManualSelectionIds = manualBeforeMembership.filter((id) => selectedCreatedIds.includes(id));
-  evaluate(`window.originalFetchForMembership = window.fetch; window.membershipReorders = []; window.fetch = async (...args) => {
-    const payload = args[1]?.body && JSON.parse(args[1].body);
-    if (payload?.command === "task.reorder") window.membershipReorders.push(payload);
-    return window.originalFetchForMembership(...args);
-  }; true`);
-  browser("press", "Control+ArrowDown");
-  waitFor('window.membershipReorders.length === 1');
-  check(`JSON.stringify(window.membershipReorders[0].args.tasks.map((task) => task.id)) === ${JSON.stringify(JSON.stringify(expectedManualSelectionIds))}`);
-  evaluate('window.fetch = window.originalFetchForMembership; true');
   // A root move carries its expanded child, while a child move remains inside
   // its actual parent scope.
   const manualParent = (await command("task.create", { title: "Manual parent @manual-order-ui" })).task;
@@ -1395,8 +1372,8 @@ try {
   waitFor('document.querySelectorAll("[data-depth=\\"1\\"]").length === 0');
   check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.hasAttribute("data-depth") || row.getAttribute("data-depth") === "0")');
 
-  // Parent moves refresh the authoritative manual tree and keep the active and
-  // selected IDs stable through both picker paths.
+  // Parent moves refresh the authoritative manual tree and keep the active
+  // task stable through both picker paths.
   const parentMoveTarget = (await command("task.create", { title: "Manual move target @manual-order-ui" })).task;
   await command("task.create", { title: "Manual move existing child @manual-order-ui", parentId: parentMoveTarget.id });
   const parentMoveSubject = (await command("task.create", { title: "Manual move subject @manual-order-ui" })).task;
@@ -1531,7 +1508,7 @@ try {
   waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")');
   assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), contextOrderBeforeReorder);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and mouse movement controls, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));
