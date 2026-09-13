@@ -1,7 +1,16 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { withTransaction } from "./database.js";
+import {
+  archiveCanonicalWorkspace,
+  canonicalWorkspaceStatus,
+  listCanonicalConflicts,
+  rebuildCanonicalCache,
+  resolveCanonicalConflict,
+  withCanonicalTransaction,
+} from "./canonicalWorkspace.js";
 import { CommandError } from "./errors.js";
+import { requestHash } from "./requestHash.js";
 import {
   type ActivityRecord,
   type Actor,
@@ -45,6 +54,8 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.dependency.add",
   "task.dependency.remove",
   "workspace.restore",
+  "workspace.rebuild",
+  "workspace.conflict.resolve",
 ]);
 
 function isRecord(value: unknown): value is Row {
@@ -139,29 +150,6 @@ function expectedVersion(args: Row): number {
     throw new CommandError("EXPECTED_VERSION_REQUIRED", "expectedVersion must be a positive integer");
   }
   return value;
-}
-
-function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
-  }
-
-  const entries = Object.entries(value as Row).sort(([left], [right]) => left.localeCompare(right));
-  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
-}
-
-function requestHash(request: ProtocolRequest): string {
-  const payload = {
-    actor: request.actor,
-    args: request.args,
-    command: request.command,
-    dryRun: Boolean(request.dryRun),
-    readOnly: Boolean(request.readOnly),
-  };
-  return createHash("sha256").update(canonicalJson(payload)).digest("hex");
 }
 
 function mutationContext(database: DatabaseSync, request: ProtocolRequest): MutationContext {
@@ -482,7 +470,7 @@ function previewTask(input: PreparedTask, status: TaskStatus = "open", priority:
   };
 }
 
-function createTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function createTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -504,8 +492,9 @@ function createTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   }
 
   const now = new Date().toISOString();
-  return withTransaction(database, () => {
-    const id = randomUUID();
+  let id = "";
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [id], orderParentIds: [parentId] }), () => {
+    id = randomUUID();
     insertAtSiblingStart(database, parentId);
     database
       .prepare(
@@ -530,7 +519,7 @@ function classificationMatches(task: TaskRecord, classification: TaskClassificat
   return categoryMatches && JSON.stringify(taskTags) === JSON.stringify(nextTags);
 }
 
-function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function updateTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -572,7 +561,7 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
     });
   }
   if (!changed) {
-    return withTransaction(database, () => {
+    return withCanonicalTransaction(database, databasePath, request, () => null, () => {
       const result = taskResult(current, { changed: false });
       recordReceipt(database, request, context, result, new Date().toISOString());
       return result;
@@ -580,7 +569,7 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   }
 
   const now = new Date().toISOString();
-  return withTransaction(database, () => {
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database
       .prepare("UPDATE tasks SET title = ?, description_markdown = ?, priority = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
       .run(input.title, input.descriptionMarkdown, nextPriority, now, current.id, version);
@@ -603,7 +592,7 @@ function updateTask(database: DatabaseSync, request: ProtocolRequest): Record<st
   });
 }
 
-function transitionTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function transitionTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -653,7 +642,7 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
     return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed });
   }
   if (!changed) {
-    return withTransaction(database, () => {
+    return withCanonicalTransaction(database, databasePath, request, () => null, () => {
       const result = taskResult(current, { changed: false });
       recordReceipt(database, request, context, result, new Date().toISOString());
       return result;
@@ -663,7 +652,7 @@ function transitionTask(database: DatabaseSync, request: ProtocolRequest): Recor
   const now = new Date().toISOString();
   const completedAt = target === "done" ? now : null;
   const canceledAt = target === "canceled" ? now : null;
-  return withTransaction(database, () => {
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database
       .prepare(
         "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
@@ -701,7 +690,7 @@ function statusFromDetail(value: unknown): TaskStatus | null {
   return null;
 }
 
-function undoStatus(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function undoStatus(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -769,7 +758,7 @@ function undoStatus(database: DatabaseSync, request: ProtocolRequest): Record<st
     return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed: true, undoneSeq });
   }
 
-  return withTransaction(database, () => {
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database
       .prepare(
         "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
@@ -790,7 +779,7 @@ function undoStatus(database: DatabaseSync, request: ProtocolRequest): Record<st
   });
 }
 
-function moveTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function moveTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -834,7 +823,7 @@ function moveTask(database: DatabaseSync, request: ProtocolRequest): Record<stri
     return taskResult({ ...current, parentId }, { dryRun: true, readOnly: Boolean(request.readOnly), changed });
   }
   if (!changed) {
-    return withTransaction(database, () => {
+    return withCanonicalTransaction(database, databasePath, request, () => null, () => {
       const result = taskResult(current, { changed: false });
       recordReceipt(database, request, context, result, new Date().toISOString());
       return result;
@@ -842,27 +831,32 @@ function moveTask(database: DatabaseSync, request: ProtocolRequest): Record<stri
   }
 
   const now = new Date().toISOString();
-  return withTransaction(database, () => {
-    const moved = database
-      .prepare("UPDATE tasks SET parent_id = ?, position = 0, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
-      .run(parentId, now, current.id, version);
-    if (moved.changes !== 1) {
-      throw new CommandError("STALE_TASK_VERSION", `task ${current.id} changed while it was being moved`);
-    }
-    database
-      .prepare("UPDATE tasks SET position = position + 1 WHERE parent_id IS ? AND id <> ?")
-      .run(parentId, current.id);
-    densifySiblingScope(database, current.parentId);
-    densifySiblingScope(database, parentId);
-    insertActivity(database, current.id, request, "moved", { before: { parentId: current.parentId }, after: { parentId } }, now);
-    const task = requireTask(database, current.id);
-    const result = taskResult(task, { changed: true });
-    recordReceipt(database, request, context, result, now);
-    return result;
-  });
+  return withCanonicalTransaction(
+    database,
+    databasePath,
+    request,
+    () => ({ taskIds: [current.id], orderParentIds: [current.parentId, parentId] }),
+    () => {
+      const moved = database
+        .prepare("UPDATE tasks SET parent_id = ?, position = 0, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+        .run(parentId, now, current.id, version);
+      if (moved.changes !== 1) {
+        throw new CommandError("STALE_TASK_VERSION", `task ${current.id} changed while it was being moved`);
+      }
+      database
+        .prepare("UPDATE tasks SET position = position + 1 WHERE parent_id IS ? AND id <> ?")
+        .run(parentId, current.id);
+      densifySiblingScope(database, current.parentId);
+      densifySiblingScope(database, parentId);
+      insertActivity(database, current.id, request, "moved", { before: { parentId: current.parentId }, after: { parentId } }, now);
+      const task = requireTask(database, current.id);
+      const result = taskResult(task, { changed: true });
+      recordReceipt(database, request, context, result, now);
+      return result;
+    });
 }
 
-function addDependency(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function addDependency(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -907,7 +901,7 @@ function addDependency(database: DatabaseSync, request: ProtocolRequest): Record
     );
   }
   if (!changed) {
-    return withTransaction(database, () => {
+    return withCanonicalTransaction(database, databasePath, request, () => null, () => {
       const result = taskResult(current, { changed: false });
       recordReceipt(database, request, context, result, new Date().toISOString());
       return result;
@@ -915,7 +909,7 @@ function addDependency(database: DatabaseSync, request: ProtocolRequest): Record
   }
 
   const now = new Date().toISOString();
-  return withTransaction(database, () => {
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)").run(current.id, dependsOnId);
     database
       .prepare("UPDATE tasks SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
@@ -928,7 +922,7 @@ function addDependency(database: DatabaseSync, request: ProtocolRequest): Record
   });
 }
 
-function removeDependency(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function removeDependency(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) {
     return context.replay;
@@ -961,7 +955,7 @@ function removeDependency(database: DatabaseSync, request: ProtocolRequest): Rec
     );
   }
   if (!changed) {
-    return withTransaction(database, () => {
+    return withCanonicalTransaction(database, databasePath, request, () => null, () => {
       const result = taskResult(current, { changed: false });
       recordReceipt(database, request, context, result, new Date().toISOString());
       return result;
@@ -969,7 +963,7 @@ function removeDependency(database: DatabaseSync, request: ProtocolRequest): Rec
   }
 
   const now = new Date().toISOString();
-  return withTransaction(database, () => {
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database.prepare("DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?").run(current.id, dependsOnId);
     database
       .prepare("UPDATE tasks SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
@@ -1125,7 +1119,7 @@ function reorderPlan(database: DatabaseSync, request: ProtocolRequest): ReorderP
   return { tasks, parentId, siblings, finalIds, changed };
 }
 
-function reorderTask(database: DatabaseSync, request: ProtocolRequest): Record<string, unknown> {
+function reorderTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
   if (context.replay) return context.replay;
 
@@ -1139,59 +1133,67 @@ function reorderTask(database: DatabaseSync, request: ProtocolRequest): Record<s
     };
   }
 
-  return withTransaction(database, () => {
-    const transactionContext = mutationContext(database, request);
-    if (transactionContext.replay) return transactionContext.replay;
-    const plan = reorderPlan(database, request);
-    if (!plan.changed) {
+  let affectedParentId: string | null = null;
+  let reorderChanged = false;
+  return withCanonicalTransaction(
+    database,
+    databasePath,
+    request,
+    () => reorderChanged ? { orderParentIds: [affectedParentId] } : null,
+    () => {
+      const plan = reorderPlan(database, request);
+      affectedParentId = plan.parentId;
+      reorderChanged = plan.changed;
+      if (!plan.changed) {
+        const result = {
+          changed: false,
+          tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
+        };
+        recordReceipt(database, request, context, result, new Date().toISOString());
+        return result;
+      }
+
+      const selectedById = new Map(plan.tasks.map((selected) => [selected.id, selected]));
+      const beforeById = new Map(plan.siblings.map((sibling) => [sibling.id, sibling.position]));
+      const updatePosition = database.prepare("UPDATE tasks SET position = ? WHERE id = ?");
+      const updateSelected = database.prepare("UPDATE tasks SET position = ?, version = version + 1 WHERE id = ? AND version = ?");
+      plan.finalIds.forEach((id, position) => {
+        const selected = selectedById.get(id);
+        if (selected) {
+          const result = updateSelected.run(position, id, selected.expectedVersion);
+          if (result.changes !== 1) {
+            throw new CommandError("STALE_TASK_VERSION", `task ${id} changed while it was being reordered`);
+          }
+        } else {
+          updatePosition.run(position, id);
+        }
+      });
+
+      const now = new Date().toISOString();
+      for (const selected of plan.tasks) {
+        const beforePosition = beforeById.get(selected.id);
+        const afterPosition = plan.finalIds.indexOf(selected.id);
+        insertActivity(
+          database,
+          selected.id,
+          request,
+          "reordered",
+          {
+            before: { position: beforePosition },
+            after: { position: afterPosition },
+            siblingScope: { parentId: plan.parentId },
+          },
+          now,
+        );
+      }
       const result = {
-        changed: false,
+        changed: true,
         tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
       };
-      recordReceipt(database, request, transactionContext, result, new Date().toISOString());
+      recordReceipt(database, request, context, result, now);
       return result;
-    }
-
-    const selectedById = new Map(plan.tasks.map((selected) => [selected.id, selected]));
-    const beforeById = new Map(plan.siblings.map((sibling) => [sibling.id, sibling.position]));
-    const updatePosition = database.prepare("UPDATE tasks SET position = ? WHERE id = ?");
-    const updateSelected = database.prepare("UPDATE tasks SET position = ?, version = version + 1 WHERE id = ? AND version = ?");
-    plan.finalIds.forEach((id, position) => {
-      const selected = selectedById.get(id);
-      if (selected) {
-        const result = updateSelected.run(position, id, selected.expectedVersion);
-        if (result.changes !== 1) {
-          throw new CommandError("STALE_TASK_VERSION", `task ${id} changed while it was being reordered`);
-        }
-      } else {
-        updatePosition.run(position, id);
-      }
-    });
-
-    const now = new Date().toISOString();
-    for (const selected of plan.tasks) {
-      const beforePosition = beforeById.get(selected.id);
-      const afterPosition = plan.finalIds.indexOf(selected.id);
-      insertActivity(
-        database,
-        selected.id,
-        request,
-        "reordered",
-        {
-          before: { position: beforePosition },
-          after: { position: afterPosition },
-          siblingScope: { parentId: plan.parentId },
-        },
-        now,
-      );
-    }
-    const result = {
-      changed: true,
-      tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
-    };
-    recordReceipt(database, request, transactionContext, result, now);
-    return result;
-  });
+    },
+  );
 }
 
 function listCategories(database: DatabaseSync): Record<string, unknown> {
@@ -1440,11 +1442,11 @@ function listActivity(database: DatabaseSync, request: ProtocolRequest): Record<
 export function executeTaskCommand(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   switch (request.command) {
     case "task.create":
-      return createTask(database, request);
+      return createTask(database, databasePath, request);
     case "task.list":
       return listTasks(database, request);
     case "task.reorder":
-      return reorderTask(database, request);
+      return reorderTask(database, databasePath, request);
     case "category.list":
       return listCategories(database);
     case "tag.list":
@@ -1452,22 +1454,22 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
     case "task.get":
       return getTask(database, request);
     case "task.update":
-      return updateTask(database, request);
+      return updateTask(database, databasePath, request);
     case "task.move":
-      return moveTask(database, request);
+      return moveTask(database, databasePath, request);
     case "task.dependency.add":
-      return addDependency(database, request);
+      return addDependency(database, databasePath, request);
     case "task.dependency.remove":
-      return removeDependency(database, request);
+      return removeDependency(database, databasePath, request);
     case "task.delete":
     case "task.start":
     case "task.pause":
     case "task.complete":
     case "task.reopen":
     case "task.cancel":
-      return transitionTask(database, request);
+      return transitionTask(database, databasePath, request);
     case "task.status.undo":
-      return undoStatus(database, request);
+      return undoStatus(database, databasePath, request);
     case "activity.list":
       return listActivity(database, request);
     case "workspace.info":
@@ -1491,6 +1493,16 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       withTransaction(database, () => recordReceipt(database, request, context, result, now));
       return result;
     }
+    case "workspace.rebuild":
+      return rebuildCanonicalCache(database, databasePath, request);
+    case "workspace.archive":
+      return archiveCanonicalWorkspace(databasePath, request);
+    case "workspace.sync":
+      return canonicalWorkspaceStatus(database, databasePath);
+    case "workspace.conflict.list":
+      return listCanonicalConflicts(database);
+    case "workspace.conflict.resolve":
+      return resolveCanonicalConflict(database, databasePath, request);
     case "theme.list":
     case "theme.set":
       throw new CommandError("UNKNOWN_COMMAND", `${request.command} is handled by the theme command`);

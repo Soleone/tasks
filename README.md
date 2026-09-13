@@ -1,10 +1,11 @@
 # Tasks
 
-A local-first, keyboard-friendly task app for people and their existing agents. Built for Windows 11 and Omarchy/Linux, with a TypeScript core, Tauri desktop shell, and SQLite storage.
+A local-first, keyboard-friendly task app for people and their existing agents. Built for Windows 11 and Omarchy/Linux, with a TypeScript core, Tauri desktop shell, and a JSON canonical workspace backed by a rebuildable SQLite cache.
 
 **Status:** M0 scaffold in progress. The web shell, TypeScript backend, JSON-lines CLI, SQLite/FTS5 probe, and Linux SEA sidecar are working. Native Tauri compilation is currently blocked by missing Linux system libraries in this WSL environment.
 
 - [Kickoff plan](PLAN.md): decisions, scope, architecture, milestones, and known setup gaps.
+- [Canonical workspace guide](docs/canonical-workspace.md): JSON layout, sync behavior, recovery, and conflict commands.
 - [Guidelines](GUIDELINES.md): a few principles for building the product.
 - [Agent instructions](AGENTS.md): where to start and how development work is tracked.
 
@@ -78,16 +79,30 @@ To use any other omarchy theme, copy its `colors.toml` into the workspace `theme
 
 Slots the regions need but a palette omits are derived from the ones it declares, and text roles are corrected toward readability because palettes arrive from theme authors: secondary ink is pulled toward the body ink until it clears 4.5:1 on every surface it can sit on, and ink on an accent fill comes from the theme's own darkest or lightest stop.
 
-## Data and export
+## Data, sync, and export
 
-SQLite is the only source of truth. The desktop shell, the CLI, and the browser preview all run the same typed commands against the same database file; the browser keeps no task storage of its own.
+Task state is canonical JSON, while SQLite is a disposable local query cache. The desktop shell, the CLI, and the browser preview all run the same typed commands. The default canonical workspace is `sync/` beside the database, or `TASKS_SYNC_ROOT` when an alternate root is configured:
+
+```text
+sync/
+  workspace.json
+  tasks/<task-id>.json
+  order/root.json
+  order/<parent-task-id>.json
+```
+
+Task files contain current content, status, relationships, classification source text, and diagnostic revision/hash metadata. Sibling-order files contain manual order separately, so a reorder does not rewrite task files. The app uses atomic writes, a local cross-process lock, a pending-operation recovery file in `.tasks-local/`, and SQLite metadata to import only changed files. SQLite stores derived categories/tags, query indexes, activity, receipts, and local optimistic versions. Deleting the cache and running `workspace.rebuild` recreates it from the JSON workspace and assigns a new cache generation.
+
+Use Syncthing or another ordinary file transport for the `sync/` directory, never for the database or its WAL files. Same-path concurrent edits remain visible as conflict copies; inspect them with `workspace.conflict.list` and resolve explicitly with `workspace.conflict.resolve` using `keep-canonical`, `use-conflict`, or `discard`. Conflict copies are retained until the user removes them. `workspace.sync` reports the canonical root, file counts, cache generation, and unresolved conflicts. `workspace.archive` creates a timestamped copy of the canonical files.
+
+The canonical workspace is selected by `TASKS_SYNC_ROOT` for tests and alternate workspaces. Keep `workspace.json` with the task and order files so all devices share its stable workspace ID. A new local database bootstraps the existing canonical workspace; a root containing records but no `workspace.json` is treated as an incomplete transfer rather than given a new identity.
 
 The gear button in the header, or “Settings” in the Ctrl/Cmd+K palette, opens the settings dialog. Its Data section shows where the workspace database lives and exports your tasks as readable JSON: `workspace.exportTasks` writes `exports/tasks-<UTC stamp>.json` beside the database, one new file per export, shaped for another app to import:
 
 ```json
 {
   "format": "tasks.tasks-export",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-09-08T20:51:04.113Z",
   "taskCount": 1,
   "tasks": [

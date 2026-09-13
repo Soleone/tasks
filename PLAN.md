@@ -25,7 +25,7 @@ The owner confirmed **TypeScript core**, **external agents first**, and **MIT li
 - Tauri 2 with React, TypeScript, and Vite. React Router when the navigation needs routes.
 - shadcn/ui with the Base UI primitive base, Tailwind, and semantic design tokens.
 - TypeScript owns domain rules and application commands. Rust stays at the Tauri/native boundary unless measured work justifies more.
-- SQLite is canonical; descriptions are Markdown text. JSON and Markdown provide portability, not competing sources of truth.
+- Canonical current task state is versioned JSON; descriptions are Markdown text. SQLite is a rebuildable local query cache, while JSON/Markdown remain inspectable and portable.
 - The first agent interface is a standalone local CLI using the same commands as the UI. No built-in model or account is required.
 - A future PWA should reuse domain rules and contracts, but browser storage and runtime adapters are not MVP deliverables.
 
@@ -61,7 +61,7 @@ React UI (TypeScript)
   -> thin Rust process/lifecycle boundary
   -> bundled Node sidecar (framed JSON over stdin/stdout)
        -> TypeScript commands and domain rules
-       -> SQLite adapter -> local database
+       -> SQLite adapter -> local cache
 
 Standalone CLI (same bundled runtime and application modules)
   -> the same TypeScript commands and SQLite adapter
@@ -73,7 +73,7 @@ Use one long-lived sidecar for the desktop session; do not spawn Node for every 
 Keep these boundaries small:
 
 - **Domain/contracts:** task rules, runtime input schemas, command/query types, and stable errors. No Tauri, Node, DOM, or database imports.
-- **Application/storage:** authoritative validation, transactions, SQLite queries, migrations, activity, and idempotency. Only this layer writes task data.
+- **Application/storage:** authoritative validation, canonical-file reconciliation, transactions, SQLite queries, migrations, activity, and idempotency. Only this layer writes task data.
 - **Adapters:** UI transport, CLI argument/JSON handling, and native lifecycle/file integration. No duplicate business rules in Rust or React.
 
 Start with modules in one repository; separate packages only when the build or distribution actually needs them. Do not introduce a generic repository framework. Share transport schemas and validate at process boundaries; TypeScript types alone do not validate incoming JSON.
@@ -82,7 +82,7 @@ Start with modules in one repository; separate packages only when the build or d
 
 - UI and CLI resolve the same platform-specific app-data path, independent of the working directory. An explicit workspace-path override serves tests and alternate workspaces; it is not exposed as unrestricted renderer file access.
 - Use SQLite foreign keys, short transactions, a bounded busy timeout, and WAL on a local filesystem. WAL still permits only one writer at a time. Verify the bundled SQLite includes the WAL-reset fix, present in 3.51.3 and later or an applicable backport.
-- Keep the database out of live network/shared-folder/cloud-file sync. Moving snapshots is different from syncing an open database.
+- Keep the database and its WAL out of live network/shared-folder/cloud-file sync. Canonical task JSON under the configured sync root may use Syncthing; moving snapshots is different from syncing an open database.
 - A committed activity sequence can drive lightweight polling and query invalidation for CLI changes. Refresh on focus as well. An open detail editor must surface a conflict rather than replace unsaved text.
 - Handle sidecar exit, malformed messages, timeouts, shutdown, and restart visibly. Correlate requests; keep protocol output on stdout and diagnostics on stderr. Do not replay uncertain writes without their original idempotency key.
 - Synchronous SQLite work is acceptable in the separate backend process initially. Keep work bounded and off the UI thread; introduce workers only if measurement calls for them.

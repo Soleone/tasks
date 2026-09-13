@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline";
 import { executeCommand } from "./commands.js";
+import { watchCanonicalWorkspace } from "./canonicalWorkspace.js";
 import { getDatabasePath } from "./paths.js";
 import {
   errorResponse,
@@ -28,7 +29,23 @@ function requestForProbe(): ReturnType<typeof parseRequest> {
 
 async function runStdio(databasePath: string): Promise<void> {
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  const backgroundSyncRequest = parseRequest({
+    version: 1,
+    requestId: "background-sync",
+    command: "workspace.sync",
+    actor: { kind: "system", label: "filesystem-watcher" },
+  });
   let pending = Promise.resolve();
+  let backgroundSync = Promise.resolve();
+  const watcher = watchCanonicalWorkspace(databasePath, () => {
+    backgroundSync = backgroundSync.then(() => {
+      try {
+        executeCommand(backgroundSyncRequest, databasePath);
+      } catch (error) {
+        process.stderr.write(`background sync: ${error instanceof Error ? error.message : String(error)}\n`);
+      }
+    });
+  });
 
   input.on("line", (line) => {
     if (line.trim() === "") {
@@ -50,7 +67,9 @@ async function runStdio(databasePath: string): Promise<void> {
   await new Promise<void>((resolve) => {
     input.once("close", resolve);
   });
+  watcher.close();
   await pending;
+  await backgroundSync;
 }
 
 async function main(): Promise<void> {

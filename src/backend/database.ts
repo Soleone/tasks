@@ -103,6 +103,41 @@ function createSchema(database: DatabaseSync): void {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS sync_files (
+      canonical_path TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('workspace', 'task', 'order')),
+      record_id TEXT,
+      size INTEGER NOT NULL CHECK (size >= 0),
+      mtime_ms REAL NOT NULL,
+      content_hash TEXT,
+      revision INTEGER,
+      modified_by TEXT,
+      last_seen_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_conflicts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      canonical_path TEXT NOT NULL,
+      source_path TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('task', 'order')),
+      workspace_id TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      based_on_hash TEXT,
+      revision INTEGER,
+      modified_by TEXT,
+      record_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'unresolved' CHECK (status IN ('unresolved', 'resolved', 'discarded')),
+      detected_at TEXT NOT NULL,
+      UNIQUE (source_path, content_hash)
+    );
+
+    CREATE TABLE IF NOT EXISTS cache_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    INSERT INTO cache_meta (key, value) VALUES ('cache_generation', '1')
+      ON CONFLICT(key) DO NOTHING;
+
     CREATE INDEX IF NOT EXISTS tasks_updated_at_idx ON tasks (updated_at DESC, id ASC);
     CREATE INDEX IF NOT EXISTS tasks_created_at_idx ON tasks (created_at DESC, id ASC);
     CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks (status, updated_at DESC, id ASC);
@@ -110,6 +145,8 @@ function createSchema(database: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS task_dependencies_task_idx ON task_dependencies (task_id);
     CREATE INDEX IF NOT EXISTS task_dependencies_depends_idx ON task_dependencies (depends_on_id);
     CREATE INDEX IF NOT EXISTS activity_task_idx ON activity (task_id, seq DESC);
+    CREATE INDEX IF NOT EXISTS sync_files_kind_idx ON sync_files (kind, canonical_path);
+    CREATE INDEX IF NOT EXISTS sync_conflicts_path_idx ON sync_conflicts (canonical_path, status);
   `);
 }
 

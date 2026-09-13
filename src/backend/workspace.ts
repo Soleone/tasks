@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { SCHEMA_VERSION, openDatabase, withTransaction } from "./database.js";
+import { ensureCanonicalWorkspace, invalidateCacheGeneration, withWorkspaceLock } from "./canonicalWorkspace.js";
 import { CommandError } from "./errors.js";
 import {
   TASKS_EXPORT_FORMAT,
@@ -256,80 +257,93 @@ export function restoreWorkspace(request: ProtocolRequest): Record<string, unkno
     throw new CommandError("DESTINATION_EXISTS", `restore destination already exists: ${destinationPath}`);
   }
 
-  const restored = openDatabase(destinationPath);
-  try {
-    withTransaction(restored, () => {
-      for (const row of snapshot.categories) {
-        restored
-          .prepare("INSERT INTO categories (id, slug, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
-          .run(stringValue(row, "id"), stringValue(row, "slug"), stringValue(row, "label"), stringValue(row, "created_at"), stringValue(row, "updated_at"));
-      }
-      for (const row of snapshot.tags) {
-        restored
-          .prepare("INSERT INTO tags (id, slug, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
-          .run(stringValue(row, "id"), stringValue(row, "slug"), stringValue(row, "label"), stringValue(row, "created_at"), stringValue(row, "updated_at"));
-      }
-      for (const row of snapshot.tasks) {
-        const priority = typeof row.priority === "number" && Number.isInteger(row.priority) && row.priority >= 0 && row.priority <= 4
-          ? row.priority
-          : 2;
-        restored
-          .prepare(
-            "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, position, priority, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
-          )
-          .run(
-            stringValue(row, "id"),
-            stringValue(row, "title"),
-            stringValue(row, "description_markdown"),
-            stringValue(row, "status"),
-            row.category_id === null ? null : stringValue(row, "category_id"),
-            positions.get(stringValue(row, "id")) ?? 0,
-            priority,
-            numberValue(row, "version"),
-            stringValue(row, "created_at"),
-            stringValue(row, "updated_at"),
-            row.completed_at === null ? null : stringValue(row, "completed_at"),
-            row.canceled_at === null ? null : stringValue(row, "canceled_at"),
-          );
-      }
-      for (const row of snapshot.tasks) {
-        const parentId = row.parent_id === null || row.parent_id === undefined ? null : stringValue(row, "parent_id");
-        if (parentId !== null) {
-          restored.prepare("UPDATE tasks SET parent_id = ? WHERE id = ?").run(parentId, stringValue(row, "id"));
+  return withWorkspaceLock(destinationPath, () => {
+    if (existsSync(destinationPath)) {
+      throw new CommandError("DESTINATION_EXISTS", `restore destination already exists: ${destinationPath}`);
+    }
+
+    const restored = openDatabase(destinationPath);
+    try {
+      withTransaction(restored, () => {
+        for (const row of snapshot.categories) {
+          restored
+            .prepare("INSERT INTO categories (id, slug, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+            .run(stringValue(row, "id"), stringValue(row, "slug"), stringValue(row, "label"), stringValue(row, "created_at"), stringValue(row, "updated_at"));
         }
-      }
-      for (const row of snapshot.taskTags) {
-        restored.prepare("INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)").run(stringValue(row, "task_id"), stringValue(row, "tag_id"));
-      }
-      for (const row of snapshot.taskDependencies ?? []) {
-        restored.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)").run(stringValue(row, "task_id"), stringValue(row, "depends_on_id"));
-      }
-      for (const row of snapshot.activity) {
-        restored
-          .prepare(
-            "INSERT INTO activity (seq, task_id, request_id, action, actor_kind, actor_label, created_at, details_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          )
-          .run(
-            numberValue(row, "seq"),
-            stringValue(row, "task_id"),
-            stringValue(row, "request_id"),
-            stringValue(row, "action"),
-            stringValue(row, "actor_kind"),
-            stringValue(row, "actor_label"),
-            stringValue(row, "created_at"),
-            stringValue(row, "details_json"),
-          );
-      }
-      for (const row of snapshot.commandReceipts) {
-        restored
-          .prepare("INSERT INTO command_receipts (idempotency_key, command, request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)")
-          .run(stringValue(row, "idempotency_key"), stringValue(row, "command"), stringValue(row, "request_hash"), stringValue(row, "response_json"), stringValue(row, "created_at"));
-      }
-    });
-  } catch (error) {
+        for (const row of snapshot.tags) {
+          restored
+            .prepare("INSERT INTO tags (id, slug, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+            .run(stringValue(row, "id"), stringValue(row, "slug"), stringValue(row, "label"), stringValue(row, "created_at"), stringValue(row, "updated_at"));
+        }
+        for (const row of snapshot.tasks) {
+          const priority = typeof row.priority === "number" && Number.isInteger(row.priority) && row.priority >= 0 && row.priority <= 4
+            ? row.priority
+            : 2;
+          restored
+            .prepare(
+              "INSERT INTO tasks (id, title, description_markdown, status, category_id, parent_id, position, priority, version, created_at, updated_at, completed_at, canceled_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              stringValue(row, "id"),
+              stringValue(row, "title"),
+              stringValue(row, "description_markdown"),
+              stringValue(row, "status"),
+              row.category_id === null ? null : stringValue(row, "category_id"),
+              positions.get(stringValue(row, "id")) ?? 0,
+              priority,
+              numberValue(row, "version"),
+              stringValue(row, "created_at"),
+              stringValue(row, "updated_at"),
+              row.completed_at === null ? null : stringValue(row, "completed_at"),
+              row.canceled_at === null ? null : stringValue(row, "canceled_at"),
+            );
+        }
+        for (const row of snapshot.tasks) {
+          const parentId = row.parent_id === null || row.parent_id === undefined ? null : stringValue(row, "parent_id");
+          if (parentId !== null) {
+            restored.prepare("UPDATE tasks SET parent_id = ? WHERE id = ?").run(parentId, stringValue(row, "id"));
+          }
+        }
+        for (const row of snapshot.taskTags) {
+          restored.prepare("INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)").run(stringValue(row, "task_id"), stringValue(row, "tag_id"));
+        }
+        for (const row of snapshot.taskDependencies ?? []) {
+          restored.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)").run(stringValue(row, "task_id"), stringValue(row, "depends_on_id"));
+        }
+        for (const row of snapshot.activity) {
+          restored
+            .prepare(
+              "INSERT INTO activity (seq, task_id, request_id, action, actor_kind, actor_label, created_at, details_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              numberValue(row, "seq"),
+              stringValue(row, "task_id"),
+              stringValue(row, "request_id"),
+              stringValue(row, "action"),
+              stringValue(row, "actor_kind"),
+              stringValue(row, "actor_label"),
+              stringValue(row, "created_at"),
+              stringValue(row, "details_json"),
+            );
+        }
+        for (const row of snapshot.commandReceipts) {
+          restored
+            .prepare("INSERT INTO command_receipts (idempotency_key, command, request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)")
+            .run(stringValue(row, "idempotency_key"), stringValue(row, "command"), stringValue(row, "request_hash"), stringValue(row, "response_json"), stringValue(row, "created_at"));
+        }
+      });
+    } catch (error) {
+      restored.close();
+      throw error;
+    }
     restored.close();
-    throw error;
-  }
-  restored.close();
-  return { destinationPath, taskCount: snapshot.tasks.length, activityCount: snapshot.activity.length };
+    const restoredDatabase = openDatabase(destinationPath);
+    try {
+      ensureCanonicalWorkspace(restoredDatabase, destinationPath);
+      invalidateCacheGeneration(restoredDatabase);
+    } finally {
+      restoredDatabase.close();
+    }
+    return { destinationPath, taskCount: snapshot.tasks.length, activityCount: snapshot.activity.length };
+  });
 }

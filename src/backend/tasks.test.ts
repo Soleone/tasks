@@ -495,8 +495,9 @@ test("backup, JSON export, and restore preserve canonical records", () => {
       databasePath,
     );
     assert.equal(restored.taskCount, 1);
-    const restoredTask = executeCommand(request("task.get", { id: createdTask.id }), restoredPath);
-    assert.deepEqual(task(restoredTask), createdTask);
+    const restoredTask = task(executeCommand(request("task.get", { id: createdTask.id }), restoredPath));
+    assert.deepEqual({ ...restoredTask, version: createdTask.version }, createdTask);
+    assert.ok(restoredTask.version > 1_000_000);
     assert.equal(countRows(restoredPath, "activity"), 1);
   } finally {
     cleanDirectory(directory);
@@ -849,8 +850,12 @@ test("relationship snapshots round-trip through export and restore", () => {
     executeCommand(request("workspace.export", { destinationPath: exportPath }), databasePath);
     const restored = executeCommand(request("workspace.restore", { sourcePath: exportPath, destinationPath: restoredPath }, { idempotencyKey: "snap-restore" }), databasePath);
     assert.equal(restored.taskCount, 3);
-    assert.deepEqual(task(executeCommand(request("task.get", { id: child.id }), restoredPath)), blocked);
-    assert.deepEqual(siblingPositions(restoredPath), siblingPositions(databasePath));
+    const restoredChild = task(executeCommand(request("task.get", { id: child.id }), restoredPath));
+    assert.deepEqual({ ...restoredChild, version: blocked.version }, blocked);
+    assert.ok(restoredChild.version > 1_000_000);
+    const restoredSiblingPositions = siblingPositions(restoredPath);
+    assert.deepEqual(restoredSiblingPositions.map(({ id, position }) => ({ id, position })), siblingPositions(databasePath).map(({ id, position }) => ({ id, position })));
+    assert.ok(restoredSiblingPositions.every(({ version }) => version > 1_000_000));
   } finally {
     cleanDirectory(directory);
   }
@@ -1330,10 +1335,12 @@ test("older workspace snapshots receive deterministic manual positions on restor
     mkdirSync(path.dirname(snapshotPath), { recursive: true });
     writeFileSync(snapshotPath, `${JSON.stringify(refreshed)}\n`);
     executeCommand(request("workspace.restore", { sourcePath: snapshotPath, destinationPath: restoredPath }, { idempotencyKey: "old-snapshot-restore" }), databasePath);
-    assert.deepEqual(siblingPositions(restoredPath), [
-      { id: first.id, position: 0, version: first.version },
-      { id: second.id, position: 1, version: second.version },
+    const restoredPositions = siblingPositions(restoredPath);
+    assert.deepEqual(restoredPositions.map(({ id, position }) => ({ id, position })), [
+      { id: first.id, position: 0 },
+      { id: second.id, position: 1 },
     ]);
+    assert.ok(restoredPositions.every(({ version }) => version > 1_000_000));
   } finally {
     cleanDirectory(directory);
   }
