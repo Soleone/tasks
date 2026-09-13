@@ -133,8 +133,8 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("O/I/D/P/X"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter shortcuts") && item.textContent.includes("F"))');
   check('(() => { const item = [...document.querySelectorAll("[data-slot=command-item]")].find((entry) => entry.textContent.includes("Sort tasks")); const keys = item?.querySelectorAll("[data-slot=command-shortcut] [data-slot=kbd]"); return keys?.[0]?.textContent === "S" && item?.textContent.includes("C/U/M/R"); })()');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move active task") && item.textContent.includes("Ctrl/⌘+↑/↓"))');
-  check('[...document.querySelectorAll("[data-slot=command-item]")].every((item) => !item.textContent.includes("Select a task range"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Select a task range") && item.textContent.includes("Shift+↑/↓"))');
+  check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move selected tasks") && item.textContent.includes("Ctrl/⌘+↑/↓"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show task details") && item.textContent.includes("V"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Change task status") && item.textContent.includes("Shift+Space"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Pause or resume task") && item.textContent.includes("P"))');
@@ -1273,20 +1273,43 @@ try {
   waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual A", "Manual C"])');
   browser("press", "Control+ArrowUp");
   waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual C", "Manual A"])');
-  // The active row remains the only selection. Move controls are hidden until
-  // their mouse-only button is opened, and the popover does not reflow the list.
+  // Shift movement selects a visible sibling range without restoring the old
+  // dotted visualization. Move controls remain hidden until their mouse-only
+  // button is opened, and the popover does not reflow the list.
   browser("press", "Home");
-  check('document.querySelector("[role=listbox]").getAttribute("aria-multiselectable") === null');
+  check('document.querySelector("[role=listbox]").getAttribute("aria-multiselectable") === "true"');
   check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  browser("press", "Shift+ArrowDown");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2');
+  browser("press", "Shift+ArrowDown");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 3');
+  browser("press", "Shift+ArrowUp");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2');
+  browser("press", "Shift+Home");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  browser("press", "Shift+End");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 4');
   check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.className.includes("border-dashed"))');
   check('document.querySelector("[data-selection-toolbar]") === null');
+  browser("press", "Escape");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
+  evaluate('(() => { const row = document.querySelector("[role=option]"); row?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); return true; })()');
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  evaluate('(() => { const row = document.querySelector("[role=option]"); row?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); return true; })()');
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
+  evaluate('(() => { const rows = [...document.querySelectorAll("[role=option]")]; rows[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); rows[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true })); return true; })()');
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 3');
+  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.className.includes("border-dashed"))');
+  browser("press", "Escape");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
+  browser("press", "Home");
   evaluate('window.manualListTop = document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY; true');
   check('document.querySelector("[data-move-controls]") === null');
   check('document.querySelector("[data-move-controls-toggle]").hasAttribute("aria-keyshortcuts") === false');
   browser("click", "[data-move-controls-toggle]");
   waitFor('document.querySelector("[data-move-controls]") !== null && document.querySelector("[data-move-controls-toggle]").getAttribute("aria-pressed") === "true"');
   browser("hover", "[role=listbox]");
-  check('(() => { const move = document.querySelector("[data-move-controls-toggle]"); const manual = document.querySelector("[data-sort=task-sort-manual]"); if (!move || !manual) return false; const moveStyle = getComputedStyle(move); const manualStyle = getComputedStyle(manual); return moveStyle.backgroundColor === manualStyle.backgroundColor && moveStyle.color === manualStyle.color; })()');
+  waitFor('(() => { const move = document.querySelector("[data-move-controls-toggle]"); const manual = document.querySelector("[data-sort=task-sort-manual]"); if (!move || !manual) return false; const moveStyle = getComputedStyle(move); const manualStyle = getComputedStyle(manual); return moveStyle.backgroundColor === manualStyle.backgroundColor && moveStyle.color === manualStyle.color; })()');
   check('Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.manualListTop) < 0.5');
   check('[...document.querySelectorAll("[data-reorder-action]")].every((button) => button.getAttribute("aria-label") && !button.hasAttribute("aria-keyshortcuts"))');
   browser("hover", '[data-reorder-action="up"]');
@@ -1508,7 +1531,7 @@ try {
   waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")');
   assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), contextOrderBeforeReorder);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and mouse movement controls, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   console.error(browser("snapshot"));
   console.error(evaluate('({ focus: document.activeElement.tagName + ":" + document.activeElement.textContent.slice(0, 100), deleteKeys: window.deleteKeys })'));

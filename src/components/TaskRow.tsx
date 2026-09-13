@@ -186,7 +186,7 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
 
 /**
  * Shared task presentation. The parent owns the outer wrapper (list option
- * or picker result), active-row styling, and activation; this renders the
+ * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with optional details and metadata only in full mode.
  */
 export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false, contextOnly = false }: {
