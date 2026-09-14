@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
@@ -650,6 +650,47 @@ function themeFromToml(name: string, label: string, source: ThemeRecord["source"
   return { name, label, mode: resolved.mode, source, palette: resolved.palette, warnings: resolved.warnings };
 }
 
+/** The fixed name for the palette Omarchy currently has installed. */
+export const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
+
+/**
+ * Omarchy stages the active theme here when its theme changes. Reading this
+ * file, rather than copying it into the workspace, keeps the app in sync with
+ * Omarchy without needing a watcher or a theme-set hook.
+ */
+export function omarchyColorsPath(
+  environment: NodeJS.ProcessEnv = process.env,
+  homeDirectory = environment.HOME ?? environment.USERPROFILE ?? process.cwd(),
+): string {
+  // Omarchy's own theme scripts use this fixed path rather than XDG_STATE_HOME.
+  return path.join(homeDirectory, ".local", "state", "omarchy", "current", "theme", "colors.toml");
+}
+
+function omarchySystemTheme(
+  environment: NodeJS.ProcessEnv = process.env,
+  homeDirectory = environment.HOME ?? environment.USERPROFILE ?? process.cwd(),
+): ThemeRecord | undefined {
+  const colorsPath = omarchyColorsPath(environment, homeDirectory);
+  if (!existsSync(colorsPath)) return undefined;
+  try {
+    return themeFromToml(
+      OMARCHY_SYSTEM_THEME_NAME,
+      "Omarchy System",
+      "omarchy",
+      readFileSync(colorsPath, "utf8"),
+    );
+  } catch (error) {
+    return {
+      name: OMARCHY_SYSTEM_THEME_NAME,
+      label: "Omarchy System",
+      mode: "system",
+      source: "omarchy",
+      palette: {},
+      warnings: [`could not read ${colorsPath}: ${error instanceof Error ? error.message : String(error)}`],
+    };
+  }
+}
+
 /** Theme files the user dropped next to the database; a name overrides a built-in. */
 export function themesDirectory(databasePath: string): string {
   return path.join(path.dirname(databasePath), "themes");
@@ -685,7 +726,11 @@ function workspaceThemes(databasePath: string): ThemeRecord[] {
   return themes;
 }
 
-export function availableThemes(databasePath: string): ThemeRecord[] {
+export function availableThemes(
+  databasePath: string,
+  environment: NodeJS.ProcessEnv = process.env,
+  homeDirectory = environment.HOME ?? environment.USERPROFILE ?? process.cwd(),
+): ThemeRecord[] {
   const themes = new Map<string, ThemeRecord>([[DEFAULT_THEME.name, DEFAULT_THEME]]);
   for (const theme of BUILTIN_THEME_FILES) {
     themes.set(theme.name, themeFromToml(theme.name, theme.label, "builtin", theme.toml));
@@ -693,6 +738,9 @@ export function availableThemes(databasePath: string): ThemeRecord[] {
   for (const theme of workspaceThemes(databasePath)) {
     themes.set(theme.name, theme);
   }
+  // Add this last so a workspace file cannot shadow the live Omarchy palette.
+  const systemTheme = omarchySystemTheme(environment, homeDirectory);
+  if (systemTheme) themes.set(systemTheme.name, systemTheme);
   return [...themes.values()];
 }
 

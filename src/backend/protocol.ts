@@ -53,7 +53,7 @@ export type TaskReorderArgs = {
   tasks: TaskReorderTask[];
   placement: TaskReorderPlacement;
 };
-export type ThemeSource = "builtin" | "workspace";
+export type ThemeSource = "builtin" | "workspace" | "omarchy";
 
 /** Product-facing category entries backed by the task text's @category values. */
 export type CategoryRecord = {

@@ -14,7 +14,7 @@ import {
   readableMix,
   resolveTheme,
 } from "./themePalette.js";
-import { availableThemes } from "./themes.js";
+import { availableThemes, OMARCHY_SYSTEM_THEME_NAME, omarchyColorsPath } from "./themes.js";
 
 function request(
   command: ProtocolRequest["command"],
@@ -153,6 +153,30 @@ test("built-in themes parse cleanly and keep text readable", () => {
   }
 });
 
+test("the Omarchy System theme reads the live installed palette", () => {
+  const { directory, databasePath } = temporaryWorkspace();
+  const environment = { HOME: directory };
+  const colorsPath = omarchyColorsPath(environment, directory);
+  mkdirSync(path.dirname(colorsPath), { recursive: true });
+  try {
+    writeFileSync(colorsPath, 'mode = "dark"\naccent = "#123456"\nbackground = "#101010"\nforeground = "#eeeeee"\n');
+    const first = availableThemes(databasePath, environment, directory);
+    const system = first.find((theme) => theme.name === OMARCHY_SYSTEM_THEME_NAME);
+    assert.equal(system?.source, "omarchy");
+    assert.equal(system?.label, "Omarchy System");
+    assert.equal(system?.palette.accent, "#123456");
+
+    writeFileSync(colorsPath, 'mode = "light"\naccent = "#abcdef"\nbackground = "#ffffff"\nforeground = "#111111"\n');
+    const refreshed = availableThemes(databasePath, environment, directory);
+    assert.equal(refreshed.find((theme) => theme.name === OMARCHY_SYSTEM_THEME_NAME)?.palette.accent, "#abcdef");
+
+    rmSync(colorsPath);
+    assert.ok(!availableThemes(databasePath, environment, directory).some((theme) => theme.name === OMARCHY_SYSTEM_THEME_NAME));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("workspace theme files join the built-ins and override them by name", () => {
   const { directory, databasePath, themes } = temporaryWorkspace();
   try {
@@ -167,7 +191,7 @@ test("workspace theme files join the built-ins and override them by name", () =>
     const names = listed.themes.map((theme) => theme.name);
     assert.ok(names.includes("sunset"));
     assert.ok(!names.includes("notes"), "only .toml files are themes");
-    assert.equal(listed.selected, DEFAULT_THEME_NAME);
+    assert.ok(listed.themes.some((theme) => theme.name === listed.selected));
 
     const sunset = listed.themes.find((theme) => theme.name === "sunset");
     assert.equal(sunset?.label, "Sunset");
@@ -182,7 +206,12 @@ test("workspace theme files join the built-ins and override them by name", () =>
     assert.equal(overridden?.palette.accent, "#ff0000");
     assert.ok(overridden?.warnings.length, "an accent-only file reports the slots it leaves to the ramp");
     assert.ok(names.indexOf("tokyo-night") < names.indexOf("sunset"), "an override keeps the built-in position");
-    assert.equal(names[names.length - 1], "sunset");
+    if (names.includes(OMARCHY_SYSTEM_THEME_NAME)) {
+      assert.equal(names[names.length - 1], OMARCHY_SYSTEM_THEME_NAME);
+      assert.ok(names.indexOf("sunset") < names.indexOf(OMARCHY_SYSTEM_THEME_NAME));
+    } else {
+      assert.equal(names[names.length - 1], "sunset");
+    }
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -193,10 +222,11 @@ test("the selected theme persists, previews, and rejects unknown names", () => {
   try {
     writeFileSync(path.join(themes, "sunset.toml"), 'accent = "#c2410c"\nbackground = "#fff7ed"\nforeground = "#431407"\n');
 
+    const initialSelection = themeList(databasePath).selected;
     const preview = executeCommand(request("theme.set", { name: "sunset" }, { dryRun: true }), databasePath);
     assert.equal(preview.dryRun, true);
-    assert.equal(preview.changed, true);
-    assert.equal(themeList(databasePath).selected, DEFAULT_THEME_NAME, "a dry run writes nothing");
+    assert.equal(preview.changed, initialSelection !== "sunset");
+    assert.equal(themeList(databasePath).selected, initialSelection, "a dry run writes nothing");
 
     const set = executeCommand(request("theme.set", { name: "sunset" }), databasePath) as { theme: ThemeRecord; selected: string; changed: boolean };
     assert.equal(set.selected, "sunset");

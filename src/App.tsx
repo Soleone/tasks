@@ -31,6 +31,7 @@ const SORT_FIELD_KEY = "tasks.sortField";
 const SORT_DIRECTION_KEY = "tasks.sortDirection";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
+const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
 
 function readStored(key: string): string | null {
   try {
@@ -284,6 +285,16 @@ export default function App(): ReactElement {
   useEffect(() => {
     if (helpOpen || themesOpen) void refreshThemes(false);
   }, [helpOpen, themesOpen, refreshThemes]);
+
+  // Omarchy replaces its current palette outside this process. When the live
+  // theme is selected, refresh often enough to feel immediate without making
+  // every installation pay for a filesystem watcher or an event protocol.
+  useEffect(() => {
+    if (selectedTheme !== OMARCHY_SYSTEM_THEME_NAME) return;
+    const refresh = (): void => { void refreshThemes(true); };
+    const interval = window.setInterval(refresh, 1500);
+    return () => window.clearInterval(interval);
+  }, [selectedTheme, refreshThemes]);
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
