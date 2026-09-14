@@ -82,6 +82,8 @@ Each sibling scope has an order file. `root.json` is the top-level scope. Other 
 
 The app uses `.tasks-local/pending-operation.json` beside the database for bounded recovery of multi-file writes. It is local state and must not be synced. On the next command, the pending operation is completed or rolled back as one idempotent operation.
 
+For a safe multi-device seed, read [Syncthing setup](syncthing.md) before sharing this root. In particular, do not let a new device create its own `workspace.json` before it receives the existing one.
+
 SQLite stores file size, modification time, imported hash, revision, and device metadata in `sync_files`. Normal commands scan metadata first and read only changed files. `workspace.rebuild` forces a complete scan, clears derived cache data, rebuilds relationships and indexes, and advances the cache generation. Restoring a SQLite snapshot also bootstraps canonical files and starts a new cache generation. New local versions then invalidate pre-rebuild and pre-restore optimistic tokens.
 
 Syncthing conflict copies remain ordinary files and are indexed without automatic merging:
@@ -95,4 +97,4 @@ workspace.conflict.resolve  { "conflictId": 1, "resolution": "discard" }
 
 Task conflicts replace one whole task candidate. Order conflicts replace only the sibling sequence. The losing conflict file is never deleted by the app. `workspace.sync` reports file counts, cache generation, and unresolved conflict count. `workspace.archive` copies the canonical root to a timestamped archive.
 
-`workspace.export` and `workspace.backup` remain local SQLite snapshot/backup commands. They are not substitutes for the canonical workspace archive or a rebuildable sync root.
+`workspace.archive` creates a timestamped copy of the canonical JSON root. `workspace.export` is a lossless JSON snapshot of the local cache, while `workspace.backup` creates a consistent SQLite copy. `workspace.exportTasks` writes a readable portable view beside the database. These local artifacts are not substitutes for the canonical workspace root or an independent backup plan.
