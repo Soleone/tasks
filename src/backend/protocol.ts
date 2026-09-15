@@ -34,6 +34,9 @@ export const COMMAND_NAMES = [
   "workspace.sync",
   "workspace.conflict.list",
   "workspace.conflict.resolve",
+  "workspace.receive.prepare",
+  "workspace.receive.status",
+  "workspace.receive.abort",
   "theme.list",
   "theme.set",
 ] as const;

@@ -299,7 +299,7 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "Enter");
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
-  check('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
+  waitFor('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
   browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
   await command("task.update", { id: saved[0].id, expectedVersion: saved[0].version, title: "Agent updated title", descriptionMarkdown: saved[0].descriptionMarkdown });
   evaluate('window.dispatchEvent(new Event("focus")); true');
@@ -832,7 +832,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
   browser("press", "Enter");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
-  check(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning"`);
+  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning"`);
   browser("focus", "[role=listbox]");
   browser("press", "f");
   browser("press", "t");
@@ -923,17 +923,19 @@ try {
   browser("press", "c");
   waitFor('document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
-  check('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].slice(-2).map((title) => title.textContent)) === JSON.stringify(["Planning only", "Tag cockpit"])');
+  waitFor('JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].slice(-2).map((title) => title.textContent)) === JSON.stringify(["Planning only", "Tag cockpit"])');
   browser("press", "s");
-  browser("press", "r");
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  waitFor('document.activeElement.matches("[data-toolbar=sort]") && document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
+  evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
+  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks" && document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Tag cockpit"');
   check('document.querySelector("[role=option] [data-slot=item-title]").textContent === "Tag cockpit"');
   // Back to updated/newest, details off; mouse covers the same controls.
   browser("press", "s");
   browser("press", "u");
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   browser("press", "s");
-  browser("press", "r");
+  waitFor('document.activeElement.matches("[data-toolbar=sort]") && document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")');
+  evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
   waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   browser("press", "v");
   waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null');

@@ -34,6 +34,7 @@ export type WorkspaceInfoResult = { databasePath: string; taskCount: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; taskCount: number; exportedAt: string };
 export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
 export type ThemeSetResult = { theme: ThemeRecord; selected: string };
+export type ReceiveWorkspaceResult = { waiting: boolean; ready?: boolean; adopted?: boolean; restored?: boolean; backupRoot?: string; syncRoot?: string; taskCount?: number; sync?: Record<string, unknown> };
 
 export type CommandOptions = {
   idempotencyKey?: string;
@@ -195,6 +196,18 @@ export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {
 /** Writes a portable JSON copy beside the database and reports where it landed. */
 export async function exportTasks(): Promise<TasksExportResult> {
   return runBackendCommand<TasksExportResult>("workspace.exportTasks");
+}
+
+export async function prepareReceiveWorkspace(): Promise<ReceiveWorkspaceResult> {
+  return runBackendCommand<ReceiveWorkspaceResult>("workspace.receive.prepare");
+}
+
+export async function receiveWorkspaceStatus(): Promise<ReceiveWorkspaceResult> {
+  return runBackendCommand<ReceiveWorkspaceResult>("workspace.receive.status");
+}
+
+export async function abortReceiveWorkspace(): Promise<ReceiveWorkspaceResult> {
+  return runBackendCommand<ReceiveWorkspaceResult>("workspace.receive.abort");
 }
 
 export async function listThemes(): Promise<ThemeListResult> {

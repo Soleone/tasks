@@ -1,4 +1,4 @@
-import { useRef, type ReactElement, type RefObject } from "react";
+import { useEffect, useRef, type ReactElement, type RefObject } from "react";
 import type { TaskRecord } from "@/backend/protocol";
 import { TaskComposer } from "@/components/TaskComposer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,6 +21,12 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
   const open = composer !== null;
   const task = composer?.mode === "edit" ? composer.task : undefined;
   const parentId = composer?.mode === "create" ? composer.parentId : undefined;
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => titleInput.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, task?.id, parentId]);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>

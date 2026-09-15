@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -243,6 +243,38 @@ test("an order can arrive before its task without hiding the later task", () => 
     const tasks = executeCommand(request("task.list", { sort: "manual" }), databasePath).tasks as TaskRecord[];
     assert.deepEqual(tasks.map((item) => item.id), [futureId, existing.id]);
   } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("receive preparation backs up, waits, adopts an incoming workspace, and restores on abort", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-receive-"));
+  const databasePath = path.join(directory, "tasks.db");
+  const previousRoot = process.env.TASKS_SYNC_ROOT;
+  process.env.TASKS_SYNC_ROOT = path.join(directory, "sync");
+  try {
+    executeCommand(request("task.create", { title: "keep me", descriptionMarkdown: "" }, "receive-seed"), databasePath);
+    const prepared = executeCommand(request("workspace.receive.prepare"), databasePath) as Result;
+    assert.equal(prepared.waiting, true);
+    assert.equal(existsSync(path.join(directory, "sync", "workspace.json")), false);
+    const waiting = executeCommand(request("workspace.receive.status"), databasePath) as Result;
+    assert.equal(waiting.waiting, true);
+    assert.equal(waiting.ready, false);
+
+    const backupRoot = prepared.backupRoot as string;
+    cpSync(backupRoot, path.join(directory, "sync"), { recursive: true, force: true });
+    const adopted = executeCommand(request("workspace.receive.status"), databasePath) as Result;
+    assert.equal(adopted.waiting, false);
+    assert.equal(adopted.adopted, true);
+    assert.equal((executeCommand(request("task.list", { status: "open" }), databasePath) as { total: number }).total, 1);
+
+    executeCommand(request("workspace.receive.prepare"), databasePath);
+    const restored = executeCommand(request("workspace.receive.abort"), databasePath) as Result;
+    assert.equal(restored.restored, true);
+    assert.equal((executeCommand(request("task.list", { status: "open" }), databasePath) as { total: number }).total, 1);
+  } finally {
+    if (previousRoot === undefined) delete process.env.TASKS_SYNC_ROOT;
+    else process.env.TASKS_SYNC_ROOT = previousRoot;
     rmSync(directory, { recursive: true, force: true });
   }
 });

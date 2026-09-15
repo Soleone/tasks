@@ -11,11 +11,12 @@ type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
+  onPrepareReceive: () => void;
 };
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, finalFocus }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive }: SettingsDialogProps): ReactElement {
   const exportButton = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
@@ -23,6 +24,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus }: SettingsDialo
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [confirmReceive, setConfirmReceive] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -31,6 +33,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus }: SettingsDialo
     setExported(null);
     setCopied(false);
     setFailure(null);
+    setConfirmReceive(false);
     getWorkspaceInfo()
       .then((info) => { if (!stale) setDatabasePath(info.databasePath); })
       .catch((caught: unknown) => { if (!stale) setFailure({ title: "Could not read the workspace", detail: caught instanceof Error ? caught.message : String(caught) }); });
@@ -101,6 +104,18 @@ export function SettingsDialog({ open, onOpenChange, finalFocus }: SettingsDialo
             <p className="text-sm text-muted-foreground">
               Writes a readable copy into the exports folder beside the database, for another app to import.
             </p>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-3">
+            {!confirmReceive ? <Button variant="outline" className="w-fit" onClick={() => setConfirmReceive(true)}>Sync with another device…</Button> : <Alert className="border-destructive/50 pr-2">
+              <AlertTitle className="text-destructive">Replace this device’s workspace?</AlertTitle>
+              <AlertDescription>Your current tasks will be backed up, then the local sync folder will be emptied. Tasks will stay locked until an existing workspace arrives through Syncthing.</AlertDescription>
+              <AlertAction className="static flex flex-wrap justify-end gap-2 pt-2">
+                <Button variant="outline" size="xs" onClick={() => setConfirmReceive(false)}>Cancel</Button>
+                <Button variant="destructive" size="xs" onClick={onPrepareReceive}>Back up and continue</Button>
+              </AlertAction>
+            </Alert>}
+            <p className="text-sm text-muted-foreground">Backs up this workspace and prepares this device to receive an existing workspace through Syncthing.</p>
           </div>
 
           {failure ? <Alert variant="destructive">

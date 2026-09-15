@@ -1688,7 +1688,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </div>
         </div>
         <p
-          data-filter-summary
+          data-filter-summary="true"
           aria-live="polite"
           aria-atomic="true"
           title={filterSummary}

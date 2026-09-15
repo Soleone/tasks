@@ -20,7 +20,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, addDependency, closeBackendSession, listTasks, listThemes, moveTask, removeDependency, setTheme, transitionTask, undoStatusChange } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, listTasks, listThemes, moveTask, prepareReceiveWorkspace, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 
@@ -180,6 +180,7 @@ export default function App(): ReactElement {
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
   const querySequence = useRef(0);
   const statusUndoRef = useRef<StatusUndoEntry | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -249,8 +250,14 @@ export default function App(): ReactElement {
     sortFieldRef.current = sortField;
     sortDirectionRef.current = sortDirection;
     categoryFilterRef.current = categoryFilter?.slug ?? null;
-    void refreshTasks();
-  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, sortField, sortDirection, categoryFilter, refreshTasks]);
+    if (!receiveState?.waiting) void refreshTasks();
+  }, [statusPreset, exactStatus, priorityFilter, tagFilter, searchQuery, showUnblocked, sortField, sortDirection, categoryFilter, refreshTasks, receiveState?.waiting]);
+
+  useEffect(() => {
+    void receiveWorkspaceStatus()
+      .then((status) => setReceiveState(status.waiting ? status : null))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };
@@ -793,8 +800,38 @@ export default function App(): ReactElement {
 
   const ToastIcon = toast?.Icon;
 
+  useEffect(() => {
+    if (!receiveState?.waiting) return;
+    const timer = window.setInterval(() => {
+      void receiveWorkspaceStatus().then((status) => setReceiveState(status.waiting ? status : null));
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [receiveState?.waiting]);
+
+  async function beginReceiveWorkspace(): Promise<void> {
+    const prepared = await prepareReceiveWorkspace();
+    setReceiveState(prepared);
+    setSettingsOpen(false);
+  }
+
+  async function abortReceive(): Promise<void> {
+    const restored = await abortReceiveWorkspace();
+    setReceiveState(null);
+    setAnnouncement(`Restored ${restored.taskCount ?? 0} tasks`);
+    void refreshTasks();
+  }
+
   return (
     <main className="min-h-svh bg-background text-foreground">
+      {receiveState?.waiting ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
+        <section aria-labelledby="receive-title" className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg">
+          <h1 id="receive-title" className="text-lg font-semibold">Waiting for workspace</h1>
+          <p className="text-sm text-muted-foreground">Tasks is locked while this device receives the existing workspace. Add the empty sync folder to Syncthing, then wait for the transfer to finish.</p>
+          {receiveState.syncRoot ? <p className="wrap-anywhere rounded bg-muted p-2 font-mono text-xs">{receiveState.syncRoot}</p> : null}
+          <p className="text-sm text-muted-foreground"><a className="underline" href="https://github.com/Soleone/tasks/blob/main/docs/syncthing.md" target="_blank" rel="noreferrer">Read the Syncthing setup guide</a></p>
+          <Button variant="outline" onClick={() => void abortReceive()}>Abort and restore backup</Button>
+        </section>
+      </div> : null}
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
@@ -1006,6 +1043,7 @@ export default function App(): ReactElement {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         finalFocus={() => focusStack.restore("settings")}
+        onPrepareReceive={() => void beginReceiveWorkspace()}
       />
     </main>
   );

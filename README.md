@@ -22,7 +22,7 @@ For the native shell, use `pnpm dev:tauri` on Windows 11. `pnpm test:ui` is an o
 
 Current task state lives in ordinary JSON files under `sync/`; SQLite is a local query cache and stores activity, receipts, and indexes. Sync only the canonical JSON root. Never sync `tasks.db`, its `-wal`/`-shm` files, or `.tasks-local/`.
 
-If another device already has task history, do not launch Tasks on the new device before the first sync. Follow [the Syncthing setup](docs/syncthing.md) to seed the existing workspace without creating a second identity or overriding the history device.
+If another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. Tasks backs up and empties the local workspace, locks the UI, and waits for the existing workspace. Follow [the Syncthing setup](docs/syncthing.md) for the complete procedure.
 
 ## Documentation
 

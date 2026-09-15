@@ -2,7 +2,7 @@
 
 This guide assumes you already know the basic Syncthing workflow. It covers the Tasks-specific part: safely introducing another device when at least one device already contains task history.
 
-> **Safe default:** share only the canonical `sync/` directory. Seed a new device with the history device set to **Send Only** and the new device set to **Receive Only**. Do not launch Tasks on the new device until the initial sync is complete and verified.
+> **Safe default:** share only the canonical `sync/` directory. On a new device, use **Settings → Sync with another device…** before adding the folder to Syncthing. The app backs up and empties the local workspace, locks the UI, and waits for the existing workspace to arrive. Add the now-empty folder to Syncthing as **Send & Receive**. Do not use the app until the transfer is complete and verified.
 
 Syncthing is a file transport, not a backup. A deletion or bad edit can be propagated to every send-and-receive device. Keep an independent Tasks archive or backup as well.
 
@@ -34,9 +34,15 @@ Do not add ignore rules that exclude `workspace.json`, `tasks/`, or `order/`. Sy
 
 ## First seed from a history device
 
-Call the device containing the trusted task history the **history device** and the clean device the **new device**.
+Call the device containing the trusted task history the **history device** and the other device the **new device**.
 
-### 1. Make a recovery point
+### 1. Prepare the new device
+
+On the new device, open **Settings → Sync with another device…** and confirm the warning. Tasks creates a dated backup, empties its local `sync/` directory, and locks the task UI. It does not delete the backup. Follow the setup link shown by the app, then add the empty `sync/` path to Syncthing. This ordering matters: Syncthing must first see the folder after it has been emptied, so it has no local task deletions to propagate.
+
+If you abort, pause Syncthing before choosing **Abort and restore backup**. The app restores the previous canonical files and unlocks the workspace.
+
+### 2. Make a recovery point
 
 Before changing Syncthing settings:
 
@@ -48,7 +54,7 @@ Before changing Syncthing settings:
 
 If the history device already has a Syncthing folder with unrelated files, create a dedicated folder for Tasks instead of sharing its parent.
 
-### 2. Put the history device in seed mode
+### 3. Put the history device in seed mode
 
 In Syncthing, add the Tasks `sync/` path as its own folder and share it with the new device. During the initial seed, set the folder type on the history device to **Send Only**.
 
@@ -56,20 +62,11 @@ Send Only means remote changes are received as out-of-sync information but are n
 
 Enable Syncthing file versioning on at least one receiving device. Staggered or Simple File Versioning is preferable to no versioning for this workspace. Choose a retention period that fits the value of the task history. Versioning is a last-resort safety net, not a replacement for an independent archive.
 
-### 3. Prepare the new device as empty
+### 4. Verify the incoming workspace
 
-Before sharing the folder with the new device:
+The app remains locked while the transfer is in progress. Add the empty folder to Syncthing, share it from the history device, and wait for the folder to become fully synchronized. During this first transfer the new device can use **Send & Receive**, because Syncthing did not scan its old task files before they were moved aside.
 
-- Stop Tasks on the new device.
-- Do not open the app just to create its default workspace.
-- Point the Syncthing folder at an empty directory.
-- If Tasks has ever run there, first move its existing `tasks.db`, `sync/`, and `.tasks-local/` aside as a dated local backup. Do not delete them and do not mix their files into the history-device root.
-
-A local database that has already created a different `workspace.json` identity must not be overwritten by a remote root. The app rejects that identity mismatch rather than silently merging the workspaces, but preserving the old files makes recovery possible.
-
-Set the new device's Syncthing folder type to **Receive Only** for the seed. Share the folder from both sides and wait for the folder to become fully synchronized.
-
-### 4. Verify before opening Tasks
+### 5. Verify before opening Tasks
 
 While Tasks is still closed on the new device:
 
@@ -81,7 +78,7 @@ While Tasks is still closed on the new device:
 
 Only now launch Tasks on the new device. Its new local SQLite database will bootstrap from the received canonical workspace. Check the task count and a few relationships in the UI, then use `workspace.sync` if you have a CLI or agent client. Do not run `workspace.rebuild` as a first response to a wrong root; preserve the files and investigate the identity or transfer problem first.
 
-### 5. Choose the steady-state modes
+### 6. Choose the steady-state modes
 
 After both devices show the same verified history:
 

@@ -1503,6 +1503,10 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return listCanonicalConflicts(database);
     case "workspace.conflict.resolve":
       return resolveCanonicalConflict(database, databasePath, request);
+    case "workspace.receive.prepare":
+    case "workspace.receive.status":
+    case "workspace.receive.abort":
+      throw new CommandError("UNKNOWN_COMMAND", `${request.command} is handled by the workspace command path`);
     case "theme.list":
     case "theme.set":
       throw new CommandError("UNKNOWN_COMMAND", `${request.command} is handled by the theme command`);

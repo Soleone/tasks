@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from "react";
+import { useEffect, useRef, type ReactElement } from "react";
 import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
@@ -55,6 +55,12 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
   const activeTheme = themes.find((theme) => theme.name === selectedTheme);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => searchInput.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, selectedTheme, themes.length]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
