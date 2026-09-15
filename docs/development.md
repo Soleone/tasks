@@ -8,6 +8,52 @@ Tasks has two useful development paths:
 
 The web bridge is local iteration tooling. It uses the same typed commands and SQLite storage as the sidecar, but it is not evidence of desktop or PWA support.
 
+## Technical reference
+
+The repository has one shared application path:
+
+```text
+React UI
+  -> typed Tauri bridge
+  -> thin Rust process/lifecycle boundary
+  -> bundled Node sidecar (JSON lines over stdin/stdout)
+       -> TypeScript commands and domain rules
+       -> SQLite adapter and canonical JSON workspace
+
+Standalone CLI -> the same TypeScript commands and storage adapters
+```
+
+Keep the boundaries concrete:
+
+- **Domain/contracts** contain task rules, schemas, command/query types, and stable errors. They do not import Tauri, Node, the DOM, or SQLite.
+- **Application/storage** owns validation, canonical-file reconciliation, SQLite transactions, migrations, queries, activity, and idempotency. It is the only layer that writes task data.
+- **Adapters** handle UI transport, CLI arguments/JSON, and native lifecycle/file integration. They do not duplicate business rules.
+
+The canonical JSON files are the inspectable source of current task state; SQLite is a local, rebuildable cache. See [Canonical workspace files](canonical-workspace.md) for the file layout, import/rebuild behavior, archives, and conflict resolution. Sync only that canonical root; never sync the database or its WAL files. See [Syncthing setup](syncthing.md) for multi-device setup.
+
+### Command and reliability rules
+
+- UI and CLI use versioned JSON envelopes with request IDs, actor/client identity, runtime validation, stable error codes, and deterministic bounded queries.
+- Every mutation has an idempotency key; edits also require an expected version. Reusing a key with a different payload is an error, and stale versions are rejected rather than silently retried.
+- A task change, activity entry, and successful receipt commit together. Dry runs and read-only requests persist nothing.
+- SQLite uses foreign keys, short transactions, a bounded busy timeout, and WAL on local storage. Only one writer is expected at a time.
+- The desktop keeps one long-lived sidecar. Correlate requests and handle malformed responses, timeouts, exit, shutdown, and restart visibly. Never replay an uncertain write without its original idempotency key.
+- The WSL wrapper invokes the Windows sidecar when the Windows app is running; WSL must not open the Windows database directly through `/mnt/c`.
+
+### Data and recovery
+
+The minimum task record has a UUID, title, Markdown description, status, optional priority/category, timestamps, completion state, and a local optimistic version. Activity has a monotonic sequence, actor/request provenance, and before/after changes. Receipts record successful idempotent mutations. Add planning dates, parent/dependency edges, and FTS indexes only as their milestone behavior ships.
+
+Statuses are `open`, `in_progress`, `paused`, `done`, and `canceled`. Inbox, Today, overdue, deferred, and blocked are views, not statuses. Real mutations increment the version; repeated state transitions are no-ops. Parent and dependency cycles are rejected transactionally, and cancellation does not silently remove history or relationships.
+
+Classification is derived from task text: at most one `@category` and any number of `#tags`, with Markdown/code/URL false positives excluded. Derived category/tag records are reconciled in the same transaction as the task change.
+
+Use the SQLite backup API or `VACUUM INTO` for live-database backups; never copy only the main file from a WAL database. Validate snapshots in a new location before switching workspaces. Lossless JSON snapshots preserve canonical records, relationships, history, and receipts; portable task exports are intentionally smaller and readable. Migration and restore must fail without making the previous workspace unusable.
+
+### Safety boundaries
+
+Task text and imported Markdown are untrusted input: sanitize or disable raw HTML, validate external link schemes, and never pass task content to a shell. Tauri exposes only the fixed sidecar and required native capabilities; there is no arbitrary SQL/shell interface or unauthenticated network listener. Local storage relies on OS permissions and is not encryption. Debug logs should not include task content by default.
+
 ## Prerequisites
 
 For the backend and web loop, install Node LTS with `node:sqlite` support and enable the repository's pinned pnpm version:
