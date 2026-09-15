@@ -172,9 +172,7 @@ type HomeShortcutActions = {
 };
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
-const ACTIVE_FILTER_CLASS = "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary";
-const TOOLBAR_GROUP_CLASS = "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-const ACTIVE_TOOLBAR_GROUP_CLASS = `${TOOLBAR_GROUP_CLASS} ring-2 ring-ring ring-offset-2 ring-offset-background`;
+
 
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
@@ -1316,7 +1314,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             tabIndex={-1}
             data-toolbar="filters"
             data-toolbar-active={toolbarMode === "filter" || undefined}
-            className={toolbarMode === "filter" ? ACTIVE_TOOLBAR_GROUP_CLASS : TOOLBAR_GROUP_CLASS}
+            toolbar
+            toolbarActive={toolbarMode === "filter"}
             onFocus={() => activateToolbarMode("filter")}
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
@@ -1327,7 +1326,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={statusActive ? "outline" : "ghost"}
-                className={statusActive ? ACTIVE_FILTER_CLASS : undefined}
+                selected={statusActive}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={exactStatus !== null ? `Status filter: ${statusLabel}. Open status menu.` : `Status filter: ${statusLabel}. Open status menu or press F then S to toggle.`}
@@ -1348,7 +1347,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={priorityFilter !== null ? "outline" : "ghost"}
-                className={priorityFilter !== null ? ACTIVE_FILTER_CLASS : undefined}
+                selected={priorityFilter !== null}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={priorityFilter !== null ? `Priority filter: ${priorityLabel}. Open priority menu or press F then a number.` : "Filter by priority. Press F then 0-4."}
@@ -1369,7 +1368,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={categoryFilter ? "outline" : "ghost"}
-                className={categoryFilter ? ACTIVE_FILTER_CLASS : undefined}
+                selected={categoryFilter !== null}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category. Press @ or F then C."}
@@ -1390,7 +1389,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={tagFilter.length > 0 ? "outline" : "ghost"}
-                className={tagFilter.length > 0 ? ACTIVE_FILTER_CLASS : undefined}
+                selected={tagFilter.length > 0}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={tagFilter.length > 0 ? `Tag filter: ${tagFilter.map((tag) => tag.label).join(", ")}. Open tag picker.` : "Filter by tags. Press # or F then T."}
@@ -1411,7 +1410,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={showUnblocked ? "outline" : "ghost"}
-                className={showUnblocked ? ACTIVE_FILTER_CLASS : undefined}
+                selected={showUnblocked}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={showUnblocked ? "Show all tasks. Press F then U." : "Show unblocked tasks. Press F then U."}
@@ -1432,7 +1431,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={searchActive ? "outline" : "ghost"}
-                className={searchActive ? ACTIVE_FILTER_CLASS : undefined}
+                selected={searchActive}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={searchActive ? `Search: ${searchQuery.trim()}. Open search or clear.` : "Search tasks"}
@@ -1456,7 +1455,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             tabIndex={-1}
             data-toolbar="sort"
             data-toolbar-active={toolbarMode === "sort" || undefined}
-            className={toolbarMode === "sort" ? ACTIVE_TOOLBAR_GROUP_CLASS : TOOLBAR_GROUP_CLASS}
+            toolbar
+            toolbarActive={toolbarMode === "sort"}
             onFocus={() => activateToolbarMode("sort")}
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
@@ -1467,7 +1467,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={sortField === "created" ? "outline" : "ghost"}
-                className={sortField === "created" ? ACTIVE_FILTER_CLASS : undefined}
+                selected={sortField === "created"}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={`Sort by created date. Press S then C.`}
@@ -1488,7 +1488,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={sortField === "updated" ? "outline" : "ghost"}
-                className={sortField === "updated" ? ACTIVE_FILTER_CLASS : undefined}
+                selected={sortField === "updated"}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={`Sort by updated date. Press S then U.`}
@@ -1509,7 +1509,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={sortField === "manual" ? "outline" : "ghost"}
-                className={sortField === "manual" ? ACTIVE_FILTER_CLASS : undefined}
+                selected={sortField === "manual"}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label="Sort by manual order. Press S then M."
@@ -1556,7 +1556,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             render={
               <Button
                 variant={showDetails ? "outline" : "ghost"}
-                className={showDetails ? ACTIVE_FILTER_CLASS : undefined}
+                selected={showDetails}
                 size="icon-sm"
                 tabIndex={-1}
                 aria-label={showDetails ? "Hide descriptions and timestamps. Press V." : "Show descriptions and timestamps. Press V."}
@@ -1580,7 +1580,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                   render={
                     <Button
                       variant={moveControlsOpen ? "outline" : "ghost"}
-                      className={moveControlsOpen ? `${ACTIVE_FILTER_CLASS} aria-expanded:bg-primary/10 aria-expanded:text-primary` : undefined}
+                      selected={moveControlsOpen}
                       size="icon-sm"
                       tabIndex={-1}
                       aria-label={moveControlsOpen ? "Hide move controls" : "Show move controls"}
@@ -1604,7 +1604,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             sideOffset={8}
             initialFocus={false}
             finalFocus={false}
-            className="w-auto gap-1.5 p-2"
+            density="compact"
           >
             <p className="sr-only">Move {moveSubjectLabel} in manual order.</p>
             <div
@@ -1751,11 +1751,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 data-depth={row.depth}
                 size="sm"
                 variant={active ? "outline" : "default"}
-                className={active
-                  ? "border-ring bg-muted"
+                state={active
+                  ? "active"
                   : selectedIds.has(task.id)
-                    ? "border-primary/60 bg-primary/5"
-                    : row.contextOnly ? "bg-muted/50 text-muted-foreground" : undefined}
+                    ? "selected"
+                    : row.contextOnly ? "context" : undefined}
                 onClick={(event) => {
                   pendingActiveIdRef.current = null;
                   if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
@@ -1826,7 +1826,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             <Item
               data-empty-state="filtered"
               size="sm"
-              className="min-h-16 border-dashed border-border bg-transparent"
+              state="empty"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">No tasks match the current filters</p>

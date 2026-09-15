@@ -48,6 +48,14 @@ const itemVariants = cva(
         sm: "gap-2.5 px-3 py-2.5",
         xs: "gap-2 px-2.5 py-2 in-data-[slot=dropdown-menu-content]:p-0",
       },
+      // Explicit task-row states. Active wins over selected when both
+      // apply; callers keep that precedence when choosing the value.
+      state: {
+        active: "border-ring bg-muted",
+        selected: "border-primary/60 bg-primary/5",
+        context: "bg-muted/50 text-muted-foreground",
+        empty: "min-h-16 border-dashed border-border bg-transparent",
+      },
     },
     defaultVariants: {
       variant: "default",
@@ -60,6 +68,7 @@ function Item({
   className,
   variant = "default",
   size = "default",
+  state,
   render,
   ...props
 }: useRender.ComponentProps<"div"> & VariantProps<typeof itemVariants>) {
@@ -67,7 +76,7 @@ function Item({
     defaultTagName: "div",
     props: mergeProps<"div">(
       {
-        className: cn(itemVariants({ variant, size, className })),
+        className: cn(itemVariants({ variant, size, state, className })),
       },
       props
     ),
@@ -76,6 +85,7 @@ function Item({
       slot: "item",
       variant,
       size,
+      state,
     },
   })
 }
@@ -125,12 +135,16 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
+function ItemTitle({ className, unclamped = false, ...props }: React.ComponentProps<"div"> & {
+  // Task rows keep complete titles readable at narrow widths.
+  unclamped?: boolean
+}) {
   return (
     <div
       data-slot="item-title"
       className={cn(
         "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
+        unclamped && "line-clamp-none",
         className
       )}
       {...props}
@@ -138,12 +152,16 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
+function ItemDescription({ className, metadata = false, ...props }: React.ComponentProps<"p"> & {
+  // Quiet classification row for category/tag badges.
+  metadata?: boolean
+}) {
   return (
     <p
       data-slot="item-description"
       className={cn(
         "line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-xs [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        metadata && "flex flex-wrap items-center gap-1.5",
         className
       )}
       {...props}

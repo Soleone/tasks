@@ -121,15 +121,15 @@ export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement {
   const hasClassification = Boolean(task.category) || task.tags.length > 0;
 
   return (
-    <ItemDescription className="flex flex-wrap items-center gap-1.5">
+    <ItemDescription metadata>
       {task.category ? (
-        <Badge variant="outline" className="h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground">
+        <Badge variant="category">
           <Folder data-icon="inline-start" aria-hidden="true" />
           {task.category.label}
         </Badge>
       ) : null}
       {task.tags.map((tag) => (
-        <Badge key={tag.slug} variant="outline" className="h-5 border-classification-tag bg-classification-tag px-1.5 text-xs font-normal text-classification-foreground">{tag.label}</Badge>
+        <Badge key={tag.slug} variant="tag">{tag.label}</Badge>
       ))}
       {!hasClassification ? <span className="sr-only">No category or tags</span> : null}
     </ItemDescription>
@@ -205,7 +205,7 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
         {variant === "full" ? <TaskPriorityDisplay task={task} /> : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <ItemTitle className="line-clamp-none wrap-anywhere w-full">
+        <ItemTitle unclamped className="wrap-anywhere w-full">
           {taskRowDisplayTitle(task)}
         </ItemTitle>
         {variant === "full" && showDetails && task.descriptionMarkdown ? (

@@ -16,6 +16,17 @@ const buttonGroupVariants = cva(
         vertical:
           "flex-col *:data-slot:rounded-b-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-b-lg! [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
       },
+      // Toolbar focus presentation for the F/S focus modes. The visible
+      // outer ring belongs to the whole group; toolbarActive is driven by
+      // the existing data-toolbar-active attribute.
+      toolbar: {
+        true: "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        false: "",
+      },
+      toolbarActive: {
+        true: "ring-2 ring-ring ring-offset-2 ring-offset-background",
+        false: "",
+      },
     },
     defaultVariants: {
       orientation: "horizontal",
@@ -27,6 +38,8 @@ const ButtonGroup = forwardRef<HTMLDivElement, React.ComponentProps<"div"> & Var
   function ButtonGroup({
     className,
     orientation,
+    toolbar = false,
+    toolbarActive = false,
     ...props
   }, ref) {
     return (
@@ -35,7 +48,7 @@ const ButtonGroup = forwardRef<HTMLDivElement, React.ComponentProps<"div"> & Var
         role="group"
         data-slot="button-group"
         data-orientation={orientation}
-        className={cn(buttonGroupVariants({ orientation }), className)}
+        className={cn(buttonGroupVariants({ orientation, toolbar, toolbarActive }), className)}
         {...props}
       />
     )

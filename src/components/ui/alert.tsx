@@ -11,6 +11,16 @@ const alertVariants = cva(
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
       },
+      // Sync-replacement confirmation keeps destructive emphasis with
+      // readable body copy.
+      tone: {
+        confirmation: "border-destructive/50",
+      },
+      // Stacked actions sit below full-width copy instead of reserving
+      // the absolute-action gutter.
+      layout: {
+        stacked: "has-data-[slot=alert-action]:pr-2.5",
+      },
     },
     defaultVariants: {
       variant: "default",
@@ -21,24 +31,29 @@ const alertVariants = cva(
 function Alert({
   className,
   variant,
+  tone,
+  layout,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
   return (
     <div
       data-slot="alert"
       role="alert"
-      className={cn(alertVariants({ variant }), className)}
+      className={cn(alertVariants({ variant, tone, layout }), className)}
       {...props}
     />
   )
 }
 
-function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+function AlertTitle({ className, tone, ...props }: React.ComponentProps<"div"> & {
+  tone?: "destructive"
+}) {
   return (
     <div
       data-slot="alert-title"
       className={cn(
         "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
+        tone === "destructive" && "text-destructive",
         className
       )}
       {...props}
@@ -62,11 +77,18 @@ function AlertDescription({
   )
 }
 
-function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
+function AlertAction({ className, layout, ...props }: React.ComponentProps<"div"> & {
+  // Stacked confirmation actions: bottom-right below full-width copy.
+  layout?: "stacked"
+}) {
   return (
     <div
       data-slot="alert-action"
-      className={cn("absolute top-2 right-2", className)}
+      className={cn(
+        "absolute top-2 right-2",
+        layout === "stacked" && "static flex flex-wrap justify-end gap-2 pt-2",
+        className
+      )}
       {...props}
     />
   )

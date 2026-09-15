@@ -18,6 +18,13 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      selected: {
+        // One reusable selected treatment for pressed toolbar controls and
+        // checked priority radios. Semantic primary tokens only so every
+        // theme keeps accent text plus a visible surface cue.
+        true: "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary dark:border-primary/60 dark:bg-primary/20 dark:hover:bg-primary/25",
+        false: "",
+      },
       size: {
         default:
           "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
@@ -35,6 +42,7 @@ const buttonVariants = cva(
     defaultVariants: {
       variant: "default",
       size: "default",
+      selected: false,
     },
   }
 )
@@ -43,12 +51,13 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  selected = false,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size, selected, className }))}
       {...props}
     />
   )

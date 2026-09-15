@@ -32,7 +32,7 @@
     "@tauri-apps/plugin-shell": "^2.3.6",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
-    "cn": "^0.2.5",
+    "cn": "^0.2.6",
     "lucide-react": "^1.41.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

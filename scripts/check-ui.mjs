@@ -128,6 +128,8 @@ try {
   waitFor('document.activeElement.name === "description"');
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
+  waitFor('(() => { const dialog = [...document.querySelectorAll("[role=dialog]")].find((entry) => entry.querySelector("[cmdk-input]")); if (!dialog) return false; const top = Math.round(dialog.getBoundingClientRect().top); return top === 64 || top === 80; })()');
+  check('(() => { const dialog = [...document.querySelectorAll("[role=dialog]")].find((entry) => entry.querySelector("[cmdk-input]")); if (!dialog) return false; if (dialog.getBoundingClientRect().bottom > innerHeight + 1) return false; const style = getComputedStyle(dialog); if (style.top !== "64px" && style.top !== "80px") return false; return style.padding === "0px"; })()');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("New task") && item.textContent.includes("C"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("S"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("O/I/D/P/X"))');
@@ -196,7 +198,7 @@ try {
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=open] [data-shortcut-key=\\"O\\"]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=priority] [data-shortcut-key=\\"0–4\\"]") !== null');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=filter]") === null');
-  check('document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=filters]").className.includes("ring-ring ring-offset-2")');
+  check('(() => { const toolbar = document.querySelector("[data-toolbar=filters]"); if (!toolbar || !toolbar.hasAttribute("data-toolbar-active")) return false; const shadow = getComputedStyle(toolbar).boxShadow; return shadow !== "none" && shadow !== ""; })()');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5');
   // Pressing the focus key again closes the mode, while Escape remains a
   // second close path.
@@ -523,6 +525,7 @@ try {
     browser("set", "viewport", String(width), "844");
     check('document.documentElement.scrollWidth <= innerWidth');
   }
+  check('(() => { const title = [...document.querySelectorAll("[role=option] [data-slot=item-title]")].find((entry) => entry.textContent.startsWith("Check Check")); if (!title || title.textContent.length <= 100) return false; const style = getComputedStyle(title); return style.whiteSpace !== "nowrap" && title.scrollWidth <= title.clientWidth + 1; })()');
   const audit = JSON.parse(browser("--json", "a11y"));
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
@@ -532,6 +535,8 @@ try {
   browser("focus", "[role=listbox]");
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
+  waitFor('(() => { const dialog = document.querySelector("[role=dialog]"); if (!dialog) return false; const top = Math.round(dialog.getBoundingClientRect().top); return top === 64 || top === 80; })()');
+  check('(() => { const dialog = document.querySelector("[role=dialog]"); if (!dialog) return false; if (dialog.getBoundingClientRect().bottom > innerHeight + 1) return false; return getComputedStyle(dialog).padding === "16px"; })()');
   browser("press", "Delete");
   check('document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[role=dialog]")].some((dialog) => dialog.textContent.includes("Cancel task?"))');
   browser("press", "Escape");
@@ -722,7 +727,7 @@ try {
   waitFor('document.activeElement.matches("[role=listbox]") && document.querySelector("[data-empty-state=filtered]") !== null');
   check('document.body.textContent.includes("No tasks match the current filters")');
   check('document.querySelector("[data-empty-state=filtered] button").tabIndex === -1');
-  check('(() => { const list = document.querySelector("[role=listbox]"); const empty = document.querySelector("[data-empty-state=filtered]"); if (!list || !empty) return false; const listBox = list.getBoundingClientRect(); const emptyBox = empty.getBoundingClientRect(); return Math.abs(emptyBox.width - listBox.width) < 1 && emptyBox.height >= 48 && emptyBox.height <= 120; })()');
+  check('(() => { const list = document.querySelector("[role=listbox]"); const empty = document.querySelector("[data-empty-state=filtered]"); if (!list || !empty) return false; const listBox = list.getBoundingClientRect(); const emptyBox = empty.getBoundingClientRect(); const style = getComputedStyle(empty); return Math.abs(emptyBox.width - listBox.width) < 1 && emptyBox.height >= 48 && emptyBox.height <= 120 && style.borderStyle === "dashed" && (style.backgroundColor === "rgba(0, 0, 0, 0)" || style.backgroundColor === "transparent"); })()');
   evaluate('window.filteredEmptyList = document.activeElement; true');
   browser("press", "Tab");
   waitFor('document.activeElement === window.filteredEmptyList');
@@ -767,7 +772,7 @@ try {
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
-  check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').classList.contains("bg-primary/10")');
+  check('(() => { const selected = document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\'); const unselected = document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\'); if (!selected || !unselected) return false; if (selected.getAttribute("aria-checked") !== "true") return false; const selectedStyle = getComputedStyle(selected); const unselectedStyle = getComputedStyle(unselected); return selectedStyle.backgroundColor !== unselectedStyle.backgroundColor && selectedStyle.color !== unselectedStyle.color && selectedStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
   browser("find", "role", "radio", "click", "--name", "P2: normal");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
@@ -913,7 +918,7 @@ try {
   waitFor('document.querySelector("[data-shortcut-guide=sort]") !== null');
   check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 4');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=sort]") === null');
-  check('document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active") && document.querySelector("[data-toolbar=sort]").className.includes("ring-ring ring-offset-2")');
+  check('(() => { const toolbar = document.querySelector("[data-toolbar=sort]"); if (!toolbar || !toolbar.hasAttribute("data-toolbar-active")) return false; const shadow = getComputedStyle(toolbar).boxShadow; return shadow !== "none" && shadow !== ""; })()');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.sortListTop) < 0.5');
   // S also closes and reopens the focused sort toolbar.
   browser("press", "s");
@@ -1188,6 +1193,7 @@ try {
   check(`${contextAfterIndex} === ${contextParentIndex}`);
   check('[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active context child"))');
   check(`document.querySelector("[data-parent-context]")?.textContent === "Still visible because children aren't done yet."`);
+  check('(() => { const context = document.querySelector("[role=option][data-context-parent]"); if (!context) return false; const contextStyle = getComputedStyle(context); if (contextStyle.backgroundColor === "rgba(0, 0, 0, 0)" || contextStyle.backgroundColor === "transparent") return false; const plain = [...document.querySelectorAll("[role=option]")].find((entry) => !entry.hasAttribute("data-context-parent") && !entry.hasAttribute("data-active") && entry.getAttribute("aria-selected") !== "true"); if (!plain) return true; const plainStyle = getComputedStyle(plain); return contextStyle.backgroundColor !== plainStyle.backgroundColor || contextStyle.color !== plainStyle.color; })()');
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${contextVisibleCount} active task${contextVisibleCount === 1 ? "" : "s"}"`);
 
   // Canceled parents use the same context treatment as completed parents,
@@ -1291,7 +1297,7 @@ try {
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
   browser("press", "Shift+End");
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 4');
-  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.className.includes("border-dashed"))');
+  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => getComputedStyle(row).borderStyle !== "dashed" && !row.hasAttribute("data-empty-state"))');
   check('document.querySelector("[data-selection-toolbar]") === null');
   browser("press", "Escape");
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
@@ -1301,7 +1307,7 @@ try {
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
   evaluate('(() => { const rows = [...document.querySelectorAll("[role=option]")]; rows[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true })); rows[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true })); return true; })()');
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 3');
-  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => !row.className.includes("border-dashed"))');
+  check('[...document.querySelectorAll("[role=option][aria-selected=true]")].every((row) => getComputedStyle(row).borderStyle !== "dashed" && !row.hasAttribute("data-empty-state"))');
   browser("press", "Escape");
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 0');
   browser("press", "Home");

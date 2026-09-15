@@ -107,10 +107,10 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
           </div>
 
           <div className="flex flex-col gap-2 border-t pt-3">
-            {!confirmReceive ? <Button variant="outline" className="w-fit" onClick={() => setConfirmReceive(true)}>Sync with another device…</Button> : <Alert className="border-destructive/50 pr-2">
-              <AlertTitle className="text-destructive">Replace this device’s workspace?</AlertTitle>
+            {!confirmReceive ? <Button variant="outline" className="w-fit" onClick={() => setConfirmReceive(true)}>Sync with another device…</Button> : <Alert tone="confirmation" layout="stacked">
+              <AlertTitle tone="destructive">Replace this device’s workspace?</AlertTitle>
               <AlertDescription>Your current tasks will be backed up, then the local sync folder will be emptied. Tasks will stay locked until an existing workspace arrives through Syncthing.</AlertDescription>
-              <AlertAction className="static flex flex-wrap justify-end gap-2 pt-2">
+              <AlertAction layout="stacked">
                 <Button variant="outline" size="xs" onClick={() => setConfirmReceive(false)}>Cancel</Button>
                 <Button variant="destructive" size="xs" onClick={onPrepareReceive}>Back up and continue</Button>
               </AlertAction>
