@@ -16,6 +16,7 @@
     "build:sidecar": "pnpm build:backend:bundle && node scripts/build-sidecar.mjs",
     "build:tauri": "pnpm build:sidecar && pnpm build && tauri build",
     "dev:tauri": "node scripts/ensure-sidecar.mjs && tauri dev",
+    "dev:tauri:omarchy": "pnpm dev:tauri",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",
     "test": "pnpm build:backend && node --test dist/backend/*.test.js",

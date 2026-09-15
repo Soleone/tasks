@@ -182,6 +182,7 @@ export default function App(): ReactElement {
   const [toast, setToast] = useState<Toast | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
   const querySequence = useRef(0);
+  const initialLoadRetry = useRef(0);
   const statusUndoRef = useRef<StatusUndoEntry | null>(null);
   const toastTimer = useRef<number | null>(null);
   const statusPresetRef = useRef<StatusPreset>("active");
@@ -231,6 +232,7 @@ export default function App(): ReactElement {
         return [...next.values()];
       });
       setTotal(result.total);
+      initialLoadRetry.current = 0;
       return true;
     } catch (caught) {
       if (sequence === querySequence.current) setLoadError(caught instanceof Error ? caught.message : String(caught));
@@ -258,6 +260,17 @@ export default function App(): ReactElement {
       .then((status) => setReceiveState(status.waiting ? status : null))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (loading || !loadError || tasks.length > 0 || initialLoadRetry.current >= 3) return;
+
+    const attempt = initialLoadRetry.current;
+    initialLoadRetry.current += 1;
+    const timeout = window.setTimeout(() => {
+      void refreshTasks();
+    }, 250 * (attempt + 1));
+    return () => window.clearTimeout(timeout);
+  }, [loading, loadError, tasks.length, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };

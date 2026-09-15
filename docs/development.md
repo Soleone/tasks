@@ -3,7 +3,8 @@
 Tasks has two useful development paths:
 
 - `pnpm dev:web` runs Vite and a local HTTP bridge for fast UI iteration.
-- `pnpm dev:tauri` runs the native Tauri shell and its packaged sidecar. This is the desktop path.
+- `pnpm dev:tauri` runs the native Tauri shell and its packaged sidecar. This is the Windows desktop path.
+- `pnpm dev:tauri:omarchy` runs the native Tauri shell on Omarchy with the required WebKitGTK Wayland workaround applied automatically.
 
 The web bridge is local iteration tooling. It uses the same typed commands and SQLite storage as the sidecar, but it is not evidence of desktop or PWA support.
 
@@ -30,7 +31,8 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm test:ui` | Exercise the UI in Chromium against a temporary workspace. |
 | `pnpm dev:web` | Run Vite and the dev-only local backend. |
 | `pnpm dev:backend` | Run only the dev backend. |
-| `pnpm dev:tauri` | Run the native Tauri shell, rebuilding the sidecar only when needed. |
+| `pnpm dev:tauri` | Run the native Tauri shell on Windows, rebuilding the sidecar only when needed. |
+| `pnpm dev:tauri:omarchy` | Run the native Tauri shell on Omarchy with the WebKitGTK workaround. |
 | `pnpm build` | Check and build the web app and backend. |
 | `pnpm build:tauri` | Build the sidecar, web app, and native release bundles. |
 
@@ -83,7 +85,16 @@ pnpm test:sidecar
 pnpm dev:tauri
 ```
 
-`pnpm build:tauri` creates the MSI and NSIS installer after the development launch works. The packaged sidecar is generated under `src-tauri/binaries/` and is intentionally ignored by Git. See [the Tauri shell notes](../src-tauri/README.md) when rebuilding native icons.
+On Omarchy, use the named command; the Linux binary applies the WebKitGTK compatibility setting before starting the webview:
+
+```bash
+pnpm check
+pnpm test
+pnpm test:sidecar
+pnpm dev:tauri:omarchy
+```
+
+`pnpm build:tauri` creates the MSI and NSIS installer after the development launch works. On Omarchy, the same build creates the Linux release binary and bundles; run the binary directly with `./src-tauri/target/release/tasks`, or launch the AppImage after it is built. The Linux binary applies the WebKitGTK compatibility setting internally, so no environment variable is required. The packaged sidecar is generated under `src-tauri/binaries/` and is intentionally ignored by Git. See [the Tauri shell notes](../src-tauri/README.md) when rebuilding native icons.
 
 The checked Windows host has WebView2. Other Windows machines still need the normal WebView2 and Tauri prerequisites.
 
