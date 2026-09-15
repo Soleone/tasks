@@ -1260,6 +1260,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     : "Priority";
   const tagLabel = tagFilter.length > 0 ? `${tagFilter.length} tag${tagFilter.length === 1 ? "" : "s"}` : "Tags";
   const searchActive = searchQuery.trim() !== "";
+  // The direction toggle is momentary, but its state (newest first) is real
+  // sort state for date sorts, so it exposes pressed like the other toggles.
+  const reverseActive = sortField !== "manual" && sortDirection === "desc";
   const summaryStatus = statusLabel.toLowerCase();
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
@@ -1529,10 +1532,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipTrigger
             render={
               <Button
-                variant="ghost"
+                variant={reverseActive ? "outline" : "ghost"}
+                selected={reverseActive}
                 size="icon-sm"
                 tabIndex={-1}
                 disabled={sortField === "manual"}
+                aria-pressed={reverseActive}
                 aria-label={sortField === "manual"
                   ? "Reverse is unavailable for manual order."
                   : sortDirection === "desc"
