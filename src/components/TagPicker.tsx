@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { Check, Tags } from "lucide-react";
 import type { TagRecord } from "@/backend/protocol";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listTags } from "@/platform/backendClient";
 
 export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
@@ -72,14 +73,17 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
   }
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
-      title="Filter by tags"
-      description="Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter."
-      initialFocus={searchInput}
-      finalFocus={finalFocus}
-    >
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Filter by tags</DialogTitle>
+        <DialogDescription>Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        data-command
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+     >
         <Command label="Filter tasks by tags" filter={literalWordScore} loop shouldFilter>
           <CommandInput ref={searchInput} placeholder="Search tags…" onKeyDown={handlePickerKeyDown} />
           <CommandList label="Tag results">
@@ -121,6 +125,7 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
             </CommandGroup>
           </CommandList>
         </Command>
-    </CommandDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

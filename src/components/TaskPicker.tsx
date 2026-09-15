@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
 import type { TaskRecord } from "@/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getTask, listTasks } from "@/platform/backendClient";
 
 export type TaskPickerMode = "blocker" | "move";
@@ -123,20 +124,25 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   }, [showRemoveBlocker, subject.dependencyIds, fetched]);
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
-      title={heading}
-      description={mode === "blocker"
-        ? showRemoveBlocker
-          ? "Remove the current blocker, or search tasks and press Enter to mark this task blocked by the selected task."
-          : "Search tasks and press Enter to mark this task blocked by the selected task."
-        : showRemoveParent
-          ? "Remove the current parent, or search tasks and press Enter to move this task under the selected task."
-          : "Search tasks and press Enter to move this task under the selected task."}
-      initialFocus={searchInput}
-      finalFocus={finalFocus}
-    >
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>{heading}</DialogTitle>
+        <DialogDescription>
+          {mode === "blocker"
+            ? showRemoveBlocker
+              ? "Remove the current blocker, or search tasks and press Enter to mark this task blocked by the selected task."
+              : "Search tasks and press Enter to mark this task blocked by the selected task."
+            : showRemoveParent
+              ? "Remove the current parent, or search tasks and press Enter to move this task under the selected task."
+              : "Search tasks and press Enter to move this task under the selected task."}
+        </DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        data-command
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+      >
         <Command label={heading} filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search tasks…" />
           <CommandList label="Task results">
@@ -189,6 +195,7 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
             </CommandGroup>
           </CommandList>
         </Command>
-    </CommandDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -3,7 +3,8 @@ import { Check, Circle } from "lucide-react";
 import { cn } from "cn";
 import type { TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onSelect }: {
   open: boolean;
@@ -16,14 +17,17 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
   const searchInput = useRef<HTMLInputElement>(null);
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
-      title="Filter by status"
-      description="Choose Active, Inactive, or one exact status. F then S toggles presets; F then O, I, D, P, or X picks an exact status."
-      initialFocus={searchInput}
-      finalFocus={finalFocus}
-    >
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Filter by status</DialogTitle>
+        <DialogDescription>Choose Active, Inactive, or one exact status. F then S toggles presets; F then O, I, D, P, or X picks an exact status.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        data-command
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+     >
         <Command label="Filter tasks by status" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search statuses…" />
           <CommandList label="Status results">
@@ -73,6 +77,7 @@ export function StatusMenu({ open, onClose, finalFocus, preset, exactStatus, onS
             </CommandGroup>
           </CommandList>
         </Command>
-    </CommandDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

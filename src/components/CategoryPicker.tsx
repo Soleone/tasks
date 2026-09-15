@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Folder } from "lucide-react";
 import type { CategoryRecord } from "@/backend/protocol";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listCategories } from "@/platform/backendClient";
 
 export function CategoryPicker({ open, onClose, finalFocus, onSelect }: {
@@ -41,14 +42,17 @@ export function CategoryPicker({ open, onClose, finalFocus, onSelect }: {
   const emptyText = loading ? "Loading categories…" : error ?? "No categories yet. Add @category to a task.";
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
-      title="Filter by category"
-      description="Choose a category to show only its tasks."
-      initialFocus={searchInput}
-      finalFocus={finalFocus}
-    >
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Filter by category</DialogTitle>
+        <DialogDescription>Choose a category to show only its tasks.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        data-command
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+     >
         <Command label="Filter tasks by category" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search categories…" />
           <CommandList label="Category results">
@@ -75,6 +79,7 @@ export function CategoryPicker({ open, onClose, finalFocus, onSelect }: {
             </CommandGroup>
           </CommandList>
         </Command>
-    </CommandDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

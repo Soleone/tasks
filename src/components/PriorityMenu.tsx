@@ -2,7 +2,8 @@ import { useRef, type ReactElement } from "react";
 import { Check, Flag } from "lucide-react";
 import type { TaskPriority } from "@/backend/protocol";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function PriorityMenu({ open, onClose, finalFocus, selected, onSelect }: {
   open: boolean;
@@ -14,14 +15,17 @@ export function PriorityMenu({ open, onClose, finalFocus, selected, onSelect }: 
   const searchInput = useRef<HTMLInputElement>(null);
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
-      title="Filter by priority"
-      description="Press 0 through 4 to filter. Choosing the active priority again clears it."
-      initialFocus={searchInput}
-      finalFocus={finalFocus}
-    >
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Filter by priority</DialogTitle>
+        <DialogDescription>Press 0 through 4 to filter. Choosing the active priority again clears it.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        data-command
+        showCloseButton={false}
+        initialFocus={searchInput}
+        finalFocus={finalFocus}
+     >
         <Command label="Filter tasks by priority" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search priorities…" />
           <CommandList label="Priority results">
@@ -52,6 +56,7 @@ export function PriorityMenu({ open, onClose, finalFocus, selected, onSelect }: 
             </CommandGroup>
           </CommandList>
         </Command>
-    </CommandDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

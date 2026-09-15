@@ -18,11 +18,6 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
-        // Compact classification badges. They keep their semantic
-        // category/tag tokens, 20px height, and quiet density.
-        category:
-          "h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground",
-        tag: "h-5 border-classification-tag bg-classification-tag px-1.5 text-xs font-normal text-classification-foreground",
       },
     },
     defaultVariants: {
