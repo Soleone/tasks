@@ -130,6 +130,12 @@ test("built-in themes parse cleanly and keep text readable", () => {
     assert.deepEqual(themes[0].palette, {}, "the default theme rides the stylesheet ramp");
     assert.equal(themes[0].mode, "system");
 
+    const gilt = themes.find((theme) => theme.name === "gilt");
+    assert.equal(gilt?.label, "Gilt");
+    assert.equal(gilt?.source, "builtin");
+    assert.equal(gilt?.palette.accent, "#d4af37");
+    assert.equal(gilt?.palette.background, "#0d0f12");
+
     for (const theme of themes.slice(1)) {
       const palette = theme.palette;
       assert.deepEqual(theme.warnings, [], `${theme.name} should parse without warnings`);

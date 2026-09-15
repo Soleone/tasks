@@ -209,6 +209,34 @@ magenta = "#d35f5f"
 brown = "#5c4a38"`,
   },
   {
+    name: "gilt",
+    label: "Gilt",
+    toml: `mode = "dark"
+
+accent = "#D4AF37"
+selection = "#342D1B"
+muted = "#716957"
+
+background = "#0D0F12"
+dark_background = "#090A0C"
+darker_background = "#050607"
+lighter_background = "#181B20"
+
+foreground = "#D8D1C0"
+dark_foreground = "#7B7465"
+light_foreground = "#E6DECB"
+bright_foreground = "#F5EBD2"
+
+red = "#BC6060"
+yellow = "#D4AF37"
+orange = "#C27B48"
+green = "#7FA37A"
+cyan = "#72A5A4"
+blue = "#6F8FAF"
+magenta = "#9A7AA0"
+brown = "#8A6240"`,
+  },
+  {
     name: "ethereal",
     label: "Ethereal",
     toml: `mode = "dark"
