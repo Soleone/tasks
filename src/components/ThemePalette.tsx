@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
@@ -34,8 +34,8 @@ export function ThemeItem({ theme, selected, onSelect }: {
       {theme.palette.accent
         ? <span
             aria-hidden="true"
-            className="size-4 shrink-0 rounded-full ring-1 ring-border"
-            style={{ backgroundColor: theme.palette.accent }}
+            className="size-4 shrink-0 rounded-full bg-(--theme-swatch) ring-1 ring-border"
+            style={{ "--theme-swatch": theme.palette.accent } as CSSProperties}
           />
         : <Palette aria-hidden="true" />}
       <span className="font-medium">{theme.label}</span>

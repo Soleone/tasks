@@ -124,7 +124,7 @@ export function TaskListModeHelp({ mode, onDismiss }: { mode: TaskListMode; onDi
               data-shortcut-group={group.id}
               className={cn(groupIndex > 0 && "border-t border-border/60 pt-2.5")}
             >
-              <p className="mb-1 text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
+              <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 {group.options.map((option) => (
                   <span

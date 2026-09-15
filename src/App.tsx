@@ -849,7 +849,7 @@ export default function App(): ReactElement {
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
             <AppIcon className="size-8 shrink-0" />
-            <span className="text-[32px] leading-none">Tasks</span>
+            <span className="text-3xl leading-none">Tasks</span>
           </h1>
           <ButtonGroup
             onKeyDown={(event) => {
