@@ -6,7 +6,7 @@ The project now has an M0 scaffold. Continue with the runtime/packaging proof an
 
 ## Code quality
 
-Use the `clean-code` skill when writing, refactoring, or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete.
+Use the `clean-code` skill when writing, refactoring, or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete. After making changes, run `pnpm lint` and fix all errors.
 
 ## Development tracking
 

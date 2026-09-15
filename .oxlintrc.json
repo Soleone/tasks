@@ -1,0 +1,28 @@
+{
+  "jsPlugins": ["@shadcn/lint"],
+  "settings": {
+    "shadcn": {
+      "ui": "@/components/ui",
+      "note": "Follow the design tokens and component variants defined in src/styles.css and src/components/ui."
+    }
+  },
+  "rules": {
+    "shadcn/no-restyle": ["error", { "allow": ["layout"] }],
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"] }],
+    "shadcn/no-inline-styles": "error",
+    "shadcn/no-unknown-classes": [
+      "error",
+      { "allow": ["app-icon", "wrap-anywhere"] }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/components/ui/**"],
+      "rules": {
+        "shadcn/no-restyle": "off",
+        "shadcn/no-arbitrary-values": "off"
+      }
+    }
+  ]
+}
