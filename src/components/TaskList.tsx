@@ -1342,7 +1342,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         if (event.target instanceof HTMLElement && event.target.closest('[tabindex="-1"]')) preventFocusSteal(event);
       }}
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             size="sm"
