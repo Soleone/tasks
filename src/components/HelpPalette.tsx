@@ -3,6 +3,7 @@ import {
   ArrowDownUp,
   Circle,
   CircleHelp,
+  Copy,
   CirclePause,
   CornerDownRight,
   FileText,
@@ -35,7 +36,7 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "pause-task" | "new-task" | "new-child-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search" | "undo-status";
+  action?: "open-settings" | "add-blocker" | "move-under" | "pause-task" | "new-task" | "new-child-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search" | "copy-task" | "undo-status";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -48,6 +49,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
       { label: "Change task status", hint: "Space forward, Shift+Space back", icon: ListChecks, keys: ["Space", "Shift+Space"], keywords: "space shift space reverse backward open in progress done status cycle complete" },
       { label: "Pause or resume task", hint: "P pauses, again resumes", icon: CirclePause, keys: ["P"], action: "pause-task", keywords: "p pause resume sleep park soft cancel paused in progress" },
+      { label: "Copy task text", hint: "Title and description", icon: Copy, keys: ["Ctrl/⌘", "C"], action: "copy-task", keywords: "ctrl cmd c copy title description clipboard selected active task" },
       { label: "Undo status change", hint: "Restore the last status", icon: Undo2, keys: ["Ctrl/⌘", "Z"], action: "undo-status", keywords: "ctrl cmd z undo status restore revert cancel complete" },
       { label: "Set active task priority", hint: "0-4 on the list", icon: Flag, keys: ["0", "1", "2", "3", "4"], keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number" },
       { label: "Switch active or inactive", hint: "F then S", icon: Circle, keys: ["F", "S"], action: "filter-status", keywords: "f s active inactive filter paused done canceled cancelled show hide toggle" },
@@ -99,7 +101,7 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder, onPauseTask, canUndoStatus, onUndoStatus }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder, onPauseTask, onCopyTask, canUndoStatus, onUndoStatus }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
@@ -115,6 +117,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
   onAddBlocker?: (task: TaskRecord) => void;
   onMoveUnder?: (task: TaskRecord) => void;
   onPauseTask?: (task: TaskRecord) => void;
+  onCopyTask?: (task: TaskRecord) => void;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
 }): ReactElement {
@@ -141,6 +144,8 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                     const Icon = entry.icon;
                     const onSelect = entry.action === "open-settings"
                       ? onOpenSettings
+                      : entry.action === "copy-task" && activeTask && onCopyTask
+                        ? () => onCopyTask(activeTask)
                       : entry.action === "undo-status"
                         ? (canUndoStatus && onUndoStatus ? onUndoStatus : undefined)
                       : entry.action === "new-task"

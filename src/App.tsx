@@ -13,7 +13,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { TaskList, type TaskListHandle } from "@/components/TaskList";
+import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
 import { taskGroupOrder } from "@/components/taskTree";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -996,6 +996,7 @@ export default function App(): ReactElement {
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
+        onCopyTask={(task) => void copyTaskText(task)}
         canUndoStatus={statusUndo !== null}
         onUndoStatus={() => {
           setHelpOpen(false);

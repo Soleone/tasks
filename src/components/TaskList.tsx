@@ -27,6 +27,11 @@ type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reope
 type StatusTransition = { next: TaskStatus; command: StatusCommand };
 type ToolbarMode = "filter" | "sort";
 
+export async function copyTaskText(task: TaskRecord): Promise<void> {
+  const text = [task.title.trim(), task.descriptionMarkdown.trim()].filter(Boolean).join(" ");
+  await navigator.clipboard.writeText(text);
+}
+
 // Paused is a separate pause/resume state, but both Space directions keep it
 // reachable: forward completes it, while reverse returns it to in progress.
 const forwardStatusTransition: Record<TaskStatus, StatusTransition> = {
@@ -169,6 +174,7 @@ type HomeShortcutActions = {
   clearSelection: () => boolean;
   handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
   editTask: (task: TaskRecord) => void;
+  copyTask: (task: TaskRecord) => Promise<void>;
 };
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
@@ -623,6 +629,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     return true;
   }
 
+  async function copyActiveTask(task: TaskRecord): Promise<void> {
+    try {
+      await copyTaskText(task);
+      onAnnounce(`Copied ${task.title}`);
+    } catch {
+      onAnnounce("Could not copy the selected task.");
+    }
+  }
+
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
@@ -991,6 +1006,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     clearSelection,
     handleHorizontalNavigation,
     editTask: onEdit,
+    copyTask: copyActiveTask,
   };
 
   // Keep one window listener so state changes cannot leave a gap between
@@ -1035,6 +1051,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         if (!actions.canUndoStatus) return;
         event.preventDefault();
         actions.undoStatus();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "c") {
+        if (event.repeat || event.isComposing || event.keyCode === 229) return;
+        event.preventDefault();
+        if (actions.activeTask) void actions.copyTask(actions.activeTask);
         return;
       }
       if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
@@ -1293,7 +1315,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1752,7 +1774,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             : "Tasks, no visible matches"}
           aria-orientation="vertical"
           aria-multiselectable="true"
-          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex w-full flex-col gap-2 outline-none"
