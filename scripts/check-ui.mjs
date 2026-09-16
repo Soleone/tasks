@@ -1286,30 +1286,13 @@ try {
   check('document.querySelector("[data-sort=task-sort-reverse]").disabled === true');
   const manualOrder = () => JSON.parse(evaluate('JSON.stringify([...document.querySelectorAll("[role=option]")].map((row) => row.querySelector("[data-slot=item-title]")?.textContent))'));
   assert.deepEqual(manualOrder(), ["Manual D", "Manual C", "Manual B", "Manual A"]);
-  // Pointer entry still activates a row, while a stale enter immediately
-  // after keyboard movement cannot steal the keyboard-selected row.
+  // Pointer movement must not activate a row or steal the keyboard selection.
+  focus("[role=listbox]");
+  browser("press", "Home");
+  const pointerFirstId = evaluate('document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant")');
   const pointerSecondId = evaluate('document.querySelectorAll("[role=option]")[1]?.id');
   browser("hover", `[role=option]#${pointerSecondId}`);
-  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(pointerSecondId)}`);
-  browser("press", "Home");
-  const pointerFirstId = evaluate('document.querySelector("[role=option]")?.id');
-  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(pointerFirstId)}`);
-  browser("press", "ArrowDown");
-  // Dispatch immediately so the event is genuinely stale. On a loaded box,
-  // agent-browser can spend longer than the component's suppression window
-  // before returning, so recover the intended keyboard move if that window
-  // expires before the synthetic event is delivered.
-  evaluate(`document.getElementById(${JSON.stringify(pointerFirstId)})?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); true`);
-  const pointerMoveExpression = `document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") !== ${JSON.stringify(pointerFirstId)}`;
-  let pointerMoveCommitted = false;
-  for (let poll = 0; poll < 20; poll++) {
-    if (evaluate(pointerMoveExpression)) { pointerMoveCommitted = true; break; }
-    browser("wait", "100");
-  }
-  if (!pointerMoveCommitted) {
-    browser("press", "ArrowDown");
-    waitFor(pointerMoveExpression);
-  }
+  check(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(pointerFirstId)}`);
   browser("press", "Home");
   browser("press", "ArrowDown");
   waitFor('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent.includes("Manual C")');
@@ -1453,12 +1436,17 @@ try {
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual move subject"))');
   filterManualCategory();
   focus("[role=listbox]");
-  const parentMoveTargetRowId = evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Manual move target"))?.id');
-  browser("hover", `#${parentMoveTargetRowId}`);
+  browser("press", "Home");
+  for (let step = 0; step < 12; step++) {
+    if (String(evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""')).includes("Manual move target")) break;
+    browser("press", "ArrowDown");
+  }
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Manual move target")');
-  const parentMoveSubjectRowId = evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Manual move subject"))?.id');
-  browser("hover", `#${parentMoveSubjectRowId}`);
+  for (let step = 0; step < 12; step++) {
+    if (String(evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""')).includes("Manual move subject")) break;
+    browser("press", "ArrowDown");
+  }
   waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === "task-option-${parentMoveSubject.id}"`);
   evaluate(`window.originalFetchForParentMove = window.fetch; window.parentMoveLists = []; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
@@ -1517,7 +1505,8 @@ try {
   // which condition must be cleared before movement is available.
   async function assertReorderBlocked(setup, reason) {
     await setup();
-    evaluate('(() => { const row = [...document.querySelectorAll("[role=option]")].find((entry) => !entry.hasAttribute("data-context-parent")); row?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true })); document.querySelector("[role=listbox]")?.focus(); return true; })()');
+    focus("[role=listbox]");
+    browser("press", "Home");
     const before = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
     browser("press", "Control+ArrowDown");
     waitFor(`document.querySelector("p.sr-only[role=status]")?.textContent.includes(${JSON.stringify(reason)})`);
@@ -1573,7 +1562,12 @@ try {
   waitFor('document.querySelector("[role=option][data-context-parent]") !== null');
   const contextOnlyId = evaluate('document.querySelector("[role=option][data-context-parent]")?.id');
   assert.ok(contextOnlyId);
-  evaluate(`document.getElementById(${JSON.stringify(contextOnlyId)})?.dispatchEvent(new MouseEvent("mousemove", { bubbles: true })); document.querySelector("[role=listbox]")?.focus(); true`);
+  focus("[role=listbox]");
+  browser("press", "Home");
+  for (let step = 0; step < 12; step++) {
+    if (evaluate(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(contextOnlyId)}`)) break;
+    browser("press", "ArrowDown");
+  }
   waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === ${JSON.stringify(contextOnlyId)}`);
   const contextOrderBeforeReorder = (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id);
   browser("press", "Control+ArrowDown");

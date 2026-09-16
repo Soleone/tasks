@@ -267,7 +267,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const selectionClearedRef = useRef(false);
   const selectionAnchorRef = useRef<string | null>(null);
   const pendingActiveIdRef = useRef<string | null>(null);
-  const suppressMouseActiveRef = useRef(false);
   const restoreActiveIdRef = useRef<string | null>(null);
   const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
   const identityRefreshPendingRef = useRef(false);
@@ -574,18 +573,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
   }
 
-  function activatePointerRow(index: number): void {
-    if (suppressMouseActiveRef.current) return;
-    pendingActiveIdRef.current = null;
-    onActiveTaskIndexChange(index);
-  }
-
   function moveActive(next: number, extend = false): void {
     if (visibleRows.length === 0) return;
-    // A keyboard move can cause a hovered row to be re-entered while React
-    // updates selection. Do not let that stale pointer position undo it.
-    suppressMouseActiveRef.current = true;
-    window.setTimeout(() => { suppressMouseActiveRef.current = false; }, 100);
     if (extend) {
       const current = visibleRows[activeIndex];
       if (!current || current.contextOnly) {
@@ -619,8 +608,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   function selectBoundary(end: "start" | "end"): void {
-    suppressMouseActiveRef.current = true;
-    window.setTimeout(() => { suppressMouseActiveRef.current = false; }, 100);
     const current = activeRow;
     if (!current || current.contextOnly) {
       onAnnounce("Selection is limited to visible sibling tasks.");
@@ -1883,8 +1870,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                   }
                   onEdit(task);
                 }}
-                onMouseEnter={() => activatePointerRow(index)}
-                onMouseMove={() => activatePointerRow(index)}
               >
                 <TaskRow
                   task={task}
