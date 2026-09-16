@@ -267,6 +267,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const selectionClearedRef = useRef(false);
   const selectionAnchorRef = useRef<string | null>(null);
   const pendingActiveIdRef = useRef<string | null>(null);
+  const pendingActiveViewRef = useRef<string | null>(null);
   const restoreActiveIdRef = useRef<string | null>(null);
   const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
   const identityRefreshPendingRef = useRef(false);
@@ -275,11 +276,24 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
   const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
+  // A pending keyboard move belongs to the view it was made in. Filter and
+  // sort changes must not let that stale task override the new active index.
+  const viewIdentity = [
+    statusPreset,
+    exactStatus ?? "",
+    priorityFilter ?? "",
+    tagFilter.map((tag) => tag.slug).join(","),
+    searchQuery,
+    showUnblocked ? "1" : "0",
+    categoryFilter?.slug ?? "",
+    sortField,
+    sortDirection,
+  ].join("|");
   const hasMore = tasks.length < total;
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.
   const clampedActiveIndex = visibleRows.length ? Math.min(activeTaskIndex, visibleRows.length - 1) : 0;
-  const pendingActiveIndex = pendingActiveIdRef.current === null
+  const pendingActiveIndex = pendingActiveIdRef.current === null || pendingActiveViewRef.current !== viewIdentity
     ? -1
     : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
   const activeIndex = pendingActiveIndex >= 0 ? pendingActiveIndex : clampedActiveIndex;
@@ -304,11 +318,19 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
 
   useEffect(() => {
     const pendingActiveId = pendingActiveIdRef.current;
-    if (pendingActiveId !== null) {
+    if (pendingActiveId !== null && pendingActiveViewRef.current !== viewIdentity) {
+      pendingActiveIdRef.current = null;
+      pendingActiveViewRef.current = null;
+    } else if (pendingActiveId !== null) {
       const pendingIndex = visibleRows.findIndex((row) => row.task.id === pendingActiveId);
-      if (pendingIndex < 0) pendingActiveIdRef.current = null;
-      else if (activeTaskIndex !== pendingIndex) onActiveTaskIndexChange(pendingIndex);
-      else pendingActiveIdRef.current = null;
+      if (pendingIndex < 0) {
+        pendingActiveIdRef.current = null;
+        pendingActiveViewRef.current = null;
+      } else if (activeTaskIndex !== pendingIndex) onActiveTaskIndexChange(pendingIndex);
+      else {
+        pendingActiveIdRef.current = null;
+        pendingActiveViewRef.current = null;
+      }
     }
 
     const selectableIds = new Set(visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id));
@@ -336,7 +358,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       selectionAnchorRef.current = nextSelection.values().next().value ?? null;
     }
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
-  }, [activeIndex, activeTaskIndex, onActiveTaskIndexChange, onAnnounce, selectedIds, visibleRows]);
+  }, [activeIndex, activeTaskIndex, onActiveTaskIndexChange, onAnnounce, selectedIds, viewIdentity, visibleRows]);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
@@ -592,6 +614,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const targetIndex = visibleRows.findIndex((candidate) => candidate.task.id === target.task.id);
       if (targetIndex < 0) return;
       pendingActiveIdRef.current = target.task.id;
+      pendingActiveViewRef.current = viewIdentity;
       onActiveTaskIndexChange(targetIndex);
       selectRangeTo(target);
       requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
@@ -617,6 +640,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const target = end === "start" ? scope[0] : scope[scope.length - 1];
     if (!target) return;
     pendingActiveIdRef.current = target.task.id;
+    pendingActiveViewRef.current = viewIdentity;
     onActiveTaskIndexChange(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
     selectRangeTo(target);
     requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
@@ -1844,6 +1868,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                     : row.contextOnly ? "context" : undefined}
                 onClick={(event) => {
                   pendingActiveIdRef.current = null;
+                  pendingActiveViewRef.current = null;
                   if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
                     onAnnounce("Context-only ancestors cannot be selected.");
                     return;
