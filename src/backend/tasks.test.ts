@@ -79,6 +79,25 @@ test("classification respects boundaries, code, URLs, headings, and one category
   assert.equal(stripClassificationTokens("See https://example.com/#anchor and `#ignored` #real"), "See https://example.com/#anchor and `#ignored`");
 });
 
+test("task categories come from titles while tags include descriptions", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-title-category-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const created = task(executeCommand(request("task.create", {
+      title: "Ship it @release #title",
+      descriptionMarkdown: "Notes mention @not-a-category and #description",
+    }, { idempotencyKey: "title-category" }), databasePath));
+    assert.deepEqual(created.category, { slug: "release", label: "release" });
+    assert.deepEqual(created.tags, [
+      { slug: "description", label: "description" },
+      { slug: "title", label: "title" },
+    ]);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task.list filters by status", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-list-filter-"));
   const databasePath = path.join(directory, "tasks.db");

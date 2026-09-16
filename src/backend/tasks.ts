@@ -188,9 +188,16 @@ function recordReceipt(database: DatabaseSync, request: ProtocolRequest, context
     .run(context.key, request.command, context.hash, JSON.stringify(result), now);
 }
 
-function classify(text: string): TaskClassification {
+function classify(title: string, descriptionMarkdown: string): TaskClassification {
   try {
-    return classifyTaskText(text);
+    const titleClassification = classifyTaskText(title);
+    const descriptionClassification = classifyTaskText(descriptionMarkdown, false);
+    const tags = new Map(titleClassification.tags.map((tag) => [tag.slug, tag]));
+    for (const tag of descriptionClassification.tags) tags.set(tag.slug, tag);
+    return {
+      category: titleClassification.category,
+      tags: [...tags.values()],
+    };
   } catch (error) {
     if (error instanceof TaskTextError) {
       throw new CommandError(error.code, error.message);
@@ -212,7 +219,7 @@ function taskInput(args: Row): PreparedTask {
   return {
     title,
     descriptionMarkdown,
-    classification: classify(`${title}\n${descriptionMarkdown}`),
+    classification: classify(title, descriptionMarkdown),
   };
 }
 
@@ -536,7 +543,7 @@ function updateTask(database: DatabaseSync, databasePath: string, request: Proto
   const input: PreparedTask = {
     title: title.trim(),
     descriptionMarkdown,
-    classification: classify(`${title.trim()}\n${descriptionMarkdown}`),
+    classification: classify(title.trim(), descriptionMarkdown),
   };
   if (input.title === "") {
     throw new CommandError("INVALID_ARGUMENT", "title must be a non-empty string");
