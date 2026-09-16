@@ -365,6 +365,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const nextSelection = createdTaskId !== null
       ? new Set<string>([createdTaskId])
       : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
+    if (createdTaskId !== null) {
+      const createdTaskIndex = visibleRows.findIndex((row) => row.task.id === createdTaskId);
+      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex) onActiveTaskIndexChange(createdTaskIndex);
+    }
     const visibleActive = visibleRows[activeIndex];
     if (nextSelection.size === 0 && visibleActive && !visibleActive.contextOnly && !selectionClearedRef.current) nextSelection.add(visibleActive.task.id);
     const changed = nextSelection.size !== selectedIdsRef.current.size
