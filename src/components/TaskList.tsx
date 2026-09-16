@@ -1370,7 +1370,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               />
             }
           >
-            <Folder className="text-success" aria-hidden="true" />
+            <Folder className={categoryFilter ? "text-success" : undefined} aria-hidden="true" />
             <span className="sr-only">{categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category"}</span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{categoryFilter ? categoryFilter.label : "Category"}</TooltipContent>
