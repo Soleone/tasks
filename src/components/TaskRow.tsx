@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
-import type { TaskRecord } from "@/backend/protocol";
+import type { ClassificationToken, TaskRecord } from "@/backend/protocol";
 import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
@@ -117,21 +117,51 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
   );
 }
 
-export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement {
-  const hasClassification = Boolean(task.category) || task.tags.length > 0;
+export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task: TaskRecord; hiddenCategorySlug?: string | null; onSelectCategory?: (category: ClassificationToken) => void }): ReactElement | null {
+  const category = task.category?.slug !== hiddenCategorySlug ? task.category ?? null : null;
+  if (!category && task.tags.length === 0) {
+    if (!task.category) {
+      return (
+        <ItemDescription metadata>
+          <span className="sr-only">No category or tags</span>
+        </ItemDescription>
+      );
+    }
+    return null;
+  }
 
   return (
     <ItemDescription metadata>
-      {task.category ? (
-        <Badge variant="category">
-          <Folder data-icon="inline-start" aria-hidden="true" />
-          {task.category.label}
-        </Badge>
+      {category ? (
+        onSelectCategory ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            data-task-category={category.slug}
+            aria-label={`Filter by category ${category.label}`}
+            title={`Filter by ${category.label}`}
+            onMouseDown={preventFocusSteal}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectCategory(category);
+            }}
+            className="cursor-pointer rounded-full"
+          >
+            <Badge variant="category">
+              <Folder data-icon="inline-start" aria-hidden="true" />
+              {category.label}
+            </Badge>
+          </button>
+        ) : (
+          <Badge variant="category">
+            <Folder data-icon="inline-start" aria-hidden="true" />
+            {category.label}
+          </Badge>
+        )
       ) : null}
       {task.tags.map((tag) => (
         <Badge key={tag.slug} variant="tag">{tag.label}</Badge>
       ))}
-      {!hasClassification ? <span className="sr-only">No category or tags</span> : null}
     </ItemDescription>
   );
 }
@@ -189,7 +219,7 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with optional details and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false, contextOnly = false }: {
+export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false, contextOnly = false, hiddenCategorySlug, onSelectCategory }: {
   task: TaskRecord;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
@@ -197,6 +227,8 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
   indented?: boolean;
   showDetails?: boolean;
   contextOnly?: boolean;
+  hiddenCategorySlug?: string | null;
+  onSelectCategory?: (category: ClassificationToken) => void;
 }): ReactElement {
   return (
     <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
@@ -211,7 +243,7 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
         {variant === "full" && showDetails && task.descriptionMarkdown ? (
           <ItemDescription data-task-description className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
         ) : null}
-        {variant === "full" ? <TaskRowMetadata task={task} /> : null}
+        {variant === "full" ? <TaskRowMetadata task={task} hiddenCategorySlug={hiddenCategorySlug} onSelectCategory={onSelectCategory} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
         {variant === "full" && contextOnly ? (
           <p data-parent-context className="text-xs text-muted-foreground">{taskContextMessage(task)}</p>

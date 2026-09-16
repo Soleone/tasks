@@ -711,7 +711,8 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1 && document.activeElement.matches("[role=listbox]")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · @roadmap"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · roadmap"');
+  check('document.querySelector("[data-filter-summary] [data-filter-category]")?.textContent === "roadmap"');
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-category]").getAttribute("aria-label").includes("roadmap")');
   focus("[role=listbox]");
@@ -732,6 +733,15 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
+  browser("press", "Escape");
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  // Clicking a task's category badge filters to that category without opening the picker.
+  evaluate('document.querySelector("[data-task-category=launch]").click(); true');
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1 && document.activeElement.matches("[role=listbox]")');
+  check('document.querySelector("[data-filter-summary] [data-filter-category]")?.textContent === "launch"');
+  check('document.querySelector("[role=option]").textContent.includes("Launch follow-up")');
+  focus("[role=listbox]");
   browser("press", "Escape");
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
@@ -985,7 +995,7 @@ try {
     browser("set", "viewport", String(width), "844");
     check('document.documentElement.scrollWidth <= innerWidth');
   }
-  check('(() => { const summary = document.querySelector("[data-filter-summary]"); if (!summary) return false; const style = getComputedStyle(summary); return style.whiteSpace === "nowrap" && style.overflow === "hidden" && summary.getBoundingClientRect().height <= 20; })()');
+  check('(() => { const summary = document.querySelector("[data-filter-summary]"); if (!summary) return false; const style = getComputedStyle(summary); if (style.overflow !== "hidden" || summary.getBoundingClientRect().height > 20) return false; const badge = summary.querySelector("[data-filter-category]"); if (!badge) return true; const s = summary.getBoundingClientRect(), b = badge.getBoundingClientRect(); const base = summary.querySelector(":scope > span"); if (!base || getComputedStyle(badge).fontSize !== getComputedStyle(base).fontSize) return false; return Math.abs((b.top + b.bottom) / 2 - (s.top + s.bottom) / 2) <= 2; })()');
   // Shift+C keeps the same composer flow and assigns the selected task as parent.
   focus("[role=listbox]");
   browser("press", "Home");

@@ -8,12 +8,14 @@ import {
   type ReactElement,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
-import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus } from "@/backend/protocol";
+import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus } from "@/backend/protocol";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -31,6 +33,7 @@ export async function copyTaskText(task: TaskRecord): Promise<void> {
   const text = [task.title.trim(), task.descriptionMarkdown.trim()].filter(Boolean).join(" ");
   await navigator.clipboard.writeText(text);
 }
+
 
 // Paused is a separate pause/resume state, but both Space directions keep it
 // reachable: forward completes it, while reverse returns it to in progress.
@@ -98,8 +101,9 @@ type TaskListProps = {
   onReverseSort: () => void;
   showDetails: boolean;
   onToggleDetails: () => void;
-  categoryFilter: CategoryRecord | null;
-  onCategoryFilterChange: (category: CategoryRecord | null) => void;
+  categoryFilter: ClassificationToken | null;
+  onCategoryFilterChange: (category: ClassificationToken | null) => void;
+  onSelectCategory: (category: ClassificationToken) => void;
   onOpenCategoryPicker: () => void;
   tagFilter: TagRecord[];
   onTagFilterChange: (tags: TagRecord[]) => void;
@@ -204,6 +208,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onToggleDetails,
   categoryFilter,
   onCategoryFilterChange,
+  onSelectCategory,
   onOpenCategoryPicker,
   tagFilter,
   onTagFilterChange,
@@ -497,6 +502,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       return;
     }
     openCategoryPicker();
+  }
+
+  function selectCategory(category: ClassificationToken): void {
+    returnToList();
+    onSelectCategory(category);
   }
 
   function clearSearch(): void {
@@ -1298,14 +1308,19 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
   const summaryTaskCount = visibleRows.filter((row) => !row.contextOnly).length;
-  const filterSummary = [
-    `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`,
+  const summaryBase = `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
+  const summarySuffixParts = [
     priorityFilter !== null ? priorityLabel : null,
-    categoryFilter ? `@${categoryFilter.label}` : null,
     summaryTags,
     searchActive ? `“${searchQuery.trim()}”` : null,
     showUnblocked ? "unblocked" : null,
+  ].filter((part): part is string => part !== null);
+  const filterSummary = [
+    summaryBase,
+    categoryFilter ? categoryFilter.label : null,
+    ...summarySuffixParts,
   ].filter((part): part is string => part !== null).join(" · ");
+  const filterSummarySuffix = summarySuffixParts.join(" · ");
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
   const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
   const selectionCount = selectedIds.size;
@@ -1747,15 +1762,38 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </ButtonGroup>
           </div>
         </div>
-        <p
+        <Breadcrumb
           data-filter-summary="true"
           aria-live="polite"
           aria-atomic="true"
           title={filterSummary}
-          className="truncate text-xs leading-4 text-muted-foreground"
+          className="overflow-hidden"
         >
-          {filterSummary}
-        </p>
+          <BreadcrumbList density="compact">
+            <BreadcrumbItem className="shrink-0">
+              <span className="text-sm font-medium">{summaryBase}</span>
+            </BreadcrumbItem>
+            {categoryFilter ? (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="shrink-0">
+                  <Badge variant="category" data-filter-category="true" className="shrink-0">
+                    <Folder data-icon="inline-start" aria-hidden="true" />
+                    {categoryFilter.label}
+                  </Badge>
+                </BreadcrumbItem>
+              </>
+            ) : null}
+            {filterSummarySuffix ? (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="min-w-0">
+                  <span className="min-w-0 truncate">{filterSummarySuffix}</span>
+                </BreadcrumbItem>
+              </>
+            ) : null}
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
       {error ? <Alert variant="destructive">
         <AlertTitle>Could not load tasks</AlertTitle>
@@ -1854,6 +1892,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                   blockedByLabels={blockedByLabels}
                   showDetails={showDetails}
                   contextOnly={row.contextOnly}
+                  hiddenCategorySlug={categoryFilter?.slug ?? null}
+                  onSelectCategory={selectCategory}
                   statusSlot={
                     <TaskStatusToggle
                       task={task}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
-import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
@@ -165,7 +165,7 @@ export default function App(): ReactElement {
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryRecord | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(null);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
@@ -545,7 +545,7 @@ export default function App(): ReactElement {
     setActiveTaskIndex(0);
   }
 
-  function chooseCategory(category: CategoryRecord): void {
+  function chooseCategory(category: ClassificationToken): void {
     setCategoryPickerOpen(false);
     setCategoryFilter(category);
     setActiveTaskIndex(0);
@@ -936,6 +936,7 @@ export default function App(): ReactElement {
           onToggleDetails={toggleDetails}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
+          onSelectCategory={chooseCategory}
           onOpenCategoryPicker={openCategoryPicker}
           tagFilter={tagFilter}
           onTagFilterChange={chooseTags}
