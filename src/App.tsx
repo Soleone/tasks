@@ -229,6 +229,7 @@ export default function App(): ReactElement {
   const [selectedTheme, setSelectedTheme] = useState("");
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
+  const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
   const querySequence = useRef(0);
@@ -844,6 +845,12 @@ export default function App(): ReactElement {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
   }, []);
 
+  useEffect(() => {
+    if (newTaskId === null) return;
+    const timeout = window.setTimeout(() => setNewTaskId(null), 180);
+    return () => window.clearTimeout(timeout);
+  }, [newTaskId]);
+
   function taskSaved(task: TaskRecord): void {
     const creating = composerRef.current?.mode === "create";
     const visible = taskIsVisible(
@@ -860,6 +867,7 @@ export default function App(): ReactElement {
       setTasks((previous) => creating
         ? [task, ...previous.filter((existing) => existing.id !== task.id)]
         : previous.map((existing) => existing.id === task.id ? task : existing));
+      if (creating) setNewTaskId(task.id);
     } else {
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
@@ -1025,6 +1033,7 @@ export default function App(): ReactElement {
         <TaskList
           ref={taskListRef}
           tasks={tasks}
+          newTaskId={newTaskId}
           contextTasks={contextTasks}
           contextOrder={contextOrder}
           total={total}

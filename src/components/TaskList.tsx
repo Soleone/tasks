@@ -87,6 +87,7 @@ export type TaskListHandle = {
 
 type TaskListProps = {
   tasks: TaskRecord[];
+  newTaskId?: string | null;
   contextTasks: TaskRecord[];
   contextOrder: ReadonlyMap<string, number>;
   total: number;
@@ -192,6 +193,7 @@ const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
+  newTaskId,
   contextTasks,
   contextOrder,
   total,
@@ -1863,6 +1865,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 data-selected={selectedIds.has(task.id) || undefined}
                 data-context-parent={row.contextOnly || undefined}
                 data-depth={row.depth}
+                data-new-task={task.id === newTaskId || undefined}
                 size="sm"
                 variant={active ? "outline" : "default"}
                 state={active
