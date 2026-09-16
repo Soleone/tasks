@@ -70,6 +70,20 @@ function readPriorityFilter(): TaskPriority | null {
   return stored !== null && /^[0-4]$/.test(stored) ? Number(stored) as TaskPriority : null;
 }
 
+function readCategorySlug(): string | null {
+  const stored = readStored(CATEGORY_FILTER_KEY);
+  return stored !== null && stored !== "" ? stored : null;
+}
+
+function readInitialTagFilter(): TagRecord[] {
+  return readSlugs(TAG_FILTER_KEY).map((slug) => ({ slug, label: slug, taskCount: 0 }));
+}
+
+function readInitialCategoryFilter(): ClassificationToken | null {
+  const slug = readCategorySlug();
+  return slug ? { slug, label: slug } : null;
+}
+
 function readSlugs(key: string): string[] {
   const stored = readStored(key);
   if (!stored) return [];
@@ -191,13 +205,13 @@ export default function App(): ReactElement {
   const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(readPriorityFilter);
-  const [tagFilter, setTagFilter] = useState<TagRecord[]>([]);
+  const [tagFilter, setTagFilter] = useState<TagRecord[]>(readInitialTagFilter);
   const [searchQuery, setSearchQuery] = useState(() => readStored(SEARCH_QUERY_KEY) ?? "");
   const [showUnblocked, setShowUnblocked] = useState(() => readStored(UNBLOCKED_FILTER_KEY) === "true");
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
-  const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(readInitialCategoryFilter);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
@@ -221,18 +235,16 @@ export default function App(): ReactElement {
   const initialLoadRetry = useRef(0);
   const statusUndoRef = useRef<StatusUndoEntry | null>(null);
   const toastTimer = useRef<number | null>(null);
-  const statusPresetRef = useRef<StatusPreset>("active");
-  const exactStatusRef = useRef<TaskStatus | null>(null);
-  const priorityFilterRef = useRef<TaskPriority | null>(null);
-  const tagFilterRef = useRef<string[]>([]);
-  const searchQueryRef = useRef("");
-  const showUnblockedRef = useRef(false);
-  const sortFieldRef = useRef<SortField>("updated");
-  const sortDirectionRef = useRef<SortDirection>("desc");
-  const categoryFilterRef = useRef<string | null>(readStored(CATEGORY_FILTER_KEY));
-  const storedTagSlugsRef = useRef(readSlugs(TAG_FILTER_KEY));
-  const restoredCategoryRef = useRef(false);
-  const restoredTagsRef = useRef(false);
+  const statusPresetRef = useRef<StatusPreset>(statusPreset);
+  const exactStatusRef = useRef<TaskStatus | null>(exactStatus);
+  const priorityFilterRef = useRef<TaskPriority | null>(priorityFilter);
+  const tagFilterRef = useRef<string[]>(tagFilter.map((tag) => tag.slug));
+  const searchQueryRef = useRef(searchQuery);
+  const showUnblockedRef = useRef(showUnblocked);
+  const sortFieldRef = useRef<SortField>(sortField);
+  const sortDirectionRef = useRef<SortDirection>(sortDirection);
+  const categoryFilterRef = useRef<string | null>(categoryFilter?.slug ?? null);
+  const restoredMetadataRef = useRef(false);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
   composerRef.current = composer;
@@ -270,28 +282,34 @@ export default function App(): ReactElement {
         for (const task of result.contextTasks) next.set(task.id, task);
         return [...next.values()];
       });
-      if (!offset) {
-        const loadedTasks = [...result.tasks, ...result.contextTasks];
+      if (!offset && !restoredMetadataRef.current) {
+        restoredMetadataRef.current = true;
         const categorySlug = categoryFilterRef.current;
-        if (!restoredCategoryRef.current) {
-          restoredCategoryRef.current = true;
+        const tagSlugs = [...tagFilterRef.current];
+        if (categorySlug !== null || tagSlugs.length > 0) {
+          const loadedTasks = [...result.tasks, ...result.contextTasks];
           if (categorySlug !== null) {
             const category = loadedTasks.find((task) => task.category?.slug === categorySlug)?.category;
-            setCategoryFilter(category
-              ? { ...category, taskCount: loadedTasks.filter((task) => task.category?.slug === category.slug).length }
-              : { slug: categorySlug, label: categorySlug, taskCount: 0 });
+            const enriched: ClassificationToken = category
+              ? { slug: category.slug, label: category.label }
+              : { slug: categorySlug, label: categorySlug };
+            setCategoryFilter((previous) => previous?.slug === enriched.slug && previous.label === enriched.label ? previous : enriched);
           }
-        }
-        if (!restoredTagsRef.current) {
-          restoredTagsRef.current = true;
-          const tags = new Map(loadedTasks.flatMap((task) => task.tags).map((tag) => [tag.slug, tag]));
-          setTagFilter(storedTagSlugsRef.current.map((slug) => {
-            const tag = tags.get(slug);
-            return tag
-              ? { ...tag, taskCount: loadedTasks.filter((task) => task.tags.some((entry) => entry.slug === tag.slug)).length }
-              : { slug, label: slug, taskCount: 0 };
-          }));
-          storedTagSlugsRef.current = [];
+          if (tagSlugs.length > 0) {
+            const tags = new Map(loadedTasks.flatMap((task) => task.tags).map((tag) => [tag.slug, tag]));
+            const enriched = tagSlugs.map((slug) => {
+              const tag = tags.get(slug);
+              return tag
+                ? { ...tag, taskCount: loadedTasks.filter((task) => task.tags.some((entry) => entry.slug === tag.slug)).length }
+                : { slug, label: slug, taskCount: 0 };
+            });
+            setTagFilter((previous) => {
+              const previousSlugs = previous.map((tag) => tag.slug);
+              const sameSlugs = previousSlugs.length === enriched.length && previousSlugs.every((slug, index) => slug === enriched[index].slug);
+              const sameMeta = previous.length === enriched.length && previous.every((tag, index) => tag.label === enriched[index].label && tag.taskCount === enriched[index].taskCount);
+              return sameSlugs && sameMeta ? previous : enriched;
+            });
+          }
         }
       }
       setTotal(result.total);
