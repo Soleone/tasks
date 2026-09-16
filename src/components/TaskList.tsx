@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus } from "@/backend/protocol";
+import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
@@ -31,7 +32,10 @@ type StatusTransition = { next: TaskStatus; command: StatusCommand };
 type ToolbarMode = "filter" | "sort";
 
 export async function copyTaskText(task: TaskRecord): Promise<void> {
-  const text = [task.title.trim(), task.descriptionMarkdown.trim()].filter(Boolean).join(" ");
+  const text = [task.title, task.descriptionMarkdown]
+    .map(stripClassificationTokens)
+    .filter(Boolean)
+    .join(" ");
   await navigator.clipboard.writeText(text);
 }
 
