@@ -117,6 +117,7 @@ type TaskListProps = {
   onRefresh: (offset?: number) => Promise<boolean>;
   onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
+  onToast: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
   onTaskUpdated: (task: TaskRecord) => void;
   onStatusChanged?: (previous: TaskRecord, current: TaskRecord, wasActive: boolean) => void;
@@ -220,6 +221,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onRefresh,
   onActiveTaskIndexChange,
   onAnnounce,
+  onToast,
   onEdit,
   onTaskUpdated,
   onStatusChanged,
@@ -633,6 +635,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     try {
       await copyTaskText(task);
       onAnnounce(`Copied ${task.title}`);
+      onToast("Task details copied to clipboard");
     } catch {
       onAnnounce("Could not copy the selected task.");
     }

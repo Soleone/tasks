@@ -953,6 +953,7 @@ export default function App(): ReactElement {
           onRefresh={refreshTasks}
           onActiveTaskIndexChange={setActiveTaskIndex}
           onAnnounce={setAnnouncement}
+          onToast={(message) => showToast({ message })}
           onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
           onStatusChanged={handleStatusChanged}
