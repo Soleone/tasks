@@ -1374,7 +1374,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
        FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
        ${sortArgument === "manual" ? "JOIN task_tree ON task_tree.id = tasks.id" : ""}
        ${where}
-       ORDER BY ${sortArgument === "manual" ? "task_tree.order_path ASC" : `${orderBy} ${sortArgument === "priority" ? "ASC" : orderDirection}, tasks.id ASC`}
+       ORDER BY ${sortArgument === "manual" ? "task_tree.order_path ASC" : `${orderBy} ${sortArgument === "priority" ? (directionArgument === "desc" ? "ASC" : "DESC") : orderDirection}, tasks.id ASC`}
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as Row[];

@@ -67,6 +67,6 @@ export type SortDirection = "asc" | "desc";
 /** Quiet status message for a selected sort. */
 export function sortSummary(field: SortField, direction: SortDirection): string {
   if (field === "manual") return "manual order";
-  if (field === "priority") return "by priority";
+  if (field === "priority") return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
   return `by ${field}, ${direction}`;
 }

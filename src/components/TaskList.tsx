@@ -1287,9 +1287,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     : "Priority";
   const tagLabel = tagFilter.length > 0 ? `${tagFilter.length} tag${tagFilter.length === 1 ? "" : "s"}` : "Tags";
   const searchActive = searchQuery.trim() !== "";
-  // The direction toggle is momentary, but its state (newest first) is real
-  // sort state for date sorts, so it exposes pressed like the other toggles.
-  const reverseActive = sortField !== "manual" && sortField !== "priority" && sortDirection === "desc";
+  // The direction toggle is momentary, but its state is real sort state, so
+  // it exposes pressed like the other toggles for date and priority sorts.
+  const reverseActive = sortField !== "manual" && sortDirection === "desc";
   const summaryStatus = statusLabel.toLowerCase();
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
@@ -1584,15 +1584,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 selected={reverseActive}
                 size="icon-sm"
                 tabIndex={-1}
-                disabled={sortField === "manual" || sortField === "priority"}
+                disabled={sortField === "manual"}
                 aria-pressed={reverseActive}
                 aria-label={sortField === "manual"
                   ? "Reverse is unavailable for manual order."
                   : sortField === "priority"
-                    ? "Reverse is unavailable for priority."
-                  : sortDirection === "desc"
-                    ? "Newest first. Activate to show oldest first. Press S then R."
-                    : "Oldest first. Activate to show newest first. Press S then R."}
+                    ? sortDirection === "desc"
+                      ? "Highest priority first. Activate to show lowest priority first. Press S then R."
+                      : "Lowest priority first. Activate to show highest priority first. Press S then R."
+                    : sortDirection === "desc"
+                      ? "Newest first. Activate to show oldest first. Press S then R."
+                      : "Oldest first. Activate to show newest first. Press S then R."}
                 aria-keyshortcuts="R"
                 data-sort="task-sort-reverse"
                 onClick={reverseSort}
@@ -1600,9 +1602,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             }
           >
             {sortDirection === "desc" ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
-            <span className="sr-only">{sortDirection === "desc" ? "Newest first" : "Oldest first"}</span>
+            <span className="sr-only">{sortField === "priority" ? (sortDirection === "desc" ? "Highest priority first" : "Lowest priority first") : sortDirection === "desc" ? "Newest first" : "Oldest first"}</span>
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{sortField === "manual" ? "Unavailable for manual order" : sortField === "priority" ? "Unavailable for priority" : sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
+          <TooltipContent side="top" sideOffset={8}>{sortField === "manual" ? "Unavailable for manual order" : sortField === "priority" ? (sortDirection === "desc" ? "Highest priority first" : "Lowest priority first") : sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
           <ButtonGroup aria-label="Task list view">

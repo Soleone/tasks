@@ -1002,6 +1002,7 @@ test("task.list sorts by created and updated with direction", () => {
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created", direction: "asc" }), databasePath)), [oldest.id, middle.id, newest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "priority" }), databasePath)), [middle.id, newest.id, oldest.id]);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "priority", direction: "asc" }), databasePath)), [oldest.id, newest.id, middle.id]);
     assert.throws(() => executeCommand(request("task.list", { direction: "sideways" }), databasePath), /direction must be asc or desc/);
   } finally {
     cleanDirectory(directory);

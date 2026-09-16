@@ -135,7 +135,8 @@ const UNDO_TOAST_DURATION_MS = 3000;
 function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
   if (field === "manual") return 0;
   if (field === "priority") {
-    return a.priority - b.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    const priorityDirection = direction === "desc" ? 1 : -1;
+    return priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   }
   const keyA = field === "created" ? a.createdAt : a.updatedAt;
   const keyB = field === "created" ? b.createdAt : b.updatedAt;
