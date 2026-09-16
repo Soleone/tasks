@@ -1358,6 +1358,27 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipTrigger
             render={
               <Button
+                variant={categoryFilter ? "outline" : "ghost"}
+                selected={categoryFilter !== null}
+                size="icon-sm"
+                tabIndex={-1}
+                aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category. Press @ or F then C."}
+                aria-pressed={categoryFilter !== null}
+                aria-keyshortcuts="@ C"
+                data-filter="task-category"
+                onClick={toggleCategoryFilter}
+              />
+            }
+          >
+            <Folder className="text-success" aria-hidden="true" />
+            <span className="sr-only">{categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category"}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>{categoryFilter ? categoryFilter.label : "Category"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
                 variant={statusActive ? "outline" : "ghost"}
                 selected={statusActive}
                 size="icon-sm"
@@ -1395,27 +1416,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             <span className="sr-only">{`Priority: ${priorityLabel}`}</span>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={8}>{priorityLabel}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant={categoryFilter ? "outline" : "ghost"}
-                selected={categoryFilter !== null}
-                size="icon-sm"
-                tabIndex={-1}
-                aria-label={categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category. Press @ or F then C."}
-                aria-pressed={categoryFilter !== null}
-                aria-keyshortcuts="@ C"
-                data-filter="task-category"
-                onClick={toggleCategoryFilter}
-              />
-            }
-          >
-            <Folder aria-hidden="true" />
-            <span className="sr-only">{categoryFilter ? `Clear category filter: ${categoryFilter.label}` : "Filter by category"}</span>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>{categoryFilter ? categoryFilter.label : "Category"}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger

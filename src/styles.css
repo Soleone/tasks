@@ -92,7 +92,7 @@
   --success: var(--om-green);
   --warning: var(--om-yellow);
   --info: var(--om-cyan);
-  --classification-category: var(--om-muted-foreground);
+  --classification-category: var(--om-green);
   --classification-tag: var(--om-foreground);
   --classification-foreground: var(--om-darker-background);
   --border: var(--om-muted);
