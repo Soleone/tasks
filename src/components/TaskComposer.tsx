@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type TaskComposerProps = {
   task?: TaskRecord;
+  initialTitle?: string;
   parentId?: string;
   titleInputRef?: RefObject<HTMLInputElement | null>;
   onSaved: (task: TaskRecord) => void;
@@ -20,7 +21,7 @@ type TaskComposerProps = {
 // Shared create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, parentId, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -29,7 +30,7 @@ export function TaskComposer({ task, parentId, titleInputRef, onSaved, onCancel 
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
-  const [title, setTitle] = useState(task?.title ?? "");
+  const [title, setTitle] = useState(task?.title ?? initialTitle);
   const [description, setDescription] = useState(task?.descriptionMarkdown ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.descriptionMarkdown));

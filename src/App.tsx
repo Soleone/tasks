@@ -328,7 +328,14 @@ export default function App(): ReactElement {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
     focusStack.push("composer", fromPalette ?? undefined);
     setHelpOpen(false);
-    setComposer(parentId ? { mode: "create", parentId } : { mode: "create" });
+    const classification = [
+      ...(categoryFilter ? [`@${categoryFilter.slug}`] : []),
+      ...tagFilter.map((tag) => `#${tag.slug}`),
+    ];
+    const initialTitle = classification.length > 0 ? `${classification.join(" ")} ` : undefined;
+    setComposer(parentId
+      ? { mode: "create", parentId, ...(initialTitle ? { initialTitle } : {}) }
+      : { mode: "create", ...(initialTitle ? { initialTitle } : {}) });
   }
 
   function openEdit(task: TaskRecord): void {

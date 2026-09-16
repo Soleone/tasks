@@ -4,7 +4,7 @@ import { TaskComposer } from "@/components/TaskComposer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export type ComposerState =
-  | { mode: "create"; parentId?: string }
+  | { mode: "create"; parentId?: string; initialTitle?: string }
   | { mode: "edit"; task: TaskRecord };
 
 type TaskComposerDialogProps = {
@@ -21,6 +21,7 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
   const open = composer !== null;
   const task = composer?.mode === "edit" ? composer.task : undefined;
   const parentId = composer?.mode === "create" ? composer.parentId : undefined;
+  const initialTitle = composer?.mode === "create" ? composer.initialTitle : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +47,7 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
           <TaskComposer
             key={task ? task.id : `create-${parentId ?? "root"}`}
             task={task}
+            initialTitle={initialTitle}
             parentId={parentId}
             titleInputRef={titleInput}
             onSaved={onSaved}
