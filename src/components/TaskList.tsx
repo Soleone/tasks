@@ -353,18 +353,29 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
 
     const requestedSelection = restoreSelectionIdsRef.current ?? selectedIdsRef.current;
-    const nextSelection = new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
+    // A created task becomes the sole selection. This must win over the
+    // preserved selection so creating after a Shift range cannot leave both
+    // the old range and the new active task selected.
+    const createdTaskId: string | null = newTaskId !== undefined && newTaskId !== null && selectableIds.has(newTaskId)
+      ? newTaskId
+      : null;
+    const nextSelection = createdTaskId !== null
+      ? new Set<string>([createdTaskId])
+      : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
     const visibleActive = visibleRows[activeIndex];
     if (nextSelection.size === 0 && visibleActive && !visibleActive.contextOnly && !selectionClearedRef.current) nextSelection.add(visibleActive.task.id);
     const changed = nextSelection.size !== selectedIdsRef.current.size
       || [...nextSelection].some((id) => !selectedIdsRef.current.has(id));
     if (changed) setSelectedIds(nextSelection);
     selectedIdsRef.current = nextSelection;
-    if (selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
-      selectionAnchorRef.current = nextSelection.values().next().value ?? null;
+    if (createdTaskId !== null) {
+      selectionClearedRef.current = false;
+      selectionAnchorRef.current = createdTaskId;
+    } else if (selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
+      selectionAnchorRef.current = [...nextSelection][0] ?? null;
     }
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
-  }, [activeIndex, activeTaskIndex, onActiveTaskIndexChange, onAnnounce, selectedIds, viewIdentity, visibleRows]);
+  }, [activeIndex, activeTaskIndex, newTaskId, onActiveTaskIndexChange, onAnnounce, selectedIds, viewIdentity, visibleRows]);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
