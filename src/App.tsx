@@ -1104,7 +1104,7 @@ export default function App(): ReactElement {
             };
             if (exitsList) {
               setExitingTaskId(task.id);
-              window.setTimeout(remove, 220);
+              window.setTimeout(remove, 150);
             } else {
               remove();
             }
