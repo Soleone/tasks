@@ -1006,6 +1006,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
       deleteReceipts.current.delete(task.id);
       if (result.changed !== false) onStatusChanged?.(task, result.task, true);
+      // Remove the selected styling before the parent starts the exit animation.
+      // Otherwise the moving border makes the cancellation transition look wrong.
+      setSelection([], null);
       onCanceled(result.task);
     } catch (caught) {
       if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
