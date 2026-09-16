@@ -124,7 +124,7 @@ export function TaskRowMetadata({ task }: { task: TaskRecord }): ReactElement {
     <ItemDescription metadata>
       {task.category ? (
         <Badge variant="category">
-          <Folder className="text-success" data-icon="inline-start" aria-hidden="true" />
+          <Folder data-icon="inline-start" aria-hidden="true" />
           {task.category.label}
         </Badge>
       ) : null}
