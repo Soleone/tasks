@@ -248,6 +248,7 @@ export function TaskComposer({ task, parentId, titleInputRef, onSaved, onCancel 
                   role="radio"
                   aria-checked={selected}
                   variant={selected ? "outline" : "ghost"}
+                  selected={selected}
                   size="sm"
                   tabIndex={-1}
                   aria-label={`${meta.shortLabel}: ${meta.label}`}

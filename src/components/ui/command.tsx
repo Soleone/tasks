@@ -50,12 +50,16 @@ function CommandDialog({
   children,
   className,
   showCloseButton = false,
+  initialFocus,
+  finalFocus,
   ...props
 }: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
+  initialFocus?: React.ComponentProps<typeof DialogContent>["initialFocus"]
+  finalFocus?: React.ComponentProps<typeof DialogContent>["finalFocus"]
   children: React.ReactNode
 }) {
   return (
@@ -66,10 +70,14 @@ function CommandDialog({
       </DialogHeader>
       <DialogContent
         className={cn(
-          "overflow-hidden rounded-xl! p-0",
+          // Flush command surface. The shared DialogContent keeps the
+          // top-anchored popup; rounded-xl comes from that base.
+          "overflow-hidden p-0",
           className
         )}
         showCloseButton={showCloseButton}
+        initialFocus={initialFocus}
+        finalFocus={finalFocus}
       >
         {children}
       </DialogContent>
@@ -180,13 +188,19 @@ function CommandItem({
 
 function CommandShortcut({
   className,
+  keys = false,
   ...props
-}: React.ComponentProps<"span">) {
+}: React.ComponentProps<"span"> & {
+  // Keycap groups keep normal letter spacing next to Kbd chips. The
+  // plain label keeps the component's wider tracking.
+  keys?: boolean
+}) {
   return (
     <span
       data-slot="command-shortcut"
       className={cn(
         "ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
+        keys && "flex shrink-0 items-center tracking-normal",
         className
       )}
       {...props}

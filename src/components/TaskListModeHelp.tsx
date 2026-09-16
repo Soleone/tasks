@@ -103,9 +103,9 @@ export function TaskListModeHelp({ mode, onDismiss }: { mode: TaskListMode; onDi
         sideOffset={8}
         initialFocus={false}
         finalFocus={false}
-        data-density="guide"
+        density="guide"
       >
-        <PopoverHeader data-inline>
+        <PopoverHeader inline>
           <PopoverTitle>{guide.title}</PopoverTitle>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <KbdGroup>

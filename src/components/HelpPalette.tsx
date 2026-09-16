@@ -25,8 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { TaskRecord } from "@/backend/protocol";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 type HelpEntry = {
@@ -122,17 +121,14 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
   const searchInput = useRef<HTMLInputElement>(null);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>Shortcuts and syntax</DialogTitle>
-        <DialogDescription>Keyboard help, @categories and #tags.</DialogDescription>
-      </DialogHeader>
-      <DialogContent
-        data-command
-        showCloseButton={false}
-        initialFocus={searchInput}
-        finalFocus={finalFocus}
-     >
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Shortcuts and syntax"
+      description="Keyboard help, @categories and #tags."
+      initialFocus={searchInput}
+      finalFocus={finalFocus}
+    >
         <Command label="Search shortcuts and syntax" filter={literalWordScore} loop>
           <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
           <CommandList label="Help results">
@@ -179,7 +175,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                         <span className="font-medium">{entry.label}</span>
                         {entry.hint ? <span className="text-muted-foreground">{entry.hint}</span> : null}
                         {entry.keys ? (
-                          <CommandShortcut data-keys>
+                          <CommandShortcut keys>
                             <KbdGroup>
                               {entry.keys.map((key) => (
                                 <Kbd key={key}>{key}</Kbd>
@@ -195,7 +191,6 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
             ))}
           </CommandList>
         </Command>
-      </DialogContent>
-    </Dialog>
+    </CommandDialog>
   );
 }

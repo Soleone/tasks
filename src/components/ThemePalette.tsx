@@ -1,8 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
 
 export function modeLabel(mode: ThemeMode): string {
   if (mode === "system") return "Follows system";
@@ -63,17 +62,14 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
   }, [open, selectedTheme, themes.length]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>Themes</DialogTitle>
-        <DialogDescription>Choose the workspace theme.</DialogDescription>
-      </DialogHeader>
-      <DialogContent
-        data-command
-        showCloseButton={false}
-        initialFocus={searchInput}
-        finalFocus={finalFocus}
-     >
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Themes"
+      description="Choose the workspace theme."
+      initialFocus={searchInput}
+      finalFocus={finalFocus}
+    >
         {/* Reinitialize cmdk when the active theme arrives after an early open. */}
         <Command
           key={selectedTheme}
@@ -92,7 +88,6 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
             </CommandGroup>
           </CommandList>
         </Command>
-      </DialogContent>
-    </Dialog>
+    </CommandDialog>
   );
 }
