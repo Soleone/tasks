@@ -1535,7 +1535,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipContent side="top" sideOffset={8}>{searchActive ? searchQuery.trim() : "Search"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
-          <Separator orientation="vertical" className="h-5" />
+          <Separator orientation="vertical" className="h-7" />
           <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"
@@ -1665,7 +1665,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipContent side="top" sideOffset={8}>{sortField === "manual" ? "Unavailable for manual order" : sortField === "priority" ? (sortDirection === "desc" ? "Highest priority first" : "Lowest priority first") : sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
-          <Separator orientation="vertical" className="h-5" />
+          <Separator orientation="vertical" className="h-7" />
           <ButtonGroup aria-label="Task list view">
         <Tooltip>
           <TooltipTrigger
