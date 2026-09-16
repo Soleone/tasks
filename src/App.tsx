@@ -741,8 +741,9 @@ export default function App(): ReactElement {
     }
     setActiveTaskIndex(0);
     setAnnouncement(`${creating ? "Added" : "Saved"}: ${task.title}`);
-    // Create stays open for rapid capture; edit closes back to the list.
-    if (!creating) setComposer(null);
+    // Creating one task returns to the list instead of reopening capture.
+    // The next task can still be started with C or the New task action.
+    setComposer(null);
     void refreshTasks();
   }
 

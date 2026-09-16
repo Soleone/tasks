@@ -177,9 +177,10 @@ try {
   waitFor('document.activeElement.name === "description"');
   browser("press", "Escape");
   check('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\').value.includes("accessibility")');
-  // Create stays open after save for rapid capture; the row appears behind the dialog.
+  // Saving one task closes capture and returns focus to the list.
   browser("press", "Control+Enter");
-  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
+  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.activeElement?.getAttribute("role") === "listbox"');
   let saved = (await command("task.list")).tasks;
   assert.equal(saved.length, 1);
   assert.equal(saved[0].descriptionMarkdown, "## Shortlist\n- Ask about accessibility");
@@ -191,10 +192,6 @@ try {
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.textContent === \"\"");
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
-  // Close the create dialog to return to the list.
-  browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
-  waitFor('document.activeElement?.getAttribute("role") === "listbox"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
   evaluate('document.querySelector("[role=option] [data-status]").click(); true');
   waitFor('document.querySelector("form[aria-label^=Edit]") === null && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
@@ -352,18 +349,18 @@ try {
   waitFor('document.body.textContent.includes("Could not save")');
   check('document.querySelector(\'form[aria-label="New task"] input\').value === "Next capture draft"');
   browser("press", "Enter");
-  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
+  waitFor('!document.querySelector("[role=dialog]")');
   assert.equal((await command("task.list")).tasks.length, 2);
   evaluate("window.fetch = window.originalFetch; true");
 
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("fill", 'form[aria-label="New task"] input', "Ambiguous @work @home");
   browser("press", "Enter");
   waitFor('document.body.textContent.includes("only one @category")');
   check('document.querySelector(\'form[aria-label="New task"] input\').value === "Ambiguous @work @home"');
   browser("fill", 'form[aria-label="New task"] input', "Call the venue");
   browser("press", "Enter");
-  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
-  browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
@@ -810,10 +807,8 @@ try {
   browser("press", "0");
   waitFor('document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
   browser("press", "Control+Enter");
-  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
-  assert.equal((await command("task.list", { priority: 0 })).total, 1);
-  browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
+  assert.equal((await command("task.list", { priority: 0 })).total, 1);
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 10');
 
@@ -1001,11 +996,9 @@ try {
   waitFor('document.activeElement.name === "title"');
   browser("fill", 'form[aria-label="New task"] input', "Venue follow-up");
   browser("press", "Control+Enter");
-  waitFor('document.querySelector(\'form[aria-label="New task"] input\').value === ""');
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement?.getAttribute("role") === "listbox"');
   const child = (await command("task.list")).tasks.find((task) => task.title === "Venue follow-up");
   assert.equal(child?.parentId, parentId);
-  browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]") && document.activeElement?.getAttribute("role") === "listbox"');
 
   // M opens a move picker. Nested tasks can remove their parent from a
   // separate group above the new-parent results.

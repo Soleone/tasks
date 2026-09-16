@@ -15,7 +15,7 @@ type TaskComposerDialogProps = {
 };
 
 // One dialog for both create and edit so the two flows stay connected.
-// Create stays open after save for rapid capture; edit closes on save.
+// Both flows close after save and return to the task list.
 export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: TaskComposerDialogProps): ReactElement {
   const titleInput = useRef<HTMLInputElement>(null);
   const open = composer !== null;
