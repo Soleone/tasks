@@ -185,18 +185,18 @@
 }
 
 [data-new-task="true"] {
-  animation: task-list-insert 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: task-list-insert 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   transform-origin: top center;
 }
 
 @keyframes task-list-insert {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.99);
+    transform: translateX(-18px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
   }
 }
 

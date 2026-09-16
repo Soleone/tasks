@@ -847,7 +847,7 @@ export default function App(): ReactElement {
 
   useEffect(() => {
     if (newTaskId === null) return;
-    const timeout = window.setTimeout(() => setNewTaskId(null), 180);
+    const timeout = window.setTimeout(() => setNewTaskId(null), 240);
     return () => window.clearTimeout(timeout);
   }, [newTaskId]);
 
