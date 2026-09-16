@@ -1287,9 +1287,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     : "Priority";
   const tagLabel = tagFilter.length > 0 ? `${tagFilter.length} tag${tagFilter.length === 1 ? "" : "s"}` : "Tags";
   const searchActive = searchQuery.trim() !== "";
-  // The direction toggle is momentary, but its state is real sort state, so
-  // it exposes pressed like the other toggles for date and priority sorts.
-  const reverseActive = sortField !== "manual" && sortDirection === "desc";
+  // Descending is the default direction. The toggle is highlighted only
+  // after reversing that default to ascending order.
+  const reverseActive = sortField !== "manual" && sortDirection === "asc";
   const summaryStatus = statusLabel.toLowerCase();
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
