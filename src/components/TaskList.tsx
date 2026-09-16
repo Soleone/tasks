@@ -1392,7 +1392,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             <Plus aria-hidden="true" />
             New task
           </Button>
-          <div className="relative flex flex-wrap items-center justify-end gap-2">
+          <div className="relative flex flex-wrap items-center justify-end gap-1">
           {toolbarMode ? <TaskListModeHelp mode={toolbarMode} onDismiss={returnToList} /> : null}
           <ButtonGroup
             ref={filterToolbar}
