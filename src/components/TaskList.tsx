@@ -1,4 +1,5 @@
 import {
+  Fragment,
   forwardRef,
   useEffect,
   useImperativeHandle,
@@ -1320,7 +1321,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     categoryFilter ? categoryFilter.label : null,
     ...summarySuffixParts,
   ].filter((part): part is string => part !== null).join(" · ");
-  const filterSummarySuffix = summarySuffixParts.join(" · ");
+
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
   const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
   const selectionCount = selectedIds.size;
@@ -1784,14 +1785,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 </BreadcrumbItem>
               </>
             ) : null}
-            {filterSummarySuffix ? (
-              <>
+            {summarySuffixParts.map((part, index) => (
+              <Fragment key={`${index}-${part}`}>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem className="min-w-0">
-                  <span className="min-w-0 truncate">{filterSummarySuffix}</span>
+                  <span className="min-w-0 truncate">{part}</span>
                 </BreadcrumbItem>
-              </>
-            ) : null}
+              </Fragment>
+            ))}
           </BreadcrumbList>
         </Breadcrumb>
       </div>
