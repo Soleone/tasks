@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type RefObject } from "react";
-import type { TaskPriority, TaskRecord } from "@/backend/protocol";
+import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { createTask, updateTask, BackendCommandError } from "@/platform/backendClient";
+import { createTask, listCategories, listTags, updateTask, BackendCommandError } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -37,6 +37,10 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [tags, setTags] = useState<TagRecord[]>([]);
+  const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const dirty = title !== (task?.title ?? "")
     || description !== (task?.descriptionMarkdown ?? "")
     || priority !== (task?.priority ?? 2);
@@ -54,6 +58,72 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       notesInput.current?.focus();
     }
   }, [notesOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listCategories(), listTags()])
+      .then(([categoryResult, tagResult]) => {
+        if (cancelled) return;
+        setCategories(categoryResult.categories);
+        setTags(tagResult.tags);
+      })
+      .catch(() => {
+        // Autocomplete is a convenience. The title remains fully editable if
+        // the shared backend is unavailable while the dialog is open.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const suggestionItems = suggestion?.marker === "@"
+    ? categories.filter((category) => category.label.toLowerCase().startsWith(suggestion.query.toLowerCase()))
+    : suggestion
+      ? tags.filter((tag) => tag.label.toLowerCase().startsWith(suggestion.query.toLowerCase()))
+      : [];
+
+  function updateSuggestion(nextTitle: string, cursor: number): void {
+    const beforeCursor = nextTitle.slice(0, cursor);
+    const match = beforeCursor.match(/(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)?$/);
+    if (!match) {
+      setSuggestion(null);
+      return;
+    }
+    const marker = match[2] as "@" | "#";
+    const query = match[3] ?? "";
+    const start = cursor - query.length - 1;
+    setSuggestion({ marker, start, end: cursor, query });
+    setSuggestionIndex(0);
+  }
+
+  function chooseSuggestion(item: CategoryRecord | TagRecord): void {
+    if (!suggestion) return;
+    const replacement = `${suggestion.marker}${item.label} `;
+    const nextTitle = `${title.slice(0, suggestion.start)}${replacement}${title.slice(suggestion.end)}`;
+    const cursor = suggestion.start + replacement.length;
+    setTitle(nextTitle);
+    setSuggestion(null);
+    requestAnimationFrame(() => {
+      titleInput.current?.focus();
+      titleInput.current?.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  function handleSuggestionKeyDown(event: KeyboardEvent<HTMLInputElement>): boolean {
+    if (!suggestion || suggestionItems.length === 0) return false;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      setSuggestionIndex((current) => (current + delta + suggestionItems.length) % suggestionItems.length);
+      return true;
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      chooseSuggestion(suggestionItems[suggestionIndex]);
+      return true;
+    }
+    return false;
+  }
 
   function showNotes(): void {
     focusNotesOnOpen.current = true;
@@ -94,6 +164,12 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
     if (event.nativeEvent.isComposing || event.keyCode === 229) {
       if (event.key === "Enter") event.preventDefault();
+      return;
+    }
+    if (handleSuggestionKeyDown(event)) return;
+    if (event.key === "Escape" && suggestion) {
+      event.preventDefault();
+      setSuggestion(null);
       return;
     }
     if (event.key === "Escape") {
@@ -173,7 +249,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       className="flex flex-col gap-4"
     >
       <FieldGroup>
-        <Field data-invalid={titleError || undefined}>
+        <Field className="relative" data-invalid={titleError || undefined}>
           <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
           <Input
             ref={titleInput}
@@ -186,9 +262,39 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
             required
             aria-invalid={titleError || undefined}
             aria-describedby={titleError ? `${id}-error` : undefined}
-            onChange={(event) => { setTitle(event.target.value); setTitleError(false); }}
+            aria-expanded={suggestion !== null && suggestionItems.length > 0}
+            aria-autocomplete="list"
+            onChange={(event) => {
+              setTitle(event.target.value);
+              setTitleError(false);
+              updateSuggestion(event.target.value, event.target.selectionStart ?? event.target.value.length);
+            }}
             onKeyDown={handleTitleKeyDown}
+            onClick={(event) => updateSuggestion(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length)}
           />
+          {suggestion && suggestionItems.length > 0 ? (
+            <div
+              role="listbox"
+              aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
+              className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            >
+              {suggestionItems.map((item, index) => (
+                <button
+                  key={item.slug}
+                  type="button"
+                  role="option"
+                  aria-selected={index === suggestionIndex}
+                  tabIndex={-1}
+                  className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => chooseSuggestion(item)}
+                >
+                  <span>{suggestion.marker}{item.label}</span>
+                  <span className="text-xs text-muted-foreground">{item.taskCount} {item.taskCount === 1 ? "task" : "tasks"}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
         {notesOpen ? (
