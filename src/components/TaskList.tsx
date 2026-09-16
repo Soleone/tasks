@@ -88,6 +88,7 @@ export type TaskListHandle = {
 type TaskListProps = {
   tasks: TaskRecord[];
   newTaskId?: string | null;
+  exitingTaskId?: string | null;
   contextTasks: TaskRecord[];
   contextOrder: ReadonlyMap<string, number>;
   total: number;
@@ -194,6 +195,7 @@ const TOGGLE_FEEDBACK_DURATION_MS = 900;
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
   newTaskId,
+  exitingTaskId,
   contextTasks,
   contextOrder,
   total,
@@ -1849,7 +1851,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
-          className="flex w-full flex-col gap-2 outline-none"
+          className="flex w-full flex-col gap-2 overflow-x-clip outline-none"
           onFocus={() => setListFocused(true)}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
@@ -1877,6 +1879,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                 data-context-parent={row.contextOnly || undefined}
                 data-depth={row.depth}
                 data-new-task={task.id === newTaskId || undefined}
+                data-canceled-task={task.id === exitingTaskId || undefined}
                 size="sm"
                 variant={active ? "outline" : "default"}
                 state={active

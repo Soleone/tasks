@@ -230,6 +230,7 @@ export default function App(): ReactElement {
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
+  const [exitingTaskId, setExitingTaskId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
   const querySequence = useRef(0);
@@ -1034,6 +1035,7 @@ export default function App(): ReactElement {
           ref={taskListRef}
           tasks={tasks}
           newTaskId={newTaskId}
+          exitingTaskId={exitingTaskId}
           contextTasks={contextTasks}
           contextOrder={contextOrder}
           total={total}
@@ -1085,9 +1087,28 @@ export default function App(): ReactElement {
           onUndoStatus={() => void handleUndoStatus()}
           onCanceled={(task) => {
             ++querySequence.current;
-            updateVisibleTask(task);
+            const exitsList = tasks.some((existing) => existing.id === task.id) && !taskIsVisible(
+              task,
+              exactStatus,
+              statusPreset,
+              showUnblocked,
+              categoryFilter?.slug ?? null,
+              priorityFilter,
+              tagFilter.map((tag) => tag.slug),
+              searchQuery,
+            );
+            const remove = (): void => {
+              updateVisibleTask(task);
+              setExitingTaskId(null);
+              void refreshTasks(0, true);
+            };
+            if (exitsList) {
+              setExitingTaskId(task.id);
+              window.setTimeout(remove, 220);
+            } else {
+              remove();
+            }
             setAnnouncement(`Canceled: ${task.title}`);
-            void refreshTasks(0, true);
           }}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
