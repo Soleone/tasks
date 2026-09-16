@@ -51,7 +51,7 @@ function writeStored(key: string, value: string): void {
 
 function readSortField(): SortField {
   const stored = readStored(SORT_FIELD_KEY);
-  return stored === "created" || stored === "manual" ? stored : "updated";
+  return stored === "created" || stored === "priority" || stored === "manual" ? stored : "updated";
 }
 
 function readSortDirection(): SortDirection {
@@ -134,6 +134,9 @@ const UNDO_TOAST_DURATION_MS = 3000;
 
 function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
   if (field === "manual") return 0;
+  if (field === "priority") {
+    return a.priority - b.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  }
   const keyA = field === "created" ? a.createdAt : a.updatedAt;
   const keyB = field === "created" ? b.createdAt : b.updatedAt;
   if (keyA !== keyB) {

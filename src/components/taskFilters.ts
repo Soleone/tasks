@@ -61,10 +61,12 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "canceled", label: "Canceled", key: "X" },
 ];
 
-export type SortField = "created" | "updated" | "manual";
+export type SortField = "created" | "updated" | "priority" | "manual";
 export type SortDirection = "asc" | "desc";
 
 /** Quiet status message for a selected sort. */
 export function sortSummary(field: SortField, direction: SortDirection): string {
-  return field === "manual" ? "manual order" : `by ${field}, ${direction}`;
+  if (field === "manual") return "manual order";
+  if (field === "priority") return "by priority";
+  return `by ${field}, ${direction}`;
 }

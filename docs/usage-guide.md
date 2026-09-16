@@ -34,7 +34,7 @@ Unblocked is an existing extension after the plan's five dimensions. Each button
 - Tags: `#tags` multi-select with AND semantics. In the picker, `Space` toggles the highlighted tag; `Enter` selects it first when none are selected, then closes; a `Clear tags` row empties the filter. Tags used only by canceled tasks are omitted.
 - Relationships: canceled tasks cannot be chosen as new parents or blockers, and a new child cannot be created under a canceled parent. Existing parent and dependency links remain available for removal. A canceled dependency does not count as a blocker for the Unblocked filter.
 - Search: titles and descriptions. The query stays applied after the dialog closes.
-- Sort: Created or Updated date, Manual order, and newest or oldest direction for date sorts. Updated/newest is the default. Manual order is a persistent sibling order shared by the UI, CLI, and agents; reverse is unavailable for it. The reverse toggle exposes its direction through its pressed state (pressed means newest first). The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated, and list-ordered is manual.
+- Sort: Created or Updated date, Priority, Manual order, and newest or oldest direction for date sorts. Updated/newest is the default. Manual order is a persistent sibling order shared by the UI, CLI, and agents; reverse is unavailable for it. The reverse toggle exposes its direction through its pressed state (pressed means newest first). The field icons mirror the time footer: clock-3 is created, rotate-ccw-clock is updated, and list-ordered is manual.
 - View: Details toggles optional task descriptions and the per-task time footer together. Off by default; a display preference, not a filter, so `Escape` never clears it. Active blocked-by context remains visible either way. Move opens the mouse-only controls for the selected task group in a popover below the toolbar; it is closed by default.
 - Hierarchy: Status and other filters do not sever parent links. When a matching child belongs to an excluded ancestor, the ancestor appears as a muted explanatory row, does not count toward the filtered total, and remains expandable.
 - Manual ordering: Every sibling scope has a dense persistent order. New tasks and tasks moved under a new parent enter first. Root moves carry their descendants; child moves stay inside the current parent. Canceled and reopened tasks keep their position. Shift selection and reordering stay within one visible sibling scope. Manual ordering is unavailable while a context-only ancestor is active.
@@ -71,6 +71,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `S` | Focus the sort toolbar; the next key picks a sort, or press `S` again to return to the list |
 | `S then C` | Sort by created date |
 | `S then U` | Sort by updated date |
+| `S then P` | Sort by priority, highest first |
 | `S then M` | Sort by manual sibling order |
 | `S then R` | Reverse the newest/oldest direction for date sorts |
 | `V` | Toggle task descriptions and the time footer |

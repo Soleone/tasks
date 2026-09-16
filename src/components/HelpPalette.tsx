@@ -58,7 +58,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Filter by tags", hint: "# opens; F then T also works, Space picks, Enter closes", icon: Tags, keys: ["#", "F → T"], action: "filter-tags", keywords: "# f t tags filter clear multi and" },
       { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
       { label: "Filter shortcuts", hint: "F focuses toolbar; F again closes", icon: ListFilter, keys: ["F"], keywords: "f filter mode preset exact status priority category tags unblocked focus close toggle" },
-      { label: "Sort tasks", hint: "S focuses toolbar; R reverses date direction", icon: ArrowDownUp, keys: ["S", "C/U/M/R"], keywords: "s order sort created updated manual reverse newest oldest direction focus close toggle" },
+      { label: "Sort tasks", hint: "S focuses toolbar; P sorts by priority", icon: ArrowDownUp, keys: ["S", "C/U/P/M/R"], keywords: "s order sort created updated priority manual reverse newest oldest direction focus close toggle" },
       { label: "Select a task range", hint: "Shift+keys or Shift/Ctrl-click", icon: ListChecks, keys: ["Shift+↑/↓", "Shift+Home/End"], keywords: "shift selection range sibling group multiselect pointer mouse click" },
       { label: "Move selected tasks", hint: "Manual order; Ctrl/⌘+keys", icon: ArrowDownUp, keys: ["Ctrl/⌘+↑/↓", "Ctrl/⌘+Home/End"], keywords: "manual reorder move selected group beginning end up down" },
       { label: "Show task details", hint: "Descriptions and timestamps", icon: ListChevronsUpDown, keys: ["V"], keywords: "v view details description notes timestamps created updated time footer today yesterday date" },

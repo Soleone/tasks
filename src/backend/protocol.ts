@@ -45,7 +45,7 @@ export type CommandName = (typeof COMMAND_NAMES)[number];
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type ActorKind = "human" | "agent" | "system";
-export type TaskListSort = "created" | "updated" | "manual";
+export type TaskListSort = "created" | "updated" | "priority" | "manual";
 export type TaskReorderTask = { id: string; expectedVersion: number };
 export type TaskReorderPlacement =
   | { beforeId: string }
@@ -322,8 +322,8 @@ export function parseRequest(value: unknown): ProtocolRequest {
     throw new ProtocolError("INVALID_REQUEST", "runtime.probe does not accept arguments");
   }
   if (value.command === "task.list" && args.sort !== undefined
-    && args.sort !== "created" && args.sort !== "updated" && args.sort !== "manual") {
-    throw new ProtocolError("INVALID_REQUEST", "task.list sort must be created, updated, or manual");
+    && args.sort !== "created" && args.sort !== "updated" && args.sort !== "priority" && args.sort !== "manual") {
+    throw new ProtocolError("INVALID_REQUEST", "task.list sort must be created, updated, priority, or manual");
   }
   if (value.command === "task.reorder") {
     parseTaskReorderArgs(args);

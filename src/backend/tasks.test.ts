@@ -971,6 +971,9 @@ test("task.list sorts by created and updated with direction", () => {
       stamp.run("2026-01-01T00:00:00.000Z", "2026-03-03T00:00:00.000Z", oldest.id);
       stamp.run("2026-01-02T00:00:00.000Z", "2026-03-02T00:00:00.000Z", middle.id);
       stamp.run("2026-01-03T00:00:00.000Z", "2026-03-01T00:00:00.000Z", newest.id);
+      database.prepare("UPDATE tasks SET priority = ? WHERE id = ?").run(4, oldest.id);
+      database.prepare("UPDATE tasks SET priority = ? WHERE id = ?").run(0, middle.id);
+      database.prepare("UPDATE tasks SET priority = ? WHERE id = ?").run(2, newest.id);
     } finally {
       database.close();
     }
@@ -979,7 +982,7 @@ test("task.list sorts by created and updated with direction", () => {
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "updated", direction: "asc" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created", direction: "asc" }), databasePath)), [oldest.id, middle.id, newest.id]);
-    assert.throws(() => executeCommand(request("task.list", { sort: "priority" }), databasePath), /sort must be created, updated, or manual/);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "priority" }), databasePath)), [middle.id, newest.id, oldest.id]);
     assert.throws(() => executeCommand(request("task.list", { direction: "sideways" }), databasePath), /direction must be asc or desc/);
   } finally {
     cleanDirectory(directory);

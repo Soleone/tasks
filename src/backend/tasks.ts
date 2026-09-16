@@ -1307,15 +1307,15 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     searchPattern = `%${escapeLikePattern(trimmed)}%`;
   }
   const sortArgument = request.args.sort ?? "updated";
-  if (sortArgument !== "created" && sortArgument !== "updated" && sortArgument !== "manual") {
-    throw new CommandError("INVALID_ARGUMENT", "sort must be created, updated, or manual");
+  if (sortArgument !== "created" && sortArgument !== "updated" && sortArgument !== "priority" && sortArgument !== "manual") {
+    throw new CommandError("INVALID_ARGUMENT", "sort must be created, updated, priority, or manual");
   }
   const directionArgument = request.args.direction ?? "desc";
   if (directionArgument !== "asc" && directionArgument !== "desc") {
     throw new CommandError("INVALID_ARGUMENT", "direction must be asc or desc");
   }
   // Both values are allow-listed above, so interpolation is safe.
-  const orderBy = sortArgument === "created" ? "tasks.created_at" : "tasks.updated_at";
+  const orderBy = sortArgument === "created" ? "tasks.created_at" : sortArgument === "priority" ? "tasks.priority" : "tasks.updated_at";
   const orderDirection = directionArgument === "asc" ? "ASC" : "DESC";
   const conditions: string[] = [];
   const params: Array<string | number> = [];
@@ -1367,7 +1367,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
        FROM tasks LEFT JOIN categories ON categories.id = tasks.category_id
        ${sortArgument === "manual" ? "JOIN task_tree ON task_tree.id = tasks.id" : ""}
        ${where}
-       ORDER BY ${sortArgument === "manual" ? "task_tree.order_path ASC" : `${orderBy} ${orderDirection}, tasks.id ASC`}
+       ORDER BY ${sortArgument === "manual" ? "task_tree.order_path ASC" : `${orderBy} ${sortArgument === "priority" ? "ASC" : orderDirection}, tasks.id ASC`}
        LIMIT ? OFFSET ?`,
     )
     .all(...params, limit, offset) as Row[];
