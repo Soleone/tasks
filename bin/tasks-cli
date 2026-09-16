@@ -2,12 +2,23 @@
 set -euo pipefail
 
 # Local PATH shim for the tasks-cli entrypoint. It resolves the repo root
-# from this script's location, builds the backend if needed, and execs the
-# compiled CLI so agents get the same command path as the desktop sidecar.
+# from this script's location, rebuilds the backend when sources are newer
+# than the compiled output, and execs it with system Node. This is the
+# development path: fast tsc only, never the SEA bake. The packaged SEA
+# binary under src-tauri/binaries/ is only for Tauri dev/bundle/probe runs.
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 compiled="$root/dist/backend/tasks-cli.js"
 
-if [[ ! -f "$compiled" ]]; then
+needs_build() {
+  if [[ ! -f "$compiled" ]]; then
+    return 0
+  fi
+  local newer
+  newer="$(find "$root/src/backend" -name '*.ts' -newer "$compiled" -print -quit)"
+  [[ -n "$newer" ]]
+}
+
+if needs_build; then
   pnpm --dir "$root" build:backend >&2
 fi
 
