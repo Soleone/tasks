@@ -73,7 +73,7 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm check` | Type-check the backend and web app. |
 | `pnpm test` | Build the backend and run the file-backed SQLite tests. |
 | `pnpm test:sidecar` | Build the target Node SEA sidecar and run it with a minimal environment. |
-| `pnpm build:sidecar` | Rebuild the target sidecar without running its probe. |
+| `pnpm build:sidecar` | Rebuild the target sidecar and `tasks-cli` binaries without running their probes. |
 | `pnpm test:ui` | Exercise the UI in Chromium against a temporary workspace. |
 | `pnpm dev:web` | Run Vite and the dev-only local backend. |
 | `pnpm dev:backend` | Run only the dev backend. |

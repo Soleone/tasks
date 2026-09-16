@@ -35,6 +35,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/tasks-backend"]
+    "externalBin": ["binaries/tasks-backend", "binaries/tasks-cli"]
   }
 }

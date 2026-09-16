@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Local PATH shim for the tasks-cli entrypoint. It resolves the repo root
+# from this script's location, builds the backend if needed, and execs the
+# compiled CLI so agents get the same command path as the desktop sidecar.
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+compiled="$root/dist/backend/tasks-cli.js"
+
+if [[ ! -f "$compiled" ]]; then
+  pnpm --dir "$root" build:backend >&2
+fi
+
+exec node "$compiled" "$@"

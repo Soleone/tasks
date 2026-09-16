@@ -7,9 +7,13 @@ const root = path.resolve(import.meta.dirname, "..");
 const target = execFileSync("rustc", ["--print", "host-tuple"], { encoding: "utf8" }).trim();
 const extension = process.platform === "win32" ? ".exe" : "";
 const binary = path.join(root, "src-tauri", "binaries", `tasks-backend-${target}${extension}`);
+const cliBinary = path.join(root, "src-tauri", "binaries", `tasks-cli-${target}${extension}`);
 
 if (!existsSync(binary)) {
   throw new Error(`Sidecar does not exist: ${path.relative(root, binary)}. Run pnpm build:sidecar first.`);
+}
+if (!existsSync(cliBinary)) {
+  throw new Error(`tasks-cli does not exist: ${path.relative(root, cliBinary)}. Run pnpm build:sidecar first.`);
 }
 
 const probeDirectory = mkdtempSync(path.join(os.tmpdir(), "tasks-sidecar-check-"));
@@ -32,6 +36,18 @@ try {
   }
 
   console.log(`PASS: ${path.relative(root, binary)} returned an FTS5 probe result.`);
+
+  const cliOutput = execFileSync(cliBinary, ["info", "--json", "--database", databasePath], {
+    cwd: root,
+    encoding: "utf8",
+    env: environment,
+  });
+  const info = JSON.parse(cliOutput);
+  if (info.databasePath !== databasePath || typeof info.taskCount !== "number") {
+    throw new Error("tasks-cli info did not report the expected workspace");
+  }
+
+  console.log(`PASS: ${path.relative(root, cliBinary)} reported its workspace as JSON.`);
 } finally {
   rmSync(probeDirectory, { recursive: true, force: true });
 }
