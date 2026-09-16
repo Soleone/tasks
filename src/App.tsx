@@ -27,6 +27,13 @@ import { applyTheme } from "@/theme";
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
+const STATUS_PRESET_KEY = "tasks.statusPreset";
+const EXACT_STATUS_KEY = "tasks.exactStatus";
+const PRIORITY_FILTER_KEY = "tasks.priorityFilter";
+const TAG_FILTER_KEY = "tasks.tagFilter";
+const SEARCH_QUERY_KEY = "tasks.searchQuery";
+const UNBLOCKED_FILTER_KEY = "tasks.showUnblocked";
+const CATEGORY_FILTER_KEY = "tasks.categoryFilter";
 const SORT_FIELD_KEY = "tasks.sortField";
 const SORT_DIRECTION_KEY = "tasks.sortDirection";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
@@ -46,6 +53,31 @@ function writeStored(key: string, value: string): void {
     localStorage.setItem(key, value);
   } catch {
     // Without storage the choice lasts for this session.
+  }
+}
+
+function readStatusPreset(): StatusPreset {
+  return readStored(STATUS_PRESET_KEY) === "inactive" ? "inactive" : "active";
+}
+
+function readExactStatus(): TaskStatus | null {
+  const stored = readStored(EXACT_STATUS_KEY);
+  return stored === "open" || stored === "in_progress" || stored === "paused" || stored === "done" || stored === "canceled" ? stored : null;
+}
+
+function readPriorityFilter(): TaskPriority | null {
+  const stored = readStored(PRIORITY_FILTER_KEY);
+  return stored !== null && /^[0-4]$/.test(stored) ? Number(stored) as TaskPriority : null;
+}
+
+function readSlugs(key: string): string[] {
+  const stored = readStored(key);
+  if (!stored) return [];
+  try {
+    const value: unknown = JSON.parse(stored);
+    return Array.isArray(value) && value.every((entry) => typeof entry === "string") ? value : [];
+  } catch {
+    return [];
   }
 }
 
@@ -156,12 +188,12 @@ export default function App(): ReactElement {
   const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
   const [contextOrder, setContextOrder] = useState<Map<string, number>>(() => new Map());
   const [total, setTotal] = useState(0);
-  const [statusPreset, setStatusPreset] = useState<StatusPreset>("active");
-  const [exactStatus, setExactStatus] = useState<TaskStatus | null>(null);
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(null);
+  const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
+  const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(readPriorityFilter);
   const [tagFilter, setTagFilter] = useState<TagRecord[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showUnblocked, setShowUnblocked] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(() => readStored(SEARCH_QUERY_KEY) ?? "");
+  const [showUnblocked, setShowUnblocked] = useState(() => readStored(UNBLOCKED_FILTER_KEY) === "true");
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
@@ -197,7 +229,10 @@ export default function App(): ReactElement {
   const showUnblockedRef = useRef(false);
   const sortFieldRef = useRef<SortField>("updated");
   const sortDirectionRef = useRef<SortDirection>("desc");
-  const categoryFilterRef = useRef<string | null>(null);
+  const categoryFilterRef = useRef<string | null>(readStored(CATEGORY_FILTER_KEY));
+  const storedTagSlugsRef = useRef(readSlugs(TAG_FILTER_KEY));
+  const restoredCategoryRef = useRef(false);
+  const restoredTagsRef = useRef(false);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
   composerRef.current = composer;
@@ -235,6 +270,30 @@ export default function App(): ReactElement {
         for (const task of result.contextTasks) next.set(task.id, task);
         return [...next.values()];
       });
+      if (!offset) {
+        const loadedTasks = [...result.tasks, ...result.contextTasks];
+        const categorySlug = categoryFilterRef.current;
+        if (!restoredCategoryRef.current) {
+          restoredCategoryRef.current = true;
+          if (categorySlug !== null) {
+            const category = loadedTasks.find((task) => task.category?.slug === categorySlug)?.category;
+            setCategoryFilter(category
+              ? { ...category, taskCount: loadedTasks.filter((task) => task.category?.slug === category.slug).length }
+              : { slug: categorySlug, label: categorySlug, taskCount: 0 });
+          }
+        }
+        if (!restoredTagsRef.current) {
+          restoredTagsRef.current = true;
+          const tags = new Map(loadedTasks.flatMap((task) => task.tags).map((tag) => [tag.slug, tag]));
+          setTagFilter(storedTagSlugsRef.current.map((slug) => {
+            const tag = tags.get(slug);
+            return tag
+              ? { ...tag, taskCount: loadedTasks.filter((task) => task.tags.some((entry) => entry.slug === tag.slug)).length }
+              : { slug, label: slug, taskCount: 0 };
+          }));
+          storedTagSlugsRef.current = [];
+        }
+      }
       setTotal(result.total);
       initialLoadRetry.current = 0;
       return true;
@@ -466,8 +525,11 @@ export default function App(): ReactElement {
     // Clearing an exact status returns to the current preset; otherwise toggle.
     if (exactStatus !== null) {
       setExactStatus(null);
+      writeStored(EXACT_STATUS_KEY, "");
     } else {
-      setStatusPreset((previous) => (previous === "active" ? "inactive" : "active"));
+      const next = statusPreset === "active" ? "inactive" : "active";
+      setStatusPreset(next);
+      writeStored(STATUS_PRESET_KEY, next);
     }
     setActiveTaskIndex(0);
   }
@@ -500,23 +562,45 @@ export default function App(): ReactElement {
   function chooseExactStatus(status: TaskStatus | null): void {
     setStatusMenuOpen(false);
     setExactStatus(status);
+    writeStored(EXACT_STATUS_KEY, status ?? "");
+    setActiveTaskIndex(0);
+  }
+
+  function chooseStatusSelection(preset: StatusPreset | undefined, exact: TaskStatus | null | undefined): void {
+    setStatusMenuOpen(false);
+    if (exact !== undefined) {
+      setExactStatus(exact);
+      writeStored(EXACT_STATUS_KEY, exact ?? "");
+    }
+    if (preset !== undefined) {
+      setStatusPreset(preset);
+      writeStored(STATUS_PRESET_KEY, preset);
+      if (exact === undefined) {
+        setExactStatus(null);
+        writeStored(EXACT_STATUS_KEY, "");
+      }
+    }
     setActiveTaskIndex(0);
   }
 
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
+    writeStored(PRIORITY_FILTER_KEY, priority === null ? "" : String(priority));
     setActiveTaskIndex(0);
   }
 
   function chooseTags(tags: TagRecord[]): void {
     setTagFilter(tags);
+    writeStored(TAG_FILTER_KEY, JSON.stringify(tags.map((tag) => tag.slug)));
     setActiveTaskIndex(0);
   }
 
   function chooseSearch(query: string): void {
     setSearchOpen(false);
-    setSearchQuery(query.trim());
+    const next = query.trim();
+    setSearchQuery(next);
+    writeStored(SEARCH_QUERY_KEY, next);
     setActiveTaskIndex(0);
   }
 
@@ -528,6 +612,13 @@ export default function App(): ReactElement {
     setSearchQuery("");
     setCategoryFilter(null);
     setShowUnblocked(false);
+    writeStored(EXACT_STATUS_KEY, "");
+    writeStored(STATUS_PRESET_KEY, "active");
+    writeStored(PRIORITY_FILTER_KEY, "");
+    writeStored(TAG_FILTER_KEY, "[]");
+    writeStored(SEARCH_QUERY_KEY, "");
+    writeStored(CATEGORY_FILTER_KEY, "");
+    writeStored(UNBLOCKED_FILTER_KEY, "false");
     setActiveTaskIndex(0);
     setAnnouncement("Cleared all filters");
   }
@@ -542,12 +633,16 @@ export default function App(): ReactElement {
 
   function clearCategoryFilter(): void {
     setCategoryFilter(null);
+    categoryFilterRef.current = null;
+    writeStored(CATEGORY_FILTER_KEY, "");
     setActiveTaskIndex(0);
   }
 
   function chooseCategory(category: ClassificationToken): void {
     setCategoryPickerOpen(false);
     setCategoryFilter(category);
+    categoryFilterRef.current = category.slug;
+    writeStored(CATEGORY_FILTER_KEY, category.slug);
     setActiveTaskIndex(0);
     setAnnouncement(`Showing ${category.label} tasks`);
   }
@@ -926,6 +1021,7 @@ export default function App(): ReactElement {
           showUnblocked={showUnblocked}
           onShowUnblockedChange={(next) => {
             setShowUnblocked(next);
+            writeStored(UNBLOCKED_FILTER_KEY, String(next));
             setActiveTaskIndex(0);
           }}
           sortField={sortField}
@@ -1018,15 +1114,7 @@ export default function App(): ReactElement {
         finalFocus={() => focusStack.restore("status-menu") ?? undefined}
         preset={statusPreset}
         exactStatus={exactStatus}
-        onSelect={(preset, exact) => {
-          setStatusMenuOpen(false);
-          if (exact !== undefined) setExactStatus(exact);
-          if (preset !== undefined) {
-            setStatusPreset(preset);
-            if (exact === undefined) setExactStatus(null);
-          }
-          setActiveTaskIndex(0);
-        }}
+        onSelect={chooseStatusSelection}
       /> : null}
       {priorityMenuOpen ? <PriorityMenu
         open
