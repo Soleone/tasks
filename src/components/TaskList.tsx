@@ -23,6 +23,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item } from "@/components/ui/item";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import { BackendCommandError, deleteTask, reorderTasks, transitionTask, updateTask } from "@/platform/backendClient";
@@ -1527,6 +1528,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipContent side="top" sideOffset={8}>{searchActive ? searchQuery.trim() : "Search"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
+          <Separator orientation="vertical" className="h-5" />
           <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"
@@ -1656,6 +1658,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipContent side="top" sideOffset={8}>{sortField === "manual" ? "Unavailable for manual order" : sortField === "priority" ? (sortDirection === "desc" ? "Highest priority first" : "Lowest priority first") : sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
+          <Separator orientation="vertical" className="h-5" />
           <ButtonGroup aria-label="Task list view">
         <Tooltip>
           <TooltipTrigger
