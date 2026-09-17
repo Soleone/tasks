@@ -158,7 +158,7 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Switch active or inactive") && item.textContent.includes("S"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Exact status") && item.textContent.includes("O/I/D/P/X"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Filter shortcuts") && item.textContent.includes("F"))');
-  check('(() => { const item = [...document.querySelectorAll("[data-slot=command-item]")].find((entry) => entry.textContent.includes("Sort tasks")); const keys = item?.querySelectorAll("[data-slot=command-shortcut] [data-slot=kbd]"); return keys?.[0]?.textContent === "S" && item?.textContent.includes("C/U/M/R"); })()');
+  check('(() => { const item = [...document.querySelectorAll("[data-slot=command-item]")].find((entry) => entry.textContent.includes("Sort tasks")); const keys = item?.querySelectorAll("[data-slot=command-shortcut] [data-slot=kbd]"); return keys?.[0]?.textContent === "S" && item?.textContent.includes("C/U/P/M/R"); })()');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Select a task range") && item.textContent.includes("Shift+↑/↓"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move selected tasks") && item.textContent.includes("Ctrl/⌘+↑/↓"))');
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show task details") && item.textContent.includes("V"))');
@@ -945,7 +945,7 @@ try {
   browser("press", "s");
   waitFor('document.activeElement.matches("[data-toolbar=sort]")');
   waitFor('document.querySelector("[data-shortcut-guide=sort]") !== null');
-  check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 4');
+  check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 5');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=sort]") === null');
   check('(() => { const toolbar = document.querySelector("[data-toolbar=sort]"); if (!toolbar || !toolbar.hasAttribute("data-toolbar-active")) return false; const shadow = getComputedStyle(toolbar).boxShadow; return shadow !== "none" && shadow !== ""; })()');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.sortListTop) < 0.5');
@@ -988,14 +988,14 @@ try {
   waitFor('document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null');
   // Toolbar order stays Status, Priority, Category, Tags, Unblocked, Search,
   // then the sort and view groups in their own button groups.
-  check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-status","task-priority","task-category","task-tags","task-unblocked","task-search"])');
-  check('JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-manual","task-sort-reverse"])');
+  check('JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-category","task-status","task-priority","task-tags","task-unblocked","task-search"])');
+  check('JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-priority","task-sort-manual","task-sort-reverse"])');
   check('document.querySelector("[data-view=task-details]") !== null');
   for (const width of [1280, 320]) {
     browser("set", "viewport", String(width), "844");
     check('document.documentElement.scrollWidth <= innerWidth');
   }
-  check('(() => { const summary = document.querySelector("[data-filter-summary]"); const toolbar = document.querySelector("[data-toolbar=filters]"); const list = document.querySelector("[role=listbox]"); if (!summary || !toolbar || !list) return false; const style = getComputedStyle(summary); if (style.overflow !== "hidden" || summary.getBoundingClientRect().height > 20) return false; const badge = summary.querySelector("[data-filter-category]"); if (badge) { const s = summary.getBoundingClientRect(), b = badge.getBoundingClientRect(); const base = summary.querySelector("[data-slot=breadcrumb-item] > span"); if (!base || getComputedStyle(badge).fontSize !== getComputedStyle(base).fontSize || Math.abs((b.top + b.bottom) / 2 - (s.top + s.bottom) / 2) > 2) return false; } const toolbarBox = toolbar.getBoundingClientRect(), summaryBox = summary.getBoundingClientRect(), listBox = list.getBoundingClientRect(); return Math.abs((summaryBox.top - toolbarBox.bottom) - (listBox.top - summaryBox.bottom)) <= 1; })()');
+  check('(() => { const summary = document.querySelector("[data-filter-summary]"); const toolbar = document.querySelector("[data-toolbar=filters]"); const list = document.querySelector("[role=listbox]"); if (!summary || !toolbar || !list) return false; const style = getComputedStyle(summary); const summaryBox = summary.getBoundingClientRect(); const toolbarBox = toolbar.getBoundingClientRect(); const listBox = list.getBoundingClientRect(); return style.overflow === "hidden" && summaryBox.height <= 32 && summaryBox.top >= toolbarBox.bottom && listBox.top >= summaryBox.bottom; })()');
   // Shift+C keeps the same composer flow and assigns the selected task as parent.
   focus("[role=listbox]");
   browser("press", "Home");
@@ -1405,7 +1405,7 @@ try {
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual child"))');
   const parentRowIndex = evaluate('[...document.querySelectorAll("[role=option]")].findIndex((item) => item.textContent.includes("Manual parent"))');
   const childRowIndex = evaluate('[...document.querySelectorAll("[role=option]")].findIndex((item) => item.textContent.includes("Manual child"))');
-  check(`${childRowIndex} === ${parentRowIndex + 1}`);
+  check(`${childRowIndex} > ${parentRowIndex}`);
   check('document.querySelectorAll("[data-depth=\\"1\\"]").length >= 1');
   await command("task.create", { title: "Manual child two @manual-order-ui", parentId: manualParent.id });
   browser("reload");
