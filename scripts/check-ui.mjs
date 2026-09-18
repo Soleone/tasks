@@ -531,6 +531,7 @@ try {
 
   focus("[role=listbox]");
   evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")).click(); true');
+  waitFor('document.querySelector(\'[role=option][aria-selected=true]\')?.textContent.includes("Call the venue")');
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
   browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
   browser("press", "Tab");

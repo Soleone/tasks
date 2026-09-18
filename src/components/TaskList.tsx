@@ -1972,6 +1972,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                     onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
                     return;
                   }
+                  onActiveTaskIndexChange(index);
+                  selectOnly(row);
                   onEdit(task);
                 }}
               >
