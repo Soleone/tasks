@@ -6,7 +6,7 @@ Themes are palettes in the [omarchy `colors.toml` format](https://omarchy.org). 
 
 Open the theme picker with `Alt+T`, or open the `Ctrl/⌘+K` palette and choose **Themes**. The selected theme is stored in the local workspace database and is shared by the UI, CLI, and agents using that database.
 
-The app includes a neutral **Default** theme that follows the system appearance plus a set of built-in dark and light palettes, including **Gilt**, the cool obsidian and sovereign-gold Omarchy theme (formerly **oligarchy**). Built-ins are embedded in the sidecar, so packaged builds do not depend on theme files.
+The app includes built-in dark and light palettes, including **Gilt**, the cool obsidian and sovereign-gold Omarchy theme (formerly **oligarchy**). Gilt is selected when no workspace choice exists. Built-ins are embedded in the sidecar, so packaged builds do not depend on theme files.
 
 On Omarchy, **Omarchy System** appears when `~/.local/state/omarchy/current/theme/colors.toml` exists. It reads the active palette directly instead of copying it into the workspace. When selected, the app refreshes it about every 1.5 seconds, so an Omarchy theme change follows without restarting Tasks. The entry is unavailable when the live palette is absent.
 

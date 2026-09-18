@@ -28,8 +28,8 @@ export type ResolvedTheme = {
   warnings: string[];
 };
 
-/** The built-in theme that only overrides the accent and follows the system mode. */
-export const DEFAULT_THEME_NAME = "default";
+/** The built-in theme selected when no workspace choice exists. */
+export const GILT_THEME_NAME = "gilt";
 
 /** Settings row that stores the selected theme name. */
 export const THEME_SETTING_KEY = "theme";

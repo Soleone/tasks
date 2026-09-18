@@ -3,7 +3,7 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import type { ProtocolRequest, ThemeRecord } from "./protocol.js";
-import { DEFAULT_THEME_NAME, THEME_SETTING_KEY, parseThemeFile } from "./themePalette.js";
+import { GILT_THEME_NAME, THEME_SETTING_KEY, parseThemeFile } from "./themePalette.js";
 
 /**
  * Built-in palettes, each an omarchy `colors.toml` body. They are embedded so
@@ -652,19 +652,6 @@ magenta = "#2e2e2e"`,
   },
 ];
 
-/**
- * The neutral theme: it follows the system mode and overrides no palette slot,
- * so the ramp in `src/styles.css` is what renders.
- */
-const DEFAULT_THEME: ThemeRecord = {
-  name: DEFAULT_THEME_NAME,
-  label: "Default",
-  mode: "system",
-  source: "builtin",
-  palette: {},
-  warnings: [],
-};
-
 function themeLabel(name: string): string {
   return name
     .split(/[-_\s]+/)
@@ -759,7 +746,7 @@ export function availableThemes(
   environment: NodeJS.ProcessEnv = process.env,
   homeDirectory = environment.HOME ?? environment.USERPROFILE ?? process.cwd(),
 ): ThemeRecord[] {
-  const themes = new Map<string, ThemeRecord>([[DEFAULT_THEME.name, DEFAULT_THEME]]);
+  const themes = new Map<string, ThemeRecord>();
   for (const theme of BUILTIN_THEME_FILES) {
     themes.set(theme.name, themeFromToml(theme.name, theme.label, "builtin", theme.toml));
   }
@@ -781,9 +768,9 @@ function selectedThemeName(database: DatabaseSync, themes: ThemeRecord[]): strin
   if (stored !== null && themes.some((theme) => theme.name === stored)) {
     return stored;
   }
-  // A stored name whose file is gone is left alone: the workspace reports the
-  // default, and the choice returns if the theme file comes back.
-  return DEFAULT_THEME_NAME;
+  // Missing or legacy selections fall back to Gilt without writing until the
+  // user makes a new choice.
+  return GILT_THEME_NAME;
 }
 
 export function executeThemeCommand(

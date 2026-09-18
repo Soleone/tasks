@@ -372,7 +372,7 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('document.querySelectorAll("[cmdk-group]").length === 1');
   check(`document.querySelector("[cmdk-group]").querySelectorAll("[data-slot=command-item]").length === ${themeCount}`);
-  check('document.querySelector("[data-slot=command-item][aria-selected=true]")?.textContent.startsWith("Default")');
+  check('document.querySelector("[data-slot=command-item][aria-selected=true]")?.textContent.startsWith("Gilt")');
 
   // Theme names use literal word matching, so "cat" only returns Catppuccin.
   browser("fill", 'input[role="combobox"]', "cat");
@@ -429,15 +429,14 @@ try {
   waitFor('getComputedStyle([...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task"))).backgroundColor === "rgb(194, 65, 12)"');
   assert.equal((await command("theme.list")).selected, "sunset");
 
-  // Back to the neutral ramp: the default theme overrides no slot, so no
-  // palette custom property survives on <html>.
+  // Gilt is the built-in fallback and remains explicitly selectable.
   browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
-  browser("fill", 'input[role="combobox"]', "default");
+  browser("fill", 'input[role="combobox"]', "gilt");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
-  waitFor('document.documentElement.getAttribute("style") === "" && getComputedStyle(document.body).backgroundColor === getComputedStyle(document.documentElement).getPropertyValue("--om-dark-background").trim()');
-  assert.equal((await command("theme.list")).selected, "default");
+  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(13, 15, 18)"');
+  assert.equal((await command("theme.list")).selected, "gilt");
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 

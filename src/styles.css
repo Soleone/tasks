@@ -8,8 +8,7 @@
 /*
  * Palette slots, named after the omarchy colors.toml keys a theme file carries.
  * Applying a theme (src/theme/applyTheme.ts) sets these inline on <html>, so the
- * ramp below is both the pre-theme fallback and the whole of the built-in
- * Default theme, which overrides no slot and follows the system appearance.
+ * ramp below is the pre-theme fallback while the workspace theme loads.
  */
 :root {
   --om-accent: #2563eb;

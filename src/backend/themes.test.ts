@@ -6,7 +6,7 @@ import test from "node:test";
 import { executeCommand } from "./commands.js";
 import type { ProtocolRequest, ThemeRecord } from "./protocol.js";
 import {
-  DEFAULT_THEME_NAME,
+  GILT_THEME_NAME,
   contrastRatio,
   mixHex,
   normalizeHex,
@@ -126,11 +126,10 @@ test("built-in themes parse cleanly and keep text readable", () => {
   const { directory, databasePath } = temporaryWorkspace();
   try {
     const themes = availableThemes(databasePath);
-    assert.equal(themes[0].name, DEFAULT_THEME_NAME);
-    assert.deepEqual(themes[0].palette, {}, "the default theme rides the stylesheet ramp");
-    assert.equal(themes[0].mode, "system");
+    assert.ok(!themes.some((theme) => theme.name === "default"), "the removed default theme is not selectable");
+    assert.equal(themeList(databasePath).selected, GILT_THEME_NAME);
 
-    const gilt = themes.find((theme) => theme.name === "gilt");
+    const gilt = themes.find((theme) => theme.name === GILT_THEME_NAME);
     assert.equal(gilt?.label, "Gilt");
     assert.equal(gilt?.source, "builtin");
     assert.equal(gilt?.palette.accent, "#d4af37");
@@ -241,17 +240,17 @@ test("the selected theme persists, previews, and rejects unknown names", () => {
     assert.equal(themeList(databasePath).selected, "sunset", "the choice survives a reopened database");
     assert.equal((executeCommand(request("theme.set", { name: "sunset" }), databasePath)).changed, false);
 
-    const readOnly = executeCommand(request("theme.set", { name: DEFAULT_THEME_NAME }, { readOnly: true }), databasePath);
+    const readOnly = executeCommand(request("theme.set", { name: GILT_THEME_NAME }, { readOnly: true }), databasePath);
     assert.equal(readOnly.readOnly, true);
     assert.equal(themeList(databasePath).selected, "sunset", "a read-only request writes nothing");
 
     assert.throws(() => executeCommand(request("theme.set", { name: "nope" }), databasePath), /UNKNOWN_THEME/);
     assert.throws(() => executeCommand(request("theme.set", {}), databasePath), /INVALID_ARGUMENT/);
 
-    // A stored theme whose file disappears falls back to the default.
+    // A stored theme whose file disappears falls back to Gilt.
     rmSync(path.join(themes, "sunset.toml"));
-    assert.equal(themeList(databasePath).selected, DEFAULT_THEME_NAME);
-    assert.equal((executeCommand(request("theme.set", { name: DEFAULT_THEME_NAME }), databasePath)).changed, false);
+    assert.equal(themeList(databasePath).selected, GILT_THEME_NAME);
+    assert.equal((executeCommand(request("theme.set", { name: GILT_THEME_NAME }), databasePath)).changed, false);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
