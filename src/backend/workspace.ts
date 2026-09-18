@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { SCHEMA_VERSION, openDatabase, withTransaction } from "./database.js";
+import { SCHEMA_VERSION, openDatabase, readWorkspaceRevision, withTransaction } from "./database.js";
 import { ensureCanonicalWorkspace, invalidateCacheGeneration, withWorkspaceLock } from "./canonicalWorkspace.js";
 import { CommandError } from "./errors.js";
 import {
@@ -160,7 +160,12 @@ export function workspaceInfo(database: DatabaseSync, databasePath: string): Rec
   if (typeof row?.count !== "number" || typeof canceledRow?.count !== "number") {
     throw new CommandError("INVALID_STORAGE", "could not count tasks");
   }
-  return { databasePath, taskCount: row.count, canceledTaskCount: canceledRow.count };
+  return {
+    databasePath,
+    taskCount: row.count,
+    canceledTaskCount: canceledRow.count,
+    workspaceRevision: readWorkspaceRevision(database),
+  };
 }
 
 /** Portable exports land beside the database, like the `themes/` folder. */

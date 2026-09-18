@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { withTransaction } from "./database.js";
+import { readWorkspaceRevision, withTransaction } from "./database.js";
 import {
   archiveCanonicalWorkspace,
   canonicalWorkspaceStatus,
@@ -1466,6 +1466,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     total: numberValue(totalRow, "count"),
     limit,
     offset,
+    workspaceRevision: readWorkspaceRevision(database),
   };
 }
 

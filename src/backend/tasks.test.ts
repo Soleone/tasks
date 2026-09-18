@@ -123,6 +123,47 @@ test("task.list filters by status", () => {
   }
 });
 
+test("task list exposes a revision that changes with workspace writes", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-workspace-revision-"));
+  const databasePath = path.join(directory, "tasks.db");
+
+  try {
+    const empty = executeCommand(request("task.list"), databasePath) as { workspaceRevision: number };
+    const created = task(executeCommand(
+      request("task.create", { title: "Revision task" }, { idempotencyKey: "revision-create" }),
+      databasePath,
+    ));
+    const afterCreate = executeCommand(request("workspace.info"), databasePath) as { workspaceRevision: number };
+    const listedAfterCreate = executeCommand(request("task.list"), databasePath) as { workspaceRevision: number };
+    assert.ok(afterCreate.workspaceRevision > empty.workspaceRevision);
+    assert.equal(listedAfterCreate.workspaceRevision, afterCreate.workspaceRevision);
+
+    executeCommand(
+      request(
+        "task.update",
+        { id: created.id, title: created.title, descriptionMarkdown: created.descriptionMarkdown, expectedVersion: created.version },
+        { idempotencyKey: "revision-no-op" },
+      ),
+      databasePath,
+    );
+    const afterNoOp = executeCommand(request("workspace.info"), databasePath) as { workspaceRevision: number };
+    assert.equal(afterNoOp.workspaceRevision, afterCreate.workspaceRevision);
+
+    executeCommand(
+      request(
+        "task.update",
+        { id: created.id, title: "Revision task updated", expectedVersion: created.version },
+        { idempotencyKey: "revision-update" },
+      ),
+      databasePath,
+    );
+    const afterUpdate = executeCommand(request("workspace.info"), databasePath) as { workspaceRevision: number };
+    assert.ok(afterUpdate.workspaceRevision > afterNoOp.workspaceRevision);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("task.list can include filtered-out parent context without changing matches", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-list-context-"));
   const databasePath = path.join(directory, "tasks.db");

@@ -16,7 +16,7 @@ import {
 import { getBackendTransport } from "./backendTransport";
 
 export type ProbeResult = RuntimeProbeResult;
-export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number };
+export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number };
 export type TaskListFilters = {
   priority?: TaskPriority;
   tags?: string[];
@@ -30,7 +30,7 @@ export type TaskListFilters = {
 export type CategoryListResult = { categories: CategoryRecord[] };
 export type TagListResult = { tags: TagRecord[] };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
-export type WorkspaceInfoResult = { databasePath: string; taskCount: number; canceledTaskCount: number };
+export type WorkspaceInfoResult = { databasePath: string; taskCount: number; canceledTaskCount: number; workspaceRevision: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; taskCount: number; exportedAt: string };
 export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
 export type ThemeSetResult = { theme: ThemeRecord; selected: string };

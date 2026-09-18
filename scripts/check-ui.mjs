@@ -1610,8 +1610,22 @@ try {
   browser("press", "Control+ArrowDown");
   waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")');
   assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), contextOrderBeforeReorder);
+
+  // An external CLI write should appear without a reload while the window stays visible.
+  const externalTitle = "CLI refresh probe @manual-order-ui";
+  const externalOutput = execFileSync(process.execPath, [
+    path.join(root, "dist/backend/tasks-cli.js"),
+    "add",
+    externalTitle,
+    "--json",
+    "--database",
+    path.join(scratch, "tasks.db"),
+  ], { cwd: root, encoding: "utf8" });
+  const externalTask = JSON.parse(externalOutput).task;
+  assert.equal(externalTask.title, externalTitle);
+  waitFor(`([...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, external CLI refresh, and axe.");
 } catch (error) {
   printFailureDiagnostics();
   throw error;

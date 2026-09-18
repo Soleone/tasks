@@ -21,7 +21,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
@@ -45,6 +45,7 @@ const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const HELP_MODE_KEY = "tasks.helpMode";
 const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
 const GLOBAL_SHORTCUT_KEY = "tasks.globalShortcut";
+const WORKSPACE_REVISION_POLL_MS = 1500;
 
 function readStored(key: string): string | null {
   try {
@@ -264,6 +265,7 @@ export default function App(): ReactElement {
   const restoredMetadataRef = useRef(false);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
+  const workspaceRevisionRef = useRef<number | null>(null);
   composerRef.current = composer;
 
   const nav = useFocusNavigation(["list"]);
@@ -305,6 +307,7 @@ export default function App(): ReactElement {
         },
       );
       if (sequence !== querySequence.current) return false;
+      workspaceRevisionRef.current = result.workspaceRevision;
       if (!offset && !preserveContextOrder) setContextOrder(new Map());
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setContextTasks((previous) => {
@@ -383,6 +386,48 @@ export default function App(): ReactElement {
     }, 250 * (attempt + 1));
     return () => window.clearTimeout(timeout);
   }, [loading, loadError, tasks.length, refreshTasks]);
+
+  useEffect(() => {
+    if (loading || receiveState?.waiting) return;
+
+    let disposed = false;
+    let checking = false;
+
+    const checkWorkspaceRevision = async (): Promise<void> => {
+      if (disposed || checking || document.visibilityState === "hidden") return;
+      checking = true;
+      try {
+        const info = await getWorkspaceInfo();
+        if (disposed) return;
+        const previousRevision = workspaceRevisionRef.current;
+        if (previousRevision !== null && info.workspaceRevision !== previousRevision) {
+          taskListRef.current?.startIdentityPreservingRefresh();
+          try {
+            await refreshTasks();
+          } finally {
+            finishIdentityPreservingRefresh();
+          }
+        } else if (previousRevision === null) {
+          workspaceRevisionRef.current = info.workspaceRevision;
+        }
+      } catch {
+        // Focus and explicit refresh still surface backend failures.
+      } finally {
+        checking = false;
+      }
+    };
+
+    const refreshOnVisibility = (): void => {
+      if (document.visibilityState === "visible") void checkWorkspaceRevision();
+    };
+    const interval = window.setInterval(() => void checkWorkspaceRevision(), WORKSPACE_REVISION_POLL_MS);
+    document.addEventListener("visibilitychange", refreshOnVisibility);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
+    };
+  }, [loading, receiveState?.waiting, refreshTasks]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => { void refreshTasks(); };

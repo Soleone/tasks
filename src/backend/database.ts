@@ -137,6 +137,30 @@ function createSchema(database: DatabaseSync): void {
     );
     INSERT INTO cache_meta (key, value) VALUES ('cache_generation', '1')
       ON CONFLICT(key) DO NOTHING;
+    INSERT INTO cache_meta (key, value) VALUES ('workspace_revision', '0')
+      ON CONFLICT(key) DO NOTHING;
+
+    CREATE TRIGGER IF NOT EXISTS tasks_workspace_revision_insert
+      AFTER INSERT ON tasks
+      BEGIN
+        UPDATE cache_meta
+        SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
+        WHERE key = 'workspace_revision';
+      END;
+    CREATE TRIGGER IF NOT EXISTS tasks_workspace_revision_update
+      AFTER UPDATE ON tasks
+      BEGIN
+        UPDATE cache_meta
+        SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
+        WHERE key = 'workspace_revision';
+      END;
+    CREATE TRIGGER IF NOT EXISTS tasks_workspace_revision_delete
+      AFTER DELETE ON tasks
+      BEGIN
+        UPDATE cache_meta
+        SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
+        WHERE key = 'workspace_revision';
+      END;
 
     CREATE INDEX IF NOT EXISTS tasks_updated_at_idx ON tasks (updated_at DESC, id ASC);
     CREATE INDEX IF NOT EXISTS tasks_created_at_idx ON tasks (created_at DESC, id ASC);
@@ -277,6 +301,18 @@ export function ensureSchema(database: DatabaseSync): void {
   } finally {
     database.exec("PRAGMA foreign_keys = ON");
   }
+}
+
+export function readWorkspaceRevision(database: DatabaseSync): number {
+  const row = database.prepare("SELECT value FROM cache_meta WHERE key = 'workspace_revision'").get() as
+    | { value?: unknown }
+    | undefined;
+  const value = row?.value;
+  const revision = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : NaN;
+  if (!Number.isSafeInteger(revision) || revision < 0) {
+    throw new Error("INVALID_STORAGE: workspace revision is invalid");
+  }
+  return revision;
 }
 
 export function openDatabase(databasePath: string): DatabaseSync {
