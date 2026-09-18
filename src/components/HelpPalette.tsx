@@ -75,6 +75,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Move backward in dialogs", icon: MoveLeft, keys: ["Shift", "Tab"], keywords: "shift tab backwards dialog fields" },
       { label: "Move through tasks", icon: ListChecks, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
       { label: "Expand or collapse children", icon: ListChecks, keys: ["←", "→"], keywords: "left right arrow child children parent subtask hierarchy" },
+      { label: "Filter a leaf by category", hint: "Right arrow when it has no children", icon: Folder, keys: ["→"], keywords: "right arrow leaf task without children category filter" },
     ],
   },
   {

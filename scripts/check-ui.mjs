@@ -95,6 +95,12 @@ try {
   check('document.querySelector("[role=dialog]") === null');
   check('document.body.textContent.includes("Press C or choose New task")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
+  browser("press", "?");
+  waitFor('document.querySelector("[data-starter-help]") !== null');
+  check('document.querySelector("[data-starter-help]")?.textContent.includes("Filter by category")');
+  check('document.querySelector("[data-starter-help]")?.textContent.includes("Filter its category (no children)")');
+  browser("press", "?");
+  waitFor('document.querySelector("[data-starter-help]") === null');
   // C opens the shared create dialog with the title focused and notes closed.
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
@@ -192,6 +198,12 @@ try {
   assert.equal(saved[0].tags[0].slug, "planning");
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
+  focus("[role=listbox]");
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true"');
+  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · launch"');
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.textContent === \"\"");
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");

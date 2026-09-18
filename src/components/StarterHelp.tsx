@@ -10,6 +10,7 @@ const STARTER_SHORTCUTS = [
   { keys: ["V"], label: "Show task details" },
   { keys: ["Escape"], label: "Reset filters / clear multi-selection" },
   { keys: ["@"], label: "Filter by category" },
+  { keys: ["→"], label: "Filter its category (no children)" },
   { keys: ["Alt", "T"], label: "Choose a theme" },
 ];
 

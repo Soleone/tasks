@@ -905,9 +905,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   function handleHorizontalNavigation(key: "ArrowLeft" | "ArrowRight"): void {
     if (!activeRow) return;
     if (key === "ArrowRight") {
-      if (activeRow.hasChildren && !expandedIds.has(activeRow.task.id)) {
-        setExpanded(activeRow.task.id, true);
-        onAnnounce(`Expanded ${activeRow.task.title}`);
+      if (activeRow.hasChildren) {
+        if (!expandedIds.has(activeRow.task.id)) {
+          setExpanded(activeRow.task.id, true);
+          onAnnounce(`Expanded ${activeRow.task.title}`);
+        }
+        return;
+      }
+      if (activeRow.task.category) {
+        selectCategory(activeRow.task.category);
+      } else {
+        onAnnounce(`${taskTitleDisplay(activeRow.task.title)} has no category to filter.`);
       }
       return;
     }
