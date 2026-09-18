@@ -197,6 +197,7 @@ try {
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
+  check('(() => { const active = document.querySelector("[role=option][data-active]"); if (!active) return false; const style = getComputedStyle(active); const transparentBorder = style.borderColor === "rgba(0, 0, 0, 0)" || style.borderColor === "transparent"; return transparentBorder && style.backgroundColor !== getComputedStyle(document.body).backgroundColor; })()');
   evaluate('document.querySelector("[role=option] [data-status]").click(); true');
   waitFor('document.querySelector("form[aria-label^=Edit]") === null && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "In progress"');
@@ -439,7 +440,7 @@ try {
   browser("fill", 'input[role="combobox"]', "gilt");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
-  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(13, 15, 18)"');
+  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(9, 10, 12)"');
   assert.equal((await command("theme.list")).selected, "gilt");
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');

@@ -51,7 +51,7 @@ const itemVariants = cva(
       // Explicit task-row states. Active wins over selected when both
       // apply; callers keep that precedence when choosing the value.
       state: {
-        active: "border-ring bg-muted",
+        active: "border-transparent bg-primary/10",
         selected: "border-primary/60 bg-primary/5",
         context: "bg-muted/50 text-muted-foreground",
         empty: "min-h-16 border-dashed border-border bg-transparent",
