@@ -15,6 +15,7 @@ type SettingsDialogProps = {
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onPrepareReceive: () => void;
+  onPurgeCanceled: () => Promise<number>;
   globalShortcut: string;
   onGlobalShortcutChange: (shortcut: string) => Promise<void>;
   helpMode: boolean;
@@ -23,12 +24,16 @@ type SettingsDialogProps = {
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, onPurgeCanceled, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange }: SettingsDialogProps): ReactElement {
   const exportButton = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
+  const purging = useRef(false);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
+  const [canceledTaskCount, setCanceledTaskCount] = useState<number | null>(null);
   const [exported, setExported] = useState<TasksExportResult | null>(null);
+  const [purgedCount, setPurgedCount] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
+  const [purgingPending, setPurgingPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedShortcut, setCopiedShortcut] = useState(false);
   const [isLinux, setIsLinux] = useState(false);
@@ -40,7 +45,9 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     if (!open) return;
     let stale = false;
     setDatabasePath(null);
+    setCanceledTaskCount(null);
     setExported(null);
+    setPurgedCount(null);
     setCopied(false);
     setCopiedShortcut(false);
     setFailure(null);
@@ -48,7 +55,11 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     setShortcutDraft(globalShortcut);
     setIsLinux(navigator.platform.toLowerCase().includes("linux"));
     getWorkspaceInfo()
-      .then((info) => { if (!stale) setDatabasePath(info.databasePath); })
+      .then((info) => {
+        if (stale) return;
+        setDatabasePath(info.databasePath);
+        setCanceledTaskCount(info.canceledTaskCount);
+      })
       .catch((caught: unknown) => { if (!stale) setFailure({ title: "Could not read the workspace", detail: caught instanceof Error ? caught.message : String(caught) }); });
     return () => { stale = true; };
   }, [open]);
@@ -76,6 +87,24 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
       await onGlobalShortcutChange(shortcutDraft);
     } catch (caught) {
       setFailure({ title: "Could not register the global shortcut", detail: caught instanceof Error ? caught.message : String(caught) });
+    }
+  }
+
+  async function purgeCanceledNow(): Promise<void> {
+    if (purging.current) return;
+    purging.current = true;
+    setPurgingPending(true);
+    setPurgedCount(null);
+    setFailure(null);
+    try {
+      const deletedCount = await onPurgeCanceled();
+      setCanceledTaskCount(0);
+      setPurgedCount(deletedCount);
+    } catch (caught) {
+      setFailure({ title: "Could not delete canceled tasks", detail: caught instanceof Error ? caught.message : String(caught) });
+    } finally {
+      purging.current = false;
+      setPurgingPending(false);
     }
   }
 
@@ -148,6 +177,23 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
           </div>
 
           <div className="flex flex-col gap-2 border-t pt-3">
+            <h2 id="settings-cleanup" className="text-sm font-medium">Cleanup</h2>
+            <Button
+              variant="destructive"
+              className="w-fit"
+              disabled={purgingPending || canceledTaskCount === null || canceledTaskCount === 0}
+              onClick={() => void purgeCanceledNow()}
+            >{purgingPending ? "Deleting canceled tasks…" : "Permanently delete canceled tasks"}</Button>
+            <p className="text-sm text-muted-foreground">
+              {canceledTaskCount === null
+                ? "Reading canceled tasks…"
+                : canceledTaskCount === 0
+                  ? "There are no canceled tasks to delete."
+                  : `${canceledTaskCount} canceled ${canceledTaskCount === 1 ? "task" : "tasks"} will be permanently deleted.`}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-3">
             <h2 id="settings-help" className="text-sm font-medium">Keyboard help</h2>
             <label className="flex items-start gap-3 rounded-md border p-3">
               <Checkbox
@@ -202,6 +248,13 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
           {failure ? <Alert variant="destructive">
             <AlertTitle>{failure.title}</AlertTitle>
             <AlertDescription className="wrap-anywhere">{failure.detail}</AlertDescription>
+          </Alert> : null}
+
+          {purgedCount !== null ? <Alert>
+            <AlertTitle>
+              Permanently deleted {purgedCount} canceled {purgedCount === 1 ? "task" : "tasks"}
+            </AlertTitle>
+            <AlertDescription>This cannot be undone.</AlertDescription>
           </Alert> : null}
 
           {exportedPath ? <Alert>

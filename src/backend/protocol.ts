@@ -14,6 +14,7 @@ export const COMMAND_NAMES = [
   "task.get",
   "task.update",
   "task.delete",
+  "task.purgeCanceled",
   "task.start",
   "task.pause",
   "task.complete",

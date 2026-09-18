@@ -30,7 +30,7 @@ export type TaskListFilters = {
 export type CategoryListResult = { categories: CategoryRecord[] };
 export type TagListResult = { tags: TagRecord[] };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
-export type WorkspaceInfoResult = { databasePath: string; taskCount: number };
+export type WorkspaceInfoResult = { databasePath: string; taskCount: number; canceledTaskCount: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; taskCount: number; exportedAt: string };
 export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
 export type ThemeSetResult = { theme: ThemeRecord; selected: string };
@@ -146,6 +146,10 @@ export async function updateTask(
 
 export async function deleteTask(id: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
   return runBackendCommand<TaskMutationResult>("task.delete", { id, expectedVersion }, options);
+}
+
+export async function purgeCanceledTasks(options: CommandOptions): Promise<{ deletedCount: number; dryRun?: boolean; readOnly?: boolean }> {
+  return runBackendCommand<{ deletedCount: number; dryRun?: boolean; readOnly?: boolean }>("task.purgeCanceled", {}, options);
 }
 
 export async function transitionTask(

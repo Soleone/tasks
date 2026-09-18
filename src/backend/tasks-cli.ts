@@ -26,6 +26,7 @@ const MUTATION_COMMANDS = new Set([
   "task.create",
   "task.update",
   "task.delete",
+  "task.purgeCanceled",
   "task.start",
   "task.pause",
   "task.complete",
@@ -121,6 +122,7 @@ MUTATIONS:
   add <title...> [--description text] [--priority n] [--parent <id>]
   update <id> [--title text] [--description text] [--priority n]
   start|pause|complete|reopen|cancel|delete <id>
+  purge-canceled
   undo <id>
   move <id> --parent <id> | --root
   dep-add <id> <depends-on-id>
@@ -511,6 +513,12 @@ function main(): void {
         const id = parsed.positionals[0];
         if (!id || parsed.positionals.length !== 1) throw new Error(`usage: tasks-cli ${command} <id>`);
         printResult(command, runVersioned(`task.${command}`, id, {}, globals), globals);
+        break;
+      }
+      case "purge-canceled": {
+        ensureNoUnknownFlags(parsed.flags, []);
+        if (parsed.positionals.length !== 0) throw new Error("usage: tasks-cli purge-canceled");
+        printResult(command, runCommand("task.purgeCanceled", {}, globals), globals);
         break;
       }
       case "undo": {

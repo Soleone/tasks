@@ -43,6 +43,7 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.create",
   "task.update",
   "task.delete",
+  "task.purgeCanceled",
   "task.start",
   "task.pause",
   "task.complete",
@@ -686,6 +687,83 @@ function transitionTask(database: DatabaseSync, databasePath: string, request: P
     recordReceipt(database, request, context, result, now);
     return result;
   });
+}
+
+function purgeCanceledTasks(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) return context.replay;
+
+  const canceledRows = database
+    .prepare("SELECT id, parent_id FROM tasks WHERE status = 'canceled' ORDER BY id ASC")
+    .all() as Row[];
+  const canceledIds = canceledRows.map((row) => stringValue(row, "id"));
+  const canceledSet = new Set(canceledIds);
+  const affectedTaskIds = new Set<string>();
+  const orderParentIds = new Set<string | null>();
+  for (const row of canceledRows) orderParentIds.add(parentIdValue(row));
+
+  if (canceledIds.length > 0) {
+    const placeholders = canceledIds.map(() => "?").join(", ");
+    const childRows = database
+      .prepare(`SELECT id FROM tasks WHERE status <> 'canceled' AND parent_id IN (${placeholders})`)
+      .all(...canceledIds) as Row[];
+    for (const row of childRows) {
+      affectedTaskIds.add(stringValue(row, "id"));
+      orderParentIds.add(null);
+    }
+
+    const dependencyRows = database
+      .prepare(
+        `SELECT DISTINCT task_dependencies.task_id
+         FROM task_dependencies
+         JOIN tasks ON tasks.id = task_dependencies.task_id
+         WHERE tasks.status <> 'canceled'
+           AND task_dependencies.depends_on_id IN (${placeholders})`,
+      )
+      .all(...canceledIds) as Row[];
+    for (const row of dependencyRows) affectedTaskIds.add(stringValue(row, "task_id"));
+  }
+
+  if (request.readOnly || request.dryRun) {
+    return { deletedCount: canceledIds.length, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+
+  if (canceledIds.length === 0) {
+    return withCanonicalTransaction(database, databasePath, request, () => null, () => {
+      const result = { deletedCount: 0 };
+      recordReceipt(database, request, context, result, new Date().toISOString());
+      return result;
+    });
+  }
+
+  const deletedOrderParentIds = [...canceledSet];
+  return withCanonicalTransaction(
+    database,
+    databasePath,
+    request,
+    () => ({
+      taskIds: [...affectedTaskIds],
+      deletedTaskIds: canceledIds,
+      orderParentIds: [...orderParentIds],
+      deletedOrderParentIds,
+    }),
+    () => {
+      const deleted = database.prepare("DELETE FROM tasks WHERE status = 'canceled'").run();
+      if (deleted.changes !== canceledIds.length) {
+        throw new CommandError("TASK_PURGE_FAILED", "canceled tasks changed while they were being purged");
+      }
+      database.exec(`
+        DELETE FROM categories WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE tasks.category_id = categories.id);
+        DELETE FROM tags WHERE NOT EXISTS (SELECT 1 FROM task_tags WHERE task_tags.tag_id = tags.id);
+      `);
+      for (const parentId of orderParentIds) {
+        if (parentId === null || !canceledSet.has(parentId)) densifySiblingScope(database, parentId);
+      }
+      const result = { deletedCount: canceledIds.length };
+      recordReceipt(database, request, context, result, new Date().toISOString());
+      return result;
+    },
+  );
 }
 
 const STATUS_UNDO_ACTIONS = new Set(["start", "pause", "complete", "reopen", "cancel"]);
@@ -1469,6 +1547,9 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
     case "task.dependency.remove":
       return removeDependency(database, databasePath, request);
     case "task.delete":
+      return transitionTask(database, databasePath, request);
+    case "task.purgeCanceled":
+      return purgeCanceledTasks(database, databasePath, request);
     case "task.start":
     case "task.pause":
     case "task.complete":

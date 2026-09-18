@@ -21,7 +21,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, listTasks, listThemes, moveTask, prepareReceiveWorkspace, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
@@ -1006,6 +1006,24 @@ export default function App(): ReactElement {
     return () => window.clearInterval(timer);
   }, [receiveState?.waiting]);
 
+  async function purgeCanceledTasks(): Promise<number> {
+    const result = await purgeCanceledTasksCommand({ idempotencyKey: crypto.randomUUID() });
+    statusUndoRef.current = null;
+    setStatusUndo(null);
+    if (toastTimer.current !== null) {
+      window.clearTimeout(toastTimer.current);
+      toastTimer.current = null;
+    }
+    setToast(null);
+    setExitingTaskId(null);
+    setActiveTaskIndex(0);
+    await refreshTasks();
+    setAnnouncement(result.deletedCount === 1
+      ? "Permanently deleted 1 canceled task"
+      : `Permanently deleted ${result.deletedCount} canceled tasks`);
+    return result.deletedCount;
+  }
+
   async function beginReceiveWorkspace(): Promise<void> {
     const prepared = await prepareReceiveWorkspace();
     setReceiveState(prepared);
@@ -1261,6 +1279,7 @@ export default function App(): ReactElement {
         onOpenChange={setSettingsOpen}
         finalFocus={() => focusStack.restore("settings")}
         onPrepareReceive={() => void beginReceiveWorkspace()}
+        onPurgeCanceled={purgeCanceledTasks}
         globalShortcut={globalShortcut}
         onGlobalShortcutChange={changeGlobalShortcut}
         helpMode={helpMode}

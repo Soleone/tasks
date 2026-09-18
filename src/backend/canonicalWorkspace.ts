@@ -68,7 +68,9 @@ export type CanonicalOrderFile = {
 
 export type CanonicalAffected = {
   taskIds?: string[];
+  deletedTaskIds?: string[];
   orderParentIds?: ParentId[];
+  deletedOrderParentIds?: ParentId[];
 };
 
 type FileKind = "workspace" | "task" | "order";
@@ -77,7 +79,7 @@ type FileReplacement = {
   relativePath: string;
   kind: Exclude<FileKind, "workspace">;
   previousContent: string | null;
-  content: string;
+  content: string | null;
 };
 
 type PendingOperation = {
@@ -1286,7 +1288,7 @@ function readPending(databasePath: string): PendingOperation | null {
     if (!isRecord(replacement)
       || (replacement.kind !== "task" && replacement.kind !== "order")
       || typeof replacement.relativePath !== "string"
-      || typeof replacement.content !== "string"
+      || (replacement.content !== null && typeof replacement.content !== "string")
       || (replacement.previousContent !== null && typeof replacement.previousContent !== "string")) {
       throw commandError("INVALID_STORAGE", "pending canonical replacement is invalid");
     }
@@ -1316,6 +1318,9 @@ function clearPending(databasePath: string): void {
 
 function candidateFromReplacement(root: string, workspaceId: string, replacement: FileReplacement): FileCandidate {
   validateReplacementPath(replacement.relativePath, replacement.kind);
+  if (replacement.content === null) {
+    throw commandError("INVALID_STORAGE", "deleted canonical records cannot be imported");
+  }
   const absolutePath = path.join(root, replacement.relativePath);
   const value = parseJson(replacement.content, absolutePath);
   const record = replacement.kind === "task"
@@ -1374,11 +1379,26 @@ function reconcilePendingOperation(database: DatabaseSync, databasePath: string,
   }
   for (const replacement of pending.replacements) {
     const absolutePath = path.join(root, replacement.relativePath);
-    if (readText(absolutePath) !== replacement.content) writeAtomic(absolutePath, replacement.content);
+    if (replacement.content === null) {
+      removeFile(absolutePath);
+    } else if (readText(absolutePath) !== replacement.content) {
+      writeAtomic(absolutePath, replacement.content);
+    }
   }
 
-  const candidates = pending.replacements.map((replacement) => candidateFromReplacement(root, workspace.workspaceId, replacement));
+  const candidates = pending.replacements
+    .filter((replacement) => replacement.content !== null)
+    .map((replacement) => candidateFromReplacement(root, workspace.workspaceId, replacement));
   withTransaction(database, () => {
+    for (const replacement of pending.replacements) {
+      if (replacement.content === null) {
+        if (replacement.kind === "task") {
+          const id = replacement.relativePath.slice("tasks/".length, -".json".length);
+          database.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+        }
+        database.prepare("DELETE FROM sync_files WHERE canonical_path = ?").run(replacement.relativePath);
+      }
+    }
     const applied = applyCandidates(database, workspace.workspaceId, candidates, undefined);
     if (candidates.some((candidate) => !applied.appliedPaths.includes(candidate.relativePath))) {
       throw commandError("INVALID_STORAGE", "pending canonical operation contains unresolved relationships");
@@ -1466,6 +1486,9 @@ function typedReplacementRecord(
   replacement: FileReplacement,
   workspaceId: string,
 ): CanonicalTaskFile | CanonicalOrderFile {
+  if (replacement.content === null) {
+    throw commandError("INVALID_STORAGE", "deleted canonical records cannot be validated");
+  }
   const record = parseJson(replacement.content, replacement.relativePath);
   return replacement.kind === "task"
     ? validateTaskRecord(record, workspaceId, replacement.relativePath.slice("tasks/".length, -5), true)
@@ -1500,8 +1523,16 @@ function applyReplacementSet<T extends Record<string, unknown>>(
     replacements,
   };
   writePending(databasePath, pending);
-  for (const replacement of replacements) writeAtomic(path.join(root, replacement.relativePath), replacement.content);
   for (const replacement of replacements) {
+    const absolutePath = path.join(root, replacement.relativePath);
+    if (replacement.content === null) removeFile(absolutePath);
+    else writeAtomic(absolutePath, replacement.content);
+  }
+  for (const replacement of replacements) {
+    if (replacement.content === null) {
+      database.prepare("DELETE FROM sync_files WHERE canonical_path = ?").run(replacement.relativePath);
+      continue;
+    }
     const record = typedReplacementRecord(replacement, workspace.workspaceId);
     fileMetadata(
       database,
@@ -1524,6 +1555,19 @@ function rollbackReplacementSet(databasePath: string, root: string, replacements
   clearPending(databasePath);
 }
 
+function buildDeletion(
+  database: DatabaseSync,
+  root: string,
+  workspaceId: string,
+  id: string,
+  kind: Exclude<FileKind, "workspace">,
+  parentId: ParentId,
+): FileReplacement {
+  const relativePath = kind === "task" ? taskRelativePath(id) : orderRelativePath(parentId);
+  const previous = previousFile(database, path.join(root, relativePath), relativePath, kind, workspaceId);
+  return { relativePath, kind, previousContent: previous.content, content: null };
+}
+
 export function withCanonicalTransaction<T extends Record<string, unknown>>(
   database: DatabaseSync,
   databasePath: string,
@@ -1543,10 +1587,19 @@ export function withCanonicalTransaction<T extends Record<string, unknown>>(
     if (scope !== null) {
       const replacements: FileReplacement[] = [];
       const taskIds = [...new Set(scope.taskIds ?? [])];
-      const orderParentIds = [...new Set(scope.orderParentIds ?? [])];
+      const deletedTaskIds = [...new Set(scope.deletedTaskIds ?? [])];
+      const deletedOrderParentIds = [...new Set(scope.deletedOrderParentIds ?? [])];
+      const deletedOrderSet = new Set(deletedOrderParentIds);
+      const orderParentIds = [...new Set(scope.orderParentIds ?? [])].filter((parentId) => !deletedOrderSet.has(parentId));
+      for (const id of deletedTaskIds) {
+        replacements.push(buildDeletion(database, root, workspace.workspaceId, id, "task", null));
+      }
       for (const id of taskIds) {
         const replacement = buildReplacement(database, root, workspace.workspaceId, id, "task", null, modifiedBy);
         if (replacement) replacements.push(replacement);
+      }
+      for (const parentId of deletedOrderParentIds) {
+        replacements.push(buildDeletion(database, root, workspace.workspaceId, parentId ?? "root", "order", parentId));
       }
       for (const parentId of orderParentIds) {
         const replacement = buildReplacement(database, root, workspace.workspaceId, parentId ?? "root", "order", parentId, modifiedBy);

@@ -483,6 +483,69 @@ test("delete protects versions, previews, cancels, and replays receipts", () => 
   }
 });
 
+test("purging canceled tasks removes rows, relationships, classifications, and canonical files", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-purge-canceled-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const canceledParent = task(
+      executeCommand(request("task.create", { title: "Gone @gone #gone" }, { idempotencyKey: "purge-parent" }), databasePath),
+    );
+    const child = task(
+      executeCommand(
+        request("task.create", { title: "Keep child", parentId: canceledParent.id }, { idempotencyKey: "purge-child" }),
+        databasePath,
+      ),
+    );
+    const dependent = task(
+      executeCommand(request("task.create", { title: "Keep dependent" }, { idempotencyKey: "purge-dependent" }), databasePath),
+    );
+    executeCommand(
+      request(
+        "task.dependency.add",
+        { id: dependent.id, dependsOnId: canceledParent.id, expectedVersion: dependent.version },
+        { idempotencyKey: "purge-link" },
+      ),
+      databasePath,
+    );
+    const canceledOnly = task(
+      executeCommand(request("task.create", { title: "Also gone @other #other" }, { idempotencyKey: "purge-other" }), databasePath),
+    );
+    executeCommand(
+      request("task.delete", { id: canceledParent.id, expectedVersion: canceledParent.version }, { idempotencyKey: "purge-cancel-parent" }),
+      databasePath,
+    );
+    executeCommand(
+      request("task.delete", { id: canceledOnly.id, expectedVersion: canceledOnly.version }, { idempotencyKey: "purge-cancel-other" }),
+      databasePath,
+    );
+
+    const root = path.join(directory, "sync");
+    assert.equal(existsSync(path.join(root, "tasks", `${canceledParent.id}.json`)), true);
+    assert.equal(existsSync(path.join(root, "tasks", `${canceledOnly.id}.json`)), true);
+    assert.equal(existsSync(path.join(root, "order", `${canceledParent.id}.json`)), true);
+    const infoBefore = executeCommand(request("workspace.info"), databasePath);
+    assert.equal(infoBefore.canceledTaskCount, 2);
+
+    const purged = executeCommand(request("task.purgeCanceled", {}, { idempotencyKey: "purge-canceled" }), databasePath);
+    assert.deepEqual(purged, { deletedCount: 2 });
+    assert.deepEqual(executeCommand(request("task.purgeCanceled", {}, { idempotencyKey: "purge-canceled" }), databasePath), purged);
+    assert.equal(countRows(databasePath, "tasks"), 2);
+    assert.equal(countRows(databasePath, "task_dependencies"), 0);
+    assert.equal(countRows(databasePath, "categories"), 0);
+    assert.equal(countRows(databasePath, "tags"), 0);
+    assert.equal(existsSync(path.join(root, "tasks", `${canceledParent.id}.json`)), false);
+    assert.equal(existsSync(path.join(root, "tasks", `${canceledOnly.id}.json`)), false);
+    assert.equal(existsSync(path.join(root, "order", `${canceledParent.id}.json`)), false);
+    assert.equal(existsSync(path.join(root, "tasks", `${child.id}.json`)), true);
+    assert.equal(task(executeCommand(request("task.get", { id: child.id }), databasePath)).parentId, null);
+    assert.deepEqual(task(executeCommand(request("task.get", { id: dependent.id }), databasePath)).dependencyIds, []);
+    assert.equal(executeCommand(request("workspace.info"), databasePath).canceledTaskCount, 0);
+    assert.throws(() => executeCommand(request("task.get", { id: canceledParent.id }), databasePath), /TASK_NOT_FOUND/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("backup, JSON export, and restore preserve canonical records", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m1-portability-"));
   const databasePath = path.join(directory, "tasks.db");

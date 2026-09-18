@@ -451,6 +451,8 @@ try {
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
   check('document.activeElement.textContent === "Export tasks as JSON"');
   check('document.body.textContent.includes("Your tasks live in one SQLite file.")');
+  check('document.body.textContent.includes("Permanently delete canceled tasks")');
+  check('document.body.textContent.includes("There are no canceled tasks to delete.")');
   browser("find", "role", "button", "click", "--name", "Export tasks as JSON");
   waitFor('document.body.textContent.includes("Exported 3 tasks")');
   const exportedPath = evaluate('document.querySelector("[data-slot=alert-description]").textContent');

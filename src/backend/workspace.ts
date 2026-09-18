@@ -156,10 +156,11 @@ export function exportWorkspace(database: DatabaseSync, request: ProtocolRequest
 
 export function workspaceInfo(database: DatabaseSync, databasePath: string): Record<string, unknown> {
   const row = database.prepare("SELECT COUNT(*) AS count FROM tasks").get() as Row | undefined;
-  if (typeof row?.count !== "number") {
+  const canceledRow = database.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'canceled'").get() as Row | undefined;
+  if (typeof row?.count !== "number" || typeof canceledRow?.count !== "number") {
     throw new CommandError("INVALID_STORAGE", "could not count tasks");
   }
-  return { databasePath, taskCount: row.count };
+  return { databasePath, taskCount: row.count, canceledTaskCount: canceledRow.count };
 }
 
 /** Portable exports land beside the database, like the `themes/` folder. */
