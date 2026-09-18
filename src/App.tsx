@@ -10,6 +10,7 @@ import { TagPicker } from "@/components/TagPicker";
 import { SearchDialog } from "@/components/SearchDialog";
 import { TaskComposerDialog, type ComposerState } from "@/components/TaskComposerDialog";
 import { HelpPalette } from "@/components/HelpPalette";
+import { StarterHelp } from "@/components/StarterHelp";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
@@ -225,6 +226,7 @@ export default function App(): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [starterHelpOpen, setStarterHelpOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
@@ -452,6 +454,18 @@ export default function App(): ReactElement {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.isComposing || event.repeat) return;
+      const target = event.target;
+      const typing = target instanceof HTMLElement && (target.matches("input, textarea, [contenteditable=true]") || target.closest('[role="dialog"]') !== null);
+      if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
+        event.preventDefault();
+        setStarterHelpOpen((open) => !open);
+        return;
+      }
+      if (event.key === "Escape" && starterHelpOpen) {
+        event.preventDefault();
+        setStarterHelpOpen(false);
+        return;
+      }
       if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
         event.preventDefault();
         if (themesOpen) setThemesOpen(false);
@@ -468,7 +482,7 @@ export default function App(): ReactElement {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, themesOpen]);
+  }, [helpOpen, starterHelpOpen, themesOpen]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -1018,15 +1032,15 @@ export default function App(): ReactElement {
                     variant="ghost"
                     size="icon-sm"
                     tabIndex={-1}
-                    aria-keyshortcuts="Control+k Meta+k"
-                    onClick={openHelp}
+                    aria-keyshortcuts="Shift+/"
+                    onClick={() => setStarterHelpOpen(true)}
                   />
                 }
               >
                 <CircleHelp aria-hidden="true" />
                 <span className="sr-only">Help</span>
               </TooltipTrigger>
-              <TooltipContent>Help <Kbd>Ctrl/⌘ K</Kbd></TooltipContent>
+              <TooltipContent>Help <Kbd>?</Kbd></TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
@@ -1145,6 +1159,7 @@ export default function App(): ReactElement {
         onSaved={taskSaved}
         finalFocus={() => focusStack.restore("composer")}
       />
+      <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <HelpPalette
         open={helpOpen}
         onOpenChange={setHelpOpen}

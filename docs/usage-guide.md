@@ -89,6 +89,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Left` / `Right` | Move to a parent or expand/collapse children |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
 | `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear the selection first, then press it again to reset all filters; `F`/`S` also close their focused toolbar |
+| `?` (`Shift+/`) | Open the starter help section on the right |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
 | Configured global shortcut (default `Ctrl+Alt+Space`) | Focus the Tasks window from anywhere in the native desktop app; change it in Settings |
