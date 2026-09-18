@@ -42,6 +42,20 @@ test("tasks-cli resolves the database internally and runs add/list/show/complete
   }
 });
 
+test("tasks-cli can clear a description with an empty value", () => {
+  const { directory, databasePath } = tempDatabase();
+  try {
+    const added = JSON.parse(runCli(["add", "Clear notes", "--description", "notes", "--json", "--database", databasePath]));
+    const id = (added.task as { id: string }).id;
+    runCli(["update", id, "--description", "", "--json", "--database", databasePath]);
+    runCli(["update", id, "--description", "--literal", "--json", "--database", databasePath]);
+    const shown = JSON.parse(runCli(["show", id, "--json", "--database", databasePath]));
+    assert.equal((shown.task as { descriptionMarkdown: string }).descriptionMarkdown, "--literal");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("tasks-cli uses TASKS_DATABASE_PATH when --database is omitted", () => {
   const { directory, databasePath } = tempDatabase();
   try {

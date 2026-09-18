@@ -51,6 +51,29 @@ const VERSIONED_COMMANDS = new Set([
   "task.dependency.remove",
 ]);
 
+// Values may legitimately begin with `--` (for example, a markdown note), so
+// do not mistake them for boolean flags while parsing argv.
+const VALUE_FLAGS = new Set([
+  "database",
+  "idempotency-key",
+  "expected-version",
+  "actor-kind",
+  "actor-label",
+  "status",
+  "priority",
+  "category",
+  "tag",
+  "search",
+  "limit",
+  "offset",
+  "sort",
+  "direction",
+  "description",
+  "parent",
+  "title",
+  "task",
+]);
+
 function usage(): string {
   return `tasks-cli: read and write tasks from any shell or agent
 
@@ -143,6 +166,10 @@ function parseArgv(argv: string[]): ParsedArgs {
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i] as string;
+    if (token === "--") {
+      positionals.push(...argv.slice(i + 1));
+      break;
+    }
     if (token === "--help" || token === "-h") {
       help = true;
       continue;
@@ -150,7 +177,10 @@ function parseArgv(argv: string[]): ParsedArgs {
     if (token.startsWith("--")) {
       const name = token.slice(2);
       const next = argv[i + 1];
-      if (next === undefined || next.startsWith("--")) {
+      if (VALUE_FLAGS.has(name) && next !== undefined) {
+        flags.set(name, next);
+        i += 1;
+      } else if (next === undefined || next.startsWith("--")) {
         flags.set(name, true);
       } else {
         flags.set(name, next);
@@ -210,10 +240,10 @@ function parseArgv(argv: string[]): ParsedArgs {
   return { command, positionals, flags, globals };
 }
 
-function stringFlag(flags: Map<string, string | boolean>, name: string): string | undefined {
+function stringFlag(flags: Map<string, string | boolean>, name: string, allowEmpty = false): string | undefined {
   const value = flags.get(name);
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || value.trim() === "") {
+  if (typeof value !== "string" || (!allowEmpty && value.trim() === "")) {
     throw new Error(`--${name} requires a value`);
   }
   return value;
@@ -447,7 +477,7 @@ function main(): void {
         ensureNoUnknownFlags(parsed.flags, ["description", "priority", "parent"]);
         if (parsed.positionals.length === 0) throw new Error("usage: tasks-cli add <title...> [--description text]");
         const args: Record<string, unknown> = { title: parsed.positionals.join(" ") };
-        const description = stringFlag(parsed.flags, "description");
+        const description = stringFlag(parsed.flags, "description", true);
         if (description !== undefined) args.descriptionMarkdown = description;
         const priority = integerFlag(parsed.flags, "priority", 0, 4);
         if (priority !== undefined) args.priority = priority;
@@ -463,7 +493,7 @@ function main(): void {
         const extra: Record<string, unknown> = {};
         const title = stringFlag(parsed.flags, "title");
         if (title !== undefined) extra.title = title;
-        const description = stringFlag(parsed.flags, "description");
+        const description = stringFlag(parsed.flags, "description", true);
         if (description !== undefined) extra.descriptionMarkdown = description;
         const priority = integerFlag(parsed.flags, "priority", 0, 4);
         if (priority !== undefined) extra.priority = priority;
