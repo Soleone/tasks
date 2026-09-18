@@ -202,7 +202,7 @@ try {
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · launch"');
-  browser("press", "Escape");
+  browser("press", "ArrowLeft");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
   check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.textContent === \"\"");

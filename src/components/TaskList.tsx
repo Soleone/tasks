@@ -1086,6 +1086,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (expandedIds.has(activeRow.task.id)) {
       setExpanded(activeRow.task.id, false);
       onAnnounce(`Collapsed ${activeRow.task.title}`);
+      return;
+    }
+    if (categoryFilter) {
+      clearCategoryFilter();
     }
   }
 
