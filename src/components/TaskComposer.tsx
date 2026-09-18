@@ -268,7 +268,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
         <aside
           aria-label="Keyboard help"
           data-context-help={helpTarget}
-          className="pointer-events-none absolute right-full top-1/2 mr-3 hidden w-52 -translate-y-1/2 rounded-md border bg-card p-3 text-card-foreground shadow-md md:block"
+          className="pointer-events-none w-full rounded-md border bg-card p-3 text-card-foreground shadow-md lg:absolute lg:right-full lg:top-1/2 lg:mr-3 lg:w-52 lg:-translate-y-1/2"
         >
           <span className="absolute -right-2 top-4 size-3 rotate-45 border-r border-t bg-card" aria-hidden="true" />
           <p className="text-xs font-medium">{contextualHelp.heading}</p>

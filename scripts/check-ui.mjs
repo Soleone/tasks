@@ -453,6 +453,25 @@ try {
   check('document.body.textContent.includes("Your tasks live in one SQLite file.")');
   check('document.body.textContent.includes("Permanently delete canceled tasks")');
   check('document.body.textContent.includes("There are no canceled tasks to delete.")');
+  // Context help is visible in the task composer, including at the native
+  // window minimum where the side-panel version used to be CSS-hidden.
+  check('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
+  browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "true"');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  browser("press", "c");
+  waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
+  check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
+  browser("set", "viewport", "720", "500");
+  check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
+  browser("set", "viewport", "1280", "844");
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  browser("find", "role", "button", "click", "--name", "Settings");
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
   browser("find", "role", "button", "click", "--name", "Export tasks as JSON");
   waitFor('document.body.textContent.includes("Exported 3 tasks")');
   const exportedPath = evaluate('document.querySelector("[data-slot=alert-description]").textContent');
