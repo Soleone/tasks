@@ -83,7 +83,9 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     const parts = shortcut.split("+").map((part) => part.trim()).filter(Boolean);
     const key = parts.pop()?.toUpperCase() ?? "SPACE";
     const keys = [...parts.map((part) => part.toUpperCase()), key].join(" + ");
-    return `o.bind("${keys}", "Tasks", { launch = "tasks", focus = "^com\\\\.soleone\\\\.tasks$" })`;
+    // Tauri exposes the executable name as the Linux WM_CLASS. It is not the
+    // reverse-DNS application identifier used by the desktop bundle.
+    return `o.bind("${keys}", "Tasks", { launch = "tasks", focus = "^tasks$" })`;
   }
 
   async function copyShortcutBinding(): Promise<void> {
