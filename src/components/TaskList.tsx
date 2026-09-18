@@ -160,6 +160,7 @@ type HomeShortcutActions = {
   canUndoStatus: boolean;
   undoStatus: () => void;
   deleteActiveTask: () => Promise<void>;
+  deleteSelectedTasks: () => Promise<void>;
   returnToList: () => void;
   clearAllFilters: () => void;
   startFilterMode: () => void;
@@ -180,8 +181,11 @@ type HomeShortcutActions = {
   addBlocker: (task: TaskRecord) => void;
   moveUnder: (task: TaskRecord) => void;
   toggleStatus: (task: TaskRecord) => Promise<void>;
+  toggleSelectedStatus: () => Promise<void>;
   reverseStatus: (task: TaskRecord) => Promise<void>;
+  reverseSelectedStatus: () => Promise<void>;
   pauseTask: (task: TaskRecord) => Promise<void>;
+  pauseSelectedTasks: () => Promise<void>;
   moveActive: (next: number, extend?: boolean) => void;
   selectBoundary: (end: "start" | "end") => void;
   reorderSelection: (direction: "up" | "down" | "start" | "end") => Promise<void>;
@@ -917,6 +921,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
+  function selectedTasksForAction(): TaskRecord[] {
+    const selected = visibleRows
+      .filter((row) => !row.contextOnly && selectedIdsRef.current.has(row.task.id))
+      .map((row) => row.task);
+    return selected.length > 0 ? selected : activeTask ? [activeTask] : [];
+  }
+
   function setMutationPending(taskId: string, pending: boolean): void {
     if (pending) mutationPending.current.add(taskId);
     else mutationPending.current.delete(taskId);
@@ -957,8 +968,22 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     return changeStatus(task, forwardStatusTransition[task.status]);
   }
 
+  async function toggleSelectedStatus(): Promise<void> {
+    const selected = selectedTasksForAction();
+    if (selected.length === 0) return;
+    await Promise.all(selected.map((task) => toggleStatus(task)));
+    if (selected.length > 1) void onRefresh();
+  }
+
   function reverseStatus(task: TaskRecord): Promise<void> {
     return changeStatus(task, reverseStatusTransition[task.status]);
+  }
+
+  async function reverseSelectedStatus(): Promise<void> {
+    const selected = selectedTasksForAction();
+    if (selected.length === 0) return;
+    await Promise.all(selected.map((task) => reverseStatus(task)));
+    if (selected.length > 1) void onRefresh();
   }
 
   function pauseTask(task: TaskRecord): Promise<void> {
@@ -969,6 +994,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const target: TaskStatus = task.status === "paused" ? "in_progress" : "paused";
     const command: StatusCommand = task.status === "paused" ? "task.start" : "task.pause";
     return changeStatus(task, { next: target, command });
+  }
+
+  async function pauseSelectedTasks(): Promise<void> {
+    const selected = selectedTasksForAction();
+    if (selected.length === 0) return;
+    await Promise.all(selected.map((task) => pauseTask(task)));
+    if (selected.length > 1) void onRefresh();
   }
 
   async function setTaskPriority(task: TaskRecord, priority: TaskPriority): Promise<void> {
@@ -994,9 +1026,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  async function deleteActiveTask(): Promise<void> {
-    if (!activeTask || deletePending.current.has(activeTask.id)) return;
-    const task = activeTask;
+  async function deleteTaskRecord(task: TaskRecord): Promise<void> {
+    if (deletePending.current.has(task.id)) return;
     const previousReceipt = deleteReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version
       ? previousReceipt
@@ -1006,7 +1037,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     try {
       const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
       deleteReceipts.current.delete(task.id);
-      if (result.changed !== false) onStatusChanged?.(task, result.task, true);
+      if (result.changed !== false) onStatusChanged?.(task, result.task, activeTask?.id === task.id);
       // Remove the selected styling before the parent starts the exit animation.
       // Otherwise the moving border makes the cancellation transition look wrong.
       setSelection([], null);
@@ -1023,6 +1054,18 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
+  async function deleteActiveTask(): Promise<void> {
+    if (!activeTask) return;
+    await deleteTaskRecord(activeTask);
+  }
+
+  async function deleteSelectedTasks(): Promise<void> {
+    const selected = selectedTasksForAction();
+    if (selected.length === 0) return;
+    await Promise.all(selected.map((task) => deleteTaskRecord(task)));
+    if (selected.length > 1) void onRefresh(0);
+  }
+
   homeShortcutActions.current = {
     hasActiveFilters,
     activeTask,
@@ -1031,6 +1074,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     canUndoStatus: Boolean(canUndoStatus),
     undoStatus: () => onUndoStatus?.(),
     deleteActiveTask,
+    deleteSelectedTasks,
     returnToList,
     clearAllFilters: onClearAllFilters,
     startFilterMode,
@@ -1051,8 +1095,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     addBlocker: onAddBlocker,
     moveUnder: onMoveUnder,
     toggleStatus,
+    toggleSelectedStatus,
     reverseStatus,
+    reverseSelectedStatus,
     pauseTask,
+    pauseSelectedTasks,
     moveActive,
     selectBoundary,
     reorderSelection,
@@ -1251,7 +1298,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (event.key === "Delete") {
         if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
         event.preventDefault();
-        void actions.deleteActiveTask();
+        void actions.deleteSelectedTasks();
         return;
       }
       if (event.key === "/") {
@@ -1297,14 +1344,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       } else if (event.key.toLowerCase() === "p" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
-        if (actions.activeTask) void actions.pauseTask(actions.activeTask);
+        void actions.pauseSelectedTasks();
       } else if (event.key === " ") {
         if (event.repeat || isNativeButtonAction(event.target)) return;
         event.preventDefault();
         if (actions.activeTask) {
           void (event.shiftKey
-            ? actions.reverseStatus(actions.activeTask)
-            : actions.toggleStatus(actions.activeTask));
+            ? actions.reverseSelectedStatus()
+            : actions.toggleSelectedStatus());
         }
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
