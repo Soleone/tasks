@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactElement, type RefObject } from "react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
 import { PRIORITY_META } from "@/components/taskFilters";
 import { createTask, listCategories, listTags, updateTask, BackendCommandError } from "@/platform/backendClient";
@@ -43,6 +43,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
+  const [helpTop, setHelpTop] = useState<number | null>(null);
   const dirty = title !== (task?.title ?? "")
     || description !== (task?.descriptionMarkdown ?? "")
     || priority !== (task?.priority ?? 2);
@@ -60,6 +61,39 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       notesInput.current?.focus();
     }
   }, [notesOpen]);
+
+  useLayoutEffect(() => {
+    if (!helpMode) {
+      setHelpTop(null);
+      return;
+    }
+    const anchor = helpTarget === "title"
+      ? titleInput.current
+      : helpTarget === "description"
+        ? notesInput.current
+        : prioritySection.current;
+    const popup = anchor?.closest<HTMLElement>("[data-slot=dialog-content]");
+    if (!anchor || !popup) {
+      setHelpTop(null);
+      return;
+    }
+    const updateHelpPosition = (): void => {
+      const anchorRect = anchor.getBoundingClientRect();
+      const popupRect = popup.getBoundingClientRect();
+      setHelpTop(anchorRect.top - popupRect.top + anchorRect.height / 2);
+    };
+    updateHelpPosition();
+    const settleTimer = window.setTimeout(updateHelpPosition, 150);
+    window.addEventListener("resize", updateHelpPosition);
+    popup.addEventListener("scroll", updateHelpPosition, { passive: true });
+    popup.addEventListener("animationend", updateHelpPosition);
+    return () => {
+      window.clearTimeout(settleTimer);
+      window.removeEventListener("resize", updateHelpPosition);
+      popup.removeEventListener("scroll", updateHelpPosition);
+      popup.removeEventListener("animationend", updateHelpPosition);
+    };
+  }, [helpMode, helpTarget, notesOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -268,7 +302,8 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
         <aside
           aria-label="Keyboard help"
           data-context-help={helpTarget}
-          className="pointer-events-none w-full rounded-md border bg-card p-3 text-card-foreground shadow-md lg:absolute lg:right-full lg:top-1/2 lg:mr-3 lg:w-52 lg:-translate-y-1/2"
+          style={helpTop === null ? undefined : { "--context-help-top": `${helpTop}px` } as CSSProperties}
+          className="pointer-events-none w-full rounded-md border bg-card p-3 text-card-foreground shadow-md lg:absolute lg:right-full lg:top-(--context-help-top) lg:mr-3 lg:w-52 lg:-translate-y-1/2"
         >
           <span className="absolute -right-2 top-4 size-3 rotate-45 border-r border-t bg-card" aria-hidden="true" />
           <p className="text-xs font-medium">{contextualHelp.heading}</p>

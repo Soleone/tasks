@@ -475,6 +475,13 @@ try {
   browser("press", "c");
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
+  check('document.querySelector("[data-slot=dialog-content]")?.className.includes("lg:overflow-visible") === true');
+  waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] input[name=\\"title\\"]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
+  waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] [role=radiogroup]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
   browser("set", "viewport", "720", "500");
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   browser("set", "viewport", "1280", "844");
