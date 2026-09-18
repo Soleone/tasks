@@ -6,7 +6,16 @@ set -euo pipefail
 # than the compiled output, and execs it with system Node. This is the
 # development path: fast tsc only, never the SEA bake. The packaged SEA
 # binary under src-tauri/binaries/ is only for Tauri dev/bundle/probe runs.
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve symlinks before deriving the repository root. The installed PATH
+# entry normally points back into the checkout, but dirname on the symlink
+# itself would incorrectly select ~/.local and invoke pnpm there.
+source="${BASH_SOURCE[0]}"
+while [[ -h "$source" ]]; do
+  source_dir="$(cd -P "$(dirname "$source")" && pwd)"
+  source="$(readlink "$source")"
+  [[ "$source" != /* ]] && source="$source_dir/$source"
+done
+root="$(cd -P "$(dirname "$source")/.." && pwd)"
 compiled="$root/dist/backend/tasks-cli.js"
 
 needs_build() {

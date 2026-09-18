@@ -4,6 +4,7 @@ import { exportTasks, getWorkspaceInfo, type TasksExportResult } from "@/platfor
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Failure = { title: string; detail: string };
@@ -15,11 +16,13 @@ type SettingsDialogProps = {
   onPrepareReceive: () => void;
   globalShortcut: string;
   onGlobalShortcutChange: (shortcut: string) => Promise<void>;
+  helpMode: boolean;
+  onHelpModeChange: (enabled: boolean) => void;
 };
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, globalShortcut, onGlobalShortcutChange }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange }: SettingsDialogProps): ReactElement {
   const exportButton = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
@@ -135,6 +138,21 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
             <p className="text-sm text-muted-foreground">
               Writes a readable copy into the exports folder beside the database, for another app to import.
             </p>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-3">
+            <h2 id="settings-help" className="text-sm font-medium">Keyboard help</h2>
+            <label className="flex items-start gap-3 rounded-md border p-3">
+              <Checkbox
+                checked={helpMode}
+                onCheckedChange={(checked) => onHelpModeChange(checked === true)}
+                aria-labelledby="settings-help-label"
+              />
+              <span className="flex flex-col gap-1">
+                <span id="settings-help-label" className="text-sm font-medium">Show context-sensitive help</span>
+                <span className="text-sm text-muted-foreground">Show keyboard guidance beside dialogs based on the focused control.</span>
+              </span>
+            </label>
           </div>
 
           <div className="flex flex-col gap-2 border-t pt-3">

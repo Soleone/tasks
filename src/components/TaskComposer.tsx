@@ -16,12 +16,13 @@ type TaskComposerProps = {
   titleInputRef?: RefObject<HTMLInputElement | null>;
   onSaved: (task: TaskRecord) => void;
   onCancel: () => void;
+  helpMode: boolean;
 };
 
 // Shared create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef, onSaved, onCancel }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef, onSaved, onCancel, helpMode }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -41,6 +42,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const [tags, setTags] = useState<TagRecord[]>([]);
   const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
   const dirty = title !== (task?.title ?? "")
     || description !== (task?.descriptionMarkdown ?? "")
     || priority !== (task?.priority ?? 2);
@@ -233,6 +235,21 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
     }
   }
 
+  const contextualHelp = {
+    title: {
+      heading: "Title",
+      text: "Type the task title. Press Tab to open the description, or Enter to save.",
+    },
+    description: {
+      heading: "Description",
+      text: "Add optional Markdown notes. Press Tab twice to move to priority, or Escape to return to the title.",
+    },
+    priority: {
+      heading: "Priority",
+      text: "Press 0–4 or ← → to choose a priority.",
+    },
+  }[helpTarget];
+
   return (
     <form
       aria-label={task ? "Edit task" : "New task"}
@@ -248,6 +265,17 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       }}
       className="flex flex-col gap-4"
     >
+      {helpMode ? (
+        <aside
+          aria-label="Keyboard help"
+          data-context-help={helpTarget}
+          className="pointer-events-none absolute right-full top-1/2 mr-3 hidden w-52 -translate-y-1/2 rounded-md border bg-card p-3 text-card-foreground shadow-md md:block"
+        >
+          <span className="absolute -right-2 top-4 size-3 rotate-45 border-r border-t bg-card" aria-hidden="true" />
+          <p className="text-xs font-medium">{contextualHelp.heading}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{contextualHelp.text}</p>
+        </aside>
+      ) : null}
       <FieldGroup>
         <Field className="relative" data-invalid={titleError || undefined}>
           <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
@@ -269,6 +297,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
               setTitleError(false);
               updateSuggestion(event.target.value, event.target.selectionStart ?? event.target.value.length);
             }}
+            onFocus={() => setHelpTarget("title")}
             onKeyDown={handleTitleKeyDown}
             onClick={(event) => updateSuggestion(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length)}
           />
@@ -309,6 +338,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
               value={description}
               readOnly={pending}
               onChange={(event) => setDescription(event.target.value)}
+              onFocus={() => setHelpTarget("description")}
               onBlur={() => {
                 if (!description.trim()) setNotesOpen(false);
               }}
@@ -337,12 +367,13 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
             ref={prioritySection}
             role="radiogroup"
             aria-labelledby={`${id}-priority-label`}
-            aria-describedby={`${id}-priority-help`}
+            aria-describedby={helpMode ? undefined : `${id}-priority-help`}
             aria-activedescendant={`${id}-priority-${priority}`}
             aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
             aria-disabled={pending || undefined}
             tabIndex={0}
             data-priority-section
+            onFocus={() => setHelpTarget("priority")}
             onKeyDown={handlePriorityKeyDown}
           >
             {PRIORITY_META.map((meta) => {
@@ -372,7 +403,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
               );
             })}
           </ButtonGroup>
-          <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription>
+          {!helpMode ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
         </Field>
       </FieldGroup>
       {error ? (

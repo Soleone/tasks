@@ -40,6 +40,7 @@ const SORT_FIELD_KEY = "tasks.sortField";
 const SORT_DIRECTION_KEY = "tasks.sortDirection";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
+const HELP_MODE_KEY = "tasks.helpMode";
 const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
 const GLOBAL_SHORTCUT_KEY = "tasks.globalShortcut";
 
@@ -109,6 +110,10 @@ function readSortDirection(): SortDirection {
 
 function readShowDetails(): boolean {
   return (readStored(SHOW_DETAILS_KEY) ?? readStored(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true";
+}
+
+function readHelpMode(): boolean {
+  return readStored(HELP_MODE_KEY) === "true";
 }
 
 function taskIsVisible(
@@ -212,6 +217,7 @@ export default function App(): ReactElement {
   const [searchQuery, setSearchQuery] = useState(() => readStored(SEARCH_QUERY_KEY) ?? "");
   const [showUnblocked, setShowUnblocked] = useState(() => readStored(UNBLOCKED_FILTER_KEY) === "true");
   const [showDetails, setShowDetails] = useState(readShowDetails);
+  const [helpMode, setHelpMode] = useState(readHelpMode);
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
   const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(readInitialCategoryFilter);
@@ -609,6 +615,12 @@ export default function App(): ReactElement {
     setShowDetails(next);
     writeStored(SHOW_DETAILS_KEY, String(next));
     setAnnouncement(next ? "Showing task details" : "Hiding task details");
+  }
+
+  function changeHelpMode(enabled: boolean): void {
+    setHelpMode(enabled);
+    writeStored(HELP_MODE_KEY, String(enabled));
+    setAnnouncement(enabled ? "Context-sensitive keyboard help enabled" : "Context-sensitive keyboard help disabled");
   }
 
   function chooseExactStatus(status: TaskStatus | null): void {
@@ -1158,6 +1170,7 @@ export default function App(): ReactElement {
         onClose={closeComposer}
         onSaved={taskSaved}
         finalFocus={() => focusStack.restore("composer")}
+        helpMode={helpMode}
       />
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <HelpPalette
@@ -1243,6 +1256,8 @@ export default function App(): ReactElement {
         onPrepareReceive={() => void beginReceiveWorkspace()}
         globalShortcut={globalShortcut}
         onGlobalShortcutChange={changeGlobalShortcut}
+        helpMode={helpMode}
+        onHelpModeChange={changeHelpMode}
       />
     </main>
   );

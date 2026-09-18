@@ -12,11 +12,12 @@ type TaskComposerDialogProps = {
   onClose: () => void;
   onSaved: (task: TaskRecord) => void;
   finalFocus: () => HTMLElement | undefined;
+  helpMode: boolean;
 };
 
 // One dialog for both create and edit so the two flows stay connected.
 // Both flows close after save and return to the task list.
-export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: TaskComposerDialogProps): ReactElement {
+export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus, helpMode }: TaskComposerDialogProps): ReactElement {
   const titleInput = useRef<HTMLInputElement>(null);
   const open = composer !== null;
   const task = composer?.mode === "edit" ? composer.task : undefined;
@@ -32,7 +33,7 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent
-        className="overflow-y-auto sm:max-w-md"
+        className="relative overflow-visible sm:max-w-md"
         initialFocus={titleInput as RefObject<HTMLElement>}
         finalFocus={finalFocus}
         onKeyDownCapture={(event) => {
@@ -52,6 +53,7 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus }: T
             titleInputRef={titleInput}
             onSaved={onSaved}
             onCancel={onClose}
+            helpMode={helpMode}
           />
         ) : null}
       </DialogContent>
