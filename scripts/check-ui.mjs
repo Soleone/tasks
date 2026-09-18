@@ -1342,6 +1342,9 @@ try {
   check('document.querySelector("[role=option][aria-selected=true]")?.textContent.includes("Manual C")');
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"');
+  waitFor('document.querySelector("[role=option][data-active]")?.textContent.includes("Manual C")');
+  check('document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  check('document.querySelector("[role=option][aria-selected=true]")?.textContent.includes("Manual C")');
   focus("[role=listbox]");
   browser("press", "@");
   waitFor('document.activeElement.matches("[cmdk-input]")');

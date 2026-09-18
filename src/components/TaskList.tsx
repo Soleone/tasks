@@ -115,7 +115,7 @@ type TaskListProps = {
   showDetails: boolean;
   onToggleDetails: () => void;
   categoryFilter: ClassificationToken | null;
-  onCategoryFilterChange: (category: ClassificationToken | null) => void;
+  onCategoryFilterChange: (category: ClassificationToken | null, activeTaskId?: string) => void;
   onSelectCategory: (category: ClassificationToken, activeTaskId?: string) => void;
   onOpenCategoryPicker: () => void;
   tagFilter: TagRecord[];
@@ -708,10 +708,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce(next ? "Showing unblocked tasks" : "Showing all tasks");
   }
 
-  function clearCategoryFilter(): void {
+  function clearCategoryFilter(activeTaskId?: string): void {
+    if (activeTaskId !== undefined) {
+      const row = visibleRowsRef.current.find((candidate) => candidate.task.id === activeTaskId);
+      if (row && !row.contextOnly) selectOnly(row);
+    }
     returnToList();
     if (!categoryFilter) return;
-    onCategoryFilterChange(null);
+    onCategoryFilterChange(null, activeTaskId);
     onAnnounce("Showing tasks from all categories");
   }
 
@@ -1115,7 +1119,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       return;
     }
     if (categoryFilter) {
-      clearCategoryFilter();
+      clearCategoryFilter(activeRow.contextOnly ? undefined : activeRow.task.id);
     }
   }
 

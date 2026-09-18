@@ -759,11 +759,11 @@ export default function App(): ReactElement {
     || categoryFilter !== null
     || showUnblocked;
 
-  function clearCategoryFilter(): void {
+  function clearCategoryFilter(_category: ClassificationToken | null = null, activeTaskId?: string): void {
     setCategoryFilter(null);
     categoryFilterRef.current = null;
     writeStored(CATEGORY_FILTER_KEY, "");
-    requestActiveTask();
+    requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
   }
 
   function chooseCategory(category: ClassificationToken, activeTaskId?: string): void {

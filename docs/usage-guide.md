@@ -86,7 +86,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Up` / `Down` | Move through visible tasks, replacing the selection with the active row |
 | `Home` / `End` | Jump to the first or last visible task, replacing the selection |
 | `Ctrl/⌘` with movement keys | Reorder only in the default Active view, optionally narrowed to one category; search, tags, priority, Unblocked, inactive, exact-status, and context-only rows report what to clear. The Move button provides the same actions by mouse. |
-| `Left` / `Right` | Move to a parent or expand/collapse children; `Right` on a task without children filters by its category and keeps that task as the sole selection, while `Left` while category-filtered clears that filter |
+| `Left` / `Right` | Move to a parent or expand/collapse children; `Right` on a task without children filters by its category and keeps that task as the sole selection, while `Left` while category-filtered clears that filter and keeps the active task selected |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
 | `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear a multi-task selection, otherwise reset all filters; `F`/`S` also close their focused toolbar |
 | `?` (`Shift+/`) | Open the starter help section on the right |
