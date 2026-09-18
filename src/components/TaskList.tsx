@@ -1,11 +1,14 @@
 import {
   Fragment,
   forwardRef,
+  memo,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
   type ReactElement,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
@@ -85,6 +88,7 @@ function isNativeButtonAction(target: EventTarget | null): boolean {
 export type TaskListHandle = {
   startIdentityPreservingRefresh: () => void;
   finishIdentityPreservingRefresh: () => void;
+  getActiveTask: () => TaskRecord | undefined;
 };
 
 type TaskListProps = {
@@ -122,13 +126,12 @@ type TaskListProps = {
   onOpenSearch: () => void;
   hasActiveFilters: boolean;
   onClearAllFilters: () => void;
-  activeTaskIndex: number;
+  activeTaskRequest: ActiveTaskRequest;
   loading: boolean;
   error: string | null;
   nav: Navigator;
   onCreate: (parentId?: string) => void;
   onRefresh: (offset?: number) => Promise<boolean>;
-  onActiveTaskIndexChange: (index: number) => void;
   onAnnounce: (message: string) => void;
   onToast: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
@@ -152,10 +155,121 @@ type DeleteReceipt = {
   key: string;
 };
 
+export type ActiveTaskRequest = {
+  key: number;
+  taskId: string | null;
+};
+
+type TaskOptionClick = (row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>) => void;
+
+type TaskOptionProps = {
+  row: VisibleTaskRow;
+  index: number;
+  active: boolean;
+  selected: boolean;
+  expanded: boolean;
+  pending: boolean;
+  feedbackVersion?: number;
+  newTaskId?: string | null;
+  exitingTaskId?: string | null;
+  showDetails: boolean;
+  hiddenCategorySlug: string | null;
+  taskById: ReadonlyMap<string, TaskRecord>;
+  onClick: TaskOptionClick;
+  onToggleStatus: (task: TaskRecord) => void;
+  onToggleExpanded: (row: VisibleTaskRow) => void;
+  onSelectCategory: (category: ClassificationToken) => void;
+};
+
+const TaskOption = memo(function TaskOption({
+  row,
+  index,
+  active,
+  selected,
+  expanded,
+  pending,
+  feedbackVersion,
+  newTaskId,
+  exitingTaskId,
+  showDetails,
+  hiddenCategorySlug,
+  taskById,
+  onClick,
+  onToggleStatus,
+  onToggleExpanded,
+  onSelectCategory,
+}: TaskOptionProps): ReactElement {
+  const { task } = row;
+  const blockedByLabels = task.blockedByIds.map((id) => {
+    const blocker = taskById.get(id);
+    return blocker ? taskTitleDisplay(blocker.title) : null;
+  }).filter((label): label is string => label !== null);
+  const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
+
+  return (
+    <Item
+      id={`task-option-${task.id}`}
+      role="option"
+      aria-selected={selected}
+      aria-expanded={row.hasChildren ? expanded : undefined}
+      aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
+      tabIndex={-1}
+      data-active={active || undefined}
+      data-selected={selected || undefined}
+      data-context-parent={row.contextOnly || undefined}
+      data-depth={row.depth}
+      data-new-task={task.id === newTaskId || undefined}
+      data-canceled-task={task.id === exitingTaskId || undefined}
+      size="sm"
+      variant={active ? "outline" : "default"}
+      state={active
+        ? "active"
+        : selected
+          ? "selected"
+          : row.contextOnly ? "context" : undefined}
+      onClick={(event) => onClick(row, index, event)}
+    >
+      <TaskRow
+        task={task}
+        variant="full"
+        indented={row.depth === 1}
+        blockedByLabels={blockedByLabels}
+        showDetails={showDetails}
+        contextOnly={row.contextOnly}
+        hiddenCategorySlug={hiddenCategorySlug}
+        onSelectCategory={onSelectCategory}
+        statusSlot={
+          <TaskStatusToggle
+            task={task}
+            pending={pending}
+            feedbackVersion={feedbackVersion}
+            nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
+            previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
+            onToggle={onToggleStatus}
+          />
+        }
+      />
+      {row.hasChildren ? (
+        <span
+          role="img"
+          aria-label={expanded ? "Collapse children" : "Expand children"}
+          className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
+          onMouseDown={preventFocusSteal}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleExpanded(row);
+          }}
+        >
+          <DisclosureIcon aria-hidden="true" className="size-4" />
+        </span>
+      ) : null}
+    </Item>
+  );
+});
+
 type HomeShortcutActions = {
   hasActiveFilters: boolean;
   activeTask: TaskRecord | undefined;
-  activeTaskIndex: number;
   visibleRowCount: number;
   canUndoStatus: boolean;
   undoStatus: () => void;
@@ -186,7 +300,7 @@ type HomeShortcutActions = {
   reverseSelectedStatus: () => Promise<void>;
   pauseTask: (task: TaskRecord) => Promise<void>;
   pauseSelectedTasks: () => Promise<void>;
-  moveActive: (next: number, extend?: boolean) => void;
+  moveActive: (next: number | "next" | "previous", extend?: boolean) => void;
   selectBoundary: (end: "start" | "end") => void;
   reorderSelection: (direction: "up" | "down" | "start" | "end") => Promise<void>;
   clearSelection: () => boolean;
@@ -233,13 +347,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onOpenSearch,
   hasActiveFilters,
   onClearAllFilters,
-  activeTaskIndex,
+  activeTaskRequest,
   loading,
   error,
   nav,
   onCreate,
   onRefresh,
-  onActiveTaskIndexChange,
   onAnnounce,
   onToast,
   onEdit,
@@ -266,6 +379,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const toolbarModeRef = useRef<ToolbarMode | null>(null);
   const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
   const [listFocused, setListFocused] = useState(false);
+  const [activeTaskIndex, setActiveTaskIndexState] = useState(0);
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode | null>(null);
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
@@ -285,11 +399,26 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const restoreActiveIdRef = useRef<string | null>(null);
   const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
   const identityRefreshPendingRef = useRef(false);
+  const activeTaskIndexRef = useRef(0);
+  const activeTaskRequestKeyRef = useRef(activeTaskRequest.key);
   const activeTaskIdRef = useRef<string | null>(null);
+  const activeTaskRef = useRef<TaskRecord | undefined>(undefined);
+  const activeScrollFrameRef = useRef<number | null>(null);
+  const activeScrollTargetRef = useRef<string | null>(null);
+  const optionClickRef = useRef<TaskOptionClick>(() => undefined);
+  const optionToggleStatusRef = useRef<(task: TaskRecord) => void>(() => undefined);
+  const optionToggleExpandedRef = useRef<(row: VisibleTaskRow) => void>(() => undefined);
+  const optionSelectCategoryRef = useRef<(category: ClassificationToken) => void>(() => undefined);
   const reorderPending = useRef(false);
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
+  function setActiveTaskIndex(nextIndex: number): void {
+    activeTaskIndexRef.current = nextIndex;
+    setActiveTaskIndexState(nextIndex);
+  }
+
   const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
+  const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
   // A pending keyboard move belongs to the view it was made in. Filter and
   // sort changes must not let that stale task override the new active index.
   const viewIdentity = [
@@ -316,6 +445,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   visibleRowsRef.current = visibleRows;
   selectedIdsRef.current = selectedIds;
   activeTaskIdRef.current = activeTask?.id ?? null;
+  activeTaskRef.current = activeTask;
 
   useImperativeHandle(ref, () => ({
     startIdentityPreservingRefresh: () => {
@@ -328,6 +458,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       restoreActiveIdRef.current = null;
       restoreSelectionIdsRef.current = null;
     },
+    getActiveTask: () => activeTaskRef.current,
   }), []);
 
   useEffect(() => {
@@ -340,7 +471,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (pendingIndex < 0) {
         pendingActiveIdRef.current = null;
         pendingActiveViewRef.current = null;
-      } else if (activeTaskIndex !== pendingIndex) onActiveTaskIndexChange(pendingIndex);
+      } else if (activeTaskIndex !== pendingIndex) setActiveTaskIndex(pendingIndex);
       else {
         pendingActiveIdRef.current = null;
         pendingActiveViewRef.current = null;
@@ -352,9 +483,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (restoredActiveId !== null) {
       const restoredIndex = visibleRows.findIndex((row) => row.task.id === restoredActiveId);
       if (restoredIndex >= 0) {
-        onActiveTaskIndexChange(restoredIndex);
+        setActiveTaskIndex(restoredIndex);
       } else if (visibleRows.length > 0) {
-        onActiveTaskIndexChange(Math.min(activeTaskIndex, visibleRows.length - 1));
+        setActiveTaskIndex(Math.min(activeTaskIndex, visibleRows.length - 1));
         onAnnounce("The moved task is outside the loaded page.");
       }
       if (!identityRefreshPendingRef.current) restoreActiveIdRef.current = null;
@@ -372,7 +503,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
     if (createdTaskId !== null) {
       const createdTaskIndex = visibleRows.findIndex((row) => row.task.id === createdTaskId);
-      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex) onActiveTaskIndexChange(createdTaskIndex);
+      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex) setActiveTaskIndex(createdTaskIndex);
     }
     const visibleActive = visibleRows[activeIndex];
     if (nextSelection.size === 0 && visibleActive && !visibleActive.contextOnly && !selectionClearedRef.current) nextSelection.add(visibleActive.task.id);
@@ -387,7 +518,22 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       selectionAnchorRef.current = [...nextSelection][0] ?? null;
     }
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
-  }, [activeIndex, activeTaskIndex, newTaskId, onActiveTaskIndexChange, onAnnounce, selectedIds, viewIdentity, visibleRows]);
+  }, [activeIndex, activeTaskIndex, newTaskId, onAnnounce, selectedIds, viewIdentity, visibleRows]);
+
+  useEffect(() => {
+    if (activeTaskRequestKeyRef.current === activeTaskRequest.key) return;
+    activeTaskRequestKeyRef.current = activeTaskRequest.key;
+    pendingActiveIdRef.current = null;
+    pendingActiveViewRef.current = null;
+    const requestedIndex = activeTaskRequest.taskId === null
+      ? 0
+      : visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId);
+    setActiveTaskIndex(requestedIndex >= 0 ? requestedIndex : 0);
+  }, [activeTaskRequest.key, activeTaskRequest.taskId, visibleRows]);
+
+  useEffect(() => () => {
+    if (activeScrollFrameRef.current !== null) cancelAnimationFrame(activeScrollFrameRef.current);
+  }, []);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
@@ -397,8 +543,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
 
   useEffect(() => {
     const nextIndex = Math.min(activeTaskIndex, Math.max(visibleRows.length - 1, 0));
-    if (nextIndex !== activeTaskIndex) onActiveTaskIndexChange(nextIndex);
-  }, [activeTaskIndex, onActiveTaskIndexChange, visibleRows.length]);
+    if (nextIndex !== activeTaskIndex) setActiveTaskIndex(nextIndex);
+  }, [activeTaskIndex, visibleRows.length]);
 
   // The task list is the home surface. Wait for the first query so focus
   // lands on the list, or its empty/error state, instead of the capture action.
@@ -624,17 +770,31 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
   }
 
-  function moveActive(next: number, extend = false): void {
+  function scheduleActiveScroll(taskId: string): void {
+    activeScrollTargetRef.current = taskId;
+    if (activeScrollFrameRef.current !== null) return;
+    activeScrollFrameRef.current = requestAnimationFrame(() => {
+      activeScrollFrameRef.current = null;
+      const targetId = activeScrollTargetRef.current;
+      if (targetId !== null) document.getElementById(`task-option-${targetId}`)?.scrollIntoView({ block: "nearest" });
+    });
+  }
+
+  function moveActive(next: number | "next" | "previous", extend = false): void {
     if (visibleRows.length === 0) return;
+    const currentIndex = activeTaskIndexRef.current;
+    const requestedIndex = typeof next === "number"
+      ? next
+      : currentIndex + (next === "next" ? 1 : -1);
     if (extend) {
-      const current = visibleRows[activeIndex];
+      const current = visibleRows[currentIndex];
       if (!current || current.contextOnly) {
         onAnnounce("Selection is limited to visible sibling tasks.");
         return;
       }
       const scope = selectableSiblingRows(current);
       const currentScopeIndex = scope.findIndex((candidate) => candidate.task.id === current.task.id);
-      const step = next > activeTaskIndex ? 1 : -1;
+      const step = requestedIndex > currentIndex ? 1 : -1;
       const target = scope[currentScopeIndex + step];
       if (!target) {
         onAnnounce(step > 0 ? "Selection is at the last sibling." : "Selection is at the first sibling.");
@@ -644,23 +804,23 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (targetIndex < 0) return;
       pendingActiveIdRef.current = target.task.id;
       pendingActiveViewRef.current = viewIdentity;
-      onActiveTaskIndexChange(targetIndex);
+      setActiveTaskIndex(targetIndex);
       selectRangeTo(target);
-      requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
+      scheduleActiveScroll(target.task.id);
       return;
     }
 
-    const wrapped = (next + visibleRows.length) % visibleRows.length;
+    const wrapped = (requestedIndex + visibleRows.length) % visibleRows.length;
     const target = visibleRows[wrapped];
     pendingActiveIdRef.current = target.task.id;
-    onActiveTaskIndexChange(wrapped);
+    pendingActiveViewRef.current = viewIdentity;
+    setActiveTaskIndex(wrapped);
     selectOnly(target);
-    onAnnounce(`${wrapped + 1} of ${visibleRows.length}: ${target.task.title}`);
-    requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
+    scheduleActiveScroll(target.task.id);
   }
 
   function selectBoundary(end: "start" | "end"): void {
-    const current = activeRow;
+    const current = visibleRows[activeTaskIndexRef.current];
     if (!current || current.contextOnly) {
       onAnnounce("Selection is limited to visible sibling tasks.");
       return;
@@ -670,9 +830,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (!target) return;
     pendingActiveIdRef.current = target.task.id;
     pendingActiveViewRef.current = viewIdentity;
-    onActiveTaskIndexChange(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
+    setActiveTaskIndex(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
     selectRangeTo(target);
-    requestAnimationFrame(() => document.getElementById(`task-option-${target.task.id}`)?.scrollIntoView({ block: "nearest" }));
+    scheduleActiveScroll(target.task.id);
   }
 
   function clearSelection(): boolean {
@@ -899,7 +1059,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   function moveToParent(row: VisibleTaskRow): void {
     if (row.depth === 0 || !row.task.parentId) return;
     const parentIndex = visibleRows.findIndex((candidate) => candidate.task.id === row.task.parentId);
-    if (parentIndex >= 0) onActiveTaskIndexChange(parentIndex);
+    if (parentIndex >= 0) setActiveTaskIndex(parentIndex);
   }
 
   function handleHorizontalNavigation(key: "ArrowLeft" | "ArrowRight"): void {
@@ -1074,10 +1234,57 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (selected.length > 1) void onRefresh(0);
   }
 
+  optionClickRef.current = (row, index, event) => {
+    const { task } = row;
+    pendingActiveIdRef.current = null;
+    pendingActiveViewRef.current = null;
+    if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
+      onAnnounce("Context-only ancestors cannot be selected.");
+      return;
+    }
+    if (event.shiftKey) {
+      setActiveTaskIndex(index);
+      selectRangeTo(row);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey) {
+      setActiveTaskIndex(index);
+      const scope = selectableSiblingRows(row);
+      const sameScope = scope.length > 0 && [...selectedIdsRef.current].every((id) => scope.some((candidate) => candidate.task.id === id));
+      if (!sameScope) {
+        selectOnly(row);
+        return;
+      }
+      const next = new Set(selectedIdsRef.current);
+      if (next.has(task.id)) next.delete(task.id);
+      else next.add(task.id);
+      setSelection(next, task.id);
+      onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
+      return;
+    }
+    setActiveTaskIndex(index);
+    selectOnly(row);
+    onEdit(task);
+  };
+  optionToggleStatusRef.current = (task) => { void toggleStatus(task); };
+  optionToggleExpandedRef.current = toggleExpanded;
+  optionSelectCategoryRef.current = selectCategory;
+  const handleOptionClick = useCallback((row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>): void => {
+    optionClickRef.current(row, index, event);
+  }, []);
+  const handleOptionToggleStatus = useCallback((task: TaskRecord): void => {
+    optionToggleStatusRef.current(task);
+  }, []);
+  const handleOptionToggleExpanded = useCallback((row: VisibleTaskRow): void => {
+    optionToggleExpandedRef.current(row);
+  }, []);
+  const handleOptionSelectCategory = useCallback((category: ClassificationToken): void => {
+    optionSelectCategoryRef.current(category);
+  }, []);
+
   homeShortcutActions.current = {
     hasActiveFilters,
     activeTask,
-    activeTaskIndex: activeIndex,
     visibleRowCount: visibleRows.length,
     canUndoStatus: Boolean(canUndoStatus),
     undoStatus: () => onUndoStatus?.(),
@@ -1187,12 +1394,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
         if (event.key === "ArrowUp") {
           event.preventDefault();
-          actions.moveActive(actions.activeTaskIndex - 1, true);
+          actions.moveActive("previous", true);
           return;
         }
         if (event.key === "ArrowDown") {
           event.preventDefault();
-          actions.moveActive(actions.activeTaskIndex + 1, true);
+          actions.moveActive("next", true);
           return;
         }
         if (event.key === "Home") {
@@ -1363,10 +1570,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         }
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
-        actions.moveActive(actions.activeTaskIndex + 1);
+        actions.moveActive("next");
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
-        actions.moveActive(actions.activeTaskIndex - 1);
+        actions.moveActive("previous");
       } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
         event.preventDefault();
         actions.handleHorizontalNavigation(event.key);
@@ -1402,7 +1609,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
-  const summaryTaskCount = visibleRows.filter((row) => !row.contextOnly).length;
+  const summaryTaskCount = useMemo(() => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0), [visibleRows]);
   const summaryBase = `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
   const summarySuffixParts = [
     priorityFilter !== null ? priorityLabel : null,
@@ -1923,105 +2130,27 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}
         >
-          {visibleRows.map((row, index) => {
-            const { task } = row;
-            const active = index === activeIndex;
-            const blockedByLabels = task.blockedByIds.map((id) => {
-              const blocker = tasks.find((candidate) => candidate.id === id);
-              return blocker ? taskTitleDisplay(blocker.title) : null;
-            }).filter((label): label is string => label !== null);
-            const DisclosureIcon = expandedIds.has(task.id) ? ChevronDown : ChevronRight;
-            return (
-              <Item
-                key={task.id}
-                id={`task-option-${task.id}`}
-                role="option"
-                aria-selected={selectedIds.has(task.id)}
-                aria-expanded={row.hasChildren ? expandedIds.has(task.id) : undefined}
-                aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
-                tabIndex={-1}
-                data-active={active || undefined}
-                data-selected={selectedIds.has(task.id) || undefined}
-                data-context-parent={row.contextOnly || undefined}
-                data-depth={row.depth}
-                data-new-task={task.id === newTaskId || undefined}
-                data-canceled-task={task.id === exitingTaskId || undefined}
-                size="sm"
-                variant={active ? "outline" : "default"}
-                state={active
-                  ? "active"
-                  : selectedIds.has(task.id)
-                    ? "selected"
-                    : row.contextOnly ? "context" : undefined}
-                onClick={(event) => {
-                  pendingActiveIdRef.current = null;
-                  pendingActiveViewRef.current = null;
-                  if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
-                    onAnnounce("Context-only ancestors cannot be selected.");
-                    return;
-                  }
-                  if (event.shiftKey) {
-                    onActiveTaskIndexChange(index);
-                    selectRangeTo(row);
-                    return;
-                  }
-                  if (event.ctrlKey || event.metaKey) {
-                    onActiveTaskIndexChange(index);
-                    const scope = selectableSiblingRows(row);
-                    const sameScope = scope.length > 0 && [...selectedIdsRef.current].every((id) => scope.some((candidate) => candidate.task.id === id));
-                    if (!sameScope) {
-                      selectOnly(row);
-                      return;
-                    }
-                    const next = new Set(selectedIdsRef.current);
-                    if (next.has(task.id)) next.delete(task.id);
-                    else next.add(task.id);
-                    setSelection(next, task.id);
-                    onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
-                    return;
-                  }
-                  onActiveTaskIndexChange(index);
-                  selectOnly(row);
-                  onEdit(task);
-                }}
-              >
-                <TaskRow
-                  task={task}
-                  variant="full"
-                  indented={row.depth === 1}
-                  blockedByLabels={blockedByLabels}
-                  showDetails={showDetails}
-                  contextOnly={row.contextOnly}
-                  hiddenCategorySlug={categoryFilter?.slug ?? null}
-                  onSelectCategory={selectCategory}
-                  statusSlot={
-                    <TaskStatusToggle
-                      task={task}
-                      pending={mutationPendingIds.has(task.id)}
-                      feedbackVersion={statusFeedback?.taskId === task.id ? statusFeedback.version : undefined}
-                      nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
-                      previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
-                      onToggle={(nextTask) => void toggleStatus(nextTask)}
-                    />
-                  }
-                />
-                {row.hasChildren ? (
-                  <span
-                    role="img"
-                    aria-label={expandedIds.has(task.id) ? "Collapse children" : "Expand children"}
-                    className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
-                    onMouseDown={preventFocusSteal}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleExpanded(row);
-                    }}
-                  >
-                    <DisclosureIcon aria-hidden="true" className="size-4" />
-                  </span>
-                ) : null}
-              </Item>
-            );
-          })}
+          {visibleRows.map((row, index) => (
+            <TaskOption
+              key={row.task.id}
+              row={row}
+              index={index}
+              active={index === activeIndex}
+              selected={selectedIds.has(row.task.id)}
+              expanded={expandedIds.has(row.task.id)}
+              pending={mutationPendingIds.has(row.task.id)}
+              feedbackVersion={statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined}
+              newTaskId={newTaskId}
+              exitingTaskId={exitingTaskId}
+              showDetails={showDetails}
+              hiddenCategorySlug={categoryFilter?.slug ?? null}
+              taskById={taskById}
+              onClick={handleOptionClick}
+              onToggleStatus={handleOptionToggleStatus}
+              onToggleExpanded={handleOptionToggleExpanded}
+              onSelectCategory={handleOptionSelectCategory}
+            />
+          ))}
           {isFilteredEmpty ? (
             <Item
               data-empty-state="filtered"

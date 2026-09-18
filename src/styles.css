@@ -199,6 +199,12 @@
   }
 }
 
+/* Keyboard navigation is input feedback, not decoration. Do not make the
+ * active/selected row trail behind a held key at high refresh rates. */
+[role="listbox"] > [role="option"] {
+  transition: none;
+}
+
 [data-canceled-task="true"] {
   animation: task-list-cancel 150ms cubic-bezier(0.4, 0, 1, 1) both;
   pointer-events: none;

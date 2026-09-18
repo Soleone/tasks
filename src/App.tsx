@@ -231,7 +231,7 @@ export default function App(): ReactElement {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [composer, setComposer] = useState<ComposerState | null>(null);
-  const [activeTaskIndex, setActiveTaskIndex] = useState(0);
+  const [activeTaskRequest, setActiveTaskRequest] = useState({ key: 0, taskId: null as string | null });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -270,6 +270,10 @@ export default function App(): ReactElement {
 
   const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
+
+  function requestActiveTask(taskId: string | null = null): void {
+    setActiveTaskRequest((previous) => ({ key: previous.key + 1, taskId }));
+  }
 
   useEffect(() => {
     void setGlobalShortcut(globalShortcut, null).catch(() => undefined);
@@ -643,14 +647,14 @@ export default function App(): ReactElement {
       setStatusPreset(next);
       writeStored(STATUS_PRESET_KEY, next);
     }
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function chooseSortField(field: SortField): void {
     if (field === sortField) return;
     sortFieldRef.current = field;
     setSortField(field);
-    setActiveTaskIndex(0);
+    requestActiveTask();
     writeStored(SORT_FIELD_KEY, field);
     setAnnouncement(field === "manual" ? "Sorted by manual order" : `Sorted ${sortSummary(field, sortDirection)}`);
   }
@@ -659,7 +663,7 @@ export default function App(): ReactElement {
     if (sortField === "manual") return;
     const next = sortDirection === "desc" ? "asc" : "desc";
     setSortDirection(next);
-    setActiveTaskIndex(0);
+    requestActiveTask();
     writeStored(SORT_DIRECTION_KEY, next);
     setAnnouncement(`Sorted ${sortSummary(sortField, next)}`);
   }
@@ -687,7 +691,7 @@ export default function App(): ReactElement {
     setStatusMenuOpen(false);
     setExactStatus(status);
     writeStored(EXACT_STATUS_KEY, status ?? "");
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function chooseStatusSelection(preset: StatusPreset | undefined, exact: TaskStatus | null | undefined): void {
@@ -704,20 +708,20 @@ export default function App(): ReactElement {
         writeStored(EXACT_STATUS_KEY, "");
       }
     }
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
     writeStored(PRIORITY_FILTER_KEY, priority === null ? "" : String(priority));
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function chooseTags(tags: TagRecord[]): void {
     setTagFilter(tags);
     writeStored(TAG_FILTER_KEY, JSON.stringify(tags.map((tag) => tag.slug)));
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function chooseSearch(query: string): void {
@@ -725,7 +729,7 @@ export default function App(): ReactElement {
     const next = query.trim();
     setSearchQuery(next);
     writeStored(SEARCH_QUERY_KEY, next);
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function clearAllFilters(): void {
@@ -743,7 +747,7 @@ export default function App(): ReactElement {
     writeStored(SEARCH_QUERY_KEY, "");
     writeStored(CATEGORY_FILTER_KEY, "");
     writeStored(UNBLOCKED_FILTER_KEY, "false");
-    setActiveTaskIndex(0);
+    requestActiveTask();
     setAnnouncement("Cleared all filters");
   }
 
@@ -759,7 +763,7 @@ export default function App(): ReactElement {
     setCategoryFilter(null);
     categoryFilterRef.current = null;
     writeStored(CATEGORY_FILTER_KEY, "");
-    setActiveTaskIndex(0);
+    requestActiveTask();
   }
 
   function chooseCategory(category: ClassificationToken): void {
@@ -767,7 +771,7 @@ export default function App(): ReactElement {
     setCategoryFilter(category);
     categoryFilterRef.current = category.slug;
     writeStored(CATEGORY_FILTER_KEY, category.slug);
-    setActiveTaskIndex(0);
+    requestActiveTask();
     setAnnouncement(`Showing ${category.label} tasks`);
   }
 
@@ -840,7 +844,7 @@ export default function App(): ReactElement {
 
   async function pauseTaskFromPalette(task: TaskRecord): Promise<void> {
     const current = tasks.find((candidate) => candidate.id === task.id) ?? task;
-    const wasActive = tasks[activeTaskIndex]?.id === current.id;
+    const wasActive = taskListRef.current?.getActiveTask()?.id === current.id;
     setHelpOpen(false);
     if (current.status === "done" || current.status === "canceled") {
       setAnnouncement(`${current.title} is ${taskStatusMeta[current.status].label.toLowerCase()}. Reopen it before pausing.`);
@@ -920,8 +924,7 @@ export default function App(): ReactElement {
         setTasks(nextTasks);
         if (!alreadyPresent) setTotal((previous) => previous + 1);
         if (entry.wasActive) {
-          const index = nextTasks.findIndex((existing) => existing.id === restored.id);
-          if (index >= 0) setActiveTaskIndex(index);
+          requestActiveTask(restored.id);
         }
       } else {
         setTasks((previous) => previous.map((existing) => existing.id === restored.id ? restored : existing));
@@ -976,7 +979,7 @@ export default function App(): ReactElement {
     } else {
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
-    setActiveTaskIndex(0);
+    if (!creating) requestActiveTask();
     setAnnouncement(`${creating ? "Added" : "Saved"}: ${task.title}`);
     // Creating one task returns to the list instead of reopening capture.
     // The next task can still be started with C or the New task action.
@@ -1069,7 +1072,7 @@ export default function App(): ReactElement {
     }
     setToast(null);
     setExitingTaskId(null);
-    setActiveTaskIndex(0);
+    requestActiveTask();
     await refreshTasks();
     setAnnouncement(result.deletedCount === 1
       ? "Permanently deleted 1 canceled task"
@@ -1173,7 +1176,7 @@ export default function App(): ReactElement {
           onShowUnblockedChange={(next) => {
             setShowUnblocked(next);
             writeStored(UNBLOCKED_FILTER_KEY, String(next));
-            setActiveTaskIndex(0);
+            requestActiveTask();
           }}
           sortField={sortField}
           sortDirection={sortDirection}
@@ -1193,13 +1196,12 @@ export default function App(): ReactElement {
           onOpenSearch={openSearch}
           hasActiveFilters={hasActiveFilters}
           onClearAllFilters={clearAllFilters}
-          activeTaskIndex={activeTaskIndex}
+          activeTaskRequest={activeTaskRequest}
           loading={loading}
           error={loadError}
           nav={nav}
           onCreate={openCreate}
           onRefresh={refreshTasks}
-          onActiveTaskIndexChange={setActiveTaskIndex}
           onAnnounce={setAnnouncement}
           onToast={(message) => showToast({ message })}
           onEdit={openEdit}
@@ -1263,7 +1265,7 @@ export default function App(): ReactElement {
         onOpenPriorityMenu={openPriorityMenu}
         onOpenTagPicker={openTagPicker}
         onOpenSearch={openSearch}
-        activeTask={tasks[activeTaskIndex]}
+        activeTask={taskListRef.current?.getActiveTask()}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
