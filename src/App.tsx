@@ -26,6 +26,7 @@ import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
+import { readStoredFontSizeIncrease, storeFontSizeIncrease, type FontSizeIncrease } from "@/fontSize";
 
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
@@ -219,6 +220,7 @@ export default function App(): ReactElement {
   const [showUnblocked, setShowUnblocked] = useState(() => readStored(UNBLOCKED_FILTER_KEY) === "true");
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [helpMode, setHelpMode] = useState(readHelpMode);
+  const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(readStoredFontSizeIncrease);
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
   const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(readInitialCategoryFilter);
@@ -628,6 +630,12 @@ export default function App(): ReactElement {
     setHelpMode(enabled);
     writeStored(HELP_MODE_KEY, String(enabled));
     setAnnouncement(enabled ? "Context-sensitive keyboard help enabled" : "Context-sensitive keyboard help disabled");
+  }
+
+  function changeFontSizeIncrease(increase: FontSizeIncrease): void {
+    setFontSizeIncrease(increase);
+    storeFontSizeIncrease(increase);
+    setAnnouncement(increase === 0 ? "Font size reset" : `Font size increased by ${increase}%`);
   }
 
   function chooseExactStatus(status: TaskStatus | null): void {
@@ -1284,6 +1292,8 @@ export default function App(): ReactElement {
         onGlobalShortcutChange={changeGlobalShortcut}
         helpMode={helpMode}
         onHelpModeChange={changeHelpMode}
+        fontSizeIncrease={fontSizeIncrease}
+        onFontSizeIncreaseChange={changeFontSizeIncrease}
       />
     </main>
   );

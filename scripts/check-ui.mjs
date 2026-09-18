@@ -481,6 +481,17 @@ try {
   assert.equal(exportedFile.taskCount, 3);
   assert.ok(exportedFile.tasks.every((row) => Number.isInteger(row.siblingOrder) && row.siblingOrder >= 0));
   assert.ok(exportedFile.tasks.every((row) => typeof row.title === "string" && Array.isArray(row.tags)));
+  check('document.querySelector("[data-font-size-control]")?.value === "0"');
+  check('document.querySelector("[data-font-size-control]")?.getAttribute("aria-valuetext") === "Default font size"');
+  focus("[data-font-size-control]");
+  for (const [value, increase] of [["1", 10], ["2", 25], ["3", 33], ["4", 40]]) {
+    browser("press", "ArrowRight");
+    waitFor(`document.querySelector("[data-font-size-control]")?.value === "${value}"`);
+    check(`document.documentElement.style.fontSize === "${100 + increase}%"`);
+  }
+  browser("press", "Home");
+  waitFor('document.querySelector("[data-font-size-control]")?.value === "0"');
+  check('document.documentElement.style.fontSize === ""');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
   check('document.activeElement.textContent.trim() === "Settings"');
@@ -1600,7 +1611,7 @@ try {
   waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")');
   assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), contextOrderBeforeReorder);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, and axe.");
 } catch (error) {
   printFailureDiagnostics();
   throw error;

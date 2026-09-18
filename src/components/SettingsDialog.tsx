@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 
 type Failure = { title: string; detail: string };
 
@@ -20,11 +21,17 @@ type SettingsDialogProps = {
   onGlobalShortcutChange: (shortcut: string) => Promise<void>;
   helpMode: boolean;
   onHelpModeChange: (enabled: boolean) => void;
+  fontSizeIncrease: FontSizeIncrease;
+  onFontSizeIncreaseChange: (increase: FontSizeIncrease) => void;
 };
+
+function fontSizeLabel(increase: FontSizeIncrease): string {
+  return increase === 0 ? "Default" : `+${increase}%`;
+}
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, onPurgeCanceled, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, onPurgeCanceled, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange, fontSizeIncrease, onFontSizeIncreaseChange }: SettingsDialogProps): ReactElement {
   const exportButton = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
   const purging = useRef(false);
@@ -149,10 +156,39 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
       >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Storage and export for this workspace.</DialogDescription>
+          <DialogDescription>Appearance, storage, and export for this workspace.</DialogDescription>
         </DialogHeader>
 
-        <section aria-labelledby="settings-data" className="flex flex-col gap-3">
+        <section aria-labelledby="settings-appearance" className="flex flex-col gap-3">
+          <h2 id="settings-appearance" className="text-sm font-medium">Appearance</h2>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="settings-font-size" className="text-sm font-medium">Font size</label>
+              <output htmlFor="settings-font-size" className="text-sm text-muted-foreground" aria-live="polite">{fontSizeLabel(fontSizeIncrease)}</output>
+            </div>
+            <input
+              id="settings-font-size"
+              data-font-size-control
+              type="range"
+              min={0}
+              max={FONT_SIZE_INCREASES.length - 1}
+              step={1}
+              value={FONT_SIZE_INCREASES.indexOf(fontSizeIncrease)}
+              aria-valuetext={fontSizeIncrease === 0 ? "Default font size" : `Font size increased by ${fontSizeIncrease}%`}
+              className="w-full accent-primary"
+              onChange={(event) => {
+                const increase = FONT_SIZE_INCREASES[Number(event.target.value)];
+                if (increase !== undefined) onFontSizeIncreaseChange(increase);
+              }}
+            />
+            <div className="flex justify-between gap-2 text-xs text-muted-foreground" aria-hidden="true">
+              {FONT_SIZE_INCREASES.map((increase) => <span key={increase}>{fontSizeLabel(increase)}</span>)}
+            </div>
+            <p className="text-sm text-muted-foreground">Increase text and interface size. Changes apply immediately and are saved for future launches.</p>
+          </div>
+        </section>
+
+        <section aria-labelledby="settings-data" className="flex flex-col gap-3 border-t pt-3">
           <h2 id="settings-data" className="text-sm font-medium">Data</h2>
 
           {databasePath
