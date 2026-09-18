@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import { BackendCommandError, deleteTask, reorderTasks, transitionTask, updateTask } from "@/platform/backendClient";
+import { APP_NAME } from "@/backend/branding";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 type StatusTransition = { next: TaskStatus; command: StatusCommand };
@@ -1854,8 +1855,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           id="task-list"
           role="listbox"
           aria-label={visibleRows.length
-            ? `Tasks, ${visibleRows.length} visible task rows, ${total} matching tasks, ${selectionLabel}`
-            : "Tasks, no visible matches"}
+            ? `${APP_NAME}, ${visibleRows.length} visible task rows, ${total} matching tasks, ${selectionLabel}`
+            : `${APP_NAME}, no visible matches`}
           aria-orientation="vertical"
           aria-multiselectable="true"
           aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"

@@ -22,6 +22,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
 import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, listTasks, listThemes, moveTask, prepareReceiveWorkspace, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
+import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
@@ -1017,7 +1018,7 @@ export default function App(): ReactElement {
       {receiveState?.waiting ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
         <section aria-labelledby="receive-title" className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg">
           <h1 id="receive-title" className="text-lg font-semibold">Waiting for workspace</h1>
-          <p className="text-sm text-muted-foreground">Tasks is locked while this device receives the existing workspace. Add the empty sync folder to Syncthing, then wait for the transfer to finish.</p>
+          <p className="text-sm text-muted-foreground">{APP_NAME} is locked while this device receives the existing workspace. Add the empty sync folder to Syncthing, then wait for the transfer to finish.</p>
           {receiveState.syncRoot ? <p className="wrap-anywhere rounded bg-muted p-2 font-mono text-xs">{receiveState.syncRoot}</p> : null}
           <p className="text-sm text-muted-foreground"><a className="underline" href="https://github.com/Soleone/tasks/blob/main/docs/syncthing.md" target="_blank" rel="noreferrer">Read the Syncthing setup guide</a></p>
           <Button variant="outline" onClick={() => void abortReceive()}>Abort and restore backup</Button>
@@ -1027,7 +1028,7 @@ export default function App(): ReactElement {
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
             <AppIcon className="size-8 shrink-0" />
-            <span className="text-3xl leading-none">Tasks</span>
+            <span className="text-3xl leading-none">{APP_NAME}</span>
           </h1>
           <ButtonGroup
             onKeyDown={(event) => {

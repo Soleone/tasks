@@ -20,6 +20,7 @@ import { CommandError } from "./errors.js";
 import { contentHash, requestHash } from "./requestHash.js";
 import { classifyTaskText, TaskTextError, type TaskClassification } from "./taskText.js";
 import type { ProtocolRequest, TaskStatus } from "./protocol.js";
+import { APP_NAME } from "./branding.js";
 
 type Row = Record<string, unknown>;
 type ParentId = string | null;
@@ -367,7 +368,7 @@ export function withWorkspaceLock<T>(databasePath: string, action: () => T): T {
         continue;
       }
       if (Date.now() - startedAt >= LOCK_TIMEOUT_MS) {
-        throw commandError("WORKSPACE_BUSY", "another Tasks process is updating the workspace");
+        throw commandError("WORKSPACE_BUSY", `another ${APP_NAME} process is updating the workspace`);
       }
       sleep(25);
     }

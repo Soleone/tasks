@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { exportTasks, getWorkspaceInfo, type TasksExportResult } from "@/platform/backendClient";
+import { APP_NAME } from "@/backend/branding";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,7 +162,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
 
           <div className="flex flex-col gap-2 border-t pt-3">
             <h2 id="settings-shortcut" className="text-sm font-medium">Global shortcut</h2>
-            <p className="text-sm text-muted-foreground">Focuses the Tasks window even when another app is active. Use modifiers plus a key, for example <code>Ctrl+Alt+Space</code>.</p>
+            <p className="text-sm text-muted-foreground">Focuses the {APP_NAME} window even when another app is active. Use modifiers plus a key, for example <code>Ctrl+Alt+Space</code>.</p>
             <div className="flex items-center gap-2">
               <Input
                 aria-labelledby="settings-shortcut"
@@ -180,14 +181,14 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
               <Button variant="outline" size="sm" className="w-fit" onClick={() => void copyShortcutBinding()}>
                 {copiedShortcut ? "Copied binding" : "Copy Omarchy binding"}
               </Button>
-              <p className="text-xs text-muted-foreground">This focuses the existing Tasks window and launches Tasks only when no matching window exists. It does not change your Hyprland files automatically.</p>
+              <p className="text-xs text-muted-foreground">This focuses the existing {APP_NAME} window and launches {APP_NAME} only when no matching window exists. It does not change your Hyprland files automatically.</p>
             </div> : null}
           </div>
 
           <div className="flex flex-col gap-2 border-t pt-3">
             {!confirmReceive ? <Button variant="outline" className="w-fit" onClick={() => setConfirmReceive(true)}>Sync with another device…</Button> : <Alert tone="confirmation" layout="stacked">
               <AlertTitle tone="destructive">Replace this device’s workspace?</AlertTitle>
-              <AlertDescription>Your current tasks will be backed up, then the local sync folder will be emptied. Tasks will stay locked until an existing workspace arrives through Syncthing.</AlertDescription>
+              <AlertDescription>Your current tasks will be backed up, then the local sync folder will be emptied. {APP_NAME} will stay locked until an existing workspace arrives through Syncthing.</AlertDescription>
               <AlertAction layout="stacked">
                 <Button variant="outline" size="xs" onClick={() => setConfirmReceive(false)}>Cancel</Button>
                 <Button variant="destructive" size="xs" onClick={onPrepareReceive}>Back up and continue</Button>

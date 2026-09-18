@@ -5,6 +5,7 @@ import { CommandError } from "./errors.js";
 import { abortReceiveWorkspace, isReceivingWorkspace, prepareReceiveWorkspace, receiveWorkspaceStatus } from "./receiveWorkspace.js";
 import type { ProtocolRequest } from "./protocol.js";
 import { executeTaskCommand } from "./tasks.js";
+import { APP_NAME } from "./branding.js";
 import { executeThemeCommand } from "./themes.js";
 
 export function executeCommand(
@@ -22,7 +23,7 @@ export function executeCommand(
       if (request.command === "workspace.receive.abort") return abortReceiveWorkspace(database, databasePath);
       if (request.command === "workspace.receive.status") return receiveWorkspaceStatus(database, databasePath);
       if (isReceivingWorkspace(databasePath)) {
-        throw new CommandError("RECEIVE_PENDING", "Tasks is waiting for an incoming workspace");
+        throw new CommandError("RECEIVE_PENDING", `${APP_NAME} is waiting for an incoming workspace`);
       }
       const syncResult = syncCanonicalWorkspace(database, databasePath);
       // Theme commands read palette files beside the database, so they need its path.

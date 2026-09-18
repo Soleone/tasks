@@ -3,6 +3,7 @@ import { Check, Tags } from "lucide-react";
 import type { TagRecord } from "@/backend/protocol";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { listTags } from "@/platform/backendClient";
+import { APP_NAME } from "@/backend/branding";
 
 export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
   open: boolean;
@@ -76,7 +77,7 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
       open={open}
       onOpenChange={(next) => { if (!next) onClose(); }}
       title="Filter by tags"
-      description="Select any number of tags. Tasks must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter."
+      description={`Select any number of tags. ${APP_NAME} must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter.`}
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >

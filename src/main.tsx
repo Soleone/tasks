@@ -4,9 +4,12 @@ import favicon16Url from "../assets/branding/favicon-two-color-v8-16.png";
 import favicon32Url from "../assets/branding/favicon-two-color-v8-32.png";
 import favicon48Url from "../assets/branding/favicon-two-color-v8-48.png";
 import App from "./App";
+import { APP_NAME } from "./backend/branding";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyStoredTheme } from "./theme";
 import "./styles.css";
+
+document.title = APP_NAME;
 
 const favicons = [
   [16, favicon16Url],
