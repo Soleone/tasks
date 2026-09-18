@@ -671,7 +671,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   function clearSelection(): boolean {
-    if (selectedIdsRef.current.size === 0) return false;
+    if (selectedIdsRef.current.size < 2) return false;
     setSelection([], null);
     onAnnounce("Selection cleared");
     return true;

@@ -88,7 +88,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Ctrl/⌘` with movement keys | Reorder only in the default Active view, optionally narrowed to one category; search, tags, priority, Unblocked, inactive, exact-status, and context-only rows report what to clear. The Move button provides the same actions by mouse. |
 | `Left` / `Right` | Move to a parent or expand/collapse children |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
-| `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear the selection first, then press it again to reset all filters; `F`/`S` also close their focused toolbar |
+| `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear a multi-task selection, otherwise reset all filters; `F`/`S` also close their focused toolbar |
 | `?` (`Shift+/`) | Open the starter help section on the right |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
