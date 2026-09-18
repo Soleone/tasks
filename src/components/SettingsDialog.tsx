@@ -162,10 +162,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
         <section aria-labelledby="settings-appearance" className="flex flex-col gap-3">
           <h2 id="settings-appearance" className="text-sm font-medium">Appearance</h2>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="settings-font-size" className="text-sm font-medium">Font size</label>
-              <output htmlFor="settings-font-size" className="text-sm text-muted-foreground" aria-live="polite">{fontSizeLabel(fontSizeIncrease)}</output>
-            </div>
+            <label htmlFor="settings-font-size" className="text-sm font-medium">Font size</label>
             <input
               id="settings-font-size"
               data-font-size-control
