@@ -80,7 +80,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Workspace",
     entries: [
-      { label: "Settings", hint: "Storage and export", icon: Settings2, action: "open-settings", keywords: "data export json sqlite database storage path" },
+      { label: "Settings", hint: "Storage and export", icon: Settings2, keys: ["Ctrl/⌘", ","], action: "open-settings", keywords: "ctrl cmd comma data export json sqlite database storage path" },
       { label: "Themes", hint: "Workspace appearance", icon: Palette, keys: ["Alt", "T"], keywords: "alt theme colour color dark light accent palette" },
       { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
       { label: "Close or go back", hint: "Esc returns from toolbar; F/S also closes it", icon: Undo2, keys: ["Esc", "F/S"], keywords: "escape palette toolbar focus title notes list edit reset clear filters mode close toggle" }

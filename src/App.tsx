@@ -473,6 +473,12 @@ export default function App(): ReactElement {
         setStarterHelpOpen(false);
         return;
       }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ",") {
+        event.preventDefault();
+        if (settingsOpen) setSettingsOpen(false);
+        else openSettings();
+        return;
+      }
       if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
         event.preventDefault();
         if (themesOpen) setThemesOpen(false);
@@ -489,7 +495,7 @@ export default function App(): ReactElement {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, starterHelpOpen, themesOpen]);
+  }, [helpOpen, settingsOpen, starterHelpOpen, themesOpen]);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);
@@ -1066,7 +1072,7 @@ export default function App(): ReactElement {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} onClick={openSettings} />}
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Control+, Meta+," onClick={openSettings} />}
               >
                 <Settings2 aria-hidden="true" />
                 <span className="sr-only">Settings</span>

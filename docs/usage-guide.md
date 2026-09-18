@@ -91,6 +91,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear a multi-task selection, otherwise reset all filters; `F`/`S` also close their focused toolbar |
 | `?` (`Shift+/`) | Open the starter help section on the right |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
+| `Ctrl/⌘+,` | Open Settings |
 | `Alt+T` | Open the theme picker |
 | Configured global shortcut (default `Ctrl+Alt+Space`) | Focus the Tasks window from anywhere in the native desktop app; change it in Settings. On Omarchy/Hyprland, copy the generated Lua binding from Settings. |
 
