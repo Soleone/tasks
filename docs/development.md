@@ -134,7 +134,7 @@ pnpm dev:tauri
 
 On Omarchy, use the named command; the Linux binary applies the WebKitGTK compatibility setting before starting the webview:
 
-The built-in global shortcut is not considered supported on Omarchy's native Wayland session yet. Configure the chosen shortcut as a Hyprland compositor bind to focus Tasks, or use the app normally until a portal-backed implementation is available.
+The built-in global shortcut is not considered supported on Omarchy's native Wayland session yet. Open Settings and copy the generated Omarchy binding into `~/.config/hypr/bindings.lua`. It uses `o.bind` with `focus` and `launch`, so the shortcut focuses the existing Tasks window and launches it only when no matching window exists. Reload Hyprland after saving the file.
 
 ```bash
 pnpm check

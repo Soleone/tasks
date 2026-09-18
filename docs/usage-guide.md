@@ -92,7 +92,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `?` (`Shift+/`) | Open the starter help section on the right |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Alt+T` | Open the theme picker |
-| Configured global shortcut (default `Ctrl+Alt+Space`) | Focus the Tasks window from anywhere in the native desktop app; change it in Settings |
+| Configured global shortcut (default `Ctrl+Alt+Space`) | Focus the Tasks window from anywhere in the native desktop app; change it in Settings. On Omarchy/Hyprland, copy the generated Lua binding from Settings. |
 
 Inside the task dialog, `Tab` and `Shift+Tab` move through the title, optional description, and the single priority section. A non-empty title opens and focuses the description; an empty create title does not open the optional description. Focus the priority section itself, not an individual P0-P4 button, then press `0`-`4` or `←`/`→` to choose the task priority. Those number keys set the active task's priority on the list; behind `F` they filter instead. Action buttons are backup mouse controls, not Tab destinations; use `Enter` or `Ctrl/⌘+Enter` to save and `Escape` to close or step back from the description. The priority defaults to P2. Saving a new or edited task closes the dialog and returns to the list. Dialogs return focus to the control or list that opened them.
 

@@ -78,11 +78,15 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     }
   }
 
-  async function copyShortcutBinding(): Promise<void> {
-    const parts = shortcutDraft.split("+").map((part) => part.trim()).filter(Boolean);
+  function omarchyBinding(shortcut: string): string {
+    const parts = shortcut.split("+").map((part) => part.trim()).filter(Boolean);
     const key = parts.pop()?.toUpperCase() ?? "SPACE";
-    const modifiers = parts.map((part) => part.toUpperCase()).join(" ");
-    const binding = `bind = ${modifiers}, ${key}, focuswindow, class:^(com\\.soleone\\.tasks)$`;
+    const keys = [...parts.map((part) => part.toUpperCase()), key].join(" + ");
+    return `o.bind("${keys}", "Tasks", { launch = "tasks", focus = "^com\\\\.soleone\\\\.tasks$" })`;
+  }
+
+  async function copyShortcutBinding(): Promise<void> {
+    const binding = omarchyBinding(shortcutDraft);
     try {
       await navigator.clipboard.writeText(binding);
       setCopiedShortcut(true);
@@ -171,12 +175,12 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
             <p className="text-xs text-muted-foreground">This applies to the native desktop app. Wayland may require a compositor binding.</p>
             {isLinux ? <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
               <p className="text-sm font-medium">Omarchy / Hyprland</p>
-              <p className="text-sm text-muted-foreground">Wayland keeps global shortcuts in Hyprland rather than allowing applications to register them. Add this line to your Hyprland bindings, then reload the compositor:</p>
-              <code className="wrap-anywhere rounded bg-muted p-2 text-xs">bind = {shortcutDraft.split("+").slice(0, -1).map((part) => part.trim().toUpperCase()).join(" ")}, {shortcutDraft.split("+").at(-1)?.trim().toUpperCase() ?? "SPACE"}, focuswindow, class:^(com\.soleone\.tasks)$</code>
+              <p className="text-sm text-muted-foreground">Wayland keeps global shortcuts in Hyprland rather than allowing applications to register them. Add this Lua binding to <code>~/.config/hypr/bindings.lua</code>, then reload Hyprland:</p>
+              <code className="wrap-anywhere rounded bg-muted p-2 text-xs">{omarchyBinding(shortcutDraft)}</code>
               <Button variant="outline" size="sm" className="w-fit" onClick={() => void copyShortcutBinding()}>
-                {copiedShortcut ? "Copied binding" : "Copy Hyprland binding"}
+                {copiedShortcut ? "Copied binding" : "Copy Omarchy binding"}
               </Button>
-              <p className="text-xs text-muted-foreground">This focuses an already-running Tasks window. It does not change your Hyprland files automatically.</p>
+              <p className="text-xs text-muted-foreground">This focuses the existing Tasks window and launches Tasks only when no matching window exists. It does not change your Hyprland files automatically.</p>
             </div> : null}
           </div>
 
