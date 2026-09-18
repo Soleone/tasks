@@ -116,7 +116,7 @@ type TaskListProps = {
   onToggleDetails: () => void;
   categoryFilter: ClassificationToken | null;
   onCategoryFilterChange: (category: ClassificationToken | null) => void;
-  onSelectCategory: (category: ClassificationToken) => void;
+  onSelectCategory: (category: ClassificationToken, activeTaskId?: string) => void;
   onOpenCategoryPicker: () => void;
   tagFilter: TagRecord[];
   onTagFilterChange: (tags: TagRecord[]) => void;
@@ -158,6 +158,7 @@ type DeleteReceipt = {
 export type ActiveTaskRequest = {
   key: number;
   taskId: string | null;
+  preserveTaskOnRefresh: boolean;
 };
 
 type TaskOptionClick = (row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>) => void;
@@ -401,6 +402,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const identityRefreshPendingRef = useRef(false);
   const activeTaskIndexRef = useRef(0);
   const activeTaskRequestKeyRef = useRef(activeTaskRequest.key);
+  const activeTaskRequestTasksRef = useRef<TaskRecord[] | null>(null);
+  const preserveActiveTaskOnRefreshRef = useRef(false);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeTaskRef = useRef<TaskRecord | undefined>(undefined);
   const activeScrollFrameRef = useRef<number | null>(null);
@@ -520,16 +523,35 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
   }, [activeIndex, activeTaskIndex, newTaskId, onAnnounce, selectedIds, viewIdentity, visibleRows]);
 
+  // Right-arrow category filtering keeps the task id through the async list
+  // refresh; other active-task requests apply once to the current rows.
   useEffect(() => {
-    if (activeTaskRequestKeyRef.current === activeTaskRequest.key) return;
-    activeTaskRequestKeyRef.current = activeTaskRequest.key;
-    pendingActiveIdRef.current = null;
-    pendingActiveViewRef.current = null;
-    const requestedIndex = activeTaskRequest.taskId === null
-      ? 0
-      : visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId);
-    setActiveTaskIndex(requestedIndex >= 0 ? requestedIndex : 0);
-  }, [activeTaskRequest.key, activeTaskRequest.taskId, visibleRows]);
+    const requestChanged = activeTaskRequestKeyRef.current !== activeTaskRequest.key;
+    if (requestChanged) {
+      activeTaskRequestKeyRef.current = activeTaskRequest.key;
+      activeTaskRequestTasksRef.current = tasks;
+      preserveActiveTaskOnRefreshRef.current = activeTaskRequest.preserveTaskOnRefresh;
+      pendingActiveIdRef.current = null;
+      pendingActiveViewRef.current = null;
+    }
+
+    if (activeTaskRequest.taskId !== null) {
+      const taskDataChanged = activeTaskRequestTasksRef.current !== null
+        && activeTaskRequestTasksRef.current !== tasks;
+      const refreshApplied = preserveActiveTaskOnRefreshRef.current && taskDataChanged;
+      if (requestChanged || refreshApplied) {
+        const requestedIndex = visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId);
+        if (requestedIndex >= 0) setActiveTaskIndex(requestedIndex);
+        else setActiveTaskIndex(0);
+      }
+      if (refreshApplied) {
+        activeTaskRequestTasksRef.current = null;
+        preserveActiveTaskOnRefreshRef.current = false;
+      }
+      return;
+    }
+    if (requestChanged) setActiveTaskIndex(0);
+  }, [activeTaskRequest.key, activeTaskRequest.preserveTaskOnRefresh, activeTaskRequest.taskId, tasks, visibleRows]);
 
   useEffect(() => () => {
     if (activeScrollFrameRef.current !== null) cancelAnimationFrame(activeScrollFrameRef.current);
@@ -701,9 +723,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     openCategoryPicker();
   }
 
-  function selectCategory(category: ClassificationToken): void {
+  function selectCategory(category: ClassificationToken, activeTaskId?: string): void {
+    if (activeTaskId !== undefined) {
+      const row = visibleRowsRef.current.find((candidate) => candidate.task.id === activeTaskId);
+      if (row && !row.contextOnly) selectOnly(row);
+    }
     returnToList();
-    onSelectCategory(category);
+    onSelectCategory(category, activeTaskId);
   }
 
   function clearSearch(): void {
@@ -1073,7 +1099,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         return;
       }
       if (activeRow.task.category) {
-        selectCategory(activeRow.task.category);
+        selectCategory(activeRow.task.category, activeRow.contextOnly ? undefined : activeRow.task.id);
       } else {
         onAnnounce(`${taskTitleDisplay(activeRow.task.title)} has no category to filter.`);
       }

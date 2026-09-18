@@ -231,7 +231,7 @@ export default function App(): ReactElement {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [composer, setComposer] = useState<ComposerState | null>(null);
-  const [activeTaskRequest, setActiveTaskRequest] = useState({ key: 0, taskId: null as string | null });
+  const [activeTaskRequest, setActiveTaskRequest] = useState({ key: 0, taskId: null as string | null, preserveTaskOnRefresh: false });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -271,8 +271,8 @@ export default function App(): ReactElement {
   const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
 
-  function requestActiveTask(taskId: string | null = null): void {
-    setActiveTaskRequest((previous) => ({ key: previous.key + 1, taskId }));
+  function requestActiveTask(taskId: string | null = null, preserveTaskOnRefresh = false): void {
+    setActiveTaskRequest((previous) => ({ key: previous.key + 1, taskId, preserveTaskOnRefresh }));
   }
 
   useEffect(() => {
@@ -766,12 +766,12 @@ export default function App(): ReactElement {
     requestActiveTask();
   }
 
-  function chooseCategory(category: ClassificationToken): void {
+  function chooseCategory(category: ClassificationToken, activeTaskId?: string): void {
     setCategoryPickerOpen(false);
     setCategoryFilter(category);
     categoryFilterRef.current = category.slug;
     writeStored(CATEGORY_FILTER_KEY, category.slug);
-    requestActiveTask();
+    requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
     setAnnouncement(`Showing ${category.label} tasks`);
   }
 
