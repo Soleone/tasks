@@ -33,7 +33,7 @@ export function TaskComposerDialog({ composer, onClose, onSaved, finalFocus, hel
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent
-        className="relative overflow-visible sm:max-w-md"
+        className="overflow-y-auto sm:max-w-md"
         initialFocus={titleInput as RefObject<HTMLElement>}
         finalFocus={finalFocus}
         onKeyDownCapture={(event) => {

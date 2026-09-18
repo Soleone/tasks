@@ -184,7 +184,6 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       event.preventDefault();
       if (event.shiftKey) focusPrioritySection();
       else if (notesOpen) notesInput.current?.focus();
-      else if (!task && !title.trim()) return;
       else showNotes();
       return;
     }

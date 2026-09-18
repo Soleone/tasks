@@ -101,6 +101,10 @@ try {
   waitFor('document.activeElement.name === "title"');
   check('document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   browser("press", "Tab");
+  // Regression: Tab from an empty title must open and focus the description.
+  waitFor('document.activeElement.name === "description"');
+  check('document.querySelector(\'form[aria-label="New task"] textarea\') !== null');
+  browser("click", 'form[aria-label="New task"] input');
   waitFor('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   check('document.querySelector(\'form[aria-label="New task"] button[type="button"]\').tabIndex === -1');
   check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
