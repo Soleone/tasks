@@ -23,6 +23,7 @@ import { useFocusNavigation, useFocusStack } from "@/navigation";
 import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, listTasks, listThemes, moveTask, prepareReceiveWorkspace, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
+import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
 
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
@@ -39,6 +40,7 @@ const SORT_DIRECTION_KEY = "tasks.sortDirection";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
+const GLOBAL_SHORTCUT_KEY = "tasks.globalShortcut";
 
 function readStored(key: string): string | null {
   try {
@@ -227,6 +229,7 @@ export default function App(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
+  const [globalShortcut, setGlobalShortcutValue] = useState(() => readStored(GLOBAL_SHORTCUT_KEY) ?? DEFAULT_GLOBAL_SHORTCUT);
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
@@ -246,6 +249,7 @@ export default function App(): ReactElement {
   const sortFieldRef = useRef<SortField>(sortField);
   const sortDirectionRef = useRef<SortDirection>(sortDirection);
   const categoryFilterRef = useRef<string | null>(categoryFilter?.slug ?? null);
+  const globalShortcutRef = useRef(globalShortcut);
   const restoredMetadataRef = useRef(false);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
@@ -253,6 +257,20 @@ export default function App(): ReactElement {
 
   const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
+
+  useEffect(() => {
+    void setGlobalShortcut(globalShortcut, null).catch(() => undefined);
+  }, []);
+
+  async function changeGlobalShortcut(value: string): Promise<void> {
+    const next = value.trim();
+    if (!isShortcutConfigured(next)) throw new Error("Use at least one modifier and a key, such as Ctrl+Alt+Space.");
+    await setGlobalShortcut(next, globalShortcutRef.current);
+    globalShortcutRef.current = next;
+    setGlobalShortcutValue(next);
+    writeStored(GLOBAL_SHORTCUT_KEY, next);
+    setAnnouncement(`Global shortcut set to ${next}`);
+  }
 
   const refreshTasks = useCallback(async (offset = 0, preserveContextOrder = false): Promise<boolean> => {
     const sequence = ++querySequence.current;
@@ -1208,6 +1226,8 @@ export default function App(): ReactElement {
         onOpenChange={setSettingsOpen}
         finalFocus={() => focusStack.restore("settings")}
         onPrepareReceive={() => void beginReceiveWorkspace()}
+        globalShortcut={globalShortcut}
+        onGlobalShortcutChange={changeGlobalShortcut}
       />
     </main>
   );

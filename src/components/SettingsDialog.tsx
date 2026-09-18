@@ -3,6 +3,7 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { exportTasks, getWorkspaceInfo, type TasksExportResult } from "@/platform/backendClient";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Failure = { title: string; detail: string };
@@ -12,19 +13,24 @@ type SettingsDialogProps = {
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onPrepareReceive: () => void;
+  globalShortcut: string;
+  onGlobalShortcutChange: (shortcut: string) => Promise<void>;
 };
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, globalShortcut, onGlobalShortcutChange }: SettingsDialogProps): ReactElement {
   const exportButton = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
   const [exported, setExported] = useState<TasksExportResult | null>(null);
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedShortcut, setCopiedShortcut] = useState(false);
+  const [isLinux, setIsLinux] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [confirmReceive, setConfirmReceive] = useState(false);
+  const [shortcutDraft, setShortcutDraft] = useState(globalShortcut);
 
   useEffect(() => {
     if (!open) return;
@@ -32,8 +38,11 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     setDatabasePath(null);
     setExported(null);
     setCopied(false);
+    setCopiedShortcut(false);
     setFailure(null);
     setConfirmReceive(false);
+    setShortcutDraft(globalShortcut);
+    setIsLinux(navigator.platform.toLowerCase().includes("linux"));
     getWorkspaceInfo()
       .then((info) => { if (!stale) setDatabasePath(info.databasePath); })
       .catch((caught: unknown) => { if (!stale) setFailure({ title: "Could not read the workspace", detail: caught instanceof Error ? caught.message : String(caught) }); });
@@ -54,6 +63,28 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     } finally {
       exporting.current = false;
       setPending(false);
+    }
+  }
+
+  async function saveShortcut(): Promise<void> {
+    setFailure(null);
+    try {
+      await onGlobalShortcutChange(shortcutDraft);
+    } catch (caught) {
+      setFailure({ title: "Could not register the global shortcut", detail: caught instanceof Error ? caught.message : String(caught) });
+    }
+  }
+
+  async function copyShortcutBinding(): Promise<void> {
+    const parts = shortcutDraft.split("+").map((part) => part.trim()).filter(Boolean);
+    const key = parts.pop()?.toUpperCase() ?? "SPACE";
+    const modifiers = parts.map((part) => part.toUpperCase()).join(" ");
+    const binding = `bind = ${modifiers}, ${key}, focuswindow, class:^(com\\.soleone\\.tasks)$`;
+    try {
+      await navigator.clipboard.writeText(binding);
+      setCopiedShortcut(true);
+    } catch {
+      setFailure({ title: "Could not copy the Hyprland binding", detail: binding });
     }
   }
 
@@ -104,6 +135,31 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
             <p className="text-sm text-muted-foreground">
               Writes a readable copy into the exports folder beside the database, for another app to import.
             </p>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t pt-3">
+            <h2 id="settings-shortcut" className="text-sm font-medium">Global shortcut</h2>
+            <p className="text-sm text-muted-foreground">Focuses the Tasks window even when another app is active. Use modifiers plus a key, for example <code>Ctrl+Alt+Space</code>.</p>
+            <div className="flex items-center gap-2">
+              <Input
+                aria-labelledby="settings-shortcut"
+                value={shortcutDraft}
+                onChange={(event) => setShortcutDraft(event.target.value)}
+                placeholder="Ctrl+Alt+Space"
+                className="max-w-xs"
+              />
+              <Button variant="outline" onClick={() => void saveShortcut()}>Save</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">This applies to the native desktop app. Wayland may require a compositor binding.</p>
+            {isLinux ? <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
+              <p className="text-sm font-medium">Omarchy / Hyprland</p>
+              <p className="text-sm text-muted-foreground">Wayland keeps global shortcuts in Hyprland rather than allowing applications to register them. Add this line to your Hyprland bindings, then reload the compositor:</p>
+              <code className="wrap-anywhere rounded bg-muted p-2 text-xs">bind = {shortcutDraft.split("+").slice(0, -1).map((part) => part.trim().toUpperCase()).join(" ")}, {shortcutDraft.split("+").at(-1)?.trim().toUpperCase() ?? "SPACE"}, focuswindow, class:^(com\.soleone\.tasks)$</code>
+              <Button variant="outline" size="sm" className="w-fit" onClick={() => void copyShortcutBinding()}>
+                {copiedShortcut ? "Copied binding" : "Copy Hyprland binding"}
+              </Button>
+              <p className="text-xs text-muted-foreground">This focuses an already-running Tasks window. It does not change your Hyprland files automatically.</p>
+            </div> : null}
           </div>
 
           <div className="flex flex-col gap-2 border-t pt-3">

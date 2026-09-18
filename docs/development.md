@@ -38,6 +38,7 @@ The canonical JSON files are the inspectable source of current task state; SQLit
 - A task change, activity entry, and successful receipt commit together. Dry runs and read-only requests persist nothing.
 - SQLite uses foreign keys, short transactions, a bounded busy timeout, and WAL on local storage. Only one writer is expected at a time.
 - The desktop keeps one long-lived sidecar. Correlate requests and handle malformed responses, timeouts, exit, shutdown, and restart visibly. Never replay an uncertain write without its original idempotency key.
+- The native shell provides a configurable focus-only global shortcut through the Tauri global-shortcut plugin. Windows supports this. Linux support is X11-only with the current backend; native Wayland compositors such as Omarchy/Hyprland do not reliably deliver it, so an Omarchy bind or the desktop portal is still required there.
 - The WSL wrapper invokes the Windows sidecar when the Windows app is running; WSL must not open the Windows database directly through `/mnt/c`.
 
 ### Data and recovery
@@ -132,6 +133,8 @@ pnpm dev:tauri
 ```
 
 On Omarchy, use the named command; the Linux binary applies the WebKitGTK compatibility setting before starting the webview:
+
+The built-in global shortcut is not considered supported on Omarchy's native Wayland session yet. Configure the chosen shortcut as a Hyprland compositor bind to focus Tasks, or use the app normally until a portal-backed implementation is available.
 
 ```bash
 pnpm check
