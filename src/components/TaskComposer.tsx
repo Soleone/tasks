@@ -8,6 +8,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { KeyboardHelpMode } from "@/keyboardHelp";
 
 type TaskComposerProps = {
   task?: TaskRecord;
@@ -16,7 +17,7 @@ type TaskComposerProps = {
   titleInputRef?: RefObject<HTMLInputElement | null>;
   onSaved: (result: TaskMutationResult) => void;
   onCancel: () => void;
-  helpMode: boolean;
+  helpMode: KeyboardHelpMode;
 };
 
 // Shared create/edit form. Fields and the priority section own direct
@@ -47,6 +48,8 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const dirty = title !== (task?.title ?? "")
     || description !== (task?.descriptionMarkdown ?? "")
     || priority !== (task?.priority ?? 2);
+  const showContextualHelp = helpMode === "full";
+  const showPriorityHelp = helpMode === "basic";
 
   useEffect(() => {
     requestAnimationFrame(() => titleInput.current?.focus());
@@ -63,7 +66,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   }, [notesOpen]);
 
   useLayoutEffect(() => {
-    if (!helpMode) {
+    if (!showContextualHelp) {
       setHelpTop(null);
       return;
     }
@@ -93,7 +96,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       popup.removeEventListener("scroll", updateHelpPosition);
       popup.removeEventListener("animationend", updateHelpPosition);
     };
-  }, [helpMode, helpTarget, notesOpen]);
+  }, [helpTarget, notesOpen, showContextualHelp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -298,7 +301,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       }}
       className="flex flex-col gap-4"
     >
-      {helpMode ? (
+      {showContextualHelp ? (
         <aside
           aria-label="Keyboard help"
           data-context-help={helpTarget}
@@ -401,7 +404,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
             ref={prioritySection}
             role="radiogroup"
             aria-labelledby={`${id}-priority-label`}
-            aria-describedby={helpMode ? undefined : `${id}-priority-help`}
+            aria-describedby={showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`}
             aria-activedescendant={`${id}-priority-${priority}`}
             aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
             aria-disabled={pending || undefined}
@@ -437,7 +440,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
               );
             })}
           </ButtonGroup>
-          {!helpMode ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
+          {showPriorityHelp ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
         </Field>
       </FieldGroup>
       {error ? (

@@ -3,6 +3,7 @@ import type { TaskRecord } from "@/backend/protocol";
 import type { TaskMutationResult } from "@/platform/backendClient";
 import { TaskComposer } from "@/components/TaskComposer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { KeyboardHelpMode } from "@/keyboardHelp";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -13,7 +14,7 @@ type TaskComposerDialogProps = {
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;
   finalFocus: () => HTMLElement | undefined;
-  helpMode: boolean;
+  helpMode: KeyboardHelpMode;
 };
 
 // One dialog for both create and edit so the two flows stay connected.

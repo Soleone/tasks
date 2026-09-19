@@ -27,6 +27,7 @@ import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
 import { readStoredFontSizeIncrease, storeFontSizeIncrease, type FontSizeIncrease } from "@/fontSize";
+import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
@@ -115,8 +116,14 @@ function readShowDetails(): boolean {
   return (readStored(SHOW_DETAILS_KEY) ?? readStored(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true";
 }
 
-function readHelpMode(): boolean {
-  return readStored(HELP_MODE_KEY) === "true";
+function readHelpMode(): KeyboardHelpMode {
+  const stored = readStored(HELP_MODE_KEY);
+  if (isKeyboardHelpMode(stored)) return stored;
+  // Preserve the old checkbox preference: enabled meant full contextual help,
+  // while disabled left the task-list shortcut guides available.
+  if (stored === "true") return "full";
+  if (stored === "false") return "basic";
+  return "full";
 }
 
 function taskIsVisible(
@@ -675,10 +682,14 @@ export default function App(): ReactElement {
     setAnnouncement(next ? "Showing task details" : "Hiding task details");
   }
 
-  function changeHelpMode(enabled: boolean): void {
-    setHelpMode(enabled);
-    writeStored(HELP_MODE_KEY, String(enabled));
-    setAnnouncement(enabled ? "Context-sensitive keyboard help enabled" : "Context-sensitive keyboard help disabled");
+  function changeHelpMode(mode: KeyboardHelpMode): void {
+    setHelpMode(mode);
+    writeStored(HELP_MODE_KEY, mode);
+    setAnnouncement(mode === "full"
+      ? "Full keyboard help enabled"
+      : mode === "basic"
+        ? "Basic keyboard help enabled"
+        : "Keyboard help disabled");
   }
 
   function changeFontSizeIncrease(increase: FontSizeIncrease): void {
@@ -1321,6 +1332,7 @@ export default function App(): ReactElement {
           onSortFieldChange={chooseSortField}
           onReverseSort={reverseSort}
           showDetails={showDetails}
+          helpMode={helpMode}
           onToggleDetails={toggleDetails}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}

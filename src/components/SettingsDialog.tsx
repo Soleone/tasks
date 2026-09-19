@@ -5,8 +5,9 @@ import { APP_NAME } from "@/backend/branding";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 
@@ -20,8 +21,8 @@ type SettingsDialogProps = {
   onPurgeCanceled: () => Promise<number>;
   globalShortcut: string;
   onGlobalShortcutChange: (shortcut: string) => Promise<void>;
-  helpMode: boolean;
-  onHelpModeChange: (enabled: boolean) => void;
+  helpMode: KeyboardHelpMode;
+  onHelpModeChange: (mode: KeyboardHelpMode) => void;
   fontSizeIncrease: FontSizeIncrease;
   onFontSizeIncreaseChange: (increase: FontSizeIncrease) => void;
 };
@@ -238,19 +239,35 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
             <section aria-labelledby="settings-help" className="flex flex-col gap-4 rounded-lg border p-4">
               <div className="flex flex-col gap-1">
                 <h2 id="settings-help" className="text-sm font-medium">Keyboard help</h2>
-                <p className="text-sm text-muted-foreground">Keep focused-control guidance visible while dialogs are open.</p>
+                <p className="text-sm text-muted-foreground">Choose how much keyboard guidance to show.</p>
               </div>
-              <label className="flex items-start gap-3 rounded-md border bg-muted/20 p-3">
-                <Checkbox
-                  checked={helpMode}
-                  onCheckedChange={(checked) => onHelpModeChange(checked === true)}
-                  aria-labelledby="settings-help-label"
-                />
-                <span className="flex flex-col gap-1">
-                  <span id="settings-help-label" className="text-sm font-medium">Show context-sensitive help</span>
-                  <span className="text-sm text-muted-foreground">Show keyboard guidance beside dialogs based on the focused control.</span>
-                </span>
-              </label>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span id="settings-help-mode-label" className="text-sm font-medium">Display</span>
+                  <Select
+                    value={helpMode}
+                    onValueChange={(value) => {
+                      if (isKeyboardHelpMode(value)) onHelpModeChange(value);
+                    }}
+                  >
+                    <SelectTrigger
+                      id="settings-help-mode"
+                      size="sm"
+                      data-help-mode={helpMode}
+                      aria-labelledby="settings-help-mode-label"
+                      aria-describedby="settings-help-mode-description"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      <SelectItem value="full">Full</SelectItem>
+                      <SelectItem value="basic">Basic</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p id="settings-help-mode-description" className="text-sm text-muted-foreground">Full shows all keyboard help. Basic shows only the filter and sort shortcuts. None hides automatic keyboard help.</p>
+              </div>
               </section>
             </div>
           </TabsContent>

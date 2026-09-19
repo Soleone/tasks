@@ -500,11 +500,19 @@ try {
   browser("press", "ArrowLeft");
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
+  // Full help is the default. The dropdown also keeps the old basic mode
+  // available while adding a separate option for no automatic guidance.
+  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
+  browser("click", '[data-help-mode]');
+  waitFor('document.querySelector("[data-slot=select-content]") !== null');
+  check('[...document.querySelectorAll("[data-slot=select-item]")].map((item) => item.textContent.trim()).join(",") === "Full,Basic,None"');
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Basic").click(); true');
+  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
+  browser("click", '[data-help-mode]');
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Full").click(); true');
+  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
   // Context help is visible in the task composer, including at the native
   // window minimum where the side-panel version used to be CSS-hidden.
-  check('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
-  browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
-  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "true"');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "Escape");
@@ -526,8 +534,24 @@ try {
   waitFor('!document.querySelector("[role=dialog]")');
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
-  browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
-  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
+  browser("click", '[data-help-mode]');
+  waitFor('document.querySelector("[data-slot=select-content]") !== null');
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "None").click(); true');
+  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+  focus("[role=listbox]");
+  browser("press", "f");
+  waitFor('document.activeElement.matches("[data-toolbar=filters]")');
+  check('document.querySelector("[data-shortcut-guide]") === null');
+  browser("press", "f");
+  waitFor('document.activeElement.matches("[role=listbox]")');
+  browser("find", "role", "button", "click", "--name", "Settings");
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  browser("click", '[data-help-mode]');
+  waitFor('document.querySelector("[data-slot=select-content]") !== null');
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Basic").click(); true');
+  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
   evaluate('[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Data").click(); true');
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   evaluate('[...document.querySelectorAll("[role=dialog] button")].find((button) => button.textContent === "Export tasks as JSON").click(); true');

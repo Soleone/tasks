@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTask } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
+import type { KeyboardHelpMode } from "@/keyboardHelp";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 type StatusTransition = { next: TaskStatus; command: StatusCommand };
@@ -113,6 +114,7 @@ type TaskListProps = {
   onSortFieldChange: (field: SortField) => void;
   onReverseSort: () => void;
   showDetails: boolean;
+  helpMode: KeyboardHelpMode;
   onToggleDetails: () => void;
   categoryFilter: ClassificationToken | null;
   onCategoryFilterChange: (category: ClassificationToken | null, activeTaskId?: string) => void;
@@ -339,6 +341,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onSortFieldChange,
   onReverseSort,
   showDetails,
+  helpMode,
   onToggleDetails,
   categoryFilter,
   onCategoryFilterChange,
@@ -1818,7 +1821,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </Button>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <div className="relative">
-              {toolbarMode === "filter" ? <TaskListModeHelp mode="filter" onDismiss={returnToList} /> : null}
+              {toolbarMode === "filter" && helpMode !== "none" ? <TaskListModeHelp mode="filter" onDismiss={returnToList} /> : null}
               <ButtonGroup
             ref={filterToolbar}
             aria-label="Task list filters"
@@ -1964,7 +1967,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             </div>
           <Separator orientation="vertical" className="h-7" />
           <div className="relative">
-            {toolbarMode === "sort" ? <TaskListModeHelp mode="sort" onDismiss={returnToList} /> : null}
+            {toolbarMode === "sort" && helpMode !== "none" ? <TaskListModeHelp mode="sort" onDismiss={returnToList} /> : null}
             <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"
