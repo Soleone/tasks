@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactElement, type RefObject } from "react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { createTask, listCategories, listTags, updateTask, BackendCommandError } from "@/platform/backendClient";
+import { createTask, listCategories, listTags, updateTask, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -14,7 +14,7 @@ type TaskComposerProps = {
   initialTitle?: string;
   parentId?: string;
   titleInputRef?: RefObject<HTMLInputElement | null>;
-  onSaved: (task: TaskRecord) => void;
+  onSaved: (result: TaskMutationResult) => void;
   onCancel: () => void;
   helpMode: boolean;
 };
@@ -256,7 +256,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
         setPriority(2);
         setNotesOpen(false);
       }
-      onSaved(result.task);
+      onSaved(result);
       requestAnimationFrame(() => titleInput.current?.focus());
     } catch (caught) {
       setError(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"

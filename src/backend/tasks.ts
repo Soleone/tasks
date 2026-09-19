@@ -38,6 +38,46 @@ type MutationContext = {
   replay: Record<string, unknown> | null;
 };
 
+type OperationOrigin = "desktop" | "cli" | "system";
+type OperationTaskState = {
+  title?: string;
+  descriptionMarkdown?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  parentId?: string | null;
+  dependencyIds?: string[];
+  createdAt?: string;
+  completedAt?: string | null;
+  canceledAt?: string | null;
+};
+type TaskOperationEffect = {
+  taskId: string;
+  beforeVersion: number;
+  afterVersion: number;
+  restore: OperationTaskState;
+  expect: OperationTaskState;
+  deleteOnUndo?: boolean;
+  touchUpdatedAt?: boolean;
+};
+type TaskOperationOrder = {
+  parentId: string | null;
+  beforeIds: string[];
+  afterIds: string[];
+};
+type TaskOperationPayload = {
+  version: 1;
+  kind: "task";
+  effects: TaskOperationEffect[];
+  orders: TaskOperationOrder[];
+};
+type StoredOperation = {
+  id: string;
+  command: ProtocolRequest["command"];
+  origin: OperationOrigin;
+  status: "active" | "undone" | "invalidated";
+  payload: TaskOperationPayload;
+};
+
 type PreparedTask = {
   title: string;
   descriptionMarkdown: string;
@@ -59,6 +99,7 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.reorder",
   "task.transitionMany",
   "task.status.undoMany",
+  "operation.undo",
   "task.dependency.add",
   "task.dependency.remove",
   "workspace.restore",
@@ -194,6 +235,124 @@ function recordReceipt(database: DatabaseSync, request: ProtocolRequest, context
       "INSERT INTO command_receipts (idempotency_key, command, request_hash, response_json, created_at) VALUES (?, ?, ?, ?, ?)",
     )
     .run(context.key, request.command, context.hash, JSON.stringify(result), now);
+}
+
+function operationOrigin(request: ProtocolRequest): OperationOrigin {
+  if (request.actor.kind === "human") return "desktop";
+  if (request.actor.kind === "agent") return "cli";
+  return "system";
+}
+
+function operationResult(result: Record<string, unknown>, operationId: string): Record<string, unknown> {
+  return { ...result, operationId };
+}
+
+function parseTaskOperationPayload(value: string): TaskOperationPayload {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new CommandError("INVALID_STORAGE", "operation payload is not valid JSON");
+  }
+  if (!isRecord(parsed) || parsed.version !== 1 || parsed.kind !== "task" || !Array.isArray(parsed.effects) || !Array.isArray(parsed.orders)) {
+    throw new CommandError("INVALID_STORAGE", "operation payload is invalid");
+  }
+  return parsed as unknown as TaskOperationPayload;
+}
+
+function recordOperation(
+  database: DatabaseSync,
+  request: ProtocolRequest,
+  payload: TaskOperationPayload,
+  now: string,
+  operationId: string = randomUUID(),
+): string {
+  database
+    .prepare(
+      `INSERT INTO operations
+        (id, group_id, origin, actor_kind, actor_label, command, request_id, idempotency_key, created_at, status, payload_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+    )
+    .run(
+      operationId,
+      operationId,
+      operationOrigin(request),
+      request.actor.kind,
+      request.actor.label,
+      request.command,
+      request.requestId,
+      request.idempotencyKey ?? "",
+      now,
+      JSON.stringify(payload),
+    );
+  const insertEffect = database.prepare(
+    "INSERT INTO operation_effects (operation_id, task_id, before_version, after_version) VALUES (?, ?, ?, ?)",
+  );
+  for (const effect of payload.effects) {
+    insertEffect.run(operationId, effect.taskId, effect.beforeVersion, effect.afterVersion);
+  }
+  return operationId;
+}
+
+function stateValueMatches(task: TaskRecord, field: keyof OperationTaskState, expected: unknown): boolean {
+  if (field === "dependencyIds") {
+    return JSON.stringify([...task.dependencyIds].sort()) === JSON.stringify([...(expected as string[])].sort());
+  }
+  return task[field] === expected;
+}
+
+function taskStateMatches(task: TaskRecord, state: OperationTaskState): boolean {
+  return (Object.keys(state) as Array<keyof OperationTaskState>).every((field) => stateValueMatches(task, field, state[field]));
+}
+
+function operationIdArg(args: Row): string {
+  return requiredString(args, "operationId");
+}
+
+function readOperation(database: DatabaseSync, id: string): StoredOperation {
+  const row = database
+    .prepare("SELECT id, command, origin, status, payload_json FROM operations WHERE id = ?")
+    .get(id) as Row | undefined;
+  if (!row) throw new CommandError("OPERATION_NOT_FOUND", `operation ${id} was not found`);
+  const status = stringValue(row, "status");
+  if (status !== "active") {
+    throw new CommandError("OPERATION_UNAVAILABLE", `operation ${id} is no longer undoable`);
+  }
+  const origin = stringValue(row, "origin");
+  if (origin !== "desktop" && origin !== "cli" && origin !== "system") {
+    throw new CommandError("INVALID_STORAGE", `operation ${id} has an invalid origin`);
+  }
+  return {
+    id: stringValue(row, "id"),
+    command: stringValue(row, "command") as ProtocolRequest["command"],
+    origin,
+    status: "active",
+    payload: parseTaskOperationPayload(stringValue(row, "payload_json")),
+  };
+}
+
+function operationPayload(effects: TaskOperationEffect[], orders: TaskOperationOrder[] = []): TaskOperationPayload {
+  return { version: 1, kind: "task", effects, orders };
+}
+
+function retireOperationAfterLegacyUndo(database: DatabaseSync, taskIdValue: string, afterVersion: number, request: ProtocolRequest, now: string): void {
+  const row = database
+    .prepare(
+      `SELECT operations.id, operations.payload_json
+       FROM operations
+       JOIN operation_effects ON operation_effects.operation_id = operations.id
+       WHERE operations.status = 'active' AND operations.command IN ('task.start', 'task.pause', 'task.complete', 'task.reopen', 'task.cancel', 'task.delete', 'task.transitionMany')
+         AND operation_effects.task_id = ? AND operation_effects.after_version = ?
+       ORDER BY operations.created_at DESC, operations.id DESC LIMIT 1`,
+    )
+    .get(taskIdValue, afterVersion) as Row | undefined;
+  if (!row) return;
+  const operationId = stringValue(row, "id");
+  const payload = parseTaskOperationPayload(stringValue(row, "payload_json"));
+  const nextStatus = payload.effects.length === 1 ? "undone" : "invalidated";
+  database
+    .prepare("UPDATE operations SET status = ?, undone_at = ?, undo_request_id = ? WHERE id = ? AND status = 'active'")
+    .run(nextStatus, now, request.requestId, operationId);
 }
 
 function classify(title: string, descriptionMarkdown: string): TaskClassification {
@@ -392,6 +551,159 @@ function requireTask(database: DatabaseSync, taskId: string): TaskRecord {
   return task;
 }
 
+function operationConflict(operationId: string, message: string): never {
+  throw new CommandError("OPERATION_CONFLICT", `operation ${operationId} cannot be undone: ${message}`);
+}
+
+function hasOperationField(state: OperationTaskState, field: keyof OperationTaskState): boolean {
+  return Object.prototype.hasOwnProperty.call(state, field);
+}
+
+function replaceTaskDependencies(database: DatabaseSync, taskIdValue: string, dependencyIds: string[]): void {
+  const uniqueIds = [...new Set(dependencyIds)];
+  for (const dependencyId of uniqueIds) {
+    if (dependencyId === taskIdValue || !findTask(database, dependencyId)) {
+      throw new CommandError("OPERATION_CONFLICT", `dependency ${dependencyId} cannot be restored`);
+    }
+    if (reachesThroughDependencies(database, dependencyId, taskIdValue)) {
+      throw new CommandError("OPERATION_CONFLICT", `restoring dependency ${dependencyId} would create a cycle`);
+    }
+  }
+  database.prepare("DELETE FROM task_dependencies WHERE task_id = ?").run(taskIdValue);
+  const insert = database.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)");
+  for (const dependencyId of uniqueIds) insert.run(taskIdValue, dependencyId);
+}
+
+function validateOperation(database: DatabaseSync, operation: StoredOperation): TaskRecord[] {
+  for (const order of operation.payload.orders) {
+    if (JSON.stringify(siblingIds(database, order.parentId)) !== JSON.stringify(order.afterIds)) {
+      operationConflict(operation.id, `sibling order for ${order.parentId ?? "root"} changed`);
+    }
+  }
+
+  const tasks: TaskRecord[] = [];
+  for (const effect of operation.payload.effects) {
+    const current = requireTask(database, effect.taskId);
+    if (!taskStateMatches(current, effect.expect)) {
+      operationConflict(operation.id, `task ${effect.taskId} changed in an affected field`);
+    }
+    if (effect.deleteOnUndo) {
+      if (current.version !== effect.afterVersion) {
+        operationConflict(operation.id, `task ${effect.taskId} changed after it was created`);
+      }
+      const child = database.prepare("SELECT 1 AS found FROM tasks WHERE parent_id = ? LIMIT 1").get(effect.taskId) as Row | undefined;
+      const relationship = database
+        .prepare("SELECT 1 AS found FROM task_dependencies WHERE task_id = ? OR depends_on_id = ? LIMIT 1")
+        .get(effect.taskId, effect.taskId) as Row | undefined;
+      if (child || relationship) {
+        operationConflict(operation.id, `task ${effect.taskId} has newer relationships`);
+      }
+    }
+    tasks.push(current);
+  }
+  return tasks;
+}
+
+function applyTaskOperationEffect(database: DatabaseSync, operation: StoredOperation, effect: TaskOperationEffect, now: string): void {
+  const current = requireTask(database, effect.taskId);
+  if (effect.deleteOnUndo) {
+    const deleted = database.prepare("DELETE FROM tasks WHERE id = ? AND version = ?").run(effect.taskId, effect.afterVersion);
+    if (deleted.changes !== 1) operationConflict(operation.id, `task ${effect.taskId} changed while being removed`);
+    return;
+  }
+
+  const nextTitle = hasOperationField(effect.restore, "title") ? effect.restore.title as string : current.title;
+  const nextDescription = hasOperationField(effect.restore, "descriptionMarkdown")
+    ? effect.restore.descriptionMarkdown as string
+    : current.descriptionMarkdown;
+  const nextStatus = hasOperationField(effect.restore, "status") ? effect.restore.status as TaskStatus : current.status;
+  const nextPriority = hasOperationField(effect.restore, "priority") ? effect.restore.priority as TaskPriority : current.priority;
+  const nextParentId = hasOperationField(effect.restore, "parentId") ? effect.restore.parentId as string | null : current.parentId;
+  const nextCompletedAt = hasOperationField(effect.restore, "completedAt")
+    ? effect.restore.completedAt as string | null
+    : current.completedAt;
+  const nextCanceledAt = hasOperationField(effect.restore, "canceledAt")
+    ? effect.restore.canceledAt as string | null
+    : current.canceledAt;
+  const updatedAt = effect.touchUpdatedAt === false ? current.updatedAt : now;
+  const updated = database
+    .prepare(
+      `UPDATE tasks
+       SET title = ?, description_markdown = ?, status = ?, parent_id = ?, priority = ?, version = version + 1,
+           updated_at = ?, completed_at = ?, canceled_at = ?
+       WHERE id = ?`,
+    )
+    .run(nextTitle, nextDescription, nextStatus, nextParentId, nextPriority, updatedAt, nextCompletedAt, nextCanceledAt, effect.taskId);
+  if (updated.changes !== 1) operationConflict(operation.id, `task ${effect.taskId} changed while being restored`);
+
+  if (hasOperationField(effect.restore, "title") || hasOperationField(effect.restore, "descriptionMarkdown")) {
+    upsertClassification(database, effect.taskId, classify(nextTitle, nextDescription), now);
+  }
+  if (hasOperationField(effect.restore, "dependencyIds")) {
+    replaceTaskDependencies(database, effect.taskId, effect.restore.dependencyIds as string[]);
+  }
+}
+
+function applyOperationOrders(database: DatabaseSync, operation: StoredOperation): void {
+  for (const order of operation.payload.orders) {
+    const update = database.prepare("UPDATE tasks SET position = ? WHERE id = ? AND parent_id IS ?");
+    for (const [position, taskIdValue] of order.beforeIds.entries()) {
+      const result = update.run(position, taskIdValue, order.parentId);
+      if (result.changes !== 1) operationConflict(operation.id, `sibling order for ${order.parentId ?? "root"} changed while being restored`);
+    }
+  }
+}
+
+function undoOperation(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) return context.replay;
+  const id = operationIdArg(request.args);
+  const operation = readOperation(database, id);
+  const now = new Date().toISOString();
+  const previewTasks = validateOperation(database, operation);
+  if (request.readOnly || request.dryRun) {
+    return { operationId: id, tasks: previewTasks, changed: true, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+
+  return withCanonicalTransaction(
+    database,
+    databasePath,
+    request,
+    () => ({
+      taskIds: operation.payload.effects.filter((effect) => !effect.deleteOnUndo).map((effect) => effect.taskId),
+      deletedTaskIds: operation.payload.effects.filter((effect) => effect.deleteOnUndo).map((effect) => effect.taskId),
+      orderParentIds: operation.payload.orders.map((order) => order.parentId),
+    }),
+    () => {
+      validateOperation(database, operation);
+      for (const effect of operation.payload.effects) applyTaskOperationEffect(database, operation, effect, now);
+      applyOperationOrders(database, operation);
+      const marked = database
+        .prepare("UPDATE operations SET status = 'undone', undone_at = ?, undo_request_id = ? WHERE id = ? AND status = 'active'")
+        .run(now, request.requestId, id);
+      if (marked.changes !== 1) throw new CommandError("OPERATION_UNAVAILABLE", `operation ${id} is no longer undoable`);
+      for (const effect of operation.payload.effects.filter((candidate) => !candidate.deleteOnUndo)) {
+        insertActivity(database, effect.taskId, request, "undone", { operationId: id, command: operation.command }, now);
+      }
+      if (operation.payload.effects.some((effect) => effect.deleteOnUndo)) {
+        database.exec(`
+          DELETE FROM categories WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE tasks.category_id = categories.id);
+          DELETE FROM tags WHERE NOT EXISTS (SELECT 1 FROM task_tags WHERE task_tags.tag_id = tags.id);
+        `);
+      }
+      const tasks = operation.payload.effects
+        .filter((effect) => !effect.deleteOnUndo)
+        .map((effect) => requireTask(database, effect.taskId));
+      const deletedTaskIds = operation.payload.effects
+        .filter((effect) => effect.deleteOnUndo)
+        .map((effect) => effect.taskId);
+      const result = { operationId: id, undoneOperationId: id, tasks, deletedTaskIds, changed: true };
+      recordReceipt(database, request, context, result, now);
+      return result;
+    },
+  );
+}
+
 function ancestorTasksFor(database: DatabaseSync, tasks: TaskRecord[]): TaskRecord[] {
   const matchingIds = new Set(tasks.map((task) => task.id));
   const ancestors = new Map<string, TaskRecord>();
@@ -507,6 +819,8 @@ function createTask(database: DatabaseSync, databasePath: string, request: Proto
   }
 
   const now = new Date().toISOString();
+  const operationId = randomUUID();
+  const beforeOrder = siblingIds(database, parentId);
   let id = "";
   return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [id], orderParentIds: [parentId] }), () => {
     id = randomUUID();
@@ -521,7 +835,28 @@ function createTask(database: DatabaseSync, databasePath: string, request: Proto
     upsertClassification(database, id, input.classification, now);
     insertActivity(database, id, request, "created", { title: input.title, priority, ...(parentId ? { parentId } : {}) }, now);
     const task = requireTask(database, id);
-    const result = taskResult(task);
+    const afterOrder = siblingIds(database, parentId);
+    const payload = operationPayload([{
+      taskId: id,
+      beforeVersion: 0,
+      afterVersion: task.version,
+      restore: {},
+      expect: {
+        title: task.title,
+        descriptionMarkdown: task.descriptionMarkdown,
+        status: task.status,
+        priority: task.priority,
+        parentId: task.parentId,
+        dependencyIds: task.dependencyIds,
+        createdAt: task.createdAt,
+        completedAt: task.completedAt,
+        canceledAt: task.canceledAt,
+      },
+      deleteOnUndo: true,
+      touchUpdatedAt: false,
+    }], [{ parentId, beforeIds: beforeOrder, afterIds: afterOrder }]);
+    recordOperation(database, request, payload, now, operationId);
+    const result = operationResult(taskResult(task), operationId);
     recordReceipt(database, request, context, result, now);
     return result;
   });
@@ -584,6 +919,29 @@ function updateTask(database: DatabaseSync, databasePath: string, request: Proto
   }
 
   const now = new Date().toISOString();
+  const operationId = randomUUID();
+  const restore: OperationTaskState = {};
+  const expect: OperationTaskState = {};
+  const classificationChanged = !classificationMatches(current, input.classification);
+  if (input.title !== current.title || classificationChanged) {
+    restore.title = current.title;
+    expect.title = input.title;
+  }
+  if (input.descriptionMarkdown !== current.descriptionMarkdown || classificationChanged) {
+    restore.descriptionMarkdown = current.descriptionMarkdown;
+    expect.descriptionMarkdown = input.descriptionMarkdown;
+  }
+  if (nextPriority !== current.priority) {
+    restore.priority = current.priority;
+    expect.priority = nextPriority;
+  }
+  const operationPayloadValue = operationPayload([{
+    taskId: current.id,
+    beforeVersion: current.version,
+    afterVersion: current.version + 1,
+    restore,
+    expect,
+  }]);
   return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database
       .prepare("UPDATE tasks SET title = ?, description_markdown = ?, priority = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
@@ -601,7 +959,8 @@ function updateTask(database: DatabaseSync, databasePath: string, request: Proto
       now,
     );
     const task = requireTask(database, current.id);
-    const result = taskResult(task, { changed: true });
+    recordOperation(database, request, operationPayloadValue, now, operationId);
+    const result = operationResult(taskResult(task, { changed: true }), operationId);
     recordReceipt(database, request, context, result, now);
     return result;
   });
@@ -711,6 +1070,16 @@ function transitionTask(database: DatabaseSync, databasePath: string, request: P
   };
   const plan = transitionPlan(database, item);
   const now = new Date().toISOString();
+  const operationId = plan.changed ? randomUUID() : undefined;
+  const completedAt = plan.target === "done" ? now : null;
+  const canceledAt = plan.target === "canceled" ? now : null;
+  const payload = plan.changed ? operationPayload([{
+    taskId: plan.current.id,
+    beforeVersion: plan.current.version,
+    afterVersion: plan.current.version + 1,
+    restore: { status: plan.current.status, completedAt: plan.current.completedAt, canceledAt: plan.current.canceledAt },
+    expect: { status: plan.target, completedAt, canceledAt },
+  }]) : null;
   const preview = transitionPreview(plan, now);
   if (request.readOnly || request.dryRun) {
     return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed: plan.changed });
@@ -725,7 +1094,9 @@ function transitionTask(database: DatabaseSync, databasePath: string, request: P
 
   return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [plan.current.id] }), () => {
     applyTransition(database, plan, request, now);
-    const result = taskResult(requireTask(database, plan.current.id), { changed: true });
+    if (!operationId || !payload) throw new CommandError("INVALID_STORAGE", "changed transition did not create an operation");
+    recordOperation(database, request, payload, now, operationId);
+    const result = operationResult(taskResult(requireTask(database, plan.current.id), { changed: true }), operationId);
     recordReceipt(database, request, context, result, now);
     return result;
   });
@@ -747,6 +1118,8 @@ function transitionMany(database: DatabaseSync, databasePath: string, request: P
   }
 
   let plans: TransitionPlan[] = [];
+  let operationId: string | undefined;
+  let payload: TaskOperationPayload | undefined;
   return withCanonicalTransaction(
     database,
     databasePath,
@@ -756,13 +1129,30 @@ function transitionMany(database: DatabaseSync, databasePath: string, request: P
       // Read and validate every item inside the same transaction before the
       // first UPDATE, so a stale or invalid sibling rolls back the whole batch.
       plans = args.tasks.map((item) => transitionPlan(database, item));
+      const changedPlans = plans.filter((plan) => plan.changed);
+      if (changedPlans.length > 0) {
+        operationId = randomUUID();
+        payload = operationPayload(changedPlans.map((plan) => ({
+          taskId: plan.current.id,
+          beforeVersion: plan.current.version,
+          afterVersion: plan.current.version + 1,
+          restore: { status: plan.current.status, completedAt: plan.current.completedAt, canceledAt: plan.current.canceledAt },
+          expect: {
+            status: plan.target,
+            completedAt: plan.target === "done" ? now : null,
+            canceledAt: plan.target === "canceled" ? now : null,
+          },
+        })));
+      }
       for (const plan of plans) {
         if (plan.changed) applyTransition(database, plan, request, now);
       }
-      const result = {
+      const baseResult = {
         tasks: plans.map((plan) => requireTask(database, plan.current.id)),
-        changed: plans.some((plan) => plan.changed),
+        changed: changedPlans.length > 0,
       };
+      const result = operationId && payload ? operationResult(baseResult, operationId) : baseResult;
+      if (operationId && payload) recordOperation(database, request, payload, now, operationId);
       recordReceipt(database, request, context, result, now);
       return result;
     },
@@ -943,6 +1333,7 @@ function applyStatusUndo(database: DatabaseSync, plan: StatusUndoPlan, request: 
   if (result.changes !== 1) {
     throw new CommandError("STALE_TASK_VERSION", `task ${plan.current.id} changed while its state was being undone`);
   }
+  retireOperationAfterLegacyUndo(database, plan.current.id, plan.item.expectedVersion, request, now);
   insertActivity(
     database,
     plan.current.id,
@@ -1036,6 +1427,16 @@ function moveTask(database: DatabaseSync, databasePath: string, request: Protoco
   }
 
   const now = new Date().toISOString();
+  const operationId = randomUUID();
+  const orderParents = [...new Set([current.parentId, parentId])];
+  const beforeOrders = orderParents.map((orderParentId) => ({ parentId: orderParentId, ids: siblingIds(database, orderParentId) }));
+  const payload = operationPayload([{
+    taskId: current.id,
+    beforeVersion: current.version,
+    afterVersion: current.version + 1,
+    restore: { parentId: current.parentId },
+    expect: { parentId },
+  }], beforeOrders.map((order) => ({ parentId: order.parentId, beforeIds: order.ids, afterIds: [] })));
   return withCanonicalTransaction(
     database,
     databasePath,
@@ -1054,8 +1455,15 @@ function moveTask(database: DatabaseSync, databasePath: string, request: Protoco
       densifySiblingScope(database, current.parentId);
       densifySiblingScope(database, parentId);
       insertActivity(database, current.id, request, "moved", { before: { parentId: current.parentId }, after: { parentId } }, now);
+      const afterOrders = orderParents.map((orderParentId) => ({ parentId: orderParentId, ids: siblingIds(database, orderParentId) }));
+      const completedPayload = operationPayload(payload.effects, afterOrders.map((order) => ({
+        parentId: order.parentId,
+        beforeIds: beforeOrders.find((before) => before.parentId === order.parentId)?.ids ?? [],
+        afterIds: order.ids,
+      })));
       const task = requireTask(database, current.id);
-      const result = taskResult(task, { changed: true });
+      recordOperation(database, request, completedPayload, now, operationId);
+      const result = operationResult(taskResult(task, { changed: true }), operationId);
       recordReceipt(database, request, context, result, now);
       return result;
     });
@@ -1114,6 +1522,15 @@ function addDependency(database: DatabaseSync, databasePath: string, request: Pr
   }
 
   const now = new Date().toISOString();
+  const operationId = randomUUID();
+  const afterDependencies = [...new Set([...current.dependencyIds, dependsOnId])].sort();
+  const payload = operationPayload([{
+    taskId: current.id,
+    beforeVersion: current.version,
+    afterVersion: current.version + 1,
+    restore: { dependencyIds: current.dependencyIds },
+    expect: { dependencyIds: afterDependencies },
+  }]);
   return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database.prepare("INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)").run(current.id, dependsOnId);
     database
@@ -1121,7 +1538,8 @@ function addDependency(database: DatabaseSync, databasePath: string, request: Pr
       .run(now, current.id, version);
     insertActivity(database, current.id, request, "dependency.added", { dependsOnId }, now);
     const task = requireTask(database, current.id);
-    const result = taskResult(task, { changed: true });
+    recordOperation(database, request, payload, now, operationId);
+    const result = operationResult(taskResult(task, { changed: true }), operationId);
     recordReceipt(database, request, context, result, now);
     return result;
   });
@@ -1168,6 +1586,15 @@ function removeDependency(database: DatabaseSync, databasePath: string, request:
   }
 
   const now = new Date().toISOString();
+  const operationId = randomUUID();
+  const afterDependencies = current.dependencyIds.filter((id) => id !== dependsOnId);
+  const payload = operationPayload([{
+    taskId: current.id,
+    beforeVersion: current.version,
+    afterVersion: current.version + 1,
+    restore: { dependencyIds: current.dependencyIds },
+    expect: { dependencyIds: afterDependencies },
+  }]);
   return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
     database.prepare("DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?").run(current.id, dependsOnId);
     database
@@ -1175,7 +1602,8 @@ function removeDependency(database: DatabaseSync, databasePath: string, request:
       .run(now, current.id, version);
     insertActivity(database, current.id, request, "dependency.removed", { dependsOnId }, now);
     const task = requireTask(database, current.id);
-    const result = taskResult(task, { changed: true });
+    recordOperation(database, request, payload, now, operationId);
+    const result = operationResult(taskResult(task, { changed: true }), operationId);
     recordReceipt(database, request, context, result, now);
     return result;
   });
@@ -1358,6 +1786,18 @@ function reorderTask(database: DatabaseSync, databasePath: string, request: Prot
         return result;
       }
 
+      const operationId = randomUUID();
+      const payload = operationPayload(
+        plan.tasks.map((selected) => ({
+          taskId: selected.id,
+          beforeVersion: selected.expectedVersion,
+          afterVersion: selected.expectedVersion + 1,
+          restore: {},
+          expect: {},
+          touchUpdatedAt: false,
+        })),
+        [{ parentId: plan.parentId, beforeIds: plan.siblings.map((sibling) => sibling.id), afterIds: plan.finalIds }],
+      );
       const selectedById = new Map(plan.tasks.map((selected) => [selected.id, selected]));
       const beforeById = new Map(plan.siblings.map((sibling) => [sibling.id, sibling.position]));
       const updatePosition = database.prepare("UPDATE tasks SET position = ? WHERE id = ?");
@@ -1391,10 +1831,11 @@ function reorderTask(database: DatabaseSync, databasePath: string, request: Prot
           now,
         );
       }
-      const result = {
+      const result = operationResult({
         changed: true,
         tasks: plan.tasks.map((selected) => requireTask(database, selected.id)),
-      };
+      }, operationId);
+      recordOperation(database, request, payload, now, operationId);
       recordReceipt(database, request, context, result, now);
       return result;
     },
@@ -1657,6 +2098,8 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return transitionMany(database, databasePath, request);
     case "task.status.undoMany":
       return undoStatusMany(database, databasePath, request);
+    case "operation.undo":
+      return undoOperation(database, databasePath, request);
     case "category.list":
       return listCategories(database);
     case "tag.list":

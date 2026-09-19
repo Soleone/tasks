@@ -1764,7 +1764,7 @@ export function rebuildCanonicalCache(database: DatabaseSync, databasePath: stri
   }
 
   return withTransaction(database, () => {
-    database.exec("DELETE FROM task_dependencies; DELETE FROM task_tags; DELETE FROM activity; DELETE FROM tasks; DELETE FROM categories; DELETE FROM tags; DELETE FROM sync_files; DELETE FROM sync_conflicts;");
+    database.exec("DELETE FROM task_dependencies; DELETE FROM task_tags; DELETE FROM activity; DELETE FROM operation_effects; DELETE FROM operations; DELETE FROM tasks; DELETE FROM categories; DELETE FROM tags; DELETE FROM sync_files; DELETE FROM sync_conflicts;");
     setCacheGeneration(database, nextGeneration);
     const applied = applyCandidates(database, workspace.workspaceId, scan.candidates, freshVersionForGeneration(nextGeneration), true);
     const requiredPaths = scan.candidates.filter((candidate) => !candidate.conflict).map((candidate) => candidate.relativePath);

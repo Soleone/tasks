@@ -3,7 +3,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RuntimeProbeResult } from "./protocol.js";
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 function readString(value: unknown, field: string): string {
   if (typeof value !== "object" || value === null || !(field in value)) {
@@ -97,6 +97,30 @@ function createSchema(database: DatabaseSync): void {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS operations (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      origin TEXT NOT NULL CHECK (origin IN ('desktop', 'cli', 'system')),
+      actor_kind TEXT NOT NULL,
+      actor_label TEXT NOT NULL,
+      command TEXT NOT NULL,
+      request_id TEXT NOT NULL,
+      idempotency_key TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'undone', 'invalidated')),
+      payload_json TEXT NOT NULL,
+      undone_at TEXT,
+      undo_request_id TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS operation_effects (
+      operation_id TEXT NOT NULL REFERENCES operations(id) ON DELETE CASCADE,
+      task_id TEXT NOT NULL,
+      before_version INTEGER NOT NULL CHECK (before_version >= 0),
+      after_version INTEGER NOT NULL CHECK (after_version > 0),
+      PRIMARY KEY (operation_id, task_id)
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -169,6 +193,8 @@ function createSchema(database: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS task_dependencies_task_idx ON task_dependencies (task_id);
     CREATE INDEX IF NOT EXISTS task_dependencies_depends_idx ON task_dependencies (depends_on_id);
     CREATE INDEX IF NOT EXISTS activity_task_idx ON activity (task_id, seq DESC);
+    CREATE INDEX IF NOT EXISTS operations_status_created_idx ON operations (status, created_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS operation_effects_task_idx ON operation_effects (task_id, after_version DESC);
     CREATE INDEX IF NOT EXISTS sync_files_kind_idx ON sync_files (kind, canonical_path);
     CREATE INDEX IF NOT EXISTS sync_conflicts_path_idx ON sync_conflicts (canonical_path, status);
   `);
@@ -265,7 +291,7 @@ export function ensureSchema(database: DatabaseSync): void {
   if (version !== undefined && (!Number.isInteger(version) || version > SCHEMA_VERSION)) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is newer than ${SCHEMA_VERSION}`);
   }
-  if (version !== undefined && version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== SCHEMA_VERSION) {
+  if (version !== undefined && version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== SCHEMA_VERSION) {
     throw new Error(`UNSUPPORTED_SCHEMA: database schema ${String(row?.value)} is not supported`);
   }
 
@@ -274,6 +300,7 @@ export function ensureSchema(database: DatabaseSync): void {
   const needsRelationshipMigration = version === 1 || version === 2;
   const needsPriorityMigration = version === 1 || version === 2 || version === 3;
   const needsOrderingMigration = version === undefined || version === 1 || version === 2 || version === 3 || version === 4;
+  const needsOperationMigration = version === undefined || version < SCHEMA_VERSION;
   // SQLite cannot change a table constraint in place. Foreign keys are disabled
   // only for the atomic table replacement, then restored before the connection
   // is returned to callers.
@@ -285,7 +312,7 @@ export function ensureSchema(database: DatabaseSync): void {
     migratePriority(database);
     if (needsOrderingMigration) migrateTaskOrdering(database);
     ensureTaskOrderingIndex(database);
-    if (needsVersion || needsStatusMigration || needsRelationshipMigration || needsPriorityMigration || needsOrderingMigration) {
+    if (needsVersion || needsStatusMigration || needsRelationshipMigration || needsPriorityMigration || needsOrderingMigration || needsOperationMigration) {
       database
         .prepare("INSERT INTO schema_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .run(String(SCHEMA_VERSION));

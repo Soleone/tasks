@@ -137,6 +137,7 @@ type TaskListProps = {
   onEdit: (task: TaskRecord) => void;
   onTaskUpdated: (task: TaskRecord) => void;
   onTasksUpdated: (tasks: TaskRecord[]) => void;
+  onOperation?: (operationId: string, previous: TaskRecord[], current: TaskRecord[]) => void;
   onStatusChanged?: (previous: TaskRecord, current: TaskRecord, wasActive: boolean) => void;
   onStatusBatchChanged?: (previous: TaskRecord[], current: TaskRecord[], wasActiveTaskId: string | null) => void;
   canUndoStatus?: boolean;
@@ -362,6 +363,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onEdit,
   onTaskUpdated,
   onTasksUpdated,
+  onOperation,
   onStatusChanged,
   onStatusBatchChanged,
   canUndoStatus,
@@ -1054,6 +1056,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
           return;
         }
+        if (result.operationId) onOperation?.(result.operationId, currentSelected.map((row) => row.task), result.tasks);
         restoreActiveIdRef.current = sourceRow.task.id;
         restoreSelectionIdsRef.current = new Set(selectedIdSnapshot);
         await onRefresh(0);
@@ -1186,7 +1189,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const result = await transitionTask(transition.command, task.id, task.version, { idempotencyKey: receipt.key });
       statusReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
-      if (result.changed !== false) onStatusChanged?.(task, result.task, wasActive);
+      if (result.changed !== false) {
+        if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
+        onStatusChanged?.(task, result.task, wasActive);
+      }
       setStatusFeedback({ taskId: task.id, version: result.task.version });
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
@@ -1217,7 +1223,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const result = await transitionTasks(items, { idempotencyKey: receipt.key });
       batchTransitionReceiptRef.current = null;
       onTasksUpdated(result.tasks);
-      if (result.changed) onStatusBatchChanged?.(selected.filter((task) => selectedIds.includes(task.id)), result.tasks, activeTask?.id ?? null);
+      if (result.changed) {
+        const previous = selected.filter((task) => selectedIds.includes(task.id));
+        const current = result.tasks.filter((task) => selectedIds.includes(task.id));
+        if (result.operationId) onOperation?.(result.operationId, previous, current);
+        onStatusBatchChanged?.(previous, current, activeTask?.id ?? null);
+      }
       onAnnounce(`${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`);
     } catch (caught) {
       if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
@@ -1301,6 +1312,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const result = await updateTask(task.id, task.title, task.descriptionMarkdown, task.version, { priority, idempotencyKey: receipt.key });
       priorityReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
+      if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
       const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
       onAnnounce(`${taskTitleDisplay(task.title)}: priority ${label}`);
     } catch (caught) {
@@ -1323,7 +1335,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     try {
       const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
       deleteReceipts.current.delete(task.id);
-      if (result.changed !== false) onStatusChanged?.(task, result.task, activeTask?.id === task.id);
+      if (result.changed !== false) {
+        if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
+        onStatusChanged?.(task, result.task, activeTask?.id === task.id);
+      }
       // Remove the selected styling before the parent starts the exit animation.
       // Otherwise the moving border makes the cancellation transition look wrong.
       setSelection([], null);
@@ -1360,6 +1375,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     try {
       const result = await transitionTasks(items, { idempotencyKey: receipt.key });
       batchTransitionReceiptRef.current = null;
+      if (result.operationId) onOperation?.(result.operationId, selected, result.tasks);
       onStatusBatchChanged?.(selected, result.tasks, activeTask?.id ?? null);
       setSelection([], null);
       if (onCanceledMany) onCanceledMany(selected, result.tasks);

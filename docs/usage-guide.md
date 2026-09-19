@@ -57,7 +57,7 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `P` | Pause an open or in-progress task, hiding it from Active, or resume a paused task to in progress. The palette entry runs the same action by mouse. |
 | `Delete` | Immediately cancel the active task |
 | `Ctrl/⌘+C` | Copy the selected task's title and description, without `@category` or `#tags` |
-| `Ctrl/⌘+Z` | Undo the last task-list status change; also in the shortcuts palette. A newer status change replaces it, and the toast confirms the restore |
+| `Ctrl/⌘+Z` | Undo the latest desktop task change; also in the shortcuts palette. A newer change replaces it, and the toast confirms the restore |
 | `0` `1` `2` `3` `4` | Set the active task to P0 through P4 |
 | `F` | Focus the filter toolbar; the next key picks a filter, or press `F` again to return to the list |
 | `F then S` | Switch between active and inactive task views |

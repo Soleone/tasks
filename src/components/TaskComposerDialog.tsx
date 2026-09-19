@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactElement, type RefObject } from "react";
 import type { TaskRecord } from "@/backend/protocol";
+import type { TaskMutationResult } from "@/platform/backendClient";
 import { TaskComposer } from "@/components/TaskComposer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -10,7 +11,7 @@ export type ComposerState =
 type TaskComposerDialogProps = {
   composer: ComposerState | null;
   onClose: () => void;
-  onSaved: (task: TaskRecord) => void;
+  onSaved: (result: TaskMutationResult) => void;
   finalFocus: () => HTMLElement | undefined;
   helpMode: boolean;
 };

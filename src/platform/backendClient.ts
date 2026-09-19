@@ -46,23 +46,35 @@ export type CommandOptions = {
 
 export type TaskMutationResult = {
   task: TaskRecord;
+  operationId?: string;
   changed?: boolean;
   dryRun?: boolean;
   readOnly?: boolean;
 };
 export type TaskReorderResult = {
   tasks: TaskRecord[];
+  operationId?: string;
   changed: boolean;
   dryRun?: boolean;
   readOnly?: boolean;
 };
 export type TaskTransitionManyResult = {
   tasks: TaskRecord[];
+  operationId?: string;
   changed: boolean;
   dryRun?: boolean;
   readOnly?: boolean;
 };
 export type TaskStatusUndoManyResult = TaskTransitionManyResult;
+export type OperationUndoResult = {
+  operationId: string;
+  undoneOperationId: string;
+  tasks: TaskRecord[];
+  deletedTaskIds?: string[];
+  changed: boolean;
+  dryRun?: boolean;
+  readOnly?: boolean;
+};
 
 export class BackendCommandError extends Error {
   readonly code: string;
@@ -190,6 +202,10 @@ export async function undoStatusChanges(
   options: CommandOptions,
 ): Promise<TaskStatusUndoManyResult> {
   return runBackendCommand<TaskStatusUndoManyResult>("task.status.undoMany", { tasks }, options);
+}
+
+export async function undoOperation(operationId: string, options: CommandOptions): Promise<OperationUndoResult> {
+  return runBackendCommand<OperationUndoResult>("operation.undo", { operationId }, options);
 }
 
 export async function moveTask(id: string, parentId: string | null, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {

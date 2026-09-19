@@ -33,6 +33,7 @@ const MUTATION_COMMANDS = new Set([
   "task.reopen",
   "task.cancel",
   "task.status.undo",
+  "operation.undo",
   "task.move",
   "task.dependency.add",
   "task.dependency.remove",
@@ -123,7 +124,8 @@ MUTATIONS:
   update <id> [--title text] [--description text] [--priority n]
   start|pause|complete|reopen|cancel|delete <id>
   purge-canceled
-  undo <id>
+  undo <id>                         legacy status undo by task id
+  undo-operation <operation-id>     undo an operation returned by a mutation
   move <id> --parent <id> | --root
   dep-add <id> <depends-on-id>
   dep-remove <id> <depends-on-id>
@@ -526,6 +528,13 @@ function main(): void {
         const id = parsed.positionals[0];
         if (!id || parsed.positionals.length !== 1) throw new Error("usage: tasks-cli undo <id>");
         printResult(command, runVersioned("task.status.undo", id, {}, globals), globals);
+        break;
+      }
+      case "undo-operation": {
+        ensureNoUnknownFlags(parsed.flags, []);
+        const operationId = parsed.positionals[0];
+        if (!operationId || parsed.positionals.length !== 1) throw new Error("usage: tasks-cli undo-operation <operation-id>");
+        printResult(command, runCommand("operation.undo", { operationId }, globals), globals);
         break;
       }
       case "move": {

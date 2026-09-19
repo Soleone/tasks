@@ -665,7 +665,7 @@ test("schema migration adds the paused task status to existing workspaces", () =
     const table = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as { sql: string };
     const dependencyTable = migrated.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_dependencies'").get() as { sql: string };
     const foreignKeys = migrated.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number };
-    assert.equal(schema.value, "5");
+    assert.equal(schema.value, "6");
     assert.match(table.sql, /paused/);
     assert.match(table.sql, /parent_id/);
     assert.match(table.sql, /priority/);
@@ -1408,6 +1408,60 @@ test("batch status transitions are atomic and support grouped undo", () => {
   }
 });
 
+test("operation undo restores typed fields, tolerates unrelated changes, and rejects conflicts", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-operation-undo-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const createdResult = executeCommand(request("task.create", { title: "Operation task" }, { idempotencyKey: "operation-create" }), databasePath) as Result & { operationId: string };
+    const created = task(createdResult);
+    assert.equal(typeof createdResult.operationId, "string");
+    const startedResult = executeCommand(request("task.start", {
+      id: created.id,
+      expectedVersion: created.version,
+    }, { idempotencyKey: "operation-start" }), databasePath) as Result & { operationId: string };
+    const started = task(startedResult);
+    const edited = task(executeCommand(request("task.update", {
+      id: started.id,
+      expectedVersion: started.version,
+      title: "Operation task renamed",
+    }, { idempotencyKey: "operation-edit" }), databasePath));
+    const undone = executeCommand(request("operation.undo", {
+      operationId: startedResult.operationId,
+    }, { idempotencyKey: "operation-undo" }), databasePath) as { tasks: TaskRecord[]; changed: boolean; undoneOperationId: string };
+    assert.equal(undone.changed, true);
+    assert.equal(undone.undoneOperationId, startedResult.operationId);
+    assert.equal(undone.tasks[0]?.status, "open");
+    assert.equal(undone.tasks[0]?.title, edited.title);
+    assert.deepEqual(executeCommand(request("operation.undo", {
+      operationId: startedResult.operationId,
+    }, { idempotencyKey: "operation-undo" }), databasePath), undone);
+
+    const completedResult = executeCommand(request("task.complete", {
+      id: edited.id,
+      expectedVersion: undone.tasks[0]!.version,
+    }, { idempotencyKey: "operation-complete" }), databasePath) as Result & { operationId: string };
+    const completed = task(completedResult);
+    task(executeCommand(request("task.reopen", {
+      id: completed.id,
+      expectedVersion: completed.version,
+    }, { idempotencyKey: "operation-reopen" }), databasePath));
+    assert.throws(
+      () => executeCommand(request("operation.undo", { operationId: completedResult.operationId }, { idempotencyKey: "operation-conflict" }), databasePath),
+      /OPERATION_CONFLICT/,
+    );
+    assert.equal(task(executeCommand(request("task.get", { id: completed.id }), databasePath)).status, "open");
+
+    const freshResult = executeCommand(request("task.create", { title: "Create undo" }, { idempotencyKey: "operation-create-undo-create" }), databasePath) as Result & { operationId: string };
+    const createUndo = executeCommand(request("operation.undo", {
+      operationId: freshResult.operationId,
+    }, { idempotencyKey: "operation-create-undo" }), databasePath) as { tasks: TaskRecord[] };
+    assert.deepEqual(createUndo.tasks, []);
+    assert.throws(() => executeCommand(request("task.get", { id: task(freshResult).id }), databasePath), /TASK_NOT_FOUND/);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("status undo rejects stale versions without writing", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-stale-"));
   const databasePath = path.join(directory, "tasks.db");
@@ -1552,7 +1606,7 @@ test("schema version 2 workspaces migrate priority and manual positions", () => 
     const migrated = openDatabase(databasePath);
     const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
     const migratedColumns = migrated.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
-    assert.equal(schema.value, "5");
+    assert.equal(schema.value, "6");
     assert.equal(migratedColumns.some((column) => column.name === "priority"), true);
     assert.equal(migratedColumns.some((column) => column.name === "position"), true);
     migrated.close();
@@ -1588,7 +1642,7 @@ test("schema version 4 workspaces migrate deterministic manual positions", () =>
     const migrated = openDatabase(databasePath);
     const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
     const columns = migrated.prepare("SELECT name FROM pragma_table_info('tasks')").all() as Array<{ name: string }>;
-    assert.equal(schema.value, "5");
+    assert.equal(schema.value, "6");
     assert.equal(columns.some((column) => column.name === "position"), true);
     migrated.close();
     assert.deepEqual(siblingPositions(databasePath), [
@@ -1622,7 +1676,7 @@ test("schema version 3 workspaces migrate tasks to priority P2", () => {
   try {
     const migrated = openDatabase(databasePath);
     const schema = migrated.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as { value: string };
-    assert.equal(schema.value, "5");
+    assert.equal(schema.value, "6");
     migrated.close();
     const migratedTask = task(executeCommand(request("task.get", { id: "old" }), databasePath));
     assert.equal(migratedTask.priority, 2);

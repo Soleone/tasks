@@ -1168,13 +1168,13 @@ try {
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("fill", 'input[role="combobox"]', "undo status");
-  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Undo status change"))');
+  waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Undo last change"))');
   browser("press", "Enter");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
   waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
   await new Promise((resolve) => setTimeout(resolve, 3500));
-  // A newer status change replaces the previous undo entry.
+  // A newer task change replaces the previous undo entry.
   const undoFirst = (await command("task.create", { title: "Undo first entry" })).task;
   const undoSecond = (await command("task.create", { title: "Undo second entry" })).task;
   browser("reload");
@@ -1233,7 +1233,7 @@ try {
   browser("press", "Control+z");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
   await new Promise((resolve) => setTimeout(resolve, 3500));
-  // Undo after an external edit reports a conflict and keeps the edit.
+  // Undo after an unrelated external edit restores the affected field and keeps the edit.
   const conflictTask = (await command("task.create", { title: "Undo conflict task" })).task;
   browser("reload");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo conflict task"))');
@@ -1250,8 +1250,8 @@ try {
   const conflictCommitted = (await command("task.get", { id: conflictTask.id })).task;
   await command("task.update", { id: conflictTask.id, expectedVersion: conflictCommitted.version, title: "Undo conflict task (agent edit)", descriptionMarkdown: conflictCommitted.descriptionMarkdown });
   browser("press", "Control+z");
-  waitFor('document.body.textContent.includes("no longer available")');
-  assert.equal((await command("task.get", { id: conflictTask.id })).task.status, "canceled");
+  waitFor('document.body.textContent.includes("Undo status change to Open")');
+  assert.equal((await command("task.get", { id: conflictTask.id })).task.status, "open");
   assert.equal((await command("task.get", { id: conflictTask.id })).task.title, "Undo conflict task (agent edit)");
   // A lost undo response can be retried with the same key and commits once.
   const lostUndo = (await command("task.create", { title: "Undo lost reply" })).task;
@@ -1271,7 +1271,7 @@ try {
   evaluate(`window.originalFetch = window.fetch; window.loseUndoReply = true; window.undoKeys = []; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
     const response = await window.originalFetch(...args);
-    if (payload.command === "task.status.undo") {
+    if (payload.command === "operation.undo") {
       window.undoKeys.push(payload.idempotencyKey);
       if (window.loseUndoReply) { window.loseUndoReply = false; throw new TypeError("Lost undo reply"); }
     }
@@ -1702,7 +1702,7 @@ try {
   assert.equal(externalTask.title, externalTitle);
   waitFor(`([...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, status undo with toast/replacement/conflict/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, external CLI refresh, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, task undo with toast/replacement/field guards/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, external CLI refresh, and axe.");
 } catch (error) {
   printFailureDiagnostics();
   throw error;

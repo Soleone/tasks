@@ -50,7 +50,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       { label: "Change task status", hint: "Space forward, Shift+Space back", icon: ListChecks, keys: ["Space", "Shift+Space"], keywords: "space shift space reverse backward open in progress done status cycle complete" },
       { label: "Pause or resume task", hint: "P pauses, again resumes", icon: CirclePause, keys: ["P"], action: "pause-task", keywords: "p pause resume sleep park soft cancel paused in progress" },
       { label: "Copy task text", hint: "Title and description without metadata", icon: Copy, keys: ["Ctrl/⌘", "C"], action: "copy-task", keywords: "ctrl cmd c copy title description clipboard selected active task category tags metadata" },
-      { label: "Undo status change", hint: "Restore the last status", icon: Undo2, keys: ["Ctrl/⌘", "Z"], action: "undo-status", keywords: "ctrl cmd z undo status restore revert cancel complete" },
+      { label: "Undo last change", hint: "Restore the latest task change", icon: Undo2, keys: ["Ctrl/⌘", "Z"], action: "undo-status", keywords: "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order" },
       { label: "Set active task priority", hint: "0-4 on the list", icon: Flag, keys: ["0", "1", "2", "3", "4"], keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number" },
       { label: "Switch active or inactive", hint: "F then S", icon: Circle, keys: ["F", "S"], action: "filter-status", keywords: "f s active inactive filter paused done canceled cancelled show hide toggle" },
       { label: "Exact status", hint: "F then O I D P X", icon: Circle, keys: ["F", "O/I/D/P/X"], action: "filter-status", keywords: "f exact open in progress done paused canceled o i d p x status" },

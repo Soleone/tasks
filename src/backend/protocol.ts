@@ -11,6 +11,7 @@ export const COMMAND_NAMES = [
   "task.reorder",
   "task.transitionMany",
   "task.status.undoMany",
+  "operation.undo",
   "category.list",
   "tag.list",
   "task.get",
@@ -49,6 +50,7 @@ export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled"
 export type TaskTransitionCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen" | "task.cancel" | "task.delete";
 export type TaskTransitionItem = { id: string; expectedVersion: number; command: TaskTransitionCommand };
 export type TaskStatusUndoItem = { id: string; expectedVersion: number };
+export type OperationUndoArgs = { operationId: string };
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type ActorKind = "human" | "agent" | "system";
 export type TaskListSort = "created" | "updated" | "priority" | "manual";
@@ -398,6 +400,11 @@ export function parseRequest(value: unknown): ProtocolRequest {
   }
   if (value.command === "task.status.undoMany") {
     parseTaskStatusUndoManyArgs(args);
+  }
+  if (value.command === "operation.undo") {
+    if (!isRecord(args) || typeof args.operationId !== "string" || args.operationId.trim() === "") {
+      throw new ProtocolError("INVALID_REQUEST", "operation.undo operationId must be a non-empty string");
+    }
   }
 
   const idempotencyKey = value.idempotencyKey === undefined ? undefined : requiredString(value.idempotencyKey, "idempotencyKey");
