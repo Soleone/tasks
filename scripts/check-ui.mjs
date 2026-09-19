@@ -250,7 +250,9 @@ try {
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=filters]").hasAttribute("data-toolbar-active")');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Inactive"');
+  browser("wait", "150");
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 inactive tasks"');
+  check('(() => { const tip = document.querySelector("[data-slot=tooltip-content]")?.getBoundingClientRect(); const anchor = document.querySelector("[data-filter=task-status]")?.getBoundingClientRect(); return tip && anchor && Math.abs((tip.left + tip.width / 2) - (anchor.left + anchor.width / 2)) < 4; })()');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('(() => { const active = document.querySelector("[data-filter=task-status]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
   waitFor('!document.querySelector("[role=option]")');

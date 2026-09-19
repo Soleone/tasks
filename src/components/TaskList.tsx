@@ -369,6 +369,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const list = useRef<HTMLDivElement>(null);
   const filterToolbar = useRef<HTMLDivElement>(null);
   const sortToolbar = useRef<HTMLDivElement>(null);
+  const statusFilterButton = useRef<HTMLButtonElement>(null);
   const loadMore = useRef<HTMLButtonElement>(null);
   const initialHomeFocusPending = useRef(true);
   const retry = useRef<HTMLButtonElement>(null);
@@ -1731,6 +1732,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipTrigger
             render={
               <Button
+                ref={statusFilterButton}
                 variant={statusActive ? "outline" : "ghost"}
                 selected={statusActive}
                 size="icon-sm"
@@ -2222,7 +2224,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ) : null}
       <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
-        <TooltipContent side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>
+        <TooltipContent anchor={statusFilterButton} side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>
       </Tooltip>
       {hasMore ? (
         <Button
