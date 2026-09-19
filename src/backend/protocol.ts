@@ -9,6 +9,8 @@ export const COMMAND_NAMES = [
   "task.create",
   "task.list",
   "task.reorder",
+  "task.transitionMany",
+  "task.status.undoMany",
   "category.list",
   "tag.list",
   "task.get",
@@ -44,6 +46,9 @@ export const COMMAND_NAMES = [
 
 export type CommandName = (typeof COMMAND_NAMES)[number];
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
+export type TaskTransitionCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen" | "task.cancel" | "task.delete";
+export type TaskTransitionItem = { id: string; expectedVersion: number; command: TaskTransitionCommand };
+export type TaskStatusUndoItem = { id: string; expectedVersion: number };
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type ActorKind = "human" | "agent" | "system";
 export type TaskListSort = "created" | "updated" | "priority" | "manual";
@@ -296,6 +301,65 @@ export function parseTaskReorderArgs(value: unknown): TaskReorderArgs {
   return { tasks, placement: { [placementKey]: true } as TaskReorderPlacement };
 }
 
+export type TaskTransitionManyArgs = { tasks: TaskTransitionItem[] };
+export type TaskStatusUndoManyArgs = { tasks: TaskStatusUndoItem[] };
+
+function parseExpectedVersion(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new ProtocolError("INVALID_REQUEST", `${field} must be a positive integer`);
+  }
+  return value;
+}
+
+export function parseTaskTransitionManyArgs(value: unknown): TaskTransitionManyArgs {
+  if (!isRecord(value) || !Array.isArray(value.tasks) || value.tasks.length === 0) {
+    throw new ProtocolError("INVALID_REQUEST", "task.transitionMany tasks must be a non-empty array");
+  }
+  const seen = new Set<string>();
+  const tasks = value.tasks.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new ProtocolError("INVALID_REQUEST", `task.transitionMany tasks[${index}] must be an object`);
+    }
+    const id = requiredString(entry.id, `task.transitionMany tasks[${index}].id`);
+    if (seen.has(id)) {
+      throw new ProtocolError("INVALID_REQUEST", "task.transitionMany tasks must not contain duplicate ids");
+    }
+    seen.add(id);
+    const command = entry.command;
+    if (command !== "task.start" && command !== "task.pause" && command !== "task.complete" && command !== "task.reopen" && command !== "task.cancel" && command !== "task.delete") {
+      throw new ProtocolError("INVALID_REQUEST", `task.transitionMany tasks[${index}].command is unsupported`);
+    }
+    return {
+      id,
+      expectedVersion: parseExpectedVersion(entry.expectedVersion, `task.transitionMany tasks[${index}].expectedVersion`),
+      command: command as TaskTransitionCommand,
+    };
+  });
+  return { tasks };
+}
+
+export function parseTaskStatusUndoManyArgs(value: unknown): TaskStatusUndoManyArgs {
+  if (!isRecord(value) || !Array.isArray(value.tasks) || value.tasks.length === 0) {
+    throw new ProtocolError("INVALID_REQUEST", "task.status.undoMany tasks must be a non-empty array");
+  }
+  const seen = new Set<string>();
+  const tasks = value.tasks.map((entry, index) => {
+    if (!isRecord(entry)) {
+      throw new ProtocolError("INVALID_REQUEST", `task.status.undoMany tasks[${index}] must be an object`);
+    }
+    const id = requiredString(entry.id, `task.status.undoMany tasks[${index}].id`);
+    if (seen.has(id)) {
+      throw new ProtocolError("INVALID_REQUEST", "task.status.undoMany tasks must not contain duplicate ids");
+    }
+    seen.add(id);
+    return {
+      id,
+      expectedVersion: parseExpectedVersion(entry.expectedVersion, `task.status.undoMany tasks[${index}].expectedVersion`),
+    };
+  });
+  return { tasks };
+}
+
 export function parseRequest(value: unknown): ProtocolRequest {
   if (!isRecord(value)) {
     throw new ProtocolError("INVALID_REQUEST", "request must be a JSON object");
@@ -328,6 +392,12 @@ export function parseRequest(value: unknown): ProtocolRequest {
   }
   if (value.command === "task.reorder") {
     parseTaskReorderArgs(args);
+  }
+  if (value.command === "task.transitionMany") {
+    parseTaskTransitionManyArgs(args);
+  }
+  if (value.command === "task.status.undoMany") {
+    parseTaskStatusUndoManyArgs(args);
   }
 
   const idempotencyKey = value.idempotencyKey === undefined ? undefined : requiredString(value.idempotencyKey, "idempotencyKey");

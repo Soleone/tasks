@@ -19,6 +19,11 @@ import {
   type TaskPriority,
   type TaskRecord,
   type TaskReorderArgs,
+  type TaskStatusUndoItem,
+  type TaskTransitionCommand,
+  type TaskTransitionItem,
+  parseTaskStatusUndoManyArgs,
+  parseTaskTransitionManyArgs,
   type TaskReorderPlacement,
   type TaskReorderTask,
   type TaskStatus,
@@ -52,6 +57,8 @@ const mutationCommands = new Set<ProtocolRequest["command"]>([
   "task.status.undo",
   "task.move",
   "task.reorder",
+  "task.transitionMany",
+  "task.status.undoMany",
   "task.dependency.add",
   "task.dependency.remove",
   "workspace.restore",
@@ -600,93 +607,166 @@ function updateTask(database: DatabaseSync, databasePath: string, request: Proto
   });
 }
 
-function transitionTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
-  const context = mutationContext(database, request);
-  if (context.replay) {
-    return context.replay;
-  }
+type TransitionPlan = {
+  item: TaskTransitionItem;
+  current: TaskRecord;
+  target: TaskStatus;
+  changed: boolean;
+};
 
-  const current = requireTask(database, taskId(request.args));
-  const version = expectedVersion(request.args);
-  if (version !== current.version) {
-    throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
-  }
-
-  const target = request.command === "task.start"
+function transitionTarget(command: TaskTransitionCommand): TaskStatus {
+  return command === "task.start"
     ? "in_progress"
-    : request.command === "task.pause"
+    : command === "task.pause"
       ? "paused"
-      : request.command === "task.complete"
+      : command === "task.complete"
         ? "done"
-        : request.command === "task.reopen"
+        : command === "task.reopen"
           ? "open"
           : "canceled";
-  const changed = current.status !== target;
-  if (request.command === "task.start" && !["open", "in_progress", "paused", "done"].includes(current.status)) {
+}
+
+function validateTransition(command: TaskTransitionCommand, current: TaskRecord): void {
+  if (command === "task.start" && !["open", "in_progress", "paused", "done"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot start a ${current.status} task`);
   }
-  if (request.command === "task.pause" && !["open", "in_progress", "paused"].includes(current.status)) {
+  if (command === "task.pause" && !["open", "in_progress", "paused"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot pause a ${current.status} task`);
   }
-  if (request.command === "task.complete" && !["open", "in_progress", "paused", "done"].includes(current.status)) {
+  if (command === "task.complete" && !["open", "in_progress", "paused", "done"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot complete a ${current.status} task`);
   }
-  if (request.command === "task.cancel" && !["open", "in_progress", "paused", "canceled"].includes(current.status)) {
+  if (command === "task.cancel" && !["open", "in_progress", "paused", "canceled"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot cancel a ${current.status} task`);
   }
-  if (request.command === "task.delete" && !["open", "in_progress", "paused", "done", "canceled"].includes(current.status)) {
+  if (command === "task.delete" && !["open", "in_progress", "paused", "done", "canceled"].includes(current.status)) {
     throw new CommandError("INVALID_TRANSITION", `cannot cancel a ${current.status} task`);
   }
+}
 
-  const preview = {
-    ...current,
-    status: target as TaskStatus,
-    version: changed ? current.version + 1 : current.version,
-    updatedAt: changed ? new Date().toISOString() : current.updatedAt,
-    completedAt: target === "done" ? (changed ? new Date().toISOString() : current.completedAt) : null,
-    canceledAt: target === "canceled" ? (changed ? new Date().toISOString() : current.canceledAt) : null,
-  };
-  if (request.readOnly || request.dryRun) {
-    return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed });
+function transitionPlan(database: DatabaseSync, item: TaskTransitionItem): TransitionPlan {
+  const current = requireTask(database, item.id);
+  if (item.expectedVersion !== current.version) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
   }
-  if (!changed) {
+  validateTransition(item.command, current);
+  const target = transitionTarget(item.command);
+  return { item, current, target, changed: current.status !== target };
+}
+
+function transitionPreview(plan: TransitionPlan, now: string): TaskRecord {
+  return {
+    ...plan.current,
+    status: plan.target,
+    version: plan.changed ? plan.current.version + 1 : plan.current.version,
+    updatedAt: plan.changed ? now : plan.current.updatedAt,
+    completedAt: plan.target === "done" ? (plan.changed ? now : plan.current.completedAt) : null,
+    canceledAt: plan.target === "canceled" ? (plan.changed ? now : plan.current.canceledAt) : null,
+  };
+}
+
+function transitionActivity(database: DatabaseSync, plan: TransitionPlan, request: ProtocolRequest, now: string): void {
+  const completedAt = plan.target === "done" ? now : null;
+  const canceledAt = plan.target === "canceled" ? now : null;
+  insertActivity(
+    database,
+    plan.current.id,
+    request,
+    plan.item.command === "task.delete" ? "cancel" : plan.item.command.slice("task.".length),
+    {
+      from: plan.current.status,
+      to: plan.target,
+      beforeCompletedAt: plan.current.completedAt,
+      beforeCanceledAt: plan.current.canceledAt,
+      afterCompletedAt: completedAt,
+      afterCanceledAt: canceledAt,
+      ...(plan.item.command === "task.delete" ? { source: "delete" } : {}),
+    },
+    now,
+  );
+}
+
+function applyTransition(database: DatabaseSync, plan: TransitionPlan, request: ProtocolRequest, now: string): void {
+  const completedAt = plan.target === "done" ? now : null;
+  const canceledAt = plan.target === "canceled" ? now : null;
+  const result = database
+    .prepare(
+      "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
+    )
+    .run(plan.target, now, completedAt, canceledAt, plan.current.id, plan.item.expectedVersion);
+  if (result.changes !== 1) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${plan.current.id} changed while its state was being changed`);
+  }
+  transitionActivity(database, plan, request, now);
+}
+
+function transitionTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) return context.replay;
+
+  const item: TaskTransitionItem = {
+    id: taskId(request.args),
+    expectedVersion: expectedVersion(request.args),
+    command: request.command as TaskTransitionCommand,
+  };
+  const plan = transitionPlan(database, item);
+  const now = new Date().toISOString();
+  const preview = transitionPreview(plan, now);
+  if (request.readOnly || request.dryRun) {
+    return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed: plan.changed });
+  }
+  if (!plan.changed) {
     return withCanonicalTransaction(database, databasePath, request, () => null, () => {
-      const result = taskResult(current, { changed: false });
-      recordReceipt(database, request, context, result, new Date().toISOString());
+      const result = taskResult(plan.current, { changed: false });
+      recordReceipt(database, request, context, result, now);
       return result;
     });
   }
 
-  const now = new Date().toISOString();
-  const completedAt = target === "done" ? now : null;
-  const canceledAt = target === "canceled" ? now : null;
-  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
-    database
-      .prepare(
-        "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
-      )
-      .run(target, now, completedAt, canceledAt, current.id, version);
-    insertActivity(
-      database,
-      current.id,
-      request,
-      request.command === "task.delete" ? "cancel" : request.command.slice("task.".length),
-      {
-        from: current.status,
-        to: target,
-        beforeCompletedAt: current.completedAt,
-        beforeCanceledAt: current.canceledAt,
-        afterCompletedAt: completedAt,
-        afterCanceledAt: canceledAt,
-        ...(request.command === "task.delete" ? { source: "delete" } : {}),
-      },
-      now,
-    );
-    const task = requireTask(database, current.id);
-    const result = taskResult(task, { changed: true });
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [plan.current.id] }), () => {
+    applyTransition(database, plan, request, now);
+    const result = taskResult(requireTask(database, plan.current.id), { changed: true });
     recordReceipt(database, request, context, result, now);
     return result;
   });
+}
+
+function transitionMany(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) return context.replay;
+  const args = parseTaskTransitionManyArgs(request.args);
+  const now = new Date().toISOString();
+  if (request.readOnly || request.dryRun) {
+    const plans = args.tasks.map((item) => transitionPlan(database, item));
+    return {
+      tasks: plans.map((plan) => transitionPreview(plan, now)),
+      changed: plans.some((plan) => plan.changed),
+      dryRun: true,
+      readOnly: Boolean(request.readOnly),
+    };
+  }
+
+  let plans: TransitionPlan[] = [];
+  return withCanonicalTransaction(
+    database,
+    databasePath,
+    request,
+    () => ({ taskIds: plans.filter((plan) => plan.changed).map((plan) => plan.current.id) }),
+    () => {
+      // Read and validate every item inside the same transaction before the
+      // first UPDATE, so a stale or invalid sibling rolls back the whole batch.
+      plans = args.tasks.map((item) => transitionPlan(database, item));
+      for (const plan of plans) {
+        if (plan.changed) applyTransition(database, plan, request, now);
+      }
+      const result = {
+        tasks: plans.map((plan) => requireTask(database, plan.current.id)),
+        changed: plans.some((plan) => plan.changed),
+      };
+      recordReceipt(database, request, context, result, now);
+      return result;
+    },
+  );
 }
 
 function purgeCanceledTasks(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
@@ -777,28 +857,48 @@ function statusFromDetail(value: unknown): TaskStatus | null {
 
 function undoStatus(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
   const context = mutationContext(database, request);
-  if (context.replay) {
-    return context.replay;
+  if (context.replay) return context.replay;
+
+  const plan = statusUndoPlan(database, {
+    id: taskId(request.args),
+    expectedVersion: expectedVersion(request.args),
+  });
+  const now = new Date().toISOString();
+  const preview = undoPreview(plan, now);
+  if (request.readOnly || request.dryRun) {
+    return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed: true, undoneSeq: plan.undoneSeq });
   }
 
-  const current = requireTask(database, taskId(request.args));
-  const version = expectedVersion(request.args);
-  if (version !== current.version) {
+  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [plan.current.id] }), () => {
+    applyStatusUndo(database, plan, request, now);
+    const result = taskResult(requireTask(database, plan.current.id), { changed: true, undoneSeq: plan.undoneSeq });
+    recordReceipt(database, request, context, result, now);
+    return result;
+  });
+}
+
+type StatusUndoPlan = {
+  item: TaskStatusUndoItem;
+  current: TaskRecord;
+  action: string;
+  from: TaskStatus;
+  to: TaskStatus;
+  undoneSeq: number;
+  beforeCompletedAt: string | null | undefined;
+  beforeCanceledAt: string | null | undefined;
+};
+
+function statusUndoPlan(database: DatabaseSync, item: TaskStatusUndoItem): StatusUndoPlan {
+  const current = requireTask(database, item.id);
+  if (item.expectedVersion !== current.version) {
     throw new CommandError("STALE_TASK_VERSION", `task ${current.id} is at version ${current.version}`);
   }
-
   const latest = database
-    .prepare(
-      `SELECT seq, action, details_json FROM activity WHERE task_id = ? ORDER BY seq DESC LIMIT 1`,
-    )
+    .prepare("SELECT seq, action, details_json FROM activity WHERE task_id = ? ORDER BY seq DESC LIMIT 1")
     .get(current.id) as Row | undefined;
-  if (!latest) {
-    throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
-  }
+  if (!latest) throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
   const action = stringValue(latest, "action");
-  if (!STATUS_UNDO_ACTIONS.has(action)) {
-    throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
-  }
+  if (!STATUS_UNDO_ACTIONS.has(action)) throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} has no status change to undo`);
   let details: Row = {};
   try {
     const parsed = JSON.parse(stringValue(latest, "details_json"));
@@ -812,56 +912,76 @@ function undoStatus(database: DatabaseSync, databasePath: string, request: Proto
   if (!from || !to || to !== current.status) {
     throw new CommandError("UNDO_UNAVAILABLE", `task ${current.id} changed after the last status change`);
   }
-
-  const beforeCompleted = typeof details.beforeCompletedAt === "string" || details.beforeCompletedAt === null
-    ? (details.beforeCompletedAt as string | null)
+  const beforeCompletedAt = typeof details.beforeCompletedAt === "string" || details.beforeCompletedAt === null
+    ? details.beforeCompletedAt as string | null
     : undefined;
-  const beforeCanceled = typeof details.beforeCanceledAt === "string" || details.beforeCanceledAt === null
-    ? (details.beforeCanceledAt as string | null)
+  const beforeCanceledAt = typeof details.beforeCanceledAt === "string" || details.beforeCanceledAt === null
+    ? details.beforeCanceledAt as string | null
     : undefined;
-  const now = new Date().toISOString();
-  const restoredCompletedAt = beforeCompleted !== undefined
-    ? beforeCompleted
-    : from === "done"
-      ? now
-      : null;
-  const restoredCanceledAt = beforeCanceled !== undefined
-    ? beforeCanceled
-    : from === "canceled"
-      ? now
-      : null;
+  return { item, current, action, from, to, undoneSeq, beforeCompletedAt, beforeCanceledAt };
+}
 
-  const preview: TaskRecord = {
-    ...current,
-    status: from,
-    version: current.version + 1,
+function undoPreview(plan: StatusUndoPlan, now: string): TaskRecord {
+  return {
+    ...plan.current,
+    status: plan.from,
+    version: plan.current.version + 1,
     updatedAt: now,
-    completedAt: restoredCompletedAt,
-    canceledAt: restoredCanceledAt,
+    completedAt: plan.beforeCompletedAt !== undefined ? plan.beforeCompletedAt : plan.from === "done" ? now : null,
+    canceledAt: plan.beforeCanceledAt !== undefined ? plan.beforeCanceledAt : plan.from === "canceled" ? now : null,
   };
+}
+
+function applyStatusUndo(database: DatabaseSync, plan: StatusUndoPlan, request: ProtocolRequest, now: string): void {
+  const restoredCompletedAt = plan.beforeCompletedAt !== undefined ? plan.beforeCompletedAt : plan.from === "done" ? now : null;
+  const restoredCanceledAt = plan.beforeCanceledAt !== undefined ? plan.beforeCanceledAt : plan.from === "canceled" ? now : null;
+  const result = database
+    .prepare(
+      "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
+    )
+    .run(plan.from, now, restoredCompletedAt, restoredCanceledAt, plan.current.id, plan.item.expectedVersion);
+  if (result.changes !== 1) {
+    throw new CommandError("STALE_TASK_VERSION", `task ${plan.current.id} changed while its state was being undone`);
+  }
+  insertActivity(
+    database,
+    plan.current.id,
+    request,
+    "undone",
+    { from: plan.current.status, to: plan.from, undoneSeq: plan.undoneSeq, undoneAction: plan.action },
+    now,
+  );
+}
+
+function undoStatusMany(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
+  const context = mutationContext(database, request);
+  if (context.replay) return context.replay;
+  const args = parseTaskStatusUndoManyArgs(request.args);
+  const now = new Date().toISOString();
   if (request.readOnly || request.dryRun) {
-    return taskResult(preview, { dryRun: true, readOnly: Boolean(request.readOnly), changed: true, undoneSeq });
+    const plans = args.tasks.map((item) => statusUndoPlan(database, item));
+    return {
+      tasks: plans.map((plan) => undoPreview(plan, now)),
+      changed: true,
+      dryRun: true,
+      readOnly: Boolean(request.readOnly),
+    };
   }
 
-  return withCanonicalTransaction(database, databasePath, request, () => ({ taskIds: [current.id] }), () => {
-    database
-      .prepare(
-        "UPDATE tasks SET status = ?, version = version + 1, updated_at = ?, completed_at = ?, canceled_at = ? WHERE id = ? AND version = ?",
-      )
-      .run(from, now, restoredCompletedAt, restoredCanceledAt, current.id, version);
-    insertActivity(
-      database,
-      current.id,
-      request,
-      "undone",
-      { from: current.status, to: from, undoneSeq, undoneAction: action },
-      now,
-    );
-    const restored = requireTask(database, current.id);
-    const result = taskResult(restored, { changed: true, undoneSeq });
-    recordReceipt(database, request, context, result, now);
-    return result;
-  });
+  let plans: StatusUndoPlan[] = [];
+  return withCanonicalTransaction(
+    database,
+    databasePath,
+    request,
+    () => ({ taskIds: plans.map((plan) => plan.current.id) }),
+    () => {
+      plans = args.tasks.map((item) => statusUndoPlan(database, item));
+      for (const plan of plans) applyStatusUndo(database, plan, request, now);
+      const result = { tasks: plans.map((plan) => requireTask(database, plan.current.id)), changed: true };
+      recordReceipt(database, request, context, result, now);
+      return result;
+    },
+  );
 }
 
 function moveTask(database: DatabaseSync, databasePath: string, request: ProtocolRequest): Record<string, unknown> {
@@ -1533,6 +1653,10 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       return listTasks(database, request);
     case "task.reorder":
       return reorderTask(database, databasePath, request);
+    case "task.transitionMany":
+      return transitionMany(database, databasePath, request);
+    case "task.status.undoMany":
+      return undoStatusMany(database, databasePath, request);
     case "category.list":
       return listCategories(database);
     case "tag.list":

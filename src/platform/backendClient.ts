@@ -11,6 +11,8 @@ import {
   type TaskRecord,
   type TaskReorderPlacement,
   type TaskReorderTask,
+  type TaskStatusUndoItem,
+  type TaskTransitionItem,
   type ThemeRecord,
 } from "../backend/protocol";
 import { getBackendTransport } from "./backendTransport";
@@ -54,6 +56,13 @@ export type TaskReorderResult = {
   dryRun?: boolean;
   readOnly?: boolean;
 };
+export type TaskTransitionManyResult = {
+  tasks: TaskRecord[];
+  changed: boolean;
+  dryRun?: boolean;
+  readOnly?: boolean;
+};
+export type TaskStatusUndoManyResult = TaskTransitionManyResult;
 
 export class BackendCommandError extends Error {
   readonly code: string;
@@ -161,12 +170,26 @@ export async function transitionTask(
   return runBackendCommand<TaskMutationResult>(command, { id, expectedVersion }, options);
 }
 
+export async function transitionTasks(
+  tasks: TaskTransitionItem[],
+  options: CommandOptions,
+): Promise<TaskTransitionManyResult> {
+  return runBackendCommand<TaskTransitionManyResult>("task.transitionMany", { tasks }, options);
+}
+
 export async function undoStatusChange(
   id: string,
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult & { undoneSeq?: number }> {
   return runBackendCommand<TaskMutationResult & { undoneSeq?: number }>("task.status.undo", { id, expectedVersion }, options);
+}
+
+export async function undoStatusChanges(
+  tasks: TaskStatusUndoItem[],
+  options: CommandOptions,
+): Promise<TaskStatusUndoManyResult> {
+  return runBackendCommand<TaskStatusUndoManyResult>("task.status.undoMany", { tasks }, options);
 }
 
 export async function moveTask(id: string, parentId: string | null, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {

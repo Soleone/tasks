@@ -52,7 +52,7 @@ const itemVariants = cva(
       // apply; callers keep that precedence when choosing the value.
       state: {
         active: "border-transparent bg-primary/10",
-        selected: "border-primary/60 bg-primary/5",
+        selected: "border-transparent bg-primary/5",
         context: "bg-muted/50 text-muted-foreground",
         empty: "min-h-16 border-dashed border-border bg-transparent",
       },

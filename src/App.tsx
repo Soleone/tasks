@@ -21,7 +21,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, type ReceiveWorkspaceResult } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, undoStatusChanges, type ReceiveWorkspaceResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
@@ -165,15 +165,19 @@ function contextAncestorIds(tasks: readonly TaskRecord[], knownTasks: readonly T
   return contextIds;
 }
 
-type StatusUndoEntry = {
-  kind: "status";
+type StatusUndoTask = {
   taskId: string;
   title: string;
   from: TaskStatus;
   to: TaskStatus;
   version: number;
+};
+
+type StatusUndoEntry = {
+  kind: "status";
+  tasks: StatusUndoTask[];
   key: string;
-  wasActive: boolean;
+  wasActiveTaskId: string | null;
 };
 
 type Toast = {
@@ -245,12 +249,13 @@ export default function App(): ReactElement {
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
   const [statusUndo, setStatusUndo] = useState<StatusUndoEntry | null>(null);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
-  const [exitingTaskId, setExitingTaskId] = useState<string | null>(null);
+  const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<Toast | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
   const querySequence = useRef(0);
   const initialLoadRetry = useRef(0);
   const statusUndoRef = useRef<StatusUndoEntry | null>(null);
+  const cancelExitTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
   const statusPresetRef = useRef<StatusPreset>(statusPreset);
   const exactStatusRef = useRef<TaskStatus | null>(exactStatus);
@@ -866,7 +871,18 @@ export default function App(): ReactElement {
   }
 
   function recordStatusUndo(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
-    if (previous.status === current.status) return;
+    recordStatusUndoBatch([previous], [current], wasActive ? current.id : null);
+  }
+
+  function recordStatusUndoBatch(previous: TaskRecord[], current: TaskRecord[], wasActiveTaskId: string | null): void {
+    const currentById = new Map(current.map((task) => [task.id, task]));
+    const undoTasks = previous.flatMap((before) => {
+      const after = currentById.get(before.id);
+      return after && before.status !== after.status
+        ? [{ taskId: after.id, title: after.title, from: before.status, to: after.status, version: after.version }]
+        : [];
+    });
+    if (undoTasks.length === 0) return;
     if (toastTimer.current !== null) {
       window.clearTimeout(toastTimer.current);
       toastTimer.current = null;
@@ -874,13 +890,9 @@ export default function App(): ReactElement {
     setToast(null);
     const entry: StatusUndoEntry = {
       kind: "status",
-      taskId: current.id,
-      title: current.title,
-      from: previous.status,
-      to: current.status,
-      version: current.version,
+      tasks: undoTasks,
       key: crypto.randomUUID(),
-      wasActive,
+      wasActiveTaskId,
     };
     statusUndoRef.current = entry;
     setStatusUndo(entry);
@@ -904,40 +916,35 @@ export default function App(): ReactElement {
     const entry = statusUndoRef.current;
     if (!entry) return;
     try {
-      const result = await undoStatusChange(entry.taskId, entry.version, { idempotencyKey: entry.key });
-      const restored = result.task;
-      const visible = taskIsVisible(
-        restored,
-        exactStatus,
-        statusPreset,
-        showUnblocked,
-        categoryFilter?.slug ?? null,
-        priorityFilter,
-        tagFilter.map((tag) => tag.slug),
-        searchQuery,
-      );
-      if (visible) {
-        const alreadyPresent = tasks.some((existing) => existing.id === restored.id);
-        const nextTasks = alreadyPresent
-          ? tasks.map((existing) => existing.id === restored.id ? restored : existing)
-          : [...tasks, restored].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
-        setTasks(nextTasks);
-        if (!alreadyPresent) setTotal((previous) => previous + 1);
-        if (entry.wasActive) {
-          requestActiveTask(restored.id);
-        }
-      } else {
-        setTasks((previous) => previous.map((existing) => existing.id === restored.id ? restored : existing));
+      const result = entry.tasks.length === 1
+        ? { tasks: [(await undoStatusChange(entry.tasks[0].taskId, entry.tasks[0].version, { idempotencyKey: entry.key })).task] }
+        : await undoStatusChanges(
+          entry.tasks.map((task) => ({ id: task.taskId, expectedVersion: task.version })),
+          { idempotencyKey: entry.key },
+        );
+      const restored = result.tasks;
+      if (cancelExitTimer.current !== null) {
+        window.clearTimeout(cancelExitTimer.current);
+        cancelExitTimer.current = null;
+      }
+      setExitingTaskIds(new Set());
+      updateVisibleTasks(restored);
+      if (entry.wasActiveTaskId && restored.some((task) => task.id === entry.wasActiveTaskId)) {
+        requestActiveTask(entry.wasActiveTaskId);
       }
       retireStatusUndo();
-      const label = taskStatusMeta[restored.status]?.label ?? restored.status;
-      setAnnouncement(`${restored.title}: ${label}`);
-      showToast({ message: `Undo status change to ${label}` });
-      if (sortField === "manual" || entry.from === "canceled" || entry.to === "canceled") void refreshTasks(0, true);
+      const labels = new Set(restored.map((task) => taskStatusMeta[task.status]?.label ?? task.status));
+      const message = restored.length === 1
+        ? `${restored[0].title}: ${[...labels][0]}`
+        : `Undid status changes for ${restored.length} tasks`;
+      setAnnouncement(message);
+      showToast({ message: restored.length === 1 ? `Undo status change to ${[...labels][0]}` : `Undid ${restored.length} status changes` });
+      if (sortField === "manual" || entry.tasks.some((task) => task.from === "canceled" || task.to === "canceled")) void refreshTasks(0, true);
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "STALE_TASK_VERSION" || caught.code === "UNDO_UNAVAILABLE" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
-        setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
+        setExitingTaskIds(new Set());
+        setAnnouncement(`${entry.tasks[0]?.title ?? "A task"} changed elsewhere. Undo is no longer available.`);
         void refreshTasks();
         return;
       }
@@ -987,34 +994,58 @@ export default function App(): ReactElement {
     void refreshTasks();
   }
 
-  function syncContextTasks(nextTasks: TaskRecord[], candidate?: TaskRecord): void {
+  function syncContextTasks(nextTasks: TaskRecord[], candidates?: TaskRecord | readonly TaskRecord[]): void {
+    const candidateList = candidates === undefined ? [] : Array.isArray(candidates) ? candidates : [candidates];
     setContextTasks((previous) => {
       const visibleIds = new Set(nextTasks.map((entry) => entry.id));
-      const knownTasks = [...previous, ...nextTasks, ...(candidate ? [candidate] : [])];
+      const knownTasks = [...previous, ...nextTasks, ...candidateList];
       const requiredContextIds = contextAncestorIds(nextTasks, knownTasks);
       const byId = new Map(previous.map((entry) => [entry.id, entry]));
-      if (candidate) byId.set(candidate.id, candidate);
+      for (const candidate of candidateList) byId.set(candidate.id, candidate);
       return [...byId.values()].filter((entry) => !visibleIds.has(entry.id) && requiredContextIds.has(entry.id));
     });
   }
 
   function updateVisibleTask(task: TaskRecord): void {
-    const wasVisible = tasks.some((existing) => existing.id === task.id);
-    const visible = taskIsVisible(
-      task,
-      exactStatus,
-      statusPreset,
-      showUnblocked,
-      categoryFilter?.slug ?? null,
-      priorityFilter,
-      tagFilter.map((tag) => tag.slug),
-      searchQuery,
-    );
-    if (!visible) {
-      if (!wasVisible) {
-        syncContextTasks(tasks, task);
-        return;
+    updateVisibleTasks([task]);
+  }
+
+  function updateVisibleTasks(updatedTasks: TaskRecord[]): void {
+    if (updatedTasks.length === 0) return;
+    const updates = new Map(updatedTasks.map((task) => [task.id, task]));
+    let nextTasks = tasks;
+    let totalDelta = 0;
+    let membershipChanged = false;
+    let removedTask = false;
+    for (const task of updates.values()) {
+      const currentIndex = nextTasks.findIndex((existing) => existing.id === task.id);
+      const wasVisible = currentIndex !== -1;
+      const visible = taskIsVisible(
+        task,
+        exactStatus,
+        statusPreset,
+        showUnblocked,
+        categoryFilter?.slug ?? null,
+        priorityFilter,
+        tagFilter.map((tag) => tag.slug),
+        searchQuery,
+      );
+      if (visible) {
+        if (wasVisible) {
+          nextTasks = nextTasks.map((existing) => existing.id === task.id ? task : existing);
+        } else {
+          nextTasks = [...nextTasks, task].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
+          totalDelta += 1;
+          membershipChanged = true;
+        }
+      } else if (wasVisible) {
+        nextTasks = nextTasks.filter((existing) => existing.id !== task.id);
+        totalDelta -= 1;
+        membershipChanged = true;
+        removedTask = true;
       }
+    }
+    if (removedTask) {
       const currentGroupOrder = taskGroupOrder(tasks, contextTasks);
       setContextOrder((previous) => {
         const next = new Map(previous);
@@ -1026,30 +1057,58 @@ export default function App(): ReactElement {
         }
         return next;
       });
-      const nextTasks = tasks.filter((existing) => existing.id !== task.id);
-      setTasks(nextTasks);
-      setTotal((previous) => Math.max(previous - 1, 0));
-      syncContextTasks(nextTasks, task);
-      return;
     }
-    if (!wasVisible) {
-      const nextTasks = [...tasks, task].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
-      setTasks(nextTasks);
-      setTotal((previous) => previous + 1);
-      syncContextTasks(nextTasks);
-      if (sortField === "manual") void refreshTasks(0, true);
-      return;
-    }
-    const nextTasks = tasks.map((existing) => existing.id === task.id ? task : existing);
     setTasks(nextTasks);
-    syncContextTasks(nextTasks);
+    if (totalDelta !== 0) setTotal((previous) => Math.max(previous + totalDelta, 0));
+    syncContextTasks(nextTasks, updatedTasks);
+    if (membershipChanged && sortField === "manual") void refreshTasks(0, true);
   }
 
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, wasActive: boolean): void {
     recordStatusUndo(previous, current, wasActive);
     const message = STATUS_CHANGE_TOASTS[current.status];
     if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
-    if (previous.status === "canceled" || current.status === "canceled") void refreshTasks(0, true);
+    if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
+  }
+
+  function handleStatusBatchChanged(previous: TaskRecord[], current: TaskRecord[], wasActiveTaskId: string | null): void {
+    recordStatusUndoBatch(previous, current, wasActiveTaskId);
+    const changedStatuses = new Set(current.map((task) => task.status));
+    const toastStatus = changedStatuses.size === 1 ? [...changedStatuses][0] : null;
+    const message = toastStatus ? STATUS_CHANGE_TOASTS[toastStatus] : null;
+    if (toastStatus !== null && message) showToast({ message, Icon: taskStatusMeta[toastStatus].Icon });
+  }
+
+  function handleCanceledMany(previous: TaskRecord[], current: TaskRecord[]): void {
+    ++querySequence.current;
+    if (cancelExitTimer.current !== null) {
+      window.clearTimeout(cancelExitTimer.current);
+      cancelExitTimer.current = null;
+    }
+    const previousIds = new Set(previous.map((task) => task.id));
+    const exiting = current.filter((task) => previousIds.has(task.id) && tasks.some((existing) => existing.id === task.id) && !taskIsVisible(
+      task,
+      exactStatus,
+      statusPreset,
+      showUnblocked,
+      categoryFilter?.slug ?? null,
+      priorityFilter,
+      tagFilter.map((tag) => tag.slug),
+      searchQuery,
+    ));
+    const remove = (): void => {
+      updateVisibleTasks(current);
+      setExitingTaskIds(new Set());
+      cancelExitTimer.current = null;
+      void refreshTasks(0, true);
+    };
+    if (exiting.length > 0) {
+      setExitingTaskIds(new Set(exiting.map((task) => task.id)));
+      cancelExitTimer.current = window.setTimeout(remove, 150);
+    } else {
+      updateVisibleTasks(current);
+    }
+    setAnnouncement(current.length === 1 ? `Canceled: ${current[0].title}` : `Canceled ${current.length} tasks`);
   }
 
   const ToastIcon = toast?.Icon;
@@ -1071,7 +1130,11 @@ export default function App(): ReactElement {
       toastTimer.current = null;
     }
     setToast(null);
-    setExitingTaskId(null);
+    if (cancelExitTimer.current !== null) {
+      window.clearTimeout(cancelExitTimer.current);
+      cancelExitTimer.current = null;
+    }
+    setExitingTaskIds(new Set());
     requestActiveTask();
     await refreshTasks();
     setAnnouncement(result.deletedCount === 1
@@ -1160,7 +1223,7 @@ export default function App(): ReactElement {
           ref={taskListRef}
           tasks={tasks}
           newTaskId={newTaskId}
-          exitingTaskId={exitingTaskId}
+          exitingTaskIds={exitingTaskIds}
           contextTasks={contextTasks}
           contextOrder={contextOrder}
           total={total}
@@ -1206,34 +1269,13 @@ export default function App(): ReactElement {
           onToast={(message) => showToast({ message })}
           onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
+          onTasksUpdated={updateVisibleTasks}
           onStatusChanged={handleStatusChanged}
+          onStatusBatchChanged={handleStatusBatchChanged}
           canUndoStatus={statusUndo !== null}
           onUndoStatus={() => void handleUndoStatus()}
-          onCanceled={(task) => {
-            ++querySequence.current;
-            const exitsList = tasks.some((existing) => existing.id === task.id) && !taskIsVisible(
-              task,
-              exactStatus,
-              statusPreset,
-              showUnblocked,
-              categoryFilter?.slug ?? null,
-              priorityFilter,
-              tagFilter.map((tag) => tag.slug),
-              searchQuery,
-            );
-            const remove = (): void => {
-              updateVisibleTask(task);
-              setExitingTaskId(null);
-              void refreshTasks(0, true);
-            };
-            if (exitsList) {
-              setExitingTaskId(task.id);
-              window.setTimeout(remove, 150);
-            } else {
-              remove();
-            }
-            setAnnouncement(`Canceled: ${task.title}`);
-          }}
+          onCanceled={(task) => handleCanceledMany([task], [task])}
+          onCanceledMany={handleCanceledMany}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />

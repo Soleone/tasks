@@ -12,7 +12,7 @@ import {
   type ReactElement,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
-import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus } from "@/backend/protocol";
+import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
@@ -29,7 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
-import { BackendCommandError, deleteTask, reorderTasks, transitionTask, updateTask } from "@/platform/backendClient";
+import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTask } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
 
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
@@ -94,7 +94,7 @@ export type TaskListHandle = {
 type TaskListProps = {
   tasks: TaskRecord[];
   newTaskId?: string | null;
-  exitingTaskId?: string | null;
+  exitingTaskIds: ReadonlySet<string>;
   contextTasks: TaskRecord[];
   contextOrder: ReadonlyMap<string, number>;
   total: number;
@@ -136,10 +136,13 @@ type TaskListProps = {
   onToast: (message: string) => void;
   onEdit: (task: TaskRecord) => void;
   onTaskUpdated: (task: TaskRecord) => void;
+  onTasksUpdated: (tasks: TaskRecord[]) => void;
   onStatusChanged?: (previous: TaskRecord, current: TaskRecord, wasActive: boolean) => void;
+  onStatusBatchChanged?: (previous: TaskRecord[], current: TaskRecord[], wasActiveTaskId: string | null) => void;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
   onCanceled: (task: TaskRecord) => void;
+  onCanceledMany?: (previous: TaskRecord[], current: TaskRecord[]) => void;
   onAddBlocker: (task: TaskRecord) => void;
   onMoveUnder: (task: TaskRecord) => void;
 };
@@ -172,7 +175,7 @@ type TaskOptionProps = {
   pending: boolean;
   feedbackVersion?: number;
   newTaskId?: string | null;
-  exitingTaskId?: string | null;
+  exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   hiddenCategorySlug: string | null;
   taskById: ReadonlyMap<string, TaskRecord>;
@@ -191,7 +194,7 @@ const TaskOption = memo(function TaskOption({
   pending,
   feedbackVersion,
   newTaskId,
-  exitingTaskId,
+  exitingTaskIds,
   showDetails,
   hiddenCategorySlug,
   taskById,
@@ -220,13 +223,13 @@ const TaskOption = memo(function TaskOption({
       data-context-parent={row.contextOnly || undefined}
       data-depth={row.depth}
       data-new-task={task.id === newTaskId || undefined}
-      data-canceled-task={task.id === exitingTaskId || undefined}
+      data-canceled-task={exitingTaskIds.has(task.id) || undefined}
       size="sm"
-      variant={active ? "outline" : "default"}
-      state={active
-        ? "active"
-        : selected
-          ? "selected"
+      variant={active && !selected ? "outline" : "default"}
+      state={selected
+        ? "selected"
+        : active
+          ? "active"
           : row.contextOnly ? "context" : undefined}
       onClick={(event) => onClick(row, index, event)}
     >
@@ -316,7 +319,7 @@ const TOGGLE_FEEDBACK_DURATION_MS = 900;
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
   newTaskId,
-  exitingTaskId,
+  exitingTaskIds,
   contextTasks,
   contextOrder,
   total,
@@ -358,10 +361,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onToast,
   onEdit,
   onTaskUpdated,
+  onTasksUpdated,
   onStatusChanged,
+  onStatusBatchChanged,
   canUndoStatus,
   onUndoStatus,
   onCanceled,
+  onCanceledMany,
   onAddBlocker,
   onMoveUnder,
 }: TaskListProps, ref): ReactElement {
@@ -374,6 +380,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const initialHomeFocusPending = useRef(true);
   const retry = useRef<HTMLButtonElement>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
+  const batchTransitionReceiptRef = useRef<{ signature: string; key: string } | null>(null);
   const deleteReceipts = useRef(new Map<string, DeleteReceipt>());
   const deletePending = useRef(new Set<string>());
   const priorityReceipts = useRef(new Map<string, { version: number; key: string }>());
@@ -1142,6 +1149,30 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     });
   }
 
+  function setMutationPendingMany(taskIds: readonly string[], pending: boolean): void {
+    for (const taskId of taskIds) {
+      if (pending) mutationPending.current.add(taskId);
+      else mutationPending.current.delete(taskId);
+    }
+    setMutationPendingIds((previous) => {
+      const next = new Set(previous);
+      for (const taskId of taskIds) {
+        if (pending) next.add(taskId);
+        else next.delete(taskId);
+      }
+      return next;
+    });
+  }
+
+  function batchTransitionReceipt(items: readonly { id: string; expectedVersion: number; command: TaskTransitionCommand }[]): { signature: string; key: string } {
+    const signature = JSON.stringify(items);
+    const existing = batchTransitionReceiptRef.current;
+    if (existing?.signature === signature) return existing;
+    const receipt = { signature, key: crypto.randomUUID() };
+    batchTransitionReceiptRef.current = receipt;
+    return receipt;
+  }
+
   async function changeStatus(task: TaskRecord, transition: StatusTransition): Promise<void> {
     if (mutationPending.current.has(task.id)) return;
     const previousReceipt = statusReceipts.current.get(task.id);
@@ -1167,6 +1198,40 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
+  async function transitionSelectedTasks(
+    selected: TaskRecord[],
+    commandForTask: (task: TaskRecord) => TaskTransitionCommand | null,
+    actionLabel: string,
+  ): Promise<void> {
+    const items = selected
+      .map((task) => {
+        const command = commandForTask(task);
+        return command ? { id: task.id, expectedVersion: task.version, command } : null;
+      })
+      .filter((item): item is { id: string; expectedVersion: number; command: TaskTransitionCommand } => item !== null);
+    if (items.length === 0) return;
+    const receipt = batchTransitionReceipt(items);
+    const selectedIds = items.map((item) => item.id);
+    setMutationPendingMany(selectedIds, true);
+    try {
+      const result = await transitionTasks(items, { idempotencyKey: receipt.key });
+      batchTransitionReceiptRef.current = null;
+      onTasksUpdated(result.tasks);
+      if (result.changed) onStatusBatchChanged?.(selected.filter((task) => selectedIds.includes(task.id)), result.tasks, activeTask?.id ?? null);
+      onAnnounce(`${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`);
+    } catch (caught) {
+      if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+        batchTransitionReceiptRef.current = null;
+        onAnnounce("A selected task changed elsewhere. Refresh and try again.");
+        void onRefresh(0);
+      } else {
+        onAnnounce(caught instanceof Error ? caught.message : `Could not ${actionLabel} selected tasks.`);
+      }
+    } finally {
+      setMutationPendingMany(selectedIds, false);
+    }
+  }
+
   function toggleStatus(task: TaskRecord): Promise<void> {
     return changeStatus(task, forwardStatusTransition[task.status]);
   }
@@ -1174,8 +1239,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   async function toggleSelectedStatus(): Promise<void> {
     const selected = selectedTasksForAction();
     if (selected.length === 0) return;
-    await Promise.all(selected.map((task) => toggleStatus(task)));
-    if (selected.length > 1) void onRefresh();
+    if (selected.length === 1) {
+      await toggleStatus(selected[0]);
+      return;
+    }
+    await transitionSelectedTasks(selected, (task) => forwardStatusTransition[task.status].command, "updated");
   }
 
   function reverseStatus(task: TaskRecord): Promise<void> {
@@ -1185,8 +1253,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   async function reverseSelectedStatus(): Promise<void> {
     const selected = selectedTasksForAction();
     if (selected.length === 0) return;
-    await Promise.all(selected.map((task) => reverseStatus(task)));
-    if (selected.length > 1) void onRefresh();
+    if (selected.length === 1) {
+      await reverseStatus(selected[0]);
+      return;
+    }
+    await transitionSelectedTasks(selected, (task) => reverseStatusTransition[task.status].command, "updated");
   }
 
   function pauseTask(task: TaskRecord): Promise<void> {
@@ -1202,8 +1273,20 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   async function pauseSelectedTasks(): Promise<void> {
     const selected = selectedTasksForAction();
     if (selected.length === 0) return;
-    await Promise.all(selected.map((task) => pauseTask(task)));
-    if (selected.length > 1) void onRefresh();
+    if (selected.length === 1) {
+      await pauseTask(selected[0]);
+      return;
+    }
+    const eligible = selected.filter((task) => task.status !== "done" && task.status !== "canceled");
+    if (eligible.length === 0) {
+      onAnnounce("Done and canceled tasks cannot be paused.");
+      return;
+    }
+    await transitionSelectedTasks(
+      eligible,
+      (task) => task.status === "paused" ? "task.start" : "task.pause",
+      "updated",
+    );
   }
 
   async function setTaskPriority(task: TaskRecord, priority: TaskPriority): Promise<void> {
@@ -1263,10 +1346,37 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   async function deleteSelectedTasks(): Promise<void> {
-    const selected = selectedTasksForAction();
+    const selected = selectedTasksForAction().filter((task) => !deletePending.current.has(task.id));
     if (selected.length === 0) return;
-    await Promise.all(selected.map((task) => deleteTaskRecord(task)));
-    if (selected.length > 1) void onRefresh(0);
+    if (selected.length === 1) {
+      await deleteTaskRecord(selected[0]);
+      return;
+    }
+    const items = selected.map((task) => ({ id: task.id, expectedVersion: task.version, command: "task.delete" as const }));
+    const receipt = batchTransitionReceipt(items);
+    const selectedIds = selected.map((task) => task.id);
+    selectedIds.forEach((taskId) => deletePending.current.add(taskId));
+    setMutationPendingMany(selectedIds, true);
+    try {
+      const result = await transitionTasks(items, { idempotencyKey: receipt.key });
+      batchTransitionReceiptRef.current = null;
+      onStatusBatchChanged?.(selected, result.tasks, activeTask?.id ?? null);
+      setSelection([], null);
+      if (onCanceledMany) onCanceledMany(selected, result.tasks);
+      else result.tasks.forEach((task) => onCanceled(task));
+      onAnnounce(`Canceled ${result.tasks.length} tasks`);
+    } catch (caught) {
+      if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+        batchTransitionReceiptRef.current = null;
+        onAnnounce("A selected task changed elsewhere. Refresh and try again.");
+        void onRefresh(0);
+      } else {
+        onAnnounce(caught instanceof Error ? caught.message : "Could not cancel the selected tasks.");
+      }
+    } finally {
+      selectedIds.forEach((taskId) => deletePending.current.delete(taskId));
+      setMutationPendingMany(selectedIds, false);
+    }
   }
 
   optionClickRef.current = (row, index, event) => {
@@ -2182,7 +2292,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               pending={mutationPendingIds.has(row.task.id)}
               feedbackVersion={statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined}
               newTaskId={newTaskId}
-              exitingTaskId={exitingTaskId}
+              exitingTaskIds={exitingTaskIds}
               showDetails={showDetails}
               hiddenCategorySlug={categoryFilter?.slug ?? null}
               taskById={taskById}

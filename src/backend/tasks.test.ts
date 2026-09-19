@@ -1352,6 +1352,62 @@ test("status undo covers open, done, and cancellation transitions", () => {
   }
 });
 
+test("batch status transitions are atomic and support grouped undo", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-batch-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const first = task(executeCommand(request("task.create", { title: "Batch first" }, { idempotencyKey: "batch-create-first" }), databasePath));
+    const second = task(executeCommand(request("task.create", { title: "Batch second" }, { idempotencyKey: "batch-create-second" }), databasePath));
+    const secondEdited = task(executeCommand(request("task.update", {
+      id: second.id,
+      expectedVersion: second.version,
+      title: "Batch second edited",
+    }, { idempotencyKey: "batch-edit-second" }), databasePath));
+    const beforeActivity = countRows(databasePath, "activity");
+    const beforeReceipts = countRows(databasePath, "command_receipts");
+    assert.throws(
+      () => executeCommand(request("task.transitionMany", {
+        tasks: [
+          { id: first.id, expectedVersion: first.version, command: "task.complete" },
+          { id: second.id, expectedVersion: second.version, command: "task.complete" },
+        ],
+      }, { idempotencyKey: "batch-stale" }), databasePath),
+      /STALE_TASK_VERSION/,
+    );
+    assert.equal(task(executeCommand(request("task.get", { id: first.id }), databasePath)).status, "open");
+    assert.equal(task(executeCommand(request("task.get", { id: first.id }), databasePath)).version, first.version);
+    assert.equal(countRows(databasePath, "activity"), beforeActivity);
+    assert.equal(countRows(databasePath, "command_receipts"), beforeReceipts);
+
+    const changed = executeCommand(request("task.transitionMany", {
+      tasks: [
+        { id: first.id, expectedVersion: first.version, command: "task.start" },
+        { id: second.id, expectedVersion: secondEdited.version, command: "task.pause" },
+      ],
+    }, { idempotencyKey: "batch-change" }), databasePath) as { tasks: TaskRecord[]; changed: boolean };
+    assert.equal(changed.changed, true);
+    assert.deepEqual(changed.tasks.map((item) => item.status), ["in_progress", "paused"]);
+    assert.deepEqual(executeCommand(request("task.transitionMany", {
+      tasks: [
+        { id: first.id, expectedVersion: first.version, command: "task.start" },
+        { id: second.id, expectedVersion: secondEdited.version, command: "task.pause" },
+      ],
+    }, { idempotencyKey: "batch-change" }), databasePath), changed);
+
+    const undone = executeCommand(request("task.status.undoMany", {
+      tasks: changed.tasks.map((item) => ({ id: item.id, expectedVersion: item.version })),
+    }, { idempotencyKey: "batch-undo" }), databasePath) as { tasks: TaskRecord[]; changed: boolean };
+    assert.equal(undone.changed, true);
+    assert.deepEqual(undone.tasks.map((item) => item.status), ["open", "open"]);
+    assert.deepEqual(undone.tasks.map((item) => item.version), [3, 4]);
+    assert.deepEqual(executeCommand(request("task.status.undoMany", {
+      tasks: changed.tasks.map((item) => ({ id: item.id, expectedVersion: item.version })),
+    }, { idempotencyKey: "batch-undo" }), databasePath), undone);
+  } finally {
+    cleanDirectory(directory);
+  }
+});
+
 test("status undo rejects stale versions without writing", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-status-undo-stale-"));
   const databasePath = path.join(directory, "tasks.db");
