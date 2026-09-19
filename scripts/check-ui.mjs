@@ -470,19 +470,42 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
-  // Settings: the header icon group opens the dialog, and its Data section
-  // writes a portable JSON file beside the scratch database.
+  // Settings: the header icon opens a larger, two-column dialog. Its Data
+  // section writes a portable JSON file beside the scratch database.
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
-  check('document.activeElement.textContent === "Export tasks as JSON"');
-  check('document.body.textContent.includes("Your tasks live in one SQLite file.")');
+  check('document.activeElement.matches("[role=tab][aria-selected=true]")');
+  check('document.querySelectorAll("[role=tab]").length === 3');
+  check('document.querySelector("[data-slot=dialog-content]")?.getBoundingClientRect().width >= 700');
+  evaluate('window.settingsDialogHeight = Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)); true');
+  check('document.querySelector("[role=tablist]")?.getAttribute("aria-describedby") !== null');
+  check('document.body.textContent.includes("Use the Left and Right Arrow keys to switch sections.")');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[data-font-size-control]")');
+  browser("press", "Shift+Tab");
+  waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Shortcuts"');
+  check('Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight');
+  check('document.querySelector("[role=tabpanel] #settings-shortcut-input") !== null');
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Workspace"');
+  check('Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight');
+  check('document.body.textContent.includes("SQLite workspace")');
   check('document.body.textContent.includes("Permanently delete canceled tasks")');
   check('document.body.textContent.includes("There are no canceled tasks to delete.")');
+  check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');
+  focus('[role=tab][aria-selected=true]');
+  browser("press", "ArrowLeft");
+  browser("press", "ArrowLeft");
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
   // Context help is visible in the task composer, including at the native
   // window minimum where the side-panel version used to be CSS-hidden.
   check('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
   browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "true"');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
   browser("press", "c");
@@ -504,7 +527,9 @@ try {
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
   browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
-  browser("find", "role", "button", "click", "--name", "Export tasks as JSON");
+  evaluate('[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Workspace").click(); true');
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Workspace"');
+  evaluate('[...document.querySelectorAll("[role=dialog] button")].find((button) => button.textContent === "Export tasks as JSON").click(); true');
   waitFor('document.body.textContent.includes("Exported 3 tasks")');
   const exportedPath = evaluate('document.querySelector("[data-slot=alert-description]").textContent');
   const exportedFile = JSON.parse(readFileSync(exportedPath, "utf8"));
@@ -513,6 +538,8 @@ try {
   assert.equal(exportedFile.taskCount, 3);
   assert.ok(exportedFile.tasks.every((row) => Number.isInteger(row.siblingOrder) && row.siblingOrder >= 0));
   assert.ok(exportedFile.tasks.every((row) => typeof row.title === "string" && Array.isArray(row.tags)));
+  evaluate('[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "General").click(); true');
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
   check('document.querySelector("[data-font-size-control]")?.value === "0"');
   check('document.querySelector("[data-font-size-control]")?.getAttribute("aria-valuetext") === "Default font size"');
   focus("[data-font-size-control]");
