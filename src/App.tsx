@@ -187,10 +187,17 @@ type Toast = {
   Icon?: LucideIcon;
 };
 
-const STATUS_CHANGE_TOASTS: Partial<Record<TaskStatus, string>> = {
-  paused: "Task paused",
-  done: "Task marked done",
-  canceled: "Task canceled",
+type StatusChangeFeedback = {
+  message: string;
+  notifyWhenVisible: boolean;
+};
+
+const STATUS_CHANGE_FEEDBACK: Record<TaskStatus, StatusChangeFeedback> = {
+  open: { message: "Task marked as open", notifyWhenVisible: false },
+  in_progress: { message: "Task marked as in progress", notifyWhenVisible: false },
+  paused: { message: "Task marked as paused", notifyWhenVisible: true },
+  done: { message: "Task marked as done", notifyWhenVisible: true },
+  canceled: { message: "Task marked as canceled", notifyWhenVisible: true },
 };
 
 const UNDO_TOAST_DURATION_MS = 3000;
@@ -1130,26 +1137,25 @@ export default function App(): ReactElement {
     return nextTasks;
   }
 
-  function showMovedOutOfViewToast(movedTasks: readonly TaskRecord[]): void {
-    if (movedTasks.length === 0) return;
-    const statuses = new Set(movedTasks.map((task) => task.status));
-    const Icon = statuses.size === 1 ? taskStatusMeta[movedTasks[0].status].Icon : undefined;
+  function showStatusChangeToast(changedTasks: readonly TaskRecord[], movedOutOfView = false): void {
+    if (changedTasks.length === 0) return;
+    const statuses = [...new Set(changedTasks.map((task) => task.status))];
+    if (!movedOutOfView && statuses.length !== 1) return;
+    const feedback = statuses
+      .map((status) => STATUS_CHANGE_FEEDBACK[status])
+      .filter((entry) => movedOutOfView || entry.notifyWhenVisible);
+    if (feedback.length === 0) return;
+    const Icon = statuses.length === 1 ? taskStatusMeta[statuses[0]].Icon : undefined;
     showToast({
-      message: movedTasks.length === 1 ? "Task moved out of current view" : `${movedTasks.length} tasks moved out of current view`,
+      message: feedback.length === 1 ? feedback[0].message : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
       ...(Icon ? { Icon } : {}),
     });
   }
 
-  // Status-specific feedback is retained for changes that stay in view. A
-  // transition that removes rows must explain the view change instead.
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, _wasActive: boolean): void {
     const nextTasks = visibleTasksAfterUpdate([current]);
     const movedOutOfView = taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
-    if (movedOutOfView) showMovedOutOfViewToast([current]);
-    else {
-      const message = STATUS_CHANGE_TOASTS[current.status];
-      if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
-    }
+    showStatusChangeToast([current], movedOutOfView);
     if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
   }
 
@@ -1163,14 +1169,10 @@ export default function App(): ReactElement {
         && !taskIsInCurrentView(task, nextTasks);
     });
     if (movedOutOfView.length > 0) {
-      showMovedOutOfViewToast(movedOutOfView);
+      showStatusChangeToast(movedOutOfView, true);
       return;
     }
-
-    const changedStatuses = new Set(current.map((task) => task.status));
-    const toastStatus = changedStatuses.size === 1 ? [...changedStatuses][0] : null;
-    const message = toastStatus ? STATUS_CHANGE_TOASTS[toastStatus] : null;
-    if (toastStatus !== null && message) showToast({ message, Icon: taskStatusMeta[toastStatus].Icon });
+    showStatusChangeToast(current);
   }
 
   function handleCanceledMany(previous: TaskRecord[], current: TaskRecord[]): void {

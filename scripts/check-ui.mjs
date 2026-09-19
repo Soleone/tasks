@@ -267,9 +267,9 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   waitFor('document.querySelector("[data-slot=tooltip-content]")?.textContent === "Active"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
-  // P pauses and removes the task from Active. The toast explains the hidden row.
+  // P pauses and removes the task from Active. The toast confirms the new status.
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as paused")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   // Paused belongs to Inactive, where P can resume it to in progress.
   browser("press", "f");
@@ -277,22 +277,23 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Press P to resume")');
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as in progress")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
   check('document.querySelector("[data-undo-toast] svg")?.classList.contains("text-background") === true');
   check('document.querySelector("[data-undo-toast] svg")?.classList.contains("lucide-circle-check") === true');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
-  // Shift+Space reverses done to in_progress, then reverses in_progress to open.
+  // Shift+Space reverses done to in_progress, which leaves Inactive.
   browser("press", "Shift+Space");
-  waitFor('!document.querySelector("[role=option]")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as in progress")');
+  // Reversing in_progress to open stays inside Active.
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
@@ -300,15 +301,15 @@ try {
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
   // Paused Space still completes: pause, switch to Inactive, then move paused to done.
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as paused")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked done")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
   browser("press", "Space");
-  waitFor('!document.querySelector("[role=option]")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
@@ -687,7 +688,7 @@ try {
   const deletedId = evaluate('window.deleteList = document.activeElement; window.deletedId = document.activeElement.getAttribute("aria-activedescendant").slice("task-option-".length); window.deletedId');
   browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as canceled")');
   check('document.activeElement === window.deleteList');
   assert.equal((await command("task.get", { id: deletedId })).task.status, "canceled");
 
@@ -697,7 +698,7 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
   browser("press", "Space");
-  waitFor('!document.querySelector("[role=option]")');
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
   assert.equal((await command("task.get", { id: deletedId })).task.status, "open");
   browser("press", "f");
   browser("press", "s");
@@ -728,7 +729,7 @@ try {
   check('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4');
   browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as canceled")');
   check('window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]');
   check('document.activeElement.matches("[role=listbox]")');
   evaluate('window.fetch = window.originalFetch; true');
@@ -1165,10 +1166,10 @@ try {
   focus("[role=listbox]");
   browser("press", "Home");
   // The newest task is first under updated/newest, so Home selects the undo task.
-  // Cancel it with Delete: it leaves Active immediately and shows a success toast.
+  // Cancel it with Delete: it leaves Active immediately and shows a status toast.
   browser("press", "Delete");
   waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("moved out of current view")');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as canceled")');
   check('![...document.querySelectorAll("button")].some((b) => b.textContent.includes("Undo"))');
   check('document.activeElement?.getAttribute("role") === "listbox"');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "canceled");
