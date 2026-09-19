@@ -1689,9 +1689,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             <Plus aria-hidden="true" />
             New task
           </Button>
-          <div className="relative flex flex-wrap items-center justify-end gap-1">
-          {toolbarMode ? <TaskListModeHelp mode={toolbarMode} onDismiss={returnToList} /> : null}
-          <ButtonGroup
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            <div className="relative">
+              {toolbarMode === "filter" ? <TaskListModeHelp mode="filter" onDismiss={returnToList} /> : null}
+              <ButtonGroup
             ref={filterToolbar}
             aria-label="Task list filters"
             aria-keyshortcuts="F S O I D P X 0 1 2 3 4 C T U /"
@@ -1832,8 +1833,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipContent side="top" sideOffset={8}>{searchActive ? searchQuery.trim() : "Search"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
+            </div>
           <Separator orientation="vertical" className="h-7" />
-          <ButtonGroup
+          <div className="relative">
+            {toolbarMode === "sort" ? <TaskListModeHelp mode="sort" onDismiss={returnToList} /> : null}
+            <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"
             aria-keyshortcuts="S C U M R"
@@ -1962,6 +1966,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           <TooltipContent side="top" sideOffset={8}>{sortField === "manual" ? "Unavailable for manual order" : sortField === "priority" ? (sortDirection === "desc" ? "Highest priority first" : "Lowest priority first") : sortDirection === "desc" ? "Newest first" : "Oldest first"}</TooltipContent>
         </Tooltip>
           </ButtonGroup>
+            </div>
           <Separator orientation="vertical" className="h-7" />
           <ButtonGroup aria-label="Task list view">
         <Tooltip>

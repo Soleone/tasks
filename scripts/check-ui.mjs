@@ -231,10 +231,12 @@ try {
   browser("press", "f");
   waitFor('document.activeElement.matches("[data-toolbar=filters]")');
   waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
+  browser("wait", "150");
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-group=status]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-group=more]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=open] [data-shortcut-key=\\"O\\"]") !== null');
   check('document.querySelector("[data-shortcut-guide=filter] [data-shortcut-option=priority] [data-shortcut-key=\\"0–4\\"]") !== null');
+  check('(() => { const guide = document.querySelector("[data-shortcut-guide=filter]")?.getBoundingClientRect(); const toolbar = document.querySelector("[data-toolbar=filters]")?.getBoundingClientRect(); if (!guide || !toolbar) return false; const expectedLeft = Math.max(5, Math.min(toolbar.right - guide.width, innerWidth - guide.width - 5)); return Math.abs(guide.left - expectedLeft) < 4; })()');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=filter]") === null');
   check('(() => { const toolbar = document.querySelector("[data-toolbar=filters]"); if (!toolbar || !toolbar.hasAttribute("data-toolbar-active")) return false; const shadow = getComputedStyle(toolbar).boxShadow; return shadow !== "none" && shadow !== ""; })()');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5');
@@ -1001,7 +1003,9 @@ try {
   browser("press", "s");
   waitFor('document.activeElement.matches("[data-toolbar=sort]")');
   waitFor('document.querySelector("[data-shortcut-guide=sort]") !== null');
+  browser("wait", "150");
   check('document.querySelectorAll("[data-shortcut-guide=sort] [data-shortcut-option] [data-shortcut-key]").length === 5');
+  check('(() => { const guide = document.querySelector("[data-shortcut-guide=sort]")?.getBoundingClientRect(); const toolbar = document.querySelector("[data-toolbar=sort]")?.getBoundingClientRect(); if (!guide || !toolbar) return false; const expectedLeft = Math.max(5, Math.min(toolbar.right - guide.width, innerWidth - guide.width - 5)); return Math.abs(guide.left - expectedLeft) < 4; })()');
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=sort]") === null');
   check('(() => { const toolbar = document.querySelector("[data-toolbar=sort]"); if (!toolbar || !toolbar.hasAttribute("data-toolbar-active")) return false; const shadow = getComputedStyle(toolbar).boxShadow; return shadow !== "none" && shadow !== ""; })()');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list sort\\"]").getBoundingClientRect().top + window.scrollY - window.sortToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.sortListTop) < 0.5');
