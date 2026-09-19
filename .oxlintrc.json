@@ -10,6 +10,17 @@
     "shadcn/no-restyle": ["error", { "allow": ["layout"] }],
     "shadcn/no-raw-colors": "error",
     "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"] }],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@base-ui/react", "@base-ui/react/*"],
+            "message": "Use a local high-level component from @/components/ui instead of importing Base UI primitives directly."
+          }
+        ]
+      }
+    ],
     "shadcn/no-inline-styles": "error",
     "shadcn/no-unknown-classes": [
       "error",
@@ -21,7 +32,8 @@
       "files": ["src/components/ui/**"],
       "rules": {
         "shadcn/no-restyle": "off",
-        "shadcn/no-arbitrary-values": "off"
+        "shadcn/no-arbitrary-values": "off",
+        "no-restricted-imports": "off"
       }
     }
   ]
