@@ -983,16 +983,7 @@ export default function App(): ReactElement {
     const composerBeforeSave = composerRef.current;
     const creating = composerBeforeSave?.mode === "create";
     const previous = composerBeforeSave?.mode === "edit" ? [composerBeforeSave.task] : [];
-    const visible = taskIsVisible(
-      task,
-      exactStatus,
-      statusPreset,
-      showUnblocked,
-      categoryFilter?.slug ?? null,
-      priorityFilter,
-      tagFilter.map((tag) => tag.slug),
-      searchQuery,
-    );
+    const visible = isCurrentViewMatch(task);
     if (visible) {
       setTasks((previous) => creating
         ? [task, ...previous.filter((existing) => existing.id !== task.id)]
@@ -1059,16 +1050,7 @@ export default function App(): ReactElement {
     for (const task of updates.values()) {
       const currentIndex = nextTasks.findIndex((existing) => existing.id === task.id);
       const wasVisible = currentIndex !== -1;
-      const visible = taskIsVisible(
-        task,
-        exactStatus,
-        statusPreset,
-        showUnblocked,
-        categoryFilter?.slug ?? null,
-        priorityFilter,
-        tagFilter.map((tag) => tag.slug),
-        searchQuery,
-      );
+      const visible = isCurrentViewMatch(task);
       if (visible) {
         if (wasVisible) {
           nextTasks = nextTasks.map((existing) => existing.id === task.id ? task : existing);
@@ -1103,13 +1085,77 @@ export default function App(): ReactElement {
     if (membershipChanged && sortField === "manual") void refreshTasks(0, true);
   }
 
+  function isCurrentViewMatch(task: TaskRecord): boolean {
+    return taskIsVisible(
+      task,
+      exactStatus,
+      statusPreset,
+      showUnblocked,
+      categoryFilter?.slug ?? null,
+      priorityFilter,
+      tagFilter.map((tag) => tag.slug),
+      searchQuery,
+    );
+  }
+
+  function taskIsInCurrentView(task: TaskRecord, visibleTasks: readonly TaskRecord[] = tasks): boolean {
+    if (isCurrentViewMatch(task)) return true;
+
+    const otherVisibleTasks = visibleTasks.filter((entry) => entry.id !== task.id);
+    return contextAncestorIds(otherVisibleTasks, [...otherVisibleTasks, ...contextTasks, task]).has(task.id);
+  }
+
+  function visibleTasksAfterUpdate(updatedTasks: readonly TaskRecord[]): TaskRecord[] {
+    const updates = new Map(updatedTasks.map((task) => [task.id, task]));
+    const nextTasks = tasks.flatMap((existing) => {
+      const updated = updates.get(existing.id);
+      if (!updated) return [existing];
+      return isCurrentViewMatch(updated) ? [updated] : [];
+    });
+    const existingIds = new Set(tasks.map((task) => task.id));
+    for (const updated of updatedTasks) {
+      if (!existingIds.has(updated.id) && isCurrentViewMatch(updated)) nextTasks.push(updated);
+    }
+    return nextTasks;
+  }
+
+  function showMovedOutOfViewToast(movedTasks: readonly TaskRecord[]): void {
+    if (movedTasks.length === 0) return;
+    const statuses = new Set(movedTasks.map((task) => task.status));
+    const Icon = statuses.size === 1 ? taskStatusMeta[movedTasks[0].status].Icon : undefined;
+    showToast({
+      message: movedTasks.length === 1 ? "Task moved out of current view" : `${movedTasks.length} tasks moved out of current view`,
+      ...(Icon ? { Icon } : {}),
+    });
+  }
+
+  // Status-specific feedback is retained for changes that stay in view. A
+  // transition that removes rows must explain the view change instead.
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, _wasActive: boolean): void {
-    const message = STATUS_CHANGE_TOASTS[current.status];
-    if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
+    const nextTasks = visibleTasksAfterUpdate([current]);
+    const movedOutOfView = taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
+    if (movedOutOfView) showMovedOutOfViewToast([current]);
+    else {
+      const message = STATUS_CHANGE_TOASTS[current.status];
+      if (message) showToast({ message, Icon: taskStatusMeta[current.status].Icon });
+    }
     if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
   }
 
-  function handleStatusBatchChanged(_previous: TaskRecord[], current: TaskRecord[], _wasActiveTaskId: string | null): void {
+  function handleStatusBatchChanged(previous: TaskRecord[], current: TaskRecord[], _wasActiveTaskId: string | null): void {
+    const nextTasks = visibleTasksAfterUpdate(current);
+    const previousById = new Map(previous.map((task) => [task.id, task]));
+    const movedOutOfView = current.filter((task) => {
+      const before = previousById.get(task.id);
+      return before !== undefined
+        && taskIsInCurrentView(before)
+        && !taskIsInCurrentView(task, nextTasks);
+    });
+    if (movedOutOfView.length > 0) {
+      showMovedOutOfViewToast(movedOutOfView);
+      return;
+    }
+
     const changedStatuses = new Set(current.map((task) => task.status));
     const toastStatus = changedStatuses.size === 1 ? [...changedStatuses][0] : null;
     const message = toastStatus ? STATUS_CHANGE_TOASTS[toastStatus] : null;
@@ -1123,16 +1169,7 @@ export default function App(): ReactElement {
       cancelExitTimer.current = null;
     }
     const previousIds = new Set(previous.map((task) => task.id));
-    const exiting = current.filter((task) => previousIds.has(task.id) && tasks.some((existing) => existing.id === task.id) && !taskIsVisible(
-      task,
-      exactStatus,
-      statusPreset,
-      showUnblocked,
-      categoryFilter?.slug ?? null,
-      priorityFilter,
-      tagFilter.map((tag) => tag.slug),
-      searchQuery,
-    ));
+    const exiting = current.filter((task) => previousIds.has(task.id) && tasks.some((existing) => existing.id === task.id) && !isCurrentViewMatch(task));
     const remove = (): void => {
       updateVisibleTasks(current);
       setExitingTaskIds(new Set());
