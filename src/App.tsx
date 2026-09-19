@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useFocusNavigation, useFocusStack } from "@/navigation";
+import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
 import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoStatusChange, undoStatusChanges, type ReceiveWorkspaceResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
@@ -1189,6 +1189,7 @@ export default function App(): ReactElement {
                     size="icon-sm"
                     tabIndex={-1}
                     aria-keyshortcuts="Shift+/"
+                    onMouseDown={preventFocusSteal}
                     onClick={() => setStarterHelpOpen(true)}
                   />
                 }
@@ -1200,7 +1201,7 @@ export default function App(): ReactElement {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Alt+t" onClick={openThemes} />}
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Alt+t" onMouseDown={preventFocusSteal} onClick={openThemes} />}
               >
                 <Palette aria-hidden="true" />
                 <span className="sr-only">Themes</span>
@@ -1209,7 +1210,7 @@ export default function App(): ReactElement {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Control+, Meta+," onClick={openSettings} />}
+                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Control+, Meta+," onMouseDown={preventFocusSteal} onClick={openSettings} />}
               >
                 <Settings2 aria-hidden="true" />
                 <span className="sr-only">Settings</span>

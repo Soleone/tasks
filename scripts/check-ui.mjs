@@ -413,6 +413,15 @@ try {
   const themeAudit = JSON.parse(browser("--json", "a11y"));
   assert.equal(themeAudit.data.violations.length, 0, JSON.stringify(themeAudit.data.violations));
 
+  // Clicking the header control does not leave a button focused. Reload after
+  // this pointer check so the closed dialog's portal cannot affect the audit.
+  waitFor('document.querySelector("[role=listbox]") !== null');
+  focus("[role=listbox]");
+  evaluate('window.themeOpenerFocus = document.activeElement; true');
+  browser("find", "role", "button", "click", "--name", "Themes");
+  waitFor('document.activeElement.matches("[cmdk-input]")');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement === window.themeOpenerFocus');
   browser("reload");
   waitFor('getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)" && document.querySelectorAll("[role=option]").length === 3');
   check('document.documentElement.classList.contains("dark")');
@@ -517,7 +526,7 @@ try {
   check('document.documentElement.style.fontSize === ""');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
-  check('document.activeElement.textContent.trim() === "Settings"');
+  check('document.activeElement.matches("[role=listbox]")');
 
   // The palette reaches the same dialog without a mouse.
   browser("press", "Control+k");
@@ -527,7 +536,7 @@ try {
   browser("press", "Enter");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.textContent.trim() === "Settings"');
+  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.matches("[role=listbox]")');
 
   // Tab does not leave the task list; C opens create from the list.
   focus("[role=listbox]");

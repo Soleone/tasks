@@ -57,9 +57,9 @@ export type FocusStack = {
 };
 
 /**
- * Backup buttons are mouse-only (tabIndex -1). Prevent the mousedown default
- * so clicking them never moves DOM focus off the list; the click still fires
- * and arrow keys keep working.
+ * Mouse-only buttons are backup affordances (tabIndex -1). Prevent the
+ * mousedown default so clicking them never moves DOM focus off the current
+ * keyboard surface; the click still fires and keyboard navigation keeps working.
  */
 export function preventFocusSteal(event: { preventDefault: () => void }): void {
   event.preventDefault();
