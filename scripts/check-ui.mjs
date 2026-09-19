@@ -470,7 +470,7 @@ try {
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
-  // Settings: the header icon opens a larger, two-column dialog. Its Data
+  // Settings: the header icon opens a larger, two-column dialog. Its Local
   // section writes a portable JSON file beside the scratch database.
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
@@ -489,8 +489,9 @@ try {
   check('Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight');
   check('document.querySelector("[role=tabpanel] #settings-shortcut-input") !== null');
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Workspace"');
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   check('Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight');
+  check('document.body.textContent.includes("Local")');
   check('document.body.textContent.includes("SQLite workspace")');
   check('document.body.textContent.includes("Permanently delete canceled tasks")');
   check('document.body.textContent.includes("There are no canceled tasks to delete.")');
@@ -527,8 +528,8 @@ try {
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
   browser("click", '[data-slot=dialog-content] [data-slot=checkbox]');
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=checkbox]")?.getAttribute("aria-checked") === "false"');
-  evaluate('[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Workspace").click(); true');
-  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Workspace"');
+  evaluate('[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Data").click(); true');
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   evaluate('[...document.querySelectorAll("[role=dialog] button")].find((button) => button.textContent === "Export tasks as JSON").click(); true');
   waitFor('document.body.textContent.includes("Exported 3 tasks")');
   const exportedPath = evaluate('document.querySelector("[data-slot=alert-description]").textContent');

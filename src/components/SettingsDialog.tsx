@@ -194,7 +194,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
             >
               <TabsTrigger ref={settingsTab} value="general">General</TabsTrigger>
               <TabsTrigger value="shortcuts">Shortcuts</TabsTrigger>
-              <TabsTrigger value="workspace">Workspace</TabsTrigger>
+              <TabsTrigger value="workspace">Data</TabsTrigger>
             </TabsList>
             <span id="settings-tabs-help" className="sr-only">Use the Left and Right Arrow keys to switch sections. Press Tab to enter the selected section.</span>
             <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline" aria-hidden="true">← → switch · Tab enter</span>
@@ -306,7 +306,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
 
             <section aria-labelledby="settings-data" className="flex flex-col gap-4 rounded-lg border p-4">
               <div className="flex flex-col gap-1">
-                <h2 id="settings-data" className="text-sm font-medium">Data</h2>
+                <h2 id="settings-data" className="text-sm font-medium">Local</h2>
                 <p className="text-sm text-muted-foreground">Inspect the local workspace or create a portable export.</p>
               </div>
               {databasePath
