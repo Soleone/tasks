@@ -266,7 +266,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                     </SelectContent>
                   </Select>
                 </div>
-                <p id="settings-help-mode-description" className="text-sm text-muted-foreground">Full shows all keyboard help. Basic shows only the filter and sort shortcuts. None hides automatic keyboard help.</p>
+                <p id="settings-help-mode-description" className="text-sm text-muted-foreground">Full shows all keyboard help. Basic shows only the filter and sort shortcuts. None hides automatic keyboard help. You can change this anytime.</p>
               </div>
               </section>
             </div>

@@ -8,7 +8,9 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { X } from "lucide-react";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
+import { preventFocusSteal } from "@/navigation";
 
 type TaskComposerProps = {
   task?: TaskRecord;
@@ -18,12 +20,13 @@ type TaskComposerProps = {
   onSaved: (result: TaskMutationResult) => void;
   onCancel: () => void;
   helpMode: KeyboardHelpMode;
+  onDisableHelp: () => void;
 };
 
 // Shared create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef, onSaved, onCancel, helpMode }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef, onSaved, onCancel, helpMode, onDisableHelp }: TaskComposerProps): ReactElement {
   const id = useId();
   const fallbackTitleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -310,9 +313,22 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
           aria-label="Keyboard help"
           data-context-help={helpTarget}
           style={helpTop === null ? undefined : { "--context-help-top": `${helpTop}px` } as CSSProperties}
-          className="pointer-events-none w-full rounded-md border bg-card p-3 text-card-foreground shadow-md lg:absolute lg:right-full lg:top-(--context-help-top) lg:mr-3 lg:w-52 lg:-translate-y-1/2"
+          className="pointer-events-none w-full rounded-md border bg-card p-3 pr-9 text-card-foreground shadow-md lg:absolute lg:right-full lg:top-(--context-help-top) lg:mr-3 lg:w-52 lg:-translate-y-1/2"
         >
           <span className="absolute -right-2 top-4 size-3 rotate-45 border-r border-t bg-card" aria-hidden="true" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            tabIndex={-1}
+            aria-label="Disable keyboard help"
+            title="Disable keyboard help"
+            className="pointer-events-auto absolute top-1 right-1"
+            onMouseDown={preventFocusSteal}
+            onClick={onDisableHelp}
+          >
+            <X aria-hidden="true" />
+          </Button>
           <p className="text-xs font-medium">{contextualHelp.heading}</p>
           <p className="mt-1 text-xs text-muted-foreground">{contextualHelp.text}</p>
         </aside>

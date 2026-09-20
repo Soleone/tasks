@@ -1,6 +1,9 @@
 import type { ReactElement } from "react";
+import { X } from "lucide-react";
 import { cn } from "cn";
+import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { preventFocusSteal } from "@/navigation";
 import {
   Popover,
   PopoverContent,
@@ -81,7 +84,7 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   },
 };
 
-export function TaskListModeHelp({ mode, onDismiss }: { mode: TaskListMode; onDismiss: () => void }): ReactElement {
+export function TaskListModeHelp({ mode, onDismiss, onDisableHelp }: { mode: TaskListMode; onDismiss: () => void; onDisableHelp: () => void }): ReactElement {
   const guide = MODE_GUIDES[mode];
 
   return (
@@ -115,6 +118,18 @@ export function TaskListModeHelp({ mode, onDismiss }: { mode: TaskListMode; onDi
               <Kbd data-shortcut-key="Escape">Esc</Kbd>
             </KbdGroup>
             <span>close</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              tabIndex={-1}
+              aria-label="Disable keyboard help"
+              title="Disable keyboard help"
+              onMouseDown={preventFocusSteal}
+              onClick={onDisableHelp}
+            >
+              <X aria-hidden="true" />
+            </Button>
           </span>
         </PopoverHeader>
         <PopoverDescription className="sr-only">{guide.description}</PopoverDescription>

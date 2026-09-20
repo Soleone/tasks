@@ -115,6 +115,7 @@ type TaskListProps = {
   onReverseSort: () => void;
   showDetails: boolean;
   helpMode: KeyboardHelpMode;
+  onDisableHelp: () => void;
   onToggleDetails: () => void;
   categoryFilter: ClassificationToken | null;
   onCategoryFilterChange: (category: ClassificationToken | null, activeTaskId?: string) => void;
@@ -342,6 +343,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   onReverseSort,
   showDetails,
   helpMode,
+  onDisableHelp,
   onToggleDetails,
   categoryFilter,
   onCategoryFilterChange,
@@ -1821,7 +1823,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </Button>
           <div className="flex flex-wrap items-center justify-end gap-1">
             <div className="relative">
-              {toolbarMode === "filter" && helpMode !== "none" ? <TaskListModeHelp mode="filter" onDismiss={returnToList} /> : null}
+              {toolbarMode === "filter" && helpMode !== "none" ? <TaskListModeHelp mode="filter" onDismiss={returnToList} onDisableHelp={onDisableHelp} /> : null}
               <ButtonGroup
             ref={filterToolbar}
             aria-label="Task list filters"
@@ -1967,7 +1969,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             </div>
           <Separator orientation="vertical" className="h-7" />
           <div className="relative">
-            {toolbarMode === "sort" && helpMode !== "none" ? <TaskListModeHelp mode="sort" onDismiss={returnToList} /> : null}
+            {toolbarMode === "sort" && helpMode !== "none" ? <TaskListModeHelp mode="sort" onDismiss={returnToList} onDisableHelp={onDisableHelp} /> : null}
             <ButtonGroup
             ref={sortToolbar}
             aria-label="Task list sort"

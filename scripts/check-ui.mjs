@@ -243,6 +243,10 @@ try {
   check('document.querySelector("[aria-label=\\"Saved tasks\\"] [data-shortcut-guide=filter]") === null');
   check('(() => { const toolbar = document.querySelector("[data-toolbar=filters]"); if (!toolbar || !toolbar.hasAttribute("data-toolbar-active")) return false; const shadow = getComputedStyle(toolbar).boxShadow; return shadow !== "none" && shadow !== ""; })()');
   check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5');
+  browser("click", '[data-shortcut-guide=filter] [aria-label="Disable keyboard help"]');
+  waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
+  browser("click", "[data-disable-help-cancel]");
+  waitFor('document.querySelector("[data-disable-help-confirm]") === null && document.querySelector("[data-shortcut-guide=filter]") !== null');
   // Pressing the focus key again closes the mode, while Escape remains a
   // second close path.
   browser("press", "f");
@@ -524,6 +528,13 @@ try {
   browser("press", "c");
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
+  check('document.querySelector("[data-context-help] [aria-label=\\"Disable keyboard help\\"]") !== null');
+  browser("click", '[data-context-help] [aria-label="Disable keyboard help"]');
+  waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
+  check('document.body.textContent.includes("Re-enable it anytime in Settings → General → Keyboard help.")');
+  browser("click", "[data-disable-help-cancel]");
+  waitFor('document.querySelector("[data-disable-help-confirm]") === null');
+  check('document.querySelector("[data-context-help]") !== null');
   check('document.querySelector("[data-slot=dialog-content]")?.className.includes("lg:overflow-visible") === true');
   waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] input[name=\\"title\\"]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
   browser("press", "Tab");
@@ -535,6 +546,10 @@ try {
   browser("set", "viewport", "720", "500");
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   browser("set", "viewport", "1280", "844");
+  browser("click", '[data-context-help] [aria-label="Disable keyboard help"]');
+  waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
+  browser("click", "[data-disable-help-confirm]");
+  waitFor('document.querySelector("[data-context-help]") === null && document.querySelector("[data-disable-help-confirm]") === null');
   browser("press", "Escape");
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');

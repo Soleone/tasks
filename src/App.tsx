@@ -11,6 +11,7 @@ import { SearchDialog } from "@/components/SearchDialog";
 import { TaskComposerDialog, type ComposerState } from "@/components/TaskComposerDialog";
 import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
+import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
@@ -250,6 +251,7 @@ export default function App(): ReactElement {
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [starterHelpOpen, setStarterHelpOpen] = useState(false);
+  const [disableHelpDialogOpen, setDisableHelpDialogOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
@@ -577,6 +579,16 @@ export default function App(): ReactElement {
   function openHelp(): void {
     focusStack.push("help");
     setHelpOpen(true);
+  }
+
+  function openDisableHelpDialog(): void {
+    focusStack.push("disable-help");
+    setDisableHelpDialogOpen(true);
+  }
+
+  function confirmDisableHelp(): void {
+    changeHelpMode("none");
+    setDisableHelpDialogOpen(false);
   }
 
   function openThemes(): void {
@@ -1335,6 +1347,7 @@ export default function App(): ReactElement {
           onReverseSort={reverseSort}
           showDetails={showDetails}
           helpMode={helpMode}
+          onDisableHelp={openDisableHelpDialog}
           onToggleDetails={toggleDetails}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
@@ -1383,8 +1396,15 @@ export default function App(): ReactElement {
         onSaved={taskSaved}
         finalFocus={() => focusStack.restore("composer")}
         helpMode={helpMode}
+        onDisableHelp={openDisableHelpDialog}
       />
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
+      <DisableKeyboardHelpDialog
+        open={disableHelpDialogOpen}
+        onOpenChange={setDisableHelpDialogOpen}
+        onConfirm={confirmDisableHelp}
+        finalFocus={() => focusStack.restore("disable-help")}
+      />
       <HelpPalette
         open={helpOpen}
         onOpenChange={setHelpOpen}
