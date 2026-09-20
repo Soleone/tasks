@@ -262,6 +262,19 @@ try {
   check('(() => { const tip = document.querySelector("[data-slot=tooltip-content]")?.getBoundingClientRect(); const anchor = document.querySelector("[data-filter=task-status]")?.getBoundingClientRect(); return tip && anchor && Math.abs((tip.left + tip.width / 2) - (anchor.left + anchor.width / 2)) < 4; })()');
   check('document.querySelector("[data-slot=tooltip-content]").getAttribute("data-side") === "top"');
   check('(() => { const active = document.querySelector("[data-filter=task-status]"); const inactive = document.querySelector("[data-filter=task-unblocked]"); const activeStyle = getComputedStyle(active); const inactiveStyle = getComputedStyle(inactive); return activeStyle.backgroundColor !== inactiveStyle.backgroundColor && activeStyle.color !== inactiveStyle.color && activeStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
+  // The selected toolbar border must not change its geometry at the narrow
+  // window size where a one-pixel nudge is easiest to notice.
+  browser("set", "viewport", "320", "844");
+  evaluate('window.statusFilterGeometry = (() => { const button = document.querySelector("[data-filter=task-status]"); const icon = button?.querySelector("svg"); const rect = button?.getBoundingClientRect(); const iconRect = icon?.getBoundingClientRect(); const style = button ? getComputedStyle(button) : null; return rect && iconRect && style ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height, iconLeft: iconRect.left, iconTop: iconRect.top, borderLeft: style.borderLeftWidth } : null; })(); true');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false"');
+  browser("wait", "250");
+  check('(() => { const button = document.querySelector("[data-filter=task-status]"); const icon = button?.querySelector("svg"); const rect = button?.getBoundingClientRect(); const iconRect = icon?.getBoundingClientRect(); const style = button ? getComputedStyle(button) : null; const before = window.statusFilterGeometry; return before && rect && iconRect && style && Math.abs(rect.left - before.left) < 0.5 && Math.abs(rect.top - before.top) < 0.5 && Math.abs(rect.width - before.width) < 0.5 && Math.abs(rect.height - before.height) < 0.5 && Math.abs(iconRect.left - before.iconLeft) < 0.5 && Math.abs(iconRect.top - before.iconTop) < 0.5 && style.borderLeftWidth === before.borderLeft; })()');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true"');
+  browser("set", "viewport", "1280", "844");
   waitFor('!document.querySelector("[role=option]")');
   // A no longer aliases the status preset.
   browser("press", "f");

@@ -18,12 +18,10 @@ const buttonGroupVariants = cva(
       },
       // Toolbar focus presentation for the F/S focus modes. The visible
       // outer ring belongs to the whole group; toolbarActive is driven by
-      // the existing data-toolbar-active attribute. Toggled buttons keep
-      // all four border sides: the joined-group border-l-0 would otherwise
-      // leave middle buttons with only three, and ghost neighbors supply
-      // no doubling to avoid.
+      // the existing data-toolbar-active attribute. Keep every toolbar
+      // button's left border so toggling a control cannot change its layout.
       toolbar: {
-        true: "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&>[data-slot][aria-checked=true]]:border-l! [&>[data-slot][aria-pressed=true]]:border-l!",
+        true: "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&>[data-slot]~[data-slot]]:border-l!",
         false: "",
       },
       toolbarActive: {
