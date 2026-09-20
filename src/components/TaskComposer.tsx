@@ -177,8 +177,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
     if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      if (event.shiftKey && notesOpen) notesInput.current?.focus();
-      else titleInput.current?.focus();
+      if (event.shiftKey) titleInput.current?.focus();
+      else if (notesOpen) notesInput.current?.focus();
+      else showNotes();
       return;
     }
     if (event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
@@ -219,9 +220,12 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      if (event.shiftKey) focusPrioritySection();
-      else if (notesOpen) notesInput.current?.focus();
-      else showNotes();
+      if (event.shiftKey) {
+        if (notesOpen) notesInput.current?.focus();
+        else focusPrioritySection();
+      } else {
+        focusPrioritySection();
+      }
       return;
     }
     if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -274,11 +278,11 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const contextualHelp = {
     title: {
       heading: "Title",
-      text: "Type the task title. Press Tab to open the description, or Enter to save.",
+      text: "Type the task title. Press Tab to choose a priority, or Enter to save.",
     },
     description: {
       heading: "Description",
-      text: "Add optional Markdown notes. Press Tab twice to move to priority, or Escape to return to the title.",
+      text: "Add optional Markdown notes. Press Shift+Tab for priority, or Tab and Escape to return to the title.",
     },
     priority: {
       heading: "Priority",
@@ -363,41 +367,6 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
           ) : null}
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
-        {notesOpen ? (
-          <Field>
-            <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
-            <Textarea
-              ref={notesInput}
-              id={`${id}-description`}
-              name="description"
-              placeholder="Write in Markdown…"
-              rows={4}
-              value={description}
-              readOnly={pending}
-              onChange={(event) => setDescription(event.target.value)}
-              onFocus={() => setHelpTarget("description")}
-              onBlur={() => {
-                if (!description.trim()) setNotesOpen(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-                if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                  event.preventDefault();
-                  if (event.shiftKey) titleInput.current?.focus();
-                  else focusPrioritySection();
-                  return;
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (pending) return;
-                  if (!description.trim()) setNotesOpen(false);
-                  titleInput.current?.focus();
-                }
-              }}
-            />
-          </Field>
-        ) : null}
         <Field>
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <ButtonGroup
@@ -442,6 +411,41 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
           </ButtonGroup>
           {showPriorityHelp ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
         </Field>
+        {notesOpen ? (
+          <Field>
+            <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
+            <Textarea
+              ref={notesInput}
+              id={`${id}-description`}
+              name="description"
+              placeholder="Write in Markdown…"
+              rows={4}
+              value={description}
+              readOnly={pending}
+              onChange={(event) => setDescription(event.target.value)}
+              onFocus={() => setHelpTarget("description")}
+              onBlur={() => {
+                if (!description.trim()) setNotesOpen(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                  event.preventDefault();
+                  if (event.shiftKey) focusPrioritySection();
+                  else titleInput.current?.focus();
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (pending) return;
+                  if (!description.trim()) setNotesOpen(false);
+                  titleInput.current?.focus();
+                }
+              }}
+            />
+          </Field>
+        ) : null}
       </FieldGroup>
       {error ? (
         <Alert variant="destructive">

@@ -107,7 +107,10 @@ try {
   waitFor('document.activeElement.name === "title"');
   check('document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   browser("press", "Tab");
-  // Regression: Tab from an empty title must open and focus the description.
+  // Regression: Tab from an empty title must focus priority without opening the description.
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
+  check('document.querySelector(\'form[aria-label="New task"] textarea\') === null');
+  browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
   check('document.querySelector(\'form[aria-label="New task"] textarea\') !== null');
   browser("click", 'form[aria-label="New task"] input');
@@ -123,16 +126,18 @@ try {
   waitFor('document.querySelector(\'form[aria-label="New task"] input\').getAttribute("aria-invalid") === "true"');
   browser("fill", 'form[aria-label="New task"] input', "Book venue @launch #planning");
   browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\') === null');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=radiogroup]")');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
   browser("fill", 'form[aria-label="New task"] textarea', "## Shortlist");
   browser("press", "Enter");
   browser("keyboard", "inserttext", "- Ask about accessibility");
   assert.equal((await command("task.list")).tasks.length, 0);
-  browser("press", "Tab");
+  browser("press", "Shift+Tab");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   check('document.activeElement.hasAttribute("data-priority-section")');
   check('[...document.querySelectorAll(\'[role="radiogroup"] [role="radio"]\')].every((radio) => radio.tabIndex === -1)');
@@ -156,8 +161,6 @@ try {
   waitFor('document.activeElement.matches("[role=radiogroup]") && document.querySelector(\'[role="radiogroup"] [data-priority="P4"]\').getAttribute("aria-checked") === "true"');
   browser("press", "2");
   waitFor('document.querySelector(\'[role="radiogroup"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "title"');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
   browser("press", "Control+k");
@@ -524,13 +527,15 @@ try {
   check('document.querySelector("[data-slot=dialog-content]")?.className.includes("lg:overflow-visible") === true');
   waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] input[name=\\"title\\"]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
   browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
-  browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] [role=radiogroup]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
+  browser("press", "Tab");
+  waitFor('document.activeElement.name === "description"');
+  waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] textarea[name=\\"description\\"]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
   browser("set", "viewport", "720", "500");
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   browser("set", "viewport", "1280", "844");
+  browser("press", "Escape");
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
   browser("find", "role", "button", "click", "--name", "Settings");
@@ -651,8 +656,6 @@ try {
   waitFor('document.querySelector(\'[role=option][aria-selected=true]\')?.textContent.includes("Call the venue")');
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
   browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   browser("press", "4");
@@ -932,8 +935,6 @@ try {
   evaluate('document.querySelector(\'form[aria-label="New task"] [data-priority="P3"]\').click(); true');
   waitFor('document.querySelector(\'form[aria-label="New task"] [data-priority="P3"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
   browser("fill", 'form[aria-label="New task"] input', "Urgent cockpit task");
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   browser("press", "0");
