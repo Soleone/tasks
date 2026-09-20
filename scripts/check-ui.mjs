@@ -245,8 +245,17 @@ try {
   check('Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5');
   browser("click", '[data-shortcut-guide=filter] [aria-label="Disable keyboard help"]');
   waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
-  browser("click", "[data-disable-help-cancel]");
-  waitFor('document.querySelector("[data-disable-help-confirm]") === null && document.querySelector("[data-shortcut-guide=filter]") !== null');
+  browser("click", "[data-disable-help-confirm]");
+  waitFor('document.querySelector("[data-disable-help-confirm]") === null && document.querySelector("[data-shortcut-guide=filter]") === null');
+  browser("find", "role", "button", "click", "--name", "Settings");
+  waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
+  browser("click", '[data-help-mode]');
+  waitFor('document.querySelector("[data-slot=select-content]") !== null');
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Full").click(); true');
+  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
   // Pressing the focus key again closes the mode, while Escape remains a
   // second close path.
   browser("press", "f");
@@ -544,7 +553,7 @@ try {
   check('document.querySelector("[data-context-help] [aria-label=\\"Disable keyboard help\\"]") !== null');
   browser("click", '[data-context-help] [aria-label="Disable keyboard help"]');
   waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
-  check('document.body.textContent.includes("Re-enable it anytime in Settings → General → Keyboard help.")');
+  check('document.body.textContent.includes("Restore Full anytime in Settings → General → Keyboard help.")');
   browser("click", "[data-disable-help-cancel]");
   waitFor('document.querySelector("[data-disable-help-confirm]") === null');
   check('document.querySelector("[data-context-help]") !== null');
@@ -559,6 +568,7 @@ try {
   browser("set", "viewport", "720", "500");
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   browser("set", "viewport", "1280", "844");
+  browser("wait", "200");
   browser("click", '[data-context-help] [aria-label="Disable keyboard help"]');
   waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
   browser("click", "[data-disable-help-confirm]");
@@ -568,6 +578,7 @@ try {
   waitFor('!document.querySelector("[role=dialog]")');
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
   browser("click", '[data-help-mode]');
   waitFor('document.querySelector("[data-slot=select-content]") !== null');
   evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "None").click(); true');
@@ -582,6 +593,7 @@ try {
   waitFor('document.activeElement.matches("[role=listbox]")');
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
+  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
   browser("click", '[data-help-mode]');
   waitFor('document.querySelector("[data-slot=select-content]") !== null');
   evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Basic").click(); true');
@@ -601,8 +613,8 @@ try {
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
   check('document.querySelector("[data-font-size-control]")?.value === "0"');
   check('document.querySelector("[data-font-size-control]")?.getAttribute("aria-valuetext") === "Default font size"');
-  focus("[data-font-size-control]");
   for (const [value, increase] of [["1", 10], ["2", 25], ["3", 33], ["4", 40]]) {
+    focus("[data-font-size-control]");
     browser("press", "ArrowRight");
     waitFor(`document.querySelector("[data-font-size-control]")?.value === "${value}"`);
     check(`document.documentElement.style.fontSize === "${100 + increase}%"`);

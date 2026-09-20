@@ -251,7 +251,7 @@ export default function App(): ReactElement {
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [starterHelpOpen, setStarterHelpOpen] = useState(false);
-  const [disableHelpDialogOpen, setDisableHelpDialogOpen] = useState(false);
+  const [disableHelpTarget, setDisableHelpTarget] = useState<"basic" | "none" | null>(null);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
@@ -581,14 +581,15 @@ export default function App(): ReactElement {
     setHelpOpen(true);
   }
 
-  function openDisableHelpDialog(): void {
+  function openDisableHelpDialog(mode: "basic" | "none"): void {
     focusStack.push("disable-help");
-    setDisableHelpDialogOpen(true);
+    setDisableHelpTarget(mode);
   }
 
   function confirmDisableHelp(): void {
-    changeHelpMode("none");
-    setDisableHelpDialogOpen(false);
+    if (disableHelpTarget === null) return;
+    changeHelpMode(disableHelpTarget);
+    setDisableHelpTarget(null);
   }
 
   function openThemes(): void {
@@ -1347,7 +1348,7 @@ export default function App(): ReactElement {
           onReverseSort={reverseSort}
           showDetails={showDetails}
           helpMode={helpMode}
-          onDisableHelp={openDisableHelpDialog}
+          onDisableHelp={() => openDisableHelpDialog("none")}
           onToggleDetails={toggleDetails}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
@@ -1396,12 +1397,13 @@ export default function App(): ReactElement {
         onSaved={taskSaved}
         finalFocus={() => focusStack.restore("composer")}
         helpMode={helpMode}
-        onDisableHelp={openDisableHelpDialog}
+        onDisableHelp={() => openDisableHelpDialog("basic")}
       />
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <DisableKeyboardHelpDialog
-        open={disableHelpDialogOpen}
-        onOpenChange={setDisableHelpDialogOpen}
+        open={disableHelpTarget !== null}
+        mode={disableHelpTarget ?? "none"}
+        onOpenChange={(open) => { if (!open) setDisableHelpTarget(null); }}
         onConfirm={confirmDisableHelp}
         finalFocus={() => focusStack.restore("disable-help")}
       />
