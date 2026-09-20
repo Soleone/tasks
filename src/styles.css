@@ -235,11 +235,11 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply h-full overflow-hidden bg-background text-foreground;
   }
 
   html {
-    @apply font-sans;
+    @apply h-full overflow-hidden font-sans;
   }
 
   ::selection {

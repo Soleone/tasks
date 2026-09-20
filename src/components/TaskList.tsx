@@ -1803,12 +1803,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
-      className="flex flex-col gap-4"
+      className="flex min-h-0 flex-1 flex-col gap-4"
       onMouseDown={(event) => {
         if (event.target instanceof HTMLElement && event.target.closest('[tabindex="-1"]')) preventFocusSteal(event);
       }}
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex shrink-0 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             size="sm"
@@ -2294,7 +2294,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
-          className="flex w-full flex-col gap-2 overflow-x-clip outline-none"
+          className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-x-clip overflow-y-auto overscroll-y-contain outline-none"
           onFocus={() => setListFocused(true)}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);

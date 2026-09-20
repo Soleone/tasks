@@ -1244,7 +1244,7 @@ export default function App(): ReactElement {
   }
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
       {receiveState?.waiting ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
         <section aria-labelledby="receive-title" className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg">
           <h1 id="receive-title" className="text-lg font-semibold">Waiting for workspace</h1>
@@ -1254,7 +1254,7 @@ export default function App(): ReactElement {
           <Button variant="outline" onClick={() => void abortReceive()}>Abort and restore backup</Button>
         </section>
       </div> : null}
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-6 p-4 md:p-8">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-xl flex-col gap-6 overflow-hidden p-4 md:p-8">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
             <AppIcon className="size-8 shrink-0" />

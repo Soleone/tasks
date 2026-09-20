@@ -1715,6 +1715,11 @@ try {
   waitFor('document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")');
   assert.deepEqual((await command("task.list", { sort: "manual" })).tasks.map((task) => task.id), contextOrderBeforeReorder);
 
+  // A long list scrolls inside the listbox while the toolbar and page stay put.
+  browser("set", "viewport", "1280", "500");
+  waitFor('document.querySelector("[role=listbox]")?.scrollHeight > document.querySelector("[role=listbox]")?.clientHeight');
+  check('(() => { const list = document.querySelector("[role=listbox]"); const toolbar = document.querySelector("[aria-label=\\"Task list filters\\"]"); if (!list || !toolbar || list.scrollHeight <= list.clientHeight) return false; window.scrollProbeToolbarTop = toolbar.getBoundingClientRect().top; window.scrollProbeListTop = list.getBoundingClientRect().top; window.scrollProbePageY = window.scrollY; list.scrollTop = Math.min(240, list.scrollHeight); window.scrollTo(0, 240); return getComputedStyle(list).overflowY === "auto" && list.scrollTop > 0 && window.scrollY === window.scrollProbePageY && Math.abs(toolbar.getBoundingClientRect().top - window.scrollProbeToolbarTop) < 0.5 && Math.abs(list.getBoundingClientRect().top - window.scrollProbeListTop) < 0.5; })()');
+
   // An external CLI write should appear without a reload while the window stays visible.
   const externalTitle = "CLI refresh probe @manual-order-ui";
   const externalOutput = execFileSync(process.execPath, [
@@ -1729,7 +1734,7 @@ try {
   assert.equal(externalTask.title, externalTitle);
   waitFor(`([...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, task undo with toast/replacement/field guards/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, external CLI refresh, and axe.");
+  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, task undo with toast/replacement/field guards/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, list-only scrolling, external CLI refresh, and axe.");
 } catch (error) {
   printFailureDiagnostics();
   throw error;
