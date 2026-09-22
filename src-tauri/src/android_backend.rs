@@ -84,6 +84,12 @@ pub enum AndroidStorageRequest {
         transaction_id: String,
         task: AndroidTaskInput,
     },
+    UpdateTask {
+        transaction_id: String,
+        task: AndroidTaskInput,
+        expected_version: i64,
+        tag_ids: Vec<String>,
+    },
     InsertTaskTag {
         transaction_id: String,
         task_id: String,
@@ -626,6 +632,7 @@ fn read_canonical_meta(connection: &Connection) -> Result<Value, String> {
     Ok(json!({
         "workspaceId": cache_meta_value(connection, "workspace_id")?,
         "fingerprint": cache_meta_value(connection, "canonical_fingerprint")?,
+        "cacheVersion": cache_meta_value(connection, "android_cache_version")?,
     }))
 }
 
@@ -896,6 +903,13 @@ fn replace_canonical_workspace(
                 params![revision.to_string()],
             )
             .map_err(storage_error)?;
+        connection
+            .execute(
+                "INSERT INTO cache_meta (key, value) VALUES ('android_cache_version', '2')
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [],
+            )
+            .map_err(storage_error)?;
 
         Ok(json!({
             "changed": true,
@@ -998,6 +1012,52 @@ fn insert_task(connection: &Connection, task: AndroidTaskInput) -> Result<Value,
         .execute(
             "UPDATE cache_meta
              SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
+             WHERE key = 'workspace_revision'",
+            [],
+        )
+        .map_err(storage_error)?;
+    Ok(json!({ "changes": 1 }))
+}
+
+fn update_task(
+    connection: &Connection,
+    task: AndroidTaskInput,
+    expected_version: i64,
+    tag_ids: &[String],
+) -> Result<Value, String> {
+    if expected_version < 1 || task.version != expected_version + 1 {
+        return Err(storage_error("invalid expected task version"));
+    }
+    let changed = connection
+        .execute(
+            "UPDATE tasks SET title = ?1, description_markdown = ?2, status = ?3,
+             category_id = ?4, priority = ?5, version = version + 1,
+             updated_at = ?6, completed_at = ?7, canceled_at = ?8
+             WHERE id = ?9 AND version = ?10",
+            params![
+                task.title, task.description_markdown, task.status, task.category_id,
+                task.priority, task.updated_at, task.completed_at, task.canceled_at,
+                task.id, expected_version,
+            ],
+        )
+        .map_err(storage_error)?;
+    if changed != 1 {
+        return Err(storage_error("task version changed before the update"));
+    }
+    connection
+        .execute("DELETE FROM task_tags WHERE task_id = ?1", params![task.id])
+        .map_err(storage_error)?;
+    for tag_id in tag_ids {
+        connection
+            .execute(
+                "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
+                params![task.id, tag_id],
+            )
+            .map_err(storage_error)?;
+    }
+    connection
+        .execute(
+            "UPDATE cache_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
              WHERE key = 'workspace_revision'",
             [],
         )
@@ -1241,6 +1301,15 @@ pub fn android_storage(
             active_transaction(&mut transaction_guard, connection, &transaction_id)?;
             insert_task(connection, task)
         }
+        AndroidStorageRequest::UpdateTask {
+            transaction_id,
+            task,
+            expected_version,
+            tag_ids,
+        } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            update_task(connection, task, expected_version, &tag_ids)
+        }
         AndroidStorageRequest::InsertTaskTag {
             transaction_id,
             task_id,
@@ -1325,6 +1394,7 @@ mod tests {
         write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
 
         replace_canonical_workspace(&connection, "first", "after-write", &[]).unwrap();
+        assert_eq!(read_canonical_meta(&connection).unwrap()["cacheVersion"], "2");
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
 
         assert!(replace_canonical_workspace(&connection, "second", "new-workspace", &[]).is_err());
@@ -1346,6 +1416,40 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn task_update_enforces_version_and_replaces_tags() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        let task = AndroidTaskInput {
+            id: "task".into(), title: "Before".into(), description_markdown: String::new(),
+            status: "open".into(), category_id: None, parent_id: None, position: 0,
+            priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+            completed_at: None, canceled_at: None,
+        };
+        insert_task(&connection, task).unwrap();
+        ensure_classification(&connection, "tag", "important", "Important", "now", "tags").unwrap();
+        let updated = AndroidTaskInput {
+            id: "task".into(), title: "After".into(), description_markdown: "#important".into(),
+            status: "done".into(), category_id: None, parent_id: None, position: 0,
+            priority: 1, version: 2, created_at: "now".into(), updated_at: "later".into(),
+            completed_at: Some("later".into()), canceled_at: None,
+        };
+        update_task(&connection, updated, 1, &["tag".into()]).unwrap();
+        let snapshot = read_snapshot(&connection).unwrap();
+        assert_eq!(snapshot["tasks"][0]["title"], "After");
+        assert_eq!(snapshot["tasks"][0]["status"], "done");
+        assert_eq!(snapshot["tasks"][0]["version"], 2);
+        assert_eq!(snapshot["tasks"][0]["tags"][0]["slug"], "important");
+        let stale = AndroidTaskInput {
+            id: "task".into(), title: "Stale".into(), description_markdown: String::new(),
+            status: "open".into(), category_id: None, parent_id: None, position: 0,
+            priority: 2, version: 2, created_at: "now".into(), updated_at: "later".into(),
+            completed_at: None, canceled_at: None,
+        };
+        assert!(update_task(&connection, stale, 1, &[]).is_err());
+        assert_eq!(read_snapshot(&connection).unwrap()["tasks"][0]["title"], "After");
     }
 
     #[test]

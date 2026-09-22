@@ -1,5 +1,7 @@
 import {
   PROTOCOL_VERSION,
+  ProtocolError,
+  parseTaskTransitionManyArgs,
   type ProtocolRequest,
   type ProtocolResponse,
   type TaskPriority,
@@ -12,7 +14,7 @@ import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
 import { classifyTaskFields, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
-import { AndroidCanonicalError, syncAndroidWorkspace, writeAndroidCreatedTask } from "./androidCanonicalWorkspace";
+import { AndroidCanonicalError, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
 import { exportAndroidTaskDocument } from "./androidWorkspace";
 
@@ -39,7 +41,7 @@ class AndroidEngineError extends Error {
 }
 
 function responseError(request: ProtocolRequest, error: unknown): ProtocolResponse {
-  if (error instanceof AndroidEngineError || error instanceof AndroidCanonicalError) {
+  if (error instanceof AndroidEngineError || error instanceof AndroidCanonicalError || error instanceof ProtocolError) {
     return {
       version: PROTOCOL_VERSION,
       requestId: request.requestId,
@@ -300,6 +302,176 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
   }
 }
 
+function taskVersion(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
+    throw new AndroidEngineError("INVALID_ARGUMENT", "expectedVersion must be a positive integer");
+  }
+  return value;
+}
+
+function requireTask(tasks: TaskRecord[], id: string): TaskRecord {
+  const task = tasks.find((entry) => entry.id === id);
+  if (!task) throw new AndroidEngineError("TASK_NOT_FOUND", `task ${id} was not found`);
+  return task;
+}
+
+function transitionTaskRecord(before: TaskRecord, command: string, now: string): TaskRecord {
+  const allowed: Record<string, TaskStatus[]> = {
+    "task.start": ["open", "in_progress", "paused", "done"],
+    "task.pause": ["open", "in_progress", "paused"],
+    "task.complete": ["open", "in_progress", "paused", "done"],
+    "task.reopen": ["open", "in_progress", "paused", "done", "canceled"],
+    "task.cancel": ["open", "in_progress", "paused", "canceled"],
+    "task.delete": ["open", "in_progress", "paused", "done", "canceled"],
+  };
+  if (!allowed[command]?.includes(before.status)) {
+    throw new AndroidEngineError("INVALID_TRANSITION", `cannot ${command.slice(5)} a ${before.status} task`);
+  }
+  const status: TaskStatus = command === "task.start" ? "in_progress"
+    : command === "task.pause" ? "paused"
+      : command === "task.complete" ? "done"
+        : command === "task.reopen" ? "open" : "canceled";
+  if (status === before.status) return before;
+  return {
+    ...before, status, version: before.version + 1, updatedAt: now,
+    completedAt: status === "done" ? now : null,
+    canceledAt: status === "canceled" ? now : null,
+  };
+}
+
+async function persistTaskUpdate(before: TaskRecord, after: TaskRecord, request: ProtocolRequest, transaction: string, now: string, command: string): Promise<void> {
+  let categoryId: string | null = null;
+  if (after.category) {
+    const saved = await androidStorage({ operation: "ensureCategory", transactionId: transaction,
+      id: crypto.randomUUID(), slug: after.category.slug, label: after.category.label, now });
+    categoryId = requiredText(recordValue(saved, "id"), "category id");
+  }
+  const tagIds: string[] = [];
+  for (const tag of after.tags) {
+    const saved = await androidStorage({ operation: "ensureTag", transactionId: transaction,
+      id: crypto.randomUUID(), slug: tag.slug, label: tag.label, now });
+    tagIds.push(requiredText(recordValue(saved, "id"), "tag id"));
+  }
+  const task: AndroidTaskInput = {
+    id: after.id, title: after.title, descriptionMarkdown: after.descriptionMarkdown, status: after.status,
+    categoryId, parentId: after.parentId, position: 0, priority: after.priority, version: after.version,
+    createdAt: after.createdAt, updatedAt: after.updatedAt, completedAt: after.completedAt, canceledAt: after.canceledAt,
+  };
+  await androidStorage({ operation: "updateTask", transactionId: transaction, task, expectedVersion: before.version, tagIds });
+  await androidStorage({ operation: "insertActivity", transactionId: transaction, taskId: after.id,
+    requestId: request.requestId, action: command === "task.delete" ? "cancel" : command.slice(5),
+    actorKind: request.actor.kind, actorLabel: request.actor.label, createdAt: now,
+    detailsJson: JSON.stringify({ from: before.status, to: after.status }) });
+}
+
+async function mutateTask(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const id = requiredText(request.args.id, "id");
+  const expectedVersion = taskVersion(request.args.expectedVersion);
+  const current = await snapshot();
+  const hash = await requestHash(request);
+  if (!request.dryRun && !request.readOnly) {
+    const replay = await readReceipt(request, hash);
+    if (replay?.ok) return replay.result;
+  }
+  const before = requireTask(current.tasks, id);
+  if (before.version !== expectedVersion) {
+    throw new AndroidEngineError("STALE_TASK_VERSION", `task ${id} is at version ${before.version}`);
+  }
+  const now = new Date().toISOString();
+  let after: TaskRecord;
+  if (request.command === "task.update") {
+    const title = requiredText(request.args.title, "title").trim();
+    const descriptionMarkdown = request.args.descriptionMarkdown;
+    if (typeof descriptionMarkdown !== "string" || title.length > 1000 || descriptionMarkdown.length > 10000) {
+      throw new AndroidEngineError("INVALID_ARGUMENT", "task title or description is invalid");
+    }
+    const parsed = textClassification(title, descriptionMarkdown);
+    const priority = request.args.priority === undefined ? before.priority : priorityValue(request.args.priority);
+    after = { ...before, title, descriptionMarkdown, category: parsed.category, tags: parsed.tags, priority };
+  } else {
+    after = transitionTaskRecord(before, request.command, now);
+  }
+  const changed = request.command === "task.update"
+    ? after.title !== before.title || after.descriptionMarkdown !== before.descriptionMarkdown || after.priority !== before.priority
+    : after.status !== before.status;
+  if (!changed) after = before;
+  else if (request.command === "task.update") after = { ...after, version: before.version + 1, updatedAt: now };
+  if (request.dryRun || request.readOnly) {
+    return { task: after, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+  const operationId = changed ? crypto.randomUUID() : undefined;
+  const result = { task: after, changed, ...(operationId ? { operationId } : {}) };
+  const transaction = transactionId();
+  let committed = false;
+  try {
+    const staged = changed && operationId ? await writeAndroidUpdatedTasks([after], {
+      operationId,
+      idempotencyKey: request.idempotencyKey ?? "",
+      requestHash: hash,
+      responseJson: JSON.stringify(result),
+      createdAt: now,
+    }) : false;
+    await androidStorage({ operation: "begin", transactionId: transaction });
+    if (changed) await persistTaskUpdate(before, after, request, transaction, now, request.command);
+    await writeReceipt(request, hash, transaction, result, now);
+    await androidStorage({ operation: "commit", transactionId: transaction });
+    committed = true;
+    if (staged && operationId) await androidStorage({ operation: "completePendingWrite", operationId });
+    return result;
+  } finally {
+    if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+  }
+}
+
+async function transitionMany(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const items = parseTaskTransitionManyArgs(request.args).tasks;
+  const current = await snapshot();
+  const hash = await requestHash(request);
+  if (!request.dryRun && !request.readOnly) {
+    const replay = await readReceipt(request, hash);
+    if (replay?.ok) return replay.result;
+  }
+  const now = new Date().toISOString();
+  const plans = items.map((item) => {
+    const before = requireTask(current.tasks, item.id);
+    if (before.version !== item.expectedVersion) {
+      throw new AndroidEngineError("STALE_TASK_VERSION", `task ${item.id} is at version ${before.version}`);
+    }
+    return { before, after: transitionTaskRecord(before, item.command, now), command: item.command };
+  });
+  const changed = plans.filter((plan) => plan.before !== plan.after);
+  const result = {
+    tasks: plans.map((plan) => plan.after),
+    changed: changed.length > 0,
+    ...(request.dryRun || request.readOnly ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),
+  };
+  if (request.dryRun || request.readOnly) return result;
+  const operationId = changed.length > 0 ? crypto.randomUUID() : undefined;
+  const saved = { ...result, ...(operationId ? { operationId } : {}) };
+  const transaction = transactionId();
+  let committed = false;
+  try {
+    const staged = operationId ? await writeAndroidUpdatedTasks(changed.map((plan) => plan.after), {
+      operationId,
+      idempotencyKey: request.idempotencyKey ?? "",
+      requestHash: hash,
+      responseJson: JSON.stringify(saved),
+      createdAt: now,
+    }) : false;
+    await androidStorage({ operation: "begin", transactionId: transaction });
+    for (const plan of changed) {
+      await persistTaskUpdate(plan.before, plan.after, request, transaction, now, plan.command);
+    }
+    await writeReceipt(request, hash, transaction, saved, now);
+    await androidStorage({ operation: "commit", transactionId: transaction });
+    committed = true;
+    if (staged && operationId) await androidStorage({ operation: "completePendingWrite", operationId });
+    return saved;
+  } finally {
+    if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+  }
+}
+
 async function listTasks(request: ProtocolRequest): Promise<Record<string, unknown>> {
   const current = await snapshot();
   const statusArgument = request.args.status;
@@ -327,7 +499,7 @@ async function listTasks(request: ProtocolRequest): Promise<Record<string, unkno
     if (category !== undefined && task.category?.slug !== category) return false;
     if (priority !== undefined && task.priority !== priority) return false;
     if (tags.length > 0 && !tags.every((tag) => task.tags.some((entry) => entry.slug === tag))) return false;
-    if (search !== "" && !`${task.title}\n${task.descriptionMarkdown}`.toLowerCase().includes(search)) return false;
+    if (search !== "" && !`${task.title}\n${task.descriptionMarkdown}\n${task.category?.label ?? ""}`.toLowerCase().includes(search)) return false;
     if (unblocked && task.blockedByIds.length > 0) return false;
     return true;
   });
@@ -438,6 +610,21 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
         break;
       case "task.create":
         result = await createTask(request);
+        break;
+      case "task.get":
+        result = { task: requireTask((await snapshot()).tasks, requiredText(request.args.id, "id")) };
+        break;
+      case "task.update":
+      case "task.delete":
+      case "task.start":
+      case "task.pause":
+      case "task.complete":
+      case "task.reopen":
+      case "task.cancel":
+        result = await mutateTask(request);
+        break;
+      case "task.transitionMany":
+        result = await transitionMany(request);
         break;
       case "category.list":
         result = await listCategories();
