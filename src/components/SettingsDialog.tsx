@@ -101,10 +101,12 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     setFailure(null);
     try {
       setSyncFolder(await pickAndroidSyncFolder());
+      // Verify the chosen workspace now, while the user can still forget it.
+      await getWorkspaceInfo();
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
       if (!message.includes("ANDROID_FOLDER_PICKER_CANCELLED")) {
-        setFailure({ title: "Could not select the Android sync folder", detail: message });
+        setFailure({ title: "Could not use the Android sync folder", detail: message });
       }
     } finally {
       setSyncFolderPending(false);
@@ -353,7 +355,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                 <p className="text-sm text-muted-foreground">Move an existing workspace to this device through Syncthing.</p>
               </div>
               {isAndroid ? <>
-                <p className="text-sm text-muted-foreground">Choose the user-visible folder that Syncthing will share. Tasks imports canonical JSON when it starts or returns to the foreground, and new Android tasks are written back to that workspace.</p>
+                <p className="text-sm text-muted-foreground">Choose the user-visible folder that Syncthing will share. Tasks imports canonical JSON when it starts or returns to the foreground, and new Android tasks are written back to that workspace. If you already captured tasks locally, do not attach a different workspace: Android will keep your local tasks and ask you to forget the folder.</p>
                 {syncFolder ? <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Selected Android folder</p>
                   <code className="wrap-anywhere text-xs">{syncFolder.path ?? syncFolder.displayName ?? syncFolder.uri}</code>

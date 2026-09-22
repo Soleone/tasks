@@ -20,7 +20,7 @@
     "dev:tauri:omarchy": "pnpm dev:tauri",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",
-    "test": "pnpm build:backend && node --test dist/backend/*.test.js scripts/androidTaskSort.test.mjs",
+    "test": "pnpm build:backend && node --test dist/backend/*.test.js scripts/*.test.mjs",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",
     "lint": "oxlint",

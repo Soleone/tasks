@@ -46,6 +46,13 @@ pub enum AndroidStorageRequest {
         idempotency_key: String,
     },
     ReadCanonicalMeta,
+    ReadPendingWrite,
+    StageCanonicalWrite {
+        pending: AndroidPendingWrite,
+    },
+    CompletePendingWrite {
+        operation_id: String,
+    },
     ReplaceCanonicalWorkspace {
         workspace_id: String,
         fingerprint: String,
@@ -105,6 +112,27 @@ pub enum AndroidStorageRequest {
     Close {
         transaction_id: String,
     },
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidPendingFile {
+    relative_path: String,
+    previous_content: Option<String>,
+    content: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidPendingWrite {
+    operation_id: String,
+    workspace_id: String,
+    folder_uri: String,
+    files: Vec<AndroidPendingFile>,
+    idempotency_key: String,
+    request_hash: String,
+    response_json: String,
+    created_at: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -597,6 +625,109 @@ fn read_canonical_meta(connection: &Connection) -> Result<Value, String> {
     }))
 }
 
+fn read_pending_write(connection: &Connection) -> Result<Option<AndroidPendingWrite>, String> {
+    cache_meta_value(connection, "android_pending_write")?
+        .map(|value| serde_json::from_str(&value).map_err(storage_error))
+        .transpose()
+}
+
+fn stage_pending_write(
+    connection: &Connection,
+    pending: &AndroidPendingWrite,
+) -> Result<Value, String> {
+    if pending.operation_id.is_empty()
+        || pending.workspace_id.is_empty()
+        || pending.folder_uri.is_empty()
+        || pending.idempotency_key.is_empty()
+        || pending.request_hash.is_empty()
+        || pending.files.is_empty()
+        || pending
+            .files
+            .iter()
+            .any(|file| file.relative_path.is_empty())
+    {
+        return Err(storage_error("pending Android write is incomplete"));
+    }
+    if read_pending_write(connection)?.is_some() {
+        return Err(storage_error(
+            "an Android file write is already pending recovery",
+        ));
+    }
+    if cache_meta_value(connection, "workspace_id")?.as_deref()
+        != Some(pending.workspace_id.as_str())
+    {
+        return Err(storage_error(
+            "pending write belongs to a different workspace",
+        ));
+    }
+    connection
+        .execute(
+            "INSERT INTO cache_meta (key, value) VALUES ('android_pending_write', ?1)",
+            params![serde_json::to_string(pending).map_err(storage_error)?],
+        )
+        .map_err(storage_error)?;
+    Ok(json!({ "staged": true }))
+}
+
+fn complete_pending_write(connection: &Connection, operation_id: &str) -> Result<Value, String> {
+    connection
+        .execute_batch("BEGIN IMMEDIATE")
+        .map_err(storage_error)?;
+    let result = (|| {
+        let pending = read_pending_write(connection)?
+            .ok_or_else(|| storage_error("no Android file write is pending"))?;
+        if pending.operation_id != operation_id
+            || cache_meta_value(connection, "workspace_id")?.as_deref()
+                != Some(pending.workspace_id.as_str())
+        {
+            return Err(storage_error(
+                "pending write does not match the current workspace",
+            ));
+        }
+        let existing: Option<String> = connection
+            .query_row(
+                "SELECT request_hash FROM command_receipts WHERE idempotency_key = ?1",
+                params![pending.idempotency_key],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        if let Some(hash) = existing {
+            if hash != pending.request_hash {
+                return Err(storage_error(
+                    "pending idempotency key has a different request hash",
+                ));
+            }
+        } else {
+            write_receipt(
+                connection,
+                &pending.idempotency_key,
+                "task.create",
+                &pending.request_hash,
+                &pending.response_json,
+                &pending.created_at,
+            )?;
+        }
+        connection
+            .execute(
+                "DELETE FROM cache_meta WHERE key = 'android_pending_write'",
+                [],
+            )
+            .map_err(storage_error)?;
+        Ok(json!({ "completed": true }))
+    })();
+    match result {
+        Ok(value) => {
+            connection.execute_batch("COMMIT").map_err(storage_error)?;
+            Ok(value)
+        }
+        Err(error) => {
+            let _ = connection.execute_batch("ROLLBACK");
+            Err(error)
+        }
+    }
+}
+
 fn classification_id(prefix: &str, slug: &str) -> String {
     format!("android:{prefix}:{slug}")
 }
@@ -611,6 +742,26 @@ fn replace_canonical_workspace(
         return Err(storage_error(
             "canonical workspace metadata must not be empty",
         ));
+    }
+
+    if read_pending_write(connection)?.is_some() {
+        return Err(storage_error(
+            "recover the pending Android file write before importing",
+        ));
+    }
+    let local_task_count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
+        .map_err(storage_error)?;
+    match cache_meta_value(connection, "workspace_id")? {
+        Some(current_id) if current_id != workspace_id => {
+            return Err(storage_error(
+                "selected folder belongs to another workspace",
+            ));
+        }
+        None if local_task_count > 0 => {
+            return Err("LOCAL_TASKS_NOT_EMPTY: forget the sync folder to keep local tasks; importing another workspace would replace them".to_string());
+        }
+        _ => {}
     }
 
     connection
@@ -991,6 +1142,28 @@ pub fn android_storage(
             }
             read_canonical_meta(connection)
         }
+        AndroidStorageRequest::ReadPendingWrite => {
+            if transaction_guard.is_some() {
+                return Err(storage_error(
+                    "cannot read a pending write during a transaction",
+                ));
+            }
+            Ok(json!({ "pending": read_pending_write(connection)? }))
+        }
+        AndroidStorageRequest::StageCanonicalWrite { pending } => {
+            if transaction_guard.is_some() {
+                return Err(storage_error("cannot stage a write during a transaction"));
+            }
+            stage_pending_write(connection, &pending)
+        }
+        AndroidStorageRequest::CompletePendingWrite { operation_id } => {
+            if transaction_guard.is_some() {
+                return Err(storage_error(
+                    "cannot complete a write during a transaction",
+                ));
+            }
+            complete_pending_write(connection, &operation_id)
+        }
         AndroidStorageRequest::ReplaceCanonicalWorkspace {
             workspace_id,
             fingerprint,
@@ -1129,7 +1302,52 @@ mod tests {
         replace_canonical_workspace(&connection, "first", "after-write", &[]).unwrap();
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
 
-        replace_canonical_workspace(&connection, "second", "new-workspace", &[]).unwrap();
-        assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_null());
+        assert!(replace_canonical_workspace(&connection, "second", "new-workspace", &[]).is_err());
+        assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
+    }
+
+    #[test]
+    fn adopting_another_workspace_cannot_discard_local_tasks() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        connection.execute(
+            "INSERT INTO tasks (id, title, status, position, version, created_at, updated_at) VALUES ('local', 'Keep me', 'open', 0, 1, 'now', 'now')",
+            [],
+        ).unwrap();
+        let error =
+            replace_canonical_workspace(&connection, "incoming", "fingerprint", &[]).unwrap_err();
+        assert!(error.contains("LOCAL_TASKS_NOT_EMPTY"));
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn staged_file_write_blocks_import_and_restores_its_receipt() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        replace_canonical_workspace(&connection, "first", "initial", &[]).unwrap();
+        let pending = AndroidPendingWrite {
+            operation_id: "write".into(),
+            workspace_id: "first".into(),
+            folder_uri: "content://folder".into(),
+            files: vec![AndroidPendingFile {
+                relative_path: "tasks/new.json".into(),
+                previous_content: None,
+                content: "new task".into(),
+            }],
+            idempotency_key: "retry-key".into(),
+            request_hash: "hash".into(),
+            response_json: "{}".into(),
+            created_at: "now".into(),
+        };
+        stage_pending_write(&connection, &pending).unwrap();
+        assert!(replace_canonical_workspace(&connection, "first", "next", &[]).is_err());
+        assert!(complete_pending_write(&connection, "wrong").is_err());
+        assert!(read_pending_write(&connection).unwrap().is_some());
+        complete_pending_write(&connection, "write").unwrap();
+        replace_canonical_workspace(&connection, "first", "next", &[]).unwrap();
+        assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
     }
 }

@@ -22,6 +22,7 @@ import java.io.InputStream
 class CanonicalWriteFileArgs {
   lateinit var relativePath: String
   lateinit var content: String
+  var previousContent: String? = null
   var modifiedAt: Long? = null
 }
 
@@ -170,6 +171,17 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
         val existing = childDocuments(uri, parentId).firstOrNull { it.name == segments.last() }
         if (existing?.isDirectory == true) {
           throw IllegalArgumentException("${file.relativePath} is a directory")
+        }
+        val actual = existing?.let {
+          readUtf8(DocumentsContract.buildDocumentUriUsingTree(uri, it.id))
+        }
+        if (actual != file.content && actual != file.previousContent &&
+          (actual == null || !file.content.startsWith(actual))) {
+          throw IllegalStateException("${file.relativePath} changed since the Android write was staged")
+        }
+        if (actual == file.content) {
+          written.put(file.relativePath)
+          continue
         }
         val fileId = existing?.id
           ?: DocumentsContract.createDocument(

@@ -217,9 +217,16 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
   const operationId = crypto.randomUUID();
   const transaction = transactionId();
   const task: TaskRecord = { ...preview, id, createdAt: now, updatedAt: now };
+  const result = { task, operationId };
   let committed = false;
   try {
-    await writeAndroidCreatedTask(task);
+    const staged = await writeAndroidCreatedTask(task, {
+      operationId,
+      idempotencyKey: request.idempotencyKey ?? "",
+      requestHash: hash,
+      responseJson: JSON.stringify(result),
+      createdAt: now,
+    });
     await androidStorage({ operation: "begin", transactionId: transaction });
     let categoryId: string | null = null;
     if (classification.category) {
@@ -277,10 +284,10 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
       createdAt: now,
       detailsJson: JSON.stringify({ title, priority, ...(parentId ? { parentId } : {}) }),
     });
-    const result = { task, operationId };
     await writeReceipt(request, hash, transaction, result, now);
     await androidStorage({ operation: "commit", transactionId: transaction });
     committed = true;
+    if (staged) await androidStorage({ operation: "completePendingWrite", operationId });
     return result;
   } finally {
     if (!committed) {

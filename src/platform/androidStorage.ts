@@ -44,6 +44,17 @@ export type AndroidImportedTask = {
   canceledAt: string | null;
 };
 
+export type AndroidPendingWrite = {
+  operationId: string;
+  workspaceId: string;
+  folderUri: string;
+  files: Array<{ relativePath: string; previousContent: string | null; content: string }>;
+  idempotencyKey: string;
+  requestHash: string;
+  responseJson: string;
+  createdAt: string;
+};
+
 export type AndroidStorageRequest =
   | { operation: "probe" }
   | { operation: "begin"; transactionId: string }
@@ -57,6 +68,9 @@ export type AndroidStorageRequest =
   | { operation: "readSnapshot" }
   | { operation: "readReceipt"; idempotencyKey: string }
   | { operation: "readCanonicalMeta" }
+  | { operation: "readPendingWrite" }
+  | { operation: "stageCanonicalWrite"; pending: AndroidPendingWrite }
+  | { operation: "completePendingWrite"; operationId: string }
   | { operation: "replaceCanonicalWorkspace"; workspaceId: string; fingerprint: string; tasks: AndroidImportedTask[] }
   | { operation: "ensureCategory"; transactionId: string; id: string; slug: string; label: string; now: string }
   | { operation: "ensureTag"; transactionId: string; id: string; slug: string; label: string; now: string }

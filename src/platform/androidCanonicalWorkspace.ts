@@ -1,8 +1,9 @@
 import { canonicalJson } from "../backend/canonicalJson";
 import { classifyTaskFields, TaskTextError, type TaskClassification } from "../backend/taskText";
 import type { TaskPriority, TaskRecord, TaskStatus } from "../backend/protocol";
-import { androidStorage, type AndroidImportedTask } from "./androidStorage";
-import { readAndroidCanonicalFiles, writeAndroidCanonicalFiles, type AndroidCanonicalFile } from "./androidWorkspace";
+import { androidStorage, type AndroidImportedTask, type AndroidPendingWrite } from "./androidStorage";
+import { getAndroidSyncFolder, readAndroidCanonicalFiles, writeAndroidCanonicalFiles, type AndroidCanonicalFile } from "./androidWorkspace";
+import { filesToRecover } from "./androidPendingWrite";
 
 type JsonRecord = Record<string, unknown>;
 type ParentId = string | null;
@@ -426,9 +427,12 @@ function androidDeviceId(): string {
   }
 }
 
-export async function writeAndroidCreatedTask(task: TaskRecord): Promise<void> {
+export async function writeAndroidCreatedTask(
+  task: TaskRecord,
+  receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
+): Promise<boolean> {
   const result = await readAndroidCanonicalFiles();
-  if (!result.selected) return;
+  if (!result.selected) return false;
   const current = await parseWorkspaceFiles(result.files);
   const filesByPath = new Map(result.files.map((file) => [file.relativePath, file]));
   const modifiedBy = androidDeviceId();
@@ -483,10 +487,60 @@ export async function writeAndroidCreatedTask(task: TaskRecord): Promise<void> {
   };
   canonicalOrder.sync.contentHash = await sha256(canonicalJson(withoutHash(canonicalOrder)));
 
-  await writeAndroidCanonicalFiles([
-    { relativePath: `tasks/${task.id}.json`, content: serialise(canonicalTask), modifiedAt: null },
-    { relativePath: orderPath, content: serialise(canonicalOrder), modifiedAt: null },
-  ]);
+  const folder = await getAndroidSyncFolder();
+  if (!folder) invalid("the selected Android sync folder is no longer accessible");
+  const pending: AndroidPendingWrite = {
+    ...receipt,
+    workspaceId: current.workspaceId,
+    folderUri: folder.uri,
+    files: [
+      { relativePath: `tasks/${task.id}.json`, previousContent: null, content: serialise(canonicalTask) },
+      { relativePath: orderPath, previousContent: previousOrderFile?.content ?? null, content: serialise(canonicalOrder) },
+    ],
+  };
+  if (filesByPath.has(pending.files[0].relativePath)) invalid("new Android task id already exists in the sync folder");
+  await androidStorage({ operation: "stageCanonicalWrite", pending });
+  await writeAndroidCanonicalFiles(pending.files.map((file) => ({ ...file, modifiedAt: null })));
+  await verifyPendingFiles(pending);
+  return true;
+}
+
+async function verifyPendingFiles(pending: AndroidPendingWrite): Promise<void> {
+  const selected = await getAndroidSyncFolder();
+  if (selected?.uri !== pending.folderUri) invalid("reselect the original Android sync folder to recover the pending write");
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) invalid("the Android sync folder is no longer accessible");
+  const files = new Map(result.files.map((file) => [file.relativePath, file.content]));
+  for (const file of pending.files) {
+    if (files.get(file.relativePath) !== file.content) invalid(`Android did not persist ${file.relativePath}; retry recovery before editing`);
+  }
+}
+
+async function recoverPendingWrite(): Promise<void> {
+  const response = await androidStorage({ operation: "readPendingWrite" });
+  const pending = response.pending as AndroidPendingWrite | null;
+  if (!pending) return;
+  const selected = await getAndroidSyncFolder();
+  if (selected?.uri !== pending.folderUri) {
+    throw new AndroidCanonicalError("PENDING_WRITE_FOLDER", "reselect the original Android sync folder to recover the interrupted task write");
+  }
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) invalid("the Android sync folder is unavailable during write recovery");
+  const workspace = result.files.find((file) => file.relativePath === "workspace.json");
+  if (!workspace || parseWorkspace(parseJson(workspace.content, "workspace.json")).workspaceId !== pending.workspaceId) {
+    invalid("the Android sync folder changed workspace during write recovery");
+  }
+  let missing: AndroidPendingWrite["files"];
+  try {
+    missing = filesToRecover(pending, result.files);
+  } catch (error) {
+    throw new AndroidCanonicalError("PENDING_WRITE_CONFLICT", `${error instanceof Error ? error.message : String(error)}; resolve it before continuing`);
+  }
+  if (missing.length > 0) {
+    await writeAndroidCanonicalFiles(missing.map((file) => ({ ...file, modifiedAt: null })));
+  }
+  await verifyPendingFiles(pending);
+  await androidStorage({ operation: "completePendingWrite", operationId: pending.operationId });
 }
 
 export async function parseAndroidCanonicalWorkspace(files: AndroidCanonicalFile[]): Promise<ImportedWorkspace> {
@@ -494,6 +548,7 @@ export async function parseAndroidCanonicalWorkspace(files: AndroidCanonicalFile
 }
 
 export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
+  await recoverPendingWrite();
   const result = await readAndroidCanonicalFiles();
   if (!result.selected) return { selected: false, changed: false };
 
