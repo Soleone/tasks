@@ -1,4 +1,7 @@
 target/
 gen/
+!gen/
+!gen/android/
+!gen/android/**
 binaries/*
 !binaries/.gitkeep

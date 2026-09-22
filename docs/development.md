@@ -149,9 +149,9 @@ The checked Windows host has WebView2. Other Windows machines still need the nor
 
 ## Android status
 
-The Android feasibility work currently stops after the desktop/mobile configuration split. The repository now has an Android config without desktop sidecars, desktop-only capabilities and plugins, and a transport placeholder that fails clearly instead of trying to launch the Node sidecar. The shared command engine and native SQLite/SAF bridges are not implemented yet.
+The Android feasibility work now has the desktop/mobile configuration split, a generated Android project, and a transport placeholder that fails clearly instead of trying to launch the Node sidecar. The shared command engine and native SQLite/SAF bridges are not implemented yet.
 
-The desktop baseline used for this slice is Node 26.9.0, pnpm 11.22.0, Rust 1.98.1, and Tauri 2.11.5. The current Linux host has no `java`, `adb`, `sdkmanager`, or `gradle` command, no Android SDK environment variables, and no Android Rust target installed. Those prerequisites block `tauri android init`, emulator/device lifecycle checks, and all SQLite/SAF evidence. Install and record the Android SDK, JDK, NDK, Gradle, and target versions before continuing. Web, Linux desktop, and WSL checks are not Android acceptance evidence.
+The host uses Node 26.9.0, pnpm 11.22.0, Rust 1.98.1, Tauri 2.11.5, JDK 21.0.2, Android SDK command-line tools 23.0, platform-tools 37.0.1, platform/build tools 36, and NDK 27.2.12479018. The four Android Rust targets are installed. Activate the mise-managed paths with `eval "$(mise env --shell bash)"`, then use `pnpm tauri android build --debug --apk -t aarch64` for an arm64 debug APK or `-t x86_64` for an emulator APK. No emulator or physical Android device is currently connected, so lifecycle, native UI, SQLite bridge, and SAF acceptance evidence remain open. Web and Linux desktop checks are not Android acceptance evidence.
 
 ## WSL and agent access
 

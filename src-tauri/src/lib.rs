@@ -12,6 +12,9 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            #[cfg(target_os = "android")]
+            let _ = app;
+
             #[cfg(target_os = "linux")]
             app.get_webview_window("main")
                 .expect("main window should exist")
