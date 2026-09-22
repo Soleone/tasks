@@ -508,6 +508,7 @@ export async function writeAndroidCreatedTask(
 export async function writeAndroidUpdatedTasks(
   tasks: TaskRecord[],
   receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
+  orders: Array<{ parentId: ParentId; taskIds: string[] }> = [],
 ): Promise<boolean> {
   const result = await readAndroidCanonicalFiles();
   if (!result.selected) return false;
@@ -528,6 +529,8 @@ export async function writeAndroidUpdatedTasks(
       descriptionMarkdown: task.descriptionMarkdown,
       status: task.status,
       priority: task.priority,
+      parentId: task.parentId,
+      dependencyIds: [...task.dependencyIds],
       completedAt: task.completedAt,
       canceledAt: task.canceledAt,
       updatedAt: task.updatedAt,
@@ -540,6 +543,54 @@ export async function writeAndroidUpdatedTasks(
     };
     canonicalTask.sync.contentHash = await sha256(canonicalJson(withoutHash(canonicalTask)));
     files.push({ relativePath, previousContent: previousFile.content, content: serialise(canonicalTask) });
+    if (previous.parentId !== task.parentId) {
+      for (const parentId of [previous.parentId, task.parentId]) {
+        const orderPath = parentId === null ? "order/root.json" : `order/${parentId}.json`;
+        const oldFile = filesByPath.get(orderPath);
+        const oldOrder = oldFile ? await parseOrder(oldFile, current.workspaceId, parentId) : null;
+        const siblings = current.tasks
+          .filter((entry) => entry.parentId === parentId)
+          .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+          .map((entry) => entry.id);
+        const order: CanonicalOrder = {
+          format: "tasks.sibling-order",
+          formatVersion: 1,
+          workspaceId: current.workspaceId,
+          parentId,
+          taskIds: parentId === previous.parentId
+            ? siblings.filter((id) => id !== task.id)
+            : [task.id, ...siblings.filter((id) => id !== task.id)],
+          sync: {
+            revision: (oldOrder?.sync.revision ?? 0) + 1,
+            modifiedBy: androidDeviceId(),
+            basedOnHash: oldOrder?.sync.contentHash ?? null,
+            contentHash: "",
+          },
+        };
+        order.sync.contentHash = await sha256(canonicalJson(withoutHash(order)));
+        files.push({ relativePath: orderPath, previousContent: oldFile?.content ?? null, content: serialise(order) });
+      }
+    }
+  }
+  for (const { parentId, taskIds } of orders) {
+    const siblings = current.tasks.filter((task) => task.parentId === parentId).map((task) => task.id);
+    if (siblings.length !== taskIds.length || new Set(taskIds).size !== taskIds.length || taskIds.some((id) => !siblings.includes(id))) {
+      throw new AndroidCanonicalError("STALE_TASK_VERSION", "sibling order changed in the selected folder");
+    }
+    const orderPath = parentId === null ? "order/root.json" : `order/${parentId}.json`;
+    const oldFile = filesByPath.get(orderPath);
+    const oldOrder = oldFile ? await parseOrder(oldFile, current.workspaceId, parentId) : null;
+    const order: CanonicalOrder = {
+      format: "tasks.sibling-order", formatVersion: 1, workspaceId: current.workspaceId, parentId, taskIds,
+      sync: {
+        revision: (oldOrder?.sync.revision ?? 0) + 1,
+        modifiedBy: androidDeviceId(),
+        basedOnHash: oldOrder?.sync.contentHash ?? null,
+        contentHash: "",
+      },
+    };
+    order.sync.contentHash = await sha256(canonicalJson(withoutHash(order)));
+    files.push({ relativePath: orderPath, previousContent: oldFile?.content ?? null, content: serialise(order) });
   }
   const folder = await getAndroidSyncFolder();
   if (!folder) invalid("the selected Android sync folder is no longer accessible");

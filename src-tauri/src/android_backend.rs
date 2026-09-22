@@ -89,6 +89,13 @@ pub enum AndroidStorageRequest {
         task: AndroidTaskInput,
         expected_version: i64,
         tag_ids: Vec<String>,
+        dependency_ids: Vec<String>,
+    },
+    ReorderTasks {
+        transaction_id: String,
+        parent_id: Option<String>,
+        task_ids: Vec<String>,
+        selected: Vec<AndroidReorderSelection>,
     },
     InsertTaskTag {
         transaction_id: String,
@@ -170,6 +177,13 @@ pub struct AndroidImportedTask {
     pub updated_at: String,
     pub completed_at: Option<String>,
     pub canceled_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AndroidReorderSelection {
+    id: String,
+    expected_version: i64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -1024,25 +1038,61 @@ fn update_task(
     task: AndroidTaskInput,
     expected_version: i64,
     tag_ids: &[String],
+    dependency_ids: &[String],
 ) -> Result<Value, String> {
     if expected_version < 1 || task.version != expected_version + 1 {
         return Err(storage_error("invalid expected task version"));
+    }
+    let old_parent: Option<Option<String>> = connection
+        .query_row(
+            "SELECT parent_id FROM tasks WHERE id = ?1 AND version = ?2",
+            params![task.id, expected_version],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(storage_error)?;
+    let old_parent = old_parent.ok_or_else(|| storage_error("task version changed before the update"))?;
+    let moving = old_parent != task.parent_id;
+    if moving {
+        connection
+            .execute(
+                "UPDATE tasks SET position = position + 1 WHERE parent_id IS ?1 AND id <> ?2",
+                params![task.parent_id, task.id],
+            )
+            .map_err(storage_error)?;
     }
     let changed = connection
         .execute(
             "UPDATE tasks SET title = ?1, description_markdown = ?2, status = ?3,
              category_id = ?4, priority = ?5, version = version + 1,
-             updated_at = ?6, completed_at = ?7, canceled_at = ?8
+             updated_at = ?6, completed_at = ?7, canceled_at = ?8,
+             parent_id = ?11, position = CASE WHEN ?12 THEN 0 ELSE position END
              WHERE id = ?9 AND version = ?10",
             params![
                 task.title, task.description_markdown, task.status, task.category_id,
                 task.priority, task.updated_at, task.completed_at, task.canceled_at,
-                task.id, expected_version,
+                task.id, expected_version, task.parent_id, moving,
             ],
         )
         .map_err(storage_error)?;
     if changed != 1 {
         return Err(storage_error("task version changed before the update"));
+    }
+    if moving {
+        let mut statement = connection
+            .prepare("SELECT id FROM tasks WHERE parent_id IS ?1 ORDER BY position, id")
+            .map_err(storage_error)?;
+        let siblings = statement
+            .query_map(params![old_parent], |row| row.get::<_, String>(0))
+            .map_err(storage_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(statement);
+        for (position, id) in siblings.iter().enumerate() {
+            connection
+                .execute("UPDATE tasks SET position = ?1 WHERE id = ?2", params![position as i64, id])
+                .map_err(storage_error)?;
+        }
     }
     connection
         .execute("DELETE FROM task_tags WHERE task_id = ?1", params![task.id])
@@ -1056,6 +1106,17 @@ fn update_task(
             .map_err(storage_error)?;
     }
     connection
+        .execute("DELETE FROM task_dependencies WHERE task_id = ?1", params![task.id])
+        .map_err(storage_error)?;
+    for dependency_id in dependency_ids {
+        connection
+            .execute(
+                "INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?1, ?2)",
+                params![task.id, dependency_id],
+            )
+            .map_err(storage_error)?;
+    }
+    connection
         .execute(
             "UPDATE cache_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
              WHERE key = 'workspace_revision'",
@@ -1063,6 +1124,53 @@ fn update_task(
         )
         .map_err(storage_error)?;
     Ok(json!({ "changes": 1 }))
+}
+
+fn reorder_tasks(
+    connection: &Connection,
+    parent_id: Option<String>,
+    task_ids: &[String],
+    selected: &[AndroidReorderSelection],
+) -> Result<Value, String> {
+    let mut statement = connection
+        .prepare("SELECT id FROM tasks WHERE parent_id IS ?1 ORDER BY position, id")
+        .map_err(storage_error)?;
+    let siblings = statement
+        .query_map(params![parent_id], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+    drop(statement);
+    let ids = task_ids.iter().collect::<std::collections::HashSet<_>>();
+    if task_ids.len() != siblings.len() || ids.len() != task_ids.len()
+        || siblings.iter().any(|id| !ids.contains(id))
+    {
+        return Err(storage_error("reorder must contain exactly the current siblings"));
+    }
+    let selected_ids = selected.iter().map(|task| &task.id).collect::<std::collections::HashSet<_>>();
+    if selected_ids.len() != selected.len() || selected.is_empty()
+        || selected_ids.iter().any(|id| !ids.contains(id))
+    {
+        return Err(storage_error("reorder selection is invalid"));
+    }
+    for (position, id) in task_ids.iter().enumerate() {
+        let changes = if let Some(task) = selected.iter().find(|task| &task.id == id) {
+            connection.execute(
+                "UPDATE tasks SET position = ?1, version = version + 1 WHERE id = ?2 AND version = ?3",
+                params![position as i64, id, task.expected_version],
+            )
+        } else {
+            connection.execute("UPDATE tasks SET position = ?1 WHERE id = ?2", params![position as i64, id])
+        }.map_err(storage_error)?;
+        if changes != 1 {
+            return Err(storage_error("task version changed before the reorder"));
+        }
+    }
+    connection.execute(
+        "UPDATE cache_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'workspace_revision'",
+        [],
+    ).map_err(storage_error)?;
+    Ok(json!({ "changes": selected.len() }))
 }
 
 fn insert_activity(
@@ -1306,9 +1414,14 @@ pub fn android_storage(
             task,
             expected_version,
             tag_ids,
+            dependency_ids,
         } => {
             active_transaction(&mut transaction_guard, connection, &transaction_id)?;
-            update_task(connection, task, expected_version, &tag_ids)
+            update_task(connection, task, expected_version, &tag_ids, &dependency_ids)
+        }
+        AndroidStorageRequest::ReorderTasks { transaction_id, parent_id, task_ids, selected } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            reorder_tasks(connection, parent_id, &task_ids, &selected)
         }
         AndroidStorageRequest::InsertTaskTag {
             transaction_id,
@@ -1429,27 +1542,57 @@ mod tests {
             completed_at: None, canceled_at: None,
         };
         insert_task(&connection, task).unwrap();
+        insert_task(&connection, AndroidTaskInput {
+            id: "zz-blocker".into(), title: "Blocker".into(), description_markdown: String::new(),
+            status: "open".into(), category_id: None, parent_id: None, position: 0,
+            priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+            completed_at: None, canceled_at: None,
+        }).unwrap();
         ensure_classification(&connection, "tag", "important", "Important", "now", "tags").unwrap();
         let updated = AndroidTaskInput {
             id: "task".into(), title: "After".into(), description_markdown: "#important".into(),
-            status: "done".into(), category_id: None, parent_id: None, position: 0,
+            status: "done".into(), category_id: None, parent_id: Some("zz-blocker".into()), position: 0,
             priority: 1, version: 2, created_at: "now".into(), updated_at: "later".into(),
             completed_at: Some("later".into()), canceled_at: None,
         };
-        update_task(&connection, updated, 1, &["tag".into()]).unwrap();
+        update_task(&connection, updated, 1, &["tag".into()], &["zz-blocker".into()]).unwrap();
         let snapshot = read_snapshot(&connection).unwrap();
         assert_eq!(snapshot["tasks"][0]["title"], "After");
         assert_eq!(snapshot["tasks"][0]["status"], "done");
+        assert_eq!(snapshot["tasks"][0]["parentId"], "zz-blocker");
         assert_eq!(snapshot["tasks"][0]["version"], 2);
         assert_eq!(snapshot["tasks"][0]["tags"][0]["slug"], "important");
+        assert_eq!(snapshot["tasks"][0]["dependencyIds"][0], "zz-blocker");
         let stale = AndroidTaskInput {
             id: "task".into(), title: "Stale".into(), description_markdown: String::new(),
             status: "open".into(), category_id: None, parent_id: None, position: 0,
             priority: 2, version: 2, created_at: "now".into(), updated_at: "later".into(),
             completed_at: None, canceled_at: None,
         };
-        assert!(update_task(&connection, stale, 1, &[]).is_err());
+        assert!(update_task(&connection, stale, 1, &[], &[]).is_err());
         assert_eq!(read_snapshot(&connection).unwrap()["tasks"][0]["title"], "After");
+    }
+
+    #[test]
+    fn reorder_updates_only_selected_versions() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        for (position, id) in ["a", "b", "c"].iter().enumerate() {
+            insert_task(&connection, AndroidTaskInput {
+                id: (*id).into(), title: (*id).into(), description_markdown: String::new(),
+                status: "open".into(), category_id: None, parent_id: None, position: position as i64,
+                priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+                completed_at: None, canceled_at: None,
+            }).unwrap();
+        }
+        reorder_tasks(&connection, None, &["b".into(), "a".into(), "c".into()],
+            &[AndroidReorderSelection { id: "b".into(), expected_version: 1 }]).unwrap();
+        let ids = connection.prepare("SELECT id, version FROM tasks ORDER BY position").unwrap()
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(ids, vec![("b".into(), 2), ("a".into(), 1), ("c".into(), 1)]);
+        assert!(reorder_tasks(&connection, None, &["a".into(), "b".into(), "c".into()],
+            &[AndroidReorderSelection { id: "b".into(), expected_version: 1 }]).is_err());
     }
 
     #[test]

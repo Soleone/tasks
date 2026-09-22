@@ -78,7 +78,8 @@ export type AndroidStorageRequest =
   | { operation: "ensureTag"; transactionId: string; id: string; slug: string; label: string; now: string }
   | { operation: "shiftSiblingPositions"; transactionId: string; parentId: string | null }
   | { operation: "insertTask"; transactionId: string; task: AndroidTaskInput }
-  | { operation: "updateTask"; transactionId: string; task: AndroidTaskInput; expectedVersion: number; tagIds: string[] }
+  | { operation: "updateTask"; transactionId: string; task: AndroidTaskInput; expectedVersion: number; tagIds: string[]; dependencyIds: string[] }
+  | { operation: "reorderTasks"; transactionId: string; parentId: string | null; taskIds: string[]; selected: Array<{ id: string; expectedVersion: number }> }
   | { operation: "insertTaskTag"; transactionId: string; taskId: string; tagId: string }
   | {
     operation: "insertActivity";

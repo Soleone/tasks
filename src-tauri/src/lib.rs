@@ -1,7 +1,9 @@
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::Manager;
 
-#[cfg(target_os = "android")]
+// The SQLite bridge is platform-neutral; run its storage tests on the host too.
+#[cfg(any(target_os = "android", test))]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 mod android_backend;
 #[cfg(target_os = "android")]
 mod android_workspace;

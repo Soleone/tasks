@@ -2,6 +2,7 @@ import {
   PROTOCOL_VERSION,
   ProtocolError,
   parseTaskTransitionManyArgs,
+  parseTaskReorderArgs,
   type ProtocolRequest,
   type ProtocolResponse,
   type TaskPriority,
@@ -357,11 +358,49 @@ async function persistTaskUpdate(before: TaskRecord, after: TaskRecord, request:
     categoryId, parentId: after.parentId, position: 0, priority: after.priority, version: after.version,
     createdAt: after.createdAt, updatedAt: after.updatedAt, completedAt: after.completedAt, canceledAt: after.canceledAt,
   };
-  await androidStorage({ operation: "updateTask", transactionId: transaction, task, expectedVersion: before.version, tagIds });
+  await androidStorage({ operation: "updateTask", transactionId: transaction, task, expectedVersion: before.version, tagIds, dependencyIds: after.dependencyIds });
   await androidStorage({ operation: "insertActivity", transactionId: transaction, taskId: after.id,
-    requestId: request.requestId, action: command === "task.delete" ? "cancel" : command.slice(5),
+    requestId: request.requestId, action: command === "task.delete" ? "cancel"
+      : command === "task.dependency.add" ? "dependency.added"
+        : command === "task.dependency.remove" ? "dependency.removed" : command.slice(5),
     actorKind: request.actor.kind, actorLabel: request.actor.label, createdAt: now,
-    detailsJson: JSON.stringify({ from: before.status, to: after.status }) });
+    detailsJson: JSON.stringify({ from: before.status, to: after.status, beforeDependencies: before.dependencyIds, afterDependencies: after.dependencyIds }) });
+}
+
+async function saveTaskMutation(
+  before: TaskRecord,
+  after: TaskRecord,
+  request: ProtocolRequest,
+  hash: string,
+  now: string,
+  action: string,
+): Promise<Record<string, unknown>> {
+  const changed = before !== after;
+  if (request.dryRun || request.readOnly) {
+    return { task: after, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+  const operationId = changed ? crypto.randomUUID() : undefined;
+  const result = { task: after, changed, ...(operationId ? { operationId } : {}) };
+  const transaction = transactionId();
+  let committed = false;
+  try {
+    const staged = changed && operationId ? await writeAndroidUpdatedTasks([after], {
+      operationId,
+      idempotencyKey: request.idempotencyKey ?? "",
+      requestHash: hash,
+      responseJson: JSON.stringify(result),
+      createdAt: now,
+    }) : false;
+    await androidStorage({ operation: "begin", transactionId: transaction });
+    if (changed) await persistTaskUpdate(before, after, request, transaction, now, action);
+    await writeReceipt(request, hash, transaction, result, now);
+    await androidStorage({ operation: "commit", transactionId: transaction });
+    committed = true;
+    if (staged && operationId) await androidStorage({ operation: "completePendingWrite", operationId });
+    return result;
+  } finally {
+    if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+  }
 }
 
 async function mutateTask(request: ProtocolRequest): Promise<Record<string, unknown>> {
@@ -396,23 +435,139 @@ async function mutateTask(request: ProtocolRequest): Promise<Record<string, unkn
     : after.status !== before.status;
   if (!changed) after = before;
   else if (request.command === "task.update") after = { ...after, version: before.version + 1, updatedAt: now };
-  if (request.dryRun || request.readOnly) {
-    return { task: after, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
+  return saveTaskMutation(before, after, request, hash, now, request.command);
+}
+
+async function moveTask(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const id = requiredText(request.args.id, "id");
+  const version = taskVersion(request.args.expectedVersion);
+  const parentId = request.args.parentId;
+  if (parentId !== null && (typeof parentId !== "string" || parentId.trim() === "")) {
+    throw new AndroidEngineError("INVALID_ARGUMENT", "parentId must be null or a non-empty string");
   }
+  const current = await snapshot();
+  const hash = await requestHash(request);
+  if (!request.dryRun && !request.readOnly) {
+    const replay = await readReceipt(request, hash);
+    if (replay?.ok) return replay.result;
+  }
+  const before = requireTask(current.tasks, id);
+  if (before.version !== version) throw new AndroidEngineError("STALE_TASK_VERSION", `task ${id} is at version ${before.version}`);
+  if (parentId !== null) {
+    if (parentId === id) throw new AndroidEngineError("INVALID_PARENT", "a task cannot be its own parent");
+    const parent = requireTask(current.tasks, parentId);
+    if (parent.status === "canceled") throw new AndroidEngineError("INVALID_PARENT", "a canceled task cannot be used as a parent; reopen it first");
+    const byId = new Map(current.tasks.map((task) => [task.id, task]));
+    const seen = new Set<string>();
+    let ancestorId: string | null = parentId;
+    while (ancestorId !== null) {
+      if (ancestorId === id || seen.has(ancestorId)) throw new AndroidEngineError("PARENT_CYCLE", "this move would create a parent cycle");
+      seen.add(ancestorId);
+      ancestorId = byId.get(ancestorId)?.parentId ?? null;
+    }
+  }
+  const now = new Date().toISOString();
+  const after = before.parentId === parentId ? before : { ...before, parentId, version: before.version + 1, updatedAt: now };
+  return saveTaskMutation(before, after, request, hash, now, request.command);
+}
+
+async function changeDependency(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const id = requiredText(request.args.id, "id");
+  const dependsOnId = requiredText(request.args.dependsOnId, "dependsOnId");
+  const version = taskVersion(request.args.expectedVersion);
+  const current = await snapshot();
+  const hash = await requestHash(request);
+  if (!request.dryRun && !request.readOnly) {
+    const replay = await readReceipt(request, hash);
+    if (replay?.ok) return replay.result;
+  }
+  const before = requireTask(current.tasks, id);
+  if (before.version !== version) throw new AndroidEngineError("STALE_TASK_VERSION", `task ${id} is at version ${before.version}`);
+  const adding = request.command === "task.dependency.add";
+  const existing = before.dependencyIds.includes(dependsOnId);
+  if (adding && dependsOnId === id) throw new AndroidEngineError("INVALID_DEPENDENCY", "a task cannot depend on itself");
+  if (adding && !existing) {
+    const blocker = requireTask(current.tasks, dependsOnId);
+    if (blocker.status === "canceled") throw new AndroidEngineError("INVALID_DEPENDENCY", "a canceled task cannot be used as a blocker; reopen it first");
+    const byId = new Map(current.tasks.map((task) => [task.id, task]));
+    const seen = new Set<string>();
+    const reachesTask = (fromId: string): boolean => {
+      if (fromId === id) return true;
+      if (seen.has(fromId)) return false;
+      seen.add(fromId);
+      return byId.get(fromId)?.dependencyIds.some(reachesTask) ?? false;
+    };
+    if (reachesTask(dependsOnId)) throw new AndroidEngineError("DEPENDENCY_CYCLE", "this dependency would create a cycle");
+  }
+  const changed = adding ? !existing : existing;
+  const now = new Date().toISOString();
+  const dependencyIds = changed
+    ? (adding ? [...before.dependencyIds, dependsOnId].sort() : before.dependencyIds.filter((entry) => entry !== dependsOnId))
+    : before.dependencyIds;
+  const blockedByIds = changed
+    ? (adding ? [...before.blockedByIds, dependsOnId].sort() : before.blockedByIds.filter((entry) => entry !== dependsOnId))
+    : before.blockedByIds;
+  const after = changed ? { ...before, dependencyIds, blockedByIds, version: before.version + 1, updatedAt: now } : before;
+  return saveTaskMutation(before, after, request, hash, now, request.command);
+}
+
+async function reorderTasks(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const { tasks: selected, placement } = parseTaskReorderArgs(request.args);
+  const current = await snapshot();
+  const hash = await requestHash(request);
+  if (!request.dryRun && !request.readOnly) {
+    const replay = await readReceipt(request, hash);
+    if (replay?.ok) return replay.result;
+  }
+  const before = selected.map((item) => {
+    const task = requireTask(current.tasks, item.id);
+    if (task.version !== item.expectedVersion) throw new AndroidEngineError("STALE_TASK_VERSION", `task ${item.id} is at version ${task.version}`);
+    return task;
+  });
+  const parentId = before[0].parentId;
+  if (before.some((task) => task.parentId !== parentId)) {
+    throw new AndroidEngineError("INVALID_REORDER_SCOPE", "all reordered tasks must share one parent");
+  }
+  const siblings = current.tasks.filter((task) => task.parentId === parentId);
+  const selectedIds = new Set(selected.map((task) => task.id));
+  if (siblings.filter((task) => selectedIds.has(task.id)).some((task, index) => task.id !== selected[index]?.id)) {
+    throw new AndroidEngineError("INVALID_REORDER_ORDER", "reordered tasks must be supplied in their current sibling order");
+  }
+  const remaining = siblings.filter((task) => !selectedIds.has(task.id));
+  let index = "first" in placement ? 0 : remaining.length;
+  if ("beforeId" in placement || "afterId" in placement) {
+    const targetId = "beforeId" in placement ? placement.beforeId : placement.afterId;
+    const target = requireTask(current.tasks, targetId);
+    if (selectedIds.has(targetId)) throw new AndroidEngineError("INVALID_REORDER_PLACEMENT", "placement target cannot be selected");
+    if (target.parentId !== parentId) throw new AndroidEngineError("INVALID_REORDER_SCOPE", "placement target must share the task parent");
+    index = remaining.findIndex((task) => task.id === targetId) + ("afterId" in placement ? 1 : 0);
+  }
+  const finalIds = [...remaining.slice(0, index).map((task) => task.id), ...selected.map((task) => task.id), ...remaining.slice(index).map((task) => task.id)];
+  const changed = siblings.some((task, position) => task.id !== finalIds[position]);
+  if (request.dryRun || request.readOnly) {
+    return { tasks: before, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+  const tasks = changed ? before.map((task) => ({ ...task, version: task.version + 1 })) : before;
   const operationId = changed ? crypto.randomUUID() : undefined;
-  const result = { task: after, changed, ...(operationId ? { operationId } : {}) };
+  const result = { tasks, changed, ...(operationId ? { operationId } : {}) };
+  const now = new Date().toISOString();
   const transaction = transactionId();
   let committed = false;
   try {
-    const staged = changed && operationId ? await writeAndroidUpdatedTasks([after], {
-      operationId,
-      idempotencyKey: request.idempotencyKey ?? "",
-      requestHash: hash,
-      responseJson: JSON.stringify(result),
-      createdAt: now,
-    }) : false;
+    const staged = operationId ? await writeAndroidUpdatedTasks(tasks, {
+      operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
+      responseJson: JSON.stringify(result), createdAt: now,
+    }, [{ parentId, taskIds: finalIds }]) : false;
     await androidStorage({ operation: "begin", transactionId: transaction });
-    if (changed) await persistTaskUpdate(before, after, request, transaction, now, request.command);
+    if (changed) {
+      await androidStorage({ operation: "reorderTasks", transactionId: transaction, parentId, taskIds: finalIds, selected });
+      for (const task of before) {
+        await androidStorage({ operation: "insertActivity", transactionId: transaction, taskId: task.id,
+          requestId: request.requestId, action: "reordered", actorKind: request.actor.kind,
+          actorLabel: request.actor.label, createdAt: now,
+          detailsJson: JSON.stringify({ before: siblings.findIndex((entry) => entry.id === task.id), after: finalIds.indexOf(task.id), parentId }) });
+      }
+    }
     await writeReceipt(request, hash, transaction, result, now);
     await androidStorage({ operation: "commit", transactionId: transaction });
     committed = true;
@@ -625,6 +780,16 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
         break;
       case "task.transitionMany":
         result = await transitionMany(request);
+        break;
+      case "task.dependency.add":
+      case "task.dependency.remove":
+        result = await changeDependency(request);
+        break;
+      case "task.move":
+        result = await moveTask(request);
+        break;
+      case "task.reorder":
+        result = await reorderTasks(request);
         break;
       case "category.list":
         result = await listCategories();
