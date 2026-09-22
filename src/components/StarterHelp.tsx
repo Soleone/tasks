@@ -21,7 +21,7 @@ export function StarterHelp({ open, onClose }: { open: boolean; onClose: () => v
     <aside
       aria-labelledby="starter-help-title"
       aria-modal="false"
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l bg-card p-5 text-card-foreground shadow-xl"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col overflow-y-auto border-l bg-card p-5 text-card-foreground shadow-xl"
       data-starter-help
     >
       <div className="flex items-start justify-between gap-4">

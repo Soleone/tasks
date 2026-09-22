@@ -8,9 +8,11 @@ import { APP_NAME } from "./backend/branding";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyStoredFontSizeIncrease } from "./fontSize";
 import { applyStoredTheme } from "./theme";
+import { runtimeKind } from "./platform/runtime";
 import "./styles.css";
 
 document.title = APP_NAME;
+if (runtimeKind() === "android") document.documentElement.classList.add("android");
 
 const favicons = [
   [16, favicon16Url],

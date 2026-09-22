@@ -1,0 +1,364 @@
+package com.soleone.tasks
+
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import android.provider.DocumentsContract
+import androidx.activity.result.ActivityResult
+import app.tauri.annotation.ActivityCallback
+import app.tauri.annotation.Command
+import app.tauri.annotation.InvokeArg
+import app.tauri.annotation.TauriPlugin
+import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
+import app.tauri.plugin.Plugin
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.InputStream
+
+@InvokeArg
+class CanonicalWriteFileArgs {
+  lateinit var relativePath: String
+  lateinit var content: String
+  var modifiedAt: Long? = null
+}
+
+@InvokeArg
+class CanonicalWriteArgs {
+  var files: List<CanonicalWriteFileArgs> = emptyList()
+}
+
+@TauriPlugin
+class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) {
+  private val preferences by lazy {
+    activity.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+  }
+
+  @Command
+  fun pickDirectory(invoke: Invoke) {
+    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+      addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+      addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+
+      val currentUri = preferences.getString(SELECTED_URI_KEY, null)
+      if (currentUri != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse(currentUri))
+      }
+    }
+    startActivityForResult(invoke, intent, "onDirectoryPicked")
+  }
+
+  @ActivityCallback
+  private fun onDirectoryPicked(invoke: Invoke, result: ActivityResult) {
+    if (result.resultCode != Activity.RESULT_OK) {
+      invoke.reject("ANDROID_FOLDER_PICKER_CANCELLED")
+      return
+    }
+
+    val uri = result.data?.data
+    if (uri == null) {
+      invoke.reject("ANDROID_FOLDER_PICKER_EMPTY_RESULT")
+      return
+    }
+
+    val grantedFlags = (result.data?.flags ?: 0) and
+      (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+    if (grantedFlags == 0) {
+      invoke.reject("ANDROID_FOLDER_PICKER_NO_PERMISSION")
+      return
+    }
+
+    try {
+      activity.contentResolver.takePersistableUriPermission(uri, grantedFlags)
+    } catch (error: SecurityException) {
+      invoke.reject("ANDROID_FOLDER_PICKER_PERMISSION_FAILED: ${error.message}")
+      return
+    }
+
+    preferences.edit().putString(SELECTED_URI_KEY, uri.toString()).apply()
+    invoke.resolve(directoryResponse(uri))
+  }
+
+  @Command
+  fun getPersistedDirectory(invoke: Invoke) {
+    val uriText = preferences.getString(SELECTED_URI_KEY, null)
+    if (uriText == null) {
+      invoke.resolve(directoryResponse(null))
+      return
+    }
+
+    val uri = Uri.parse(uriText)
+    val stillGranted = activity.contentResolver.persistedUriPermissions.any { permission ->
+      permission.uri == uri && (permission.isReadPermission || permission.isWritePermission)
+    }
+    if (!stillGranted) {
+      preferences.edit().remove(SELECTED_URI_KEY).apply()
+      invoke.resolve(directoryResponse(null))
+      return
+    }
+
+    invoke.resolve(directoryResponse(uri))
+  }
+
+  @Command
+  fun clearDirectory(invoke: Invoke) {
+    val uriText = preferences.getString(SELECTED_URI_KEY, null)
+    if (uriText != null) {
+      val uri = Uri.parse(uriText)
+      try {
+        activity.contentResolver.releasePersistableUriPermission(
+          uri,
+          Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+        )
+      } catch (_: SecurityException) {
+        // The persisted grant may already have been revoked by Android.
+      }
+    }
+    preferences.edit().remove(SELECTED_URI_KEY).apply()
+    invoke.resolve(JSObject())
+  }
+
+  @Command
+  fun readCanonicalFiles(invoke: Invoke) {
+    try {
+      val uri = selectedUri(requireWrite = false)
+      if (uri == null) {
+        invoke.resolve(canonicalFilesResponse(false, JSONArray()))
+        return
+      }
+
+      val files = JSONArray()
+      val rootId = DocumentsContract.getTreeDocumentId(uri)
+      val rootChildren = childDocuments(uri, rootId)
+      rootChildren.firstOrNull { it.name == WORKSPACE_FILE && !it.isDirectory }?.let { document ->
+        files.put(canonicalFile(uri, document, WORKSPACE_FILE))
+      }
+      for (directoryName in CANONICAL_DIRECTORIES) {
+        val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
+        for (document in childDocuments(uri, directory.id)) {
+          if (!document.isDirectory && document.name.endsWith(JSON_SUFFIX)) {
+            files.put(canonicalFile(uri, document, "$directoryName/${document.name}"))
+          }
+        }
+      }
+      invoke.resolve(canonicalFilesResponse(true, files))
+    } catch (error: Exception) {
+      invoke.reject("ANDROID_WORKSPACE_READ_FAILED: ${error.message ?: error.javaClass.simpleName}")
+    }
+  }
+
+  @Command
+  fun writeCanonicalFiles(invoke: Invoke) {
+    try {
+      val uri = selectedUri(requireWrite = true) ?: throw IllegalStateException("no writable Android sync folder is selected")
+      val args = invoke.parseArgs(CanonicalWriteArgs::class.java)
+      val written = JSONArray()
+      val rootId = DocumentsContract.getTreeDocumentId(uri)
+      for (file in args.files) {
+        val segments = validatedPath(file.relativePath)
+        val parentId = ensureDirectory(uri, rootId, segments.dropLast(1))
+        val parentUri = DocumentsContract.buildDocumentUriUsingTree(uri, parentId)
+        val existing = childDocuments(uri, parentId).firstOrNull { it.name == segments.last() }
+        if (existing?.isDirectory == true) {
+          throw IllegalArgumentException("${file.relativePath} is a directory")
+        }
+        val fileId = existing?.id
+          ?: DocumentsContract.createDocument(
+            activity.contentResolver,
+            parentUri,
+            JSON_MIME_TYPE,
+            segments.last(),
+          )?.let { DocumentsContract.getDocumentId(it) }
+          ?: throw IllegalStateException("could not create ${file.relativePath}")
+        val fileUri = DocumentsContract.buildDocumentUriUsingTree(uri, fileId)
+        writeUtf8(fileUri, file.content)
+        written.put(file.relativePath)
+      }
+      val result = JSObject()
+      result.put("written", written)
+      invoke.resolve(result)
+    } catch (error: Exception) {
+      invoke.reject("ANDROID_WORKSPACE_WRITE_FAILED: ${error.message ?: error.javaClass.simpleName}")
+    }
+  }
+
+  private fun selectedUri(requireWrite: Boolean): Uri? {
+    val uriText = preferences.getString(SELECTED_URI_KEY, null) ?: return null
+    val uri = Uri.parse(uriText)
+    val stillGranted = activity.contentResolver.persistedUriPermissions.any { permission ->
+      permission.uri == uri && permission.isReadPermission && (!requireWrite || permission.isWritePermission)
+    }
+    if (!stillGranted) {
+      preferences.edit().remove(SELECTED_URI_KEY).apply()
+      return null
+    }
+    return uri
+  }
+
+  private fun childDocuments(treeUri: Uri, parentId: String): List<TreeDocument> {
+    val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
+    val columns = arrayOf(
+      DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+      DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+      DocumentsContract.Document.COLUMN_MIME_TYPE,
+      DocumentsContract.Document.COLUMN_SIZE,
+      DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+    )
+    val documents = mutableListOf<TreeDocument>()
+    val cursor = activity.contentResolver.query(childrenUri, columns, null, null, null)
+      ?: throw IllegalStateException("Android storage provider did not return folder contents")
+    cursor.use {
+      val idIndex = it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+      val nameIndex = it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+      val mimeIndex = it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+      val sizeIndex = it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
+      val modifiedIndex = it.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+      while (it.moveToNext()) {
+        documents += TreeDocument(
+          id = it.getString(idIndex),
+          name = it.getString(nameIndex) ?: "",
+          isDirectory = it.getString(mimeIndex) == DocumentsContract.Document.MIME_TYPE_DIR,
+          size = if (it.isNull(sizeIndex)) null else it.getLong(sizeIndex),
+          modifiedAt = if (it.isNull(modifiedIndex)) null else it.getLong(modifiedIndex),
+        )
+      }
+    }
+    return documents
+  }
+
+  private fun canonicalFile(treeUri: Uri, document: TreeDocument, relativePath: String): JSObject {
+    if (document.size != null && document.size > MAX_CANONICAL_FILE_BYTES) {
+      throw IllegalArgumentException("$relativePath is too large")
+    }
+    val documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, document.id)
+    val result = JSObject()
+    result.put("relativePath", relativePath)
+    result.put("content", readUtf8(documentUri))
+    if (document.modifiedAt == null) result.put("modifiedAt", JSONObject.NULL) else result.put("modifiedAt", document.modifiedAt)
+    return result
+  }
+
+  private fun readUtf8(uri: Uri): String {
+    val input = activity.contentResolver.openInputStream(uri)
+      ?: throw IllegalStateException("Android storage provider could not open $uri")
+    return input.use { stream ->
+      stream.readBounded(MAX_CANONICAL_FILE_BYTES).toString(Charsets.UTF_8)
+    }
+  }
+
+  private fun writeUtf8(uri: Uri, content: String) {
+    if (content.toByteArray(Charsets.UTF_8).size > MAX_CANONICAL_FILE_BYTES) {
+      throw IllegalArgumentException("canonical file is too large")
+    }
+    val output = activity.contentResolver.openOutputStream(uri, "wt")
+      ?: throw IllegalStateException("Android storage provider could not open $uri for writing")
+    output.use { stream -> stream.write(content.toByteArray(Charsets.UTF_8)) }
+  }
+
+  private fun ensureDirectory(treeUri: Uri, rootId: String, directories: List<String>): String {
+    var parentId = rootId
+    for (directoryName in directories) {
+      val existing = childDocuments(treeUri, parentId).firstOrNull { it.name == directoryName }
+      if (existing != null) {
+        if (!existing.isDirectory) throw IllegalArgumentException("$directoryName is not a directory")
+        parentId = existing.id
+        continue
+      }
+      val parentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, parentId)
+      val created = DocumentsContract.createDocument(
+        activity.contentResolver,
+        parentUri,
+        DocumentsContract.Document.MIME_TYPE_DIR,
+        directoryName,
+      ) ?: throw IllegalStateException("could not create $directoryName")
+      parentId = DocumentsContract.getDocumentId(created)
+    }
+    return parentId
+  }
+
+  private fun validatedPath(relativePath: String): List<String> {
+    val segments = relativePath.split('/')
+    if (segments.any { it.isEmpty() || it == "." || it == ".." }) {
+      throw IllegalArgumentException("invalid canonical path $relativePath")
+    }
+    val valid = relativePath == WORKSPACE_FILE ||
+      (segments.size == 2 && segments[0] in CANONICAL_DIRECTORIES && segments[1].endsWith(JSON_SUFFIX))
+    if (!valid) throw IllegalArgumentException("invalid canonical path $relativePath")
+    return segments
+  }
+
+  private fun canonicalFilesResponse(selected: Boolean, files: JSONArray): JSObject {
+    val result = JSObject()
+    result.put("selected", selected)
+    result.put("files", files)
+    return result
+  }
+
+  private fun directoryResponse(uri: Uri?): JSObject {
+    val result = JSObject()
+    if (uri == null) {
+      result.put("uri", JSONObject.NULL)
+      result.put("displayName", JSONObject.NULL)
+      result.put("path", JSONObject.NULL)
+      return result
+    }
+
+    val path = sharedStoragePath(uri)
+    result.put("uri", uri.toString())
+    result.put("displayName", path?.substringAfterLast('/') ?: uri.lastPathSegment?.let(Uri::decode) ?: "Selected folder")
+    result.put("path", path ?: JSONObject.NULL)
+    return result
+  }
+
+  private fun sharedStoragePath(uri: Uri): String? {
+    if (uri.authority != "com.android.externalstorage.documents") return null
+    val documentId = try {
+      DocumentsContract.getTreeDocumentId(uri)
+    } catch (_: IllegalArgumentException) {
+      return null
+    }
+    val separator = documentId.indexOf(':')
+    if (separator <= 0) return null
+    if (documentId.substring(0, separator) != "primary") return null
+
+    val relative = Uri.decode(documentId.substring(separator + 1)).trim('/')
+    val root = Environment.getExternalStorageDirectory().absolutePath
+    return if (relative.isEmpty()) root else "$root/$relative"
+  }
+
+  private data class TreeDocument(
+    val id: String,
+    val name: String,
+    val isDirectory: Boolean,
+    val size: Long?,
+    val modifiedAt: Long?,
+  )
+
+  private companion object {
+    const val PREFERENCES_NAME = "tasks.android.workspace"
+    const val SELECTED_URI_KEY = "sync_folder_uri"
+    const val WORKSPACE_FILE = "workspace.json"
+    const val JSON_SUFFIX = ".json"
+    const val JSON_MIME_TYPE = "application/json"
+    const val MAX_CANONICAL_FILE_BYTES = 4L * 1024L * 1024L
+    val CANONICAL_DIRECTORIES = listOf("tasks", "order")
+  }
+}
+
+private fun InputStream.readBounded(maxBytes: Long): ByteArray {
+  val output = java.io.ByteArrayOutputStream()
+  val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+  var total = 0L
+  while (true) {
+    val count = read(buffer)
+    if (count < 0) break
+    total += count
+    if (total > maxBytes) throw IllegalArgumentException("canonical file is too large")
+    output.write(buffer, 0, count)
+  }
+  return output.toByteArray()
+}

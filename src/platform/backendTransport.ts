@@ -4,6 +4,7 @@ import {
   type ProtocolResponse,
 } from "../backend/protocol";
 import { BackendSession } from "./backendSession";
+import { handleAndroidRequest } from "./androidBackendEngine";
 import { runtimeKind, type RuntimeKind } from "./runtime";
 
 type BackendKind = RuntimeKind;
@@ -35,12 +36,16 @@ class TauriBackendTransport implements BackendTransport {
 }
 
 class AndroidBackendTransport implements BackendTransport {
-  request(): Promise<ProtocolResponse> {
-    return Promise.reject(new Error("Android backend is not initialized: the Tasks-owned SQLite and workspace bridges are not available yet."));
+  private queue: Promise<void> = Promise.resolve();
+
+  request(request: ProtocolRequest): Promise<ProtocolResponse> {
+    const next = this.queue.then(() => handleAndroidRequest(request));
+    this.queue = next.then(() => undefined, () => undefined);
+    return next;
   }
 
   async close(): Promise<void> {
-    // The mobile transport has no native session until the Android bridge is implemented.
+    await this.queue;
   }
 }
 

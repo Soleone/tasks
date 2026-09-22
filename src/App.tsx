@@ -1267,7 +1267,7 @@ export default function App(): ReactElement {
           <Button variant="outline" onClick={() => void abortReceive()}>Abort and restore backup</Button>
         </section>
       </div> : null}
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-xl flex-col gap-6 overflow-hidden p-4 md:p-8">
+      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-xl flex-col gap-6 overflow-hidden">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
             <AppIcon className="size-8 shrink-0" />

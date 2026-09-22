@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
 import { exportTasks, getWorkspaceInfo, type TasksExportResult } from "@/platform/backendClient";
+import { clearAndroidSyncFolder, getAndroidSyncFolder, pickAndroidSyncFolder, type AndroidDirectorySelection } from "@/platform/androidWorkspace";
+import { runtimeKind } from "@/platform/runtime";
 import { APP_NAME } from "@/backend/branding";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
 export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, onPurgeCanceled, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange, fontSizeIncrease, onFontSizeIncreaseChange }: SettingsDialogProps): ReactElement {
+  const isAndroid = runtimeKind() === "android";
   const settingsTab = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
   const purging = useRef(false);
@@ -57,6 +60,8 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
   const [copied, setCopied] = useState(false);
   const [copiedShortcut, setCopiedShortcut] = useState(false);
   const [isLinux, setIsLinux] = useState(false);
+  const [syncFolder, setSyncFolder] = useState<AndroidDirectorySelection | null>(null);
+  const [syncFolderPending, setSyncFolderPending] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [confirmReceive, setConfirmReceive] = useState(false);
   const [shortcutDraft, setShortcutDraft] = useState(globalShortcut);
@@ -72,8 +77,14 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     setCopiedShortcut(false);
     setFailure(null);
     setConfirmReceive(false);
+    setSyncFolder(null);
     setShortcutDraft(globalShortcut);
     setIsLinux(navigator.platform.toLowerCase().includes("linux"));
+    if (isAndroid) {
+      getAndroidSyncFolder()
+        .then((folder) => { if (!stale) setSyncFolder(folder); })
+        .catch((caught: unknown) => { if (!stale) setFailure({ title: "Could not read the Android sync folder", detail: caught instanceof Error ? caught.message : String(caught) }); });
+    }
     getWorkspaceInfo()
       .then((info) => {
         if (stale) return;
@@ -82,7 +93,37 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
       })
       .catch((caught: unknown) => { if (!stale) setFailure({ title: "Could not read the workspace", detail: caught instanceof Error ? caught.message : String(caught) }); });
     return () => { stale = true; };
-  }, [open]);
+  }, [isAndroid, open]);
+
+  async function chooseAndroidSyncFolder(): Promise<void> {
+    if (syncFolderPending) return;
+    setSyncFolderPending(true);
+    setFailure(null);
+    try {
+      setSyncFolder(await pickAndroidSyncFolder());
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      if (!message.includes("ANDROID_FOLDER_PICKER_CANCELLED")) {
+        setFailure({ title: "Could not select the Android sync folder", detail: message });
+      }
+    } finally {
+      setSyncFolderPending(false);
+    }
+  }
+
+  async function clearSelectedAndroidSyncFolder(): Promise<void> {
+    if (syncFolderPending) return;
+    setSyncFolderPending(true);
+    setFailure(null);
+    try {
+      await clearAndroidSyncFolder();
+      setSyncFolder(null);
+    } catch (caught) {
+      setFailure({ title: "Could not forget the Android sync folder", detail: caught instanceof Error ? caught.message : String(caught) });
+    } finally {
+      setSyncFolderPending(false);
+    }
+  }
 
   async function exportNow(): Promise<void> {
     if (exporting.current) return;
@@ -311,7 +352,17 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                 <h2 id="settings-sync" className="text-sm font-medium">Workspace sync</h2>
                 <p className="text-sm text-muted-foreground">Move an existing workspace to this device through Syncthing.</p>
               </div>
-              {!confirmReceive ? <Button variant="outline" className="w-fit" onClick={() => setConfirmReceive(true)}>Sync with another device…</Button> : <Alert tone="confirmation" layout="stacked">
+              {isAndroid ? <>
+                <p className="text-sm text-muted-foreground">Choose the user-visible folder that Syncthing will share. Tasks imports canonical JSON when it starts or returns to the foreground, and new Android tasks are written back to that workspace.</p>
+                {syncFolder ? <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Selected Android folder</p>
+                  <code className="wrap-anywhere text-xs">{syncFolder.path ?? syncFolder.displayName ?? syncFolder.uri}</code>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" disabled={syncFolderPending} onClick={() => void chooseAndroidSyncFolder()}>{syncFolderPending ? "Opening folder picker…" : "Change folder"}</Button>
+                    <Button variant="ghost" size="sm" disabled={syncFolderPending} onClick={() => void clearSelectedAndroidSyncFolder()}>Forget folder</Button>
+                  </div>
+                </div> : <Button variant="outline" className="w-fit" disabled={syncFolderPending} onClick={() => void chooseAndroidSyncFolder()}>{syncFolderPending ? "Opening folder picker…" : "Choose Android sync folder…"}</Button>}
+              </> : !confirmReceive ? <Button variant="outline" className="w-fit" onClick={() => setConfirmReceive(true)}>Sync with another device…</Button> : <Alert tone="confirmation" layout="stacked">
                 <AlertTitle tone="destructive">Replace this device’s workspace?</AlertTitle>
                 <AlertDescription>Your current tasks will be backed up, then the local sync folder will be emptied. {APP_NAME} will stay locked until an existing workspace arrives through Syncthing.</AlertDescription>
                 <AlertAction layout="stacked">

@@ -1,6 +1,11 @@
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::Manager;
 
+#[cfg(target_os = "android")]
+mod android_backend;
+#[cfg(target_os = "android")]
+mod android_workspace;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -9,6 +14,19 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+
+    #[cfg(target_os = "android")]
+    let builder = builder
+        .plugin(android_workspace::init())
+        .manage(android_backend::AndroidStorageState::default())
+        .invoke_handler(tauri::generate_handler![
+            android_backend::android_storage,
+            android_workspace::pick_sync_folder,
+            android_workspace::get_sync_folder,
+            android_workspace::clear_sync_folder,
+            android_workspace::read_sync_files,
+            android_workspace::write_sync_files,
+        ]);
 
     builder
         .setup(|app| {
