@@ -510,8 +510,14 @@ try {
   evaluate('window.settingsDialogHeight = Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)); true');
   check('document.querySelector("[role=tablist]")?.getAttribute("aria-describedby") !== null');
   check('document.body.textContent.includes("Use the Left and Right Arrow keys to switch sections.")');
+  waitFor('document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "gilt"');
+  check('document.querySelector("[data-theme-control]")?.textContent.includes("Gilt")');
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[data-theme-control]")');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[data-font-size-control]")');
+  browser("press", "Shift+Tab");
+  waitFor('document.activeElement.matches("[data-theme-control]")');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "ArrowRight");
@@ -530,12 +536,26 @@ try {
   browser("press", "ArrowLeft");
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
+  // The Settings selector offers the same palettes as the picker and saves a
+  // light choice without closing Settings. Restore Gilt for the remaining checks.
+  const settingsThemeCount = (await command("theme.list")).themes.length;
+  browser("click", "[data-theme-control]");
+  waitFor('document.querySelectorAll("[data-slot=select-item]").length > 0');
+  check(`[...document.querySelectorAll("[data-slot=select-item]")].length === ${settingsThemeCount}`);
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.includes("Catppuccin Latte")).click(); true');
+  waitFor('document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "catppuccin-latte" && !document.documentElement.classList.contains("dark")');
+  assert.equal((await command("theme.list")).selected, "catppuccin-latte");
+  browser("click", "[data-theme-control]");
+  waitFor('document.querySelectorAll("[data-slot=select-item]").length > 0');
+  evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.includes("Gilt")).click(); true');
+  waitFor('document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "gilt" && document.documentElement.classList.contains("dark")');
+  assert.equal((await command("theme.list")).selected, "gilt");
   // Full help is the default. The dropdown also keeps the old basic mode
   // available while adding a separate option for no automatic guidance.
   check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
   browser("click", '[data-help-mode]');
   waitFor('document.querySelector("[data-slot=select-content]") !== null');
-  check('[...document.querySelectorAll("[data-slot=select-item]")].map((item) => item.textContent.trim()).join(",") === "Full,Basic,None"');
+  check('[...document.querySelectorAll("[data-slot=select-content][data-open] [data-slot=select-item]")].map((item) => item.textContent.trim()).join(",") === "Full,Basic,None"');
   evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Basic").click(); true');
   waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
   browser("click", '[data-help-mode]');

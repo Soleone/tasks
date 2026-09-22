@@ -66,7 +66,7 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
       open={open}
       onOpenChange={onOpenChange}
       title="Themes"
-      description="Choose the workspace theme."
+      description="Choose a theme."
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >

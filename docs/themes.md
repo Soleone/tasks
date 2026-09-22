@@ -4,9 +4,11 @@ Themes are palettes in the [omarchy `colors.toml` format](https://omarchy.org). 
 
 ## Choose a theme
 
-Open the theme picker with `Alt+T`, or open the `Ctrl/⌘+K` palette and choose **Themes**. The selected theme is stored in the local workspace database and is shared by the UI, CLI, and agents using that database.
+Choose a theme in **Settings → General → Appearance**, or open the searchable picker with `Alt+T` or `Ctrl/⌘+K` → **Themes**. Desktop stores the selection in its local workspace database, shared by the UI, CLI, and agents using that database. Android stores its selection privately on the device; it does not sync theme preferences through the canonical task folder.
 
-The app includes built-in dark and light palettes, including **Gilt**, the cool obsidian and sovereign-gold Omarchy theme (formerly **oligarchy**). Gilt is selected when no workspace choice exists. Built-ins are embedded in the sidecar, so packaged builds do not depend on theme files.
+The app includes built-in dark and light palettes, including **Gilt**, the cool obsidian and sovereign-gold Omarchy theme (formerly **oligarchy**). Gilt is selected when no workspace choice exists. Built-ins are bundled with each app, so packaged builds do not depend on theme files.
+
+Android includes the same built-in dark and light palettes as desktop. Workspace `.toml` themes and live Omarchy following are desktop-only for now.
 
 On Omarchy, **Omarchy System** appears when `~/.local/state/omarchy/current/theme/colors.toml` exists. It reads the active palette directly instead of copying it into the workspace. When selected, the app refreshes it about every 1.5 seconds, so an Omarchy theme change follows without restarting Tasks. The entry is unavailable when the live palette is absent.
 

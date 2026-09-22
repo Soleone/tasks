@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
 import { exportTasks, getWorkspaceInfo, type TasksExportResult } from "@/platform/backendClient";
 import { clearAndroidSyncFolder, getAndroidSyncFolder, pickAndroidSyncFolder, type AndroidDirectorySelection } from "@/platform/androidWorkspace";
 import { runtimeKind } from "@/platform/runtime";
 import { APP_NAME } from "@/backend/branding";
+import type { ThemeRecord } from "@/backend/protocol";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,9 @@ type SettingsDialogProps = {
   onHelpModeChange: (mode: KeyboardHelpMode) => void;
   fontSizeIncrease: FontSizeIncrease;
   onFontSizeIncreaseChange: (increase: FontSizeIncrease) => void;
+  themes: ThemeRecord[];
+  selectedTheme: string;
+  onSelectTheme: (name: string) => void;
 };
 
 function fontSizeLabel(increase: FontSizeIncrease): string {
@@ -46,7 +50,7 @@ function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
 
 // Storage is read every time the dialog opens: the workspace can differ
 // between launches, and a stale path would misreport where data lives.
-export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, onPurgeCanceled, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange, fontSizeIncrease, onFontSizeIncreaseChange }: SettingsDialogProps): ReactElement {
+export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceive, onPurgeCanceled, globalShortcut, onGlobalShortcutChange, helpMode, onHelpModeChange, fontSizeIncrease, onFontSizeIncreaseChange, themes, selectedTheme, onSelectTheme }: SettingsDialogProps): ReactElement {
   const isAndroid = runtimeKind() === "android";
   const settingsTab = useRef<HTMLButtonElement>(null);
   const exporting = useRef(false);
@@ -254,6 +258,30 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
               <div className="flex flex-col gap-1">
                 <h2 id="settings-appearance" className="text-sm font-medium">Appearance</h2>
                 <p className="text-sm text-muted-foreground">Tune the interface for comfortable reading.</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span id="settings-theme-label" className="text-sm font-medium">Theme</span>
+                  <Select value={selectedTheme || null} onValueChange={(value) => { if (value !== null) onSelectTheme(value); }}>
+                    <SelectTrigger
+                      size="sm"
+                      className="max-w-[70%]"
+                      data-theme-control={selectedTheme}
+                      disabled={themes.length === 0}
+                      aria-labelledby="settings-theme-label"
+                      aria-describedby="settings-theme-description"
+                    >
+                      <SelectValue>{themes.find((theme) => theme.name === selectedTheme)?.label ?? "Loading themes…"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      {themes.map((theme) => <SelectItem key={theme.name} value={theme.name}>
+                        <span aria-hidden="true" className="size-3 shrink-0 rounded-full bg-(--theme-swatch) ring-1 ring-border" style={{ "--theme-swatch": theme.palette.accent } as CSSProperties} />
+                        <span>{theme.label}</span>
+                      </SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p id="settings-theme-description" className="text-sm text-muted-foreground">Choose from {themes.length} dark and light palettes. Changes apply immediately and are saved locally.</p>
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">

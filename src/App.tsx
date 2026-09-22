@@ -477,11 +477,11 @@ export default function App(): ReactElement {
     void refreshThemes(true);
   }, [refreshThemes]);
 
-  // Theme files can appear or disappear while the app runs, so the picker
-  // re-reads them every time it opens.
+  // Theme files can appear or disappear while the app runs, so theme surfaces
+  // re-read them every time they open.
   useEffect(() => {
-    if (helpOpen || themesOpen) void refreshThemes(false);
-  }, [helpOpen, themesOpen, refreshThemes]);
+    if (helpOpen || themesOpen || settingsOpen) void refreshThemes(false);
+  }, [helpOpen, themesOpen, settingsOpen, refreshThemes]);
 
   // Omarchy replaces its current palette outside this process. When the live
   // theme is selected, refresh often enough to feel immediate without making
@@ -1495,6 +1495,9 @@ export default function App(): ReactElement {
         onHelpModeChange={changeHelpMode}
         fontSizeIncrease={fontSizeIncrease}
         onFontSizeIncreaseChange={changeFontSizeIncrease}
+        themes={themes}
+        selectedTheme={selectedTheme}
+        onSelectTheme={(name) => void chooseTheme(name)}
       />
     </main>
   );
