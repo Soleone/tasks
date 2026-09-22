@@ -1,6 +1,5 @@
 import {
   PROTOCOL_VERSION,
-  type ClassificationToken,
   type ProtocolRequest,
   type ProtocolResponse,
   type TaskPriority,
@@ -8,9 +7,10 @@ import {
   type TaskStatus,
 } from "../backend/protocol";
 import { canonicalJson } from "../backend/canonicalJson";
-import { classifyTaskText, TaskTextError } from "../backend/taskText";
+import { classifyTaskFields, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
 import { AndroidCanonicalError, syncAndroidWorkspace, writeAndroidCreatedTask } from "./androidCanonicalWorkspace";
+import { sortAndroidTasks } from "./androidTaskSort";
 
 const VALID_STATUSES = new Set<TaskStatus>(["open", "in_progress", "paused", "done", "canceled"]);
 
@@ -73,13 +73,9 @@ function statusValue(value: unknown): TaskStatus {
   throw new AndroidEngineError("INVALID_ARGUMENT", "status contains an unsupported task status");
 }
 
-function textClassification(title: string, descriptionMarkdown: string): { category: ClassificationToken | null; tags: ClassificationToken[] } {
+function textClassification(title: string, descriptionMarkdown: string): ReturnType<typeof classifyTaskFields> {
   try {
-    const titleClassification = classifyTaskText(title);
-    const descriptionClassification = classifyTaskText(descriptionMarkdown, false);
-    const tags = new Map(titleClassification.tags.map((tag) => [tag.slug, tag]));
-    for (const tag of descriptionClassification.tags) tags.set(tag.slug, tag);
-    return { category: titleClassification.category, tags: [...tags.values()] };
+    return classifyTaskFields(title, descriptionMarkdown);
   } catch (error) {
     if (error instanceof TaskTextError) throw new AndroidEngineError(error.code, error.message);
     throw error;
@@ -90,8 +86,8 @@ function previewTask(
   title: string,
   descriptionMarkdown: string,
   priority: TaskPriority,
-  category: ClassificationToken | null,
-  tags: ClassificationToken[],
+  category: TaskRecord["category"],
+  tags: TaskRecord["tags"],
   parentId: string | null,
 ): TaskRecord {
   const now = new Date().toISOString();
@@ -293,21 +289,6 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
   }
 }
 
-function sortTasks(tasks: TaskRecord[], sort: string, direction: string): TaskRecord[] {
-  const result = [...tasks];
-  const multiplier = direction === "asc" ? 1 : -1;
-  result.sort((left, right) => {
-    if (sort === "priority") return multiplier * (left.priority - right.priority) || left.id.localeCompare(right.id);
-    if (sort === "created" || sort === "updated") {
-      const leftValue = sort === "created" ? left.createdAt : left.updatedAt;
-      const rightValue = sort === "created" ? right.createdAt : right.updatedAt;
-      return multiplier * leftValue.localeCompare(rightValue) || left.id.localeCompare(right.id);
-    }
-    return 0;
-  });
-  return result;
-}
-
 async function listTasks(request: ProtocolRequest): Promise<Record<string, unknown>> {
   const current = await snapshot();
   const statusArgument = request.args.status;
@@ -320,7 +301,13 @@ async function listTasks(request: ProtocolRequest): Promise<Record<string, unkno
   const search = request.args.search === undefined ? "" : requiredText(request.args.search, "search").trim().toLowerCase();
   const unblocked = request.args.unblocked === true;
   const sort = request.args.sort === undefined ? "updated" : requiredText(request.args.sort, "sort");
+  if (!["created", "updated", "priority", "manual"].includes(sort)) {
+    throw new AndroidEngineError("INVALID_ARGUMENT", "sort must be created, updated, priority, or manual");
+  }
   const direction = request.args.direction === undefined ? "desc" : requiredText(request.args.direction, "direction");
+  if (direction !== "asc" && direction !== "desc") {
+    throw new AndroidEngineError("INVALID_ARGUMENT", "direction must be asc or desc");
+  }
   const limit = Math.min(Math.max(typeof request.args.limit === "number" ? Math.trunc(request.args.limit) : 50, 1), 100);
   const offset = Math.max(typeof request.args.offset === "number" ? Math.trunc(request.args.offset) : 0, 0);
 
@@ -333,7 +320,8 @@ async function listTasks(request: ProtocolRequest): Promise<Record<string, unkno
     if (unblocked && task.blockedByIds.length > 0) return false;
     return true;
   });
-  const ordered = sort === "manual" ? matches : sortTasks(matches, sort, direction);
+  const matchingIds = new Set(matches.map((task) => task.id));
+  const ordered = sortAndroidTasks(current.tasks, sort, direction).filter((task) => matchingIds.has(task.id));
   const tasks = ordered.slice(offset, offset + limit);
   const contextTasks: TaskRecord[] = [];
   if (request.args.includeAncestors === true) {

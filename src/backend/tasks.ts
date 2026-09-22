@@ -28,7 +28,7 @@ import {
   type TaskReorderTask,
   type TaskStatus,
 } from "./protocol.js";
-import { classifyTaskText, TaskTextError, type TaskClassification } from "./taskText.js";
+import { classifyTaskFields, TaskTextError, type TaskClassification } from "./taskText.js";
 import { backupWorkspace, exportTasks, exportWorkspace, restoreWorkspace, workspaceInfo } from "./workspace.js";
 
 type Row = Record<string, unknown>;
@@ -357,14 +357,7 @@ function retireOperationAfterLegacyUndo(database: DatabaseSync, taskIdValue: str
 
 function classify(title: string, descriptionMarkdown: string): TaskClassification {
   try {
-    const titleClassification = classifyTaskText(title);
-    const descriptionClassification = classifyTaskText(descriptionMarkdown, false);
-    const tags = new Map(titleClassification.tags.map((tag) => [tag.slug, tag]));
-    for (const tag of descriptionClassification.tags) tags.set(tag.slug, tag);
-    return {
-      category: titleClassification.category,
-      tags: [...tags.values()],
-    };
+    return classifyTaskFields(title, descriptionMarkdown);
   } catch (error) {
     if (error instanceof TaskTextError) {
       throw new CommandError(error.code, error.message);

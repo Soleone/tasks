@@ -617,6 +617,14 @@ fn replace_canonical_workspace(
         .execute_batch("BEGIN IMMEDIATE")
         .map_err(storage_error)?;
     let result = (|| {
+        // Receipts survive a cache rebuild within the same workspace, including
+        // the rebuild triggered by our own SAF write on the next request.
+        // Otherwise a retry of a successful create would add a second task.
+        if cache_meta_value(connection, "workspace_id")?.as_deref() != Some(workspace_id) {
+            connection
+                .execute("DELETE FROM command_receipts", [])
+                .map_err(storage_error)?;
+        }
         connection
             .execute_batch(
                 "DELETE FROM task_dependencies;
@@ -624,8 +632,7 @@ fn replace_canonical_workspace(
                  DELETE FROM tasks;
                  DELETE FROM categories;
                  DELETE FROM tags;
-                 DELETE FROM activity;
-                 DELETE FROM command_receipts;",
+                 DELETE FROM activity;",
             )
             .map_err(storage_error)?;
 
@@ -1105,5 +1112,24 @@ pub fn android_storage(
             *transaction_guard = None;
             Ok(json!({ "rolledBack": true }))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonical_rebuild_preserves_same_workspace_receipts() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        replace_canonical_workspace(&connection, "first", "initial", &[]).unwrap();
+        write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
+
+        replace_canonical_workspace(&connection, "first", "after-write", &[]).unwrap();
+        assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
+
+        replace_canonical_workspace(&connection, "second", "new-workspace", &[]).unwrap();
+        assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_null());
     }
 }

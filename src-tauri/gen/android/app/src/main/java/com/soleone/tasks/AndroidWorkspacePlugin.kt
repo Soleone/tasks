@@ -67,7 +67,8 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
 
     val grantedFlags = (result.data?.flags ?: 0) and
       (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-    if (grantedFlags == 0) {
+    val requiredFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    if (grantedFlags != requiredFlags) {
       invoke.reject("ANDROID_FOLDER_PICKER_NO_PERMISSION")
       return
     }
@@ -79,6 +80,8 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
       return
     }
 
+    val previous = preferences.getString(SELECTED_URI_KEY, null)?.let(Uri::parse)
+    if (previous != null && previous != uri) releaseDirectoryGrant(previous)
     preferences.edit().putString(SELECTED_URI_KEY, uri.toString()).apply()
     invoke.resolve(directoryResponse(uri))
   }
@@ -93,9 +96,10 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
 
     val uri = Uri.parse(uriText)
     val stillGranted = activity.contentResolver.persistedUriPermissions.any { permission ->
-      permission.uri == uri && (permission.isReadPermission || permission.isWritePermission)
+      permission.uri == uri && permission.isReadPermission && permission.isWritePermission
     }
     if (!stillGranted) {
+      releaseDirectoryGrant(uri)
       preferences.edit().remove(SELECTED_URI_KEY).apply()
       invoke.resolve(directoryResponse(null))
       return
@@ -107,19 +111,20 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
   @Command
   fun clearDirectory(invoke: Invoke) {
     val uriText = preferences.getString(SELECTED_URI_KEY, null)
-    if (uriText != null) {
-      val uri = Uri.parse(uriText)
-      try {
-        activity.contentResolver.releasePersistableUriPermission(
-          uri,
-          Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-        )
-      } catch (_: SecurityException) {
-        // The persisted grant may already have been revoked by Android.
-      }
-    }
+    if (uriText != null) releaseDirectoryGrant(Uri.parse(uriText))
     preferences.edit().remove(SELECTED_URI_KEY).apply()
     invoke.resolve(JSObject())
+  }
+
+  private fun releaseDirectoryGrant(uri: Uri) {
+    val grant = activity.contentResolver.persistedUriPermissions.firstOrNull { it.uri == uri } ?: return
+    val flags = (if (grant.isReadPermission) Intent.FLAG_GRANT_READ_URI_PERMISSION else 0) or
+      (if (grant.isWritePermission) Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0)
+    try {
+      activity.contentResolver.releasePersistableUriPermission(uri, flags)
+    } catch (_: SecurityException) {
+      // The persisted grant may already have been revoked by Android.
+    }
   }
 
   @Command
@@ -193,6 +198,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
       permission.uri == uri && permission.isReadPermission && (!requireWrite || permission.isWritePermission)
     }
     if (!stillGranted) {
+      releaseDirectoryGrant(uri)
       preferences.edit().remove(SELECTED_URI_KEY).apply()
       return null
     }
