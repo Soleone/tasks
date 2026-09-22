@@ -18,6 +18,10 @@ export function clearAndroidSyncFolder(): Promise<void> {
   return invoke<void>("clear_sync_folder");
 }
 
+export function exportAndroidTaskDocument(content: string, suggestedName: string): Promise<{ destinationPath: string; displayName: string }> {
+  return invoke("export_task_document", { content, suggestedName });
+}
+
 export type AndroidCanonicalFile = {
   relativePath: string;
   content: string;

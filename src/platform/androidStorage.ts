@@ -68,6 +68,8 @@ export type AndroidStorageRequest =
   | { operation: "readSnapshot" }
   | { operation: "readReceipt"; idempotencyKey: string }
   | { operation: "readCanonicalMeta" }
+  | { operation: "readTheme" }
+  | { operation: "setTheme"; name: string }
   | { operation: "readPendingWrite" }
   | { operation: "stageCanonicalWrite"; pending: AndroidPendingWrite }
   | { operation: "completePendingWrite"; operationId: string }

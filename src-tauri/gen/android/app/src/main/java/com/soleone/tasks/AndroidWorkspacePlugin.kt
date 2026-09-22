@@ -19,6 +19,12 @@ import org.json.JSONObject
 import java.io.InputStream
 
 @InvokeArg
+class ExportDocumentArgs {
+  lateinit var content: String
+  lateinit var suggestedName: String
+}
+
+@InvokeArg
 class CanonicalWriteFileArgs {
   lateinit var relativePath: String
   lateinit var content: String
@@ -125,6 +131,53 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
       activity.contentResolver.releasePersistableUriPermission(uri, flags)
     } catch (_: SecurityException) {
       // The persisted grant may already have been revoked by Android.
+    }
+  }
+
+  @Command
+  fun exportTaskDocument(invoke: Invoke) {
+    val args = invoke.parseArgs(ExportDocumentArgs::class.java)
+    if (args.content.toByteArray(Charsets.UTF_8).size > MAX_EXPORT_BYTES ||
+      !Regex("^tasks-[0-9TZ-]+\\.json$").matches(args.suggestedName)) {
+      invoke.reject("ANDROID_EXPORT_INVALID_DOCUMENT")
+      return
+    }
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+      addCategory(Intent.CATEGORY_OPENABLE)
+      type = JSON_MIME_TYPE
+      putExtra(Intent.EXTRA_TITLE, args.suggestedName)
+    }
+    startActivityForResult(invoke, intent, "onExportDocumentPicked")
+  }
+
+  @ActivityCallback
+  private fun onExportDocumentPicked(invoke: Invoke, result: ActivityResult) {
+    if (result.resultCode != Activity.RESULT_OK) {
+      invoke.reject("ANDROID_EXPORT_CANCELLED")
+      return
+    }
+    val uri = result.data?.data ?: run {
+      invoke.reject("ANDROID_EXPORT_EMPTY_RESULT")
+      return
+    }
+    try {
+      val args = invoke.parseArgs(ExportDocumentArgs::class.java)
+      writeUtf8(uri, args.content, MAX_EXPORT_BYTES)
+      val response = JSObject()
+      response.put("destinationPath", uri.toString())
+      val name = try {
+        activity.contentResolver.query(
+          uri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null,
+        )?.use { cursor ->
+          if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+      } catch (_: Exception) {
+        null
+      }
+      response.put("displayName", name ?: args.suggestedName)
+      invoke.resolve(response)
+    } catch (error: Exception) {
+      invoke.reject("ANDROID_EXPORT_FAILED: ${error.message ?: error.javaClass.simpleName}")
     }
   }
 
@@ -268,9 +321,9 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     }
   }
 
-  private fun writeUtf8(uri: Uri, content: String) {
-    if (content.toByteArray(Charsets.UTF_8).size > MAX_CANONICAL_FILE_BYTES) {
-      throw IllegalArgumentException("canonical file is too large")
+  private fun writeUtf8(uri: Uri, content: String, maxBytes: Long = MAX_CANONICAL_FILE_BYTES) {
+    if (content.toByteArray(Charsets.UTF_8).size > maxBytes) {
+      throw IllegalArgumentException("file is too large")
     }
     val output = activity.contentResolver.openOutputStream(uri, "wt")
       ?: throw IllegalStateException("Android storage provider could not open $uri for writing")
@@ -363,6 +416,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     const val JSON_SUFFIX = ".json"
     const val JSON_MIME_TYPE = "application/json"
     const val MAX_CANONICAL_FILE_BYTES = 4L * 1024L * 1024L
+    const val MAX_EXPORT_BYTES = 8L * 1024L * 1024L
     val CANONICAL_DIRECTORIES = listOf("tasks", "order")
   }
 }

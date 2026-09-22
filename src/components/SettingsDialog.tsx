@@ -137,7 +137,10 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
     try {
       setExported(await exportTasks());
     } catch (caught) {
-      setFailure({ title: "Could not export tasks", detail: caught instanceof Error ? caught.message : String(caught) });
+      const message = caught instanceof Error ? caught.message : String(caught);
+      if (!isAndroid || !message.includes("ANDROID_EXPORT_CANCELLED")) {
+        setFailure({ title: "Could not export tasks", detail: message });
+      }
     } finally {
       exporting.current = false;
       setPending(false);
@@ -202,6 +205,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
 
   const exportedPath = exported?.destinationPath ?? null;
   const exportedCount = exported?.taskCount ?? 0;
+  const exportedLocation = isAndroid ? exported?.displayName ?? "a document" : exportedPath;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -316,7 +320,10 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
           </TabsContent>
 
           <TabsContent value="shortcuts" tabIndex={-1}>
-            <section aria-labelledby="settings-shortcut" className="flex flex-col gap-4 rounded-lg border p-4">
+            {isAndroid ? <section aria-labelledby="settings-shortcut" className="flex flex-col gap-2 rounded-lg border p-4">
+              <h2 id="settings-shortcut" className="text-sm font-medium">Shortcuts on Android</h2>
+              <p className="text-sm text-muted-foreground">With a hardware keyboard, use the in-app task shortcuts. Android does not support the desktop global window-focus shortcut; open Tasks from the launcher instead.</p>
+            </section> : <section aria-labelledby="settings-shortcut" className="flex flex-col gap-4 rounded-lg border p-4">
               <div className="flex flex-col gap-1">
                 <h2 id="settings-shortcut" className="text-sm font-medium">Global shortcut</h2>
                 <p id="settings-shortcut-description" className="text-sm text-muted-foreground">Focuses the {APP_NAME} window even when another app is active. Use modifiers plus a key, for example <code>Ctrl+Alt+Space</code>.</p>
@@ -344,7 +351,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                 </Button>
                 <p className="text-xs text-muted-foreground">This focuses the existing {APP_NAME} window and launches {APP_NAME} only when no matching window exists. It does not change your Hyprland files automatically.</p>
               </div> : null}
-            </section>
+            </section>}
           </TabsContent>
 
           <TabsContent value="workspace" tabIndex={-1}>
@@ -355,7 +362,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                 <p className="text-sm text-muted-foreground">Move an existing workspace to this device through Syncthing.</p>
               </div>
               {isAndroid ? <>
-                <p className="text-sm text-muted-foreground">Choose the user-visible folder that Syncthing will share. Tasks imports canonical JSON when it starts or returns to the foreground, and new Android tasks are written back to that workspace. If you already captured tasks locally, do not attach a different workspace: Android will keep your local tasks and ask you to forget the folder.</p>
+                <p className="text-sm text-muted-foreground">Choose the user-visible folder that Syncthing will share. Tasks imports canonical JSON on startup and when it returns to the foreground. If this device already has local tasks, export a portable copy to keep them safe. Android cannot replace those tasks with an existing workspace yet.</p>
                 {syncFolder ? <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Selected Android folder</p>
                   <code className="wrap-anywhere text-xs">{syncFolder.path ?? syncFolder.displayName ?? syncFolder.uri}</code>
@@ -382,7 +389,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
               {databasePath
                 ? <div className="flex flex-col gap-1 rounded-md border bg-muted/20 p-3">
                     <p className="text-xs font-medium text-muted-foreground">SQLite workspace</p>
-                    <p className="wrap-anywhere font-mono text-xs text-muted-foreground">{databasePath}</p>
+                    <p className="wrap-anywhere font-mono text-xs text-muted-foreground">{isAndroid ? "Stored privately on this device" : databasePath}</p>
                   </div>
                 : <p className="text-sm text-muted-foreground">Reading the workspace…</p>}
               <div className="flex flex-col gap-2">
@@ -393,7 +400,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                   disabled={pending}
                   onClick={() => void exportNow()}
                 >{pending ? "Exporting…" : "Export tasks as JSON"}</Button>
-                <p className="text-sm text-muted-foreground">Writes a readable copy into the exports folder beside the database, for another app to import.</p>
+                <p className="text-sm text-muted-foreground">{isAndroid ? "Choose where to save a portable JSON document. It can be opened by another app." : "Writes a readable copy into the exports folder beside the database, for another app to import."}</p>
               </div>
             </section>
 
@@ -405,11 +412,11 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
               <Button
                 variant="destructive"
                 className="w-fit"
-                disabled={purgingPending || canceledTaskCount === null || canceledTaskCount === 0}
+                disabled={isAndroid || purgingPending || canceledTaskCount === null || canceledTaskCount === 0}
                 onClick={() => void purgeCanceledNow()}
               >{purgingPending ? "Deleting canceled tasks…" : "Permanently delete canceled tasks"}</Button>
               <p className="text-sm text-muted-foreground">
-                {canceledTaskCount === null
+                {isAndroid ? "Permanent deletion is not available on Android yet; canceled tasks remain in the shared workspace." : canceledTaskCount === null
                   ? "Reading canceled tasks…"
                   : canceledTaskCount === 0
                     ? "There are no canceled tasks to delete."
@@ -443,13 +450,13 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
           <AlertTitle>
             Exported {exportedCount} {exportedCount === 1 ? "task" : "tasks"}
           </AlertTitle>
-          <AlertDescription className="wrap-anywhere">{exportedPath}</AlertDescription>
-          <AlertAction>
+          <AlertDescription className="wrap-anywhere">{exportedLocation}</AlertDescription>
+          {!isAndroid ? <AlertAction>
             <Button variant="outline" size="xs" onClick={() => void copyPath(exportedPath)}>
               {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
               {copied ? "Copied" : "Copy path"}
             </Button>
-          </AlertAction>
+          </AlertAction> : null}
         </Alert> : null}
       </DialogContent>
     </Dialog>

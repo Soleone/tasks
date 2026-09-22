@@ -46,6 +46,10 @@ pub enum AndroidStorageRequest {
         idempotency_key: String,
     },
     ReadCanonicalMeta,
+    ReadTheme,
+    SetTheme {
+        name: String,
+    },
     ReadPendingWrite,
     StageCanonicalWrite {
         pending: AndroidPendingWrite,
@@ -1141,6 +1145,27 @@ pub fn android_storage(
                 ));
             }
             read_canonical_meta(connection)
+        }
+        AndroidStorageRequest::ReadTheme => {
+            if transaction_guard.is_some() {
+                return Err(storage_error("cannot read the theme during a transaction"));
+            }
+            Ok(json!({ "name": cache_meta_value(connection, "theme_name")? }))
+        }
+        AndroidStorageRequest::SetTheme { name } => {
+            if transaction_guard.is_some() || name.trim().is_empty() {
+                return Err(storage_error(
+                    "cannot set the theme during a transaction or to an empty name",
+                ));
+            }
+            connection
+                .execute(
+                    "INSERT INTO cache_meta (key, value) VALUES ('theme_name', ?1)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    params![name],
+                )
+                .map_err(storage_error)?;
+            Ok(json!({ "saved": true }))
         }
         AndroidStorageRequest::ReadPendingWrite => {
             if transaction_guard.is_some() {

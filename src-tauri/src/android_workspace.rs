@@ -99,6 +99,22 @@ pub async fn clear_sync_folder(
 }
 
 #[tauri::command]
+pub async fn export_task_document(
+    state: State<'_, AndroidWorkspacePluginState<tauri::Wry>>,
+    content: String,
+    suggested_name: String,
+) -> Result<serde_json::Value, String> {
+    state
+        .plugin
+        .run_mobile_plugin_async(
+            "exportTaskDocument",
+            json!({ "content": content, "suggestedName": suggested_name }),
+        )
+        .await
+        .map_err(plugin_error)
+}
+
+#[tauri::command]
 pub async fn read_sync_files(
     state: State<'_, AndroidWorkspacePluginState<tauri::Wry>>,
 ) -> Result<NativeCanonicalFiles, String> {

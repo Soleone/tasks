@@ -24,6 +24,7 @@ pub fn run() {
             android_workspace::pick_sync_folder,
             android_workspace::get_sync_folder,
             android_workspace::clear_sync_folder,
+            android_workspace::export_task_document,
             android_workspace::read_sync_files,
             android_workspace::write_sync_files,
         ]);

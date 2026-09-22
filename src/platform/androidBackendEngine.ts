@@ -7,10 +7,14 @@ import {
   type TaskStatus,
 } from "../backend/protocol";
 import { canonicalJson } from "../backend/canonicalJson";
+import { portableTaskExport } from "../backend/taskExport";
+import { builtinThemes } from "../backend/builtinThemes";
+import { GILT_THEME_NAME } from "../backend/themePalette";
 import { classifyTaskFields, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
 import { AndroidCanonicalError, syncAndroidWorkspace, writeAndroidCreatedTask } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
+import { exportAndroidTaskDocument } from "./androidWorkspace";
 
 const VALID_STATUSES = new Set<TaskStatus>(["open", "in_progress", "paused", "done", "canceled"]);
 
@@ -348,6 +352,47 @@ async function listTasks(request: ProtocolRequest): Promise<Record<string, unkno
   return { tasks, contextTasks, total: matches.length, limit, offset, workspaceRevision: current.workspaceRevision };
 }
 
+async function themeList(): Promise<{ themes: ReturnType<typeof builtinThemes>; selected: string }> {
+  const themes = builtinThemes();
+  const saved = await androidStorage({ operation: "readTheme" });
+  const name = saved.name;
+  return { themes, selected: typeof name === "string" && themes.some((theme) => theme.name === name) ? name : GILT_THEME_NAME };
+}
+
+async function themeSet(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const { themes, selected } = await themeList();
+  const name = requiredText(request.args.name, "name");
+  const theme = themes.find((candidate) => candidate.name === name);
+  if (!theme) throw new AndroidEngineError("UNKNOWN_THEME", `theme "${name}" is not available`);
+  const changed = selected !== name;
+  if (request.readOnly || request.dryRun) return { theme, selected, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
+  if (changed) await androidStorage({ operation: "setTheme", name });
+  return { theme, selected: name, changed };
+}
+
+async function exportPortableTasks(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const current = await snapshot();
+  const positions = new Map<string, number>();
+  const siblings = new Map<string | null, number>();
+  for (const task of current.tasks) {
+    const position = siblings.get(task.parentId) ?? 0;
+    positions.set(task.id, position);
+    siblings.set(task.parentId, position + 1);
+  }
+  const exportedAt = new Date().toISOString();
+  if (request.readOnly || request.dryRun) {
+    return { databasePath: "android-app-private", destinationPath: null, taskCount: current.tasks.length, exportedAt, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+  const file = portableTaskExport(
+    [...current.tasks].sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
+    positions,
+    exportedAt,
+  );
+  const suggestedName = `tasks-${exportedAt.slice(0, 19).replaceAll(":", "")}Z.json`;
+  const saved = await exportAndroidTaskDocument(`${JSON.stringify(file, null, 2)}\n`, suggestedName);
+  return { databasePath: "android-app-private", ...saved, taskCount: file.taskCount, exportedAt };
+}
+
 async function listCategories(): Promise<Record<string, unknown>> {
   const current = await snapshot();
   const counts = new Map<string, { label: string; taskCount: number }>();
@@ -400,6 +445,9 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
       case "tag.list":
         result = await listTags();
         break;
+      case "workspace.exportTasks":
+        result = await exportPortableTasks(request);
+        break;
       case "workspace.info": {
         const current = await snapshot();
         result = {
@@ -411,7 +459,10 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
         break;
       }
       case "theme.list":
-        result = { themes: [], selected: "" };
+        result = await themeList();
+        break;
+      case "theme.set":
+        result = await themeSet(request);
         break;
       default:
         throw new AndroidEngineError("ANDROID_COMMAND_UNSUPPORTED", `${request.command} is not implemented on Android yet`);

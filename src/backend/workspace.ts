@@ -4,13 +4,10 @@ import type { DatabaseSync } from "node:sqlite";
 import { SCHEMA_VERSION, openDatabase, readWorkspaceRevision, withTransaction } from "./database.js";
 import { ensureCanonicalWorkspace, invalidateCacheGeneration, withWorkspaceLock } from "./canonicalWorkspace.js";
 import { CommandError } from "./errors.js";
+import { portableTaskExport } from "./taskExport.js";
 import {
-  TASKS_EXPORT_FORMAT,
-  TASKS_EXPORT_FORMAT_VERSION,
   type ProtocolRequest,
-  type TaskExportRecord,
   type TaskRecord,
-  type TasksExportFile,
 } from "./protocol.js";
 
 type Row = Record<string, unknown>;
@@ -184,27 +181,6 @@ function nextExportPath(directory: string, stem: string): string {
   throw new CommandError("EXPORT_EXISTS", `too many exports already share the stamp ${stem}`);
 }
 
-/** The portable view keeps the slugs the user typed and drops internal state. */
-function exportedTask(task: TaskRecord, siblingOrder: number): TaskExportRecord {
-  return {
-    id: task.id,
-    siblingOrder,
-    title: task.title,
-    status: task.status,
-    priority: task.priority,
-    category: task.category?.slug ?? null,
-    tags: task.tags.map((tag) => tag.slug),
-    parentId: task.parentId,
-    // The portable view preserves dependency edges, including canceled targets.
-    blockedByIds: task.dependencyIds,
-    notesMarkdown: task.descriptionMarkdown,
-    createdAt: task.createdAt,
-    updatedAt: task.updatedAt,
-    completedAt: task.completedAt,
-    canceledAt: task.canceledAt,
-  };
-}
-
 /**
  * Writes a readable JSON file meant for other apps. The backend resolves the
  * destination itself, so a renderer never chooses filesystem paths; a dry run
@@ -217,13 +193,7 @@ export function exportTasks(
   request: ProtocolRequest,
 ): Record<string, unknown> {
   const exportedAt = new Date().toISOString();
-  const file: TasksExportFile = {
-    format: TASKS_EXPORT_FORMAT,
-    formatVersion: TASKS_EXPORT_FORMAT_VERSION,
-    exportedAt,
-    taskCount: tasks.length,
-    tasks: tasks.map((task) => exportedTask(task, siblingOrders.get(task.id) ?? 0)),
-  };
+  const file = portableTaskExport(tasks, siblingOrders, exportedAt);
   if (request.readOnly || request.dryRun) {
     return {
       databasePath,

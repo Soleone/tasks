@@ -15,6 +15,7 @@ import {
   resolveTheme,
 } from "./themePalette.js";
 import { availableThemes, OMARCHY_SYSTEM_THEME_NAME, omarchyColorsPath } from "./themes.js";
+import { builtinThemes } from "./builtinThemes.js";
 
 function request(
   command: ProtocolRequest["command"],
@@ -120,6 +121,17 @@ test("color helpers mix in linear light and report contrast", () => {
   assert.ok(contrastRatio(corrected, "#24283b") >= 4.5);
   // An unreachable target stops at the destination color instead of looping.
   assert.equal(readableMix("#ffffff", "#ffffff", ["#ffffff"], 21), "#ffffff");
+});
+
+test("Android's built-in theme list matches the desktop palettes", () => {
+  const { directory, databasePath } = temporaryWorkspace();
+  try {
+    const builtin = builtinThemes();
+    assert.ok(builtin.some((theme) => theme.name === GILT_THEME_NAME));
+    assert.deepEqual(builtin, availableThemes(databasePath, { HOME: directory }).filter((theme) => theme.source === "builtin"));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("built-in themes parse cleanly and keep text readable", () => {
