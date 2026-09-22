@@ -147,6 +147,12 @@ pnpm dev:tauri:omarchy
 
 The checked Windows host has WebView2. Other Windows machines still need the normal WebView2 and Tauri prerequisites.
 
+## Android status
+
+The Android feasibility work currently stops after the desktop/mobile configuration split. The repository now has an Android config without desktop sidecars, desktop-only capabilities and plugins, and a transport placeholder that fails clearly instead of trying to launch the Node sidecar. The shared command engine and native SQLite/SAF bridges are not implemented yet.
+
+The desktop baseline used for this slice is Node 26.9.0, pnpm 11.22.0, Rust 1.98.1, and Tauri 2.11.5. The current Linux host has no `java`, `adb`, `sdkmanager`, or `gradle` command, no Android SDK environment variables, and no Android Rust target installed. Those prerequisites block `tauri android init`, emulator/device lifecycle checks, and all SQLite/SAF evidence. Install and record the Android SDK, JDK, NDK, Gradle, and target versions before continuing. Web, Linux desktop, and WSL checks are not Android acceptance evidence.
+
 ## WSL and agent access
 
 The `bin/tasks` wrapper lets an agent in WSL call the Windows sidecar and Windows database instead of opening the database through `/mnt/c`. Set `TASKS_WINDOWS_ROOT`, `TASKS_WINDOWS_SIDECAR`, or `TASKS_WINDOWS_DATABASE` when the default paths do not match the checkout.

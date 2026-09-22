@@ -1,24 +1,29 @@
-#[cfg(any(debug_assertions, target_os = "linux"))]
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+
+    builder
         .setup(|app| {
             #[cfg(target_os = "linux")]
             app.get_webview_window("main")
                 .expect("main window should exist")
                 .set_decorations(false)?;
 
-            #[cfg(debug_assertions)]
+            #[cfg(all(
+                debug_assertions,
+                any(target_os = "windows", target_os = "macos", target_os = "linux")
+            ))]
             app.get_webview_window("main")
                 .expect("main window should exist")
                 .open_devtools();
-
-            #[cfg(not(debug_assertions))]
-            let _ = app;
 
             Ok(())
         })

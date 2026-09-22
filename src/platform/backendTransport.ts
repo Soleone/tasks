@@ -4,13 +4,12 @@ import {
   type ProtocolResponse,
 } from "../backend/protocol";
 import { BackendSession } from "./backendSession";
+import { runtimeKind, type RuntimeKind } from "./runtime";
 
-type BackendKind = "desktop" | "browser";
+type BackendKind = RuntimeKind;
 
 function backendKind(): BackendKind {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
-    ? "desktop"
-    : "browser";
+  return runtimeKind();
 }
 
 export interface BackendTransport {
@@ -32,6 +31,16 @@ class TauriBackendTransport implements BackendTransport {
 
   close(): Promise<void> {
     return this.session.close();
+  }
+}
+
+class AndroidBackendTransport implements BackendTransport {
+  request(): Promise<ProtocolResponse> {
+    return Promise.reject(new Error("Android backend is not initialized: the Tasks-owned SQLite and workspace bridges are not available yet."));
+  }
+
+  async close(): Promise<void> {
+    // The mobile transport has no native session until the Android bridge is implemented.
   }
 }
 
@@ -65,9 +74,12 @@ let transport: BackendTransport | null = null;
 
 export function getBackendTransport(): BackendTransport {
   if (!transport) {
-    transport = backendKind() === "desktop"
+    const kind = backendKind();
+    transport = kind === "desktop"
       ? new TauriBackendTransport()
-      : new HttpBackendTransport();
+      : kind === "android"
+        ? new AndroidBackendTransport()
+        : new HttpBackendTransport();
   }
   return transport;
 }

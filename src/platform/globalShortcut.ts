@@ -1,11 +1,6 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import { isDesktopTauri } from "./runtime";
 
 export const DEFAULT_GLOBAL_SHORTCUT = "Ctrl+Alt+Space";
-
-function isNativeDesktop(): boolean {
-  return "__TAURI_INTERNALS__" in window;
-}
 
 export function isShortcutConfigured(value: string): boolean {
   const parts = value.split("+").map((part) => part.trim()).filter(Boolean);
@@ -16,7 +11,12 @@ export function isShortcutConfigured(value: string): boolean {
 }
 
 export async function setGlobalShortcut(next: string, previous: string | null): Promise<void> {
-  if (!isNativeDesktop()) return;
+  if (!isDesktopTauri()) return;
+
+  const [{ getCurrentWindow }, { register, unregister }] = await Promise.all([
+    import("@tauri-apps/api/window"),
+    import("@tauri-apps/plugin-global-shortcut"),
+  ]);
   await register(next, async (event) => {
     if (event.state !== "Pressed") return;
     const window = getCurrentWindow();
