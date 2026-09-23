@@ -16,6 +16,13 @@ test("recovery writes missing or partially written files without changing verifi
   assert.deepEqual(filesToRecover(pending, [file("tasks/new.json", "new task"), file("order/root.json", "new order")]), []);
 });
 
+test("recovery completes a staged deletion only when the original file is unchanged", () => {
+  const deletion = { files: [{ relativePath: "tasks/old.json", previousContent: "old task", content: null }] };
+  assert.deepEqual(filesToRecover(deletion, [file("tasks/old.json", "old task")]), deletion.files);
+  assert.deepEqual(filesToRecover(deletion, []), []);
+  assert.throws(() => filesToRecover(deletion, [file("tasks/old.json", "edited task")]), /changed/);
+});
+
 test("recovery refuses a concurrent edit instead of overwriting it", () => {
   assert.throws(() => filesToRecover(pending, [file("tasks/new.json", "other task")]), /tasks\/new.json changed/);
   assert.throws(() => filesToRecover(pending, [file("order/root.json", "other order")]), /order\/root.json changed/);

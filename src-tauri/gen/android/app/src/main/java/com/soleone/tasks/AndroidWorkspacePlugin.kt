@@ -27,7 +27,7 @@ class ExportDocumentArgs {
 @InvokeArg
 class CanonicalWriteFileArgs {
   lateinit var relativePath: String
-  lateinit var content: String
+  var content: String? = null
   var previousContent: String? = null
   var modifiedAt: Long? = null
 }
@@ -228,11 +228,25 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
         val actual = existing?.let {
           readUtf8(DocumentsContract.buildDocumentUriUsingTree(uri, it.id))
         }
-        if (actual != file.content && actual != file.previousContent &&
-          (actual == null || !file.content.startsWith(actual))) {
+        val content = file.content
+        if (content == null) {
+          if (actual != null) {
+            if (actual != file.previousContent) {
+              throw IllegalStateException("${file.relativePath} changed since the Android deletion was staged")
+            }
+            val existingUri = DocumentsContract.buildDocumentUriUsingTree(uri, existing?.id ?: throw IllegalStateException("missing document to delete"))
+            if (!DocumentsContract.deleteDocument(activity.contentResolver, existingUri)) {
+              throw IllegalStateException("could not delete ${file.relativePath}")
+            }
+          }
+          written.put(file.relativePath)
+          continue
+        }
+        if (actual != content && actual != file.previousContent &&
+          (actual == null || !content.startsWith(actual))) {
           throw IllegalStateException("${file.relativePath} changed since the Android write was staged")
         }
-        if (actual == file.content) {
+        if (actual == content) {
           written.put(file.relativePath)
           continue
         }
@@ -245,7 +259,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
           )?.let { DocumentsContract.getDocumentId(it) }
           ?: throw IllegalStateException("could not create ${file.relativePath}")
         val fileUri = DocumentsContract.buildDocumentUriUsingTree(uri, fileId)
-        writeUtf8(fileUri, file.content)
+        writeUtf8(fileUri, content)
         written.put(file.relativePath)
       }
       val result = JSObject()

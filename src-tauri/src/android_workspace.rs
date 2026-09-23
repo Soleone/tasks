@@ -23,6 +23,15 @@ pub struct AndroidCanonicalFile {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AndroidCanonicalWriteFile {
+    pub relative_path: String,
+    pub content: Option<String>,
+    pub previous_content: Option<String>,
+    pub modified_at: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NativeCanonicalFiles {
     selected: bool,
     files: Vec<AndroidCanonicalFile>,
@@ -128,7 +137,7 @@ pub async fn read_sync_files(
 #[tauri::command]
 pub async fn write_sync_files(
     state: State<'_, AndroidWorkspacePluginState<tauri::Wry>>,
-    files: Vec<AndroidCanonicalFile>,
+    files: Vec<AndroidCanonicalWriteFile>,
 ) -> Result<serde_json::Value, String> {
     state
         .plugin

@@ -10,7 +10,7 @@ export function filesToRecover(
   return pending.files.filter((file) => {
     const actual = contents.get(file.relativePath) ?? null;
     if (actual === file.content) return false;
-    if (actual === file.previousContent || (actual !== null && file.content.startsWith(actual))) return true;
+    if (actual === file.previousContent || (actual !== null && file.content !== null && file.content.startsWith(actual))) return true;
     throw new Error(`${file.relativePath} changed during an interrupted Android write`);
   });
 }

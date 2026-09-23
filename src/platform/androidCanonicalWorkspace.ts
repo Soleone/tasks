@@ -505,6 +505,61 @@ export async function writeAndroidCreatedTask(
   return true;
 }
 
+export async function writeAndroidDeletedTask(
+  task: TaskRecord,
+  receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
+): Promise<boolean> {
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) return false;
+  const current = await parseWorkspaceFiles(result.files);
+  const filesByPath = new Map(result.files.map((file) => [file.relativePath, file]));
+  const taskPath = `tasks/${task.id}.json`;
+  const taskFile = filesByPath.get(taskPath);
+  if (!taskFile) invalid(`task ${task.id} is missing from the selected folder`);
+  const previous = await parseTask(taskFile, current.workspaceId, task.id);
+  if (previous.sync.revision !== task.version || previous.title !== task.title
+      || previous.descriptionMarkdown !== task.descriptionMarkdown || previous.status !== task.status
+      || previous.parentId !== task.parentId || previous.priority !== task.priority
+      || previous.updatedAt !== task.updatedAt
+      || canonicalJson(previous.dependencyIds) !== canonicalJson(task.dependencyIds)) {
+    throw new AndroidCanonicalError("OPERATION_CONFLICT", `task ${task.id} changed in the selected folder`);
+  }
+  if (current.tasks.some((entry) => entry.parentId === task.id || entry.dependencyIds.includes(task.id))) {
+    throw new AndroidCanonicalError("OPERATION_CONFLICT", `task ${task.id} has children or dependents in the selected folder`);
+  }
+  const orderPath = task.parentId === null ? "order/root.json" : `order/${task.parentId}.json`;
+  const orderFile = filesByPath.get(orderPath);
+  const previousOrder = orderFile ? await parseOrder(orderFile, current.workspaceId, task.parentId) : null;
+  const order: CanonicalOrder = {
+    format: "tasks.sibling-order", formatVersion: 1, workspaceId: current.workspaceId,
+    parentId: task.parentId,
+    taskIds: current.tasks.filter((entry) => entry.parentId === task.parentId && entry.id !== task.id)
+      .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+      .map((entry) => entry.id),
+    sync: {
+      revision: (previousOrder?.sync.revision ?? 0) + 1,
+      modifiedBy: androidDeviceId(),
+      basedOnHash: previousOrder?.sync.contentHash ?? null,
+      contentHash: "",
+    },
+  };
+  order.sync.contentHash = await sha256(canonicalJson(withoutHash(order)));
+  const folder = await getAndroidSyncFolder();
+  if (!folder) invalid("the selected Android sync folder is no longer accessible");
+  const pending: AndroidPendingWrite = {
+    ...receipt, workspaceId: current.workspaceId, folderUri: folder.uri,
+    // Remove the id from the order first, so an interrupted write never leaves a dangling order reference.
+    files: [
+      { relativePath: orderPath, previousContent: orderFile?.content ?? null, content: serialise(order) },
+      { relativePath: taskPath, previousContent: taskFile.content, content: null },
+    ],
+  };
+  await androidStorage({ operation: "stageCanonicalWrite", pending });
+  await writeAndroidCanonicalFiles(pending.files.map((file) => ({ ...file, modifiedAt: null })));
+  await verifyPendingFiles(pending);
+  return true;
+}
+
 export async function writeAndroidUpdatedTasks(
   tasks: TaskRecord[],
   receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
@@ -545,6 +600,7 @@ export async function writeAndroidUpdatedTasks(
     files.push({ relativePath, previousContent: previousFile.content, content: serialise(canonicalTask) });
     if (previous.parentId !== task.parentId) {
       for (const parentId of [previous.parentId, task.parentId]) {
+        if (orders.some((order) => order.parentId === parentId)) continue;
         const orderPath = parentId === null ? "order/root.json" : `order/${parentId}.json`;
         const oldFile = filesByPath.get(orderPath);
         const oldOrder = oldFile ? await parseOrder(oldFile, current.workspaceId, parentId) : null;
@@ -574,6 +630,11 @@ export async function writeAndroidUpdatedTasks(
   }
   for (const { parentId, taskIds } of orders) {
     const siblings = current.tasks.filter((task) => task.parentId === parentId).map((task) => task.id);
+    for (const task of tasks) {
+      const previous = current.tasks.find((entry) => entry.id === task.id);
+      if (previous?.parentId === parentId && task.parentId !== parentId) siblings.splice(siblings.indexOf(task.id), 1);
+      if (previous?.parentId !== parentId && task.parentId === parentId) siblings.push(task.id);
+    }
     if (siblings.length !== taskIds.length || new Set(taskIds).size !== taskIds.length || taskIds.some((id) => !siblings.includes(id))) {
       throw new AndroidCanonicalError("STALE_TASK_VERSION", "sibling order changed in the selected folder");
     }
@@ -608,7 +669,7 @@ async function verifyPendingFiles(pending: AndroidPendingWrite): Promise<void> {
   if (!result.selected) invalid("the Android sync folder is no longer accessible");
   const files = new Map(result.files.map((file) => [file.relativePath, file.content]));
   for (const file of pending.files) {
-    if (files.get(file.relativePath) !== file.content) invalid(`Android did not persist ${file.relativePath}; retry recovery before editing`);
+    if ((files.get(file.relativePath) ?? null) !== file.content) invalid(`Android did not persist ${file.relativePath}; retry recovery before editing`);
   }
 }
 

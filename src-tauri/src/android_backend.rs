@@ -50,6 +50,25 @@ pub enum AndroidStorageRequest {
     SetTheme {
         name: String,
     },
+    ReadOperation,
+    WriteOperation {
+        transaction_id: String,
+        record: Value,
+    },
+    ClearOperation {
+        transaction_id: String,
+        operation_id: String,
+    },
+    SetSiblingOrder {
+        transaction_id: String,
+        parent_id: Option<String>,
+        task_ids: Vec<String>,
+    },
+    DeleteTask {
+        transaction_id: String,
+        id: String,
+        expected_version: i64,
+    },
     ReadPendingWrite,
     StageCanonicalWrite {
         pending: AndroidPendingWrite,
@@ -61,7 +80,18 @@ pub enum AndroidStorageRequest {
         workspace_id: String,
         fingerprint: String,
         tasks: Vec<AndroidImportedTask>,
+        #[serde(default)]
+        receive: bool,
     },
+    ReadWorkspaceBackup,
+    RestoreWorkspaceBackup {
+        backup: Value,
+    },
+    ReadReceiveMarker,
+    WriteReceiveMarker {
+        marker: Value,
+    },
+    ClearReceiveMarker,
     EnsureCategory {
         transaction_id: String,
         id: String,
@@ -136,7 +166,7 @@ pub enum AndroidStorageRequest {
 pub struct AndroidPendingFile {
     relative_path: String,
     previous_content: Option<String>,
-    content: String,
+    content: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -202,6 +232,84 @@ pub struct AndroidTaskInput {
     pub updated_at: String,
     pub completed_at: Option<String>,
     pub canceled_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupClassification {
+    id: String,
+    slug: String,
+    label: String,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupTask {
+    id: String,
+    title: String,
+    description_markdown: String,
+    status: String,
+    category_id: Option<String>,
+    parent_id: Option<String>,
+    position: i64,
+    priority: i64,
+    version: i64,
+    created_at: String,
+    updated_at: String,
+    completed_at: Option<String>,
+    canceled_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupTaskLink {
+    task_id: String,
+    tag_id: Option<String>,
+    depends_on_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupActivity {
+    seq: i64,
+    task_id: String,
+    request_id: String,
+    action: String,
+    actor_kind: String,
+    actor_label: String,
+    created_at: String,
+    details_json: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupReceipt {
+    idempotency_key: String,
+    command: String,
+    request_hash: String,
+    response_json: String,
+    created_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceBackup {
+    workspace_id: Option<String>,
+    fingerprint: Option<String>,
+    workspace_revision: i64,
+    categories: Vec<BackupClassification>,
+    tags: Vec<BackupClassification>,
+    tasks: Vec<BackupTask>,
+    #[serde(default)]
+    task_tags: Vec<BackupTaskLink>,
+    #[serde(default)]
+    task_dependencies: Vec<BackupTaskLink>,
+    #[serde(default)]
+    activity: Vec<BackupActivity>,
+    #[serde(default)]
+    command_receipts: Vec<BackupReceipt>,
 }
 
 #[derive(Debug, Serialize)]
@@ -642,6 +750,35 @@ fn cache_meta_value(connection: &Connection, key: &str) -> Result<Option<String>
         .map_err(storage_error)
 }
 
+fn read_operation(connection: &Connection) -> Result<Option<Value>, String> {
+    cache_meta_value(connection, "android_latest_operation")?
+        .map(|value| serde_json::from_str(&value).map_err(storage_error))
+        .transpose()
+}
+
+fn write_operation(connection: &Connection, record: &Value) -> Result<(), String> {
+    if record.get("id").and_then(Value::as_str).unwrap_or("").is_empty() {
+        return Err(storage_error("operation id is required"));
+    }
+    connection.execute(
+        "INSERT INTO cache_meta (key, value) VALUES ('android_latest_operation', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![serde_json::to_string(record).map_err(storage_error)?],
+    ).map_err(storage_error)?;
+    Ok(())
+}
+
+fn clear_operation(connection: &Connection, operation_id: &str) -> Result<(), String> {
+    let value = read_operation(connection)?
+        .ok_or_else(|| storage_error("operation is no longer available"))?;
+    if value.get("id").and_then(Value::as_str) != Some(operation_id) {
+        return Err(storage_error("operation is no longer available"));
+    }
+    connection.execute("DELETE FROM cache_meta WHERE key = 'android_latest_operation'", [])
+        .map_err(storage_error)?;
+    Ok(())
+}
+
 fn read_canonical_meta(connection: &Connection) -> Result<Value, String> {
     Ok(json!({
         "workspaceId": cache_meta_value(connection, "workspace_id")?,
@@ -757,11 +894,309 @@ fn classification_id(prefix: &str, slug: &str) -> String {
     format!("android:{prefix}:{slug}")
 }
 
+fn read_workspace_backup(connection: &Connection) -> Result<Value, String> {
+    let workspace_id = cache_meta_value(connection, "workspace_id")?;
+    let fingerprint = cache_meta_value(connection, "canonical_fingerprint")?;
+    let workspace_revision: i64 = connection
+        .query_row(
+            "SELECT value FROM cache_meta WHERE key = 'workspace_revision'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(storage_error)?
+        .parse()
+        .map_err(storage_error)?;
+
+    let classification_rows = |table: &str| -> Result<Vec<Value>, String> {
+        let mut statement = connection
+            .prepare(&format!(
+                "SELECT id, slug, label, created_at, updated_at FROM {table} ORDER BY slug ASC"
+            ))
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok(json!({
+                    "id": row.get::<_, String>(0)?,
+                    "slug": row.get::<_, String>(1)?,
+                    "label": row.get::<_, String>(2)?,
+                    "createdAt": row.get::<_, String>(3)?,
+                    "updatedAt": row.get::<_, String>(4)?,
+                }))
+            })
+            .map_err(storage_error)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(storage_error)
+    };
+    let categories = classification_rows("categories")?;
+    let tags = classification_rows("tags")?;
+
+    let tasks: Vec<Value> = connection
+        .prepare(
+            "SELECT id, title, description_markdown, status, category_id, parent_id, position,
+                    priority, version, created_at, updated_at, completed_at, canceled_at
+             FROM tasks ORDER BY position ASC, id ASC",
+        )
+        .map_err(storage_error)?
+        .query_map([], |row| {
+            Ok(json!({
+                "id": row.get::<_, String>(0)?,
+                "title": row.get::<_, String>(1)?,
+                "descriptionMarkdown": row.get::<_, String>(2)?,
+                "status": row.get::<_, String>(3)?,
+                "categoryId": row.get::<_, Option<String>>(4)?,
+                "parentId": row.get::<_, Option<String>>(5)?,
+                "position": row.get::<_, i64>(6)?,
+                "priority": row.get::<_, i64>(7)?,
+                "version": row.get::<_, i64>(8)?,
+                "createdAt": row.get::<_, String>(9)?,
+                "updatedAt": row.get::<_, String>(10)?,
+                "completedAt": row.get::<_, Option<String>>(11)?,
+                "canceledAt": row.get::<_, Option<String>>(12)?,
+            }))
+        })
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+
+    let link_rows = |query: &str, field: &str| -> Result<Vec<Value>, String> {
+        let mut statement = connection.prepare(query).map_err(storage_error)?;
+        let rows = statement
+            .query_map([], |row| {
+                let mut record = serde_json::Map::new();
+                record.insert("taskId".to_string(), json!(row.get::<_, String>(0)?));
+                record.insert(field.to_string(), json!(row.get::<_, String>(1)?));
+                Ok(Value::Object(record))
+            })
+            .map_err(storage_error)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(storage_error)
+    };
+    let task_tags =
+        link_rows("SELECT task_id, tag_id FROM task_tags ORDER BY task_id ASC, tag_id ASC", "tagId")?;
+    let task_dependencies = link_rows(
+        "SELECT task_id, depends_on_id FROM task_dependencies ORDER BY task_id ASC, depends_on_id ASC",
+        "dependsOnId",
+    )?;
+
+    let activity: Vec<Value> = connection
+        .prepare(
+            "SELECT seq, task_id, request_id, action, actor_kind, actor_label, created_at, details_json
+             FROM activity ORDER BY seq ASC",
+        )
+        .map_err(storage_error)?
+        .query_map([], |row| {
+            Ok(json!({
+                "seq": row.get::<_, i64>(0)?,
+                "taskId": row.get::<_, String>(1)?,
+                "requestId": row.get::<_, String>(2)?,
+                "action": row.get::<_, String>(3)?,
+                "actorKind": row.get::<_, String>(4)?,
+                "actorLabel": row.get::<_, String>(5)?,
+                "createdAt": row.get::<_, String>(6)?,
+                "detailsJson": row.get::<_, String>(7)?,
+            }))
+        })
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+
+    let command_receipts: Vec<Value> = connection
+        .prepare(
+            "SELECT idempotency_key, command, request_hash, response_json, created_at
+             FROM command_receipts ORDER BY idempotency_key ASC",
+        )
+        .map_err(storage_error)?
+        .query_map([], |row| {
+            Ok(json!({
+                "idempotencyKey": row.get::<_, String>(0)?,
+                "command": row.get::<_, String>(1)?,
+                "requestHash": row.get::<_, String>(2)?,
+                "responseJson": row.get::<_, String>(3)?,
+                "createdAt": row.get::<_, String>(4)?,
+            }))
+        })
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+
+    Ok(json!({
+        "workspaceId": workspace_id,
+        "fingerprint": fingerprint,
+        "workspaceRevision": workspace_revision,
+        "categories": categories,
+        "tags": tags,
+        "tasks": tasks,
+        "taskTags": task_tags,
+        "taskDependencies": task_dependencies,
+        "activity": activity,
+        "commandReceipts": command_receipts,
+    }))
+}
+
+fn restore_workspace_backup(connection: &Connection, backup: &Value) -> Result<Value, String> {
+    let backup: WorkspaceBackup = serde_json::from_value(backup.clone()).map_err(storage_error)?;
+    connection
+        .execute_batch("BEGIN IMMEDIATE")
+        .map_err(storage_error)?;
+    let result = (|| {
+        connection
+            .execute_batch(
+                "DELETE FROM task_dependencies;
+                 DELETE FROM task_tags;
+                 DELETE FROM tasks;
+                 DELETE FROM categories;
+                 DELETE FROM tags;
+                 DELETE FROM activity;
+                 DELETE FROM command_receipts;",
+            )
+            .map_err(storage_error)?;
+
+        for row in &backup.categories {
+            connection
+                .execute(
+                    "INSERT INTO categories (id, slug, label, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![row.id, row.slug, row.label, row.created_at, row.updated_at],
+                )
+                .map_err(storage_error)?;
+        }
+        for row in &backup.tags {
+            connection
+                .execute(
+                    "INSERT INTO tags (id, slug, label, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![row.id, row.slug, row.label, row.created_at, row.updated_at],
+                )
+                .map_err(storage_error)?;
+        }
+        for row in &backup.tasks {
+            connection
+                .execute(
+                    "INSERT INTO tasks
+                     (id, title, description_markdown, status, category_id, parent_id, position,
+                      priority, version, created_at, updated_at, completed_at, canceled_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    params![
+                        row.id, row.title, row.description_markdown, row.status, row.category_id,
+                        row.parent_id, row.position, row.priority, row.version, row.created_at,
+                        row.updated_at, row.completed_at, row.canceled_at,
+                    ],
+                )
+                .map_err(storage_error)?;
+        }
+        for link in &backup.task_tags {
+            let tag_id = link
+                .tag_id
+                .as_ref()
+                .ok_or_else(|| storage_error("backup task tag is missing its tag id"))?;
+            connection
+                .execute(
+                    "INSERT INTO task_tags (task_id, tag_id) VALUES (?1, ?2)",
+                    params![link.task_id, tag_id],
+                )
+                .map_err(storage_error)?;
+        }
+        for link in &backup.task_dependencies {
+            let depends_on_id = link
+                .depends_on_id
+                .as_ref()
+                .ok_or_else(|| storage_error("backup dependency is missing its target id"))?;
+            connection
+                .execute(
+                    "INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?1, ?2)",
+                    params![link.task_id, depends_on_id],
+                )
+                .map_err(storage_error)?;
+        }
+        for row in &backup.activity {
+            connection
+                .execute(
+                    "INSERT INTO activity
+                     (seq, task_id, request_id, action, actor_kind, actor_label, created_at, details_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    params![row.seq, row.task_id, row.request_id, row.action, row.actor_kind, row.actor_label, row.created_at, row.details_json],
+                )
+                .map_err(storage_error)?;
+        }
+        for row in &backup.command_receipts {
+            connection
+                .execute(
+                    "INSERT INTO command_receipts
+                     (idempotency_key, command, request_hash, response_json, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![row.idempotency_key, row.command, row.request_hash, row.response_json, row.created_at],
+                )
+                .map_err(storage_error)?;
+        }
+
+        for (key, value) in [
+            ("workspace_id", backup.workspace_id.as_ref()),
+            ("canonical_fingerprint", backup.fingerprint.as_ref()),
+        ] {
+            match value {
+                Some(value) => connection
+                    .execute(
+                        "INSERT INTO cache_meta (key, value) VALUES (?1, ?2)
+                         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                        params![key, value],
+                    )
+                    .map_err(storage_error)?,
+                None => connection
+                    .execute("DELETE FROM cache_meta WHERE key = ?1", params![key])
+                    .map_err(storage_error)?,
+            };
+        }
+        connection
+            .execute(
+                "INSERT INTO cache_meta (key, value) VALUES ('workspace_revision', ?1)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![backup.workspace_revision.to_string()],
+            )
+            .map_err(storage_error)?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => connection.execute_batch("COMMIT").map_err(storage_error)?,
+        Err(error) => {
+            connection.execute_batch("ROLLBACK").map_err(storage_error)?;
+            return Err(error);
+        }
+    }
+    let task_count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
+        .map_err(storage_error)?;
+    Ok(json!({ "restored": true, "taskCount": task_count }))
+}
+
+fn read_receive_marker(connection: &Connection) -> Result<Option<Value>, String> {
+    cache_meta_value(connection, "android_receive_workspace")?
+        .map(|value| serde_json::from_str(&value).map_err(storage_error))
+        .transpose()
+}
+
+fn write_receive_marker(connection: &Connection, marker: &Value) -> Result<(), String> {
+    if marker.get("targetWorkspaceId").and_then(Value::as_str).unwrap_or("").is_empty() {
+        return Err(storage_error("receive marker requires a target workspace id"));
+    }
+    connection
+        .execute(
+            "INSERT INTO cache_meta (key, value) VALUES ('android_receive_workspace', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![serde_json::to_string(marker).map_err(storage_error)?],
+        )
+        .map_err(storage_error)?;
+    Ok(())
+}
+
+fn clear_receive_marker(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute("DELETE FROM cache_meta WHERE key = 'android_receive_workspace'", [])
+        .map_err(storage_error)?;
+    Ok(())
+}
+
 fn replace_canonical_workspace(
     connection: &Connection,
     workspace_id: &str,
     fingerprint: &str,
     tasks: &[AndroidImportedTask],
+    receive: bool,
 ) -> Result<Value, String> {
     if workspace_id.trim().is_empty() || fingerprint.trim().is_empty() {
         return Err(storage_error(
@@ -777,16 +1212,24 @@ fn replace_canonical_workspace(
     let local_task_count: i64 = connection
         .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
         .map_err(storage_error)?;
-    match cache_meta_value(connection, "workspace_id")? {
-        Some(current_id) if current_id != workspace_id => {
-            return Err(storage_error(
-                "selected folder belongs to another workspace",
-            ));
+    if receive {
+        let marker = read_receive_marker(connection)?
+            .ok_or_else(|| storage_error("no receive marker for workspace adoption"))?;
+        if marker.get("targetWorkspaceId").and_then(Value::as_str) != Some(workspace_id) {
+            return Err(storage_error("receive marker does not match the target workspace"));
         }
-        None if local_task_count > 0 => {
-            return Err("LOCAL_TASKS_NOT_EMPTY: forget the sync folder to keep local tasks; importing another workspace would replace them".to_string());
+    } else {
+        match cache_meta_value(connection, "workspace_id")? {
+            Some(current_id) if current_id != workspace_id => {
+                return Err(storage_error(
+                    "selected folder belongs to another workspace",
+                ));
+            }
+            None if local_task_count > 0 => {
+                return Err("LOCAL_TASKS_NOT_EMPTY: forget the sync folder to keep local tasks; importing another workspace would replace them".to_string());
+            }
+            _ => {}
         }
-        _ => {}
     }
 
     connection
@@ -798,7 +1241,7 @@ fn replace_canonical_workspace(
         // Otherwise a retry of a successful create would add a second task.
         if cache_meta_value(connection, "workspace_id")?.as_deref() != Some(workspace_id) {
             connection
-                .execute("DELETE FROM command_receipts", [])
+                .execute_batch("DELETE FROM command_receipts; DELETE FROM cache_meta WHERE key = 'android_latest_operation';")
                 .map_err(storage_error)?;
         }
         connection
@@ -1126,6 +1569,63 @@ fn update_task(
     Ok(json!({ "changes": 1 }))
 }
 
+fn delete_task(connection: &Connection, id: &str, expected_version: i64) -> Result<Value, String> {
+    let parent_id: Option<Option<String>> = connection.query_row(
+        "SELECT parent_id FROM tasks WHERE id = ?1 AND version = ?2",
+        params![id, expected_version], |row| row.get(0),
+    ).optional().map_err(storage_error)?;
+    let parent_id = parent_id.ok_or_else(|| storage_error("task version changed before deletion"))?;
+    let changes = connection.execute(
+        "DELETE FROM tasks WHERE id = ?1 AND version = ?2 AND NOT EXISTS
+         (SELECT 1 FROM tasks AS children WHERE children.parent_id = tasks.id)
+         AND NOT EXISTS (SELECT 1 FROM task_dependencies WHERE depends_on_id = tasks.id)",
+        params![id, expected_version],
+    ).map_err(storage_error)?;
+    if changes != 1 {
+        return Err(storage_error("task has children, dependents, or a newer version"));
+    }
+    let mut statement = connection.prepare("SELECT id FROM tasks WHERE parent_id IS ?1 ORDER BY position, id")
+        .map_err(storage_error)?;
+    let siblings = statement.query_map(params![parent_id], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?.collect::<Result<Vec<_>, _>>().map_err(storage_error)?;
+    drop(statement);
+    for (position, sibling_id) in siblings.iter().enumerate() {
+        connection.execute("UPDATE tasks SET position = ?1 WHERE id = ?2", params![position as i64, sibling_id])
+            .map_err(storage_error)?;
+    }
+    connection.execute(
+        "UPDATE cache_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'workspace_revision'",
+        [],
+    ).map_err(storage_error)?;
+    Ok(json!({ "changes": 1 }))
+}
+
+fn set_sibling_order(connection: &Connection, parent_id: Option<String>, task_ids: &[String]) -> Result<Value, String> {
+    let mut statement = connection
+        .prepare("SELECT id FROM tasks WHERE parent_id IS ?1")
+        .map_err(storage_error)?;
+    let siblings = statement
+        .query_map(params![parent_id], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+    let ids = task_ids.iter().collect::<std::collections::HashSet<_>>();
+    if siblings.len() != task_ids.len() || ids.len() != task_ids.len()
+        || siblings.iter().any(|id| !ids.contains(id))
+    {
+        return Err(storage_error("order must contain exactly the current siblings"));
+    }
+    for (position, id) in task_ids.iter().enumerate() {
+        connection.execute("UPDATE tasks SET position = ?1 WHERE id = ?2", params![position as i64, id])
+            .map_err(storage_error)?;
+    }
+    connection.execute(
+        "UPDATE cache_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'workspace_revision'",
+        [],
+    ).map_err(storage_error)?;
+    Ok(json!({ "changes": task_ids.len() }))
+}
+
 fn reorder_tasks(
     connection: &Connection,
     parent_id: Option<String>,
@@ -1335,6 +1835,30 @@ pub fn android_storage(
                 .map_err(storage_error)?;
             Ok(json!({ "saved": true }))
         }
+        AndroidStorageRequest::ReadOperation => {
+            if transaction_guard.is_some() {
+                return Err(storage_error("cannot read an operation during a transaction"));
+            }
+            Ok(json!({ "operation": read_operation(connection)? }))
+        }
+        AndroidStorageRequest::WriteOperation { transaction_id, record } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            write_operation(connection, &record)?;
+            Ok(json!({ "saved": true }))
+        }
+        AndroidStorageRequest::ClearOperation { transaction_id, operation_id } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            clear_operation(connection, &operation_id)?;
+            Ok(json!({ "cleared": true }))
+        }
+        AndroidStorageRequest::SetSiblingOrder { transaction_id, parent_id, task_ids } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            set_sibling_order(connection, parent_id, &task_ids)
+        }
+        AndroidStorageRequest::DeleteTask { transaction_id, id, expected_version } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            delete_task(connection, &id, expected_version)
+        }
         AndroidStorageRequest::ReadPendingWrite => {
             if transaction_guard.is_some() {
                 return Err(storage_error(
@@ -1361,13 +1885,50 @@ pub fn android_storage(
             workspace_id,
             fingerprint,
             tasks,
+            receive,
         } => {
             if transaction_guard.is_some() {
                 return Err(storage_error(
                     "cannot replace the canonical workspace while a transaction is active",
                 ));
             }
-            replace_canonical_workspace(connection, &workspace_id, &fingerprint, &tasks)
+            replace_canonical_workspace(connection, &workspace_id, &fingerprint, &tasks, receive)
+        }
+        AndroidStorageRequest::ReadWorkspaceBackup => {
+            if transaction_guard.is_some() {
+                return Err(storage_error(
+                    "non-transactional reads are unavailable while a transaction is active",
+                ));
+            }
+            read_workspace_backup(connection)
+        }
+        AndroidStorageRequest::RestoreWorkspaceBackup { backup } => {
+            if transaction_guard.is_some() {
+                return Err(storage_error(
+                    "cannot restore a backup while a transaction is active",
+                ));
+            }
+            restore_workspace_backup(connection, &backup)
+        }
+        AndroidStorageRequest::ReadReceiveMarker => {
+            if transaction_guard.is_some() {
+                return Err(storage_error("cannot read the receive marker during a transaction"));
+            }
+            Ok(json!({ "marker": read_receive_marker(connection)? }))
+        }
+        AndroidStorageRequest::WriteReceiveMarker { marker } => {
+            if transaction_guard.is_some() {
+                return Err(storage_error("cannot write the receive marker during a transaction"));
+            }
+            write_receive_marker(connection, &marker)?;
+            Ok(json!({ "saved": true }))
+        }
+        AndroidStorageRequest::ClearReceiveMarker => {
+            if transaction_guard.is_some() {
+                return Err(storage_error("cannot clear the receive marker during a transaction"));
+            }
+            clear_receive_marker(connection)?;
+            Ok(json!({ "cleared": true }))
         }
         AndroidStorageRequest::EnsureCategory {
             transaction_id,
@@ -1503,14 +2064,20 @@ mod tests {
     fn canonical_rebuild_preserves_same_workspace_receipts() {
         let connection = Connection::open_in_memory().unwrap();
         ensure_schema(&connection).unwrap();
-        replace_canonical_workspace(&connection, "first", "initial", &[]).unwrap();
+        replace_canonical_workspace(&connection, "first", "initial", &[], false).unwrap();
         write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
+        write_operation(&connection, &json!({ "id": "undo-me" })).unwrap();
 
-        replace_canonical_workspace(&connection, "first", "after-write", &[]).unwrap();
+        replace_canonical_workspace(&connection, "first", "after-write", &[], false).unwrap();
+        assert_eq!(read_operation(&connection).unwrap().unwrap()["id"], "undo-me");
+        assert!(clear_operation(&connection, "wrong-id").is_err());
+        assert_eq!(read_operation(&connection).unwrap().unwrap()["id"], "undo-me");
+        clear_operation(&connection, "undo-me").unwrap();
+        assert!(read_operation(&connection).unwrap().is_none());
         assert_eq!(read_canonical_meta(&connection).unwrap()["cacheVersion"], "2");
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
 
-        assert!(replace_canonical_workspace(&connection, "second", "new-workspace", &[]).is_err());
+        assert!(replace_canonical_workspace(&connection, "second", "new-workspace", &[], false).is_err());
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
     }
 
@@ -1523,12 +2090,76 @@ mod tests {
             [],
         ).unwrap();
         let error =
-            replace_canonical_workspace(&connection, "incoming", "fingerprint", &[]).unwrap_err();
+            replace_canonical_workspace(&connection, "incoming", "fingerprint", &[], false).unwrap_err();
         assert!(error.contains("LOCAL_TASKS_NOT_EMPTY"));
         let count: i64 = connection
             .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn receive_flow_backups_adopts_and_restores_local_tasks() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        ensure_classification(&connection, "tag", "important", "Important", "now", "tags").unwrap();
+        for (position, id) in ["a", "b"].iter().enumerate() {
+            insert_task(&connection, AndroidTaskInput {
+                id: (*id).into(), title: (*id).into(), description_markdown: String::new(),
+                status: "open".into(), category_id: None, parent_id: None, position: position as i64,
+                priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+                completed_at: None, canceled_at: None,
+            }).unwrap();
+        }
+        connection.execute(
+            "INSERT INTO task_dependencies (task_id, depends_on_id) VALUES ('b', 'a')", [],
+        ).unwrap();
+        connection.execute(
+            "INSERT INTO task_tags (task_id, tag_id) VALUES ('a', 'tag')", [],
+        ).unwrap();
+        connection.execute(
+            "INSERT INTO activity (task_id, request_id, action, actor_kind, actor_label, created_at, details_json)
+             VALUES ('a', 'req', 'created', 'user', 'me', 'now', '{}')", [],
+        ).unwrap();
+        write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
+
+        // Adoption without a marker is refused.
+        assert!(replace_canonical_workspace(&connection, "incoming", "fp", &[], true).is_err());
+        // A marker for a different workspace is refused.
+        write_receive_marker(&connection, &json!({ "targetWorkspaceId": "other" })).unwrap();
+        assert!(replace_canonical_workspace(&connection, "incoming", "fp", &[], true).is_err());
+
+        // The matching marker allows adoption of the incoming workspace.
+        write_receive_marker(&connection, &json!({ "targetWorkspaceId": "incoming" })).unwrap();
+        let backup = read_workspace_backup(&connection).unwrap();
+        let incoming = vec![AndroidImportedTask {
+            id: "x".into(), title: "Incoming".into(), description_markdown: String::new(),
+            status: "open".into(), priority: 2, category: None, tags: vec![], parent_id: None,
+            dependency_ids: vec![], position: 0, version: 1, created_at: "now".into(),
+            updated_at: "now".into(), completed_at: None, canceled_at: None,
+        }];
+        replace_canonical_workspace(&connection, "incoming", "fp", &incoming, true).unwrap();
+        let snapshot = read_snapshot(&connection).unwrap();
+        assert_eq!(snapshot["tasks"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["tasks"][0]["id"], "x");
+
+        // Restoring the backup brings the local tasks and their links back.
+        restore_workspace_backup(&connection, &backup).unwrap();
+        let snapshot = read_snapshot(&connection).unwrap();
+        let ids: Vec<String> = snapshot["tasks"].as_array().unwrap()
+            .iter().map(|task| task["id"].as_str().unwrap().to_string()).collect();
+        assert_eq!(ids, vec!["a".to_string(), "b".to_string()]);
+        let count = |query: &str| -> i64 {
+            connection.query_row(query, [], |row| row.get(0)).unwrap()
+        };
+        assert_eq!(count("SELECT COUNT(*) FROM task_dependencies"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM task_tags"), 1);
+        assert_eq!(count("SELECT COUNT(*) FROM activity"), 1);
+        assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
+        assert!(cache_meta_value(&connection, "workspace_id").unwrap().is_none());
+
+        clear_receive_marker(&connection).unwrap();
+        assert!(read_receive_marker(&connection).unwrap().is_none());
     }
 
     #[test]
@@ -1591,15 +2222,51 @@ mod tests {
             .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
             .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(ids, vec![("b".into(), 2), ("a".into(), 1), ("c".into(), 1)]);
+        set_sibling_order(&connection, None, &["a".into(), "b".into(), "c".into()]).unwrap();
+        assert_eq!(read_snapshot(&connection).unwrap()["tasks"][0]["id"], "a");
+        assert!(set_sibling_order(&connection, None, &["a".into(), "b".into()]).is_err());
         assert!(reorder_tasks(&connection, None, &["a".into(), "b".into(), "c".into()],
             &[AndroidReorderSelection { id: "b".into(), expected_version: 1 }]).is_err());
+    }
+
+    #[test]
+    fn delete_task_rejects_dependents_and_stale_versions_then_densifies() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        for (position, id) in ["a", "b", "c"].iter().enumerate() {
+            insert_task(&connection, AndroidTaskInput {
+                id: (*id).into(), title: (*id).into(), description_markdown: String::new(),
+                status: "open".into(), category_id: None, parent_id: None, position: position as i64,
+                priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+                completed_at: None, canceled_at: None,
+            }).unwrap();
+        }
+        connection.execute(
+            "INSERT INTO task_dependencies (task_id, depends_on_id) VALUES ('b', 'a')", [],
+        ).unwrap();
+        ensure_classification(&connection, "tag", "important", "Important", "now", "tags").unwrap();
+        connection.execute(
+            "INSERT INTO task_tags (task_id, tag_id) VALUES ('a', 'tag')", [],
+        ).unwrap();
+        assert!(delete_task(&connection, "a", 1).is_err());
+        connection.execute("DELETE FROM task_dependencies", []).unwrap();
+        assert!(delete_task(&connection, "a", 9).is_err());
+        delete_task(&connection, "a", 1).unwrap();
+        let ids = connection.prepare("SELECT id, position FROM tasks ORDER BY position").unwrap()
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(ids, vec![("b".into(), 0), ("c".into(), 1)]);
+        let tags: i64 = connection
+            .query_row("SELECT COUNT(*) FROM task_tags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(tags, 0);
     }
 
     #[test]
     fn staged_file_write_blocks_import_and_restores_its_receipt() {
         let connection = Connection::open_in_memory().unwrap();
         ensure_schema(&connection).unwrap();
-        replace_canonical_workspace(&connection, "first", "initial", &[]).unwrap();
+        replace_canonical_workspace(&connection, "first", "initial", &[], false).unwrap();
         let pending = AndroidPendingWrite {
             operation_id: "write".into(),
             workspace_id: "first".into(),
@@ -1607,7 +2274,7 @@ mod tests {
             files: vec![AndroidPendingFile {
                 relative_path: "tasks/new.json".into(),
                 previous_content: None,
-                content: "new task".into(),
+                content: Some("new task".into()),
             }],
             idempotency_key: "retry-key".into(),
             request_hash: "hash".into(),
@@ -1615,11 +2282,11 @@ mod tests {
             created_at: "now".into(),
         };
         stage_pending_write(&connection, &pending).unwrap();
-        assert!(replace_canonical_workspace(&connection, "first", "next", &[]).is_err());
+        assert!(replace_canonical_workspace(&connection, "first", "next", &[], false).is_err());
         assert!(complete_pending_write(&connection, "wrong").is_err());
         assert!(read_pending_write(&connection).unwrap().is_some());
         complete_pending_write(&connection, "write").unwrap();
-        replace_canonical_workspace(&connection, "first", "next", &[]).unwrap();
+        replace_canonical_workspace(&connection, "first", "next", &[], false).unwrap();
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
     }
 }

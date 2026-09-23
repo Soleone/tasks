@@ -15,9 +15,10 @@ import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
 import { classifyTaskFields, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
-import { AndroidCanonicalError, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
+import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidDeletedTask, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
-import { exportAndroidTaskDocument } from "./androidWorkspace";
+import { exportAndroidTaskDocument, getAndroidSyncFolder, readAndroidCanonicalFiles } from "./androidWorkspace";
+import { AndroidUndoError, planAndroidUndo, type SavedOperation, type SavedOrder } from "./androidUndo";
 
 const VALID_STATUSES = new Set<TaskStatus>(["open", "in_progress", "paused", "done", "canceled"]);
 
@@ -42,7 +43,7 @@ class AndroidEngineError extends Error {
 }
 
 function responseError(request: ProtocolRequest, error: unknown): ProtocolResponse {
-  if (error instanceof AndroidEngineError || error instanceof AndroidCanonicalError || error instanceof ProtocolError) {
+  if (error instanceof AndroidEngineError || error instanceof AndroidCanonicalError || error instanceof AndroidUndoError || error instanceof ProtocolError) {
     return {
       version: PROTOCOL_VERSION,
       requestId: request.requestId,
@@ -291,6 +292,9 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
       createdAt: now,
       detailsJson: JSON.stringify({ title, priority, ...(parentId ? { parentId } : {}) }),
     });
+    await androidStorage({ operation: "writeOperation", transactionId: transaction, record: {
+      id: operationId, kind: "create", before: [], after: [task], beforeOrders: [], afterOrders: [],
+    } satisfies SavedOperation });
     await writeReceipt(request, hash, transaction, result, now);
     await androidStorage({ operation: "commit", transactionId: transaction });
     committed = true;
@@ -360,7 +364,8 @@ async function persistTaskUpdate(before: TaskRecord, after: TaskRecord, request:
   };
   await androidStorage({ operation: "updateTask", transactionId: transaction, task, expectedVersion: before.version, tagIds, dependencyIds: after.dependencyIds });
   await androidStorage({ operation: "insertActivity", transactionId: transaction, taskId: after.id,
-    requestId: request.requestId, action: command === "task.delete" ? "cancel"
+    requestId: request.requestId, action: command === "operation.undo" ? "undo"
+      : command === "task.delete" ? "cancel"
       : command === "task.dependency.add" ? "dependency.added"
         : command === "task.dependency.remove" ? "dependency.removed" : command.slice(5),
     actorKind: request.actor.kind, actorLabel: request.actor.label, createdAt: now,
@@ -374,6 +379,8 @@ async function saveTaskMutation(
   hash: string,
   now: string,
   action: string,
+  beforeOrders: SavedOrder[] = [],
+  afterOrders: SavedOrder[] = [],
 ): Promise<Record<string, unknown>> {
   const changed = before !== after;
   if (request.dryRun || request.readOnly) {
@@ -392,7 +399,12 @@ async function saveTaskMutation(
       createdAt: now,
     }) : false;
     await androidStorage({ operation: "begin", transactionId: transaction });
-    if (changed) await persistTaskUpdate(before, after, request, transaction, now, action);
+    if (changed && operationId) {
+      await persistTaskUpdate(before, after, request, transaction, now, action);
+      await androidStorage({ operation: "writeOperation", transactionId: transaction, record: {
+        id: operationId, kind: "mutation", before: [before], after: [after], beforeOrders, afterOrders,
+      } satisfies SavedOperation });
+    }
     await writeReceipt(request, hash, transaction, result, now);
     await androidStorage({ operation: "commit", transactionId: transaction });
     committed = true;
@@ -468,7 +480,19 @@ async function moveTask(request: ProtocolRequest): Promise<Record<string, unknow
   }
   const now = new Date().toISOString();
   const after = before.parentId === parentId ? before : { ...before, parentId, version: before.version + 1, updatedAt: now };
-  return saveTaskMutation(before, after, request, hash, now, request.command);
+  if (after === before) return saveTaskMutation(before, after, request, hash, now, request.command);
+  const scope = (scopeParentId: string | null): SavedOrder => ({
+    parentId: scopeParentId,
+    taskIds: current.tasks.filter((task) => task.parentId === scopeParentId).map((task) => task.id),
+  });
+  const beforeOrders = [scope(before.parentId), scope(parentId)].filter((order, index, all) => all.findIndex((entry) => entry.parentId === order.parentId) === index);
+  const afterOrders = beforeOrders.map((order) => ({
+    parentId: order.parentId,
+    taskIds: order.parentId === before.parentId
+      ? order.taskIds.filter((taskId) => taskId !== id)
+      : [id, ...order.taskIds],
+  }));
+  return saveTaskMutation(before, after, request, hash, now, request.command, beforeOrders, afterOrders);
 }
 
 async function changeDependency(request: ProtocolRequest): Promise<Record<string, unknown>> {
@@ -559,8 +583,13 @@ async function reorderTasks(request: ProtocolRequest): Promise<Record<string, un
       responseJson: JSON.stringify(result), createdAt: now,
     }, [{ parentId, taskIds: finalIds }]) : false;
     await androidStorage({ operation: "begin", transactionId: transaction });
-    if (changed) {
+    if (changed && operationId) {
       await androidStorage({ operation: "reorderTasks", transactionId: transaction, parentId, taskIds: finalIds, selected });
+      await androidStorage({ operation: "writeOperation", transactionId: transaction, record: {
+        id: operationId, kind: "reorder", before, after: tasks,
+        beforeOrders: [{ parentId, taskIds: siblings.map((task) => task.id) }],
+        afterOrders: [{ parentId, taskIds: finalIds }],
+      } satisfies SavedOperation });
       for (const task of before) {
         await androidStorage({ operation: "insertActivity", transactionId: transaction, taskId: task.id,
           requestId: request.requestId, action: "reordered", actorKind: request.actor.kind,
@@ -617,11 +646,103 @@ async function transitionMany(request: ProtocolRequest): Promise<Record<string, 
     for (const plan of changed) {
       await persistTaskUpdate(plan.before, plan.after, request, transaction, now, plan.command);
     }
+    if (operationId) await androidStorage({ operation: "writeOperation", transactionId: transaction, record: {
+      id: operationId, kind: "mutation", before: changed.map((plan) => plan.before), after: changed.map((plan) => plan.after),
+      beforeOrders: [], afterOrders: [],
+    } satisfies SavedOperation });
     await writeReceipt(request, hash, transaction, saved, now);
     await androidStorage({ operation: "commit", transactionId: transaction });
     committed = true;
     if (staged && operationId) await androidStorage({ operation: "completePendingWrite", operationId });
     return saved;
+  } finally {
+    if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+  }
+}
+
+async function undoCreatedTask(
+  request: ProtocolRequest,
+  stored: SavedOperation,
+  current: AndroidSnapshot,
+  hash: string,
+  now: string,
+): Promise<Record<string, unknown>> {
+  if (stored.before.length !== 0 || stored.after.length !== 1) {
+    throw new AndroidUndoError("OPERATION_UNAVAILABLE", `operation ${stored.id} cannot be undone`);
+  }
+  const created = stored.after[0];
+  const live = current.tasks.find((task) => task.id === created.id);
+  if (!live || live.version !== created.version || live.title !== created.title
+      || live.descriptionMarkdown !== created.descriptionMarkdown || live.status !== created.status
+      || live.parentId !== created.parentId || live.updatedAt !== created.updatedAt
+      || current.tasks.some((task) => task.parentId === created.id || task.dependencyIds.includes(created.id))) {
+    throw new AndroidUndoError("OPERATION_CONFLICT", `task ${created.id} changed or gained relationships since creation`);
+  }
+  const operationId = crypto.randomUUID();
+  const result = {
+    operationId, undoneOperationId: stored.id, tasks: [], deletedTaskIds: [created.id], changed: true,
+    ...(request.dryRun || request.readOnly ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),
+  };
+  if (request.dryRun || request.readOnly) return result;
+  const transaction = transactionId();
+  let committed = false;
+  try {
+    const staged = await writeAndroidDeletedTask(live, {
+      operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
+      responseJson: JSON.stringify(result), createdAt: now,
+    });
+    await androidStorage({ operation: "begin", transactionId: transaction });
+    await androidStorage({ operation: "deleteTask", transactionId: transaction, id: live.id, expectedVersion: live.version });
+    await androidStorage({ operation: "clearOperation", transactionId: transaction, operationId: stored.id });
+    await writeReceipt(request, hash, transaction, result, now);
+    await androidStorage({ operation: "commit", transactionId: transaction });
+    committed = true;
+    if (staged) await androidStorage({ operation: "completePendingWrite", operationId });
+    return result;
+  } finally {
+    if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+  }
+}
+
+async function undoOperation(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const undoneOperationId = requiredText(request.args.operationId, "operationId");
+  const current = await snapshot();
+  const hash = await requestHash(request);
+  if (!request.dryRun && !request.readOnly) {
+    const replay = await readReceipt(request, hash);
+    if (replay?.ok) return replay.result;
+  }
+  const stored = (await androidStorage({ operation: "readOperation" })).operation as SavedOperation | null;
+  if (!stored || stored.id !== undoneOperationId) throw new AndroidUndoError("OPERATION_UNAVAILABLE", `operation ${undoneOperationId} is no longer undoable`);
+  const now = new Date().toISOString();
+  if (stored.kind === "create") return undoCreatedTask(request, stored, current, hash, now);
+  const plans = planAndroidUndo(stored, undoneOperationId, current.tasks, now);
+  const operationId = crypto.randomUUID();
+  const result = {
+    operationId, undoneOperationId, tasks: plans.map((plan) => plan.restored), changed: true,
+    ...(request.dryRun || request.readOnly ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),
+  };
+  if (request.dryRun || request.readOnly) return result;
+  const transaction = transactionId();
+  let committed = false;
+  try {
+    const staged = await writeAndroidUpdatedTasks(result.tasks, {
+      operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
+      responseJson: JSON.stringify(result), createdAt: now,
+    }, stored.beforeOrders);
+    await androidStorage({ operation: "begin", transactionId: transaction });
+    for (const plan of plans) {
+      await persistTaskUpdate(plan.live, plan.restored, request, transaction, now, request.command);
+    }
+    for (const order of stored.beforeOrders) {
+      await androidStorage({ operation: "setSiblingOrder", transactionId: transaction, parentId: order.parentId, taskIds: order.taskIds });
+    }
+    await androidStorage({ operation: "clearOperation", transactionId: transaction, operationId: undoneOperationId });
+    await writeReceipt(request, hash, transaction, result, now);
+    await androidStorage({ operation: "commit", transactionId: transaction });
+    committed = true;
+    if (staged) await androidStorage({ operation: "completePendingWrite", operationId });
+    return result;
   } finally {
     if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
   }
@@ -750,15 +871,182 @@ async function listTags(): Promise<Record<string, unknown>> {
   };
 }
 
+type ReceiveMarker = {
+  targetWorkspaceId: string;
+  startedAt: string;
+  backup: Record<string, unknown>;
+};
+
+async function readReceiveMarker(): Promise<ReceiveMarker | null> {
+  const response = await androidStorage({ operation: "readReceiveMarker" });
+  const marker = recordValue(response, "marker");
+  if (marker === null || marker === undefined) return null;
+  if (typeof marker !== "object" || Array.isArray(marker)) {
+    throw new AndroidEngineError("INVALID_STORAGE", "Android receive marker is invalid");
+  }
+  const value = marker as Record<string, unknown>;
+  if (typeof value.targetWorkspaceId !== "string" || value.targetWorkspaceId.trim() === ""
+      || typeof value.startedAt !== "string"
+      || typeof value.backup !== "object" || value.backup === null || Array.isArray(value.backup)) {
+    throw new AndroidEngineError("INVALID_STORAGE", "Android receive marker is invalid");
+  }
+  return value as unknown as ReceiveMarker;
+}
+
+async function readSelectedWorkspace(): Promise<Awaited<ReturnType<typeof parseAndroidCanonicalWorkspace>> | null> {
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) return null;
+  return parseAndroidCanonicalWorkspace(result.files);
+}
+
+async function prepareReceiveWorkspace(): Promise<Record<string, unknown>> {
+  if (await readReceiveMarker()) {
+    throw new AndroidEngineError("RECEIVE_PENDING", "this device is already waiting for a workspace");
+  }
+  const pending = recordValue(await androidStorage({ operation: "readPendingWrite" }), "pending");
+  if (pending !== null && pending !== undefined) {
+    throw new AndroidEngineError("PENDING_WRITE", "finish the interrupted task write before receiving a workspace");
+  }
+  const selected = await readSelectedWorkspace();
+  if (!selected) throw new AndroidEngineError("INVALID_ARGUMENT", "select a sync folder before receiving a workspace");
+  const meta = await androidStorage({ operation: "readCanonicalMeta" });
+  if (recordValue(meta, "workspaceId") === selected.workspaceId) {
+    throw new AndroidEngineError("INVALID_ARGUMENT", "the selected folder already belongs to this workspace");
+  }
+  const backup = await androidStorage({ operation: "readWorkspaceBackup" });
+  const marker: ReceiveMarker = { targetWorkspaceId: selected.workspaceId, startedAt: new Date().toISOString(), backup };
+  await androidStorage({ operation: "writeReceiveMarker", marker });
+  const folder = await getAndroidSyncFolder();
+  return {
+    waiting: true,
+    syncRoot: folder?.displayName ?? folder?.uri ?? undefined,
+    targetWorkspaceId: selected.workspaceId,
+    backupTaskCount: Array.isArray(backup.tasks) ? backup.tasks.length : 0,
+  };
+}
+
+async function receiveWorkspaceStatus(): Promise<Record<string, unknown>> {
+  const marker = await readReceiveMarker();
+  if (!marker) return { waiting: false };
+  let selected: Awaited<ReturnType<typeof parseAndroidCanonicalWorkspace>> | null = null;
+  try {
+    selected = await readSelectedWorkspace();
+  } catch {
+    selected = null;
+  }
+  if (!selected || selected.workspaceId !== marker.targetWorkspaceId) {
+    return { waiting: true, ready: false, targetWorkspaceId: marker.targetWorkspaceId };
+  }
+  try {
+    const replaced = await androidStorage({
+      operation: "replaceCanonicalWorkspace",
+      workspaceId: selected.workspaceId,
+      fingerprint: selected.fingerprint,
+      tasks: selected.tasks,
+      receive: true,
+    });
+    await androidStorage({ operation: "clearReceiveMarker" });
+    const revision = recordValue(replaced, "workspaceRevision");
+    return {
+      waiting: false,
+      adopted: true,
+      taskCount: selected.tasks.length,
+      ...(typeof revision === "number" ? { workspaceRevision: revision } : {}),
+    };
+  } catch (error) {
+    if (error instanceof AndroidCanonicalError || error instanceof AndroidEngineError) {
+      return { waiting: true, ready: false, targetWorkspaceId: marker.targetWorkspaceId };
+    }
+    throw error;
+  }
+}
+
+async function abortReceiveWorkspace(): Promise<Record<string, unknown>> {
+  const marker = await readReceiveMarker();
+  if (!marker) throw new AndroidEngineError("RECEIVE_NOT_PENDING", "this device is not waiting for a workspace");
+  const restored = await androidStorage({ operation: "restoreWorkspaceBackup", backup: marker.backup });
+  await androidStorage({ operation: "clearReceiveMarker" });
+  const taskCount = recordValue(restored, "taskCount");
+  return { waiting: false, restored: true, taskCount: typeof taskCount === "number" ? taskCount : 0 };
+}
+
+async function syncWorkspace(): Promise<Record<string, unknown>> {
+  const result = await syncAndroidWorkspace();
+  return {
+    selected: result.selected,
+    changed: result.changed,
+    ...(result.workspaceId ? { workspaceId: result.workspaceId } : {}),
+    ...(typeof result.taskCount === "number" ? { taskCount: result.taskCount } : {}),
+    ...(typeof result.workspaceRevision === "number" ? { workspaceRevision: result.workspaceRevision } : {}),
+  };
+}
+
+async function rebuildWorkspace(): Promise<Record<string, unknown>> {
+  const result = await syncAndroidWorkspace();
+  const current = await snapshot();
+  return {
+    rebuilt: true,
+    selected: result.selected,
+    changed: result.changed,
+    taskCount: current.tasks.length,
+    workspaceRevision: current.workspaceRevision,
+  };
+}
+
+async function listConflicts(): Promise<Record<string, unknown>> {
+  // Android recovers interrupted writes inline instead of tracking them in a
+  // conflict table, so there is never a pending conflict to list.
+  return { conflicts: [] };
+}
+
+async function resolveConflict(): Promise<Record<string, unknown>> {
+  throw new AndroidEngineError("CONFLICT_NOT_FOUND", "Android does not track sync conflicts; there is nothing to resolve");
+}
+
+async function archiveWorkspace(): Promise<Record<string, unknown>> {
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) throw new AndroidEngineError("INVALID_ARGUMENT", "select a sync folder before archiving");
+  const archivedAt = new Date().toISOString();
+  const archive = {
+    format: "tasks.archive",
+    formatVersion: 1,
+    archivedAt,
+    files: result.files.map((file) => ({ relativePath: file.relativePath, content: file.content })),
+  };
+  const suggestedName = `tasks-archive-${archivedAt.slice(0, 19).replaceAll(":", "")}Z.json`;
+  const saved = await exportAndroidTaskDocument(`${JSON.stringify(archive, null, 2)}\n`, suggestedName);
+  return { destinationPath: saved.destinationPath, displayName: saved.displayName, fileCount: result.files.length, archivedAt };
+}
+
+async function backupWorkspace(): Promise<Record<string, unknown>> {
+  const backup = await androidStorage({ operation: "readWorkspaceBackup" });
+  const exportedAt = new Date().toISOString();
+  const snapshot = { format: "tasks.backup", formatVersion: 1, exportedAt, ...backup };
+  const suggestedName = `tasks-backup-${exportedAt.slice(0, 19).replaceAll(":", "")}Z.json`;
+  const saved = await exportAndroidTaskDocument(`${JSON.stringify(snapshot, null, 2)}\n`, suggestedName);
+  return { destinationPath: saved.destinationPath, displayName: saved.displayName, taskCount: Array.isArray(backup.tasks) ? backup.tasks.length : 0, exportedAt };
+}
+
 export async function handleAndroidRequest(request: ProtocolRequest): Promise<ProtocolResponse> {
   try {
     let result: Record<string, unknown>;
+    if (!request.command.startsWith("workspace.receive.") && request.command !== "runtime.probe") {
+      if (await readReceiveMarker()) {
+        throw new AndroidEngineError("RECEIVE_PENDING", "Tasks is waiting for an incoming workspace");
+      }
+    }
     switch (request.command) {
       case "runtime.probe":
         result = await androidStorage({ operation: "probe" });
         break;
+      case "workspace.receive.prepare":
+        result = await prepareReceiveWorkspace();
+        break;
       case "workspace.receive.status":
-        result = { waiting: false };
+        result = await receiveWorkspaceStatus();
+        break;
+      case "workspace.receive.abort":
+        result = await abortReceiveWorkspace();
         break;
       case "task.list":
         result = await listTasks(request);
@@ -791,6 +1079,9 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
       case "task.reorder":
         result = await reorderTasks(request);
         break;
+      case "operation.undo":
+        result = await undoOperation(request);
+        break;
       case "category.list":
         result = await listCategories();
         break;
@@ -799,6 +1090,24 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
         break;
       case "workspace.exportTasks":
         result = await exportPortableTasks(request);
+        break;
+      case "workspace.sync":
+        result = await syncWorkspace();
+        break;
+      case "workspace.rebuild":
+        result = await rebuildWorkspace();
+        break;
+      case "workspace.conflict.list":
+        result = await listConflicts();
+        break;
+      case "workspace.conflict.resolve":
+        result = await resolveConflict();
+        break;
+      case "workspace.archive":
+        result = await archiveWorkspace();
+        break;
+      case "workspace.backup":
+        result = await backupWorkspace();
         break;
       case "workspace.info": {
         const current = await snapshot();

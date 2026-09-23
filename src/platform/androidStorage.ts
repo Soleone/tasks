@@ -48,7 +48,7 @@ export type AndroidPendingWrite = {
   operationId: string;
   workspaceId: string;
   folderUri: string;
-  files: Array<{ relativePath: string; previousContent: string | null; content: string }>;
+  files: Array<{ relativePath: string; previousContent: string | null; content: string | null }>;
   idempotencyKey: string;
   requestHash: string;
   responseJson: string;
@@ -70,10 +70,20 @@ export type AndroidStorageRequest =
   | { operation: "readCanonicalMeta" }
   | { operation: "readTheme" }
   | { operation: "setTheme"; name: string }
+  | { operation: "readOperation" }
+  | { operation: "writeOperation"; transactionId: string; record: Record<string, unknown> }
+  | { operation: "clearOperation"; transactionId: string; operationId: string }
+  | { operation: "setSiblingOrder"; transactionId: string; parentId: string | null; taskIds: string[] }
+  | { operation: "deleteTask"; transactionId: string; id: string; expectedVersion: number }
   | { operation: "readPendingWrite" }
   | { operation: "stageCanonicalWrite"; pending: AndroidPendingWrite }
   | { operation: "completePendingWrite"; operationId: string }
-  | { operation: "replaceCanonicalWorkspace"; workspaceId: string; fingerprint: string; tasks: AndroidImportedTask[] }
+  | { operation: "replaceCanonicalWorkspace"; workspaceId: string; fingerprint: string; tasks: AndroidImportedTask[]; receive?: boolean }
+  | { operation: "readWorkspaceBackup" }
+  | { operation: "restoreWorkspaceBackup"; backup: Record<string, unknown> }
+  | { operation: "readReceiveMarker" }
+  | { operation: "writeReceiveMarker"; marker: Record<string, unknown> }
+  | { operation: "clearReceiveMarker" }
   | { operation: "ensureCategory"; transactionId: string; id: string; slug: string; label: string; now: string }
   | { operation: "ensureTag"; transactionId: string; id: string; slug: string; label: string; now: string }
   | { operation: "shiftSiblingPositions"; transactionId: string; parentId: string | null }

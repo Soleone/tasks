@@ -37,6 +37,6 @@ export function readAndroidCanonicalFiles(): Promise<AndroidCanonicalFileResult>
   return invoke<AndroidCanonicalFileResult>("read_sync_files");
 }
 
-export function writeAndroidCanonicalFiles(files: Array<AndroidCanonicalFile & { previousContent: string | null }>): Promise<Record<string, unknown>> {
+export function writeAndroidCanonicalFiles(files: Array<{ relativePath: string; content: string | null; previousContent: string | null; modifiedAt: number | null }>): Promise<Record<string, unknown>> {
   return invoke<Record<string, unknown>>("write_sync_files", { files });
 }
