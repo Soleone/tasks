@@ -86,6 +86,8 @@ For a safe multi-device seed, read [Syncthing setup](syncthing.md) before sharin
 
 SQLite stores file size, modification time, imported hash, revision, and device metadata in `sync_files`. Normal commands scan metadata first and read only changed files. `workspace.rebuild` forces a complete scan, clears derived cache data, rebuilds relationships and indexes, and advances the cache generation. Restoring a SQLite snapshot also bootstraps canonical files and starts a new cache generation. New local versions then invalidate pre-rebuild and pre-restore optimistic tokens.
 
+Android's `workspace.rebuild` validates and reimports the selected canonical files even when their fingerprint is unchanged, then advances its local task-version offset. Within the same workspace, idempotency receipts survive so retries cannot repeat successful writes; local activity and the latest undo record do not survive because canonical files cannot restore that history and rebuild invalidates its version checks. Adopting a different workspace still follows the receive flow and clears the old workspace's receipts.
+
 Syncthing conflict copies remain ordinary files and are indexed without automatic merging:
 
 ```text

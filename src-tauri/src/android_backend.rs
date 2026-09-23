@@ -86,6 +86,8 @@ pub enum AndroidStorageRequest {
         tasks: Vec<AndroidImportedTask>,
         #[serde(default)]
         receive: bool,
+        #[serde(default)]
+        force_rebuild: bool,
     },
     ReadWorkspaceBackup,
     RestoreWorkspaceBackup {
@@ -305,6 +307,8 @@ struct WorkspaceBackup {
     workspace_id: Option<String>,
     fingerprint: Option<String>,
     workspace_revision: i64,
+    #[serde(default)]
+    task_version_offset: i64,
     categories: Vec<BackupClassification>,
     tags: Vec<BackupClassification>,
     tasks: Vec<BackupTask>,
@@ -742,6 +746,7 @@ fn read_snapshot(connection: &Connection) -> Result<Value, String> {
     Ok(json!({
         "tasks": tasks,
         "workspaceRevision": workspace_revision,
+        "taskVersionOffset": task_version_offset(connection)?,
     }))
 }
 
@@ -754,6 +759,19 @@ fn cache_meta_value(connection: &Connection, key: &str) -> Result<Option<String>
         )
         .optional()
         .map_err(storage_error)
+}
+
+fn task_version_offset(connection: &Connection) -> Result<i64, String> {
+    match cache_meta_value(connection, "android_task_version_offset")? {
+        Some(value) => {
+            let offset = value.parse::<i64>().map_err(storage_error)?;
+            if offset < 0 {
+                return Err(storage_error("Android task version offset is invalid"));
+            }
+            Ok(offset)
+        }
+        None => Ok(0),
+    }
 }
 
 fn read_operation(connection: &Connection) -> Result<Option<Value>, String> {
@@ -920,6 +938,7 @@ fn read_workspace_backup(connection: &Connection) -> Result<Value, String> {
         .map_err(storage_error)?
         .parse()
         .map_err(storage_error)?;
+    let task_version_offset = task_version_offset(connection)?;
 
     let classification_rows = |table: &str| -> Result<Vec<Value>, String> {
         let mut statement = connection
@@ -1035,6 +1054,7 @@ fn read_workspace_backup(connection: &Connection) -> Result<Value, String> {
         "workspaceId": workspace_id,
         "fingerprint": fingerprint,
         "workspaceRevision": workspace_revision,
+        "taskVersionOffset": task_version_offset,
         "categories": categories,
         "tags": tags,
         "tasks": tasks,
@@ -1163,6 +1183,13 @@ fn restore_workspace_backup(connection: &Connection, backup: &Value) -> Result<V
                 params![backup.workspace_revision.to_string()],
             )
             .map_err(storage_error)?;
+        connection
+            .execute(
+                "INSERT INTO cache_meta (key, value) VALUES ('android_task_version_offset', ?1)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![backup.task_version_offset.to_string()],
+            )
+            .map_err(storage_error)?;
         Ok(())
     })();
     match result {
@@ -1211,6 +1238,7 @@ fn replace_canonical_workspace(
     fingerprint: &str,
     tasks: &[AndroidImportedTask],
     receive: bool,
+    force_rebuild: bool,
 ) -> Result<Value, String> {
     if workspace_id.trim().is_empty() || fingerprint.trim().is_empty() {
         return Err(storage_error(
@@ -1250,12 +1278,37 @@ fn replace_canonical_workspace(
         .execute_batch("BEGIN IMMEDIATE")
         .map_err(storage_error)?;
     let result = (|| {
-        // Receipts survive a cache rebuild within the same workspace, including
-        // the rebuild triggered by our own SAF write on the next request.
-        // Otherwise a retry of a successful create would add a second task.
+        let current_version_offset = task_version_offset(connection)?;
+        let next_version_offset = if force_rebuild {
+            let max_task_version: i64 = connection
+                .query_row("SELECT COALESCE(MAX(version), 0) FROM tasks", [], |row| row.get(0))
+                .map_err(storage_error)?;
+            let next_epoch = current_version_offset
+                .checked_add(1)
+                .ok_or_else(|| storage_error("Android task version range is exhausted"))?;
+            let minimum_canonical_version = tasks.iter().map(|task| task.version).min();
+            let required_offset = match minimum_canonical_version {
+                Some(minimum) => max_task_version
+                    .checked_add(1)
+                    .and_then(|minimum_new_version| minimum_new_version.checked_sub(minimum))
+                    .ok_or_else(|| storage_error("Android task version range is exhausted"))?,
+                None => 0,
+            };
+            next_epoch.max(required_offset)
+        } else {
+            current_version_offset
+        };
+
+        // Same-workspace command receipts survive because canonical files cannot
+        // recreate them. Activity is cleared below; forced rebuilds also discard
+        // the local undo record because its expected task versions are invalidated.
         if cache_meta_value(connection, "workspace_id")?.as_deref() != Some(workspace_id) {
             connection
                 .execute_batch("DELETE FROM command_receipts; DELETE FROM cache_meta WHERE key = 'android_latest_operation';")
+                .map_err(storage_error)?;
+        } else if force_rebuild {
+            connection
+                .execute("DELETE FROM cache_meta WHERE key = 'android_latest_operation'", [])
                 .map_err(storage_error)?;
         }
         connection
@@ -1314,7 +1367,9 @@ fn replace_canonical_workspace(
                         task.parent_id,
                         task.position,
                         task.priority,
-                        task.version,
+                        task.version.checked_add(next_version_offset)
+                            .filter(|version| *version > 0)
+                            .ok_or_else(|| storage_error("Android task version range is exhausted"))?,
                         task.created_at,
                         task.updated_at,
                         task.completed_at,
@@ -1379,6 +1434,13 @@ fn replace_canonical_workspace(
                 "INSERT INTO cache_meta (key, value) VALUES ('android_cache_version', '2')
                  ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 [],
+            )
+            .map_err(storage_error)?;
+        connection
+            .execute(
+                "INSERT INTO cache_meta (key, value) VALUES ('android_task_version_offset', ?1)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![next_version_offset.to_string()],
             )
             .map_err(storage_error)?;
 
@@ -2004,13 +2066,14 @@ pub fn android_storage(
             fingerprint,
             tasks,
             receive,
+            force_rebuild,
         } => {
             if transaction_guard.is_some() {
                 return Err(storage_error(
                     "cannot replace the canonical workspace while a transaction is active",
                 ));
             }
-            replace_canonical_workspace(connection, &workspace_id, &fingerprint, &tasks, receive)
+            replace_canonical_workspace(connection, &workspace_id, &fingerprint, &tasks, receive, force_rebuild)
         }
         AndroidStorageRequest::ReadWorkspaceBackup => {
             if transaction_guard.is_some() {
@@ -2178,15 +2241,35 @@ pub fn android_storage(
 mod tests {
     use super::*;
 
+    fn imported_task(id: &str, title: &str, version: i64) -> AndroidImportedTask {
+        AndroidImportedTask {
+            id: id.into(),
+            title: title.into(),
+            description_markdown: String::new(),
+            status: "open".into(),
+            priority: 2,
+            category: None,
+            tags: Vec::new(),
+            parent_id: None,
+            dependency_ids: Vec::new(),
+            position: 0,
+            version,
+            created_at: "now".into(),
+            updated_at: "now".into(),
+            completed_at: None,
+            canceled_at: None,
+        }
+    }
+
     #[test]
     fn canonical_rebuild_preserves_same_workspace_receipts() {
         let connection = Connection::open_in_memory().unwrap();
         ensure_schema(&connection).unwrap();
-        replace_canonical_workspace(&connection, "first", "initial", &[], false).unwrap();
+        replace_canonical_workspace(&connection, "first", "initial", &[], false, false).unwrap();
         write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
         write_operation(&connection, &json!({ "id": "undo-me" })).unwrap();
 
-        replace_canonical_workspace(&connection, "first", "after-write", &[], false).unwrap();
+        replace_canonical_workspace(&connection, "first", "after-write", &[], false, false).unwrap();
         assert_eq!(read_operation(&connection).unwrap().unwrap()["id"], "undo-me");
         assert!(clear_operation(&connection, "wrong-id").is_err());
         assert_eq!(read_operation(&connection).unwrap().unwrap()["id"], "undo-me");
@@ -2195,8 +2278,115 @@ mod tests {
         assert_eq!(read_canonical_meta(&connection).unwrap()["cacheVersion"], "2");
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
 
-        assert!(replace_canonical_workspace(&connection, "second", "new-workspace", &[], false).is_err());
+        assert!(replace_canonical_workspace(&connection, "second", "new-workspace", &[], false, false).is_err());
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
+    }
+
+    #[test]
+    fn forced_same_fingerprint_rebuild_repairs_cache_and_invalidates_local_versions() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        let mut parent = imported_task("parent", "Canonical parent", 3);
+        parent.category = Some(AndroidImportedClassification {
+            slug: "planning".into(),
+            label: "Planning".into(),
+        });
+        parent.tags.push(AndroidImportedClassification {
+            slug: "important".into(),
+            label: "Important".into(),
+        });
+        let mut child = imported_task("child", "Canonical child", 2);
+        child.parent_id = Some("parent".into());
+        child.dependency_ids.push("parent".into());
+        let canonical = vec![parent, child];
+        replace_canonical_workspace(&connection, "first", "same-fingerprint", &canonical, false, false).unwrap();
+        let before = read_snapshot(&connection).unwrap();
+        let previous_versions: std::collections::HashMap<String, i64> = before["tasks"]
+            .as_array().unwrap().iter()
+            .map(|task| (task["id"].as_str().unwrap().into(), task["version"].as_i64().unwrap()))
+            .collect();
+        write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
+        write_operation(&connection, &json!({ "id": "old-undo" })).unwrap();
+        connection.execute(
+            "INSERT INTO activity (task_id, request_id, action, actor_kind, actor_label, created_at, details_json)
+             VALUES ('parent', 'req', 'created', 'agent', 'test', 'now', '{}')",
+            [],
+        ).unwrap();
+
+        connection.execute("UPDATE tasks SET title = 'damaged' WHERE id = 'parent'", []).unwrap();
+        connection.execute_batch("DELETE FROM task_dependencies; DELETE FROM task_tags; DELETE FROM categories; DELETE FROM tags;").unwrap();
+        let rebuilt = replace_canonical_workspace(&connection, "first", "same-fingerprint", &canonical, false, true).unwrap();
+
+        let after = read_snapshot(&connection).unwrap();
+        let parent = after["tasks"].as_array().unwrap().iter().find(|task| task["id"] == "parent").unwrap();
+        let child = after["tasks"].as_array().unwrap().iter().find(|task| task["id"] == "child").unwrap();
+        assert_eq!(parent["title"], "Canonical parent");
+        assert_eq!(parent["category"]["slug"], "planning");
+        assert_eq!(parent["tags"][0]["slug"], "important");
+        assert_eq!(child["parentId"], "parent");
+        assert_eq!(child["dependencyIds"], json!(["parent"]));
+        for task in after["tasks"].as_array().unwrap() {
+            assert!(task["version"].as_i64().unwrap() > previous_versions[task["id"].as_str().unwrap()]);
+        }
+        assert_eq!(rebuilt["changed"], true);
+        assert_eq!(rebuilt["workspaceRevision"], before["workspaceRevision"].as_i64().unwrap() + 1);
+        assert!(after["taskVersionOffset"].as_i64().unwrap() > before["taskVersionOffset"].as_i64().unwrap());
+        assert_eq!(read_canonical_meta(&connection).unwrap()["fingerprint"], "same-fingerprint");
+        assert_eq!(read_receipt(&connection, "retry-key").unwrap()["receipt"]["requestHash"], "hash");
+        assert!(read_operation(&connection).unwrap().is_none());
+        assert_eq!(after["tasks"].as_array().unwrap().len(), 2);
+        let rebuilt_parent_version = parent["version"].as_i64().unwrap();
+        replace_canonical_workspace(&connection, "first", "next-fingerprint", &canonical, false, false).unwrap();
+        let next_snapshot = read_snapshot(&connection).unwrap();
+        let next_parent = next_snapshot["tasks"].as_array().unwrap().iter().find(|task| task["id"] == "parent").unwrap();
+        assert_eq!(next_parent["version"].as_i64().unwrap(), rebuilt_parent_version);
+        let backup = read_workspace_backup(&connection).unwrap();
+        assert_eq!(backup["taskVersionOffset"], next_snapshot["taskVersionOffset"]);
+        let activity_count: i64 = connection.query_row("SELECT COUNT(*) FROM activity", [], |row| row.get(0)).unwrap();
+        assert_eq!(activity_count, 0);
+    }
+
+    #[test]
+    fn forced_rebuild_version_offset_survives_backup_restore() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        let canonical = vec![imported_task("task", "Canonical", 1)];
+        replace_canonical_workspace(&connection, "first", "same-fingerprint", &canonical, false, false).unwrap();
+        replace_canonical_workspace(&connection, "first", "same-fingerprint", &canonical, false, true).unwrap();
+        let before = read_snapshot(&connection).unwrap();
+        let backup = read_workspace_backup(&connection).unwrap();
+
+        restore_workspace_backup(&connection, &backup).unwrap();
+
+        let restored = read_snapshot(&connection).unwrap();
+        assert_eq!(restored["taskVersionOffset"], before["taskVersionOffset"]);
+        assert_eq!(restored["tasks"][0]["version"], before["tasks"][0]["version"]);
+    }
+
+    #[test]
+    fn failed_forced_rebuild_rolls_back_cache_and_local_state() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        let canonical = vec![imported_task("task", "Canonical", 1)];
+        replace_canonical_workspace(&connection, "first", "fingerprint", &canonical, false, false).unwrap();
+        write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
+        write_operation(&connection, &json!({ "id": "undo-me" })).unwrap();
+        connection.execute(
+            "INSERT INTO activity (task_id, request_id, action, actor_kind, actor_label, created_at, details_json)
+             VALUES ('task', 'req', 'created', 'agent', 'test', 'now', '{}')",
+            [],
+        ).unwrap();
+        let before = read_workspace_backup(&connection).unwrap();
+        connection.execute_batch(
+            "CREATE TRIGGER reject_rebuild_task BEFORE INSERT ON tasks
+             BEGIN SELECT RAISE(ABORT, 'rebuild task insert failed'); END;",
+        ).unwrap();
+
+        assert!(replace_canonical_workspace(&connection, "first", "fingerprint", &canonical, false, true).is_err());
+
+        assert_eq!(read_workspace_backup(&connection).unwrap(), before);
+        assert_eq!(read_operation(&connection).unwrap().unwrap()["id"], "undo-me");
+        assert_eq!(read_receipt(&connection, "retry-key").unwrap()["receipt"]["requestHash"], "hash");
     }
 
     #[test]
@@ -2208,7 +2398,7 @@ mod tests {
             [],
         ).unwrap();
         let error =
-            replace_canonical_workspace(&connection, "incoming", "fingerprint", &[], false).unwrap_err();
+            replace_canonical_workspace(&connection, "incoming", "fingerprint", &[], false, false).unwrap_err();
         assert!(error.contains("LOCAL_TASKS_NOT_EMPTY"));
         let count: i64 = connection
             .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
@@ -2242,10 +2432,10 @@ mod tests {
         write_receipt(&connection, "retry-key", "task.create", "hash", "{}", "now").unwrap();
 
         // Adoption without a marker is refused.
-        assert!(replace_canonical_workspace(&connection, "incoming", "fp", &[], true).is_err());
+        assert!(replace_canonical_workspace(&connection, "incoming", "fp", &[], true, false).is_err());
         // A marker for a different workspace is refused.
         write_receive_marker(&connection, &json!({ "targetWorkspaceId": "other" })).unwrap();
-        assert!(replace_canonical_workspace(&connection, "incoming", "fp", &[], true).is_err());
+        assert!(replace_canonical_workspace(&connection, "incoming", "fp", &[], true, false).is_err());
 
         // The matching marker allows adoption of the incoming workspace.
         write_receive_marker(&connection, &json!({ "targetWorkspaceId": "incoming" })).unwrap();
@@ -2256,7 +2446,7 @@ mod tests {
             dependency_ids: vec![], position: 0, version: 1, created_at: "now".into(),
             updated_at: "now".into(), completed_at: None, canceled_at: None,
         }];
-        replace_canonical_workspace(&connection, "incoming", "fp", &incoming, true).unwrap();
+        replace_canonical_workspace(&connection, "incoming", "fp", &incoming, true, false).unwrap();
         let snapshot = read_snapshot(&connection).unwrap();
         assert_eq!(snapshot["tasks"].as_array().unwrap().len(), 1);
         assert_eq!(snapshot["tasks"][0]["id"], "x");
@@ -2451,7 +2641,7 @@ mod tests {
     fn staged_file_write_blocks_import_and_restores_its_receipt() {
         let connection = Connection::open_in_memory().unwrap();
         ensure_schema(&connection).unwrap();
-        replace_canonical_workspace(&connection, "first", "initial", &[], false).unwrap();
+        replace_canonical_workspace(&connection, "first", "initial", &[], false, false).unwrap();
         write_operation(&connection, &json!({ "id": "old-undo" })).unwrap();
         let pending = AndroidPendingWrite {
             operation_id: "write".into(),
@@ -2469,7 +2659,7 @@ mod tests {
             invalidate_latest_operation: true,
         };
         stage_pending_write(&connection, &pending).unwrap();
-        assert!(replace_canonical_workspace(&connection, "first", "next", &[], false).is_err());
+        assert!(replace_canonical_workspace(&connection, "first", "next", &[], false, false).is_err());
         assert!(complete_pending_write(&connection, "wrong").is_err());
         assert!(read_pending_write(&connection).unwrap().is_some());
         assert_eq!(
@@ -2478,7 +2668,7 @@ mod tests {
         );
         complete_pending_write(&connection, "write").unwrap();
         assert!(read_operation(&connection).unwrap().is_none());
-        replace_canonical_workspace(&connection, "first", "next", &[], false).unwrap();
+        replace_canonical_workspace(&connection, "first", "next", &[], false, false).unwrap();
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
     }
 }

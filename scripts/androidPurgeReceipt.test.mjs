@@ -62,6 +62,8 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
     receipts: new Map(),
     pending,
     canonicalMeta,
+    taskVersionOffset: 0,
+    replaceRequests: [],
     failNextBegin: false,
   };
   const files = new Map(canonicalFiles ?? []);
@@ -76,7 +78,11 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
       case "readPendingWrite":
         return { pending: state.pending };
       case "readSnapshot":
-        return { tasks: structuredClone(state.tasks), workspaceRevision: state.workspaceRevision };
+        return {
+          tasks: structuredClone(state.tasks),
+          workspaceRevision: state.workspaceRevision,
+          taskVersionOffset: state.taskVersionOffset,
+        };
       case "readCanonicalMeta":
         return state.canonicalMeta ?? {};
       case "readReceipt":
@@ -101,7 +107,13 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
         return { completed: true };
       }
       case "replaceCanonicalWorkspace":
-        state.tasks = structuredClone(request.tasks).map((task) => ({ ...task, blockedByIds: [] }));
+        state.replaceRequests.push(structuredClone(request));
+        if (request.forceRebuild) state.taskVersionOffset += 1;
+        state.tasks = structuredClone(request.tasks).map((task) => ({
+          ...task,
+          version: task.version + state.taskVersionOffset,
+          blockedByIds: [],
+        }));
         state.workspaceRevision += 1;
         state.canonicalMeta = {
           workspaceId: request.workspaceId,
@@ -240,6 +252,28 @@ async function interruptedPurgeFixture() {
     meta: { workspaceId, fingerprint: await sha256(canonicalJson(fingerprintInput)), cacheVersion: "2" },
   };
 }
+
+test("Android workspace.rebuild forces a same-fingerprint cache replacement", async () => {
+  const fixture = await interruptedPurgeFixture();
+  const damagedTask = { ...fixture.task, title: "Damaged derived cache" };
+  await withBackend({ tasks: [damagedTask], canonicalFiles: fixture.files, canonicalMeta: fixture.meta }, async (backend) => {
+    const response = await handleAndroidRequest({
+      version: 1,
+      requestId: "rebuild-request",
+      command: "workspace.rebuild",
+      args: {},
+      actor: { kind: "agent", label: "test" },
+    });
+
+    assert.equal(response.ok, true);
+    assert.equal(response.result.rebuilt, true);
+    assert.equal(response.result.changed, true);
+    assert.equal(backend.state.replaceRequests.length, 1);
+    assert.equal(backend.state.replaceRequests[0].forceRebuild, true);
+    assert.equal(backend.state.tasks[0].title, fixture.task.title);
+    assert.ok(backend.state.tasks[0].version > fixture.task.version);
+  });
+});
 
 test("Android purge returns its original receipt after the canceled tasks are gone", async () => {
   await withBackend({ tasks: [canceledTask()] }, async ({ state, events }) => {

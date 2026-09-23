@@ -28,6 +28,7 @@ type AndroidSnapshot = {
   tasks: TaskRecord[];
   workspaceRevision: number;
   unresolvedConflicts?: AndroidSyncConflict[];
+  taskVersionOffset: number;
 };
 
 type AndroidReceipt = {
@@ -123,12 +124,14 @@ function previewTask(
 }
 
 function asSnapshot(response: AndroidStorageResponse): AndroidSnapshot {
-  if (!Array.isArray(response.tasks) || typeof response.workspaceRevision !== "number") {
+  if (!Array.isArray(response.tasks) || typeof response.workspaceRevision !== "number"
+      || typeof response.taskVersionOffset !== "number") {
     throw new AndroidEngineError("INVALID_STORAGE", "Android storage returned an invalid task snapshot");
   }
   return {
     tasks: response.tasks as TaskRecord[],
     workspaceRevision: response.workspaceRevision,
+    taskVersionOffset: response.taskVersionOffset,
   };
 }
 
@@ -231,7 +234,9 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
   const id = crypto.randomUUID();
   const operationId = crypto.randomUUID();
   const transaction = transactionId();
-  const task: TaskRecord = { ...preview, id, createdAt: now, updatedAt: now };
+  const version = current.taskVersionOffset + 1;
+  if (!Number.isSafeInteger(version)) throw new AndroidEngineError("INVALID_STORAGE", "Android task version is out of range");
+  const task: TaskRecord = { ...preview, id, version, createdAt: now, updatedAt: now };
   const result = { task, operationId };
   let committed = false;
   try {
@@ -278,7 +283,7 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
       parentId,
       position: 0,
       priority,
-      version: 1,
+      version,
       createdAt: now,
       updatedAt: now,
       completedAt: null,
@@ -1062,10 +1067,10 @@ async function syncWorkspace(): Promise<Record<string, unknown>> {
 }
 
 async function rebuildWorkspace(): Promise<Record<string, unknown>> {
-  const result = await syncAndroidWorkspace();
+  const result = await syncAndroidWorkspace({ forceRebuild: true });
   const current = await snapshot();
   return {
-    rebuilt: true,
+    rebuilt: result.selected && result.changed,
     selected: result.selected,
     changed: result.changed,
     taskCount: current.tasks.length,

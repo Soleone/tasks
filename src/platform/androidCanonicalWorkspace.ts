@@ -801,7 +801,8 @@ export async function parseAndroidCanonicalWorkspace(files: AndroidCanonicalFile
   return parseWorkspaceFiles(files);
 }
 
-export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
+export async function syncAndroidWorkspace(options: { forceRebuild?: boolean } = {}): Promise<AndroidSyncResult> {
+  const forceRebuild = options.forceRebuild ?? false;
   await recoverPendingWrite();
   const result = await readAndroidCanonicalFiles();
   if (!result.selected) return { selected: false, changed: false };
@@ -817,7 +818,7 @@ export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
       "the selected Android sync folder belongs to a different Tasks workspace",
     );
   }
-  if (previousFingerprint === imported.fingerprint && meta.cacheVersion === "2") {
+  if (!forceRebuild && previousFingerprint === imported.fingerprint && meta.cacheVersion === "2") {
     return {
       selected: true,
       changed: false,
@@ -832,6 +833,7 @@ export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
     workspaceId: imported.workspaceId,
     fingerprint: imported.fingerprint,
     tasks: imported.tasks,
+    forceRebuild,
   });
   return {
     selected: true,

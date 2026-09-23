@@ -80,7 +80,7 @@ export type AndroidStorageRequest =
   | { operation: "readPendingWrite" }
   | { operation: "stageCanonicalWrite"; pending: AndroidPendingWrite }
   | { operation: "completePendingWrite"; operationId: string }
-  | { operation: "replaceCanonicalWorkspace"; workspaceId: string; fingerprint: string; tasks: AndroidImportedTask[]; receive?: boolean }
+  | { operation: "replaceCanonicalWorkspace"; workspaceId: string; fingerprint: string; tasks: AndroidImportedTask[]; receive?: boolean; forceRebuild?: boolean }
   | { operation: "readWorkspaceBackup" }
   | { operation: "restoreWorkspaceBackup"; backup: Record<string, unknown> }
   | { operation: "readReceiveMarker" }
