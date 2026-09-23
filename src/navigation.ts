@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
 /**
- * The surface that can receive explicit home focus. Modal surfaces, including
- * the task composer, use the focus stack instead of becoming Tab destinations.
+ * The surface that can receive explicit home focus. The inline task editor
+ * owns focus while open; modal surfaces use the focus stack instead.
  */
 export type DestinationId = "list";
 

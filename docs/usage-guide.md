@@ -7,12 +7,12 @@ Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progres
 ## Home-screen contract
 
 - The first load opens with no dialog and moves focus to the task-list surface.
-- When tasks exist, focus is on the `listbox`; the first visible task is the active row.
+- When tasks exist, focus is on the `listbox`; the first visible task is the active row. Pressing `Enter` or clicking a task opens its inline editor and focuses the title field.
 - An empty workspace focuses the `Saved tasks` list shell. From there, `C` opens capture.
 - A filtered empty workspace keeps a focusable task-list shell at roughly one task-row width and height, shows “No tasks match the current filters,” and offers a mouse-accessible Clear filters action. Clear filters is not a Tab destination because Escape resets filters from the list.
 - A load error focuses `Retry` until the first successful load can focus the list.
 - Loading or refreshing tasks must not steal focus from the current task, an open editor, or another dialog.
-- `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `C` or the command palette is the primary keyboard path.
+- `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `C` or the command palette opens the inline editor from the keyboard.
 
 The list uses a single focus stop. Arrow keys move the active row and do not add a tab stop for every task. The active row is exposed through `aria-activedescendant`; the list is multi-selectable and exposes selected rows through `aria-selected`.
 
@@ -45,13 +45,13 @@ Descriptions and timestamps are hidden unless Details is on (`V`). One quiet fin
 
 ## Keyboard shortcuts
 
-These shortcuts work anywhere on the home screen, even when focus is not on the task list. Typing in title, description, search, or picker inputs disables them, as does any open dialog. Filter keys act only while the filter toolbar is focused; sort keys act only while the sort toolbar is focused. A toolbar mode ends when an option is chosen, focus leaves the app, the page is hidden, or `Escape` returns focus to the task list.
+Task-list shortcuts work anywhere on the home screen, even when focus is not on the task list. Typing in title, description, search, or picker inputs disables them. An inline editor or dialog also pauses task-list shortcuts; the editor's field shortcuts take priority while it is open. Application shortcuts such as `Ctrl/⌘+K` remain available. Filter keys act only while the filter toolbar is focused; sort keys act only while the sort toolbar is focused. A toolbar mode ends when an option is chosen, focus leaves the app, the page is hidden, or `Escape` returns focus to the task list.
 
 | Key | Action |
 | --- | --- |
-| `C` | Open the New task dialog |
-| `Shift+C` | Open New task with the active task as parent |
-| `Enter` | Edit the active task |
+| `C` | Open the New task inline editor |
+| `Shift+C` | Open a new child task inline editor for the active task |
+| `Enter` | Edit the active task inline |
 | `Space` | Move the active task forward: open to in progress, in progress or paused to done, done or canceled back to open |
 | `Shift+Space` | Move the active task backward: open to done, in progress to open, paused or done to in progress, canceled to open |
 | `P` | Pause an open or in-progress task, hiding it from Active, or resume a paused task to in progress. The palette entry runs the same action by mouse. |
@@ -88,14 +88,14 @@ These shortcuts work anywhere on the home screen, even when focus is not on the 
 | `Ctrl/⌘` with movement keys | Reorder only in the default Active view, optionally narrowed to one category; search, tags, priority, Unblocked, inactive, exact-status, and context-only rows report what to clear. The Move button provides the same actions by mouse. |
 | `Left` / `Right` | Move to a parent or expand/collapse children; `Right` on a task without children filters by its category and keeps that task as the sole selection, while `Left` while category-filtered clears that filter and keeps the active task selected |
 | `Tab` / `Shift+Tab` | Do nothing while the task list is focused; list focus stays put |
-| `Escape` | Return from the filter or sort toolbar to the task list; on the list, clear a multi-task selection, otherwise reset all filters; `F`/`S` also close their focused toolbar |
+| `Escape` | Cancel the inline editor (or return from description to title); from a toolbar return to the list; on the list clear a multi-task selection, otherwise reset filters; `F`/`S` also close their focused toolbar |
 | `?` (`Shift+/`) | Open the starter help section on the right |
 | `Ctrl/⌘+K` | Open the searchable shortcuts and syntax palette |
 | `Ctrl/⌘+,` | Open Settings |
 | `Alt+T` | Open the theme picker |
 | Configured global shortcut (default `Ctrl+Alt+Space`) | Focus the Tasks window from anywhere in the native desktop app; change it in Settings. On Omarchy/Hyprland, copy the generated Lua binding from Settings. |
 
-Inside the task dialog, `Tab` and `Shift+Tab` move through the title, the single priority section, and the optional description. `Tab` from the title focuses priority, then `Tab` from priority opens and focuses the description when it is closed; `Shift+Tab` reverses that order. The description can also be opened with `Add description`. Focus the priority section itself, not an individual P0-P4 button, then press `0`-`4` or `←`/`→` to choose the task priority. Those number keys set the active task's priority on the list; behind `F` they filter instead. Action buttons are backup mouse controls, not Tab destinations; use `Enter` or `Ctrl/⌘+Enter` to save and `Escape` to close or step back from the description. The priority defaults to P2. Saving a new or edited task closes the dialog and returns to the list. Dialogs return focus to the control or list that opened them.
+The inline task editor focuses its title field. `Tab` and `Shift+Tab` move through the title, the single priority section, and the optional description. `Tab` from the title focuses priority, then `Tab` from priority opens and focuses the description when it is closed; `Shift+Tab` reverses that order. The description can also be opened with `Add description`. Focus the priority section itself, not an individual P0-P4 button, then press `0`-`4` or `←`/`→` to choose the task priority. Those number keys set the active task's priority on the list; behind `F` they filter instead. Action buttons are backup mouse controls, not Tab destinations; use `Enter` or `Ctrl/⌘+Enter` to save. `Escape` cancels the editor, or returns from the description to the title first. The priority defaults to P2. Saving or canceling returns focus to the task list.
 
 Settings opens with focus on its tab list. Use `←`/`→` to switch between General, Shortcuts, and Data, then `Tab` to enter the selected panel's first control (the theme selector in General). `Shift+Tab` returns to the tab list; the selected tab and active panel keep the normal focus ring. Panel wrappers and the mouse-only close icon are not Tab stops; `Escape` closes the dialog.
 
@@ -105,17 +105,17 @@ Use `@category` and `#tags` in task text. The command palette explains the compl
 
 Treat this document as the UI interaction contract when using browser automation, reviewing changes, or adding commands:
 
-- Start UI checks from the task list. Do not assume the New task button is focused or that a dialog is already open.
+- Start UI checks from the task list. Do not assume the New task button is focused or that the inline editor is already open.
 - Wait for the initial focus contract: a populated workspace should have `document.activeElement` on `[role="listbox"]`; an empty workspace should focus `[aria-label="Saved tasks"]`.
 - Prefer keyboard events for the primary path, but verify the equivalent mouse path for every action. A shortcut-only feature is incomplete.
-- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual dialog priority buttons. The filter and sort button groups are programmatic focus stops for `F` and `S`, not normal Tab destinations. The dialog's priority section is its single keyboard focus stop.
-- Clicking a toolbar button, the New task button, a task status icon, a task's category badge, or a header Help, Themes, or Settings button never moves DOM focus (the mousedown default is prevented), so the current keyboard surface keeps focus and keyboard navigation keeps working. Clicking a category badge filters the list to that category, the same as choosing it from the picker. Ctrl/Cmd-click toggles a row, and Shift-click selects a visible sibling range. Dialogs opened from header controls return focus to the surface that opened them, never to the button.
-- Do not add Tab navigation from the task list. `Tab`, `Shift+Tab`, and `Escape` leave focus on the list; use `C` or the command palette to open capture.
+- Buttons are backup and discovery affordances. Trigger actions with their normal keyboard commands or field shortcuts; do not make buttons Tab destinations. The New task button is intentionally `tabIndex=-1` and remains available as a mouse fallback, as do the filter buttons and the individual inline-editor priority buttons. The filter and sort button groups are programmatic focus stops for `F` and `S`, not normal Tab destinations. The inline editor's priority section is its single keyboard focus stop.
+- Clicking a toolbar button, a task status icon, a task's category badge, or a header Help, Themes, or Settings button never focuses the button itself (the mousedown default is prevented), so the current keyboard surface keeps focus and keyboard navigation keeps working. Clicking the New task button opens the inline editor and focuses its title; clicking a task row opens that task's editor. Clicking a category badge filters the list to that category, the same as choosing it from the picker. Ctrl/Cmd-click toggles a row, and Shift-click selects a visible sibling range. Dialogs opened from header controls return focus to the surface that opened them, never to the button.
+- Do not add Tab navigation from the task list. `Tab` and `Shift+Tab` leave focus on the list; use `C` or the command palette to open the inline capture editor. While editing, those keys stay within its fields, and `Escape` cancels or returns from the description.
 - Add a compact, discoverable mouse affordance when adding an action. Icon buttons need accessible labels and tooltips; use menus or progressive disclosure instead of duplicating controls across every row. The Move button beside Details opens a popover with Move up, Move down, Move to beginning, and Move to end for the selected task group; it is closed by default and does not add controls to every row. The move picker puts its Remove parent action in a separate group above new-parent results when the task is nested.
 - Add a shortcut to `src/components/HelpPalette.tsx` when adding a keyboard-first action. Keep the list as the initiating surface.
 - Keep focus ownership explicit. `src/components/TaskList.tsx` owns the home/list focus, toolbar focus modes, and window-level home shortcuts, `src/navigation.ts` owns explicit list entry plus the shared focus-steal prevention for backup controls, and the focus stack owns modal return targets.
 - Do not add `autoFocus` to a secondary action to solve initial focus. Initial focus belongs in the list lifecycle, after the first query has rendered the correct empty, error, or populated state.
-- While visible, the home list checks a shared workspace revision and reloads only when it changes, so CLI and agent writes appear without a restart. Refreshes must preserve focus and unsaved dialog content. A new data result should update the active row without moving the user's focus unless the focused element no longer exists.
+- While visible, the home list checks a shared workspace revision and reloads only when it changes, so CLI and agent writes appear without a restart. Refreshes must preserve focus and unsaved inline-editor content. A new data result should update the active row without moving the user's focus unless the focused element no longer exists.
 - Keep the end-to-end assertions in `scripts/check-ui.mjs` aligned with this guide. Run `pnpm test:ui` when Chromium and `agent-browser` are available; use a scratch database only.
 
 The backend and standalone CLI are separate keyboard-free agent surfaces that use the same typed command path and SQLite workspace. `task.list` accepts `sort: "manual"`; `task.reorder` accepts an explicit `tasks` list with expected versions and one `beforeId`, `afterId`, `first`, or `last` placement. UI focus does not replace those interfaces, and UI-only behavior must not introduce duplicate task or storage rules.

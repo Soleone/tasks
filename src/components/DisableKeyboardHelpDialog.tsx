@@ -18,10 +18,10 @@ export function DisableKeyboardHelpDialog({ open, mode, onOpenChange, onConfirm,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
-          <DialogTitle>{keepsShortcutGuides ? "Hide task dialog help?" : "Disable keyboard help?"}</DialogTitle>
+          <DialogTitle>{keepsShortcutGuides ? "Hide task editor help?" : "Disable keyboard help?"}</DialogTitle>
           <DialogDescription>
             {keepsShortcutGuides
-              ? "Task dialogs will stop showing contextual help, while filter and sort shortcut help remains visible. Restore Full anytime in Settings → General → Keyboard help."
+              ? "Task editors will stop showing contextual help, while filter and sort shortcut help remains visible. Restore Full anytime in Settings → General → Keyboard help."
               : "This will hide all automatic keyboard help. Re-enable it anytime by choosing Full or Basic in Settings → General → Keyboard help."}
           </DialogDescription>
         </DialogHeader>

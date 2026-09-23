@@ -17,6 +17,7 @@ import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
+import { TaskComposer, type ComposerState } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
-import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTask } from "@/platform/backendClient";
+import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTask, type TaskMutationResult } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
@@ -67,7 +68,7 @@ const reverseStatusTransition: Record<TaskStatus, StatusTransition> = {
 const EXACT_STATUS_BY_KEY = new Map(EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]));
 
 // Home shortcuts work anywhere on the home surface, not only when the listbox
-// is focused. Typing targets and open dialogs always win.
+// is focused. Typing targets, the inline editor, and open dialogs always win.
 function isHomeTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.closest('[role="dialog"], [role="menu"], [data-slot="command"]')) return true;
@@ -116,6 +117,7 @@ type TaskListProps = {
   showDetails: boolean;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
+  onDisableComposerHelp: () => void;
   onToggleDetails: () => void;
   categoryFilter: ClassificationToken | null;
   onCategoryFilterChange: (category: ClassificationToken | null, activeTaskId?: string) => void;
@@ -134,6 +136,9 @@ type TaskListProps = {
   error: string | null;
   nav: Navigator;
   onCreate: (parentId?: string) => void;
+  composer: ComposerState | null;
+  onCloseComposer: () => void;
+  onComposerSaved: (result: TaskMutationResult) => void;
   onRefresh: (offset?: number) => Promise<boolean>;
   onAnnounce: (message: string) => void;
   onToast: (message: string) => void;
@@ -319,6 +324,39 @@ type HomeShortcutActions = {
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
+function InlineTaskComposer({ composer, onClose, onSaved, helpMode, onDisableHelp }: {
+  composer: ComposerState;
+  onClose: () => void;
+  onSaved: (result: TaskMutationResult) => void;
+  helpMode: KeyboardHelpMode;
+  onDisableHelp: () => void;
+}): ReactElement {
+  const task = composer.mode === "edit" ? composer.task : undefined;
+  const parentId = composer.mode === "create" ? composer.parentId : undefined;
+  const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
+
+  return (
+    <Item
+      role="group"
+      aria-label={task ? `Editing ${taskTitleDisplay(task.title)}` : "New task inline"}
+      data-inline-task-editor
+      variant="outline"
+      size="sm"
+      className="w-full max-h-[50vh] overflow-y-auto"
+    >
+      <TaskComposer
+        key={task ? task.id : `create-${parentId ?? "root"}`}
+        task={task}
+        parentId={parentId}
+        initialTitle={initialTitle}
+        onSaved={onSaved}
+        onCancel={onClose}
+        helpMode={helpMode}
+        onDisableHelp={onDisableHelp}
+      />
+    </Item>
+  );
+}
 
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
@@ -344,6 +382,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   showDetails,
   helpMode,
   onDisableHelp,
+  onDisableComposerHelp,
   onToggleDetails,
   categoryFilter,
   onCategoryFilterChange,
@@ -362,6 +401,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   error,
   nav,
   onCreate,
+  composer,
+  onCloseComposer,
+  onComposerSaved,
   onRefresh,
   onAnnounce,
   onToast,
@@ -396,6 +438,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
   const [listFocused, setListFocused] = useState(false);
   const [activeTaskIndex, setActiveTaskIndexState] = useState(0);
+  const composerOpenRef = useRef(composer !== null);
+  const previousComposerOpenRef = useRef(composer !== null);
+  composerOpenRef.current = composer !== null;
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode | null>(null);
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
@@ -592,6 +637,16 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (nextIndex !== activeTaskIndex) setActiveTaskIndex(nextIndex);
   }, [activeTaskIndex, visibleRows.length]);
 
+  useEffect(() => {
+    const wasOpen = previousComposerOpenRef.current;
+    previousComposerOpenRef.current = composer !== null;
+    if (!wasOpen || composer !== null) return;
+    const frame = requestAnimationFrame(() => {
+      if (!composerOpenRef.current) (list.current ?? (error ? retry.current : section.current))?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [composer, error]);
+
   // The task list is the home surface. Wait for the first query so focus
   // lands on the list, or its empty/error state, instead of the capture action.
   useEffect(() => {
@@ -672,7 +727,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   function focusListBeforeToolbarDialog(): void {
-    if (!document.querySelector('[role="dialog"]')) returnToList();
+    if (!document.querySelector('[role="dialog"]') && !composerOpenRef.current) returnToList();
   }
 
   function openStatusMenu(): void {
@@ -1410,6 +1465,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   optionClickRef.current = (row, index, event) => {
+    if (composerOpenRef.current) return;
     const { task } = row;
     pendingActiveIdRef.current = null;
     pendingActiveViewRef.current = null;
@@ -1511,7 +1567,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         if (toolbarModeRef.current !== null || event.target === list.current || event.target === section.current) event.preventDefault();
         return;
       }
-      if (document.querySelector('[role="dialog"]')) return;
+      if (document.querySelector('[role="dialog"]') || composerOpenRef.current) return;
       if (isHomeTypingTarget(event.target)) return;
       if (event.key === "Escape") {
         event.preventDefault();
@@ -1810,13 +1866,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
       className="flex min-h-0 flex-1 flex-col gap-4"
       onMouseDown={(event) => {
-        if (event.target instanceof HTMLElement && event.target.closest('[tabindex="-1"]')) preventFocusSteal(event);
+        if (!(event.target instanceof HTMLElement)) return;
+        const mouseOnlyControl = event.target.closest('[tabindex="-1"]');
+        if (mouseOnlyControl && mouseOnlyControl !== event.currentTarget) preventFocusSteal(event);
       }}
     >
       <div className="flex shrink-0 flex-col gap-4">
@@ -1825,6 +1883,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             size="sm"
             tabIndex={-1}
             aria-keyshortcuts="C"
+            disabled={composer !== null}
             onClick={() => onCreate()}
           >
             <Plus aria-hidden="true" />
@@ -2292,6 +2351,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           >Retry</Button>
         </AlertDescription>
       </Alert> : null}
+      {composer ? (
+        <InlineTaskComposer
+          composer={composer}
+          onClose={onCloseComposer}
+          onSaved={onComposerSaved}
+          helpMode={helpMode}
+          onDisableHelp={onDisableComposerHelp}
+        />
+      ) : null}
       {showListSurface ? (
         <div
           ref={list}
@@ -2302,7 +2370,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             : `${APP_NAME}, no visible matches`}
           aria-orientation="vertical"
           aria-multiselectable="true"
-          aria-keyshortcuts="Escape C Shift+C S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
           aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-x-clip overflow-y-auto overscroll-y-contain outline-none"
@@ -2354,7 +2422,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             </Item>
           ) : null}
         </div>
-      ) : !loading && !error ? (
+      ) : !loading && !error && composer === null ? (
         <Empty>
           <EmptyHeader>
             <EmptyTitle>No tasks yet</EmptyTitle>

@@ -8,7 +8,7 @@ import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
 import { TagPicker } from "@/components/TagPicker";
 import { SearchDialog } from "@/components/SearchDialog";
-import { TaskComposerDialog, type ComposerState } from "@/components/TaskComposerDialog";
+import type { ComposerState } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
 import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
@@ -224,9 +224,9 @@ function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, dir
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-// The list is the default surface. Create and edit share one dialog opened
+// The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
-// focused task list.
+// task editor or list.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
@@ -509,9 +509,10 @@ export default function App(): ReactElement {
         return;
       }
     }
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("composer", fromPalette ?? undefined);
-    setHelpOpen(false);
+    if (helpOpen) {
+      focusStack.restore("help");
+      setHelpOpen(false);
+    }
     const classification = [
       ...(categoryFilter ? [`@${categoryFilter.slug}`] : []),
       ...tagFilter.map((tag) => `#${tag.slug}`),
@@ -524,7 +525,6 @@ export default function App(): ReactElement {
 
   function openEdit(task: TaskRecord): void {
     if (composerRef.current) return;
-    focusStack.push("composer");
     setComposer({ mode: "edit", task });
   }
 
@@ -536,7 +536,7 @@ export default function App(): ReactElement {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.isComposing || event.repeat) return;
       const target = event.target;
-      const typing = target instanceof HTMLElement && (target.matches("input, textarea, [contenteditable=true]") || target.closest('[role="dialog"]') !== null);
+      const typing = target instanceof HTMLElement && (target.matches("input, textarea, [contenteditable=true]") || target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
       if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
         event.preventDefault();
         setStarterHelpOpen((open) => !open);
@@ -1030,7 +1030,7 @@ export default function App(): ReactElement {
     } else {
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
-    if (!creating) requestActiveTask();
+    if (!creating) requestActiveTask(task.id);
     if (result.operationId) {
       recordOperationUndo(result.operationId, previous, [task], { createdTaskIds: creating ? [task.id] : [] });
     }
@@ -1368,6 +1368,7 @@ export default function App(): ReactElement {
           showDetails={showDetails}
           helpMode={helpMode}
           onDisableHelp={() => openDisableHelpDialog("none")}
+          onDisableComposerHelp={() => openDisableHelpDialog("basic")}
           onToggleDetails={toggleDetails}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
@@ -1386,6 +1387,9 @@ export default function App(): ReactElement {
           error={loadError}
           nav={nav}
           onCreate={openCreate}
+          composer={composer}
+          onCloseComposer={closeComposer}
+          onComposerSaved={taskSaved}
           onRefresh={refreshTasks}
           onAnnounce={setAnnouncement}
           onToast={(message) => showToast({ message })}
@@ -1410,14 +1414,6 @@ export default function App(): ReactElement {
           </div>
         ) : null}
       </div>
-      <TaskComposerDialog
-        composer={composer}
-        onClose={closeComposer}
-        onSaved={taskSaved}
-        finalFocus={() => focusStack.restore("composer")}
-        helpMode={helpMode}
-        onDisableHelp={() => openDisableHelpDialog("basic")}
-      />
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <DisableKeyboardHelpDialog
         open={disableHelpTarget !== null}

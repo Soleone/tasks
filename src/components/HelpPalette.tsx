@@ -43,10 +43,11 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Task actions",
     entries: [
-      { label: "New task", hint: "Shared create/edit dialog", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture dialog" },
+      { label: "New task", hint: "Inline editor", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture inline" },
+      { label: "Edit active task", hint: "Inline editor", icon: FileText, keys: ["Enter"], keywords: "enter inline edit selected active task row" },
       { label: "New child task", hint: "Use the selected task as parent", icon: CornerDownRight, keys: ["Shift", "C"], action: "new-child-task", keywords: "shift c create child subtask parent selected task capture" },
-      { label: "Set task priority", hint: "Focus Priority in dialog", icon: Flag, keys: ["0", "1", "2", "3", "4", "←", "→"], keywords: "dialog composer create edit set choose task priority p0 p1 p2 p3 p4 arrow left right" },
-      { label: "Save from the dialog", icon: SaveCheck, keys: ["Enter"], keywords: "enter save create edit title" },
+      { label: "Set task priority", hint: "Focus Priority in the inline editor", icon: Flag, keys: ["0", "1", "2", "3", "4", "←", "→"], keywords: "inline editor create edit set choose task priority p0 p1 p2 p3 p4 arrow left right" },
+      { label: "Save the inline editor", hint: "Ctrl/⌘+Enter also saves from the description", icon: SaveCheck, keys: ["Enter"], keywords: "enter ctrl cmd save create edit title description inline" },
       { label: "Change task status", hint: "Space forward, Shift+Space back", icon: ListChecks, keys: ["Space", "Shift+Space"], keywords: "space shift space reverse backward open in progress done status cycle complete" },
       { label: "Pause or resume task", hint: "P pauses, again resumes", icon: CirclePause, keys: ["P"], action: "pause-task", keywords: "p pause resume sleep park soft cancel paused in progress" },
       { label: "Copy task text", hint: "Title and description without metadata", icon: Copy, keys: ["Ctrl/⌘", "C"], action: "copy-task", keywords: "ctrl cmd c copy title description clipboard selected active task category tags metadata" },

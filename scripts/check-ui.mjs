@@ -101,7 +101,7 @@ try {
   check('document.querySelector("[data-starter-help]")?.textContent.includes("Filter its category (no children)")');
   browser("press", "?");
   waitFor('document.querySelector("[data-starter-help]") === null');
-  // C opens the shared create dialog with the title focused and notes closed.
+  // C opens the inline create editor with the title focused and notes closed.
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   waitFor('document.activeElement.name === "title"');
@@ -190,9 +190,9 @@ try {
   waitFor('document.activeElement.name === "description"');
   browser("press", "Escape");
   check('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\').value.includes("accessibility")');
-  // Saving one task closes capture and returns focus to the list.
+  // Saving one task closes the inline editor and returns focus to the list.
   browser("press", "Control+Enter");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   waitFor('document.activeElement?.getAttribute("role") === "listbox"');
   let saved = (await command("task.list")).tasks;
   assert.equal(saved.length, 1);
@@ -391,7 +391,7 @@ try {
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
 
-  // Edit shares the same dialog. Stale contents survive a conflict until discard.
+  // Inline edits preserve stale drafts after a conflict until discard.
   focus("[role=listbox]");
   browser("press", "Enter");
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
@@ -403,7 +403,7 @@ try {
   waitFor('document.body.textContent.includes("This task changed elsewhere")');
   check('document.querySelector("form[aria-label^=Edit] input").value === "My unsaved title"');
   browser("find", "role", "button", "click", "--name", "Discard changes");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
 
   // Simulate commit-before-lost-reply. Retrying must not duplicate the task.
@@ -422,7 +422,7 @@ try {
   waitFor('document.body.textContent.includes("Could not save")');
   check('document.querySelector(\'form[aria-label="New task"] input\').value === "Next capture draft"');
   browser("press", "Enter");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   assert.equal((await command("task.list")).tasks.length, 2);
   evaluate("window.fetch = window.originalFetch; true");
 
@@ -434,7 +434,7 @@ try {
   check('document.querySelector(\'form[aria-label="New task"] input\').value === "Ambiguous @work @home"');
   browser("fill", 'form[aria-label="New task"] input', "Call the venue");
   browser("press", "Enter");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 3');
   check('document.querySelector("[data-filter-summary]")?.textContent === "3 active tasks"');
@@ -583,8 +583,7 @@ try {
   browser("click", '[data-help-mode]');
   evaluate('[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Full").click(); true');
   waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
-  // Context help is visible in the task composer, including at the native
-  // window minimum where the side-panel version used to be CSS-hidden.
+  // Context help stays visible in the inline editor at narrow window sizes.
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "Escape");
@@ -599,14 +598,14 @@ try {
   browser("click", "[data-disable-help-cancel]");
   waitFor('document.querySelector("[data-disable-help-confirm]") === null');
   check('document.querySelector("[data-context-help]") !== null');
-  check('document.querySelector("[data-slot=dialog-content]")?.className.includes("lg:overflow-visible") === true');
-  waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] input[name=\\"title\\"]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
+  check('document.querySelector("[data-inline-task-editor]") !== null');
+  waitFor('document.querySelector("[data-context-help]")?.getAttribute("data-context-help") === "title"');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=radiogroup]")');
-  waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] [role=radiogroup]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
+  waitFor('document.querySelector("[data-context-help]")?.getAttribute("data-context-help") === "priority"');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
-  waitFor('(() => { if (innerWidth < 1024) return true; const help = document.querySelector("[data-context-help]")?.getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] textarea[name=\\"description\\"]")?.getBoundingClientRect(); return help && anchor && Math.abs((help.top + help.height / 2) - (anchor.top + anchor.height / 2)) < 2; })()');
+  waitFor('document.querySelector("[data-context-help]")?.getAttribute("data-context-help") === "description"');
   browser("set", "viewport", "720", "500");
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   browser("set", "viewport", "1280", "844");
@@ -617,7 +616,7 @@ try {
   waitFor('document.querySelector("[data-context-help]") === null && document.querySelector("[data-disable-help-confirm]") === null');
   browser("press", "Escape");
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor('document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"');
   check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
@@ -678,7 +677,7 @@ try {
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]") && document.activeElement.matches("[role=listbox]")');
 
-  // Tab does not leave the task list; C opens create from the list.
+  // Tab does not leave the task list; C opens inline capture from the list.
   focus("[role=listbox]");
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") !== null');
@@ -715,26 +714,26 @@ try {
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.getAttribute("role") === "listbox"');
-  // Enter on the list opens the highlighted task in the shared dialog.
+  waitFor('document.querySelector("[data-inline-task-editor]") === null && document.activeElement.getAttribute("role") === "listbox"');
+  // Enter on the list focuses the highlighted task's inline editor.
   browser("press", "Enter");
   waitFor('document.querySelector("form[aria-label^=Edit]") !== null');
   waitFor('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]") && document.activeElement.getAttribute("role") === "listbox"');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null && document.activeElement.getAttribute("role") === "listbox"');
 
-  // The palette also opens the shared create dialog.
+  // The palette also opens the inline create editor.
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
-  browser("fill", 'input[role="combobox"]', "new task dialog");
+  browser("fill", 'input[role="combobox"]', "new task inline");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
 
   focus("[role=listbox]");
-  evaluate('[...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")).click(); true');
+  evaluate('(() => { const row = [...document.querySelectorAll("[role=option]")].find((entry) => entry.textContent.includes("Call the venue")); window.editedTaskOptionId = row?.id; row?.click(); return true; })()');
   waitFor('document.querySelector(\'[role=option][aria-selected=true]\')?.textContent.includes("Call the venue")');
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
   browser("fill", 'form[aria-label="Edit task"] input', "Confirm the venue");
@@ -743,7 +742,8 @@ try {
   browser("press", "4");
   waitFor('document.querySelector(\'form[aria-label="Edit task"] [data-priority="P4"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
   browser("press", "Enter");
-  waitFor('document.querySelector("form[aria-label^=Edit]") === null');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null && document.activeElement.matches("[role=listbox]")');
+  check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.editedTaskOptionId');
   assert.ok((await command("task.list")).tasks.some((task) => task.title === "Confirm the venue" && task.priority === 4));
 
   await command("task.create", { title: "Check ".repeat(60), descriptionMarkdown: "Long notes ".repeat(100) });
@@ -763,12 +763,12 @@ try {
   focus("[role=listbox]");
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
-  waitFor('(() => { const dialog = document.querySelector("[role=dialog]"); if (!dialog) return false; const top = Math.round(dialog.getBoundingClientRect().top); return top === 64 || top === 80; })()');
-  check('(() => { const dialog = document.querySelector("[role=dialog]"); if (!dialog) return false; if (dialog.getBoundingClientRect().bottom > innerHeight + 1) return false; return getComputedStyle(dialog).padding === "16px"; })()');
+  waitFor('document.querySelector("[data-inline-task-editor]") !== null');
+  check('(() => { const editor = document.querySelector("[data-inline-task-editor]")?.getBoundingClientRect(); return editor && editor.width <= innerWidth && editor.left >= 0 && editor.top >= 0 && editor.bottom <= innerHeight; })()');
   browser("press", "Delete");
   check('document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[role=dialog]")].some((dialog) => dialog.textContent.includes("Cancel task?"))');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   focus("[role=listbox]");
   const deletedId = evaluate('window.deleteList = document.activeElement; window.deletedId = document.activeElement.getAttribute("aria-activedescendant").slice("task-option-".length); window.deletedId');
   browser("press", "Delete");
@@ -954,7 +954,7 @@ try {
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
 
   // Priority: P2 is the default, F then 0-4 filters on the list, bare 0-4
-  // sets the active task, and the dialog section sets the task priority
+  // sets the active task, and the inline editor sets the task priority
   // without putting individual buttons in Tab order.
   assert.equal((await command("task.list", { priority: 2 })).total >= 9, true);
   focus("[role=listbox]");
@@ -1005,7 +1005,7 @@ try {
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("P2"))');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]")');
-  // The composer defaults to P2. Pointer selection works too, but the group
+  // The inline editor defaults to P2. Pointer selection works too, but the group
   // remains the one keyboard focus target.
   browser("press", "c");
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
@@ -1022,7 +1022,7 @@ try {
   browser("press", "0");
   waitFor('document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
   browser("press", "Control+Enter");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   assert.equal((await command("task.list", { priority: 0 })).total, 1);
   browser("reload");
   waitFor('document.querySelectorAll("[role=option]").length === 10');
@@ -1203,7 +1203,7 @@ try {
     check('document.documentElement.scrollWidth <= innerWidth');
   }
   check('(() => { const summary = document.querySelector("[data-filter-summary]"); const toolbar = document.querySelector("[data-toolbar=filters]"); const list = document.querySelector("[role=listbox]"); if (!summary || !toolbar || !list) return false; const style = getComputedStyle(summary); const summaryBox = summary.getBoundingClientRect(); const toolbarBox = toolbar.getBoundingClientRect(); const listBox = list.getBoundingClientRect(); return style.overflow === "hidden" && summaryBox.height <= 32 && summaryBox.top >= toolbarBox.bottom && listBox.top >= summaryBox.bottom; })()');
-  // Shift+C keeps the same composer flow and assigns the selected task as parent.
+  // Shift+C opens inline capture with the selected task as parent.
   focus("[role=listbox]");
   browser("press", "Home");
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === document.querySelector("[role=option]")?.id');
@@ -1213,7 +1213,7 @@ try {
   waitFor('document.activeElement.name === "title"');
   browser("fill", 'form[aria-label="New task"] input', "Venue follow-up");
   browser("press", "Control+Enter");
-  waitFor('!document.querySelector("[role=dialog]") && document.activeElement?.getAttribute("role") === "listbox"');
+  waitFor('document.querySelector("[data-inline-task-editor]") === null && document.activeElement?.getAttribute("role") === "listbox"');
   const child = (await command("task.list")).tasks.find((task) => task.title === "Venue follow-up");
   assert.equal(child?.parentId, parentId);
 
@@ -1336,8 +1336,8 @@ try {
   await delay(500);
   check('document.querySelector(\'form[aria-label="New task"]\') !== null && !document.querySelector("[data-undo-toast]")?.textContent.includes("Undo status change")');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
-  // Undo still works after leaving the composer.
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
+  // Undo still works after leaving the inline editor.
   focus("[role=listbox]");
   browser("press", "Control+z");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
@@ -1823,7 +1823,7 @@ try {
   assert.equal(externalTask.title, externalTitle);
   waitFor(`([...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`);
   assert.equal(browser("errors").trim(), "");
-  console.log("UI checks passed: dialog capture, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, task undo with toast/replacement/field guards/retry, settings export and font size, editing, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, list-only scrolling, external CLI refresh, and axe.");
+  console.log("UI checks passed: inline capture/editing, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, task undo with toast/replacement/field guards/retry, settings export and font size, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, responsive overflow, list-only scrolling, external CLI refresh, and axe.");
 } catch (error) {
   printFailureDiagnostics();
   throw error;

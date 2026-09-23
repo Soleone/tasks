@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 const STARTER_SHORTCUTS = [
-  { keys: ["C"], label: "New task" },
+  { keys: ["C"], label: "New task inline" },
+  { keys: ["Enter"], label: "Edit the active task" },
   { keys: ["F"], label: "Filter tasks" },
   { keys: ["S"], label: "Sort tasks" },
   { keys: ["V"], label: "Show task details" },

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactElement, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
 import { PRIORITY_META } from "@/components/taskFilters";
 import { createTask, listCategories, listTags, updateTask, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
@@ -12,25 +12,27 @@ import { X } from "lucide-react";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { preventFocusSteal } from "@/navigation";
 
+export type ComposerState =
+  | { mode: "create"; parentId?: string; initialTitle?: string }
+  | { mode: "edit"; task: TaskRecord };
+
 type TaskComposerProps = {
   task?: TaskRecord;
   initialTitle?: string;
   parentId?: string;
-  titleInputRef?: RefObject<HTMLInputElement | null>;
   onSaved: (result: TaskMutationResult) => void;
   onCancel: () => void;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
 };
 
-// Shared create/edit form. Fields and the priority section own direct
+// Shared inline create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef, onSaved, onCancel, helpMode, onDisableHelp }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCancel, helpMode, onDisableHelp }: TaskComposerProps): ReactElement {
   const id = useId();
-  const fallbackTitleInput = useRef<HTMLInputElement>(null);
+  const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
-  const titleInput = titleInputRef ?? fallbackTitleInput;
   const prioritySection = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
@@ -47,7 +49,6 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
-  const [helpTop, setHelpTop] = useState<number | null>(null);
   const dirty = title !== (task?.title ?? "")
     || description !== (task?.descriptionMarkdown ?? "")
     || priority !== (task?.priority ?? 2);
@@ -55,51 +56,17 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
   const showPriorityHelp = helpMode === "basic";
 
   useEffect(() => {
-    requestAnimationFrame(() => titleInput.current?.focus());
-  }, [titleInput, task?.id]);
+    const frame = requestAnimationFrame(() => titleInput.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [task?.id]);
 
-  // Focus the notes after they commit, not in the click frame: the dialog
-  // trap owns focus during entry, so a same-frame focus can be yanked and
-  // immediately blurred again.
+  // Focus the notes after they commit, not in the click frame.
   useEffect(() => {
     if (notesOpen && focusNotesOnOpen.current) {
       focusNotesOnOpen.current = false;
       notesInput.current?.focus();
     }
   }, [notesOpen]);
-
-  useLayoutEffect(() => {
-    if (!showContextualHelp) {
-      setHelpTop(null);
-      return;
-    }
-    const anchor = helpTarget === "title"
-      ? titleInput.current
-      : helpTarget === "description"
-        ? notesInput.current
-        : prioritySection.current;
-    const popup = anchor?.closest<HTMLElement>("[data-slot=dialog-content]");
-    if (!anchor || !popup) {
-      setHelpTop(null);
-      return;
-    }
-    const updateHelpPosition = (): void => {
-      const anchorRect = anchor.getBoundingClientRect();
-      const popupRect = popup.getBoundingClientRect();
-      setHelpTop(anchorRect.top - popupRect.top + anchorRect.height / 2);
-    };
-    updateHelpPosition();
-    const settleTimer = window.setTimeout(updateHelpPosition, 150);
-    window.addEventListener("resize", updateHelpPosition);
-    popup.addEventListener("scroll", updateHelpPosition, { passive: true });
-    popup.addEventListener("animationend", updateHelpPosition);
-    return () => {
-      window.clearTimeout(settleTimer);
-      window.removeEventListener("resize", updateHelpPosition);
-      popup.removeEventListener("scroll", updateHelpPosition);
-      popup.removeEventListener("animationend", updateHelpPosition);
-    };
-  }, [helpTarget, notesOpen, showContextualHelp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,8 +77,8 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
         setTags(tagResult.tags);
       })
       .catch(() => {
-        // Autocomplete is a convenience. The title remains fully editable if
-        // the shared backend is unavailable while the dialog is open.
+        // Autocomplete is a convenience. The title remains editable if the
+        // shared backend is unavailable while the editor is open.
       });
     return () => {
       cancelled = true;
@@ -178,6 +145,11 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
 
   function handlePriorityKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       if (event.shiftKey) titleInput.current?.focus();
@@ -261,17 +233,10 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
         ? await updateTask(task.id, title, description, task.version, { ...options, priority })
         : await createTask(title, description, { ...options, parentId, priority });
       receipt.current = null;
-      if (!task) {
-        setTitle("");
-        setDescription("");
-        setPriority(2);
-        setNotesOpen(false);
-      }
       onSaved(result);
-      requestAnimationFrame(() => titleInput.current?.focus());
     } catch (caught) {
       setError(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then close and reopen the task."
+        ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then cancel and reopen the task."
         : caught instanceof Error ? caught.message : String(caught));
     } finally {
       saving.current = false;
@@ -313,10 +278,8 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
         <aside
           aria-label="Keyboard help"
           data-context-help={helpTarget}
-          style={helpTop === null ? undefined : { "--context-help-top": `${helpTop}px` } as CSSProperties}
-          className="pointer-events-none w-full rounded-md border bg-card p-3 pr-9 text-card-foreground shadow-md lg:absolute lg:right-full lg:top-(--context-help-top) lg:mr-3 lg:w-52 lg:-translate-y-1/2"
+          className="relative w-full rounded-md border bg-card p-3 pr-9 text-card-foreground"
         >
-          <span className="absolute -right-2 top-4 size-3 rotate-45 border-r border-t bg-card" aria-hidden="true" />
           <Button
             type="button"
             variant="ghost"
@@ -441,8 +404,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
               readOnly={pending}
               onChange={(event) => setDescription(event.target.value)}
               onFocus={() => setHelpTarget("description")}
-              onBlur={() => {
-                if (!description.trim()) setNotesOpen(false);
+              onBlur={(event) => {
+                const nextFocus = event.relatedTarget;
+                if (!description.trim() && nextFocus instanceof HTMLElement && event.currentTarget.form?.contains(nextFocus)) setNotesOpen(false);
               }}
               onKeyDown={(event) => {
                 if (event.nativeEvent.isComposing || event.keyCode === 229) return;
