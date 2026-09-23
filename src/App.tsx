@@ -27,6 +27,7 @@ import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
+import { runtimeKind } from "@/platform/runtime";
 import { readStoredFontSizeIncrease, storeFontSizeIncrease, type FontSizeIncrease } from "@/fontSize";
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 
@@ -47,7 +48,10 @@ const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const HELP_MODE_KEY = "tasks.helpMode";
 const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
 const GLOBAL_SHORTCUT_KEY = "tasks.globalShortcut";
-const WORKSPACE_REVISION_POLL_MS = 1500;
+// Android re-reads the whole SAF workspace on every poll (~50 IPCs for a
+// mid-size task set), so it polls far less often than desktop, where the read
+// is a cheap local-filesystem scan.
+const WORKSPACE_REVISION_POLL_MS = runtimeKind() === "android" ? 15000 : 1500;
 
 function readStored(key: string): string | null {
   try {
