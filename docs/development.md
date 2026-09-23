@@ -153,6 +153,14 @@ The Android feasibility work now has the desktop/mobile configuration split, a g
 
 The host uses Node 26.9.0, pnpm 11.22.0, Rust 1.98.1, Tauri 2.11.5, JDK 21.0.2, Android SDK command-line tools 23.0, platform-tools 37.0.1, platform/build tools 36, and NDK 27.2.12479018. The four Android Rust targets are installed. Activate the mise-managed paths with `eval "$(mise env --shell bash)"`, then use `pnpm tauri android build --debug --apk -t aarch64` for an arm64 debug APK or `-t x86_64` for an emulator APK. No emulator or physical Android device is currently connected to this host. A Pixel 10a run provided initial on-device SAF read evidence for a 68-file workspace; see the [Android SAF performance record](android-saf-performance.md) for the measurement and its limits. Lifecycle, full native UI, on-device SQLite acceptance, larger workspaces, and other SAF providers remain open. Web and Linux desktop checks are not Android acceptance evidence.
 
+#### Signed Android release APK
+
+`pnpm build:android` requires signing, builds an arm64 release APK, and verifies it with `apksigner`. It rejects a missing or incomplete local properties file before starting Tauri; Gradle then validates the keystore file, passwords, and private-key alias before producing the release artifact. Android SDK Build-Tools must be installed, with `ANDROID_HOME` or `ANDROID_SDK_ROOT` set so the command can locate `apksigner`.
+
+Create a release keystore in a private location. For example, `keytool -genkeypair -v -keystore "$HOME/.android/tasks-release.jks" -alias tasks-release -keyalg RSA -keysize 2048 -validity 10000` prompts for the passwords interactively. Do not pass passwords as command-line arguments. Create `src-tauri/gen/android/keystore.properties` locally with the `storeFile`, `storePassword`, `keyAlias`, and `keyPassword` properties. `storeFile` may be absolute or relative to `src-tauri/gen/android/app`. Enter the passwords only in this ignored local file; restrict its filesystem permissions (for example, `chmod 600` on Linux/macOS). The file is already excluded by the Android project's `.gitignore`. Never commit the properties file or keystore, and keep a secure backup of the keystore. Build output and signing validation do not print the property values.
+
+The separate `pnpm build:android:debug` command uses Android's debug signing and does not need release credentials.
+
 ## WSL and agent access
 
 The `bin/tasks` wrapper lets an agent in WSL call the Windows sidecar and Windows database instead of opening the database through `/mnt/c`. Set `TASKS_WINDOWS_ROOT`, `TASKS_WINDOWS_SIDECAR`, or `TASKS_WINDOWS_DATABASE` when the default paths do not match the checkout.
