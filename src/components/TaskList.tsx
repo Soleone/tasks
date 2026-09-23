@@ -431,6 +431,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
   function setActiveTaskIndex(nextIndex: number): void {
+    activeTaskIdRef.current = visibleRowsRef.current[nextIndex]?.task.id ?? null;
     activeTaskIndexRef.current = nextIndex;
     setActiveTaskIndexState(nextIndex);
   }
@@ -457,11 +458,18 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const pendingActiveIndex = pendingActiveIdRef.current === null || pendingActiveViewRef.current !== viewIdentity
     ? -1
     : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
-  const activeIndex = pendingActiveIndex >= 0 ? pendingActiveIndex : clampedActiveIndex;
+  // Hierarchy moves change row positions; follow the active task by identity.
+  const identityActiveIndex = activeTaskIdRef.current === null
+    ? -1
+    : visibleRows.findIndex((row) => row.task.id === activeTaskIdRef.current);
+  const activeIndex = pendingActiveIndex >= 0
+    ? pendingActiveIndex
+    : identityActiveIndex >= 0 ? identityActiveIndex : clampedActiveIndex;
   const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
   const activeTask = activeRow?.task;
   visibleRowsRef.current = visibleRows;
   selectedIdsRef.current = selectedIds;
+  activeTaskIndexRef.current = activeIndex;
   activeTaskIdRef.current = activeTask?.id ?? null;
   activeTaskRef.current = activeTask;
 
@@ -495,6 +503,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         pendingActiveViewRef.current = null;
       }
     }
+    if (activeIndex !== activeTaskIndex) setActiveTaskIndex(activeIndex);
 
     const selectableIds = new Set(visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id));
     const restoredActiveId = restoreActiveIdRef.current;

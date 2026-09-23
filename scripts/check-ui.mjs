@@ -63,7 +63,7 @@ function focus(selector) {
 function printFailureDiagnostics() {
   try { console.error("Browser snapshot:\n" + browser("snapshot")); } catch (error) { console.error("Could not capture browser snapshot:", error); }
   try { console.error("Browser errors:\n" + browser("errors")); } catch (error) { console.error("Could not capture browser errors:", error); }
-  try { console.error("Browser state:", evaluate('({ focus: document.activeElement?.tagName + ":" + (document.activeElement?.textContent ?? "").slice(0, 100), listbox: Boolean(document.querySelector("[role=listbox]")), rows: document.querySelectorAll("[role=option]").length })')); } catch (error) { console.error("Could not capture browser state:", error); }
+  try { console.error("Browser state:", evaluate('({ focus: document.activeElement?.tagName + ":" + (document.activeElement?.textContent ?? "").slice(0, 100), listbox: Boolean(document.querySelector("[role=listbox]")), activeDescendant: document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant"), activeTitle: document.getElementById(document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant"))?.textContent, activeOption: document.querySelector("[role=option][data-active]")?.id, selected: [...document.querySelectorAll("[role=option][aria-selected=true]")].map((row) => ({ id: row.id, title: row.textContent })), rows: document.querySelectorAll("[role=option]").length })')); } catch (error) { console.error("Could not capture browser state:", error); }
   console.error("Dev-server output:\n" + serverLog);
 }
 async function command(command, args = {}) {
@@ -1670,8 +1670,15 @@ try {
   waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Remove parent")');
   evaluate('([...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("Remove parent"))?.click(), true)');
   waitFor('document.body.textContent.includes("Manual move subject is now a top-level task")');
-  waitFor(`document.querySelector("[role=listbox]")?.getAttribute("aria-activedescendant") === "task-option-${parentMoveSubject.id}"`);
-  check(`document.querySelector("[role=option][id=task-option-${parentMoveSubject.id}]")?.getAttribute("aria-selected") === "true"`);
+  // Detaching changes the row index, but the list's active descendant and selection stay on the moved task.
+  waitFor(`(() => {
+    const list = document.querySelector("[role=listbox]");
+    const option = document.getElementById("task-option-${parentMoveSubject.id}");
+    return document.activeElement === list
+      && list?.getAttribute("aria-activedescendant") === "task-option-${parentMoveSubject.id}"
+      && option?.hasAttribute("data-active")
+      && option?.getAttribute("aria-selected") === "true";
+  })()`);
   check('window.parentMoveLists.some((payload) => payload.args?.offset === 0 && payload.args?.sort === "manual")');
   assert.equal((await command("task.get", { id: parentMoveSubject.id })).task.parentId, null);
   evaluate('window.fetch = window.originalFetchForParentMove; true');
