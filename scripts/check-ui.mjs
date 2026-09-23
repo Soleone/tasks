@@ -200,6 +200,28 @@ try {
   assert.equal(saved[0].category.slug, "launch");
   assert.equal(saved[0].tags[0].slug, "planning");
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
+
+  // Escape dismisses the category autocomplete before closing either composer dialog.
+  browser("press", "c");
+  waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
+  browser("fill", 'form[aria-label="New task"] input', "Draft @l");
+  waitFor('document.querySelector(\'[aria-label="Categories autocomplete"]\') !== null');
+  browser("press", "Escape");
+  waitFor('document.querySelector(\'[aria-label="Categories autocomplete"]\') === null');
+  check('document.querySelector(\'form[aria-label="New task"]\') !== null && document.querySelector(\'form[aria-label="New task"] input\').value === "Draft @l"');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
+
+  focus("[role=listbox]");
+  browser("press", "Enter");
+  waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
+  browser("fill", 'form[aria-label="Edit task"] input', "Draft @l");
+  waitFor('document.querySelector(\'[aria-label="Categories autocomplete"]\') !== null');
+  browser("press", "Escape");
+  waitFor('document.querySelector(\'[aria-label="Categories autocomplete"]\') === null');
+  check('document.querySelector(\'form[aria-label="Edit task"]\') !== null && document.querySelector(\'form[aria-label="Edit task"] input\').value === "Draft @l"');
+  browser("press", "Escape");
+  waitFor('!document.querySelector("[role=dialog]")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   focus("[role=listbox]");
   browser("press", "ArrowRight");

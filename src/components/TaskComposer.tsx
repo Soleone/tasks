@@ -210,8 +210,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, titleInputRef,
       return;
     }
     if (handleSuggestionKeyDown(event)) return;
-    if (event.key === "Escape" && suggestion) {
+    if (event.key === "Escape" && suggestion && suggestionItems.length > 0) {
       event.preventDefault();
+      event.stopPropagation();
       setSuggestion(null);
       return;
     }
