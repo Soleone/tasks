@@ -30,6 +30,12 @@ class ExportDocumentArgs {
   lateinit var suggestedName: String
 }
 
+private val EXPORT_DOCUMENT_NAME_PATTERN =
+  Regex("""\Atasks-(?:archive-|backup-)?\d{4}-\d{2}-\d{2}T\d{6}Z\.json\z""")
+
+internal fun isSupportedExportDocumentName(name: String): Boolean =
+  EXPORT_DOCUMENT_NAME_PATTERN.matches(name)
+
 @InvokeArg
 class CanonicalWriteFileArgs {
   lateinit var relativePath: String
@@ -147,7 +153,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
   fun exportTaskDocument(invoke: Invoke) {
     val args = invoke.parseArgs(ExportDocumentArgs::class.java)
     if (args.content.toByteArray(Charsets.UTF_8).size > MAX_EXPORT_BYTES ||
-      !Regex("^tasks-[0-9TZ-]+\\.json$").matches(args.suggestedName)) {
+      !isSupportedExportDocumentName(args.suggestedName)) {
       invoke.reject("ANDROID_EXPORT_INVALID_DOCUMENT")
       return
     }
