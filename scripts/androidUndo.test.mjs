@@ -52,3 +52,26 @@ test("Android undo recalculates active blockers when restoring dependencies", ()
   assert.deepEqual(plan.restored.dependencyIds, ["blocker"]);
   assert.deepEqual(plan.restored.blockedByIds, []);
 });
+
+test("Android undo rejects a dependency cycle introduced by a valid external edit", () => {
+  const before = task("one", { dependencyIds: ["two"], blockedByIds: ["two"] });
+  const after = task("one", { version: 2 });
+  const external = task("two", { dependencyIds: ["one"], blockedByIds: ["one"] });
+  fails("OPERATION_CONFLICT", () => planAndroidUndo(operation(before, after), "op", [after, external], "later"));
+});
+
+test("Android undo rejects a parent cycle introduced by a valid external move", () => {
+  const before = task("one", { parentId: "two" });
+  const after = task("one", { version: 2 });
+  const external = task("two", { parentId: "one" });
+  fails("OPERATION_CONFLICT", () => planAndroidUndo(operation(before, after), "op", [after, external], "later"));
+});
+
+test("Android undo permits an unrelated external edit when the prospective graph stays valid", () => {
+  const before = task("one", { status: "open" });
+  const after = task("one", { version: 2, status: "done", completedAt: now });
+  const external = task("other", { version: 2, title: "Edited elsewhere" });
+  const [plan] = planAndroidUndo(operation(before, after), "op", [after, external], "later");
+  assert.equal(plan.restored.status, "open");
+  assert.equal(plan.restored.version, 3);
+});

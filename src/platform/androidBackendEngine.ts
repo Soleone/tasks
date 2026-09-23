@@ -19,6 +19,7 @@ import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorks
 import { sortAndroidTasks } from "./androidTaskSort";
 import { exportAndroidTaskDocument, getAndroidSyncFolder, readAndroidCanonicalFiles } from "./androidWorkspace";
 import { AndroidUndoError, planAndroidUndo, type SavedOperation, type SavedOrder } from "./androidUndo";
+import { AndroidSiblingOrderConflict } from "./androidSiblingOrder";
 
 const VALID_STATUSES = new Set<TaskStatus>(["open", "in_progress", "paused", "done", "canceled"]);
 
@@ -43,7 +44,8 @@ class AndroidEngineError extends Error {
 }
 
 function responseError(request: ProtocolRequest, error: unknown): ProtocolResponse {
-  if (error instanceof AndroidEngineError || error instanceof AndroidCanonicalError || error instanceof AndroidUndoError || error instanceof ProtocolError) {
+  if (error instanceof AndroidEngineError || error instanceof AndroidCanonicalError || error instanceof AndroidUndoError
+      || error instanceof AndroidSiblingOrderConflict || error instanceof ProtocolError) {
     return {
       version: PROTOCOL_VERSION,
       requestId: request.requestId,
@@ -581,7 +583,7 @@ async function reorderTasks(request: ProtocolRequest): Promise<Record<string, un
     const staged = operationId ? await writeAndroidUpdatedTasks(tasks, {
       operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
       responseJson: JSON.stringify(result), createdAt: now,
-    }, [{ parentId, taskIds: finalIds }]) : false;
+    }, [{ parentId, taskIds: finalIds, expectedTaskIds: siblings.map((task) => task.id) }]) : false;
     await androidStorage({ operation: "begin", transactionId: transaction });
     if (changed && operationId) {
       await androidStorage({ operation: "reorderTasks", transactionId: transaction, parentId, taskIds: finalIds, selected });
@@ -632,16 +634,12 @@ async function purgeCanceledTasks(request: ProtocolRequest): Promise<Record<stri
       version: task.version + 1,
       updatedAt: now,
     }));
-  const orderParentIds = new Set<string | null>();
-  for (const task of canceled) orderParentIds.add(task.parentId);
-  if (affected.some((task) => task.parentId === null)) orderParentIds.add(null);
-
   const operationId = crypto.randomUUID();
   const result = { deletedCount: canceled.length, deletedTaskIds: canceled.map((task) => task.id), operationId };
   const transaction = transactionId();
   let committed = false;
   try {
-    const staged = await writeAndroidPurgedTasks(canceled, affected, [...orderParentIds], {
+    const staged = await writeAndroidPurgedTasks(canceled, affected, {
       operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
       responseJson: JSON.stringify(result), createdAt: now,
     });
@@ -767,6 +765,12 @@ async function undoOperation(request: ProtocolRequest): Promise<Record<string, u
   const now = new Date().toISOString();
   if (stored.kind === "create") return undoCreatedTask(request, stored, current, hash, now);
   const plans = planAndroidUndo(stored, undoneOperationId, current.tasks, now);
+  const afterOrders = new Map(stored.afterOrders.map((order) => [order.parentId, order.taskIds]));
+  const orderWrites = stored.beforeOrders.map((order) => {
+    const expectedTaskIds = afterOrders.get(order.parentId);
+    if (!expectedTaskIds) throw new AndroidUndoError("OPERATION_CONFLICT", "saved sibling order scopes do not match");
+    return { ...order, expectedTaskIds };
+  });
   const operationId = crypto.randomUUID();
   const result = {
     operationId, undoneOperationId, tasks: plans.map((plan) => plan.restored), changed: true,
@@ -779,7 +783,7 @@ async function undoOperation(request: ProtocolRequest): Promise<Record<string, u
     const staged = await writeAndroidUpdatedTasks(result.tasks, {
       operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
       responseJson: JSON.stringify(result), createdAt: now,
-    }, stored.beforeOrders);
+    }, orderWrites);
     await androidStorage({ operation: "begin", transactionId: transaction });
     for (const plan of plans) {
       await persistTaskUpdate(plan.live, plan.restored, request, transaction, now, request.command);

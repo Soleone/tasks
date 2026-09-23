@@ -4,6 +4,8 @@ import type { TaskPriority, TaskRecord, TaskStatus } from "../backend/protocol";
 import { androidStorage, type AndroidImportedTask, type AndroidPendingWrite } from "./androidStorage";
 import { getAndroidSyncFolder, readAndroidCanonicalFiles, writeAndroidCanonicalFiles, type AndroidCanonicalFile } from "./androidWorkspace";
 import { filesToRecover } from "./androidPendingWrite";
+import { planAndroidPurgeCanonicalChanges } from "./androidPurgePlan";
+import { assertAndroidSiblingOrder } from "./androidSiblingOrder";
 
 type JsonRecord = Record<string, unknown>;
 type ParentId = string | null;
@@ -563,16 +565,18 @@ export async function writeAndroidDeletedTask(
 export async function writeAndroidPurgedTasks(
   deletedTasks: TaskRecord[],
   affectedTasks: TaskRecord[],
-  orderParentIds: Array<string | null>,
   receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
 ): Promise<boolean> {
   const result = await readAndroidCanonicalFiles();
   if (!result.selected) return false;
   const current = await parseWorkspaceFiles(result.files);
   const filesByPath = new Map(result.files.map((file) => [file.relativePath, file]));
-  const files: AndroidPendingWrite["files"] = [];
+  const deletedTaskFiles: AndroidPendingWrite["files"] = [];
+  const affectedTaskFiles: AndroidPendingWrite["files"] = [];
+  const orderFiles: AndroidPendingWrite["files"] = [];
+  const deletedOrderFiles: AndroidPendingWrite["files"] = [];
   const modifiedBy = androidDeviceId();
-  const deletedIds = new Set(deletedTasks.map((task) => task.id));
+  const purgePlan = planAndroidPurgeCanonicalChanges(current.tasks, deletedTasks, affectedTasks);
 
   for (const task of deletedTasks) {
     const taskPath = `tasks/${task.id}.json`;
@@ -582,7 +586,7 @@ export async function writeAndroidPurgedTasks(
     if (previous.status !== "canceled" || previous.sync.revision !== task.version) {
       throw new AndroidCanonicalError("OPERATION_CONFLICT", `task ${task.id} changed in the selected folder`);
     }
-    files.push({ relativePath: taskPath, previousContent: taskFile.content, content: null });
+    deletedTaskFiles.push({ relativePath: taskPath, previousContent: taskFile.content, content: null });
   }
 
   for (const task of affectedTasks) {
@@ -606,25 +610,22 @@ export async function writeAndroidPurgedTasks(
       },
     };
     canonicalTask.sync.contentHash = await sha256(canonicalJson(withoutHash(canonicalTask)));
-    files.push({ relativePath, previousContent: previousFile.content, content: serialise(canonicalTask) });
+    affectedTaskFiles.push({ relativePath, previousContent: previousFile.content, content: serialise(canonicalTask) });
   }
 
-  for (const parentId of orderParentIds) {
+  for (const parentId of purgePlan.deletedOrderParentIds) {
+    const relativePath = `order/${parentId}.json`;
+    const oldFile = filesByPath.get(relativePath);
+    if (oldFile) deletedOrderFiles.push({ relativePath, previousContent: oldFile.content, content: null });
+  }
+
+  for (const { parentId, taskIds } of purgePlan.orders) {
     const orderPath = parentId === null ? "order/root.json" : `order/${parentId}.json`;
     const oldFile = filesByPath.get(orderPath);
     const oldOrder = oldFile ? await parseOrder(oldFile, current.workspaceId, parentId) : null;
-    const newSiblings = current.tasks
-      .filter((entry) => !deletedIds.has(entry.id))
-      .map((entry) => {
-        const affected = affectedTasks.find((candidate) => candidate.id === entry.id);
-        return { id: entry.id, newParent: affected?.parentId ?? entry.parentId, position: entry.position };
-      })
-      .filter((entry) => entry.newParent === parentId)
-      .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
-      .map((entry) => entry.id);
     const order: CanonicalOrder = {
       format: "tasks.sibling-order", formatVersion: 1, workspaceId: current.workspaceId,
-      parentId, taskIds: newSiblings,
+      parentId, taskIds,
       sync: {
         revision: (oldOrder?.sync.revision ?? 0) + 1,
         modifiedBy,
@@ -633,12 +634,16 @@ export async function writeAndroidPurgedTasks(
       },
     };
     order.sync.contentHash = await sha256(canonicalJson(withoutHash(order)));
-    files.push({ relativePath: orderPath, previousContent: oldFile?.content ?? null, content: serialise(order) });
+    orderFiles.push({ relativePath: orderPath, previousContent: oldFile?.content ?? null, content: serialise(order) });
   }
 
   const folder = await getAndroidSyncFolder();
   if (!folder) invalid("the selected Android sync folder is no longer accessible");
-  const pending: AndroidPendingWrite = { ...receipt, workspaceId: current.workspaceId, folderUri: folder.uri, files };
+  // Clear deleted parents' child orders first, then apply relationship and sibling changes, and delete task files last.
+  const files = [...deletedOrderFiles, ...affectedTaskFiles, ...orderFiles, ...deletedTaskFiles];
+  const pending: AndroidPendingWrite = {
+    ...receipt, workspaceId: current.workspaceId, folderUri: folder.uri, files, invalidateLatestOperation: true,
+  };
   await androidStorage({ operation: "stageCanonicalWrite", pending });
   await writeAndroidCanonicalFiles(files.map((file) => ({ ...file, modifiedAt: null })));
   await verifyPendingFiles(pending);
@@ -648,7 +653,7 @@ export async function writeAndroidPurgedTasks(
 export async function writeAndroidUpdatedTasks(
   tasks: TaskRecord[],
   receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
-  orders: Array<{ parentId: ParentId; taskIds: string[] }> = [],
+  orders: Array<{ parentId: ParentId; taskIds: string[]; expectedTaskIds: string[] }> = [],
 ): Promise<boolean> {
   const result = await readAndroidCanonicalFiles();
   if (!result.selected) return false;
@@ -713,15 +718,20 @@ export async function writeAndroidUpdatedTasks(
       }
     }
   }
-  for (const { parentId, taskIds } of orders) {
-    const siblings = current.tasks.filter((task) => task.parentId === parentId).map((task) => task.id);
+  for (const { parentId, taskIds, expectedTaskIds } of orders) {
+    const currentSiblingIds = current.tasks
+      .filter((task) => task.parentId === parentId)
+      .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+      .map((task) => task.id);
+    assertAndroidSiblingOrder(expectedTaskIds, currentSiblingIds);
+    const siblings = [...currentSiblingIds];
     for (const task of tasks) {
       const previous = current.tasks.find((entry) => entry.id === task.id);
       if (previous?.parentId === parentId && task.parentId !== parentId) siblings.splice(siblings.indexOf(task.id), 1);
       if (previous?.parentId !== parentId && task.parentId === parentId) siblings.push(task.id);
     }
     if (siblings.length !== taskIds.length || new Set(taskIds).size !== taskIds.length || taskIds.some((id) => !siblings.includes(id))) {
-      throw new AndroidCanonicalError("STALE_TASK_VERSION", "sibling order changed in the selected folder");
+      throw new AndroidCanonicalError("SIBLING_ORDER_CONFLICT", "sibling scope changed before the order could be written");
     }
     const orderPath = parentId === null ? "order/root.json" : `order/${parentId}.json`;
     const oldFile = filesByPath.get(orderPath);

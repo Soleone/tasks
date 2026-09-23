@@ -184,6 +184,8 @@ pub struct AndroidPendingWrite {
     request_hash: String,
     response_json: String,
     created_at: String,
+    #[serde(default)]
+    invalidate_latest_operation: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -849,6 +851,14 @@ fn complete_pending_write(connection: &Connection, operation_id: &str) -> Result
             return Err(storage_error(
                 "pending write does not match the current workspace",
             ));
+        }
+        if pending.invalidate_latest_operation {
+            connection
+                .execute(
+                    "DELETE FROM cache_meta WHERE key = 'android_latest_operation'",
+                    [],
+                )
+                .map_err(storage_error)?;
         }
         let existing: Option<String> = connection
             .query_row(
@@ -1645,6 +1655,12 @@ fn purge_canceled_tasks(connection: &Connection, now: &str) -> Result<Value, Str
             "orderParentIds": Vec::<Option<String>>::new(),
         }));
     }
+    connection
+        .execute(
+            "DELETE FROM cache_meta WHERE key = 'android_latest_operation'",
+            [],
+        )
+        .map_err(storage_error)?;
     let placeholders = vec!["?"; canceled.len()].join(", ");
     let affected_query = format!(
         "SELECT id FROM tasks WHERE status <> 'canceled' AND (parent_id IN ({}) OR id IN (SELECT task_id FROM task_dependencies WHERE depends_on_id IN ({}))) ORDER BY id ASC",
@@ -2395,8 +2411,10 @@ mod tests {
         connection.execute(
             "INSERT INTO task_dependencies (task_id, depends_on_id) VALUES ('f', 'd')", [],
         ).unwrap();
+        write_operation(&connection, &json!({ "id": "old-undo" })).unwrap();
 
         let result = purge_canceled_tasks(&connection, "later").unwrap();
+        assert!(read_operation(&connection).unwrap().is_none());
         assert_eq!(result["deletedTaskIds"], json!(["d"]));
         assert_eq!(result["affectedTaskIds"], json!(["e", "f"]));
         let count = |query: &str| -> i64 {
@@ -2415,10 +2433,26 @@ mod tests {
     }
 
     #[test]
+    fn empty_purge_preserves_the_latest_undo_operation() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        write_operation(&connection, &json!({ "id": "old-undo" })).unwrap();
+
+        let result = purge_canceled_tasks(&connection, "later").unwrap();
+
+        assert_eq!(result["deletedTaskIds"], json!([]));
+        assert_eq!(
+            read_operation(&connection).unwrap().unwrap()["id"],
+            "old-undo"
+        );
+    }
+
+    #[test]
     fn staged_file_write_blocks_import_and_restores_its_receipt() {
         let connection = Connection::open_in_memory().unwrap();
         ensure_schema(&connection).unwrap();
         replace_canonical_workspace(&connection, "first", "initial", &[], false).unwrap();
+        write_operation(&connection, &json!({ "id": "old-undo" })).unwrap();
         let pending = AndroidPendingWrite {
             operation_id: "write".into(),
             workspace_id: "first".into(),
@@ -2432,12 +2466,18 @@ mod tests {
             request_hash: "hash".into(),
             response_json: "{}".into(),
             created_at: "now".into(),
+            invalidate_latest_operation: true,
         };
         stage_pending_write(&connection, &pending).unwrap();
         assert!(replace_canonical_workspace(&connection, "first", "next", &[], false).is_err());
         assert!(complete_pending_write(&connection, "wrong").is_err());
         assert!(read_pending_write(&connection).unwrap().is_some());
+        assert_eq!(
+            read_operation(&connection).unwrap().unwrap()["id"],
+            "old-undo"
+        );
         complete_pending_write(&connection, "write").unwrap();
+        assert!(read_operation(&connection).unwrap().is_none());
         replace_canonical_workspace(&connection, "first", "next", &[], false).unwrap();
         assert!(read_receipt(&connection, "retry-key").unwrap()["receipt"].is_object());
     }

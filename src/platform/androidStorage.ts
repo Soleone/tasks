@@ -53,6 +53,7 @@ export type AndroidPendingWrite = {
   requestHash: string;
   responseJson: string;
   createdAt: string;
+  invalidateLatestOperation?: boolean;
 };
 
 export type AndroidStorageRequest =
