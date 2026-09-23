@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import android.os.SystemClock
 import android.provider.DocumentsContract
+import android.util.Log
 import androidx.activity.result.ActivityResult
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
@@ -21,7 +23,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 
 @InvokeArg
@@ -56,6 +60,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
   }
 
   private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+  private val canonicalWriteMutex = Mutex()
   private val readSlots = Semaphore(MAX_CONCURRENT_READS)
 
   @Command
@@ -162,6 +167,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
       type = JSON_MIME_TYPE
       putExtra(Intent.EXTRA_TITLE, args.suggestedName)
     }
+    // Launch the picker on the activity thread; document access happens after its result on IO.
     startActivityForResult(invoke, intent, "onExportDocumentPicked")
   }
 
@@ -175,42 +181,61 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
       invoke.reject("ANDROID_EXPORT_EMPTY_RESULT")
       return
     }
-    try {
-      val args = invoke.parseArgs(ExportDocumentArgs::class.java)
-      writeUtf8(uri, args.content, MAX_EXPORT_BYTES)
-      val response = JSObject()
-      response.put("destinationPath", uri.toString())
-      val name = try {
-        activity.contentResolver.query(
-          uri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null,
-        )?.use { cursor ->
-          if (cursor.moveToFirst()) cursor.getString(0) else null
-        }
-      } catch (_: Exception) {
-        null
-      }
-      response.put("displayName", name ?: args.suggestedName)
-      invoke.resolve(response)
+    val args = try {
+      invoke.parseArgs(ExportDocumentArgs::class.java)
     } catch (error: Exception) {
       invoke.reject("ANDROID_EXPORT_FAILED: ${error.message ?: error.javaClass.simpleName}")
+      return
+    }
+
+    ioScope.launch {
+      val startedAtNanos = SystemClock.elapsedRealtimeNanos()
+      val response = try {
+        writeUtf8(uri, args.content, MAX_EXPORT_BYTES)
+        val name = try {
+          activity.contentResolver.query(
+            uri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null,
+          )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+          }
+        } catch (_: Exception) {
+          null
+        }
+        JSObject().apply {
+          put("destinationPath", uri.toString())
+          put("displayName", name ?: args.suggestedName)
+        }
+      } catch (error: Exception) {
+        recordSafTiming("export", startedAtNanos, "failed", 1)
+        invoke.reject("ANDROID_EXPORT_FAILED: ${error.message ?: error.javaClass.simpleName}")
+        return@launch
+      }
+      recordSafTiming("export", startedAtNanos, "ok", 1)
+      invoke.resolve(response)
     }
   }
 
   @Command
   fun readCanonicalFiles(invoke: Invoke) {
-    val uri = selectedUri(requireWrite = false)
-    if (uri == null) {
-      invoke.resolve(canonicalFilesResponse(false, JSONArray()))
-      return
-    }
-
     ioScope.launch {
-      try {
-        val files = readCanonicalFilesInternal(uri)
-        invoke.resolve(canonicalFilesResponse(true, files))
+      val startedAtNanos = SystemClock.elapsedRealtimeNanos()
+      var fileCount = 0
+      val response = try {
+        val uri = selectedUri(requireWrite = false)
+        if (uri == null) {
+          canonicalFilesResponse(false, JSONArray())
+        } else {
+          val files = readCanonicalFilesInternal(uri)
+          fileCount = files.length()
+          canonicalFilesResponse(true, files)
+        }
       } catch (error: Exception) {
+        recordSafTiming("read", startedAtNanos, "failed", fileCount)
         invoke.reject("ANDROID_WORKSPACE_READ_FAILED: ${error.message ?: error.javaClass.simpleName}")
+        return@launch
       }
+      recordSafTiming("read", startedAtNanos, "ok", fileCount)
+      invoke.resolve(response)
     }
   }
 
@@ -252,62 +277,84 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
 
   @Command
   fun writeCanonicalFiles(invoke: Invoke) {
-    try {
-      val uri = selectedUri(requireWrite = true) ?: throw IllegalStateException("no writable Android sync folder is selected")
-      val args = invoke.parseArgs(CanonicalWriteArgs::class.java)
-      val written = JSONArray()
-      val rootId = DocumentsContract.getTreeDocumentId(uri)
-      for (file in args.files) {
-        val segments = validatedPath(file.relativePath)
-        val parentId = ensureDirectory(uri, rootId, segments.dropLast(1))
-        val parentUri = DocumentsContract.buildDocumentUriUsingTree(uri, parentId)
-        val existing = childDocuments(uri, parentId).firstOrNull { it.name == segments.last() }
-        if (existing?.isDirectory == true) {
-          throw IllegalArgumentException("${file.relativePath} is a directory")
-        }
-        val actual = existing?.let {
-          readUtf8(DocumentsContract.buildDocumentUriUsingTree(uri, it.id))
-        }
-        val content = file.content
-        if (content == null) {
-          if (actual != null) {
-            if (actual != file.previousContent) {
-              throw IllegalStateException("${file.relativePath} changed since the Android deletion was staged")
-            }
-            val existingUri = DocumentsContract.buildDocumentUriUsingTree(uri, existing?.id ?: throw IllegalStateException("missing document to delete"))
-            if (!DocumentsContract.deleteDocument(activity.contentResolver, existingUri)) {
-              throw IllegalStateException("could not delete ${file.relativePath}")
-            }
-          }
-          written.put(file.relativePath)
-          continue
-        }
-        if (actual != content && actual != file.previousContent &&
-          (actual == null || !content.startsWith(actual))) {
-          throw IllegalStateException("${file.relativePath} changed since the Android write was staged")
-        }
-        if (actual == content) {
-          written.put(file.relativePath)
-          continue
-        }
-        val fileId = existing?.id
-          ?: DocumentsContract.createDocument(
-            activity.contentResolver,
-            parentUri,
-            JSON_MIME_TYPE,
-            segments.last(),
-          )?.let { DocumentsContract.getDocumentId(it) }
-          ?: throw IllegalStateException("could not create ${file.relativePath}")
-        val fileUri = DocumentsContract.buildDocumentUriUsingTree(uri, fileId)
-        writeUtf8(fileUri, content)
-        written.put(file.relativePath)
-      }
-      val result = JSObject()
-      result.put("written", written)
-      invoke.resolve(result)
+    val args = try {
+      invoke.parseArgs(CanonicalWriteArgs::class.java)
     } catch (error: Exception) {
       invoke.reject("ANDROID_WORKSPACE_WRITE_FAILED: ${error.message ?: error.javaClass.simpleName}")
+      return
     }
+
+    ioScope.launch {
+      val startedAtNanos = SystemClock.elapsedRealtimeNanos()
+      val result = try {
+        canonicalWriteMutex.withLock { writeCanonicalFilesInternal(args) }
+      } catch (error: Exception) {
+        recordSafTiming("write", startedAtNanos, "failed", args.files.size)
+        invoke.reject("ANDROID_WORKSPACE_WRITE_FAILED: ${error.message ?: error.javaClass.simpleName}")
+        return@launch
+      }
+      recordSafTiming("write", startedAtNanos, "ok", args.files.size)
+      invoke.resolve(result)
+    }
+  }
+
+  private fun writeCanonicalFilesInternal(args: CanonicalWriteArgs): JSObject {
+    val uri = selectedUri(requireWrite = true)
+      ?: throw IllegalStateException("no writable Android sync folder is selected")
+    val written = JSONArray()
+    val rootId = DocumentsContract.getTreeDocumentId(uri)
+    for (file in args.files) {
+      val segments = validatedPath(file.relativePath)
+      val parentId = ensureDirectory(uri, rootId, segments.dropLast(1))
+      val parentUri = DocumentsContract.buildDocumentUriUsingTree(uri, parentId)
+      val existing = childDocuments(uri, parentId).firstOrNull { it.name == segments.last() }
+      if (existing?.isDirectory == true) {
+        throw IllegalArgumentException("${file.relativePath} is a directory")
+      }
+      val actual = existing?.let {
+        readUtf8(DocumentsContract.buildDocumentUriUsingTree(uri, it.id))
+      }
+      val content = file.content
+      if (content == null) {
+        if (actual != null) {
+          if (actual != file.previousContent) {
+            throw IllegalStateException("${file.relativePath} changed since the Android deletion was staged")
+          }
+          val existingUri = DocumentsContract.buildDocumentUriUsingTree(uri, existing?.id ?: throw IllegalStateException("missing document to delete"))
+          if (!DocumentsContract.deleteDocument(activity.contentResolver, existingUri)) {
+            throw IllegalStateException("could not delete ${file.relativePath}")
+          }
+        }
+        written.put(file.relativePath)
+        continue
+      }
+      if (actual != content && actual != file.previousContent &&
+        (actual == null || !content.startsWith(actual))) {
+        throw IllegalStateException("${file.relativePath} changed since the Android write was staged")
+      }
+      if (actual == content) {
+        written.put(file.relativePath)
+        continue
+      }
+      val fileId = existing?.id
+        ?: DocumentsContract.createDocument(
+          activity.contentResolver,
+          parentUri,
+          JSON_MIME_TYPE,
+          segments.last(),
+        )?.let { DocumentsContract.getDocumentId(it) }
+        ?: throw IllegalStateException("could not create ${file.relativePath}")
+      val fileUri = DocumentsContract.buildDocumentUriUsingTree(uri, fileId)
+      writeUtf8(fileUri, content)
+      written.put(file.relativePath)
+    }
+    return JSObject().apply { put("written", written) }
+  }
+
+  private fun recordSafTiming(operation: String, startedAtNanos: Long, outcome: String, fileCount: Int) {
+    if (!BuildConfig.DEBUG) return
+    val durationNanos = SystemClock.elapsedRealtimeNanos() - startedAtNanos
+    Log.d(SAF_LOG_TAG, "operation=$operation durationNs=$durationNanos outcome=$outcome fileCount=$fileCount")
   }
 
   private fun selectedUri(requireWrite: Boolean): Uri? {
@@ -472,6 +519,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     const val MAX_CANONICAL_FILE_BYTES = 4L * 1024L * 1024L
     const val MAX_CONCURRENT_READS = 4
     const val MAX_EXPORT_BYTES = 8L * 1024L * 1024L
+    const val SAF_LOG_TAG = "TasksSAF"
     val CANONICAL_DIRECTORIES = listOf("tasks", "order")
   }
 }

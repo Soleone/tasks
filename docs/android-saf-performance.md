@@ -6,6 +6,12 @@ Keep **four concurrent canonical-file reads** on Android. `AndroidWorkspacePlugi
 
 This is supported by one real-workspace measurement, not a proven optimum for every provider or workspace. The temporary self-benchmark and its automatic SAF report writer were **removed** after the run. Normal debug and release builds do not create benchmark files or perform extra scans.
 
+## Runtime timing diagnostics
+
+Debug Android builds log native SAF read, canonical-write, and export durations with the `TasksSAF` Logcat tag. Each record contains elapsed nanoseconds, outcome, and file count only; it does not include task content, paths, document URIs, or workspace IDs. Canonical writes run serially on IO under a coroutine mutex, preserving the order of files in each staged batch while preventing concurrent batches from interleaving. The picker remains on the activity thread; export document writes and metadata queries run on IO.
+
+Canonical-write verification logs its end-to-end duration, outcome, and staged-file count to the WebView console with the `[android-saf]` prefix. This includes folder revalidation, the canonical reread, and staged-content comparisons. Native operation timings and verification timings are diagnostics, not frame-jank measurements. The read-only Pixel 10a evidence below does not validate write, purge, or export responsiveness; an on-device write/export jank check remains outstanding.
+
 ## Evidence (2026-09-23)
 
 A temporary debug APK ran on a **Pixel 10a, Android API 37**, using `com.android.externalstorage.documents` and an existing workspace with **68 canonical files, 72,016 known bytes**, no unknown file sizes. The runner read/decoded the entire tree and built the same native JSON array as the normal scan. It performed three rounds in the order `1,2,4 → 4,2,1 → 1,2,4`, waiting 300 ms between scans. Two scans overlapped a normal app read and are excluded below. Values are native scan times, including directory listing, but **not** Tauri transfer, JavaScript validation/hashing, SQLite reconciliation, or rendering.

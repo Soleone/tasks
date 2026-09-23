@@ -760,13 +760,23 @@ export async function writeAndroidUpdatedTasks(
 }
 
 async function verifyPendingFiles(pending: AndroidPendingWrite): Promise<void> {
-  const selected = await getAndroidSyncFolder();
-  if (selected?.uri !== pending.folderUri) invalid("reselect the original Android sync folder to recover the pending write");
-  const result = await readAndroidCanonicalFiles();
-  if (!result.selected) invalid("the Android sync folder is no longer accessible");
-  const files = new Map(result.files.map((file) => [file.relativePath, file.content]));
-  for (const file of pending.files) {
-    if ((files.get(file.relativePath) ?? null) !== file.content) invalid(`Android did not persist ${file.relativePath}; retry recovery before editing`);
+  const startedAt = performance.now();
+  let outcome = "ok";
+  try {
+    const selected = await getAndroidSyncFolder();
+    if (selected?.uri !== pending.folderUri) invalid("reselect the original Android sync folder to recover the pending write");
+    const result = await readAndroidCanonicalFiles();
+    if (!result.selected) invalid("the Android sync folder is no longer accessible");
+    const files = new Map(result.files.map((file) => [file.relativePath, file.content]));
+    for (const file of pending.files) {
+      if ((files.get(file.relativePath) ?? null) !== file.content) invalid(`Android did not persist ${file.relativePath}; retry recovery before editing`);
+    }
+  } catch (error) {
+    outcome = "failed";
+    throw error;
+  } finally {
+    const durationMs = (performance.now() - startedAt).toFixed(1);
+    console.info(`[android-saf] operation=verification durationMs=${durationMs} outcome=${outcome} fileCount=${pending.files.length}`);
   }
 }
 
