@@ -617,15 +617,27 @@ async function reorderTasks(request: ProtocolRequest): Promise<Record<string, un
 async function purgeCanceledTasks(request: ProtocolRequest): Promise<Record<string, unknown>> {
   const current = await snapshot();
   const canceled = current.tasks.filter((task) => task.status === "canceled");
-  if (canceled.length === 0) {
-    return { deletedCount: 0, ...(request.readOnly || request.dryRun ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}) };
-  }
   if (request.readOnly || request.dryRun) {
     return { deletedCount: canceled.length, dryRun: true, readOnly: Boolean(request.readOnly) };
   }
   const hash = await requestHash(request);
   const replay = await readReceipt(request, hash);
   if (replay?.ok) return replay.result;
+  if (canceled.length === 0) {
+    const result = { deletedCount: 0 };
+    const now = new Date().toISOString();
+    const transaction = transactionId();
+    let committed = false;
+    try {
+      await androidStorage({ operation: "begin", transactionId: transaction });
+      await writeReceipt(request, hash, transaction, result, now);
+      await androidStorage({ operation: "commit", transactionId: transaction });
+      committed = true;
+      return result;
+    } finally {
+      if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+    }
+  }
 
   const now = new Date().toISOString();
   const canceledSet = new Set(canceled.map((task) => task.id));
