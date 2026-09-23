@@ -4,6 +4,12 @@ Read [GUIDELINES.md](GUIDELINES.md) for project principles and [PLAN.md](PLAN.md
 
 The project now has an M0 scaffold. Continue with the runtime/packaging proof and process-lifecycle checks before expanding the task UI. Do not turn the probe surface into a broad feature scaffold. Use the commands in [README.md](README.md), and record native-platform blockers rather than treating browser builds as desktop validation.
 
+## Android emulator
+
+On Omarchy, run from the project root after `eval "$(mise env --shell bash)"`. Use Google's `android` CLI; `sdkmanager` and `avdmanager` are deprecated, and `sdkmanager --licenses` is unnecessary. Check the SDK with `android info`. One-time setup, if the packages are missing: `android sdk install emulator system-images/android-36/google_apis/x86_64`. Create an AVD if needed with `android emulator create medium_phone`, then check `android emulator list` and start it with `android emulator start medium_phone`.
+
+Build and run the app on the emulator with `pnpm tauri android build --debug --apk -t x86_64`, then `android run --apks=src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk`. Exercise the changed flow in a disposable workspace and inspect its output and recovery path. This validates the standard Android document picker only; it is not physical-device or third-party document-provider acceptance.
+
 ## Code quality
 
 Use the `clean-code` skill when writing, refactoring, or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete. After making changes, run `pnpm lint` and fix all errors.
