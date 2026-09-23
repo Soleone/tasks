@@ -17,6 +17,13 @@ import app.tauri.plugin.Plugin
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 @InvokeArg
 class ExportDocumentArgs {
@@ -42,6 +49,8 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
   private val preferences by lazy {
     activity.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
   }
+
+  private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
   @Command
   fun pickDirectory(invoke: Invoke) {
@@ -183,31 +192,53 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
 
   @Command
   fun readCanonicalFiles(invoke: Invoke) {
-    try {
-      val uri = selectedUri(requireWrite = false)
-      if (uri == null) {
-        invoke.resolve(canonicalFilesResponse(false, JSONArray()))
-        return
-      }
+    val uri = selectedUri(requireWrite = false)
+    if (uri == null) {
+      invoke.resolve(canonicalFilesResponse(false, JSONArray()))
+      return
+    }
 
-      val files = JSONArray()
-      val rootId = DocumentsContract.getTreeDocumentId(uri)
-      val rootChildren = childDocuments(uri, rootId)
-      rootChildren.firstOrNull { it.name == WORKSPACE_FILE && !it.isDirectory }?.let { document ->
-        files.put(canonicalFile(uri, document, WORKSPACE_FILE))
+    ioScope.launch {
+      try {
+        val files = readCanonicalFilesInternal(uri)
+        invoke.resolve(canonicalFilesResponse(true, files))
+      } catch (error: Exception) {
+        invoke.reject("ANDROID_WORKSPACE_READ_FAILED: ${error.message ?: error.javaClass.simpleName}")
       }
-      for (directoryName in CANONICAL_DIRECTORIES) {
-        val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
-        for (document in childDocuments(uri, directory.id)) {
-          if (!document.isDirectory && document.name.endsWith(JSON_SUFFIX)) {
-            files.put(canonicalFile(uri, document, "$directoryName/${document.name}"))
-          }
+    }
+  }
+
+  private suspend fun readCanonicalFilesInternal(uri: Uri): JSONArray {
+    val rootId = DocumentsContract.getTreeDocumentId(uri)
+    val rootChildren = childDocuments(uri, rootId)
+
+    // Collect every canonical file in the original order (workspace.json, then tasks/, then order/).
+    val reads = mutableListOf<Pair<TreeDocument, String>>()
+    rootChildren.firstOrNull { it.name == WORKSPACE_FILE && !it.isDirectory }?.let { document ->
+      reads += document to WORKSPACE_FILE
+    }
+    for (directoryName in CANONICAL_DIRECTORIES) {
+      val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
+      val documents = childDocuments(uri, directory.id)
+      for (document in documents) {
+        if (!document.isDirectory && document.name.endsWith(JSON_SUFFIX)) {
+          reads += document to "$directoryName/${document.name}"
         }
       }
-      invoke.resolve(canonicalFilesResponse(true, files))
-    } catch (error: Exception) {
-      invoke.reject("ANDROID_WORKSPACE_READ_FAILED: ${error.message ?: error.javaClass.simpleName}")
     }
+
+    // Read every file concurrently instead of sequentially.
+    val results = coroutineScope {
+      reads.map { (document, relativePath) ->
+        async { canonicalFile(uri, document, relativePath) }
+      }.awaitAll()
+    }
+
+    val files = JSONArray()
+    for (result in results) {
+      files.put(result)
+    }
+    return files
   }
 
   @Command
