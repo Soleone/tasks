@@ -20,10 +20,9 @@ import java.io.InputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 @InvokeArg
 class ExportDocumentArgs {
@@ -51,6 +50,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
   }
 
   private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+  private val readSlots = Semaphore(MAX_CONCURRENT_READS)
 
   @Command
   fun pickDirectory(invoke: Invoke) {
@@ -219,25 +219,20 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     }
     for (directoryName in CANONICAL_DIRECTORIES) {
       val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
-      val documents = childDocuments(uri, directory.id)
-      for (document in documents) {
+      for (document in childDocuments(uri, directory.id)) {
         if (!document.isDirectory && document.name.endsWith(JSON_SUFFIX)) {
           reads += document to "$directoryName/${document.name}"
         }
       }
     }
 
-    // Read every file concurrently instead of sequentially.
-    val results = coroutineScope {
-      reads.map { (document, relativePath) ->
-        async { canonicalFile(uri, document, relativePath) }
-      }.awaitAll()
+    // Bound queued coroutines per scan and open streams across overlapping scans.
+    val results = boundedOrderedMap(reads, MAX_CONCURRENT_READS) { (document, relativePath) ->
+      readSlots.withPermit { canonicalFile(uri, document, relativePath) }
     }
 
     val files = JSONArray()
-    for (result in results) {
-      files.put(result)
-    }
+    for (result in results) files.put(result)
     return files
   }
 
@@ -461,6 +456,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     const val JSON_SUFFIX = ".json"
     const val JSON_MIME_TYPE = "application/json"
     const val MAX_CANONICAL_FILE_BYTES = 4L * 1024L * 1024L
+    const val MAX_CONCURRENT_READS = 4
     const val MAX_EXPORT_BYTES = 8L * 1024L * 1024L
     val CANONICAL_DIRECTORIES = listOf("tasks", "order")
   }

@@ -30,6 +30,7 @@ If another device already has task history, use **Settings → Sync with another
 - [Keyboard and UI guide](docs/usage-guide.md): home-screen focus, mouse paths, shortcuts, filters, sorting, and agent-facing UI contract.
 - [Canonical workspace](docs/canonical-workspace.md): JSON layout, cache rebuilds, archives, backups, and explicit conflict resolution.
 - [Syncthing setup](docs/syncthing.md): safe initial seeding, folder modes, versioning, and recovery rules.
+- [Android SAF performance](docs/android-saf-performance.md): bounded-read decision, device measurements, and how to repeat the investigation.
 - [Themes](docs/themes.md): built-in palettes, workspace `colors.toml` files, and the preview page.
 - [Plan](PLAN.md): product direction, confirmed decisions, milestones, and current open items.
 - [Guidelines](GUIDELINES.md): product principles.
