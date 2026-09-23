@@ -214,15 +214,23 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     }
   }
 
+  private fun isWorkspaceConflictCopy(name: String): Boolean {
+    return name.startsWith("workspace.sync-conflict-") && name.endsWith(JSON_SUFFIX)
+  }
+
   private suspend fun readCanonicalFilesInternal(uri: Uri): JSONArray {
     val rootId = DocumentsContract.getTreeDocumentId(uri)
     val rootChildren = childDocuments(uri, rootId)
 
-    // Collect every canonical file in the original order (workspace.json, then tasks/, then order/).
+    // Collect canonical files and workspace conflict copies, then tasks/ and order/ entries.
     val reads = mutableListOf<Pair<TreeDocument, String>>()
     rootChildren.firstOrNull { it.name == WORKSPACE_FILE && !it.isDirectory }?.let { document ->
       reads += document to WORKSPACE_FILE
     }
+    rootChildren
+      .filter { !it.isDirectory && isWorkspaceConflictCopy(it.name) }
+      .sortedBy { it.name }
+      .forEach { document -> reads += document to document.name }
     for (directoryName in CANONICAL_DIRECTORIES) {
       val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
       for (document in childDocuments(uri, directory.id)) {

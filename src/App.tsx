@@ -17,12 +17,13 @@ import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
 import { taskGroupOrder } from "@/components/taskTree";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, type ReceiveWorkspaceResult, type TaskMutationResult } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, type ReceiveWorkspaceResult, type TaskListResult, type TaskMutationResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
@@ -267,6 +268,7 @@ export default function App(): ReactElement {
   const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<Toast | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
+  const [unresolvedConflicts, setUnresolvedConflicts] = useState<NonNullable<TaskListResult["unresolvedConflicts"]>>([]);
   const querySequence = useRef(0);
   const initialLoadRetry = useRef(0);
   const statusUndoRef = useRef<OperationUndoEntry | null>(null);
@@ -332,6 +334,7 @@ export default function App(): ReactElement {
       );
       if (sequence !== querySequence.current) return false;
       workspaceRevisionRef.current = result.workspaceRevision;
+      setUnresolvedConflicts(result.unresolvedConflicts ?? []);
       if (!offset && !preserveContextOrder) setContextOrder(new Map());
       setTasks((previous) => offset ? [...previous, ...result.tasks.filter((task) => !previous.some((existing) => existing.id === task.id))] : result.tasks);
       setContextTasks((previous) => {
@@ -1323,6 +1326,18 @@ export default function App(): ReactElement {
             </Tooltip>
           </ButtonGroup>
         </header>
+
+        {runtimeKind() === "android" && unresolvedConflicts.length > 0 ? <Alert variant="destructive">
+          <AlertTitle>Syncthing conflict copies need attention</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-2">
+              <p>{unresolvedConflicts.length} conflict {unresolvedConflicts.length === 1 ? "copy was" : "copies were"} found. Android leaves them untouched. Resolve them on a desktop or CLI client, and do not delete the copies before checking the workspace.</p>
+              <ul className="max-h-24 space-y-1 overflow-auto font-mono text-xs">
+                {unresolvedConflicts.map((conflict) => <li key={conflict.sourcePath} className="break-all">{conflict.sourcePath}</li>)}
+              </ul>
+            </div>
+          </AlertDescription>
+        </Alert> : null}
 
         <TaskList
           ref={taskListRef}

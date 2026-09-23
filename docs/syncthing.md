@@ -108,13 +108,13 @@ Stop Tasks on that device and pause the Syncthing folder. Do not click Override 
 
 ### A task disappeared or a conflict appeared
 
-Pause further edits long enough to preserve the current state. Keep the conflict copy and any `.stversions` entry. On a client with the workspace loaded, inspect:
+Pause further edits long enough to preserve the current state. Keep the conflict copy and any `.stversions` entry. On Android, the home screen and `workspace.conflict.list` report Syncthing conflict copies found in the selected SAF folder. Android does not apply or delete conflict copies; use a desktop or CLI client for resolution. On a client with the workspace loaded, inspect:
 
 ```text
 workspace.conflict.list
 ```
 
-Resolve a specific entry explicitly with one of:
+On desktop or CLI, resolve a specific entry explicitly with one of:
 
 ```text
 workspace.conflict.resolve  { "conflictId": 1, "resolution": "keep-canonical" }

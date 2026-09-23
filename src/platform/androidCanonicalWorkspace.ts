@@ -6,6 +6,7 @@ import { getAndroidSyncFolder, readAndroidCanonicalFiles, writeAndroidCanonicalF
 import { filesToRecover } from "./androidPendingWrite";
 import { planAndroidPurgeCanonicalChanges } from "./androidPurgePlan";
 import { assertAndroidSiblingOrder } from "./androidSiblingOrder";
+import { listAndroidSyncConflicts, type AndroidSyncConflict } from "./androidSyncConflicts";
 
 type JsonRecord = Record<string, unknown>;
 type ParentId = string | null;
@@ -63,6 +64,7 @@ export type AndroidSyncResult = {
   workspaceId?: string;
   taskCount?: number;
   workspaceRevision?: number;
+  unresolvedConflicts?: AndroidSyncConflict[];
 };
 
 export class AndroidCanonicalError extends Error {
@@ -805,6 +807,7 @@ export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
   if (!result.selected) return { selected: false, changed: false };
 
   const imported = await parseWorkspaceFiles(result.files);
+  const unresolvedConflicts = listAndroidSyncConflicts(result.files);
   const meta = await androidStorage({ operation: "readCanonicalMeta" });
   const previousWorkspaceId = meta.workspaceId;
   const previousFingerprint = meta.fingerprint;
@@ -820,6 +823,7 @@ export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
       changed: false,
       workspaceId: imported.workspaceId,
       taskCount: imported.tasks.length,
+      unresolvedConflicts,
     };
   }
 
@@ -835,5 +839,6 @@ export async function syncAndroidWorkspace(): Promise<AndroidSyncResult> {
     workspaceId: imported.workspaceId,
     taskCount: imported.tasks.length,
     workspaceRevision: typeof replaced.workspaceRevision === "number" ? replaced.workspaceRevision : undefined,
+    unresolvedConflicts,
   };
 }

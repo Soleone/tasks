@@ -16,9 +16,10 @@ import {
   type ThemeRecord,
 } from "../backend/protocol";
 import { getBackendTransport } from "./backendTransport";
+import type { AndroidSyncConflict } from "./androidSyncConflicts";
 
 export type ProbeResult = RuntimeProbeResult;
-export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number };
+export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number; unresolvedConflicts?: AndroidSyncConflict[] };
 export type TaskListFilters = {
   priority?: TaskPriority;
   tags?: string[];

@@ -17,6 +17,7 @@ import { classifyTaskFields, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
 import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidDeletedTask, writeAndroidPurgedTasks, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
+import { listAndroidSyncConflicts, type AndroidSyncConflict } from "./androidSyncConflicts";
 import { exportAndroidTaskDocument, getAndroidSyncFolder, readAndroidCanonicalFiles } from "./androidWorkspace";
 import { AndroidUndoError, planAndroidUndo, type SavedOperation, type SavedOrder } from "./androidUndo";
 import { AndroidSiblingOrderConflict } from "./androidSiblingOrder";
@@ -26,6 +27,7 @@ const VALID_STATUSES = new Set<TaskStatus>(["open", "in_progress", "paused", "do
 type AndroidSnapshot = {
   tasks: TaskRecord[];
   workspaceRevision: number;
+  unresolvedConflicts?: AndroidSyncConflict[];
 };
 
 type AndroidReceipt = {
@@ -131,8 +133,11 @@ function asSnapshot(response: AndroidStorageResponse): AndroidSnapshot {
 }
 
 async function snapshot(): Promise<AndroidSnapshot> {
-  await syncAndroidWorkspace();
-  return asSnapshot(await androidStorage({ operation: "readSnapshot" }));
+  const sync = await syncAndroidWorkspace();
+  return {
+    ...asSnapshot(await androidStorage({ operation: "readSnapshot" })),
+    ...(sync.unresolvedConflicts ? { unresolvedConflicts: sync.unresolvedConflicts } : {}),
+  };
 }
 
 async function requestHash(request: ProtocolRequest): Promise<string> {
@@ -851,7 +856,15 @@ async function listTasks(request: ProtocolRequest): Promise<Record<string, unkno
       }
     }
   }
-  return { tasks, contextTasks, total: matches.length, limit, offset, workspaceRevision: current.workspaceRevision };
+  return {
+    tasks,
+    contextTasks,
+    total: matches.length,
+    limit,
+    offset,
+    workspaceRevision: current.workspaceRevision,
+    ...(current.unresolvedConflicts ? { unresolvedConflicts: current.unresolvedConflicts } : {}),
+  };
 }
 
 async function themeList(): Promise<{ themes: ReturnType<typeof builtinThemes>; selected: string }> {
@@ -1032,6 +1045,7 @@ async function syncWorkspace(): Promise<Record<string, unknown>> {
     ...(result.workspaceId ? { workspaceId: result.workspaceId } : {}),
     ...(typeof result.taskCount === "number" ? { taskCount: result.taskCount } : {}),
     ...(typeof result.workspaceRevision === "number" ? { workspaceRevision: result.workspaceRevision } : {}),
+    ...(result.unresolvedConflicts ? { unresolvedConflictCount: result.unresolvedConflicts.length } : {}),
   };
 }
 
@@ -1044,17 +1058,31 @@ async function rebuildWorkspace(): Promise<Record<string, unknown>> {
     changed: result.changed,
     taskCount: current.tasks.length,
     workspaceRevision: current.workspaceRevision,
+    ...(result.unresolvedConflicts ? { unresolvedConflictCount: result.unresolvedConflicts.length } : {}),
   };
 }
 
 async function listConflicts(): Promise<Record<string, unknown>> {
-  // Android recovers interrupted writes inline instead of tracking them in a
-  // conflict table, so there is never a pending conflict to list.
-  return { conflicts: [] };
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) throw new AndroidEngineError("SYNC_FOLDER_NOT_SELECTED", "select an Android sync folder before listing conflicts");
+  return { conflicts: listAndroidSyncConflicts(result.files) };
 }
 
-async function resolveConflict(): Promise<Record<string, unknown>> {
-  throw new AndroidEngineError("CONFLICT_NOT_FOUND", "Android does not track sync conflicts; there is nothing to resolve");
+async function resolveConflict(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const id = request.args.conflictId ?? request.args.id;
+  if (typeof id !== "number" || !Number.isInteger(id) || id < 1) {
+    throw new AndroidEngineError("INVALID_ARGUMENT", "conflictId must be a positive integer");
+  }
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) throw new AndroidEngineError("SYNC_FOLDER_NOT_SELECTED", "select an Android sync folder before resolving conflicts");
+  const conflicts = listAndroidSyncConflicts(result.files);
+  if (!conflicts.some((conflict) => conflict.id === id)) {
+    throw new AndroidEngineError("CONFLICT_NOT_FOUND", `sync conflict ${id} was not found`);
+  }
+  throw new AndroidEngineError(
+    "CONFLICT_RESOLUTION_UNSUPPORTED",
+    "Android can detect Syncthing conflict copies but cannot resolve them; use a desktop or CLI client. The files were left unchanged.",
+  );
 }
 
 async function archiveWorkspace(): Promise<Record<string, unknown>> {
@@ -1158,7 +1186,7 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
         result = await listConflicts();
         break;
       case "workspace.conflict.resolve":
-        result = await resolveConflict();
+        result = await resolveConflict(request);
         break;
       case "workspace.archive":
         result = await archiveWorkspace();
