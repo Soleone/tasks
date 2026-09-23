@@ -560,6 +560,91 @@ export async function writeAndroidDeletedTask(
   return true;
 }
 
+export async function writeAndroidPurgedTasks(
+  deletedTasks: TaskRecord[],
+  affectedTasks: TaskRecord[],
+  orderParentIds: Array<string | null>,
+  receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,
+): Promise<boolean> {
+  const result = await readAndroidCanonicalFiles();
+  if (!result.selected) return false;
+  const current = await parseWorkspaceFiles(result.files);
+  const filesByPath = new Map(result.files.map((file) => [file.relativePath, file]));
+  const files: AndroidPendingWrite["files"] = [];
+  const modifiedBy = androidDeviceId();
+  const deletedIds = new Set(deletedTasks.map((task) => task.id));
+
+  for (const task of deletedTasks) {
+    const taskPath = `tasks/${task.id}.json`;
+    const taskFile = filesByPath.get(taskPath);
+    if (!taskFile) invalid(`task ${task.id} is missing from the selected folder`);
+    const previous = await parseTask(taskFile, current.workspaceId, task.id);
+    if (previous.status !== "canceled" || previous.sync.revision !== task.version) {
+      throw new AndroidCanonicalError("OPERATION_CONFLICT", `task ${task.id} changed in the selected folder`);
+    }
+    files.push({ relativePath: taskPath, previousContent: taskFile.content, content: null });
+  }
+
+  for (const task of affectedTasks) {
+    const relativePath = `tasks/${task.id}.json`;
+    const previousFile = filesByPath.get(relativePath);
+    if (!previousFile) invalid(`task ${task.id} is missing from the selected folder`);
+    const previous = await parseTask(previousFile, current.workspaceId, task.id);
+    if (previous.sync.revision !== task.version - 1) {
+      throw new AndroidCanonicalError("STALE_TASK_VERSION", `task ${task.id} changed in the selected folder`);
+    }
+    const canonicalTask: CanonicalTask = {
+      ...previous,
+      parentId: task.parentId,
+      dependencyIds: [...task.dependencyIds],
+      updatedAt: task.updatedAt,
+      sync: {
+        revision: task.version,
+        modifiedBy,
+        basedOnHash: previous.sync.contentHash,
+        contentHash: "",
+      },
+    };
+    canonicalTask.sync.contentHash = await sha256(canonicalJson(withoutHash(canonicalTask)));
+    files.push({ relativePath, previousContent: previousFile.content, content: serialise(canonicalTask) });
+  }
+
+  for (const parentId of orderParentIds) {
+    const orderPath = parentId === null ? "order/root.json" : `order/${parentId}.json`;
+    const oldFile = filesByPath.get(orderPath);
+    const oldOrder = oldFile ? await parseOrder(oldFile, current.workspaceId, parentId) : null;
+    const newSiblings = current.tasks
+      .filter((entry) => !deletedIds.has(entry.id))
+      .map((entry) => {
+        const affected = affectedTasks.find((candidate) => candidate.id === entry.id);
+        return { id: entry.id, newParent: affected?.parentId ?? entry.parentId, position: entry.position };
+      })
+      .filter((entry) => entry.newParent === parentId)
+      .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+      .map((entry) => entry.id);
+    const order: CanonicalOrder = {
+      format: "tasks.sibling-order", formatVersion: 1, workspaceId: current.workspaceId,
+      parentId, taskIds: newSiblings,
+      sync: {
+        revision: (oldOrder?.sync.revision ?? 0) + 1,
+        modifiedBy,
+        basedOnHash: oldOrder?.sync.contentHash ?? null,
+        contentHash: "",
+      },
+    };
+    order.sync.contentHash = await sha256(canonicalJson(withoutHash(order)));
+    files.push({ relativePath: orderPath, previousContent: oldFile?.content ?? null, content: serialise(order) });
+  }
+
+  const folder = await getAndroidSyncFolder();
+  if (!folder) invalid("the selected Android sync folder is no longer accessible");
+  const pending: AndroidPendingWrite = { ...receipt, workspaceId: current.workspaceId, folderUri: folder.uri, files };
+  await androidStorage({ operation: "stageCanonicalWrite", pending });
+  await writeAndroidCanonicalFiles(files.map((file) => ({ ...file, modifiedAt: null })));
+  await verifyPendingFiles(pending);
+  return true;
+}
+
 export async function writeAndroidUpdatedTasks(
   tasks: TaskRecord[],
   receipt: Pick<AndroidPendingWrite, "operationId" | "idempotencyKey" | "requestHash" | "responseJson" | "createdAt">,

@@ -15,7 +15,7 @@ import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
 import { classifyTaskFields, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
-import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidDeletedTask, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
+import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidDeletedTask, writeAndroidPurgedTasks, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
 import { exportAndroidTaskDocument, getAndroidSyncFolder, readAndroidCanonicalFiles } from "./androidWorkspace";
 import { AndroidUndoError, planAndroidUndo, type SavedOperation, type SavedOrder } from "./androidUndo";
@@ -607,6 +607,56 @@ async function reorderTasks(request: ProtocolRequest): Promise<Record<string, un
   }
 }
 
+async function purgeCanceledTasks(request: ProtocolRequest): Promise<Record<string, unknown>> {
+  const current = await snapshot();
+  const canceled = current.tasks.filter((task) => task.status === "canceled");
+  if (canceled.length === 0) {
+    return { deletedCount: 0, ...(request.readOnly || request.dryRun ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}) };
+  }
+  if (request.readOnly || request.dryRun) {
+    return { deletedCount: canceled.length, dryRun: true, readOnly: Boolean(request.readOnly) };
+  }
+  const hash = await requestHash(request);
+  const replay = await readReceipt(request, hash);
+  if (replay?.ok) return replay.result;
+
+  const now = new Date().toISOString();
+  const canceledSet = new Set(canceled.map((task) => task.id));
+  const affected = current.tasks
+    .filter((task) => task.status !== "canceled"
+      && ((task.parentId !== null && canceledSet.has(task.parentId)) || task.dependencyIds.some((id) => canceledSet.has(id))))
+    .map((task) => ({
+      ...task,
+      parentId: task.parentId !== null && canceledSet.has(task.parentId) ? null : task.parentId,
+      dependencyIds: task.dependencyIds.filter((id) => !canceledSet.has(id)),
+      version: task.version + 1,
+      updatedAt: now,
+    }));
+  const orderParentIds = new Set<string | null>();
+  for (const task of canceled) orderParentIds.add(task.parentId);
+  if (affected.some((task) => task.parentId === null)) orderParentIds.add(null);
+
+  const operationId = crypto.randomUUID();
+  const result = { deletedCount: canceled.length, deletedTaskIds: canceled.map((task) => task.id), operationId };
+  const transaction = transactionId();
+  let committed = false;
+  try {
+    const staged = await writeAndroidPurgedTasks(canceled, affected, [...orderParentIds], {
+      operationId, idempotencyKey: request.idempotencyKey ?? "", requestHash: hash,
+      responseJson: JSON.stringify(result), createdAt: now,
+    });
+    await androidStorage({ operation: "begin", transactionId: transaction });
+    await androidStorage({ operation: "purgeCanceledTasks", transactionId: transaction, now });
+    await writeReceipt(request, hash, transaction, result, now);
+    await androidStorage({ operation: "commit", transactionId: transaction });
+    committed = true;
+    if (staged) await androidStorage({ operation: "completePendingWrite", operationId });
+    return result;
+  } finally {
+    if (!committed) await androidStorage({ operation: "rollback", transactionId: transaction }).catch(() => undefined);
+  }
+}
+
 async function transitionMany(request: ProtocolRequest): Promise<Record<string, unknown>> {
   const items = parseTaskTransitionManyArgs(request.args).tasks;
   const current = await snapshot();
@@ -1078,6 +1128,9 @@ export async function handleAndroidRequest(request: ProtocolRequest): Promise<Pr
         break;
       case "task.reorder":
         result = await reorderTasks(request);
+        break;
+      case "task.purgeCanceled":
+        result = await purgeCanceledTasks(request);
         break;
       case "operation.undo":
         result = await undoOperation(request);

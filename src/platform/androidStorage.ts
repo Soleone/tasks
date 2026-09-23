@@ -75,6 +75,7 @@ export type AndroidStorageRequest =
   | { operation: "clearOperation"; transactionId: string; operationId: string }
   | { operation: "setSiblingOrder"; transactionId: string; parentId: string | null; taskIds: string[] }
   | { operation: "deleteTask"; transactionId: string; id: string; expectedVersion: number }
+  | { operation: "purgeCanceledTasks"; transactionId: string; now: string }
   | { operation: "readPendingWrite" }
   | { operation: "stageCanonicalWrite"; pending: AndroidPendingWrite }
   | { operation: "completePendingWrite"; operationId: string }

@@ -69,6 +69,10 @@ pub enum AndroidStorageRequest {
         id: String,
         expected_version: i64,
     },
+    PurgeCanceledTasks {
+        transaction_id: String,
+        now: String,
+    },
     ReadPendingWrite,
     StageCanonicalWrite {
         pending: AndroidPendingWrite,
@@ -1626,6 +1630,100 @@ fn set_sibling_order(connection: &Connection, parent_id: Option<String>, task_id
     Ok(json!({ "changes": task_ids.len() }))
 }
 
+fn purge_canceled_tasks(connection: &Connection, now: &str) -> Result<Value, String> {
+    let canceled: Vec<String> = connection
+        .prepare("SELECT id FROM tasks WHERE status = 'canceled' ORDER BY id ASC")
+        .map_err(storage_error)?
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+    if canceled.is_empty() {
+        return Ok(json!({
+            "deletedTaskIds": Vec::<String>::new(),
+            "affectedTaskIds": Vec::<String>::new(),
+            "orderParentIds": Vec::<Option<String>>::new(),
+        }));
+    }
+    let placeholders = vec!["?"; canceled.len()].join(", ");
+    let affected_query = format!(
+        "SELECT id FROM tasks WHERE status <> 'canceled' AND (parent_id IN ({}) OR id IN (SELECT task_id FROM task_dependencies WHERE depends_on_id IN ({}))) ORDER BY id ASC",
+        placeholders, placeholders,
+    );
+    let mut affected_params: Vec<String> = canceled.clone();
+    affected_params.extend(canceled.clone());
+    let affected_sql: Vec<&dyn rusqlite::ToSql> = affected_params.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+    let mut affected_statement = connection.prepare(&affected_query).map_err(storage_error)?;
+    let affected: Vec<String> = affected_statement
+        .query_map(affected_sql.as_slice(), |row| row.get::<_, String>(0))
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+    drop(affected_statement);
+
+    let canceled_sql: Vec<&dyn rusqlite::ToSql> = canceled.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+    let parent_query = format!(
+        "SELECT DISTINCT parent_id FROM tasks WHERE status = 'canceled' AND id IN ({})",
+        placeholders,
+    );
+    let mut parent_statement = connection.prepare(&parent_query).map_err(storage_error)?;
+    let mut order_parent_ids: Vec<Option<String>> = parent_statement
+        .query_map(canceled_sql.as_slice(), |row| row.get::<_, Option<String>>(0))
+        .map_err(storage_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+    drop(parent_statement);
+
+    let delete_query = format!("DELETE FROM tasks WHERE status = 'canceled' AND id IN ({})", placeholders);
+    let deleted = connection.execute(&delete_query, canceled_sql.as_slice()).map_err(storage_error)?;
+    if deleted as i64 != canceled.len() as i64 {
+        return Err(storage_error("canceled tasks changed while they were being purged"));
+    }
+
+    for id in &affected {
+        connection.execute(
+            "UPDATE tasks SET version = version + 1, updated_at = ?1 WHERE id = ?2",
+            params![now, id],
+        ).map_err(storage_error)?;
+    }
+
+    // Root needs densifying when a child was re-parented onto it.
+    for id in &affected {
+        let parent: Option<String> = connection
+            .query_row("SELECT parent_id FROM tasks WHERE id = ?1", params![id], |row| row.get(0))
+            .map_err(storage_error)?;
+        if parent.is_none() {
+            order_parent_ids.push(None);
+            break;
+        }
+    }
+    order_parent_ids.sort_by(|left, right| left.as_deref().unwrap_or("").cmp(right.as_deref().unwrap_or("")));
+    order_parent_ids.dedup();
+
+    for parent in &order_parent_ids {
+        let mut statement = connection
+            .prepare("SELECT id FROM tasks WHERE parent_id IS ?1 ORDER BY position, id")
+            .map_err(storage_error)?;
+        let siblings = statement
+            .query_map(params![parent], |row| row.get::<_, String>(0))
+            .map_err(storage_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        drop(statement);
+        for (position, sibling_id) in siblings.iter().enumerate() {
+            connection
+                .execute("UPDATE tasks SET position = ?1 WHERE id = ?2", params![position as i64, sibling_id])
+                .map_err(storage_error)?;
+        }
+    }
+
+    connection.execute(
+        "UPDATE cache_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'workspace_revision'",
+        [],
+    ).map_err(storage_error)?;
+    Ok(json!({ "deletedTaskIds": canceled, "affectedTaskIds": affected, "orderParentIds": order_parent_ids }))
+}
+
 fn reorder_tasks(
     connection: &Connection,
     parent_id: Option<String>,
@@ -1858,6 +1956,10 @@ pub fn android_storage(
         AndroidStorageRequest::DeleteTask { transaction_id, id, expected_version } => {
             active_transaction(&mut transaction_guard, connection, &transaction_id)?;
             delete_task(connection, &id, expected_version)
+        }
+        AndroidStorageRequest::PurgeCanceledTasks { transaction_id, now } => {
+            active_transaction(&mut transaction_guard, connection, &transaction_id)?;
+            purge_canceled_tasks(connection, &now)
         }
         AndroidStorageRequest::ReadPendingWrite => {
             if transaction_guard.is_some() {
@@ -2260,6 +2362,56 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM task_tags", [], |row| row.get(0))
             .unwrap();
         assert_eq!(tags, 0);
+    }
+
+    #[test]
+    fn purge_canceled_tasks_reparents_children_and_removes_dependencies() {
+        let connection = Connection::open_in_memory().unwrap();
+        ensure_schema(&connection).unwrap();
+        insert_task(&connection, AndroidTaskInput {
+            id: "a".into(), title: "a".into(), description_markdown: String::new(),
+            status: "open".into(), category_id: None, parent_id: None, position: 0,
+            priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+            completed_at: None, canceled_at: None,
+        }).unwrap();
+        insert_task(&connection, AndroidTaskInput {
+            id: "d".into(), title: "d".into(), description_markdown: String::new(),
+            status: "canceled".into(), category_id: None, parent_id: None, position: 1,
+            priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+            completed_at: None, canceled_at: Some("now".into()),
+        }).unwrap();
+        insert_task(&connection, AndroidTaskInput {
+            id: "e".into(), title: "e".into(), description_markdown: String::new(),
+            status: "open".into(), category_id: None, parent_id: Some("d".into()), position: 0,
+            priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+            completed_at: None, canceled_at: None,
+        }).unwrap();
+        insert_task(&connection, AndroidTaskInput {
+            id: "f".into(), title: "f".into(), description_markdown: String::new(),
+            status: "open".into(), category_id: None, parent_id: None, position: 2,
+            priority: 2, version: 1, created_at: "now".into(), updated_at: "now".into(),
+            completed_at: None, canceled_at: None,
+        }).unwrap();
+        connection.execute(
+            "INSERT INTO task_dependencies (task_id, depends_on_id) VALUES ('f', 'd')", [],
+        ).unwrap();
+
+        let result = purge_canceled_tasks(&connection, "later").unwrap();
+        assert_eq!(result["deletedTaskIds"], json!(["d"]));
+        assert_eq!(result["affectedTaskIds"], json!(["e", "f"]));
+        let count = |query: &str| -> i64 {
+            connection.query_row(query, [], |row| row.get(0)).unwrap()
+        };
+        assert_eq!(count("SELECT COUNT(*) FROM tasks WHERE id = 'd'"), 0);
+        let e_parent: Option<String> = connection.query_row("SELECT parent_id FROM tasks WHERE id = 'e'", [], |row| row.get(0)).unwrap();
+        assert_eq!(e_parent, None);
+        assert_eq!(count("SELECT version FROM tasks WHERE id = 'e'"), 2);
+        assert_eq!(count("SELECT COUNT(*) FROM task_dependencies WHERE task_id = 'f'"), 0);
+        assert_eq!(count("SELECT version FROM tasks WHERE id = 'f'"), 2);
+        let ids = connection.prepare("SELECT id, position FROM tasks ORDER BY position").unwrap()
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
+            .unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(ids, vec![("a".into(), 0), ("e".into(), 1), ("f".into(), 2)]);
     }
 
     #[test]
