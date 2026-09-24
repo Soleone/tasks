@@ -913,6 +913,36 @@ try {
   browser("press", "c");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('document.querySelectorAll("[cmdk-group-heading] svg").length === 1');
+  check(`(() => {
+    const rows = [...document.querySelectorAll("[data-slot=command-item]")];
+    if (rows.length < 2) return false;
+    const boxes = (selector) => rows.map((row) => row.querySelector(selector)?.getBoundingClientRect());
+    const command = document.querySelector("[data-slot=command]")?.getBoundingClientRect();
+    const labels = boxes(".font-medium");
+    const counts = boxes("[data-category-count]");
+    const numbers = boxes("[data-category-count-value]");
+    const units = boxes("[data-category-count-unit]");
+    const unitText = rows.map((row) => {
+      const range = document.createRange();
+      range.selectNodeContents(row.querySelector("[data-category-count-unit-label]"));
+      return range.getBoundingClientRect();
+    });
+    const aligned = (rects, edge) => rects.every(Boolean) && Math.max(...rects.map((rect) => rect[edge])) - Math.min(...rects.map((rect) => rect[edge])) < 1;
+    const countWidths = rows.map((row) => getComputedStyle(row).getPropertyValue("--category-count-width").trim());
+    const rightGaps = rows.map((row, index) => row.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(row).paddingRight) - counts[index].right);
+    const numberUnitGaps = rows.map((row, index) => units[index].left - numbers[index].right);
+    return aligned(labels, "left")
+      && aligned(counts, "right")
+      && aligned(numbers, "right")
+      && aligned(units, "left")
+      && aligned(unitText, "left")
+      && countWidths.every((width) => Number.parseFloat(width) >= 2 && width.endsWith("ch"))
+      && new Set(countWidths).size === 1
+      && rightGaps.every((gap) => Math.abs(gap) < 1)
+      && numberUnitGaps.every((gap) => gap >= 0 && gap <= 6)
+      && command !== undefined
+      && Math.abs((labels[0].left - command.left) - (command.right - unitText[0].right)) < 16;
+  })()`);
   check('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("roadmap"))');
   browser("fill", 'input[role="combobox"]', "roadmap");
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
