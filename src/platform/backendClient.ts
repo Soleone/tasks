@@ -1,6 +1,7 @@
 import {
   PROTOCOL_VERSION,
   parseRuntimeProbeResult,
+  parseTaskCommandResult,
   type ActivityRecord,
   type ProtocolRequest,
   type CategoryRecord,
@@ -105,7 +106,7 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
     throw new BackendCommandError(response.error.code, response.error.message);
   }
 
-  return response.result as T;
+  return parseTaskCommandResult(command, response.result) as T;
 }
 
 export async function runRuntimeProbe(): Promise<ProbeResult> {

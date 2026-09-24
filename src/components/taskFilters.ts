@@ -6,7 +6,7 @@ import {
   CircleX,
   type LucideIcon,
 } from "lucide-react";
-import type { TaskPriority, TaskStatus } from "@/backend/protocol";
+import type { TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
 
 type TaskStatusMeta = {
   label: string;
@@ -29,6 +29,40 @@ export type StatusPreset = "active" | "inactive";
 
 export function presetStatuses(preset: StatusPreset): TaskStatus[] {
   return preset === "active" ? ACTIVE_TASK_STATUSES : INACTIVE_TASK_STATUSES;
+}
+
+const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
+const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
+
+export type TaskViewFilters = {
+  exactStatus: TaskStatus | null;
+  statusPreset: StatusPreset;
+  showUnblocked: boolean;
+  categorySlug: string | null;
+  priorityFilter: TaskPriority | null;
+  tagSlugs: readonly string[];
+  searchQuery: string;
+};
+
+/** Matches a task against the current UI view while optimistic changes settle. */
+export function taskMatchesViewFilters(task: TaskRecord, filters: TaskViewFilters): boolean {
+  const statusOk = filters.exactStatus !== null
+    ? task.status === filters.exactStatus
+    : (filters.statusPreset === "inactive" ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
+  if (!statusOk) return false;
+  if (filters.showUnblocked && task.blockedByIds.length > 0) return false;
+  if (filters.categorySlug !== null && task.category?.slug !== filters.categorySlug) return false;
+  if (filters.priorityFilter !== null && task.priority !== filters.priorityFilter) return false;
+  if (filters.tagSlugs.length > 0) {
+    const taskTags = new Set(task.tags.map((tag) => tag.slug));
+    if (!filters.tagSlugs.every((slug) => taskTags.has(slug))) return false;
+  }
+  if (filters.searchQuery.trim() !== "") {
+    const needle = filters.searchQuery.trim().toLowerCase();
+    const haystack = `${task.title}\n${task.descriptionMarkdown}`.toLowerCase();
+    if (!haystack.includes(needle)) return false;
+  }
+  return true;
 }
 
 export type PriorityMeta = {
@@ -69,4 +103,21 @@ export function sortSummary(field: SortField, direction: SortDirection): string 
   if (field === "manual") return "manual order";
   if (field === "priority") return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
   return `by ${field}, ${direction}`;
+}
+
+/** Orders optimistic view updates until a fresh list query supplies authoritative order. */
+export function compareTasksForViewSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
+  if (field === "manual") return 0;
+  if (field === "priority") {
+    const priorityDirection = direction === "desc" ? 1 : -1;
+    return priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  }
+  const keyA = field === "created" ? a.createdAt : a.updatedAt;
+  const keyB = field === "created" ? b.createdAt : b.updatedAt;
+  if (keyA !== keyB) {
+    const newerFirst = direction === "desc";
+    if (keyA > keyB) return newerFirst ? -1 : 1;
+    return newerFirst ? 1 : -1;
+  }
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }

@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { executeCommand } from "./commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
-import { parseLine, parseRequest, parseResponse, parseRuntimeProbeResult, parseTaskReorderArgs, ProtocolError } from "./protocol.js";
+import { parseLine, parseRequest, parseResponse, parseRuntimeProbeResult, parseTaskCommandResult, parseTaskReorderArgs, ProtocolError } from "./protocol.js";
 
 test("runtime probe persists a WAL database and searches with FTS5", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-m0-"));
@@ -120,6 +120,28 @@ test("protocol validates backend responses before the UI consumes them", () => {
   );
   assert.throws(
     () => parseRuntimeProbeResult({}),
+    (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_RESPONSE",
+  );
+});
+
+test("task result parsing rejects malformed successful list payloads", () => {
+  const response = parseResponse({
+    version: 1,
+    requestId: "malformed-task-list",
+    ok: true,
+    result: {
+      tasks: [{ id: "task-without-a-title" }],
+      contextTasks: [],
+      total: 1,
+      limit: 50,
+      offset: 0,
+      workspaceRevision: 1,
+    },
+  });
+  assert.equal(response.ok, true);
+  if (!response.ok) throw new Error("Expected a successful response envelope");
+  assert.throws(
+    () => parseTaskCommandResult("task.list", response.result),
     (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_RESPONSE",
   );
 });

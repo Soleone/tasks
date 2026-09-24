@@ -26,6 +26,23 @@ function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
   return current.id;
 }
 
+export function contextAncestorIds(tasks: readonly TaskRecord[], knownTasks: readonly TaskRecord[]): Set<string> {
+  const byId = new Map(knownTasks.map((task) => [task.id, task]));
+  const contextIds = new Set<string>();
+  for (const task of tasks) {
+    const seen = new Set<string>([task.id]);
+    let parentId = task.parentId;
+    while (parentId !== null && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      contextIds.add(parent.id);
+      parentId = parent.parentId;
+    }
+  }
+  return contextIds;
+}
+
 export function taskGroupOrder(tasks: TaskRecord[], contextTasks: TaskRecord[]): Map<string, number> {
   const byId = new Map([...contextTasks, ...tasks].map((entry) => [entry.id, entry]));
   const order = new Map<string, number>();

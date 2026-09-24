@@ -505,6 +505,143 @@ export function parseRuntimeProbeResult(value: unknown): RuntimeProbeResult {
   };
 }
 
+const TASK_RESPONSE_STATUSES: readonly TaskStatus[] = ["open", "in_progress", "paused", "done", "canceled"];
+
+function responseRecord(value: unknown, field: string): Record<string, unknown> {
+  if (!isRecord(value)) throw new ProtocolError("INVALID_RESPONSE", `${field} must be an object`);
+  return value;
+}
+
+function responseInteger(value: unknown, field: string, minimum = 0): number {
+  const number = responseNumber(value, field);
+  if (!Number.isInteger(number) || number < minimum) {
+    throw new ProtocolError("INVALID_RESPONSE", `${field} must be an integer of at least ${minimum}`);
+  }
+  return number;
+}
+
+function responseNullableString(value: unknown, field: string): string | null {
+  return value === null ? null : responseString(value, field);
+}
+
+function responseStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) throw new ProtocolError("INVALID_RESPONSE", `${field} must be an array`);
+  return value.map((entry, index) => responseString(entry, `${field}[${index}]`));
+}
+
+function responseClassificationToken(value: unknown, field: string): ClassificationToken {
+  const token = responseRecord(value, field);
+  return {
+    slug: responseString(token.slug, `${field}.slug`),
+    label: responseString(token.label, `${field}.label`),
+  };
+}
+
+function responseTaskRecord(value: unknown, field: string): TaskRecord {
+  const task = responseRecord(value, field);
+  const status = responseString(task.status, `${field}.status`);
+  if (!TASK_RESPONSE_STATUSES.includes(status as TaskStatus)) {
+    throw new ProtocolError("INVALID_RESPONSE", `${field}.status is unsupported`);
+  }
+  const priority = responseInteger(task.priority, `${field}.priority`);
+  if (priority > 4) throw new ProtocolError("INVALID_RESPONSE", `${field}.priority must be between 0 and 4`);
+  const descriptionMarkdown = task.descriptionMarkdown;
+  if (typeof descriptionMarkdown !== "string") {
+    throw new ProtocolError("INVALID_RESPONSE", `${field}.descriptionMarkdown must be a string`);
+  }
+  const tags = task.tags;
+  if (!Array.isArray(tags)) throw new ProtocolError("INVALID_RESPONSE", `${field}.tags must be an array`);
+
+  return {
+    id: responseString(task.id, `${field}.id`),
+    title: responseString(task.title, `${field}.title`),
+    descriptionMarkdown,
+    status: status as TaskStatus,
+    priority: priority as TaskPriority,
+    category: task.category === null ? null : responseClassificationToken(task.category, `${field}.category`),
+    tags: tags.map((tag, index) => responseClassificationToken(tag, `${field}.tags[${index}]`)),
+    parentId: responseNullableString(task.parentId, `${field}.parentId`),
+    dependencyIds: responseStringArray(task.dependencyIds, `${field}.dependencyIds`),
+    blockedByIds: responseStringArray(task.blockedByIds, `${field}.blockedByIds`),
+    version: responseInteger(task.version, `${field}.version`, 1),
+    createdAt: responseString(task.createdAt, `${field}.createdAt`),
+    updatedAt: responseString(task.updatedAt, `${field}.updatedAt`),
+    completedAt: responseNullableString(task.completedAt, `${field}.completedAt`),
+    canceledAt: responseNullableString(task.canceledAt, `${field}.canceledAt`),
+  };
+}
+
+function responseTaskArray(value: unknown, field: string): TaskRecord[] {
+  if (!Array.isArray(value)) throw new ProtocolError("INVALID_RESPONSE", `${field} must be an array`);
+  return value.map((task, index) => responseTaskRecord(task, `${field}[${index}]`));
+}
+
+function validateTaskMutationMetadata(result: Record<string, unknown>, changedRequired: boolean): void {
+  if (result.operationId !== undefined) responseString(result.operationId, "result.operationId");
+  if (result.changed !== undefined || changedRequired) responseBoolean(result.changed, "result.changed");
+  if (result.dryRun !== undefined) responseBoolean(result.dryRun, "result.dryRun");
+  if (result.readOnly !== undefined) responseBoolean(result.readOnly, "result.readOnly");
+}
+
+function parseTaskListResult(value: unknown): Record<string, unknown> {
+  const result = responseRecord(value, "result");
+  const tasks = responseTaskArray(result.tasks, "result.tasks");
+  const contextTasks = responseTaskArray(result.contextTasks, "result.contextTasks");
+  responseInteger(result.total, "result.total");
+  responseInteger(result.limit, "result.limit");
+  responseInteger(result.offset, "result.offset");
+  responseInteger(result.workspaceRevision, "result.workspaceRevision");
+  if (result.unresolvedConflicts !== undefined) {
+    if (!Array.isArray(result.unresolvedConflicts)) {
+      throw new ProtocolError("INVALID_RESPONSE", "result.unresolvedConflicts must be an array");
+    }
+    result.unresolvedConflicts.forEach((conflict, index) => {
+      responseString(responseRecord(conflict, `result.unresolvedConflicts[${index}]`).sourcePath, `result.unresolvedConflicts[${index}].sourcePath`);
+    });
+  }
+  return { ...result, tasks, contextTasks };
+}
+
+function parseTaskRecordResult(value: unknown, field = "result"): Record<string, unknown> {
+  const result = responseRecord(value, field);
+  const task = responseTaskRecord(result.task, `${field}.task`);
+  validateTaskMutationMetadata(result, false);
+  if (result.undoneSeq !== undefined) responseInteger(result.undoneSeq, `${field}.undoneSeq`);
+  return { ...result, task };
+}
+
+function parseTaskArrayResult(value: unknown): Record<string, unknown> {
+  const result = responseRecord(value, "result");
+  const tasks = responseTaskArray(result.tasks, "result.tasks");
+  validateTaskMutationMetadata(result, true);
+  return { ...result, tasks };
+}
+
+function parseOperationUndoResult(value: unknown): Record<string, unknown> {
+  const result = responseRecord(value, "result");
+  responseString(result.operationId, "result.operationId");
+  responseString(result.undoneOperationId, "result.undoneOperationId");
+  if (result.deletedTaskIds !== undefined) responseStringArray(result.deletedTaskIds, "result.deletedTaskIds");
+  const tasks = responseTaskArray(result.tasks, "result.tasks");
+  validateTaskMutationMetadata(result, true);
+  return { ...result, tasks };
+}
+
+export function parseTaskCommandResult(command: CommandName, value: unknown): Record<string, unknown> {
+  if (command === "task.list") return parseTaskListResult(value);
+  if (command === "task.get" || command === "task.create" || command === "task.update" || command === "task.delete"
+    || command === "task.start" || command === "task.pause" || command === "task.complete" || command === "task.reopen"
+    || command === "task.cancel" || command === "task.status.undo" || command === "task.move"
+    || command === "task.dependency.add" || command === "task.dependency.remove") {
+    return parseTaskRecordResult(value);
+  }
+  if (command === "task.reorder" || command === "task.transitionMany" || command === "task.status.undoMany") {
+    return parseTaskArrayResult(value);
+  }
+  if (command === "operation.undo") return parseOperationUndoResult(value);
+  return responseRecord(value, "result");
+}
+
 export function successResponse(requestId: string, result: Record<string, unknown>): SuccessResponse {
   return {
     version: PROTOCOL_VERSION,

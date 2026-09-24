@@ -3,7 +3,7 @@ import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
-import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
+import { compareTasksForViewSort, presetStatuses, sortSummary, taskMatchesViewFilters, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
@@ -17,7 +17,7 @@ import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
-import { taskGroupOrder } from "@/components/taskTree";
+import { contextAncestorIds, taskGroupOrder } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -32,9 +32,6 @@ import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from
 import { runtimeKind } from "@/platform/runtime";
 import { readStoredFontSizeIncrease, storeFontSizeIncrease, type FontSizeIncrease } from "@/fontSize";
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
-
-const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
-const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
 const EXACT_STATUS_KEY = "tasks.exactStatus";
@@ -133,52 +130,6 @@ function readHelpMode(): KeyboardHelpMode {
   return "full";
 }
 
-function taskIsVisible(
-  task: TaskRecord,
-  exactStatus: TaskStatus | null,
-  statusPreset: StatusPreset,
-  showUnblocked: boolean,
-  categorySlug: string | null,
-  priorityFilter: TaskPriority | null,
-  tagSlugs: readonly string[],
-  searchQuery: string,
-): boolean {
-  const statusOk = exactStatus !== null
-    ? task.status === exactStatus
-    : (statusPreset === "inactive" ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
-  if (!statusOk) return false;
-  if (showUnblocked && task.blockedByIds.length > 0) return false;
-  if (categorySlug !== null && task.category?.slug !== categorySlug) return false;
-  if (priorityFilter !== null && task.priority !== priorityFilter) return false;
-  if (tagSlugs.length > 0) {
-    const taskTags = new Set(task.tags.map((tag) => tag.slug));
-    if (!tagSlugs.every((slug) => taskTags.has(slug))) return false;
-  }
-  if (searchQuery.trim() !== "") {
-    const needle = searchQuery.trim().toLowerCase();
-    const haystack = `${task.title}\n${task.descriptionMarkdown}`.toLowerCase();
-    if (!haystack.includes(needle)) return false;
-  }
-  return true;
-}
-
-function contextAncestorIds(tasks: readonly TaskRecord[], knownTasks: readonly TaskRecord[]): Set<string> {
-  const byId = new Map(knownTasks.map((task) => [task.id, task]));
-  const contextIds = new Set<string>();
-  for (const task of tasks) {
-    const seen = new Set<string>([task.id]);
-    let parentId = task.parentId;
-    while (parentId !== null && !seen.has(parentId)) {
-      seen.add(parentId);
-      const parent = byId.get(parentId);
-      if (!parent) break;
-      contextIds.add(parent.id);
-      parentId = parent.parentId;
-    }
-  }
-  return contextIds;
-}
-
 type OperationUndoEntry = {
   operationId: string;
   key: string;
@@ -208,22 +159,6 @@ const STATUS_CHANGE_FEEDBACK: Record<TaskStatus, StatusChangeFeedback> = {
 };
 
 const UNDO_TOAST_DURATION_MS = 3000;
-
-function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
-  if (field === "manual") return 0;
-  if (field === "priority") {
-    const priorityDirection = direction === "desc" ? 1 : -1;
-    return priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-  }
-  const keyA = field === "created" ? a.createdAt : a.updatedAt;
-  const keyB = field === "created" ? b.createdAt : b.updatedAt;
-  if (keyA !== keyB) {
-    const newerFirst = direction === "desc";
-    if (keyA > keyB) return newerFirst ? -1 : 1;
-    return newerFirst ? 1 : -1;
-  }
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
 
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
@@ -1126,7 +1061,7 @@ export default function App(): ReactElement {
         if (wasVisible) {
           nextTasks = nextTasks.map((existing) => existing.id === task.id ? task : existing);
         } else {
-          nextTasks = [...nextTasks, task].sort((a, b) => compareTasksForSort(a, b, sortField, sortDirection));
+          nextTasks = [...nextTasks, task].sort((a, b) => compareTasksForViewSort(a, b, sortField, sortDirection));
           totalDelta += 1;
           membershipChanged = true;
         }
@@ -1157,16 +1092,15 @@ export default function App(): ReactElement {
   }
 
   function isCurrentViewMatch(task: TaskRecord): boolean {
-    return taskIsVisible(
-      task,
+    return taskMatchesViewFilters(task, {
       exactStatus,
       statusPreset,
       showUnblocked,
-      categoryFilter?.slug ?? null,
+      categorySlug: categoryFilter?.slug ?? null,
       priorityFilter,
-      tagFilter.map((tag) => tag.slug),
+      tagSlugs: tagFilter.map((tag) => tag.slug),
       searchQuery,
-    );
+    });
   }
 
   function taskIsInCurrentView(task: TaskRecord, visibleTasks: readonly TaskRecord[] = tasks): boolean {

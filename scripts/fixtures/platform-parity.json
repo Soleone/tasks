@@ -1,0 +1,40 @@
+{
+  "tasks": [
+    {
+      "key": "beta",
+      "title": "Beta @home #shared",
+      "priority": 3,
+      "category": "home",
+      "tags": ["shared"]
+    },
+    {
+      "key": "alpha",
+      "title": "Alpha @work #shared",
+      "priority": 2,
+      "category": "work",
+      "tags": ["shared"]
+    },
+    {
+      "key": "child",
+      "title": "Child @work #shared #child",
+      "priority": 1,
+      "parent": "alpha",
+      "category": "work",
+      "tags": ["child", "shared"]
+    }
+  ],
+  "queries": [
+    {
+      "args": { "category": "work", "tags": ["shared", "child"] },
+      "titles": ["Child @work #shared #child"]
+    },
+    {
+      "args": { "sort": "manual", "direction": "desc" },
+      "titles": ["Alpha @work #shared", "Child @work #shared #child", "Beta @home #shared"]
+    },
+    {
+      "args": { "sort": "priority", "direction": "desc" },
+      "titles": ["Child @work #shared #child", "Alpha @work #shared", "Beta @home #shared"]
+    }
+  ]
+}

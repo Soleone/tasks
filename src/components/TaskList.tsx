@@ -13,13 +13,14 @@ import {
   type ReactNode,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
-import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
+import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
+import { placementForMove, placementTargetId, selectableSiblingRows, selectedRowsForReorder, selectionMembershipMatches, type TaskMoveDirection, type TaskMovePlacement } from "@/components/taskReordering";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -351,7 +352,7 @@ type HomeShortcutActions = {
   pauseSelectedTasks: () => Promise<void>;
   moveActive: (next: number | "next" | "previous", extend?: boolean) => void;
   selectBoundary: (end: "start" | "end") => void;
-  reorderSelection: (direction: "up" | "down" | "start" | "end") => Promise<void>;
+  reorderSelection: (direction: TaskMoveDirection) => Promise<void>;
   clearSelection: () => boolean;
   handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
   editTask: (task: TaskRecord) => void;
@@ -913,10 +914,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce(`Showing ${label} tasks`);
   }
 
-  function selectableSiblingRows(row: VisibleTaskRow, rows: readonly VisibleTaskRow[] = visibleRowsRef.current): VisibleTaskRow[] {
-    return rows.filter((candidate) => !candidate.contextOnly && candidate.task.parentId === row.task.parentId);
-  }
-
   function setSelection(ids: Iterable<string>, anchorId: string | null): void {
     const next = new Set(ids);
     selectedIdsRef.current = next;
@@ -938,7 +935,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       onAnnounce("Context-only ancestors cannot be selected.");
       return;
     }
-    const scope = selectableSiblingRows(row);
+    const scope = selectableSiblingRows(row, visibleRowsRef.current);
     const anchorId = selectionAnchorRef.current;
     const anchorIndex = anchorId === null ? -1 : scope.findIndex((candidate) => candidate.task.id === anchorId);
     const targetIndex = scope.findIndex((candidate) => candidate.task.id === row.task.id);
@@ -991,7 +988,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         onAnnounce("Selection is limited to visible sibling tasks.");
         return;
       }
-      const scope = selectableSiblingRows(current);
+      const scope = selectableSiblingRows(current, visibleRowsRef.current);
       const currentScopeIndex = scope.findIndex((candidate) => candidate.task.id === current.task.id);
       const step = requestedIndex > currentIndex ? 1 : -1;
       const target = scope[currentScopeIndex + step];
@@ -1024,7 +1021,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       onAnnounce("Selection is limited to visible sibling tasks.");
       return;
     }
-    const scope = selectableSiblingRows(current);
+    const scope = selectableSiblingRows(current, visibleRowsRef.current);
     const target = end === "start" ? scope[0] : scope[scope.length - 1];
     if (!target) return;
     pendingActiveIdRef.current = target.task.id;
@@ -1063,59 +1060,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     return null;
   }
 
-  function selectedRowsForReorder(row: VisibleTaskRow, rows: readonly VisibleTaskRow[]): VisibleTaskRow[] | null {
-    if (row.contextOnly) return null;
-    const scope = selectableSiblingRows(row, rows);
-    const selected = scope.filter((candidate) => selectedIdsRef.current.has(candidate.task.id));
-    if (selected.length === 0) return selectedIdsRef.current.size === 0 ? [row] : null;
-    if ([...selectedIdsRef.current].some((id) => !selected.some((candidate) => candidate.task.id === id))) return null;
-    return selected;
-  }
-
-  function placementForMove(
-    direction: "up" | "down" | "start" | "end",
-    row: VisibleTaskRow,
-    selected: readonly VisibleTaskRow[],
-    rows: readonly VisibleTaskRow[],
-  ): TaskReorderPlacement | null {
-    const scope = selectableSiblingRows(row, rows);
-    const selectedIds = new Set(selected.map((candidate) => candidate.task.id));
-    const firstSelected = scope.findIndex((candidate) => selectedIds.has(candidate.task.id));
-    const lastSelected = scope.length - 1 - [...scope].reverse().findIndex((candidate) => selectedIds.has(candidate.task.id));
-    if (firstSelected < 0 || lastSelected < 0) return null;
-    if (direction === "start") {
-      return firstSelected === 0 ? null : { beforeId: scope[0].task.id };
-    }
-    if (direction === "end") {
-      return lastSelected === scope.length - 1 ? null : { afterId: scope[scope.length - 1].task.id };
-    }
-    if (direction === "up") {
-      if (firstSelected === 0) return null;
-      const previous = scope.slice(0, firstSelected).reverse().find((candidate) => !selectedIds.has(candidate.task.id));
-      return previous ? { beforeId: previous.task.id } : null;
-    }
-    if (lastSelected === scope.length - 1) return null;
-    const next = scope.slice(lastSelected + 1).find((candidate) => !selectedIds.has(candidate.task.id));
-    return next ? { afterId: next.task.id } : null;
-  }
-
-  function selectionMembershipMatches(rows: readonly VisibleTaskRow[], ids: readonly string[]): boolean {
-    if (rows.length !== ids.length) return false;
-    const rowIds = new Set(rows.map((row) => row.task.id));
-    return rowIds.size === ids.length && ids.every((id) => rowIds.has(id));
-  }
-
-  function placementTargetId(placement: TaskReorderPlacement): string {
-    if ("beforeId" in placement) return placement.beforeId;
-    if ("afterId" in placement) return placement.afterId;
-    throw new Error("manual movement requires an explicit visible target");
-  }
-
   function waitForListRender(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
   }
 
-  async function reorderSelection(direction: "up" | "down" | "start" | "end"): Promise<void> {
+  async function reorderSelection(direction: TaskMoveDirection): Promise<void> {
     if (reorderPending.current) return;
     const sourceRows = visibleRowsRef.current;
     const sourceActiveId = activeRow?.task.id;
@@ -1128,7 +1077,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       return;
     }
     if (!sourceRow) return;
-    const sourceSelected = selectedRowsForReorder(sourceRow, sourceRows);
+    const sourceSelected = selectedRowsForReorder(sourceRow, sourceRows, selectedIdsRef.current);
     if (!sourceSelected) {
       setSelection([], sourceRow.contextOnly ? null : sourceRow.task.id);
       onAnnounce("Selection is limited to one visible sibling scope.");
@@ -1138,7 +1087,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const switchedToManual = sortField !== "manual";
     reorderPending.current = true;
     try {
-      let placement: TaskReorderPlacement | null = null;
+      let placement: TaskMovePlacement | null = null;
       let refreshedSelectionOrder: VisibleTaskRow[] | null = null;
       if (switchedToManual) {
         onSortFieldChange("manual");
@@ -1161,7 +1110,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           onAnnounce("The selected task changed during refresh. No move was made.");
           return;
         }
-        const refreshedSelected = selectedRowsForReorder(refreshedActive, refreshedRows);
+        const refreshedSelected = selectedRowsForReorder(refreshedActive, refreshedRows, selectedIdsRef.current);
         if (!refreshedSelected || !selectionMembershipMatches(refreshedSelected, selectedIdSnapshot)) {
           onAnnounce("The selected task changed during refresh. No move was made.");
           return;
@@ -1183,7 +1132,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         onAnnounce("The selected task changed during refresh. No move was made.");
         return;
       }
-      const currentSelected = selectedRowsForReorder(currentActive, currentRows);
+      const currentSelected = selectedRowsForReorder(currentActive, currentRows, selectedIdsRef.current);
       if (!currentSelected || !selectionMembershipMatches(currentSelected, selectedIdSnapshot)) {
         onAnnounce("The selected task changed during refresh. No move was made.");
         return;
@@ -1570,7 +1519,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
     if (event.ctrlKey || event.metaKey) {
       setActiveTaskIndex(index);
-      const scope = selectableSiblingRows(row);
+      const scope = selectableSiblingRows(row, visibleRowsRef.current);
       const sameScope = scope.length > 0 && [...selectedIdsRef.current].every((id) => scope.some((candidate) => candidate.task.id === id));
       if (!sameScope) {
         selectOnly(row);

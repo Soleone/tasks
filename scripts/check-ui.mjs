@@ -254,8 +254,8 @@ try {
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
-  check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.textContent === \"\"");
-  check("document.querySelector(\"[role=option] [data-priority=\'P2\']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");
+  check("document.querySelector(\"[role=option] [data-priority='P2']\")?.textContent === \"\"");
+  check("document.querySelector(\"[role=option] [data-priority='P2']\")?.getAttribute(\"aria-label\") === \"Priority normal\"");
   check('![...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Status: Open")');
   check('(() => { const active = document.querySelector("[role=option][data-active]"); if (!active) return false; const style = getComputedStyle(active); const transparentBorder = style.borderColor === "rgba(0, 0, 0, 0)" || style.borderColor === "transparent"; return transparentBorder && style.backgroundColor !== getComputedStyle(document.body).backgroundColor; })()');
@@ -426,7 +426,21 @@ try {
   waitFor('document.querySelector(\'form[aria-label="Edit task"]\') !== null');
   waitFor('document.querySelector(\'form[aria-label="Edit task"] input\') === document.activeElement');
   browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
-  await command("task.update", { id: saved[0].id, expectedVersion: saved[0].version, title: "Agent updated title", descriptionMarkdown: saved[0].descriptionMarkdown });
+  const externalEdit = JSON.parse(execFileSync(process.execPath, [
+    path.join(root, "dist/backend/tasks-cli.js"),
+    "update",
+    saved[0].id,
+    "--title",
+    "Agent updated title",
+    "--expected-version",
+    String(saved[0].version),
+    "--idempotency-key",
+    "ui-external-editor-conflict",
+    "--database",
+    path.join(scratch, "tasks.db"),
+    "--json",
+  ], { cwd: root, encoding: "utf8" }));
+  assert.equal(externalEdit.task.title, "Agent updated title");
   evaluate('window.dispatchEvent(new Event("focus")); true');
   browser("press", "Control+Enter");
   waitFor('document.body.textContent.includes("This task changed elsewhere")');
@@ -1375,7 +1389,6 @@ try {
   evaluate('(() => { const row = [...document.querySelectorAll("[role=option]")].find((e) => e.textContent.includes("Undo first entry")); if (row) { row.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true })); } return true; })()');
   // Ensure the active row is the first entry by moving until it matches.
   for (let step = 0; step < 6; step++) {
-    const activeId = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant")');
     const activeText = evaluate('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") && document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent');
     if (String(activeText).includes("Undo first entry")) break;
     browser("press", "ArrowDown");
