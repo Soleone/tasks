@@ -747,6 +747,7 @@ try {
   waitFor('document.activeElement.matches("[role=radiogroup]")');
   browser("press", "4");
   waitFor('document.querySelector(\'form[aria-label="Edit task"] [data-priority="P4"]\').getAttribute("aria-checked") === "true" && document.activeElement.matches("[role=radiogroup]")');
+  check('[...document.querySelectorAll(\'form[aria-label="Edit task"] [role="radio"]\')].every((button) => getComputedStyle(button).borderLeftWidth === "1px")');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-inline-task-editor]") === null && document.activeElement.matches("[role=listbox]")');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === window.editedTaskOptionId');
@@ -1055,6 +1056,7 @@ try {
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   check('document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\').getAttribute("aria-checked") === "true"');
   check('(() => { const selected = document.querySelector(\'form[aria-label="New task"] [data-priority="P2"]\'); const unselected = document.querySelector(\'form[aria-label="New task"] [data-priority="P0"]\'); if (!selected || !unselected) return false; if (selected.getAttribute("aria-checked") !== "true") return false; const selectedStyle = getComputedStyle(selected); const unselectedStyle = getComputedStyle(unselected); return selectedStyle.backgroundColor !== unselectedStyle.backgroundColor && selectedStyle.color !== unselectedStyle.color && selectedStyle.borderColor !== "rgba(0, 0, 0, 0)"; })()');
+  check('[...document.querySelectorAll(\'form[aria-label="New task"] [role="radio"]\')].every((button) => getComputedStyle(button).borderLeftWidth === "1px")');
   check('document.querySelector(\'form[aria-label="New task"] [role="radiogroup"]\').tabIndex === 0');
   browser("find", "role", "radio", "click", "--name", "P2: normal");
   waitFor('document.activeElement.matches("[role=radiogroup]")');

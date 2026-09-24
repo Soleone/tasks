@@ -351,6 +351,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <ButtonGroup
             ref={prioritySection}
+            toolbar
             role="radiogroup"
             aria-labelledby={`${id}-priority-label`}
             aria-describedby={showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`}
