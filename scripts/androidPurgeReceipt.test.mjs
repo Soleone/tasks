@@ -43,6 +43,26 @@ function canceledTask(id = "cancel-me") {
   };
 }
 
+function datedTask(id, createdAt, updatedAt) {
+  return {
+    id,
+    title: id,
+    descriptionMarkdown: "",
+    status: "open",
+    priority: 2,
+    category: null,
+    tags: [],
+    parentId: null,
+    dependencyIds: [],
+    blockedByIds: [],
+    version: 1,
+    createdAt,
+    updatedAt,
+    completedAt: null,
+    canceledAt: null,
+  };
+}
+
 function purgeRequest(idempotencyKey, changes = {}) {
   return {
     version: 1,
@@ -252,6 +272,26 @@ async function interruptedPurgeFixture() {
     meta: { workspaceId, fingerprint: await sha256(canonicalJson(fingerprintInput)), cacheVersion: "2" },
   };
 }
+
+test("Android task.list defaults to created/newest", async () => {
+  const tasks = [
+    datedTask("oldest", "2026-01-01T00:00:00.000Z", "2026-03-03T00:00:00.000Z"),
+    datedTask("middle", "2026-01-02T00:00:00.000Z", "2026-03-02T00:00:00.000Z"),
+    datedTask("newest", "2026-01-03T00:00:00.000Z", "2026-03-01T00:00:00.000Z"),
+  ];
+  await withBackend({ tasks }, async () => {
+    const response = await handleAndroidRequest({
+      version: 1,
+      requestId: "list-default-sort",
+      command: "task.list",
+      args: {},
+      actor: { kind: "agent", label: "test" },
+    });
+
+    assert.equal(response.ok, true);
+    assert.deepEqual(response.result.tasks.map((task) => task.id), ["newest", "middle", "oldest"]);
+  });
+});
 
 test("Android workspace.rebuild forces a same-fingerprint cache replacement", async () => {
   const fixture = await interruptedPurgeFixture();

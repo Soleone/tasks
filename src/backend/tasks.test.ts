@@ -1101,7 +1101,8 @@ test("task.list sorts by created and updated with direction", () => {
       database.close();
     }
     const ids = (result: Result): string[] => (result.tasks as TaskRecord[]).map((item) => item.id);
-    assert.deepEqual(ids(executeCommand(request("task.list"), databasePath)), [oldest.id, middle.id, newest.id]);
+    assert.deepEqual(ids(executeCommand(request("task.list"), databasePath)), [newest.id, middle.id, oldest.id]);
+    assert.deepEqual(ids(executeCommand(request("task.list", { sort: "updated" }), databasePath)), [oldest.id, middle.id, newest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "updated", direction: "asc" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created" }), databasePath)), [newest.id, middle.id, oldest.id]);
     assert.deepEqual(ids(executeCommand(request("task.list", { sort: "created", direction: "asc" }), databasePath)), [oldest.id, middle.id, newest.id]);

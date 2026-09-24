@@ -111,7 +111,7 @@ function readSlugs(key: string): string[] {
 
 function readSortField(): SortField {
   const stored = readStored(SORT_FIELD_KEY);
-  return stored === "created" || stored === "priority" || stored === "manual" ? stored : "updated";
+  return stored === "created" || stored === "updated" || stored === "priority" || stored === "manual" ? stored : "created";
 }
 
 function readSortDirection(): SortDirection {

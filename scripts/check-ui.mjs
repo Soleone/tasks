@@ -199,6 +199,7 @@ try {
   assert.equal(saved[0].descriptionMarkdown, "## Shortlist\n- Ask about accessibility");
   assert.equal(saved[0].category.slug, "launch");
   assert.equal(saved[0].tags[0].slug, "planning");
+  waitFor('document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"');
   waitFor('document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Book venue"');
 
   // Escape dismisses the category autocomplete before closing either composer dialog.

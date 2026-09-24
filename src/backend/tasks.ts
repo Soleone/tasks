@@ -1945,7 +1945,7 @@ function listTasks(database: DatabaseSync, request: ProtocolRequest): Record<str
     const trimmed = searchArgument.trim().slice(0, 200);
     searchPattern = `%${escapeLikePattern(trimmed)}%`;
   }
-  const sortArgument = request.args.sort ?? "updated";
+  const sortArgument = request.args.sort ?? "created";
   if (sortArgument !== "created" && sortArgument !== "updated" && sortArgument !== "priority" && sortArgument !== "manual") {
     throw new CommandError("INVALID_ARGUMENT", "sort must be created, updated, priority, or manual");
   }

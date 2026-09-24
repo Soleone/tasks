@@ -13,7 +13,7 @@ function ids(items) {
   return items.map((task) => task.id);
 }
 
-test("Android defaults to updated/newest; explicit priority sort matches desktop", () => {
+test("Android applies the requested date and priority sorts", () => {
   assert.deepEqual(ids(sortAndroidTasks(tasks, "updated", "desc")), ["root-b", "root-a", "child"]);
   assert.deepEqual(ids(sortAndroidTasks(tasks, "priority", "desc")), ["child", "root-b", "root-a"]);
   assert.deepEqual(ids(sortAndroidTasks(tasks, "priority", "asc")), ["root-a", "root-b", "child"]);

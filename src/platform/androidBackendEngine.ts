@@ -835,7 +835,7 @@ async function listTasks(request: ProtocolRequest): Promise<Record<string, unkno
   const tags = tagValues.map((tag) => requiredText(tag, "tags").toLowerCase());
   const search = request.args.search === undefined ? "" : requiredText(request.args.search, "search").trim().toLowerCase();
   const unblocked = request.args.unblocked === true;
-  const sort = request.args.sort === undefined ? "updated" : requiredText(request.args.sort, "sort");
+  const sort = request.args.sort === undefined ? "created" : requiredText(request.args.sort, "sort");
   if (!["created", "updated", "priority", "manual"].includes(sort)) {
     throw new AndroidEngineError("INVALID_ARGUMENT", "sort must be created, updated, priority, or manual");
   }
