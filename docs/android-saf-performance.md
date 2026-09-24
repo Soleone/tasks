@@ -10,7 +10,7 @@ This is supported by one real-workspace measurement, not a proven optimum for ev
 
 Debug Android builds log native SAF read, canonical-write, and export durations with the `TasksSAF` Logcat tag. Each record contains elapsed nanoseconds, outcome, and file count only; it does not include task content, paths, document URIs, or workspace IDs. Canonical writes run serially on IO under a coroutine mutex, preserving the order of files in each staged batch while preventing concurrent batches from interleaving. The picker remains on the activity thread; export document writes and metadata queries run on IO.
 
-Canonical-write verification logs its end-to-end duration, outcome, and staged-file count to the WebView console with the `[android-saf]` prefix. This includes folder revalidation, the canonical reread, and staged-content comparisons. Native operation timings and verification timings are diagnostics, not frame-jank measurements. The read-only Pixel 10a evidence below does not validate write, purge, or export responsiveness; an on-device write/export jank check remains outstanding.
+Canonical-write verification logs its end-to-end duration, outcome, and staged-file count to the WebView console with the `[android-saf]` prefix. This includes folder revalidation, the canonical reread, and staged-content comparisons. Native operation timings and verification timings are diagnostics, not frame-jank measurements. The read-only Pixel 10a evidence below does not validate write, purge, or export responsiveness; emulator write evidence follows, while physical-device/provider validation remains outstanding.
 
 ## Evidence (2026-09-23)
 
@@ -25,6 +25,17 @@ A temporary debug APK ran on a **Pixel 10a, Android API 37**, using `com.android
 Across all nine scans there were **zero provider read errors** and **zero Android main-thread frame gaps above 50 ms** during the native reads. Directory listing alone took 55–115 ms. The four-reader native median was roughly 3.2 times faster than the sequential median on this provider/workspace; that is **not** an end-to-end UI speedup figure. The user also reported that the app felt snappier. PSS and Java/native heap were sampled only before and after each scan; values varied substantially and do not establish peak memory or a memory improvement. The two excluded scans were the second round at limit 1 and third round at limit 2. There are too few independent samples for a meaningful p95.
 
 Host checks after retaining the four-reader implementation: Android JVM tests cover worker/stream bounds, overlapping scans, order, empty and sequential cases, and error propagation. Kotlin compilation and an arm64 APK build passed. A physical device was used for the SAF report, but full native UI, recovery, and SQLite acceptance are separate outstanding work.
+
+## Emulator write check (2026-09-23)
+
+A debug x86_64 APK ran on the `medium_phone` AVD (`sdk_gphone64_x86_64`, Android API 36) with a scratch folder provided by `com.android.externalstorage.documents`. The fixture began with 68 canonical files (66 task files plus `workspace.json` and `order/root.json`). The app imported the workspace, edited one task through the UI, exported all 66 tasks through the document picker, then exercised a two-file order-update/task-delete batch through `write_sync_files`.
+
+- UI task edit: native write **28.6 ms**; end-to-end verification **89.1 ms**.
+- Document export: native write plus display-name query **5.8 ms**.
+- Order update followed by task deletion: **45.2 ms** for two files; a subsequent scan found 67 canonical files.
+- A ten-file write batch took **222.4 ms**. A WebView `requestAnimationFrame` trace saw a maximum callback gap of **16.8 ms** both during the batch and in the idle baseline, with **zero gaps over 50 ms** in either sample. All ten files matched on readback.
+
+The delete check exercised the native staged-file writer directly; Android's cleanup UI remains disabled, so it is not end-to-end acceptance of the Android `task.purgeCanceled` command. The emulator uses a local filesystem-backed SAF provider and does not represent physical-device scheduling or cloud-backed providers. This is useful regression evidence, not a substitute for repeating the check on a phone/provider actually used.
 
 ## Repeating or extending the investigation
 
