@@ -110,6 +110,7 @@ try {
   browser("press", "Tab");
   // Regression: Tab from an empty title must focus priority without opening the description.
   waitFor('document.activeElement.matches("[role=radiogroup]")');
+  check('(() => { const group = document.querySelector("[data-priority-section]"); const lastButton = group?.querySelector("[data-priority=\\"P4\\"]"); return Boolean(group && lastButton && Math.abs(group.getBoundingClientRect().right - lastButton.getBoundingClientRect().right) < 1); })()');
   check('document.querySelector(\'form[aria-label="New task"] textarea\') === null');
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');

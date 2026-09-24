@@ -392,47 +392,49 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
         <Field className="relative">
           {showContextualHelp && helpTarget === "priority" ? <ComposerHelpTooltip target="priority" onDisableHelp={onDisableHelp} /> : null}
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
-          <ButtonGroup
-            ref={prioritySection}
-            toolbar
-            role="radiogroup"
-            aria-labelledby={`${id}-priority-label`}
-            aria-describedby={showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`}
-            aria-activedescendant={`${id}-priority-${priority}`}
-            aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
-            aria-disabled={pending || undefined}
-            tabIndex={0}
-            data-priority-section
-            onFocus={() => setHelpTarget("priority")}
-            onKeyDown={handlePriorityKeyDown}
-          >
-            {PRIORITY_META.map((meta) => {
-              const selected = priority === meta.value;
-              return (
-                <Button
-                  key={meta.value}
-                  id={`${id}-priority-${meta.value}`}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  variant={selected ? "outline" : "ghost"}
-                  selected={selected}
-                  size="sm"
-                  tabIndex={-1}
-                  aria-label={`${meta.shortLabel}: ${meta.label}`}
-                  data-priority={meta.shortLabel}
-                  disabled={pending}
-                  onClick={() => {
-                    setPriority(meta.value);
-                    prioritySection.current?.focus();
-                  }}
-                >
-                  <span aria-hidden="true" className={`inline-block size-2 rounded-full ${meta.dot}`} />
-                  {meta.shortLabel}
-                </Button>
-              );
-            })}
-          </ButtonGroup>
+          <div>
+            <ButtonGroup
+              ref={prioritySection}
+              toolbar
+              role="radiogroup"
+              aria-labelledby={`${id}-priority-label`}
+              aria-describedby={showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`}
+              aria-activedescendant={`${id}-priority-${priority}`}
+              aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
+              aria-disabled={pending || undefined}
+              tabIndex={0}
+              data-priority-section
+              onFocus={() => setHelpTarget("priority")}
+              onKeyDown={handlePriorityKeyDown}
+            >
+              {PRIORITY_META.map((meta) => {
+                const selected = priority === meta.value;
+                return (
+                  <Button
+                    key={meta.value}
+                    id={`${id}-priority-${meta.value}`}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    variant={selected ? "outline" : "ghost"}
+                    selected={selected}
+                    size="sm"
+                    tabIndex={-1}
+                    aria-label={`${meta.shortLabel}: ${meta.label}`}
+                    data-priority={meta.shortLabel}
+                    disabled={pending}
+                    onClick={() => {
+                      setPriority(meta.value);
+                      prioritySection.current?.focus();
+                    }}
+                  >
+                    <span aria-hidden="true" className={`inline-block size-2 rounded-full ${meta.dot}`} />
+                    {meta.shortLabel}
+                  </Button>
+                );
+              })}
+            </ButtonGroup>
+          </div>
           {showPriorityHelp ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
         </Field>
         {notesOpen ? (
