@@ -227,9 +227,28 @@
   }
 }
 
+[data-completion-feedback="true"] .lucide-circle-check path,
+[data-completion-toast="true"] .lucide-circle-check path {
+  animation: task-completion-check 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes task-completion-check {
+  from {
+    stroke-dasharray: 20 20;
+    stroke-dashoffset: 20;
+    opacity: 0.4;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-new-task="true"],
-  [data-canceled-task="true"] {
+  [data-canceled-task="true"],
+  [data-completion-feedback="true"] .lucide-circle-check path,
+  [data-completion-toast="true"] .lucide-circle-check path {
     animation: none;
   }
 }

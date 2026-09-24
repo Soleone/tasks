@@ -1305,8 +1305,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (result.changed !== false) {
         if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
         onStatusChanged?.(task, result.task, wasActive);
+        setStatusFeedback({ taskId: task.id, version: result.task.version });
       }
-      setStatusFeedback({ taskId: task.id, version: result.task.version });
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
       onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
@@ -1919,6 +1919,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     ...summarySuffixParts.map((part) => part.value),
   ].filter((part): part is string => part !== null).join(" · ");
 
+  const isDefaultActiveEmpty = !loading && !error && composer === null && optimisticTask === null && visibleRows.length === 0 && !hasActiveFilters && total === 0;
   const isFilteredEmpty = !loading && !error && optimisticTask === null && visibleRows.length === 0 && (hasActiveFilters || total > 0);
   const showListSurface = (!error || optimisticTask !== null) && (optimisticTask !== null || visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
   const visibleRowCount = visibleRows.length + (optimisticTask ? 1 : 0);
@@ -2473,7 +2474,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           role="listbox"
           aria-label={visibleRowCount
             ? `${APP_NAME}, ${visibleRowCount} visible task rows, ${total + (optimisticTask ? 1 : 0)} matching tasks, ${listSelectionLabel}`
-            : `${APP_NAME}, no visible matches`}
+            : isDefaultActiveEmpty ? `${APP_NAME}, no active tasks` : `${APP_NAME}, no visible matches`}
           aria-orientation="vertical"
           aria-multiselectable="true"
           aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
@@ -2539,6 +2540,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               onSelectCategory={handleOptionSelectCategory}
             />
           ))}
+          {isDefaultActiveEmpty ? (
+            <Item data-empty-state="active" size="sm" state="empty">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">No active tasks</p>
+                <p className="mt-1 text-sm text-muted-foreground">Press C or choose New task to capture.</p>
+              </div>
+            </Item>
+          ) : null}
           {isFilteredEmpty ? (
             <Item
               data-empty-state="filtered"
@@ -2564,7 +2573,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ) : !loading && !error && composer === null ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No tasks yet</EmptyTitle>
+            <EmptyTitle>No active tasks</EmptyTitle>
             <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
           </EmptyHeader>
         </Empty>

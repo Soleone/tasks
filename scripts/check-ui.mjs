@@ -94,6 +94,7 @@ try {
   waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
   check('document.querySelector("[role=dialog]") === null');
   check('document.body.textContent.includes("Press C or choose New task")');
+  check('document.querySelector("[data-slot=empty-title]")?.textContent === "No active tasks"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   browser("press", "?");
   waitFor('document.querySelector("[data-starter-help]") !== null');
@@ -362,11 +363,16 @@ try {
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
+  check('document.querySelector("[data-undo-toast]")?.getAttribute("data-completion-toast") === "true"');
+  check('getComputedStyle(document.querySelector("[data-undo-toast] .lucide-circle-check path")).animationName === "task-completion-check"');
   check('document.querySelector("[data-undo-toast] svg")?.classList.contains("text-background") === true');
   check('document.querySelector("[data-undo-toast] svg")?.classList.contains("lucide-circle-check") === true');
+  check('document.querySelector("[role=listbox] [data-empty-state=active]")?.textContent.includes("No active tasks") === true');
+  check('document.querySelector("[role=listbox]").getAttribute("aria-label").includes("no active tasks")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
+  check('document.querySelector("[role=option] [data-completion-feedback]") === null');
   // Shift+Space reverses done to in_progress, which leaves Inactive.
   browser("press", "Shift+Space");
   waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as in progress")');
@@ -385,6 +391,28 @@ try {
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
   waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
+  check('(() => { const marker = document.querySelector("[role=option] [data-completion-feedback]"); const path = marker?.querySelector(".lucide-circle-check path"); return marker?.getAttribute("data-completion-feedback") === "true" && path && getComputedStyle(path).animationName === "task-completion-check"; })()');
+  check('document.querySelector("[data-undo-toast]")?.getAttribute("data-completion-toast") !== "true"');
+  browser("press", "Space");
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
+  // Reduced motion keeps the confirmed state but suppresses the check animation.
+  browser("press", "p");
+  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as paused")');
+  browser("press", "f");
+  browser("press", "s");
+  waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
+  browser("set", "media", "light", "reduced-motion");
+  waitFor('matchMedia("(prefers-reduced-motion: reduce)").matches');
+  browser("press", "Space");
+  waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
+  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
+  check('(() => { const marker = document.querySelector("[role=option] [data-completion-feedback]"); const path = marker?.querySelector(".lucide-circle-check path"); return marker?.getAttribute("data-completion-feedback") === "true" && path && getComputedStyle(path).animationName === "none"; })()');
+  check('document.querySelector("[data-undo-toast]")?.getAttribute("data-completion-toast") !== "true"');
+  browser("set", "media", "light");
+  waitFor('!matchMedia("(prefers-reduced-motion: reduce)").matches');
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
   browser("press", "f");

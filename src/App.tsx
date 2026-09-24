@@ -143,6 +143,7 @@ type OperationUndoEntry = {
 type Toast = {
   message: string;
   Icon?: LucideIcon;
+  completionToast?: boolean;
 };
 
 type StatusChangeFeedback = {
@@ -1136,6 +1137,7 @@ export default function App(): ReactElement {
     showToast({
       message: feedback.length === 1 ? feedback[0].message : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
       ...(Icon ? { Icon } : {}),
+      ...(movedOutOfView && statuses.length === 1 && statuses[0] === "done" ? { completionToast: true } : {}),
     });
   }
 
@@ -1379,7 +1381,7 @@ export default function App(): ReactElement {
         />
         <p role="status" className="sr-only">{announcement}</p>
         {toast ? (
-          <div data-undo-toast role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
+          <div data-undo-toast data-completion-toast={toast.completionToast || undefined} role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
             {ToastIcon ? <ToastIcon aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
             <span>{toast.message}</span>
           </div>
