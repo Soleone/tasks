@@ -8,6 +8,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { X } from "lucide-react";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { preventFocusSteal } from "@/navigation";
@@ -25,6 +26,63 @@ type TaskComposerProps = {
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
 };
+
+type ContextualHelpTarget = "title" | "description" | "priority";
+
+const CONTEXTUAL_HELP: Record<ContextualHelpTarget, { heading: string; text: string }> = {
+  title: {
+    heading: "Title",
+    text: "Type the task title. Press Tab to choose a priority, or Enter to save.",
+  },
+  description: {
+    heading: "Description",
+    text: "Add optional Markdown notes. Press Shift+Tab for priority, or Tab and Escape to return to the title.",
+  },
+  priority: {
+    heading: "Priority",
+    text: "Press 0–4 or ← → to choose a priority.",
+  },
+};
+
+function ComposerHelpTooltip({ target, onDisableHelp }: { target: ContextualHelpTarget; onDisableHelp: () => void }): ReactElement {
+  const help = CONTEXTUAL_HELP[target];
+
+  return (
+    <Tooltip open>
+      <TooltipTrigger
+        render={<span aria-hidden="true" tabIndex={-1} className="pointer-events-none absolute inset-x-0 top-6 bottom-0" />}
+      />
+      <TooltipContent
+        data-context-help={target}
+        role="status"
+        aria-live="polite"
+        side="left"
+        align="center"
+        sideOffset={8}
+        className="max-w-[16rem] whitespace-normal"
+      >
+        <span className="flex w-full flex-col items-start text-left">
+          <span className="flex w-full items-start justify-between gap-2">
+            <span className="font-medium">{help.heading}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              tabIndex={-1}
+              aria-label="Use basic keyboard help"
+              title="Use basic keyboard help"
+              onMouseDown={preventFocusSteal}
+              onClick={onDisableHelp}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </span>
+          <span>{help.text}</span>
+        </span>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 // Shared inline create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
@@ -244,21 +302,6 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
     }
   }
 
-  const contextualHelp = {
-    title: {
-      heading: "Title",
-      text: "Type the task title. Press Tab to choose a priority, or Enter to save.",
-    },
-    description: {
-      heading: "Description",
-      text: "Add optional Markdown notes. Press Shift+Tab for priority, or Tab and Escape to return to the title.",
-    },
-    priority: {
-      heading: "Priority",
-      text: "Press 0–4 or ← → to choose a priority.",
-    },
-  }[helpTarget];
-
   return (
     <form
       aria-label={task ? "Edit task" : "New task"}
@@ -272,33 +315,11 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
           event.currentTarget.requestSubmit();
         }
       }}
-      className="flex flex-col gap-4"
+      className="flex w-full min-w-0 flex-col gap-4"
     >
-      {showContextualHelp ? (
-        <aside
-          aria-label="Keyboard help"
-          data-context-help={helpTarget}
-          className="relative w-full rounded-md border bg-card p-3 pr-9 text-card-foreground"
-        >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            tabIndex={-1}
-            aria-label="Disable keyboard help"
-            title="Disable keyboard help"
-            className="pointer-events-auto absolute top-1 right-1"
-            onMouseDown={preventFocusSteal}
-            onClick={onDisableHelp}
-          >
-            <X aria-hidden="true" />
-          </Button>
-          <p className="text-xs font-medium">{contextualHelp.heading}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{contextualHelp.text}</p>
-        </aside>
-      ) : null}
       <FieldGroup>
         <Field className="relative" data-invalid={titleError || undefined}>
+          {showContextualHelp && helpTarget === "title" ? <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} /> : null}
           <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
           <Input
             ref={titleInput}
@@ -347,7 +368,8 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
           ) : null}
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
-        <Field>
+        <Field className="relative">
+          {showContextualHelp && helpTarget === "priority" ? <ComposerHelpTooltip target="priority" onDisableHelp={onDisableHelp} /> : null}
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <ButtonGroup
             ref={prioritySection}
@@ -393,7 +415,8 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
           {showPriorityHelp ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
         </Field>
         {notesOpen ? (
-          <Field>
+          <Field className="relative">
+            {showContextualHelp && helpTarget === "description" ? <ComposerHelpTooltip target="description" onDisableHelp={onDisableHelp} /> : null}
             <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
             <Textarea
               ref={notesInput}

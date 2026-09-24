@@ -26,8 +26,8 @@ export function DisableKeyboardHelpDialog({ open, mode, onOpenChange, onConfirm,
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" data-disable-help-cancel onClick={() => onOpenChange(false)}>Keep help</Button>
-          <Button variant={keepsShortcutGuides ? "default" : "destructive"} data-disable-help-confirm onClick={onConfirm}>{keepsShortcutGuides ? "Use basic help" : "Disable help"}</Button>
+          <Button variant="outline" data-disable-help-cancel onClick={() => onOpenChange(false)}>Keep existing help level</Button>
+          <Button variant={keepsShortcutGuides ? "default" : "destructive"} data-disable-help-confirm onClick={onConfirm}>Turn down help level</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

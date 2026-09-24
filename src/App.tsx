@@ -513,6 +513,7 @@ export default function App(): ReactElement {
       focusStack.restore("help");
       setHelpOpen(false);
     }
+    taskListRef.current?.clearActiveTaskSelection();
     const classification = [
       ...(categoryFilter ? [`@${categoryFilter.slug}`] : []),
       ...tagFilter.map((tag) => `#${tag.slug}`),

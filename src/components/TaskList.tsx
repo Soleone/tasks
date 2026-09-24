@@ -121,6 +121,7 @@ function isNativeButtonAction(target: EventTarget | null): boolean {
 export type TaskListHandle = {
   startIdentityPreservingRefresh: () => void;
   finishIdentityPreservingRefresh: () => void;
+  clearActiveTaskSelection: () => void;
   getActiveTask: () => TaskRecord | undefined;
 };
 
@@ -356,12 +357,13 @@ type HomeShortcutActions = {
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
-function InlineTaskComposer({ composer, onClose, onSaved, helpMode, onDisableHelp }: {
+function InlineTaskComposer({ composer, onClose, onSaved, helpMode, onDisableHelp, inList = false }: {
   composer: ComposerState;
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
+  inList?: boolean;
 }): ReactElement {
   const task = composer.mode === "edit" ? composer.task : undefined;
   const parentId = composer.mode === "create" ? composer.parentId : undefined;
@@ -372,9 +374,9 @@ function InlineTaskComposer({ composer, onClose, onSaved, helpMode, onDisableHel
       role="group"
       aria-label={task ? `Editing ${taskTitleDisplay(task.title)}` : "New task inline"}
       data-inline-task-editor
-      variant="outline"
+      state="selected"
       size="sm"
-      className="w-full max-h-[50vh] overflow-y-auto"
+      className={inList ? "w-full shrink-0" : "w-full max-h-[50vh] overflow-y-auto"}
     >
       <TaskComposer
         key={task ? task.id : `create-${parentId ?? "root"}`}
@@ -499,6 +501,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const preserveActiveTaskOnRefreshRef = useRef(false);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeTaskRef = useRef<TaskRecord | undefined>(undefined);
+  const lastSelectedNewTaskIdRef = useRef<string | null>(null);
   const activeScrollFrameRef = useRef<number | null>(null);
   const activeScrollTargetRef = useRef<string | null>(null);
   const optionClickRef = useRef<TaskOptionClick>(() => undefined);
@@ -512,6 +515,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     activeTaskIdRef.current = visibleRowsRef.current[nextIndex]?.task.id ?? null;
     activeTaskIndexRef.current = nextIndex;
     setActiveTaskIndexState(nextIndex);
+  }
+
+  function clearActiveTaskSelection(): void {
+    pendingActiveIdRef.current = null;
+    pendingActiveViewRef.current = null;
+    restoreActiveIdRef.current = null;
+    restoreSelectionIdsRef.current = null;
+    setActiveTaskIndex(-1);
+    setSelection([], null);
   }
 
   const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
@@ -562,6 +574,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       restoreActiveIdRef.current = null;
       restoreSelectionIdsRef.current = null;
     },
+    clearActiveTaskSelection,
     getActiveTask: () => activeTaskRef.current,
   }), []);
 
@@ -597,12 +610,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
 
     const requestedSelection = restoreSelectionIdsRef.current ?? selectedIdsRef.current;
-    // A created task becomes the sole selection. This must win over the
-    // preserved selection so creating after a Shift range cannot leave both
-    // the old range and the new active task selected.
-    const createdTaskId: string | null = newTaskId !== undefined && newTaskId !== null && selectableIds.has(newTaskId)
+    // Apply the new-task selection once. The highlight id remains set briefly,
+    // but it must not restore the selection after the user starts another create.
+    if (newTaskId == null) lastSelectedNewTaskIdRef.current = null;
+    const createdTaskId = newTaskId != null
+      && newTaskId !== lastSelectedNewTaskIdRef.current
+      && selectableIds.has(newTaskId)
       ? newTaskId
       : null;
+    if (createdTaskId !== null) lastSelectedNewTaskIdRef.current = createdTaskId;
     const nextSelection = createdTaskId !== null
       ? new Set<string>([createdTaskId])
       : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
@@ -945,6 +961,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   function moveActive(next: number | "next" | "previous", extend = false): void {
     if (visibleRows.length === 0) return;
     const currentIndex = activeTaskIndexRef.current;
+    if (currentIndex < 0) {
+      const firstIndex = visibleRows.findIndex((row) => !row.contextOnly);
+      if (firstIndex < 0) return;
+      const firstTask = visibleRows[firstIndex];
+      pendingActiveIdRef.current = firstTask.task.id;
+      pendingActiveViewRef.current = viewIdentity;
+      setActiveTaskIndex(firstIndex);
+      selectOnly(firstTask);
+      scheduleActiveScroll(firstTask.task.id);
+      return;
+    }
     const requestedIndex = typeof next === "number"
       ? next
       : currentIndex + (next === "next" ? 1 : -1);
@@ -1934,6 +1961,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const selectionLabel = `${selectionCount} task${selectionCount === 1 ? "" : "s"} selected`;
   const moveSubjectLabel = selectionCount > 1 ? `selected tasks, ${selectionLabel}` : "active task";
   const reorderAvailabilityReason = reorderDisabledReason(activeRow);
+  const editingTaskVisible = composer?.mode === "edit" && visibleRows.some((row) => row.task.id === composer.task.id);
+  const editingActiveTask = composer?.mode === "edit" && composer.task.id === activeTask?.id;
+  const listSelectionLabel = composer?.mode === "edit" && editingTaskVisible
+    ? `editing ${taskTitleDisplay(composer.task.title)}`
+    : selectionLabel;
 
   return (
     <section
@@ -2450,7 +2482,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           >Retry</Button>
         </AlertDescription>
       </Alert> : null}
-      {composer ? (
+      {composer && (composer.mode === "create" || !editingTaskVisible) ? (
         <InlineTaskComposer
           composer={composer}
           onClose={onCloseComposer}
@@ -2465,12 +2497,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           id="task-list"
           role="listbox"
           aria-label={visibleRows.length
-            ? `${APP_NAME}, ${visibleRows.length} visible task rows, ${total} matching tasks, ${selectionLabel}`
+            ? `${APP_NAME}, ${visibleRows.length} visible task rows, ${total} matching tasks, ${listSelectionLabel}`
             : `${APP_NAME}, no visible matches`}
           aria-orientation="vertical"
           aria-multiselectable="true"
           aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
-          aria-activedescendant={activeTask ? `task-option-${activeTask.id}` : undefined}
+          aria-activedescendant={activeTask && !editingActiveTask ? `task-option-${activeTask.id}` : undefined}
           tabIndex={0}
           className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-x-clip overflow-y-auto overscroll-y-contain outline-none"
           onFocus={() => setListFocused(true)}
@@ -2478,7 +2510,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}
         >
-          {visibleRows.map((row, index) => (
+          {visibleRows.map((row, index) => composer?.mode === "edit" && row.task.id === composer.task.id ? (
+            <InlineTaskComposer
+              key={`edit-${row.task.id}`}
+              composer={composer}
+              onClose={onCloseComposer}
+              onSaved={onComposerSaved}
+              helpMode={helpMode}
+              onDisableHelp={onDisableComposerHelp}
+              inList
+            />
+          ) : (
             <TaskOption
               key={row.task.id}
               row={row}
