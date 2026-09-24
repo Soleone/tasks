@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
 import { AppIcon } from "@/components/AppIcon";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
@@ -19,6 +20,7 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
 import { contextAncestorIds, taskGroupOrder } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
@@ -140,10 +142,9 @@ type OperationUndoEntry = {
   wasActiveTaskId: string | null;
 };
 
-type Toast = {
-  message: string;
-  Icon?: LucideIcon;
-  completionToast?: boolean;
+type ToastDisplayOptions = {
+  icon?: LucideIcon;
+  completion?: boolean;
 };
 
 type StatusChangeFeedback = {
@@ -159,7 +160,7 @@ const STATUS_CHANGE_FEEDBACK: Record<TaskStatus, StatusChangeFeedback> = {
   canceled: { message: "Task marked as canceled", notifyWhenVisible: true },
 };
 
-const UNDO_TOAST_DURATION_MS = 3000;
+const TOAST_DURATION_MS = 3000;
 
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
@@ -204,14 +205,12 @@ export default function App(): ReactElement {
   const [statusUndo, setStatusUndo] = useState<OperationUndoEntry | null>(null);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(() => new Set());
-  const [toast, setToast] = useState<Toast | null>(null);
   const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
   const [unresolvedConflicts, setUnresolvedConflicts] = useState<NonNullable<TaskListResult["unresolvedConflicts"]>>([]);
   const querySequence = useRef(0);
   const initialLoadRetry = useRef(0);
   const statusUndoRef = useRef<OperationUndoEntry | null>(null);
   const cancelExitTimer = useRef<number | null>(null);
-  const toastTimer = useRef<number | null>(null);
   const statusPresetRef = useRef<StatusPreset>(statusPreset);
   const exactStatusRef = useRef<TaskStatus | null>(exactStatus);
   const priorityFilterRef = useRef<TaskPriority | null>(priorityFilter);
@@ -857,11 +856,6 @@ export default function App(): ReactElement {
     options: { createdTaskIds?: string[]; wasActiveTaskId?: string | null } = {},
   ): void {
     if (!operationId) return;
-    if (toastTimer.current !== null) {
-      window.clearTimeout(toastTimer.current);
-      toastTimer.current = null;
-    }
-    setToast(null);
     const previousById = new Map(previous.map((task) => [task.id, task]));
     const currentById = new Map(current.map((task) => [task.id, task]));
     const affectedTaskIds = [...new Set([...previous, ...current].map((task) => task.id))].filter((taskId) => {
@@ -896,13 +890,13 @@ export default function App(): ReactElement {
     setStatusUndo(null);
   }
 
-  function showToast(nextToast: Toast): void {
-    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
-    setToast(nextToast);
-    toastTimer.current = window.setTimeout(() => {
-      setToast(null);
-      toastTimer.current = null;
-    }, UNDO_TOAST_DURATION_MS);
+  function showToast(message: string, options: ToastDisplayOptions = {}): void {
+    const Icon = options.icon;
+    const iconClassName = options.completion ? "size-4 task-completion-icon" : "size-4";
+    sonnerToast(message, {
+      duration: TOAST_DURATION_MS,
+      ...(Icon ? { icon: <Icon aria-hidden="true" className={iconClassName} /> } : {}),
+    });
   }
 
   async function handleUndoStatus(): Promise<void> {
@@ -931,7 +925,7 @@ export default function App(): ReactElement {
             ? `Undid change to ${restored[0].title}`
             : `Undid changes for ${entry.affectedTaskIds.length} tasks`;
       setAnnouncement(message);
-      showToast({ message: entry.statusLike && label ? `Undo status change to ${label}` : message });
+      showToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
       if (caught instanceof BackendCommandError && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND")) {
@@ -948,10 +942,6 @@ export default function App(): ReactElement {
   useEffect(() => {
     statusUndoRef.current = statusUndo;
   }, [statusUndo]);
-
-  useEffect(() => () => {
-    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
-  }, []);
 
   useEffect(() => {
     if (newTaskId === null) return;
@@ -1134,11 +1124,13 @@ export default function App(): ReactElement {
       .filter((entry) => movedOutOfView || entry.notifyWhenVisible);
     if (feedback.length === 0) return;
     const Icon = statuses.length === 1 ? taskStatusMeta[statuses[0]].Icon : undefined;
-    showToast({
-      message: feedback.length === 1 ? feedback[0].message : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
-      ...(Icon ? { Icon } : {}),
-      ...(movedOutOfView && statuses.length === 1 && statuses[0] === "done" ? { completionToast: true } : {}),
-    });
+    showToast(
+      feedback.length === 1 ? feedback[0].message : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
+      {
+        ...(Icon ? { icon: Icon } : {}),
+        ...(statuses.length === 1 && statuses[0] === "done" ? { completion: true } : {}),
+      },
+    );
   }
 
   function handleStatusChanged(previous: TaskRecord, current: TaskRecord, _wasActive: boolean): void {
@@ -1187,8 +1179,6 @@ export default function App(): ReactElement {
     setAnnouncement(current.length === 1 ? `Canceled: ${current[0].title}` : `Canceled ${current.length} tasks`);
   }
 
-  const ToastIcon = toast?.Icon;
-
   useEffect(() => {
     if (!receiveState?.waiting) return;
     const timer = window.setInterval(() => {
@@ -1201,11 +1191,6 @@ export default function App(): ReactElement {
     const result = await purgeCanceledTasksCommand({ idempotencyKey: crypto.randomUUID() });
     statusUndoRef.current = null;
     setStatusUndo(null);
-    if (toastTimer.current !== null) {
-      window.clearTimeout(toastTimer.current);
-      toastTimer.current = null;
-    }
-    setToast(null);
     if (cancelExitTimer.current !== null) {
       window.clearTimeout(cancelExitTimer.current);
       cancelExitTimer.current = null;
@@ -1365,7 +1350,7 @@ export default function App(): ReactElement {
           onCreateFailed={() => setOptimisticCreate(null)}
           onRefresh={refreshTasks}
           onAnnounce={setAnnouncement}
-          onToast={(message) => showToast({ message })}
+          onToast={(message) => showToast(message)}
           onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
           onTasksUpdated={updateVisibleTasks}
@@ -1380,12 +1365,7 @@ export default function App(): ReactElement {
           onMoveUnder={(task) => openPicker("move", task)}
         />
         <p role="status" className="sr-only">{announcement}</p>
-        {toast ? (
-          <div data-undo-toast data-completion-toast={toast.completionToast || undefined} role="status" aria-live="polite" className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm text-background shadow-lg">
-            {ToastIcon ? <ToastIcon aria-hidden="true" className="size-4 shrink-0 text-background" /> : null}
-            <span>{toast.message}</span>
-          </div>
-        ) : null}
+        <Toaster theme={themes.find((theme) => theme.name === selectedTheme)?.mode ?? "system"} />
       </div>
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <DisableKeyboardHelpDialog

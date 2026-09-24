@@ -42,6 +42,10 @@ function evaluate(script) {
 }
 function waitFor(script) { browser("wait", "--fn", script); }
 function check(script) { assert.equal(evaluate(script), true, script); }
+function toastWithText(message) {
+  return `[...document.querySelectorAll("[data-sonner-toast]")].find((toast) => toast.textContent.includes(${JSON.stringify(message)}))`;
+}
+function hasToastWithText(message) { return `Boolean(${toastWithText(message)})`; }
 function focus(selector) {
   const expression = `(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!element) return false; element.focus(); return document.activeElement === element; })()`;
   let lastError;
@@ -347,7 +351,7 @@ try {
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   // P pauses and removes the task from Active. The toast confirms the new status.
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as paused")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as paused")}`);
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   // Paused belongs to Inactive, where P can resume it to in progress.
   browser("press", "f");
@@ -355,27 +359,31 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   check('document.querySelector("[role=option] [data-status]").getAttribute("aria-label").includes("Press P to resume")');
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as in progress")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as in progress")}`);
+  check(`(() => { const paused = ${toastWithText("Task marked as paused")}; const resumed = ${toastWithText("Task marked as in progress")}; const stacked = [paused, resumed].find((item) => item?.getAttribute("data-front") === "false"); return Boolean(stacked && getComputedStyle(stacked).transitionDuration.split(",").some((duration) => parseFloat(duration) > 0)); })()`);
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "in_progress"');
   // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
-  check('document.querySelector("[data-undo-toast]")?.getAttribute("data-completion-toast") === "true"');
-  check('getComputedStyle(document.querySelector("[data-undo-toast] .lucide-circle-check path")).animationName === "task-completion-check"');
-  check('document.querySelector("[data-undo-toast] svg")?.classList.contains("text-background") === true');
-  check('document.querySelector("[data-undo-toast] svg")?.classList.contains("lucide-circle-check") === true');
+  waitFor(`${hasToastWithText("Task marked as done")}`);
+  check('document.querySelector("[data-sonner-toaster]")?.classList.contains("group") === true');
+  check('document.querySelector("[data-sonner-toaster]")?.style.getPropertyValue("--normal-bg").trim() === "var(--popover)"');
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).animationName === "task-completion-pop"`);
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon path")).animationName === "task-completion-check"`);
+  check(`${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")?.classList.contains("size-4") === true`);
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon circle")).stroke === getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).color`);
+  check(`${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")?.classList.contains("lucide-circle-check") === true`);
   check('document.querySelector("[role=listbox] [data-empty-state=active]")?.textContent.includes("No active tasks") === true');
   check('document.querySelector("[role=listbox]").getAttribute("aria-label").includes("no active tasks")');
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
-  check('document.querySelector("[role=option] [data-completion-feedback]") === null');
+  check('![...document.querySelectorAll("[data-slot=tooltip-content]")].some((tip) => tip.textContent === "Done")');
   // Shift+Space reverses done to in_progress, which leaves Inactive.
   browser("press", "Shift+Space");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as in progress")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as in progress")}`);
   // Reversing in_progress to open stays inside Active.
   browser("press", "f");
   browser("press", "s");
@@ -384,23 +392,23 @@ try {
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
   // Paused Space still completes: pause, switch to Inactive, then move paused to done.
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as paused")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as paused")}`);
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
-  check('(() => { const marker = document.querySelector("[role=option] [data-completion-feedback]"); const path = marker?.querySelector(".lucide-circle-check path"); return marker?.getAttribute("data-completion-feedback") === "true" && path && getComputedStyle(path).animationName === "task-completion-check"; })()');
-  check('document.querySelector("[data-undo-toast]")?.getAttribute("data-completion-toast") !== "true"');
+  waitFor(`${hasToastWithText("Task marked as done")}`);
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).animationName === "task-completion-pop"`);
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon path")).animationName === "task-completion-check"`);
   browser("press", "Space");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as open")}`);
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
   // Reduced motion keeps the confirmed state but suppresses the check animation.
   browser("press", "p");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as paused")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as paused")}`);
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "paused"');
@@ -408,13 +416,13 @@ try {
   waitFor('matchMedia("(prefers-reduced-motion: reduce)").matches');
   browser("press", "Space");
   waitFor('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "done"');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as done")');
-  check('(() => { const marker = document.querySelector("[role=option] [data-completion-feedback]"); const path = marker?.querySelector(".lucide-circle-check path"); return marker?.getAttribute("data-completion-feedback") === "true" && path && getComputedStyle(path).animationName === "none"; })()');
-  check('document.querySelector("[data-undo-toast]")?.getAttribute("data-completion-toast") !== "true"');
+  waitFor(`${hasToastWithText("Task marked as done")}`);
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).animationName === "none"`);
+  check(`getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon path")).animationName === "none"`);
   browser("set", "media", "light");
   waitFor('!matchMedia("(prefers-reduced-motion: reduce)").matches');
   browser("press", "Space");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as open")}`);
   browser("press", "f");
   browser("press", "s");
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "open"');
@@ -859,7 +867,7 @@ try {
   const deletedId = evaluate('window.deleteList = document.activeElement; window.deletedId = document.activeElement.getAttribute("aria-activedescendant").slice("task-option-".length); window.deletedId');
   browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as canceled")');
+  waitFor(`${hasToastWithText("Task marked as canceled")}`);
   check('document.activeElement === window.deleteList');
   assert.equal((await command("task.get", { id: deletedId })).task.status, "canceled");
 
@@ -869,7 +877,7 @@ try {
   waitFor('document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   check('document.querySelector("[role=option] [data-status]").getAttribute("data-status") === "canceled"');
   browser("press", "Space");
-  waitFor('!document.querySelector("[role=option]") && document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as open")');
+  waitFor(`!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as open")}`);
   assert.equal((await command("task.get", { id: deletedId })).task.status, "open");
   browser("press", "f");
   browser("press", "s");
@@ -900,7 +908,7 @@ try {
   check('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4');
   browser("press", "Delete");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as canceled")');
+  waitFor(`${hasToastWithText("Task marked as canceled")}`);
   check('window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]');
   check('document.activeElement.matches("[role=listbox]")');
   evaluate('window.fetch = window.originalFetch; true');
@@ -1373,21 +1381,21 @@ try {
   // Cancel it with Delete: it leaves Active immediately and shows a status toast.
   browser("press", "Delete");
   waitFor('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Task marked as canceled")');
+  waitFor(`${hasToastWithText("Task marked as canceled")}`);
   check('![...document.querySelectorAll("button")].some((b) => b.textContent.includes("Undo"))');
   check('document.activeElement?.getAttribute("role") === "listbox"');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "canceled");
   // Ctrl+Z restores the exact prior status, keeps list focus, and toasts once.
   browser("press", "Control+z");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
+  waitFor(`${hasToastWithText("Open")}`);
   check('document.activeElement?.getAttribute("role") === "listbox"');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant")?.includes("' + undoTask.id + '") || true');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
   const undoVersion = (await command("task.get", { id: undoTask.id })).task.version;
   // The toast expires without changing task state again.
-  await new Promise((resolve) => setTimeout(resolve, 3500));
-  check('document.querySelector("[data-undo-toast]") === null');
+  await new Promise((resolve) => setTimeout(resolve, 4000));
+  check('document.querySelectorAll("[data-sonner-toast]").length === 0');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
   assert.equal((await command("task.get", { id: undoTask.id })).task.version, undoVersion);
   // The same action runs from the Help palette by mouse/keyboard.
@@ -1401,9 +1409,9 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Undo last change"))');
   browser("press", "Enter");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
+  waitFor(`${hasToastWithText("Open")}`);
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
-  await new Promise((resolve) => setTimeout(resolve, 3500));
+  await new Promise((resolve) => setTimeout(resolve, 4000));
   // A newer task change replaces the previous undo entry.
   const undoFirst = (await command("task.create", { title: "Undo first entry" })).task;
   const undoSecond = (await command("task.create", { title: "Undo second entry" })).task;
@@ -1430,11 +1438,11 @@ try {
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo first entry"))');
   assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
   assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
-  await new Promise((resolve) => setTimeout(resolve, 3500));
+  await new Promise((resolve) => setTimeout(resolve, 4000));
   // The entry is consumed: a second Ctrl+Z does nothing.
   browser("press", "Control+z");
   await delay(500);
-  check('document.querySelector("[data-undo-toast]") === null');
+  check('document.querySelectorAll("[data-sonner-toast]").length === 0');
   assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
   assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
   // Undo does not fire inside the composer.
@@ -1454,14 +1462,14 @@ try {
   waitFor('document.querySelector(\'form[aria-label="New task"]\') !== null');
   browser("press", "Control+z");
   await delay(500);
-  check('document.querySelector(\'form[aria-label="New task"]\') !== null && !document.querySelector("[data-undo-toast]")?.textContent.includes("Undo status change")');
+  check('document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[data-sonner-toast]")].some((toast) => toast.textContent.includes("Undo status change"))');
   browser("press", "Escape");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
   // Undo still works after leaving the inline editor.
   focus("[role=listbox]");
   browser("press", "Control+z");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))');
-  await new Promise((resolve) => setTimeout(resolve, 3500));
+  await new Promise((resolve) => setTimeout(resolve, 4000));
   // Undo after an unrelated external edit restores the affected field and keeps the edit.
   const conflictTask = (await command("task.create", { title: "Undo conflict task" })).task;
   browser("reload");
@@ -1512,13 +1520,13 @@ try {
   check('![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))');
   browser("press", "Control+z");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))');
-  waitFor('document.querySelector("[data-undo-toast]")?.textContent.includes("Open")');
+  waitFor(`${hasToastWithText("Open")}`);
   check('window.undoKeys.length === 2 && window.undoKeys[0] === window.undoKeys[1]');
   evaluate('window.fetch = window.originalFetch; true');
   const lostRestored = (await command("task.get", { id: lostUndo.id })).task;
   assert.equal(lostRestored.status, "open");
   assert.equal(lostRestored.version, lostCommitted.version + 1);
-  await new Promise((resolve) => setTimeout(resolve, 3500));
+  await new Promise((resolve) => setTimeout(resolve, 4000));
 
   // Completing a parent keeps it as muted context when its active children
   // remain in the current view. The context row stays expandable and is not

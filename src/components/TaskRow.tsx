@@ -62,7 +62,6 @@ export function TaskPriorityDisplay({ task }: { task: TaskRecord }): ReactElemen
 }
 
 const STATUS_FEEDBACK_DURATION_MS = 900;
-const COMPLETION_FEEDBACK_DURATION_MS = 180;
 
 export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, previousLabel, onToggle }: {
   task: TaskRecord;
@@ -73,10 +72,7 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
   onToggle: (task: TaskRecord) => void;
 }): ReactElement {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [completionFeedback, setCompletionFeedback] = useState(false);
   const lastFeedbackVersion = useRef(feedbackVersion);
-  const currentStatus = useRef(task.status);
-  currentStatus.current = task.status;
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
   const pauseHint = task.status === "open" || task.status === "in_progress"
@@ -88,24 +84,10 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
   useEffect(() => {
     if (feedbackVersion === lastFeedbackVersion.current) return;
     lastFeedbackVersion.current = feedbackVersion;
-    if (feedbackVersion === undefined) {
-      setCompletionFeedback(false);
-      return;
-    }
-
+    if (feedbackVersion === undefined) return;
     setFeedbackOpen(true);
     const timeout = window.setTimeout(() => setFeedbackOpen(false), STATUS_FEEDBACK_DURATION_MS);
-    if (currentStatus.current !== "done") {
-      setCompletionFeedback(false);
-      return () => window.clearTimeout(timeout);
-    }
-
-    setCompletionFeedback(true);
-    const completionTimeout = window.setTimeout(() => setCompletionFeedback(false), COMPLETION_FEEDBACK_DURATION_MS);
-    return () => {
-      window.clearTimeout(timeout);
-      window.clearTimeout(completionTimeout);
-    };
+    return () => window.clearTimeout(timeout);
   }, [feedbackVersion]);
 
   return (
@@ -118,7 +100,6 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
             tabIndex={-1}
             data-status={task.status}
             data-status-pending={pending || undefined}
-            data-completion-feedback={completionFeedback || undefined}
             className={cn(
               "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
               status.color,
