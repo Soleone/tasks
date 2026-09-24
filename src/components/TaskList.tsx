@@ -63,7 +63,7 @@ function FilterSummaryAction({ filter, label, onClear, className, children }: {
       title={label}
       onMouseDown={preventFocusSteal}
       onClick={onClear}
-      className={`cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring ${className ?? ""}`}
+      className={`cursor-pointer rounded-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:focus-ring ${className ?? ""}`}
     >
       {children}
     </button>

@@ -113,13 +113,6 @@ body {
   background: var(--secondary);
 }
 
-.preview-button:focus-visible,
-.preview-field select:focus-visible,
-.sample-primary:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
 .preview-status,
 .preview-warning {
   max-width: 72rem;

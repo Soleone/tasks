@@ -21,11 +21,11 @@ const buttonGroupVariants = cva(
       // the existing data-toolbar-active attribute. Keep every toolbar
       // button's left border so toggling a control cannot change its layout.
       toolbar: {
-        true: "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&>[data-slot]~[data-slot]]:border-l!",
+        true: "rounded-lg outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:focus-ring [&>[data-slot]~[data-slot]]:border-l!",
         false: "",
       },
       toolbarActive: {
-        true: "ring-2 ring-ring ring-offset-2 ring-offset-background",
+        true: "ring-3 ring-ring/50",
         false: "",
       },
     },
