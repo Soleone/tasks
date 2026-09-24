@@ -88,6 +88,8 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
   };
   const files = new Map(canonicalFiles ?? []);
   const events = [];
+  const readRequests = [];
+  const writeRequests = [];
   const syncFolder = canonicalFiles ? { uri: "content://tasks", displayName: "Tasks", path: null } : null;
 
   async function storage(request) {
@@ -103,6 +105,19 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
           workspaceRevision: state.workspaceRevision,
           taskVersionOffset: state.taskVersionOffset,
         };
+      case "shiftSiblingPositions":
+      case "insertActivity":
+      case "writeOperation":
+        return {};
+      case "insertTask":
+        state.tasks.push({
+          ...request.task,
+          category: null,
+          tags: [],
+          dependencyIds: [...(request.task.dependencyIds ?? [])],
+          blockedByIds: [],
+        });
+        return {};
       case "readCanonicalMeta":
         return state.canonicalMeta ?? {};
       case "readReceipt":
@@ -177,12 +192,21 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
         if (command === "android_storage") return storage(args.request);
         if (command === "get_sync_folder") return syncFolder;
         if (command === "read_sync_files") {
+          readRequests.push(args.relativePaths ?? null);
+          const requestedPaths = args.relativePaths ? new Set(args.relativePaths) : null;
           return {
             selected: Boolean(syncFolder),
-            files: [...files].map(([relativePath, content]) => ({ relativePath, content, modifiedAt: null })),
+            folderUri: syncFolder?.uri ?? null,
+            files: [...files]
+              .filter(([relativePath]) => !requestedPaths || requestedPaths.has(relativePath))
+              .map(([relativePath, content]) => ({ relativePath, content, modifiedAt: null })),
           };
         }
         if (command === "write_sync_files") {
+          writeRequests.push(args.expectedFolderUri ?? null);
+          if (args.expectedFolderUri && args.expectedFolderUri !== syncFolder?.uri) {
+            throw new Error("selected sync folder changed");
+          }
           for (const file of args.files) {
             if (file.content === null) files.delete(file.relativePath);
             else files.set(file.relativePath, file.content);
@@ -198,6 +222,8 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
     state,
     events,
     files,
+    readRequests,
+    writeRequests,
     restore() {
       if (originalWindow === undefined) delete globalThis.window;
       else globalThis.window = originalWindow;
@@ -290,6 +316,31 @@ test("Android task.list defaults to created/newest", async () => {
 
     assert.equal(response.ok, true);
     assert.deepEqual(response.result.tasks.map((task) => task.id), ["newest", "middle", "oldest"]);
+  });
+});
+
+test("Android task creation reuses the sync scan and verifies only staged files", async () => {
+  const fixture = await interruptedPurgeFixture();
+  await withBackend({ tasks: [fixture.task], canonicalFiles: fixture.files, canonicalMeta: fixture.meta }, async (backend) => {
+    const result = await handleAndroidRequest({
+      version: 1,
+      requestId: "create-request",
+      command: "task.create",
+      args: { title: "Created from test" },
+      actor: { kind: "human", label: "test" },
+      idempotencyKey: "create-saf",
+    });
+
+    assert.equal(result.ok, true, JSON.stringify(result.error));
+    assert.equal(backend.readRequests.length, 2);
+    assert.equal(backend.readRequests[0], null);
+    assert.deepEqual(
+      [...new Set(backend.readRequests[1])].sort(),
+      ["workspace.json", `tasks/${result.result.task.id}.json`, "order/root.json"].sort(),
+    );
+    assert.deepEqual(backend.writeRequests, ["content://tasks"]);
+    assert.equal(backend.files.has(`tasks/${result.result.task.id}.json`), true);
+    assert.equal(backend.state.pending, null);
   });
 });
 

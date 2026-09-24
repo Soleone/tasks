@@ -17,11 +17,20 @@ export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
   | { mode: "edit"; task: TaskRecord };
 
+export type TaskCreateDraft = {
+  title: string;
+  descriptionMarkdown: string;
+  priority: TaskPriority;
+  parentId?: string;
+};
+
 type TaskComposerProps = {
   task?: TaskRecord;
   initialTitle?: string;
   parentId?: string;
   onSaved: (result: TaskMutationResult) => void;
+  onCreatePending: (draft: TaskCreateDraft) => void;
+  onCreateFailed: () => void;
   onCancel: () => void;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
@@ -87,7 +96,7 @@ function ComposerHelpTooltip({ target, onDisableHelp }: { target: ContextualHelp
 // Shared inline create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCancel, helpMode, onDisableHelp }: TaskComposerProps): ReactElement {
+export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCreatePending, onCreateFailed, onCancel, helpMode, onDisableHelp }: TaskComposerProps): ReactElement {
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -287,6 +296,14 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
     }
     const options = { idempotencyKey: receipt.current.key };
     try {
+      if (!task) {
+        onCreatePending({
+          title: title.trim(),
+          descriptionMarkdown: description,
+          priority,
+          ...(parentId ? { parentId } : {}),
+        });
+      }
       const result = task
         ? await updateTask(task.id, title, description, task.version, { ...options, priority })
         : await createTask(title, description, { ...options, parentId, priority });
@@ -296,6 +313,10 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCan
       setError(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
         ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then cancel and reopen the task."
         : caught instanceof Error ? caught.message : String(caught));
+      if (!task) {
+        onCreateFailed();
+        requestAnimationFrame(() => titleInput.current?.focus());
+      }
     } finally {
       saving.current = false;
       setPending(false);

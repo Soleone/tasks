@@ -191,9 +191,24 @@ try {
   waitFor('document.activeElement.name === "description"');
   browser("press", "Escape");
   check('document.activeElement.name === "title" && document.querySelector(\'form[aria-label="New task"] textarea\').value.includes("accessibility")');
-  // Saving one task closes the inline editor and returns focus to the list.
+  // Hold one create reply open to assert the optimistic task appears before persistence finishes.
+  evaluate(`window.originalFetch = window.fetch; window.delayCreateReply = true; window.fetch = async (...args) => {
+    const response = await window.originalFetch(...args);
+    if (window.delayCreateReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create") {
+      window.delayCreateReply = false;
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+    return response;
+  }; true`);
+  // The task appears in the list immediately, while the composer stays mounted but hidden for recovery.
   browser("press", "Control+Enter");
+  waitFor('document.querySelector("[data-optimistic-task]")?.textContent.includes("Book venue")');
+  check('document.querySelector("[data-inline-task-editor]")?.parentElement?.hidden === true');
+  check('document.querySelector("[data-optimistic-task] .animate-spin") === null');
+  check('document.activeElement?.getAttribute("role") === "listbox"');
+  waitFor('document.querySelector("[data-optimistic-task]") === null');
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
+  evaluate("window.fetch = window.originalFetch; true");
   waitFor('document.activeElement?.getAttribute("role") === "listbox"');
   let saved = (await command("task.list")).tasks;
   assert.equal(saved.length, 1);
@@ -428,13 +443,18 @@ try {
     const response = await window.originalFetch(...args);
     if (window.loseReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create") {
       window.loseReply = false;
+      await new Promise((resolve) => setTimeout(resolve, 350));
       throw new TypeError("Lost reply");
     }
     return response;
   }; true`);
   browser("press", "Enter");
+  waitFor('document.querySelector("[data-optimistic-task]")?.textContent.includes("Next capture draft")');
   waitFor('document.body.textContent.includes("Could not save")');
+  check('document.querySelector("[data-optimistic-task]") === null');
+  check('document.querySelector(\'form[aria-label="New task"]\')?.parentElement?.hidden === false');
   check('document.querySelector(\'form[aria-label="New task"] input\').value === "Next capture draft"');
+  waitFor('document.activeElement === document.querySelector(\'form[aria-label="New task"] input\')');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
   assert.equal((await command("task.list")).tasks.length, 2);

@@ -34,6 +34,7 @@ pub struct AndroidCanonicalWriteFile {
 #[serde(rename_all = "camelCase")]
 pub struct NativeCanonicalFiles {
     selected: bool,
+    folder_uri: Option<String>,
     files: Vec<AndroidCanonicalFile>,
 }
 
@@ -126,10 +127,15 @@ pub async fn export_task_document(
 #[tauri::command]
 pub async fn read_sync_files(
     state: State<'_, AndroidWorkspacePluginState<tauri::Wry>>,
+    relative_paths: Option<Vec<String>>,
 ) -> Result<NativeCanonicalFiles, String> {
+    let mut args = json!({});
+    if let Some(relative_paths) = relative_paths {
+        args["relativePaths"] = json!(relative_paths);
+    }
     state
         .plugin
-        .run_mobile_plugin_async("readCanonicalFiles", json!({}))
+        .run_mobile_plugin_async("readCanonicalFiles", args)
         .await
         .map_err(plugin_error)
 }
@@ -138,10 +144,15 @@ pub async fn read_sync_files(
 pub async fn write_sync_files(
     state: State<'_, AndroidWorkspacePluginState<tauri::Wry>>,
     files: Vec<AndroidCanonicalWriteFile>,
+    expected_folder_uri: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    let mut args = json!({ "files": files });
+    if let Some(expected_folder_uri) = expected_folder_uri {
+        args["expectedFolderUri"] = json!(expected_folder_uri);
+    }
     state
         .plugin
-        .run_mobile_plugin_async("writeCanonicalFiles", json!({ "files": files }))
+        .run_mobile_plugin_async("writeCanonicalFiles", args)
         .await
         .map_err(plugin_error)
 }

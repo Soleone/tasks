@@ -41,6 +41,11 @@ internal fun isSupportedExportDocumentName(name: String): Boolean =
   EXPORT_DOCUMENT_NAME_PATTERN.matches(name)
 
 @InvokeArg
+class CanonicalReadArgs {
+  var relativePaths: List<String>? = null
+}
+
+@InvokeArg
 class CanonicalWriteFileArgs {
   lateinit var relativePath: String
   var content: String? = null
@@ -51,6 +56,7 @@ class CanonicalWriteFileArgs {
 @InvokeArg
 class CanonicalWriteArgs {
   var files: List<CanonicalWriteFileArgs> = emptyList()
+  var expectedFolderUri: String? = null
 }
 
 @TauriPlugin
@@ -217,17 +223,24 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
 
   @Command
   fun readCanonicalFiles(invoke: Invoke) {
+    val args = try {
+      invoke.parseArgs(CanonicalReadArgs::class.java)
+    } catch (error: Exception) {
+      invoke.reject("ANDROID_WORKSPACE_READ_FAILED: ${error.message ?: error.javaClass.simpleName}")
+      return
+    }
+
     ioScope.launch {
       val startedAtNanos = SystemClock.elapsedRealtimeNanos()
       var fileCount = 0
       val response = try {
         val uri = selectedUri(requireWrite = false)
         if (uri == null) {
-          canonicalFilesResponse(false, JSONArray())
+          canonicalFilesResponse(false, null, JSONArray())
         } else {
-          val files = readCanonicalFilesInternal(uri)
+          val files = readCanonicalFilesInternal(uri, args.relativePaths)
           fileCount = files.length()
-          canonicalFilesResponse(true, files)
+          canonicalFilesResponse(true, uri.toString(), files)
         }
       } catch (error: Exception) {
         recordSafTiming("read", startedAtNanos, "failed", fileCount)
@@ -243,25 +256,44 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     return name.startsWith("workspace.sync-conflict-") && name.endsWith(JSON_SUFFIX)
   }
 
-  private suspend fun readCanonicalFilesInternal(uri: Uri): JSONArray {
+  private suspend fun readCanonicalFilesInternal(uri: Uri, relativePaths: List<String>?): JSONArray {
     val rootId = DocumentsContract.getTreeDocumentId(uri)
     val rootChildren = childDocuments(uri, rootId)
-
-    // Collect canonical files and workspace conflict copies, then tasks/ and order/ entries.
-    val reads = mutableListOf<Pair<TreeDocument, String>>()
-    rootChildren.firstOrNull { it.name == WORKSPACE_FILE && !it.isDirectory }?.let { document ->
-      reads += document to WORKSPACE_FILE
-    }
-    rootChildren
-      .filter { !it.isDirectory && isWorkspaceConflictCopy(it.name) }
-      .sortedBy { it.name }
-      .forEach { document -> reads += document to document.name }
-    for (directoryName in CANONICAL_DIRECTORIES) {
-      val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
-      for (document in childDocuments(uri, directory.id)) {
-        if (!document.isDirectory && document.name.endsWith(JSON_SUFFIX)) {
-          reads += document to "$directoryName/${document.name}"
+    val reads: List<Pair<TreeDocument, String>> = if (relativePaths == null) {
+      // Collect canonical files and workspace conflict copies, then tasks/ and order/ entries.
+      val canonicalReads = mutableListOf<Pair<TreeDocument, String>>()
+      rootChildren.firstOrNull { it.name == WORKSPACE_FILE && !it.isDirectory }?.let { document ->
+        canonicalReads += document to WORKSPACE_FILE
+      }
+      rootChildren
+        .filter { !it.isDirectory && isWorkspaceConflictCopy(it.name) }
+        .sortedBy { it.name }
+        .forEach { document -> canonicalReads += document to document.name }
+      for (directoryName in CANONICAL_DIRECTORIES) {
+        val directory = rootChildren.firstOrNull { it.name == directoryName && it.isDirectory } ?: continue
+        for (document in childDocuments(uri, directory.id)) {
+          if (!document.isDirectory && document.name.endsWith(JSON_SUFFIX)) {
+            canonicalReads += document to "$directoryName/${document.name}"
+          }
         }
+      }
+      canonicalReads
+    } else {
+      val childrenByParent = mutableMapOf(rootId to rootChildren)
+      fun children(parentId: String): List<TreeDocument> =
+        childrenByParent.getOrPut(parentId) { childDocuments(uri, parentId) }
+
+      relativePaths.distinct().mapNotNull { relativePath ->
+        val segments = validatedPath(relativePath)
+        val parentId = if (segments.size == 1) {
+          rootId
+        } else {
+          children(rootId).firstOrNull { it.name == segments[0] && it.isDirectory }?.id
+            ?: return@mapNotNull null
+        }
+        val document = children(parentId).firstOrNull { it.name == segments.last() }
+        if (document?.isDirectory == true) throw IllegalArgumentException("$relativePath is a directory")
+        document?.let { it to relativePath }
       }
     }
 
@@ -301,6 +333,9 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
   private fun writeCanonicalFilesInternal(args: CanonicalWriteArgs): JSObject {
     val uri = selectedUri(requireWrite = true)
       ?: throw IllegalStateException("no writable Android sync folder is selected")
+    if (args.expectedFolderUri != null && args.expectedFolderUri != uri.toString()) {
+      throw IllegalStateException("the selected Android sync folder changed before the write")
+    }
     val written = JSONArray()
     val rootId = DocumentsContract.getTreeDocumentId(uri)
     for (file in args.files) {
@@ -320,7 +355,7 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
           if (actual != file.previousContent) {
             throw IllegalStateException("${file.relativePath} changed since the Android deletion was staged")
           }
-          val existingUri = DocumentsContract.buildDocumentUriUsingTree(uri, existing?.id ?: throw IllegalStateException("missing document to delete"))
+          val existingUri = DocumentsContract.buildDocumentUriUsingTree(uri, existing.id)
           if (!DocumentsContract.deleteDocument(activity.contentResolver, existingUri)) {
             throw IllegalStateException("could not delete ${file.relativePath}")
           }
@@ -463,9 +498,10 @@ class AndroidWorkspacePlugin(private val activity: Activity) : Plugin(activity) 
     return segments
   }
 
-  private fun canonicalFilesResponse(selected: Boolean, files: JSONArray): JSObject {
+  private fun canonicalFilesResponse(selected: Boolean, folderUri: String?, files: JSONArray): JSObject {
     val result = JSObject()
     result.put("selected", selected)
+    result.put("folderUri", folderUri ?: JSONObject.NULL)
     result.put("files", files)
     return result
   }

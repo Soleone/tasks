@@ -30,13 +30,17 @@ export type AndroidCanonicalFile = {
 
 export type AndroidCanonicalFileResult = {
   selected: boolean;
+  folderUri: string | null;
   files: AndroidCanonicalFile[];
 };
 
-export function readAndroidCanonicalFiles(): Promise<AndroidCanonicalFileResult> {
-  return invoke<AndroidCanonicalFileResult>("read_sync_files");
+export function readAndroidCanonicalFiles(relativePaths?: string[]): Promise<AndroidCanonicalFileResult> {
+  return invoke<AndroidCanonicalFileResult>("read_sync_files", relativePaths ? { relativePaths } : {});
 }
 
-export function writeAndroidCanonicalFiles(files: Array<{ relativePath: string; content: string | null; previousContent: string | null; modifiedAt: number | null }>): Promise<Record<string, unknown>> {
-  return invoke<Record<string, unknown>>("write_sync_files", { files });
+export function writeAndroidCanonicalFiles(
+  files: Array<{ relativePath: string; content: string | null; previousContent: string | null; modifiedAt: number | null }>,
+  expectedFolderUri?: string,
+): Promise<Record<string, unknown>> {
+  return invoke<Record<string, unknown>>("write_sync_files", { files, expectedFolderUri: expectedFolderUri ?? null });
 }

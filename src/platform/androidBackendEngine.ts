@@ -14,11 +14,11 @@ import { portableTaskExport } from "../backend/taskExport";
 import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
 import { classifyTaskText, TaskTextError } from "../backend/taskText";
-import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
+import { androidStorage, type AndroidImportedTask, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
 import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidDeletedTask, writeAndroidPurgedTasks, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
 import { listAndroidSyncConflicts, type AndroidSyncConflict } from "./androidSyncConflicts";
-import { exportAndroidTaskDocument, getAndroidSyncFolder, readAndroidCanonicalFiles } from "./androidWorkspace";
+import { exportAndroidTaskDocument, getAndroidSyncFolder, readAndroidCanonicalFiles, type AndroidCanonicalFile } from "./androidWorkspace";
 import { AndroidUndoError, planAndroidUndo, type SavedOperation, type SavedOrder } from "./androidUndo";
 import { AndroidSiblingOrderConflict } from "./androidSiblingOrder";
 
@@ -29,6 +29,11 @@ type AndroidSnapshot = {
   workspaceRevision: number;
   unresolvedConflicts?: AndroidSyncConflict[];
   taskVersionOffset: number;
+  selected: boolean;
+  workspaceId: string | null;
+  folderUri: string | null;
+  canonicalFiles: AndroidCanonicalFile[];
+  canonicalTasks: AndroidImportedTask[];
 };
 
 type AndroidReceipt = {
@@ -123,7 +128,9 @@ function previewTask(
   };
 }
 
-function asSnapshot(response: AndroidStorageResponse): AndroidSnapshot {
+function asSnapshot(
+  response: AndroidStorageResponse,
+): Pick<AndroidSnapshot, "tasks" | "workspaceRevision" | "taskVersionOffset"> {
   if (!Array.isArray(response.tasks) || typeof response.workspaceRevision !== "number"
       || typeof response.taskVersionOffset !== "number") {
     throw new AndroidEngineError("INVALID_STORAGE", "Android storage returned an invalid task snapshot");
@@ -140,6 +147,11 @@ async function snapshot(): Promise<AndroidSnapshot> {
   return {
     ...asSnapshot(await androidStorage({ operation: "readSnapshot" })),
     ...(sync.unresolvedConflicts ? { unresolvedConflicts: sync.unresolvedConflicts } : {}),
+    selected: sync.selected,
+    workspaceId: sync.workspaceId ?? null,
+    folderUri: sync.folderUri ?? null,
+    canonicalFiles: sync.canonicalFiles ?? [],
+    canonicalTasks: sync.canonicalTasks ?? [],
   };
 }
 
@@ -246,6 +258,12 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
       requestHash: hash,
       responseJson: JSON.stringify(result),
       createdAt: now,
+    }, {
+      selected: current.selected,
+      workspaceId: current.workspaceId,
+      folderUri: current.folderUri,
+      files: current.canonicalFiles,
+      canonicalTasks: current.canonicalTasks,
     });
     await androidStorage({ operation: "begin", transactionId: transaction });
     let categoryId: string | null = null;

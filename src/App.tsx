@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
+import { classifyTaskText } from "@/backend/taskText";
 import { ACTIVE_TASK_STATUSES, INACTIVE_TASK_STATUSES, presetStatuses, sortSummary, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
 import { TagPicker } from "@/components/TagPicker";
 import { SearchDialog } from "@/components/SearchDialog";
-import type { ComposerState } from "@/components/TaskComposer";
+import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
 import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
@@ -229,6 +230,7 @@ function compareTasksForSort(a: TaskRecord, b: TaskRecord, field: SortField, dir
 // task editor or list.
 export default function App(): ReactElement {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
+  const [optimisticCreate, setOptimisticCreate] = useState<TaskRecord | null>(null);
   const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
   const [contextOrder, setContextOrder] = useState<Map<string, number>>(() => new Map());
   const [total, setTotal] = useState(0);
@@ -1021,17 +1023,43 @@ export default function App(): ReactElement {
     return () => window.clearTimeout(timeout);
   }, [newTaskId]);
 
+  function showOptimisticCreate(draft: TaskCreateDraft): void {
+    const classification = classifyTaskText(draft.title);
+    const now = new Date().toISOString();
+    const task: TaskRecord = {
+      id: `pending-${crypto.randomUUID()}`,
+      title: draft.title,
+      descriptionMarkdown: draft.descriptionMarkdown,
+      status: "open",
+      priority: draft.priority,
+      category: classification.category,
+      tags: classification.tags,
+      parentId: draft.parentId ?? null,
+      dependencyIds: [],
+      blockedByIds: [],
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: null,
+      canceledAt: null,
+    };
+    setOptimisticCreate(isCurrentViewMatch(task) ? task : null);
+  }
+
   function taskSaved(result: TaskMutationResult): void {
     const task = result.task;
     const composerBeforeSave = composerRef.current;
     const creating = composerBeforeSave?.mode === "create";
     const previous = composerBeforeSave?.mode === "edit" ? [composerBeforeSave.task] : [];
     const visible = isCurrentViewMatch(task);
-    if (visible) {
-      setTasks((previous) => creating
-        ? [task, ...previous.filter((existing) => existing.id !== task.id)]
-        : previous.map((existing) => existing.id === task.id ? task : existing));
-      if (creating) setNewTaskId(task.id);
+    if (creating) {
+      setOptimisticCreate(null);
+      if (visible) {
+        updateVisibleTasks([task]);
+        setNewTaskId(task.id);
+      }
+    } else if (visible) {
+      setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
     } else {
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
@@ -1043,7 +1071,7 @@ export default function App(): ReactElement {
     // Creating one task returns to the list instead of reopening capture.
     // The next task can still be started with C or the New task action.
     setComposer(null);
-    void refreshTasks();
+    if (!creating) void refreshTasks();
   }
 
   function syncContextTasks(nextTasks: TaskRecord[], candidates?: TaskRecord | readonly TaskRecord[]): void {
@@ -1394,8 +1422,11 @@ export default function App(): ReactElement {
           nav={nav}
           onCreate={openCreate}
           composer={composer}
+          optimisticTask={optimisticCreate && isCurrentViewMatch(optimisticCreate) ? optimisticCreate : null}
           onCloseComposer={closeComposer}
           onComposerSaved={taskSaved}
+          onCreatePending={showOptimisticCreate}
+          onCreateFailed={() => setOptimisticCreate(null)}
           onRefresh={refreshTasks}
           onAnnounce={setAnnouncement}
           onToast={(message) => showToast({ message })}

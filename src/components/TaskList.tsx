@@ -16,9 +16,9 @@ import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clo
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
-import { TaskRow, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
+import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
-import { TaskComposer, type ComposerState } from "@/components/TaskComposer";
+import { TaskComposer, type ComposerState, type TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -170,8 +170,11 @@ type TaskListProps = {
   nav: Navigator;
   onCreate: (parentId?: string) => void;
   composer: ComposerState | null;
+  optimisticTask: TaskRecord | null;
   onCloseComposer: () => void;
   onComposerSaved: (result: TaskMutationResult) => void;
+  onCreatePending: (draft: TaskCreateDraft) => void;
+  onCreateFailed: () => void;
   onRefresh: (offset?: number) => Promise<boolean>;
   onAnnounce: (message: string) => void;
   onToast: (message: string) => void;
@@ -357,10 +360,12 @@ type HomeShortcutActions = {
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
-function InlineTaskComposer({ composer, onClose, onSaved, helpMode, onDisableHelp, inList = false }: {
+function InlineTaskComposer({ composer, onClose, onSaved, onCreatePending, onCreateFailed, helpMode, onDisableHelp, inList = false }: {
   composer: ComposerState;
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;
+  onCreatePending: (draft: TaskCreateDraft) => void;
+  onCreateFailed: () => void;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
   inList?: boolean;
@@ -384,6 +389,8 @@ function InlineTaskComposer({ composer, onClose, onSaved, helpMode, onDisableHel
         parentId={parentId}
         initialTitle={initialTitle}
         onSaved={onSaved}
+        onCreatePending={onCreatePending}
+        onCreateFailed={onCreateFailed}
         onCancel={onClose}
         helpMode={helpMode}
         onDisableHelp={onDisableHelp}
@@ -437,8 +444,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   nav,
   onCreate,
   composer,
+  optimisticTask,
   onCloseComposer,
   onComposerSaved,
+  onCreatePending,
+  onCreateFailed,
   onRefresh,
   onAnnounce,
   onToast,
@@ -1920,7 +1930,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const summaryTags = tagFilter.length > 2
     ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
-  const summaryTaskCount = useMemo(() => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0), [visibleRows]);
+  const summaryTaskCount = useMemo(() => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0), [visibleRows]) + (optimisticTask ? 1 : 0);
   const summaryBase = `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
   const summarySuffixParts: FilterSummaryPart[] = [
@@ -1955,8 +1965,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     ...summarySuffixParts.map((part) => part.value),
   ].filter((part): part is string => part !== null).join(" · ");
 
-  const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
-  const showListSurface = !error && (visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
+  const isFilteredEmpty = !loading && !error && optimisticTask === null && visibleRows.length === 0 && (hasActiveFilters || total > 0);
+  const showListSurface = (!error || optimisticTask !== null) && (optimisticTask !== null || visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
+  const visibleRowCount = visibleRows.length + (optimisticTask ? 1 : 0);
   const selectionCount = selectedIds.size;
   const selectionLabel = `${selectionCount} task${selectionCount === 1 ? "" : "s"} selected`;
   const moveSubjectLabel = selectionCount > 1 ? `selected tasks, ${selectionLabel}` : "active task";
@@ -1966,6 +1977,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const listSelectionLabel = composer?.mode === "edit" && editingTaskVisible
     ? `editing ${taskTitleDisplay(composer.task.title)}`
     : selectionLabel;
+
+  useEffect(() => {
+    if (!optimisticTask) return;
+    list.current?.focus();
+    list.current?.scrollTo({ top: 0 });
+  }, [optimisticTask?.id]);
 
   return (
     <section
@@ -2483,21 +2500,25 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         </AlertDescription>
       </Alert> : null}
       {composer && (composer.mode === "create" || !editingTaskVisible) ? (
-        <InlineTaskComposer
-          composer={composer}
-          onClose={onCloseComposer}
-          onSaved={onComposerSaved}
-          helpMode={helpMode}
-          onDisableHelp={onDisableComposerHelp}
-        />
+        <div hidden={optimisticTask !== null}>
+          <InlineTaskComposer
+            composer={composer}
+            onClose={onCloseComposer}
+            onSaved={onComposerSaved}
+            onCreatePending={onCreatePending}
+            onCreateFailed={onCreateFailed}
+            helpMode={helpMode}
+            onDisableHelp={onDisableComposerHelp}
+          />
+        </div>
       ) : null}
       {showListSurface ? (
         <div
           ref={list}
           id="task-list"
           role="listbox"
-          aria-label={visibleRows.length
-            ? `${APP_NAME}, ${visibleRows.length} visible task rows, ${total} matching tasks, ${listSelectionLabel}`
+          aria-label={visibleRowCount
+            ? `${APP_NAME}, ${visibleRowCount} visible task rows, ${total + (optimisticTask ? 1 : 0)} matching tasks, ${listSelectionLabel}`
             : `${APP_NAME}, no visible matches`}
           aria-orientation="vertical"
           aria-multiselectable="true"
@@ -2510,12 +2531,35 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}
         >
+          {optimisticTask ? (
+            <Item
+              id={`pending-task-option-${optimisticTask.id}`}
+              role="option"
+              aria-selected={false}
+              aria-disabled="true"
+              aria-busy="true"
+              tabIndex={-1}
+              data-optimistic-task
+              size="sm"
+            >
+              <TaskRow
+                task={optimisticTask}
+                variant="full"
+                indented={optimisticTask.parentId !== null}
+                showDetails={showDetails}
+                hiddenCategorySlug={categoryFilter?.slug ?? null}
+                statusSlot={<TaskStatusDisplay task={optimisticTask} />}
+              />
+            </Item>
+          ) : null}
           {visibleRows.map((row, index) => composer?.mode === "edit" && row.task.id === composer.task.id ? (
             <InlineTaskComposer
               key={`edit-${row.task.id}`}
               composer={composer}
               onClose={onCloseComposer}
               onSaved={onComposerSaved}
+              onCreatePending={onCreatePending}
+              onCreateFailed={onCreateFailed}
               helpMode={helpMode}
               onDisableHelp={onDisableComposerHelp}
               inList
