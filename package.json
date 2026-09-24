@@ -19,7 +19,6 @@
     "build:android": "node scripts/build-android-release.mjs",
     "build:android:debug": "tauri android build --debug --apk -t aarch64",
     "dev:tauri": "node scripts/ensure-sidecar.mjs && tauri dev",
-    "dev:tauri:omarchy": "pnpm dev:tauri",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",
     "test": "pnpm build:backend && node --test dist/backend/*.test.js scripts/*.test.mjs",

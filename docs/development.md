@@ -3,8 +3,7 @@
 Tasks has two useful development paths:
 
 - `pnpm dev:web` runs Vite and a local HTTP bridge for fast UI iteration.
-- `pnpm dev:tauri` runs the native Tauri shell and its packaged sidecar. This is the Windows desktop path.
-- `pnpm dev:tauri:omarchy` runs the native Tauri shell on Omarchy with the required WebKitGTK Wayland workaround applied automatically.
+- `pnpm dev:tauri` runs the native Tauri shell and its sidecar on Windows and Linux. On Linux, the Tauri entry point applies the WebKitGTK Wayland workaround before initializing the webview.
 
 The web bridge is local iteration tooling. It uses the same typed commands and SQLite storage as the sidecar, but it is not evidence of desktop or PWA support.
 
@@ -78,8 +77,7 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm test:ui` | Exercise the UI in Chromium against a temporary workspace. |
 | `pnpm dev:web` | Run Vite and the dev-only local backend. |
 | `pnpm dev:backend` | Run only the dev backend. |
-| `pnpm dev:tauri` | Run the native Tauri shell on Windows, rebuilding the sidecar only when needed. |
-| `pnpm dev:tauri:omarchy` | Run the native Tauri shell on Omarchy with the WebKitGTK workaround. |
+| `pnpm dev:tauri` | Run the native Tauri shell, rebuilding the sidecar only when needed. On Linux, the app applies the WebKitGTK workaround before webview startup. |
 | `pnpm build` | Check and build the web app and backend. |
 | `pnpm build:tauri` | Build the sidecar, web app, and native release bundles. |
 
@@ -132,7 +130,7 @@ pnpm test:sidecar
 pnpm dev:tauri
 ```
 
-On Omarchy, use the named command; the Linux binary applies the WebKitGTK compatibility setting before starting the webview:
+On Omarchy, use `pnpm dev:tauri`. The Linux Tauri entry point applies the WebKitGTK compatibility setting before initializing the webview, so no environment variable is required:
 
 The built-in global shortcut is not considered supported on Omarchy's native Wayland session yet. Open Settings and copy the generated Omarchy binding into `~/.config/hypr/bindings.lua`. It uses `o.bind` with `focus` and `launch`, matching Tauri's lowercase Linux WM_CLASS (`tasks`) rather than the reverse-DNS application identifier, so the shortcut focuses the existing Tasks window and launches it only when no matching window exists. Reload Hyprland after saving the file.
 
@@ -140,10 +138,10 @@ The built-in global shortcut is not considered supported on Omarchy's native Way
 pnpm check
 pnpm test
 pnpm test:sidecar
-pnpm dev:tauri:omarchy
+pnpm dev:tauri
 ```
 
-`pnpm build:tauri` creates the MSI and NSIS installer after the development launch works. On Omarchy, the same build creates the Linux release binary and bundles; run the binary directly with `./src-tauri/target/release/tasks`, or launch the AppImage after it is built. The Linux binary applies the WebKitGTK compatibility setting internally, so no environment variable is required. The packaged sidecar is generated under `src-tauri/binaries/` and is intentionally ignored by Git. See [the Tauri shell notes](../src-tauri/README.md) when rebuilding native icons.
+`pnpm build:tauri` creates the MSI and NSIS installer after the development launch works. On Omarchy, the same build creates the Linux release binary and bundles; run the binary directly with `./src-tauri/target/release/tasks`, or launch the AppImage after it is built. The packaged sidecar is generated under `src-tauri/binaries/` and is intentionally ignored by Git. See [the Tauri shell notes](../src-tauri/README.md) when rebuilding native icons.
 
 The checked Windows host has WebView2. Other Windows machines still need the normal WebView2 and Tauri prerequisites.
 
