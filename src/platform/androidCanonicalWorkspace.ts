@@ -1,5 +1,5 @@
 import { canonicalJson } from "../backend/canonicalJson";
-import { classifyTaskFields, TaskTextError, type TaskClassification } from "../backend/taskText";
+import { classifyTaskText, TaskTextError, type TaskClassification } from "../backend/taskText";
 import type { TaskPriority, TaskRecord, TaskStatus } from "../backend/protocol";
 import { androidStorage, type AndroidImportedTask, type AndroidPendingWrite } from "./androidStorage";
 import { getAndroidSyncFolder, readAndroidCanonicalFiles, writeAndroidCanonicalFiles, type AndroidCanonicalFile } from "./androidWorkspace";
@@ -275,7 +275,7 @@ function canonicalOrderParent(relativePath: string): ParentId | undefined {
 
 function classification(record: CanonicalTask): TaskClassification {
   try {
-    return classifyTaskFields(record.title, record.descriptionMarkdown);
+    return classifyTaskText(record.title);
   } catch (error) {
     if (error instanceof TaskTextError) {
       throw new AndroidCanonicalError(error.code, error.message);

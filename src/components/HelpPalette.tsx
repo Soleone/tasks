@@ -92,7 +92,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
     heading: "Syntax",
     entries: [
       { label: "@category", hint: "One per task", icon: Folder, keywords: "@launch people mentions title description" },
-      { label: "#tags", hint: "Any number of tags", icon: Tags, keywords: "#planning #calls title description" },
+      { label: "#tags", hint: "Any number in title", icon: Tags, keywords: "#planning #calls title" },
       { label: "Names & Markdown", hint: "Letters, numbers, _ -", icon: FileText, keywords: "case heading code backtick rendered text" },
     ],
   },

@@ -13,7 +13,7 @@ import { canonicalJson } from "../backend/canonicalJson";
 import { portableTaskExport } from "../backend/taskExport";
 import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
-import { classifyTaskFields, TaskTextError } from "../backend/taskText";
+import { classifyTaskText, TaskTextError } from "../backend/taskText";
 import { androidStorage, type AndroidStorageResponse, type AndroidTaskInput } from "./androidStorage";
 import { AndroidCanonicalError, parseAndroidCanonicalWorkspace, syncAndroidWorkspace, writeAndroidCreatedTask, writeAndroidDeletedTask, writeAndroidPurgedTasks, writeAndroidUpdatedTasks } from "./androidCanonicalWorkspace";
 import { sortAndroidTasks } from "./androidTaskSort";
@@ -86,9 +86,9 @@ function statusValue(value: unknown): TaskStatus {
   throw new AndroidEngineError("INVALID_ARGUMENT", "status contains an unsupported task status");
 }
 
-function textClassification(title: string, descriptionMarkdown: string): ReturnType<typeof classifyTaskFields> {
+function textClassification(title: string): ReturnType<typeof classifyTaskText> {
   try {
-    return classifyTaskFields(title, descriptionMarkdown);
+    return classifyTaskText(title);
   } catch (error) {
     if (error instanceof TaskTextError) throw new AndroidEngineError(error.code, error.message);
     throw error;
@@ -212,7 +212,7 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
   if (title.length > 1000) throw new AndroidEngineError("INVALID_ARGUMENT", "title must be 1000 characters or fewer");
   if (descriptionMarkdown.length > 10000) throw new AndroidEngineError("INVALID_ARGUMENT", "descriptionMarkdown must be 10000 characters or fewer");
 
-  const classification = textClassification(title, descriptionMarkdown);
+  const classification = textClassification(title);
   const priority = request.args.priority === undefined ? 2 : priorityValue(request.args.priority);
   const parentIdValue = request.args.parentId;
   const parentId = parentIdValue === undefined || parentIdValue === null ? null : requiredText(parentIdValue, "parentId");
@@ -448,7 +448,7 @@ async function mutateTask(request: ProtocolRequest): Promise<Record<string, unkn
     if (typeof descriptionMarkdown !== "string" || title.length > 1000 || descriptionMarkdown.length > 10000) {
       throw new AndroidEngineError("INVALID_ARGUMENT", "task title or description is invalid");
     }
-    const parsed = textClassification(title, descriptionMarkdown);
+    const parsed = textClassification(title);
     const priority = request.args.priority === undefined ? before.priority : priorityValue(request.args.priority);
     after = { ...before, title, descriptionMarkdown, category: parsed.category, tags: parsed.tags, priority };
   } else {

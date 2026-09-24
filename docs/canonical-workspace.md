@@ -27,7 +27,7 @@ A root containing task or order files without `workspace.json` is treated as an 
 
 ## Task record
 
-Each `tasks/<id>.json` contains the complete current task state. Classification is derived again from `title` and `descriptionMarkdown` when a file is imported.
+Each `tasks/<id>.json` contains the complete current task state. Classification is derived from `title` when a file is imported.
 
 ```json
 {

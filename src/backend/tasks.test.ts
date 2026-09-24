@@ -79,20 +79,25 @@ test("classification respects boundaries, code, URLs, headings, and one category
   assert.equal(stripClassificationTokens("See https://example.com/#anchor and `#ignored` #real"), "See https://example.com/#anchor and `#ignored`");
 });
 
-test("task categories come from titles while tags include descriptions", () => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-title-category-"));
+test("task categories and tags come from titles only", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-title-classification-"));
   const databasePath = path.join(directory, "tasks.db");
 
   try {
     const created = task(executeCommand(request("task.create", {
       title: "Ship it @release #title",
       descriptionMarkdown: "Notes mention @not-a-category and #description",
-    }, { idempotencyKey: "title-category" }), databasePath));
+    }, { idempotencyKey: "title-classification-create" }), databasePath));
     assert.deepEqual(created.category, { slug: "release", label: "release" });
-    assert.deepEqual(created.tags, [
-      { slug: "description", label: "description" },
-      { slug: "title", label: "title" },
-    ]);
+    assert.deepEqual(created.tags, [{ slug: "title", label: "title" }]);
+
+    const updated = task(executeCommand(request("task.update", {
+      id: created.id,
+      title: created.title,
+      descriptionMarkdown: "Updated notes mention @not-a-category and #updated-description",
+      expectedVersion: created.version,
+    }, { idempotencyKey: "title-classification-update" }), databasePath));
+    assert.deepEqual(updated.tags, [{ slug: "title", label: "title" }]);
   } finally {
     cleanDirectory(directory);
   }

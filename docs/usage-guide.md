@@ -99,7 +99,7 @@ The inline task editor focuses its title field. `Tab` and `Shift+Tab` move throu
 
 Settings opens with focus on its tab list. Use `←`/`→` to switch between General, Shortcuts, and Data, then `Tab` to enter the selected panel's first control (the theme selector in General). `Shift+Tab` returns to the tab list; the selected tab and active panel keep the normal focus ring. Panel wrappers and the mouse-only close icon are not Tab stops; `Escape` closes the dialog.
 
-Use `@category` and `#tags` in task text. The command palette explains the complete current shortcut and syntax surface, so update it when a keyboard action changes.
+Use `@category` and `#tags` in the task title. The command palette explains the complete current shortcut and syntax surface, so update it when a keyboard action changes.
 
 ## For agents and contributors
 

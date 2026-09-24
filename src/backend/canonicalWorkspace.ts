@@ -18,7 +18,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { withTransaction } from "./database.js";
 import { CommandError } from "./errors.js";
 import { contentHash, requestHash } from "./requestHash.js";
-import { classifyTaskFields, TaskTextError, type TaskClassification } from "./taskText.js";
+import { classifyTaskText, TaskTextError, type TaskClassification } from "./taskText.js";
 import type { ProtocolRequest, TaskStatus } from "./protocol.js";
 import { APP_NAME } from "./branding.js";
 
@@ -949,7 +949,7 @@ function dependencyIdsFromDatabase(database: DatabaseSync, taskId: string): stri
 
 function classificationFor(record: CanonicalTaskFile): TaskClassification {
   try {
-    return classifyTaskFields(record.title, record.descriptionMarkdown);
+    return classifyTaskText(record.title);
   } catch (error) {
     if (error instanceof TaskTextError) throw commandError(error.code, error.message);
     throw error;

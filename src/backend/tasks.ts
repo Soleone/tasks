@@ -28,7 +28,7 @@ import {
   type TaskReorderTask,
   type TaskStatus,
 } from "./protocol.js";
-import { classifyTaskFields, TaskTextError, type TaskClassification } from "./taskText.js";
+import { classifyTaskText, TaskTextError, type TaskClassification } from "./taskText.js";
 import { backupWorkspace, exportTasks, exportWorkspace, restoreWorkspace, workspaceInfo } from "./workspace.js";
 
 type Row = Record<string, unknown>;
@@ -355,9 +355,9 @@ function retireOperationAfterLegacyUndo(database: DatabaseSync, taskIdValue: str
     .run(nextStatus, now, request.requestId, operationId);
 }
 
-function classify(title: string, descriptionMarkdown: string): TaskClassification {
+function classify(title: string): TaskClassification {
   try {
-    return classifyTaskFields(title, descriptionMarkdown);
+    return classifyTaskText(title);
   } catch (error) {
     if (error instanceof TaskTextError) {
       throw new CommandError(error.code, error.message);
@@ -379,7 +379,7 @@ function taskInput(args: Row): PreparedTask {
   return {
     title,
     descriptionMarkdown,
-    classification: classify(title, descriptionMarkdown),
+    classification: classify(title),
   };
 }
 
@@ -630,7 +630,7 @@ function applyTaskOperationEffect(database: DatabaseSync, operation: StoredOpera
   if (updated.changes !== 1) operationConflict(operation.id, `task ${effect.taskId} changed while being restored`);
 
   if (hasOperationField(effect.restore, "title") || hasOperationField(effect.restore, "descriptionMarkdown")) {
-    upsertClassification(database, effect.taskId, classify(nextTitle, nextDescription), now);
+    upsertClassification(database, effect.taskId, classify(nextTitle), now);
   }
   if (hasOperationField(effect.restore, "dependencyIds")) {
     replaceTaskDependencies(database, effect.taskId, effect.restore.dependencyIds as string[]);
@@ -879,7 +879,7 @@ function updateTask(database: DatabaseSync, databasePath: string, request: Proto
   const input: PreparedTask = {
     title: title.trim(),
     descriptionMarkdown,
-    classification: classify(title.trim(), descriptionMarkdown),
+    classification: classify(title.trim()),
   };
   if (input.title === "") {
     throw new CommandError("INVALID_ARGUMENT", "title must be a non-empty string");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sortAndroidTasks } from "../src/platform/androidTaskSort.ts";
-import { classifyTaskFields } from "../src/backend/taskText.ts";
+import { classifyTaskText } from "../src/backend/taskText.ts";
 
 const tasks = [
   { id: "child", parentId: "root-a", priority: 0, createdAt: "2026-01-03", updatedAt: "2026-01-01" },
@@ -19,10 +19,10 @@ test("Android applies the requested date and priority sorts", () => {
   assert.deepEqual(ids(sortAndroidTasks(tasks, "priority", "asc")), ["root-a", "root-b", "child"]);
 });
 
-test("Android uses the desktop title/category and description/tag classification rules", () => {
-  const parsed = classifyTaskFields("Plan @work #first", "Notes @personal #second");
+test("Android uses the desktop title-only classification rules", () => {
+  const parsed = classifyTaskText("Plan @work #first");
   assert.equal(parsed.category?.slug, "work");
-  assert.deepEqual(parsed.tags.map((tag) => tag.slug), ["first", "second"]);
+  assert.deepEqual(parsed.tags.map((tag) => tag.slug), ["first"]);
 });
 
 test("Android manual order keeps descendants beside their parent, even when filtered", () => {

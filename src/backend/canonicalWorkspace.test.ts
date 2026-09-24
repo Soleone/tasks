@@ -134,7 +134,7 @@ test("task mutations write canonical task and sibling-order files", () => {
   }
 });
 
-test("canonical reimport derives category only from title and tags from both fields", () => {
+test("canonical reimport derives category and tags only from title", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-canonical-classification-"));
   const databasePath = path.join(directory, "tasks.db");
   try {
@@ -147,7 +147,7 @@ test("canonical reimport derives category only from title and tags from both fie
     writeJson(filePath, withNextSync({ ...record, descriptionMarkdown: "Updated @personal #second" }));
     const imported = task(executeCommand(request("task.get", { id: created.id }), databasePath));
     assert.equal(imported.category?.slug, "work");
-    assert.deepEqual(imported.tags.map((tag) => tag.slug), ["first", "second"]);
+    assert.deepEqual(imported.tags.map((tag) => tag.slug), ["first"]);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

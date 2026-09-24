@@ -54,15 +54,7 @@ export function stripClassificationTokens(text: string): string {
   return stripped.replace(/[ \t]{2,}/g, " ").trim();
 }
 
-export function classifyTaskFields(title: string, descriptionMarkdown: string): TaskClassification {
-  const titleClassification = classifyTaskText(title);
-  const descriptionClassification = classifyTaskText(descriptionMarkdown, false);
-  const tags = new Map(titleClassification.tags.map((tag) => [tag.slug, tag]));
-  for (const tag of descriptionClassification.tags) tags.set(tag.slug, tag);
-  return { category: titleClassification.category, tags: [...tags.values()] };
-}
-
-export function classifyTaskText(text: string, includeCategory = true): TaskClassification {
+export function classifyTaskText(text: string): TaskClassification {
   const categories: ClassificationToken[] = [];
   const tags = new Map<string, ClassificationToken>();
   const searchableText = blankCode(text);
@@ -76,7 +68,6 @@ export function classifyTaskText(text: string, includeCategory = true): TaskClas
 
     const parsed = token(value);
     if (marker === "@") {
-      if (!includeCategory) continue;
       if (!categories.some((category) => category.slug === parsed.slug)) {
         categories.push(parsed);
       }

@@ -36,7 +36,7 @@ These decisions should not be reopened without new evidence from implementation,
 - One local workspace with quick capture, editing, completion, reopening, cancellation, and search.
 - Inbox and a small daily working set with planning, due, and defer dates.
 - Lightweight parent/child tasks and dependencies, with a deliberately shallow first hierarchy surface.
-- One optional `@category` and any number of `#tags` parsed from task text.
+- One optional `@category` and any number of `#tags` parsed from the task title.
 - Keyboard-first list/detail UI, discoverable commands, and Markdown notes.
 - CLI create/read/update/state commands with structured output, previews, safe retries, and activity history.
 - Backups, tested restore, versioned JSON snapshots, and readable task export.
