@@ -1576,6 +1576,17 @@ try {
   browser("press", "Shift+ArrowDown");
   waitFor('document.querySelector("[role=option][data-active]")?.textContent.includes("Manual C")');
   waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2');
+  browser("press", "f");
+  browser("press", "2");
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option][aria-selected=true]").length === 1');
+  check('document.querySelector("[role=option][aria-selected=true]")?.textContent.includes("Manual C")');
+  browser("press", "f");
+  browser("press", "2");
+  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false"');
+  focus("[role=listbox]");
+  browser("press", "Home");
+  browser("press", "Shift+ArrowDown");
+  waitFor('document.querySelectorAll("[role=option][aria-selected=true]").length === 2');
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 4');
   waitFor('document.querySelector("[role=option][data-active]")?.textContent.includes("Manual C")');

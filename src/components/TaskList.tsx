@@ -499,6 +499,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const [moveControlsOpen, setMoveControlsOpen] = useState(false);
   const visibleRowsRef = useRef<VisibleTaskRow[]>([]);
   const selectedIdsRef = useRef<Set<string>>(new Set());
+  const previousFilterIdentityRef = useRef<string | null>(null);
   const selectionClearedRef = useRef(false);
   const selectionAnchorRef = useRef<string | null>(null);
   const pendingActiveIdRef = useRef<string | null>(null);
@@ -541,7 +542,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
   // A pending keyboard move belongs to the view it was made in. Filter and
   // sort changes must not let that stale task override the new active index.
-  const viewIdentity = [
+  const filterIdentity = [
     statusPreset,
     exactStatus ?? "",
     priorityFilter ?? "",
@@ -549,9 +550,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     searchQuery,
     showUnblocked ? "1" : "0",
     categoryFilter?.slug ?? "",
-    sortField,
-    sortDirection,
   ].join("|");
+  const viewIdentity = [filterIdentity, sortField, sortDirection].join("|");
   const hasMore = tasks.length < total;
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.
@@ -620,7 +620,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (!identityRefreshPendingRef.current) restoreActiveIdRef.current = null;
     }
 
-    const requestedSelection = restoreSelectionIdsRef.current ?? selectedIdsRef.current;
+    const filterChanged = previousFilterIdentityRef.current !== null
+      && previousFilterIdentityRef.current !== filterIdentity;
+    previousFilterIdentityRef.current = filterIdentity;
+    const requestedSelection = filterChanged
+      ? new Set<string>()
+      : restoreSelectionIdsRef.current ?? selectedIdsRef.current;
     // Apply the new-task selection once. The highlight id remains set briefly,
     // but it must not restore the selection after the user starts another create.
     if (newTaskId == null) lastSelectedNewTaskIdRef.current = null;
@@ -646,11 +651,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (createdTaskId !== null) {
       selectionClearedRef.current = false;
       selectionAnchorRef.current = createdTaskId;
-    } else if (selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
+    } else if (filterChanged || selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
       selectionAnchorRef.current = [...nextSelection][0] ?? null;
     }
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
-  }, [activeIndex, activeTaskIndex, newTaskId, onAnnounce, selectedIds, viewIdentity, visibleRows]);
+  }, [activeIndex, activeTaskIndex, filterIdentity, newTaskId, onAnnounce, selectedIds, viewIdentity, visibleRows]);
 
   // Right-arrow category filtering keeps the task id through the async list
   // refresh; other active-task requests apply once to the current rows.
