@@ -10,6 +10,7 @@ import {
   useState,
   type MouseEvent,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskReorderPlacement, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
@@ -37,6 +38,36 @@ import type { KeyboardHelpMode } from "@/keyboardHelp";
 type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
 type StatusTransition = { next: TaskStatus; command: StatusCommand };
 type ToolbarMode = "filter" | "sort";
+type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
+type FilterSummaryPart = {
+  filter: Exclude<FilterSummaryFilter, "status" | "category">;
+  value: string;
+  label: string;
+  onClear: () => void;
+};
+
+function FilterSummaryAction({ filter, label, onClear, className, children }: {
+  filter: FilterSummaryFilter;
+  label: string;
+  onClear: () => void;
+  className?: string;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      data-filter-remove={filter}
+      aria-label={label}
+      title={label}
+      onMouseDown={preventFocusSteal}
+      onClick={onClear}
+      className={`cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring ${className ?? ""}`}
+    >
+      {children}
+    </button>
+  );
+}
 
 export async function copyTaskText(task: TaskRecord): Promise<void> {
   const text = [task.title, task.descriptionMarkdown]
@@ -103,6 +134,7 @@ type TaskListProps = {
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
+  onResetStatusFilter: () => void;
   onExactStatus: (status: TaskStatus | null) => void;
   onOpenStatusMenu: () => void;
   priorityFilter: TaskPriority | null;
@@ -368,6 +400,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
+  onResetStatusFilter,
   onExactStatus,
   onOpenStatusMenu,
   priorityFilter,
@@ -762,6 +795,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce(statusPreset === "active" && exactStatus === null ? "Showing inactive tasks" : "Showing active tasks");
   }
 
+  function clearStatusFilter(): void {
+    if (statusPreset === "active" && exactStatus === null) return;
+    returnToList();
+    onResetStatusFilter();
+    onAnnounce("Showing active tasks");
+  }
+
   function applyExactStatus(status: TaskStatus): void {
     returnToList();
     onExactStatus(status);
@@ -822,13 +862,26 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce("Cleared search");
   }
 
-  function applyPriorityFilter(priority: TaskPriority): void {
+  function clearTagFilter(): void {
     returnToList();
+    if (tagFilter.length === 0) return;
+    onTagFilterChange([]);
+    onAnnounce("Cleared tag filters");
+  }
+
+  function clearPriorityFilter(): void {
+    returnToList();
+    if (priorityFilter === null) return;
+    onPriorityFilter(null);
+    onAnnounce("Showing all priorities");
+  }
+
+  function applyPriorityFilter(priority: TaskPriority): void {
     if (priorityFilter === priority) {
-      onPriorityFilter(null);
-      onAnnounce("Showing all priorities");
+      clearPriorityFilter();
       return;
     }
+    returnToList();
     onPriorityFilter(priority);
     const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
     onAnnounce(`Showing ${label} tasks`);
@@ -1842,16 +1895,37 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     : tagFilter.length > 0 ? tagFilter.map((tag) => `#${tag.label}`).join(" ") : null;
   const summaryTaskCount = useMemo(() => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0), [visibleRows]);
   const summaryBase = `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
-  const summarySuffixParts = [
-    priorityFilter !== null ? priorityLabel : null,
-    summaryTags,
-    searchActive ? `“${searchQuery.trim()}”` : null,
-    showUnblocked ? "unblocked" : null,
-  ].filter((part): part is string => part !== null);
+  const statusIsDefault = statusPreset === "active" && exactStatus === null;
+  const summarySuffixParts: FilterSummaryPart[] = [
+    priorityFilter !== null ? {
+      filter: "priority",
+      value: priorityLabel,
+      label: `Clear priority filter: ${priorityLabel}`,
+      onClear: clearPriorityFilter,
+    } : null,
+    summaryTags !== null ? {
+      filter: "tags",
+      value: summaryTags,
+      label: `Clear tag filters: ${tagFilter.map((tag) => `#${tag.label}`).join(" ")}`,
+      onClear: clearTagFilter,
+    } : null,
+    searchActive ? {
+      filter: "search",
+      value: `“${searchQuery.trim()}”`,
+      label: `Clear search filter: ${searchQuery.trim()}`,
+      onClear: clearSearch,
+    } : null,
+    showUnblocked ? {
+      filter: "unblocked",
+      value: "unblocked",
+      label: "Clear unblocked filter",
+      onClear: toggleUnblockedFilter,
+    } : null,
+  ].filter((part): part is FilterSummaryPart => part !== null);
   const filterSummary = [
     summaryBase,
     categoryFilter ? categoryFilter.label : null,
-    ...summarySuffixParts,
+    ...summarySuffixParts.map((part) => part.value),
   ].filter((part): part is string => part !== null).join(" · ");
 
   const isFilteredEmpty = !loading && !error && visibleRows.length === 0 && (hasActiveFilters || total > 0);
@@ -2315,24 +2389,49 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         >
           <BreadcrumbList density="compact">
             <BreadcrumbItem className="shrink-0">
-              <span className="text-sm font-medium">{summaryBase}</span>
+              {statusIsDefault ? (
+                <span className="text-sm font-medium">{summaryBase}</span>
+              ) : (
+                <FilterSummaryAction
+                  filter="status"
+                  label="Reset status filter to Active"
+                  onClear={clearStatusFilter}
+                  className="text-sm font-medium text-foreground"
+                >
+                  {summaryBase}
+                </FilterSummaryAction>
+              )}
             </BreadcrumbItem>
             {categoryFilter ? (
               <>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem className="shrink-0">
-                  <Badge variant="category" data-filter-category="true" className="shrink-0">
-                    <Folder data-icon="inline-start" aria-hidden="true" />
-                    {categoryFilter.label}
-                  </Badge>
+                  <FilterSummaryAction
+                    filter="category"
+                    label={`Clear category filter: ${categoryFilter.label}`}
+                    onClear={clearCategoryFilter}
+                    className="shrink-0 rounded-full"
+                  >
+                    <Badge variant="category" data-filter-category="true" className="shrink-0">
+                      <Folder data-icon="inline-start" aria-hidden="true" />
+                      {categoryFilter.label}
+                    </Badge>
+                  </FilterSummaryAction>
                 </BreadcrumbItem>
               </>
             ) : null}
-            {summarySuffixParts.map((part, index) => (
-              <Fragment key={`${index}-${part}`}>
+            {summarySuffixParts.map((part) => (
+              <Fragment key={part.filter}>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem className="min-w-0">
-                  <span className="min-w-0 truncate">{part}</span>
+                  <FilterSummaryAction
+                    filter={part.filter}
+                    label={part.label}
+                    onClear={part.onClear}
+                    className="min-w-0 truncate text-left text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {part.value}
+                  </FilterSummaryAction>
                 </BreadcrumbItem>
               </Fragment>
             ))}

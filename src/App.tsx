@@ -749,6 +749,10 @@ export default function App(): ReactElement {
     requestActiveTask();
   }
 
+  function resetStatusFilter(): void {
+    chooseStatusSelection("active", null);
+  }
+
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
@@ -1350,6 +1354,7 @@ export default function App(): ReactElement {
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
+          onResetStatusFilter={resetStatusFilter}
           onExactStatus={chooseExactStatus}
           onOpenStatusMenu={openStatusMenu}
           priorityFilter={priorityFilter}
