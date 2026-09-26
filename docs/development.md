@@ -44,7 +44,7 @@ The canonical JSON files are the inspectable source of current task state; SQLit
 - SQLite uses foreign keys, short transactions, a bounded busy timeout, and WAL on local storage. Only one writer is expected at a time.
 - The desktop keeps one long-lived sidecar. Correlate requests and handle malformed responses, timeouts, exit, shutdown, and restart visibly. Never replay an uncertain write without its original idempotency key.
 - The native shell provides a configurable focus-only global shortcut through the Tauri global-shortcut plugin. Windows supports this. Linux support is X11-only with the current backend; native Wayland compositors such as Omarchy/Hyprland do not reliably deliver it, so an Omarchy bind or the desktop portal is still required there.
-- The WSL wrapper invokes the Windows sidecar when the Windows app is running; WSL must not open the Windows database directly through `/mnt/c`.
+- The WSL wrapper invokes the Windows sidecar when the Windows app is running; WSL must not open the Windows database directly through its mounted Windows filesystem.
 
 ### Data and recovery
 
@@ -199,7 +199,7 @@ The separate `pnpm build:android:debug` command uses Android's debug signing and
 
 ## WSL and agent access
 
-The `bin/tasks` wrapper lets an agent in WSL call the Windows sidecar and Windows database instead of opening the database through `/mnt/c`. Set `TASKS_WINDOWS_ROOT`, `TASKS_WINDOWS_SIDECAR`, or `TASKS_WINDOWS_DATABASE` when the default paths do not match the checkout.
+The `bin/tasks` wrapper lets an agent in WSL call the Windows sidecar and database instead of opening the Windows database directly from WSL. Set `TASKS_WINDOWS_ROOT`, `TASKS_WINDOWS_SIDECAR`, or `TASKS_WINDOWS_DATABASE` when the default paths do not match the checkout.
 
 The current M0 evidence includes Linux backend and sidecar probes, Windows tests and packaged sidecar checks, a native Windows 11 long-lived desktop probe, the WSL CLI bridge with the app open and closed, sidecar recovery, and Windows MSI/NSIS builds. Omarchy remains a later native target.
 
