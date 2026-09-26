@@ -1750,5 +1750,7 @@ export function executeTaskCommand(database: DatabaseSync, databasePath: string,
       throw new CommandError("UNKNOWN_COMMAND", `${request.command} is handled by the theme command`);
     case "runtime.probe":
       throw new CommandError("UNKNOWN_COMMAND", "runtime.probe is handled by the runtime command");
+    case "source.list":
+      throw new CommandError("UNKNOWN_COMMAND", "source.list is handled by the source controller");
   }
 }

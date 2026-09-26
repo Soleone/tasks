@@ -1,8 +1,8 @@
 # Combined-source behavior contract (v0)
 
-**Status:** Frozen for the first controller prototype after the Stage 2 conformance gate passed. This is the TaskDB combined-source contract, not a deployed protocol version. The existing JSON-lines protocol remains version 1 and the current implementation still addresses one TaskDB v1 workspace.
+**Status:** Frozen for the first controller prototype after the Stage 2 conformance gate passed. This is the TaskDB combined-source contract, not a deployed protocol version. The existing JSON-lines protocol remains version 1. Stage 3 now implements an opt-in local registry for TaskDB v1 roots and a first slice of combined reads and targeted writes.
 
-The v0 contract is deliberately a small semantic layer around existing task behavior. It does not redefine the v1 files, require every source to support every operation, or claim that multi-source routing exists today.
+The v0 contract is deliberately a small semantic layer around existing task behavior. It does not redefine the v1 files or require every source to support every operation.
 
 ## Task identity and projection
 
@@ -52,6 +52,34 @@ A successful retry with the same source, command, arguments, actor, and idempote
 
 Legacy v1 JSON-lines requests may omit `actor`, in which case the current parser supplies `{kind:"agent",label:"cli"}`. New combined-source clients send an explicit actor. The JSON-lines envelope's `requestId` correlates one response and is not an idempotency key.
 
+## Local source registry
+
+The combined profile is explicitly enabled for a process with `TASKS_SOURCE_REGISTRY_PATH` pointing to a local JSON file. With the variable absent or empty, the existing v1 single-workspace path is unchanged. The registry is client configuration, not canonical task data, and its contents never enter v1 task records.
+
+A version-1 registry has this shape:
+
+```json
+{
+  "format": "tasks.source-registry",
+  "formatVersion": 1,
+  "defaultSourceKey": "personal",
+  "sources": [
+    {
+      "key": "personal",
+      "label": "Personal",
+      "databasePath": "./personal/tasks.db",
+      "syncRoot": "./personal/sync"
+    }
+  ]
+}
+```
+
+There must be 1–32 sources. Keys are unique ASCII letters/digits plus `.`, `_`, or `-`; labels are nonempty. `databasePath` and `syncRoot` resolve relative to the registry file. `syncRoot` is optional and defaults to a `sync/` directory beside that source's database. `defaultSourceKey` is optional, but if present must identify a registered source. Repeated database paths or canonical roots, and distinct roots with the same canonical `workspaceId`, fail with `DUPLICATE_SOURCE_MOUNT` rather than appearing twice.
+
+`tasks-cli sources` lists configured sources (an empty list when no registry is configured); the legacy v1 single-workspace commands remain unchanged without a registry. `tasks-cli --source-key KEY` narrows `list` or targets a single-source operation; combined JSON list records include both the compatibility `id` and authoritative `ref`. In multi-source mode, an existing-task write without a ref or explicit source key fails with `SOURCE_REQUIRED`; a create without a default or explicit `sourceKey` also fails. `task.list` aggregates by default and supports `sourceKeys` plus the category selection described above. `source.list`, `workspace.info`, `workspace.sync`, category and tag lists aggregate over mounted TaskDB sources. Aggregate `workspace.info.databasePath` and `primarySourceKey` identify the configured default source, or the first source if no default exists; `sourceRegistryPath` identifies the local registry file.
+
+The first implementation slice supports combined list pagination, categories, tags, task get/create, and ref-routed update/status/delete/move/dependency operations. Bulk operations and registry-enabled first-party UI routing are not yet complete. The adapter reports `reorder: false` until v0 TaskRef reorder validation is implemented; it must not imply that operation is supported just because the underlying v1 workspace can reorder by local IDs.
+
 ## Source capabilities
 
 `source.list` returns `{"sources":[{"key":"personal","label":"Personal","capabilities":{"task":{"list":true,"get":true,"create":true,"update":true,"complete":true,"reopen":true,"start":true,"pause":true,"cancel":true,"parent":true,"dependencies":true,"reorder":true}}}]}`. V0 requires ordinary task sources to report `list`, `get`, `create`, `update`, `complete`, and `reopen` as `true`. `start`, `pause`, `cancel`, `parent`, `dependencies`, and `reorder` are optional and each is reported as an explicit boolean. A missing source is `SOURCE_NOT_FOUND`, and a known unsupported operation is `CAPABILITY_UNSUPPORTED` with the source and operation identified. A source that cannot provide the required read/write path is not presented as a normal writable task source.
@@ -66,10 +94,10 @@ A v1 root containing task or order records without `workspace.json` is incomplet
 
 ## Stable errors and platform limits
 
-Clients branch on `error.code`, not the human-readable `message`. The v0 controller uses stable codes including `INVALID_REQUEST`, `UNSUPPORTED_VERSION`, `UNKNOWN_COMMAND`, `INVALID_ARGUMENT`, `INVALID_CANONICAL`, `TASK_NOT_FOUND`, `SOURCE_REQUIRED`, `SOURCE_NOT_FOUND`, `CAPABILITY_UNSUPPORTED`, `EXPECTED_VERSION_REQUIRED`, `STALE_TASK_VERSION`, `IDEMPOTENCY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `MULTIPLE_CATEGORIES`, `INVALID_TRANSITION`, `INVALID_PARENT`, `PARENT_CYCLE`, `INVALID_DEPENDENCY`, and `DEPENDENCY_CYCLE`. A versioned platform surface may also define a stable platform-specific unsupported code; it still must reject unsupported work explicitly.
+Clients branch on `error.code`, not the human-readable `message`. The v0 controller uses stable codes including `INVALID_REQUEST`, `UNSUPPORTED_VERSION`, `UNKNOWN_COMMAND`, `INVALID_ARGUMENT`, `INVALID_SOURCE_REGISTRY`, `DUPLICATE_SOURCE_MOUNT`, `SOURCE_REGISTRY_REQUIRED`, `INVALID_CANONICAL`, `TASK_NOT_FOUND`, `SOURCE_REQUIRED`, `SOURCE_NOT_FOUND`, `CAPABILITY_UNSUPPORTED`, `EXPECTED_VERSION_REQUIRED`, `STALE_TASK_VERSION`, `IDEMPOTENCY_REQUIRED`, `IDEMPOTENCY_KEY_REUSED`, `MULTIPLE_CATEGORIES`, `INVALID_TRANSITION`, `INVALID_PARENT`, `PARENT_CYCLE`, `INVALID_DEPENDENCY`, and `DEPENDENCY_CYCLE`. A versioned platform surface may also define a stable platform-specific unsupported code; it still must reject unsupported work explicitly.
 
 Android remains a single-workspace v1 implementation. It does not implement source references or the virtual Uncategorized query. Its `task.update` requires both `title` and `descriptionMarkdown`, while Node accepts partial updates; the portable contract must not promise partial-update parity. Android's generic unsupported-command response is `ANDROID_COMMAND_UNSUPPORTED`; conflict resolution reports `CONFLICT_RESOLUTION_UNSUPPORTED`. Neither code implies that browser or emulator checks prove native desktop acceptance.
 
 ## Conformance status
 
-`scripts/taskdbConformance.test.mjs` exercises the existing v1 sidecar and CLI through disposable fixture copies. It pins the compatible task fields and safety invariants that the first v1 adapter must preserve; it does not claim to execute the not-yet-implemented multi-source query or `source.list` contract. `scripts/platformParity.test.mjs` covers only behavior actually exercised by the Android command engine. Stage 3 remains blocked by the native M1 obligations recorded in [the audit](../docs/taskdb-audit.md).
+`scripts/taskdbConformance.test.mjs` exercises the existing v1 sidecar and CLI through disposable fixture copies, and now exercises two distinct v1 roots, source-scoped list references, targeted protocol/CLI writes, and duplicate-workspace rejection. It does not claim registry-enabled first-party UI support or native desktop acceptance. `scripts/platformParity.test.mjs` covers only behavior actually exercised by the Android command engine. Native M1 obligations remain open in [the audit](../docs/taskdb-audit.md); the owner re-scoped Stage 3 implementation to WSL scratch data, which does not satisfy those native obligations.

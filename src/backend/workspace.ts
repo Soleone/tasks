@@ -154,11 +154,13 @@ export function exportWorkspace(database: DatabaseSync, request: ProtocolRequest
 export function workspaceInfo(database: DatabaseSync, databasePath: string): Record<string, unknown> {
   const row = database.prepare("SELECT COUNT(*) AS count FROM tasks").get() as Row | undefined;
   const canceledRow = database.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'canceled'").get() as Row | undefined;
-  if (typeof row?.count !== "number" || typeof canceledRow?.count !== "number") {
-    throw new CommandError("INVALID_STORAGE", "could not count tasks");
+  const workspaceRow = database.prepare("SELECT value FROM cache_meta WHERE key = 'workspace_id'").get() as Row | undefined;
+  if (typeof row?.count !== "number" || typeof canceledRow?.count !== "number" || typeof workspaceRow?.value !== "string") {
+    throw new CommandError("INVALID_STORAGE", "could not read workspace info");
   }
   return {
     databasePath,
+    workspaceId: workspaceRow.value,
     taskCount: row.count,
     canceledTaskCount: canceledRow.count,
     workspaceRevision: readWorkspaceRevision(database),

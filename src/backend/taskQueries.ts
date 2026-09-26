@@ -111,6 +111,13 @@ export function listTasks(database: DatabaseSync, request: ProtocolRequest): Rec
   }
   const categoryArgument = request.args.category;
   const categorySlug = categoryArgument === undefined ? undefined : normalizeSlug(categoryArgument, "category");
+  const categoryIsNull = request.args.categoryIsNull;
+  if (categoryIsNull !== undefined && typeof categoryIsNull !== "boolean") {
+    throw new CommandError("INVALID_ARGUMENT", "categoryIsNull must be a boolean");
+  }
+  if (categoryIsNull === true && categorySlug !== undefined) {
+    throw new CommandError("INVALID_ARGUMENT", "categoryIsNull cannot be combined with category");
+  }
   let priorityFilter: number | undefined;
   if (request.args.priority !== undefined) {
     const priorityArgument = request.args.priority;
@@ -171,6 +178,8 @@ export function listTasks(database: DatabaseSync, request: ProtocolRequest): Rec
   if (categorySlug !== undefined) {
     conditions.push("categories.slug = ?");
     params.push(categorySlug);
+  } else if (categoryIsNull === true) {
+    conditions.push("categories.id IS NULL");
   }
   for (const tagSlug of tagSlugs) {
     conditions.push(`EXISTS (SELECT 1 FROM task_tags JOIN tags ON tags.id = task_tags.tag_id WHERE task_tags.task_id = tasks.id AND tags.slug = ?)`);

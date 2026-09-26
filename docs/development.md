@@ -1,6 +1,6 @@
 # Development and validation
 
-This describes the current implementation. The [TaskDB behavior spec](../spec/README.md) records current v1 contracts and separately labeled 2.0 targets; the [single pivot plan](../plans/taskdb-2.0-pivot.md) governs staged changes. Neither a proposed multi-source adapter nor a new HTTP server exists in the packaged app today.
+This describes the current implementation. The [TaskDB behavior spec](../spec/README.md) records current v1 contracts and separately labeled 2.0 targets; the [single pivot plan](../plans/taskdb-2.0-pivot.md) governs staged changes. A first multi-source controller prototype is available to the Node CLI and JSON-lines sidecar behind an explicit local registry. The first-party UI and packaged/native configuration remain single-source.
 
 Tasks has two useful development paths:
 
@@ -112,6 +112,34 @@ pnpm dev:web
 The dev backend binds to `127.0.0.1`. Its default port is `5174`; set `TASKS_DEV_BACKEND_PORT` to change it. Vite arguments can be passed after `--`, for example `pnpm dev:web -- --port 5199`. `pnpm dev` starts Vite without a backend; set `VITE_DEV_BACKEND_URL` when connecting it to a separately started bridge. The bridge only accepts local-page origins and is never packaged.
 
 The theme preview is served at `http://127.0.0.1:5173/themes.html` while `pnpm dev:web` is running. It reads the same built-in and workspace theme files but does not persist a selection.
+
+## Source-registry prototype
+
+The registry is opt-in through `TASKS_SOURCE_REGISTRY_PATH`. It is intended for disposable CLI/JSON-lines experiments until the UI learns to carry `TaskRef` through selection and writes. Do not set it for `pnpm dev:web` yet: the current UI is single-source and will correctly reject ambiguous writes rather than guess a root. With the variable unset, the existing `pnpm dev:web` flow is unchanged.
+
+Example `.tmp/sources.json`:
+
+```json
+{
+  "format": "tasks.source-registry",
+  "formatVersion": 1,
+  "defaultSourceKey": "personal",
+  "sources": [
+    { "key": "personal", "label": "Personal", "databasePath": "personal/tasks.db", "syncRoot": "personal/sync" },
+    { "key": "project", "label": "Project", "databasePath": "project/tasks.db", "syncRoot": "project/sync" }
+  ]
+}
+```
+
+Paths are relative to the registry file. Use empty disposable roots inside `.tmp/`, not personal task data. Then:
+
+```bash
+TASKS_SOURCE_REGISTRY_PATH="$PWD/.tmp/sources.json" pnpm run tasks-cli -- sources --json
+TASKS_SOURCE_REGISTRY_PATH="$PWD/.tmp/sources.json" pnpm run tasks-cli -- list --json
+TASKS_SOURCE_REGISTRY_PATH="$PWD/.tmp/sources.json" pnpm run tasks-cli -- update <task-id> --source-key project --title "Updated title" --json
+```
+
+Combined list JSON records include a source-scoped `ref`; `--source-key` selects a list source or targets one source for a write. A create without `--source-key` goes to `defaultSourceKey`. The same registry is loaded by the JSON-lines sidecar. Without a registry, legacy v1 commands continue to use their existing database and `TASKS_SYNC_ROOT` resolution.
 
 ## Windows 11
 

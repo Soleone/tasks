@@ -35,8 +35,15 @@ function copyFixture(directory) {
   return syncRoot;
 }
 
-function startSidecar(databasePath) {
+function tasksEnvironment(overrides = {}) {
+  const env = { ...process.env, TASKS_SYNC_ROOT: "", ...overrides };
+  if (!Object.hasOwn(overrides, "TASKS_SOURCE_REGISTRY_PATH")) delete env.TASKS_SOURCE_REGISTRY_PATH;
+  return env;
+}
+
+function startSidecar(databasePath, envOverrides = {}) {
   const child = spawn(process.execPath, [sidecarPath, "--stdio", "--database", databasePath], {
+    env: tasksEnvironment(envOverrides),
     stdio: ["pipe", "pipe", "pipe"],
   });
   const output = readline.createInterface({ input: child.stdout });
@@ -338,6 +345,7 @@ test("tasks-cli still reads and writes the copied v1 workspace", (t) => {
 
   function runCli(args) {
     const result = spawnSync(process.execPath, [tasksCliPath, ...args], {
+      env: tasksEnvironment(),
       encoding: "utf8",
       timeout: 10_000,
     });
@@ -360,4 +368,117 @@ test("tasks-cli still reads and writes the copied v1 workspace", (t) => {
   assert.equal(updated.task.category.slug, "operations");
   assert.deepEqual(updated.task.tags.map((tag) => tag.slug), ["roundtrip"]);
   assert.equal(existsSync(path.join(syncRoot, "tasks", `${task.id}.json`)), true);
+});
+
+test("source registry combines TaskDB roots and routes ref writes through JSON-lines and CLI", async (t) => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-source-registry-"));
+  const alphaDatabase = path.join(directory, "alpha", "tasks.db");
+  const betaDatabase = path.join(directory, "beta", "tasks.db");
+  const alphaSyncRoot = path.join(directory, "alpha", "sync");
+
+  function runCli(args, envOverrides = {}) {
+    const result = spawnSync(process.execPath, [tasksCliPath, ...args], {
+      env: tasksEnvironment(envOverrides),
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  }
+
+  const alphaCreated = runCli(["add", "Alpha @planning #home", "--database", alphaDatabase, "--idempotency-key", "seed-alpha", "--json"]);
+  const betaCreated = runCli(["add", "Beta without a category", "--database", betaDatabase, "--idempotency-key", "seed-beta", "--json"]);
+  const registryPath = path.join(directory, "sources.json");
+  const registry = {
+    format: "tasks.source-registry",
+    formatVersion: 1,
+    defaultSourceKey: "alpha",
+    sources: [
+      { key: "alpha", label: "Alpha", databasePath: "alpha/tasks.db", syncRoot: "alpha/sync" },
+      { key: "beta", label: "Beta", databasePath: "beta/tasks.db", syncRoot: "beta/sync" },
+    ],
+  };
+  writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);
+
+  let sidecar;
+  let duplicateSidecar;
+  t.after(async () => {
+    await sidecar?.stop();
+    await duplicateSidecar?.stop();
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  sidecar = startSidecar(alphaDatabase, { TASKS_SOURCE_REGISTRY_PATH: registryPath });
+  const sources = requireSuccess(await sidecar.send("source.list"));
+  assert.deepEqual(sources.sources.map((source) => source.key), ["alpha", "beta"]);
+  assert.equal(sources.sources[0].capabilities.task.list, true);
+  const sync = requireSuccess(await sidecar.send("workspace.sync"));
+  assert.equal(sync.sources.length, 2);
+
+  const listed = requireSuccess(await sidecar.send("task.list", { sort: "manual" }));
+  assert.equal(listed.total, 2);
+  assert.deepEqual(listed.tasks.map((task) => task.ref.sourceKey), ["alpha", "beta"]);
+  assert.deepEqual(listed.tasks.map((task) => task.ref.taskId), [alphaCreated.task.id, betaCreated.task.id]);
+  const uncategorized = requireSuccess(await sidecar.send("task.list", { category: { kind: "uncategorized" } }));
+  assert.equal(uncategorized.total, 1);
+  assert.equal(uncategorized.tasks[0].ref.sourceKey, "beta");
+  const legacyUncategorized = requireSuccess(await sidecar.send("task.list", { categoryIsNull: true }));
+  assert.equal(legacyUncategorized.total, 1);
+  assert.equal(legacyUncategorized.tasks[0].ref.sourceKey, "beta");
+  const secondPage = requireSuccess(await sidecar.send("task.list", { sort: "manual", limit: 1, offset: 1 }));
+  assert.equal(secondPage.tasks[0].ref.sourceKey, "beta");
+  requireError(await sidecar.send("task.list", { limit: 101 }), "INVALID_ARGUMENT");
+  requireError(await sidecar.send("task.list", { offset: -1 }), "INVALID_ARGUMENT");
+  const defaultCapture = requireSuccess(await sidecar.send("task.create", {
+    title: "Captured at the configured default",
+  }, { idempotencyKey: "source-default-capture" }));
+  assert.equal(defaultCapture.task.ref.sourceKey, "alpha");
+
+  const beta = listed.tasks.find((task) => task.ref.sourceKey === "beta");
+  requireError(await sidecar.send("task.update", {
+    id: beta.id,
+    title: "Must not guess a source",
+    expectedVersion: beta.version,
+  }, { idempotencyKey: "source-missing-ref" }), "SOURCE_REQUIRED");
+  const routedUpdate = requireSuccess(await sidecar.send("task.update", {
+    ref: beta.ref,
+    title: "Beta updated from protocol @project",
+    expectedVersion: beta.version,
+  }, { idempotencyKey: "source-beta-protocol-update" }));
+  assert.equal(routedUpdate.task.ref.sourceKey, "beta");
+
+  const cliList = runCli(["list", "--source-key", "beta", "--database", alphaDatabase, "--json"], {
+    TASKS_SOURCE_REGISTRY_PATH: registryPath,
+  });
+  assert.equal(cliList.total, 1);
+  assert.equal(cliList.tasks[0].ref.sourceKey, "beta");
+  const cliUpdate = runCli([
+    "update", betaCreated.task.id,
+    "--source-key", "beta",
+    "--title", "Beta updated from CLI @launch",
+    "--database", alphaDatabase,
+    "--idempotency-key", "source-beta-cli-update",
+    "--json",
+  ], { TASKS_SOURCE_REGISTRY_PATH: registryPath });
+  assert.equal(cliUpdate.task.ref.sourceKey, "beta");
+
+  const betaReadback = runCli(["show", betaCreated.task.id, "--database", betaDatabase, "--json"]);
+  const alphaReadback = runCli(["show", alphaCreated.task.id, "--database", alphaDatabase, "--json"]);
+  assert.equal(betaReadback.task.title, "Beta updated from CLI @launch");
+  assert.equal(alphaReadback.task.title, "Alpha @planning #home");
+
+  const duplicateRoot = path.join(directory, "duplicate", "sync");
+  mkdirSync(path.dirname(duplicateRoot), { recursive: true });
+  cpSync(alphaSyncRoot, duplicateRoot, { recursive: true });
+  const duplicateRegistryPath = path.join(directory, "duplicate-sources.json");
+  writeFileSync(duplicateRegistryPath, `${JSON.stringify({
+    format: "tasks.source-registry",
+    formatVersion: 1,
+    sources: [
+      { key: "alpha", label: "Alpha", databasePath: "alpha/tasks.db", syncRoot: "alpha/sync" },
+      { key: "duplicate", label: "Duplicate", databasePath: "duplicate/cache/tasks.db", syncRoot: "duplicate/sync" },
+    ],
+  }, null, 2)}\n`);
+  duplicateSidecar = startSidecar(alphaDatabase, { TASKS_SOURCE_REGISTRY_PATH: duplicateRegistryPath });
+  requireError(await duplicateSidecar.send("task.list"), "DUPLICATE_SOURCE_MOUNT");
 });

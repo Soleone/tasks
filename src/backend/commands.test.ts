@@ -146,6 +146,55 @@ test("task result parsing rejects malformed successful list payloads", () => {
   );
 });
 
+test("task result parsing preserves source-scoped task refs and rejects mismatches", () => {
+  const task = {
+    id: "task-local-id",
+    ref: { sourceKey: "project", taskId: "task-local-id" },
+    title: "Source task",
+    descriptionMarkdown: "",
+    status: "open",
+    priority: 2,
+    category: null,
+    tags: [],
+    parentId: null,
+    dependencyIds: [],
+    blockedByIds: [],
+    version: 1,
+    createdAt: "2026-09-01T10:00:00.000Z",
+    updatedAt: "2026-09-01T10:00:00.000Z",
+    completedAt: null,
+    canceledAt: null,
+  };
+  const parsed = parseTaskCommandResult("task.list", {
+    tasks: [task],
+    contextTasks: [],
+    total: 1,
+    limit: 50,
+    offset: 0,
+    workspaceRevision: 1,
+  });
+  assert.deepEqual((parsed.tasks as Array<{ ref: unknown }>)[0]?.ref, task.ref);
+  assert.throws(
+    () => parseTaskCommandResult("task.get", { task: { ...task, ref: { sourceKey: "project", taskId: "other-id" } } }),
+    (error: unknown) => error instanceof ProtocolError && error.code === "INVALID_RESPONSE",
+  );
+});
+
+test("source.list returns no registered sources in legacy single-workspace mode", () => {
+  const registryPath = process.env.TASKS_SOURCE_REGISTRY_PATH;
+  delete process.env.TASKS_SOURCE_REGISTRY_PATH;
+  try {
+    const response = executeCommand(
+      parseRequest({ version: 1, requestId: "source-list-legacy", command: "source.list" }),
+      "/tmp/tasks-legacy.db",
+    );
+    assert.deepEqual(response, { sources: [] });
+  } finally {
+    if (registryPath === undefined) delete process.env.TASKS_SOURCE_REGISTRY_PATH;
+    else process.env.TASKS_SOURCE_REGISTRY_PATH = registryPath;
+  }
+});
+
 test("data paths are independent of the current working directory", () => {
   assert.equal(
     getDataDirectory({ XDG_DATA_HOME: "/tmp/example" }, "linux", "/home/user"),

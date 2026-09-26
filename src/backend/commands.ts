@@ -1,6 +1,8 @@
 import { getDatabasePath } from "./paths.js";
 import { openDatabase, runRuntimeProbe } from "./database.js";
 import { syncCanonicalWorkspace, withWorkspaceLock } from "./canonicalWorkspace.js";
+import { executeSourceRegistryCommand } from "./sourceController.js";
+import { readSourceRegistry } from "./sourceRegistry.js";
 import { CommandError } from "./errors.js";
 import { abortReceiveWorkspace, isReceivingWorkspace, prepareReceiveWorkspace, receiveWorkspaceStatus } from "./receiveWorkspace.js";
 import type { ProtocolRequest } from "./protocol.js";
@@ -11,6 +13,23 @@ import { executeThemeCommand } from "./themes.js";
 export function executeCommand(
   request: ProtocolRequest,
   databasePath = getDatabasePath(),
+): Record<string, unknown> {
+  const registryPath = process.env.TASKS_SOURCE_REGISTRY_PATH?.trim();
+  if (registryPath !== undefined && registryPath !== "" && request.command !== "runtime.probe") {
+    const registry = readSourceRegistry(registryPath);
+    return executeSourceRegistryCommand(request, registry, executeWorkspaceCommand);
+  }
+  if (request.command !== "source.list"
+    && (request.args.ref !== undefined || request.args.sourceKey !== undefined || request.args.sourceKeys !== undefined)) {
+    throw new CommandError("SOURCE_REGISTRY_REQUIRED", "source references require TASKS_SOURCE_REGISTRY_PATH");
+  }
+  if (request.command === "source.list") return { sources: [] };
+  return executeWorkspaceCommand(request, databasePath);
+}
+
+function executeWorkspaceCommand(
+  request: ProtocolRequest,
+  databasePath: string,
 ): Record<string, unknown> {
   if (request.command === "runtime.probe") {
     return runRuntimeProbe(databasePath) as unknown as Record<string, unknown>;

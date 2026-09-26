@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
 import { executeCommand } from "./commands.js";
-import { watchCanonicalWorkspace } from "./canonicalWorkspace.js";
+import { watchCanonicalWorkspace, withCanonicalRootPath } from "./canonicalWorkspace.js";
+import { readSourceRegistry } from "./sourceRegistry.js";
 import { getDatabasePath } from "./paths.js";
 import {
   errorResponse,
@@ -37,7 +38,7 @@ async function runStdio(databasePath: string): Promise<void> {
   });
   let pending = Promise.resolve();
   let backgroundSync = Promise.resolve();
-  const watcher = watchCanonicalWorkspace(databasePath, () => {
+  const onCanonicalChange = (): void => {
     backgroundSync = backgroundSync.then(() => {
       try {
         executeCommand(backgroundSyncRequest, databasePath);
@@ -45,7 +46,15 @@ async function runStdio(databasePath: string): Promise<void> {
         process.stderr.write(`background sync: ${error instanceof Error ? error.message : String(error)}\n`);
       }
     });
-  });
+  };
+  const registryPath = process.env.TASKS_SOURCE_REGISTRY_PATH?.trim();
+  const watchers = registryPath
+    ? readSourceRegistry(registryPath).sources.map((source) => withCanonicalRootPath(
+      source.databasePath,
+      source.syncRoot,
+      () => watchCanonicalWorkspace(source.databasePath, onCanonicalChange),
+    ))
+    : [watchCanonicalWorkspace(databasePath, onCanonicalChange)];
 
   input.on("line", (line) => {
     if (line.trim() === "") {
@@ -67,7 +76,7 @@ async function runStdio(databasePath: string): Promise<void> {
   await new Promise<void>((resolve) => {
     input.once("close", resolve);
   });
-  watcher.close();
+  for (const watcher of watchers) watcher.close();
   await pending;
   await backgroundSync;
 }

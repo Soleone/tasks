@@ -6,6 +6,7 @@ export const PROTOCOL_VERSION = 1 as const;
 
 export const COMMAND_NAMES = [
   "runtime.probe",
+  "source.list",
   "task.create",
   "task.list",
   "task.reorder",
@@ -103,7 +104,11 @@ export type ClassificationToken = {
   label: string;
 };
 
+export type TaskRef = { sourceKey: string; taskId: string };
+
 export type TaskRecord = {
+  /** Present in a source-registry result; absent in legacy single-workspace mode. */
+  ref?: TaskRef;
   id: string;
   title: string;
   descriptionMarkdown: string;
@@ -537,8 +542,21 @@ function responseClassificationToken(value: unknown, field: string): Classificat
   };
 }
 
+function responseTaskRef(value: unknown, field: string): TaskRef {
+  const ref = responseRecord(value, field);
+  return {
+    sourceKey: responseString(ref.sourceKey, `${field}.sourceKey`),
+    taskId: responseString(ref.taskId, `${field}.taskId`),
+  };
+}
+
 function responseTaskRecord(value: unknown, field: string): TaskRecord {
   const task = responseRecord(value, field);
+  const ref = task.ref === undefined ? undefined : responseTaskRef(task.ref, `${field}.ref`);
+  const id = responseString(task.id, `${field}.id`);
+  if (ref !== undefined && ref.taskId !== id) {
+    throw new ProtocolError("INVALID_RESPONSE", `${field}.ref.taskId must match ${field}.id`);
+  }
   const status = responseString(task.status, `${field}.status`);
   if (!TASK_RESPONSE_STATUSES.includes(status as TaskStatus)) {
     throw new ProtocolError("INVALID_RESPONSE", `${field}.status is unsupported`);
@@ -553,7 +571,8 @@ function responseTaskRecord(value: unknown, field: string): TaskRecord {
   if (!Array.isArray(tags)) throw new ProtocolError("INVALID_RESPONSE", `${field}.tags must be an array`);
 
   return {
-    id: responseString(task.id, `${field}.id`),
+    ...(ref === undefined ? {} : { ref }),
+    id,
     title: responseString(task.title, `${field}.title`),
     descriptionMarkdown,
     status: status as TaskStatus,

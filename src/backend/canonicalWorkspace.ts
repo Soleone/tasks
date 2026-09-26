@@ -199,7 +199,25 @@ function orderRelativePath(parentId: ParentId): string {
   return `order/${parentId}.json`;
 }
 
+const scopedCanonicalRoots = new Map<string, string>();
+
+/** Runs one synchronous source command with its configured canonical root, without mutating process.env. */
+export function withCanonicalRootPath<T>(databasePath: string, rootPath: string, operation: () => T): T {
+  const key = path.resolve(databasePath);
+  const previous = scopedCanonicalRoots.get(key);
+  scopedCanonicalRoots.set(key, path.resolve(rootPath));
+  try {
+    return operation();
+  } finally {
+    if (previous === undefined) scopedCanonicalRoots.delete(key);
+    else scopedCanonicalRoots.set(key, previous);
+  }
+}
+
 export function canonicalRootPath(databasePath: string, environment: Record<string, string | undefined> = process.env): string {
+  const scopedRoot = scopedCanonicalRoots.get(path.resolve(databasePath));
+  if (scopedRoot !== undefined) return scopedRoot;
+
   const override = environment.TASKS_SYNC_ROOT?.trim();
   return path.resolve(override === undefined || override === "" ? path.join(path.dirname(databasePath), "sync") : override);
 }

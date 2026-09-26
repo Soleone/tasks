@@ -7,6 +7,7 @@ const VERSION = 1 as const;
 
 type GlobalOptions = {
   databasePath: string;
+  sourceKey?: string;
   json: boolean;
   dryRun: boolean;
   idempotencyKey?: string;
@@ -57,6 +58,7 @@ const VERSIONED_COMMANDS = new Set([
 // do not mistake them for boolean flags while parsing argv.
 const VALUE_FLAGS = new Set([
   "database",
+  "source-key",
   "idempotency-key",
   "expected-version",
   "actor-kind",
@@ -113,7 +115,8 @@ QUERIES:
   list [--status s] [--priority n] [--category slug] [--tag slug]
        [--search text] [--limit n] [--offset n] [--sort field]
        [--direction asc|desc] [--unblocked]
-  show <id>
+  show <id> [--source-key KEY]
+  sources                                 list configured workspaces
   activity [--task <id>] [--limit n]
   categories
   tags
@@ -132,6 +135,7 @@ MUTATIONS:
 
 GLOBAL OPTIONS:
   --database PATH          override the resolved database (rarely needed)
+  --source-key KEY         select one source in a configured source registry
   --json                   print the raw result object for agents
   --dry-run                validate and preview without persisting
   --idempotency-key KEY    reuse for safe retries (auto-generated otherwise)
@@ -204,6 +208,11 @@ function parseArgv(argv: string[]): ParsedArgs {
   if (typeof databaseFlag === "string") {
     globals.databasePath = databaseFlag;
     flags.delete("database");
+  }
+  const sourceKey = flags.get("source-key");
+  if (typeof sourceKey === "string") {
+    globals.sourceKey = sourceKey;
+    flags.delete("source-key");
   }
   if (flags.get("json") === true) {
     globals.json = true;
@@ -291,7 +300,7 @@ function currentVersion(databasePath: string, taskId: string, globals: GlobalOpt
       version: VERSION,
       requestId: randomUUID(),
       command: "task.get",
-      args: { id: taskId },
+      args: globals.sourceKey === undefined ? { id: taskId } : { ref: { sourceKey: globals.sourceKey, taskId } },
       actor: { kind: globals.actorKind, label: globals.actorLabel },
     },
     databasePath,
@@ -304,11 +313,24 @@ function currentVersion(databasePath: string, taskId: string, globals: GlobalOpt
 }
 
 function runCommand(protocolCommand: string, args: Record<string, unknown>, globals: GlobalOptions): Record<string, unknown> {
+  const routedArgs = { ...args };
+  if (globals.sourceKey !== undefined) {
+    if (protocolCommand === "task.list") {
+      routedArgs.sourceKeys = [globals.sourceKey];
+    } else if (protocolCommand === "task.create") {
+      routedArgs.sourceKey = globals.sourceKey;
+    } else if (typeof routedArgs.id === "string") {
+      routedArgs.ref = { sourceKey: globals.sourceKey, taskId: routedArgs.id };
+      delete routedArgs.id;
+    } else {
+      routedArgs.sourceKey = globals.sourceKey;
+    }
+  }
   const request: ProtocolRequest = {
     version: VERSION,
     requestId: randomUUID(),
     command: protocolCommand as ProtocolRequest["command"],
-    args,
+    args: routedArgs,
     actor: { kind: globals.actorKind, label: globals.actorLabel },
     readOnly: undefined,
     dryRun: globals.dryRun || undefined,
@@ -317,7 +339,7 @@ function runCommand(protocolCommand: string, args: Record<string, unknown>, glob
     request.idempotencyKey = globals.idempotencyKey ?? randomUUID();
   }
   if (VERSIONED_COMMANDS.has(protocolCommand) && globals.expectedVersion !== undefined) {
-    request.args = { ...args, expectedVersion: globals.expectedVersion };
+    request.args = { ...routedArgs, expectedVersion: globals.expectedVersion };
   }
   return executeCommand(request, globals.databasePath);
 }
@@ -328,7 +350,7 @@ function runVersioned(protocolCommand: string, taskId: string, extraArgs: Record
 }
 
 function formatTask(task: TaskRecord): string {
-  const bits = [`${task.id.slice(0, 8)}`, `[${task.status}]`, task.title];
+  const bits = [`${task.id.slice(0, 8)}`, ...(task.ref ? [`[${task.ref.sourceKey}]`] : []), `[${task.status}]`, task.title];
   bits.push(`(p${task.priority})`);
   if (task.category) bits.push(`@${task.category.slug}`);
   for (const tag of task.tags) bits.push(`#${tag.slug}`);
@@ -340,6 +362,7 @@ function formatTask(task: TaskRecord): string {
 function formatTaskDetail(task: TaskRecord): string {
   const lines = [
     `${task.id} [${task.status}] v${task.version}`,
+    ...(task.ref ? [`source: ${task.ref.sourceKey}`] : []),
     `title: ${task.title}`,
     `priority: ${task.priority}`,
   ];
@@ -441,6 +464,7 @@ function main(): void {
 
   const globals: GlobalOptions = {
     databasePath: parsed.globals.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath(),
+    sourceKey: parsed.globals.sourceKey,
     json: parsed.globals.json ?? false,
     dryRun: parsed.globals.dryRun ?? false,
     idempotencyKey: parsed.globals.idempotencyKey,
@@ -468,6 +492,12 @@ function main(): void {
     switch (command) {
       case "list": {
         handleList(raw, parsed, globals);
+        break;
+      }
+      case "sources": {
+        ensureNoUnknownFlags(parsed.flags, []);
+        if (parsed.positionals.length !== 0) throw new Error("usage: tasks-cli sources");
+        printResult("sources", runCommand("source.list", {}, globals), globals);
         break;
       }
       case "show": {
