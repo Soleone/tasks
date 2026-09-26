@@ -1,6 +1,6 @@
 # Usage and interaction guide
 
-This is the current first-party UI contract. The [interaction spec](../spec/interaction.md) labels the proposed combined-source behavior separately; the [pivot plan](../plans/taskdb-2.0-pivot.md) is its sole staged roadmap.
+This is the user-facing guide to the current first-party UI. The concise interaction contract lives in the [UI specification](../spec/ui/overview.md), with detailed home-list and capture/edit behavior in adjacent spec files.
 
 Tasks is a keyboard-first, not keyboard-only, app. The saved-task list is the home screen and the primary place to begin work. Every action must also have a mouse-accessible path in the UI, such as a button, menu item, inline control, or compact icon toolbar with an accessible label and tooltip. Mouse controls remain secondary, but they must be complete when a pointer is easier or keyboard access is unavailable.
 

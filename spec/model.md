@@ -1,45 +1,70 @@
-# Task model and ownership
+# Task model
 
-## Current v1 task
+This document describes the current TaskDB v1 canonical task record and the richer record returned by the command API. They are different shapes.
 
-A task has a stable ID, nonempty title, Markdown description, status, priority, optional parent, dependency IDs, created/updated and completion/cancellation timestamps. The command response additionally has a local optimistic `version`, derived `category` and `tags`, and derived `blockedByIds`. See `TaskRecord` in `src/backend/protocol.ts`. The canonical task file is a different shape; see [storage](storage-v1.md).
+## Canonical task file
 
-| Field | Current behavior |
-| --- | --- |
-| `status` | `open`, `in_progress`, `paused`, `done`, or `canceled`. `task.delete` means cancel; permanent cleanup is a separate purge. |
-| `priority` | P0 through P4; P0 is highest and new tasks default to P2. |
-| `@category` | At most one in the **title**; derived from task text rather than stored as a separate project object. |
-| `#tag` | Zero or more title-derived tags. Slugs are case-folded; display labels retain entered spelling. |
-| `parentId` / `dependencyIds` | Same-workspace relationships; cycles are rejected. A canceled dependency stays linked but stops blocking. |
-| Sibling order | Each parent scope, including root, has its own durable order. New tasks are first in their sibling scope. |
-| `version` | Local optimistic token. It changes on real mutations and may be invalidated when a cache is rebuilt or restored; it is **not** the canonical file revision or hash. |
+Each durable task is one JSON object in `sync/tasks/<id>.json`:
 
-Classification skips code spans/fences and rejects more than one distinct `@category`. Changes to a title recalculate the category and tags. A repeated status transition to the same status is a no-op, not a new task version; `task.reopen` targets `open`. The exact allowed transition matrix is currently enforced in `src/backend/tasks.ts` and must be pinned by conformance cases before declaring a platform-neutral v0 contract.
-
-The `@category` slug is sufficient as the initial project/scope dimension. It is not a separate project with membership, permissions, metadata or a namespace. pi-tasks' project-to-category mapping is a client adapter policy, not a second canonical classification rule. Do not elevate its normalized `closed` status into this model: TaskDB distinguishes `done` from `canceled`.
-
-## 2.0 target: source-scoped references
-
-A **source** is a configured connection to one authority: a TaskDB v1 workspace, one project-local store, or a writable external task collection. A source's stable local key and the task ID supplied by that source together identify an item **in the combined client**. Neither the key nor external IDs have to be written into canonical v1 task files. A v1 workspace already stores a `workspaceId` in its own records. Detect mounting the same workspace twice rather than displaying duplicates. The frozen `TaskRef` shape and source-key rules are defined in the [combined-source v0 contract](contract-v0.md); they are not a deployed format.
-
-```text
-Combined task reference: (source key, source task ID)
-Owner of a mutation:      exactly that source's adapter
-Existing v1 file identity: workspaceId + task ID, unchanged
+```json
+{
+  "format": "tasks.task",
+  "formatVersion": 1,
+  "workspaceId": "workspace-id",
+  "id": "task-id",
+  "title": "Review release @planning #product",
+  "descriptionMarkdown": "",
+  "status": "open",
+  "priority": 2,
+  "parentId": null,
+  "dependencyIds": [],
+  "createdAt": "2026-09-08T20:51:04.113Z",
+  "updatedAt": "2026-09-08T20:51:04.113Z",
+  "completedAt": null,
+  "canceledAt": null,
+  "sync": {
+    "revision": 1,
+    "modifiedBy": "laptop",
+    "basedOnHash": null,
+    "contentHash": "<sha256>"
+  }
+}
 ```
 
-The local source registry is client/controller configuration, not another task authority. A normalized response is a **projection**; storing it as a cache does not transfer ownership or make it a bidirectional mirror. Per-source capabilities state which advanced relationships, order and transitions the source supports. Relationships and manual order remain within one source until there is a separate, tested cross-source design.
-
-A new task uses a configured default destination unless the person/agent explicitly overrides it. A task's origin can be inspected in details, not on every list row. Existing-task mutations always route to its source. A separate transfer operation, added after a writable adapter pilot, must create and verify the destination task, account for unrepresentable fields, and only then remove the origin with recovery for partial failure. Changing a source reference by itself does not move data.
-
-## 2.0 target: combined category views
-
-Category names are **not** prefixed with source keys. Two sources with `@planning` contribute to the same category filter. This is a query across authorities, not a new parent/list object.
-
-| Category choice | Result |
+| Field | Current meaning |
 | --- | --- |
-| **All** | Tasks from every configured source, regardless of whether they have a category. Other filters, such as status or search, can still apply. |
-| **`@planning`** | Only tasks whose derived/projected category slug is `planning`, from any configured source. |
-| **Uncategorized** | Only tasks with no category, from any configured source. This is a virtual filter, not a stored `@uncategorized` token or a reserved category slug. |
+| `workspaceId`, `id` | The task is identified within its canonical workspace. The task ID must match its filename. |
+| `title` | Nonempty task text. It is also the source of category and tag classification. |
+| `descriptionMarkdown` | Markdown description, empty by default. |
+| `status` | `open`, `in_progress`, `paused`, `done`, or `canceled`. |
+| `priority` | Integer 0–4. 0 is highest; new tasks default to 2. |
+| `parentId` | Nullable ID of a parent in the same workspace. |
+| `dependencyIds` | IDs of tasks this task depends on, in the same workspace. |
+| `createdAt`, `updatedAt` | ISO timestamps maintained by task mutations. |
+| `completedAt`, `canceledAt` | Nullable timestamps. The corresponding timestamp is populated for `done` or `canceled`, respectively. |
+| `sync` | File revision, writer label, prior-content hash, and current-content hash. See [Storage](storage.md). |
 
-Today the v1 `task.list` command accepts a category slug and no category argument means no category constraint. It has **no distinct Uncategorized query** yet. The combined-query shape, cross-source sorting, pagination and freshness rules must be specified and tested in Stage 2. The ordinary UI need not show a source filter by default; one can be added to a Sources view after use justifies it.
+The canonical task does not store a source key, category, tags, SQLite version, or sibling position. For now, a task's source is the workspace that contains it; the optional `sourceKey` is controller routing metadata, not a field written into the task. Classification is derived and version/order are local.
+
+## Classification and relationships
+
+Classification is derived from the **title only**. A token is `@` or `#` followed by `[A-Za-z][A-Za-z0-9_-]*` with a word boundary. It is recognized at the title start or after a character other than an ASCII letter, digit, `_`, `/`, or `@`. Tokens inside inline or fenced code are ignored. Slugs are lowercase; the parser keeps the first spelling for repeated tokens in a title. Persisted categories and tags are workspace-level dictionaries keyed by slug, so the API uses the stored label for that slug rather than storing a label per task. Tags in a `TaskRecord` are sorted by slug. A task may have only one distinct category; a second distinct category is rejected.
+
+Parent and dependency IDs are workspace-local. Parent and dependency cycles are rejected. A canceled task cannot be selected as a new parent or dependency target. A canceled dependency that was already linked remains for history, but does not block readiness. Sibling order is stored separately by parent scope in order files.
+
+## Command API task record
+
+Task queries return a projection with these fields:
+
+```text
+id, title, descriptionMarkdown, status, priority,
+category, tags, parentId, dependencyIds, blockedByIds,
+version, createdAt, updatedAt, completedAt, canceledAt
+```
+
+- `category` is a `{slug,label}` object or `null`; `tags` is an array of those objects.
+- `blockedByIds` contains current non-canceled blockers. `dependencyIds` retains all direct links.
+- `version` is a local optimistic-write token. It is not written to the canonical file and may change after rebuild or restore.
+- In the opt-in Node source-registry path, a projection may also contain `ref: {sourceKey, taskId}`. This is controller metadata, not part of the v1 canonical record. See [Sources](sources.md).
+
+The readable `workspace.exportTasks` output is a separate export shape, documented in [Storage](storage.md).

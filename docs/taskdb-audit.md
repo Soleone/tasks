@@ -1,6 +1,6 @@
 # TaskDB v1 safety audit
 
-**Status:** Stage 1 audit complete with native-platform blockers recorded. This is implementation evidence, not a second roadmap. The [approved pivot plan](../plans/taskdb-2.0-pivot.md) is the source of truth for stage order and exit gates.
+**Status:** Stage 1 audit complete with native-platform blockers recorded. This is implementation evidence, not a current-state specification. The owner later re-scoped the Stage 3 implementation to disposable WSL workspaces; that did not close the native validation blockers. The earlier multi-source pivot roadmap is retained as an [aspirational note](../ideas/taskdb-2.0-roadmap.md); current implementation details are in the [system specification](../spec/overview.md).
 
 ## Command and write paths
 

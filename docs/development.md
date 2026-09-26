@@ -1,6 +1,6 @@
 # Development and validation
 
-This describes the current implementation. The [TaskDB behavior spec](../spec/README.md) records current v1 contracts and separately labeled 2.0 targets; the [single pivot plan](../plans/taskdb-2.0-pivot.md) governs staged changes. A first multi-source controller prototype is available to the Node CLI and JSON-lines sidecar behind an explicit local registry. The first-party UI and packaged/native configuration remain single-source.
+This describes development, packaging, and validation for the current implementation. The [system specification](../spec/overview.md) records implemented behavior only; aspirational work is separated under [ideas](../ideas/overview.md). A limited multi-source controller is available to the Node CLI and JSON-lines sidecar behind an explicit local registry. The first-party UI and Android remain single-workspace.
 
 Tasks has two useful development paths:
 

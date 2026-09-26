@@ -1,6 +1,6 @@
 # Combined-source behavior contract (v0)
 
-**Status:** Frozen for the first controller prototype after the Stage 2 conformance gate passed. This is the TaskDB combined-source contract, not a deployed protocol version. The existing JSON-lines protocol remains version 1. Stage 3 now implements an opt-in local registry for TaskDB v1 roots and a first slice of combined reads and targeted writes.
+**Status:** Historical design reference, not the current system specification. The implemented subset is documented in [`spec/sources.md`](../spec/sources.md); unimplemented behavior remains a proposal. Some implementation and conformance notes below describe their original state and are now stale; use [`spec/conformance.md`](../spec/conformance.md) for current evidence. This is the TaskDB combined-source contract, not a deployed protocol version. The existing JSON-lines protocol remains version 1.
 
 The v0 contract is deliberately a small semantic layer around existing task behavior. It does not redefine the v1 files or require every source to support every operation.
 
