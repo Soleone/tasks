@@ -13,4 +13,4 @@ TASKS_DATABASE_PATH="$scratch/primary/tasks.db" node dist/backend/tasks-cli.js l
 # Expect four tasks with the described categories/statuses; clean up only $scratch afterward.
 ```
 
-`docs/taskdb-audit.md` records a separate scratch rebuild and JSON snapshot-restore proof. Stage 2 should turn those assertions into a black-box conformance test, including hash/ordering and old-client access. This fixture is not a portable export or a proposed 2.0 format.
+`scripts/taskdbConformance.test.mjs` now exercises disposable copies through the JSON-lines sidecar and `tasks-cli`: v1 read/write, stale and duplicate-key behavior, graph cycles, cache-loss rebuild, conflict-copy detection, and snapshot restore. `scripts/platformParity.test.mjs` covers the Android behaviors it actually supports, including P0/P4 and status transitions, and pins its partial-update and restore limitations. The static fixture is not a portable export or a proposed 2.0 format.

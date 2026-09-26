@@ -13,12 +13,13 @@ A normal desktop/CLI view will combine tasks from configured sources. Each task 
 | Label | Meaning |
 | --- | --- |
 | **Current v1** | Documented or observed existing behavior. Keep it compatible while changing architecture. |
-| **2.0 target** | Approved product direction that is **not yet implemented**. The v0 wire/adapter contract is not frozen until conformance tests pass. |
+| **2.0 target** | Approved product direction that is **not yet implemented**. The combined-source v0 contract is frozen for the first controller prototype, but not deployed. |
 | **Platform limit** | A difference or unproven behavior that must not be advertised as conformance. |
 
 The documents are not a declaration that every backend can already perform every operation. Before changing a behavioral claim, compare it with a fixture and update the relevant test. Do not import code-level conveniences into the contract merely because the current implementation exposes them.
 
 - [Model](model.md): task state, classification, identity, source ownership, and combined views.
+- [Combined-source v0 contract](contract-v0.md): frozen identity, query, write, capability, and error semantics for the first controller.
 - [Commands](commands.md): CLI/sidecar boundary, errors, concurrency, adapters, and supported-operation policy.
 - [Canonical v1 storage](storage-v1.md): inspectable files, local cache, recovery, and the formats that are *not* interchangeable.
 - [Interaction](interaction.md): first-party home/list and focus rules; alternative clients may use another UI.

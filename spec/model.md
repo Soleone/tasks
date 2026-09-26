@@ -20,7 +20,7 @@ The `@category` slug is sufficient as the initial project/scope dimension. It is
 
 ## 2.0 target: source-scoped references
 
-A **source** is a configured connection to one authority: a TaskDB v1 workspace, one project-local store, or a writable external task collection. A source's stable local key and the task ID supplied by that source together identify an item **in the combined client**. Neither the key nor external IDs have to be written into canonical v1 task files. A v1 workspace already stores a `workspaceId` in its own records. Detect mounting the same workspace twice rather than displaying duplicates. How stable keys are assigned and exposed on the wire is a Stage 2 contract decision, not a deployed format.
+A **source** is a configured connection to one authority: a TaskDB v1 workspace, one project-local store, or a writable external task collection. A source's stable local key and the task ID supplied by that source together identify an item **in the combined client**. Neither the key nor external IDs have to be written into canonical v1 task files. A v1 workspace already stores a `workspaceId` in its own records. Detect mounting the same workspace twice rather than displaying duplicates. The frozen `TaskRef` shape and source-key rules are defined in the [combined-source v0 contract](contract-v0.md); they are not a deployed format.
 
 ```text
 Combined task reference: (source key, source task ID)

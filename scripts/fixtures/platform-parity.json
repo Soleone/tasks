@@ -21,6 +21,20 @@
       "parent": "alpha",
       "category": "work",
       "tags": ["child", "shared"]
+    },
+    {
+      "key": "urgent",
+      "title": "Urgent boundary",
+      "priority": 0,
+      "category": null,
+      "tags": []
+    },
+    {
+      "key": "backlog",
+      "title": "Backlog boundary",
+      "priority": 4,
+      "category": null,
+      "tags": []
     }
   ],
   "queries": [
@@ -30,11 +44,11 @@
     },
     {
       "args": { "sort": "manual", "direction": "desc" },
-      "titles": ["Alpha @work #shared", "Child @work #shared #child", "Beta @home #shared"]
+      "titles": ["Backlog boundary", "Urgent boundary", "Alpha @work #shared", "Child @work #shared #child", "Beta @home #shared"]
     },
     {
       "args": { "sort": "priority", "direction": "desc" },
-      "titles": ["Child @work #shared #child", "Alpha @work #shared", "Beta @home #shared"]
+      "titles": ["Urgent boundary", "Child @work #shared #child", "Alpha @work #shared", "Beta @home #shared", "Backlog boundary"]
     }
   ]
 }

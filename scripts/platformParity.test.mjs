@@ -116,6 +116,33 @@ function createAndroidBackend(canonicalFiles = null) {
         state.workspaceRevision += 1;
         return {};
       }
+      case "updateTask": {
+        const taskIndex = state.tasks.findIndex((entry) => entry.id === request.task.id);
+        assert.notEqual(taskIndex, -1);
+        const current = state.tasks[taskIndex];
+        assert.equal(current.version, request.expectedVersion);
+        const dependencyIds = [...request.dependencyIds];
+        state.tasks[taskIndex] = {
+          ...current,
+          title: request.task.title,
+          descriptionMarkdown: request.task.descriptionMarkdown,
+          status: request.task.status,
+          priority: request.task.priority,
+          category: request.task.categoryId === null ? null : state.categories.get(request.task.categoryId),
+          tags: request.tagIds.map((id) => state.tags.get(id)),
+          parentId: request.task.parentId,
+          dependencyIds,
+          blockedByIds: dependencyIds.filter((id) => state.tasks.find((entry) => entry.id === id)?.status !== "canceled"),
+          version: request.task.version,
+          createdAt: request.task.createdAt,
+          updatedAt: request.task.updatedAt,
+          completedAt: request.task.completedAt,
+          canceledAt: request.task.canceledAt,
+          position: request.task.position,
+        };
+        state.workspaceRevision += 1;
+        return {};
+      }
       case "insertTaskTag": {
         const task = state.tasks.find((entry) => entry.id === request.taskId);
         const tag = state.tags.get(request.tagId);
@@ -201,6 +228,7 @@ test("desktop and Android follow the shared task behavior fixture", async () => 
       }, `fixture-${entry.key}`), databasePath);
       desktopIds.set(entry.key, desktopResult.task.id);
       assert.equal(desktopResult.task.category?.slug ?? null, entry.category);
+      assert.equal(desktopResult.task.priority, entry.priority);
       assert.deepEqual(desktopResult.task.tags.map((tag) => tag.slug).sort(), entry.tags);
     }
 
@@ -248,6 +276,49 @@ test("desktop and Android follow the shared task behavior fixture", async () => 
     androidCanonical = undefined;
     const androidLocal = createAndroidBackend();
     try {
+      const transitionTitle = "Status parity";
+      let desktopTransition = executeCommand(request("task.create", { title: transitionTitle }, "desktop-status-create"), databasePath).task;
+      const androidCreated = await handleAndroidRequest(request("task.create", { title: transitionTitle }, "android-status-create"));
+      assert.equal(androidCreated.ok, true);
+      let androidTransition = androidCreated.result.task;
+      for (const [command, status] of [
+        ["task.start", "in_progress"],
+        ["task.pause", "paused"],
+        ["task.complete", "done"],
+        ["task.reopen", "open"],
+        ["task.cancel", "canceled"],
+        ["task.reopen", "open"],
+      ]) {
+        const desktopStatus = executeCommand(request(command, {
+          id: desktopTransition.id,
+          expectedVersion: desktopTransition.version,
+        }, `desktop-status-${desktopTransition.version}`), databasePath);
+        const androidStatus = await handleAndroidRequest(request(command, {
+          id: androidTransition.id,
+          expectedVersion: androidTransition.version,
+        }, `android-status-${androidTransition.version}`));
+        assert.equal(androidStatus.ok, true, androidStatus.ok ? undefined : androidStatus.error.message);
+        desktopTransition = desktopStatus.task;
+        androidTransition = androidStatus.result.task;
+        assert.equal(desktopTransition.status, status);
+        assert.equal(androidTransition.status, status);
+        assert.equal(androidTransition.version, desktopTransition.version);
+      }
+
+      const partialDesktop = executeCommand(request("task.update", {
+        id: desktopTransition.id,
+        title: "Partial update accepted by Node",
+        expectedVersion: desktopTransition.version,
+      }, "desktop-partial-update"), databasePath);
+      assert.equal(partialDesktop.task.title, "Partial update accepted by Node");
+      const partialAndroid = await handleAndroidRequest(request("task.update", {
+        id: androidTransition.id,
+        title: "Partial update rejected by Android",
+        expectedVersion: androidTransition.version,
+      }, "android-partial-update"));
+      assert.equal(partialAndroid.ok, false);
+      if (!partialAndroid.ok) assert.equal(partialAndroid.error.code, "INVALID_ARGUMENT");
+
       const replayRequest = request("task.create", { title: "Receipt @review #once" }, "shared-receipt");
       const desktopFirst = executeCommand(replayRequest, databasePath);
       const androidFirst = await handleAndroidRequest(replayRequest);
@@ -267,6 +338,12 @@ test("desktop and Android follow the shared task behavior fixture", async () => 
       assert.equal(androidUndo.ok, true, androidUndo.ok ? undefined : androidUndo.error.message);
       assert.equal(desktopUndo.deletedTaskIds.length, 1);
       assert.equal(androidUndo.result.deletedTaskIds.length, 1);
+      const unsupportedRestore = await handleAndroidRequest(request("workspace.restore", {
+        sourcePath: "snapshot.json",
+        destinationPath: "restored.db",
+      }));
+      assert.equal(unsupportedRestore.ok, false);
+      if (!unsupportedRestore.ok) assert.equal(unsupportedRestore.error.code, "ANDROID_COMMAND_UNSUPPORTED");
       assert.equal(executeCommand(request("task.list", { search: "Receipt @review" }), databasePath).total, 0);
       const remainingAndroid = await handleAndroidRequest(request("task.list", { search: "Receipt @review" }));
       assert.equal(remainingAndroid.ok, true);
