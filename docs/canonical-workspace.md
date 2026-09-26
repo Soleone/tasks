@@ -1,5 +1,7 @@
 # Canonical workspace files
 
+This is the current v1 file layout. See [the storage spec](../spec/storage-v1.md) for its role in TaskDB 2.0 and [the pivot plan](../plans/taskdb-2.0-pivot.md) for staged compatibility work.
+
 Tasks keeps current task state in ordinary JSON files and uses SQLite as a local, rebuildable query cache. The default root is `sync/` beside `tasks.db`; set `TASKS_SYNC_ROOT` for a different root. Keep the root and the database out of the same live Syncthing share. Sync only the JSON root.
 
 ```text

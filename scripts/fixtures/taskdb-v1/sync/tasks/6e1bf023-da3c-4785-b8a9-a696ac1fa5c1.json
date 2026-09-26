@@ -1,0 +1,24 @@
+{
+  "format": "tasks.task",
+  "formatVersion": 1,
+  "workspaceId": "2be65317-7587-4fef-9de6-20f2afc88766",
+  "id": "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1",
+  "title": "Review checklist @planning",
+  "descriptionMarkdown": "",
+  "status": "open",
+  "priority": 2,
+  "parentId": "c8d4206d-c25a-4317-baa4-a2c5443060e9",
+  "dependencyIds": [
+    "c8d4206d-c25a-4317-baa4-a2c5443060e9"
+  ],
+  "createdAt": "2026-09-26T03:06:01.919Z",
+  "updatedAt": "2026-09-26T03:06:01.922Z",
+  "completedAt": null,
+  "canceledAt": null,
+  "sync": {
+    "revision": 2,
+    "modifiedBy": "45fbe19e-c364-4348-bebb-c7b9c4940c4f",
+    "basedOnHash": "e18ad77f615fc76f65e9799324c27ae0a9a6529e4c8985486885f7a15fa69151",
+    "contentHash": "f5018c51e5862afdfa5cfb3af83bea8fcc127af500f40e9a5a43ede9d3153c21"
+  }
+}

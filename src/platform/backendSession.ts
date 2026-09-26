@@ -8,7 +8,10 @@ import {
 type PendingRequest = {
   resolve: (response: ProtocolResponse) => void;
   reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
 };
+
+const REQUEST_TIMEOUT_MS = 120_000;
 
 function asText(value: string | Uint8Array): string {
   return typeof value === "string" ? value : new TextDecoder().decode(value);
@@ -24,6 +27,14 @@ export class BackendSession {
   private stdoutBuffer = "";
   private readonly pending = new Map<string, PendingRequest>();
 
+  constructor(
+    private readonly makeCommand: () => Promise<Command<string>> = async () => {
+      const { Command } = await import("@tauri-apps/plugin-shell");
+      return Command.sidecar("binaries/tasks-backend", ["--stdio"]);
+    },
+    private readonly requestTimeoutMs = REQUEST_TIMEOUT_MS,
+  ) {}
+
   async request(request: ProtocolRequest): Promise<ProtocolResponse> {
     await this.ensureStarted();
 
@@ -33,11 +44,15 @@ export class BackendSession {
 
     const child = this.child;
     return new Promise<ProtocolResponse>((resolve, reject) => {
-      this.pending.set(request.requestId, { resolve, reject });
+      const timeout = setTimeout(() => {
+        if (this.pending.has(request.requestId)) {
+          this.fail(new Error(`backend request timed out after ${this.requestTimeoutMs} ms; retry uncertain writes with the same idempotency key`));
+        }
+      }, this.requestTimeoutMs);
+      this.pending.set(request.requestId, { resolve, reject, timeout });
       void child.write(`${JSON.stringify(request)}\n`).catch((error: unknown) => {
-        this.pending.delete(request.requestId);
+        if (!this.pending.has(request.requestId)) return;
         this.fail(error);
-        reject(asError(error));
       });
     });
   }
@@ -72,18 +87,25 @@ export class BackendSession {
   }
 
   private async spawnBackend(): Promise<void> {
-    const { Command } = await import("@tauri-apps/plugin-shell");
-    const command: Command<string> = Command.sidecar("binaries/tasks-backend", ["--stdio"]);
+    const command = await this.makeCommand();
+    let spawnedChild: Child | null = null;
+    const isCurrent = () => spawnedChild !== null && this.child === spawnedChild;
 
-    command.stdout.on("data", (data) => this.consumeStdout(asText(data)));
-    command.on("error", (message) => this.fail(new Error(message)));
+    command.stdout.on("data", (data) => {
+      if (isCurrent()) this.consumeStdout(asText(data));
+    });
+    command.on("error", (message) => {
+      if (isCurrent()) this.fail(new Error(message));
+    });
     command.on("close", ({ code, signal }) => {
+      if (!isCurrent()) return;
       const detail = signal === null ? `exit code ${code ?? "unknown"}` : `signal ${signal}`;
       this.fail(new Error(`backend process closed with ${detail}`));
     });
 
     try {
-      this.child = await command.spawn();
+      spawnedChild = await command.spawn();
+      this.child = spawnedChild;
     } catch (error) {
       this.fail(error);
       throw error;
@@ -112,6 +134,7 @@ export class BackendSession {
           throw new Error(`backend returned an unknown request ID: ${response.requestId}`);
         }
         this.pending.delete(response.requestId);
+        clearTimeout(request.timeout);
         request.resolve(response);
       } catch (error) {
         this.fail(error);
@@ -132,6 +155,7 @@ export class BackendSession {
     this.stdoutBuffer = "";
 
     for (const request of this.pending.values()) {
+      clearTimeout(request.timeout);
       request.reject(error);
     }
     this.pending.clear();

@@ -1,0 +1,17 @@
+{
+  "format": "tasks.sibling-order",
+  "formatVersion": 1,
+  "workspaceId": "2be65317-7587-4fef-9de6-20f2afc88766",
+  "parentId": null,
+  "taskIds": [
+    "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed",
+    "f3e5499b-402e-4d7d-8b61-eefc4409ca32",
+    "c8d4206d-c25a-4317-baa4-a2c5443060e9"
+  ],
+  "sync": {
+    "revision": 4,
+    "modifiedBy": "45fbe19e-c364-4348-bebb-c7b9c4940c4f",
+    "basedOnHash": "ab96fcd8ab53988f222879060d95547947086b5cc2f7c60e5f258d5b74210f05",
+    "contentHash": "4da4109d552e793532d0279e5a7e7b338e775a2e0a9b0f5d438106930e08cd5c"
+  }
+}

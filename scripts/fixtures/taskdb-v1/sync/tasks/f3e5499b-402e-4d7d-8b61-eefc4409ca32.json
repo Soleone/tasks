@@ -1,0 +1,22 @@
+{
+  "format": "tasks.task",
+  "formatVersion": 1,
+  "workspaceId": "2be65317-7587-4fef-9de6-20f2afc88766",
+  "id": "f3e5499b-402e-4d7d-8b61-eefc4409ca32",
+  "title": "Inbox note",
+  "descriptionMarkdown": "",
+  "status": "done",
+  "priority": 2,
+  "parentId": null,
+  "dependencyIds": [],
+  "createdAt": "2026-09-26T03:06:01.924Z",
+  "updatedAt": "2026-09-26T03:06:01.928Z",
+  "completedAt": "2026-09-26T03:06:01.928Z",
+  "canceledAt": null,
+  "sync": {
+    "revision": 2,
+    "modifiedBy": "45fbe19e-c364-4348-bebb-c7b9c4940c4f",
+    "basedOnHash": "9f9ff8ef049e5959ca149bbeb0a4ef120074d6e3b2b3ad62f576c0e72316da57",
+    "contentHash": "0a73d1af428bc31ac81392cc20b02ededf74c1f50c8f43e48b8528a287852d79"
+  }
+}

@@ -49,22 +49,33 @@ test("compiled CLI creates and lists a classified task", async () => {
   }
 });
 
-test("compiled CLI answers the JSON-lines probe protocol", async () => {
+test("compiled CLI replays a write after restart", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-cli-"));
   const databasePath = path.join(directory, "cli.db");
   const child = spawn(process.execPath, [fileURLToPath(cliPath), "--stdio", "--database", databasePath], {
     stdio: "pipe",
   });
   const output = readline.createInterface({ input: child.stdout });
+  const createRequest = {
+    version: 1,
+    requestId: "cli-create-before-restart",
+    command: "task.create",
+    args: { title: "Survives restart @planning" },
+    idempotencyKey: "cli-restart-create-key",
+  };
 
   try {
     child.stdin.write(`${JSON.stringify({ version: 1, requestId: "cli-1", command: "runtime.probe" })}\n`);
     const [line] = await once(output, "line") as [string];
     const response = JSON.parse(line) as { ok: boolean; requestId: string; result?: { searchMatches: number } };
-
     assert.equal(response.ok, true);
     assert.equal(response.requestId, "cli-1");
     assert.equal(response.result?.searchMatches, 1);
+
+    child.stdin.write(`${JSON.stringify(createRequest)}\n`);
+    const [createdLine] = await once(output, "line") as [string];
+    const created = JSON.parse(createdLine) as { ok: boolean; result: { task: { id: string } } };
+    assert.equal(created.ok, true);
 
     child.kill();
     await once(child, "close");
@@ -82,11 +93,22 @@ test("compiled CLI answers the JSON-lines probe protocol", async () => {
         requestId: string;
         result?: { databasePath: string; searchMatches: number };
       };
-
       assert.equal(restartedResponse.ok, true);
       assert.equal(restartedResponse.requestId, "cli-restart");
       assert.equal(restartedResponse.result?.databasePath, databasePath);
       assert.equal(restartedResponse.result?.searchMatches, 1);
+
+      restarted.stdin.write(`${JSON.stringify({ ...createRequest, requestId: "cli-create-replay" })}\n`);
+      const [replayLine] = await once(restartedOutput, "line") as [string];
+      const replay = JSON.parse(replayLine) as { ok: boolean; result: { task: { id: string } } };
+      assert.equal(replay.ok, true);
+      assert.equal(replay.result.task.id, created.result.task.id);
+
+      restarted.stdin.write(`${JSON.stringify({ version: 1, requestId: "cli-list-after-restart", command: "task.list" })}\n`);
+      const [listLine] = await once(restartedOutput, "line") as [string];
+      const list = JSON.parse(listLine) as { ok: boolean; result: { total: number } };
+      assert.equal(list.ok, true);
+      assert.equal(list.result.total, 1);
     } finally {
       restartedOutput.close();
       restarted.kill();

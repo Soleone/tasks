@@ -1,5 +1,7 @@
 # Development and validation
 
+This describes the current implementation. The [TaskDB behavior spec](../spec/README.md) records current v1 contracts and separately labeled 2.0 targets; the [single pivot plan](../plans/taskdb-2.0-pivot.md) governs staged changes. Neither a proposed multi-source adapter nor a new HTTP server exists in the packaged app today.
+
 Tasks has two useful development paths:
 
 - `pnpm dev:web` runs Vite and a local HTTP bridge for fast UI iteration.

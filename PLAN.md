@@ -1,10 +1,8 @@
-# Tasks: implementation plan
+# Tasks: previous milestone baseline
 
 **Reviewed:** 2026-09-06
 
-**Status:** M0 complete; M1 in progress
-
-This is the project roadmap and decision record. Stable technical details live in [Development and validation](docs/development.md); user interaction is specified in the [Usage and interaction guide](docs/usage-guide.md). See the [README documentation index](README.md#documentation) for the other focused guides.
+**Status:** M0 complete; M1 in progress. The approved TaskDB 2.0 roadmap and its staged exit gates live in [one pivot plan](plans/taskdb-2.0-pivot.md). This file preserves the existing decisions and M1/native recovery obligations; it is not a second 2.0 plan. The [behavior spec](spec/README.md) distinguishes current v1 behavior from proposed 2.0 contracts. Technical details live in [Development and validation](docs/development.md), with first-party interaction in the [Usage and interaction guide](docs/usage-guide.md).
 
 ## Direction
 

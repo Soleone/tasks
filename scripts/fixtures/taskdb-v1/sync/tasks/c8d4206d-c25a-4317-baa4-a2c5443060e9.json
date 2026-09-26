@@ -1,0 +1,22 @@
+{
+  "format": "tasks.task",
+  "formatVersion": 1,
+  "workspaceId": "2be65317-7587-4fef-9de6-20f2afc88766",
+  "id": "c8d4206d-c25a-4317-baa4-a2c5443060e9",
+  "title": "Plan launch @planning #product",
+  "descriptionMarkdown": "",
+  "status": "open",
+  "priority": 1,
+  "parentId": null,
+  "dependencyIds": [],
+  "createdAt": "2026-09-26T03:06:01.914Z",
+  "updatedAt": "2026-09-26T03:06:01.914Z",
+  "completedAt": null,
+  "canceledAt": null,
+  "sync": {
+    "revision": 1,
+    "modifiedBy": "45fbe19e-c364-4348-bebb-c7b9c4940c4f",
+    "basedOnHash": null,
+    "contentHash": "41fd7a3921c9cf2b92837c577c25996425034f05df99be8e71ddb16fdfbc9ff7"
+  }
+}

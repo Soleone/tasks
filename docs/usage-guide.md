@@ -1,5 +1,7 @@
 # Usage and interaction guide
 
+This is the current first-party UI contract. The [interaction spec](../spec/interaction.md) labels the proposed combined-source behavior separately; the [pivot plan](../plans/taskdb-2.0-pivot.md) is its sole staged roadmap.
+
 Tasks is a keyboard-first, not keyboard-only, app. The saved-task list is the home screen and the primary place to begin work. Every action must also have a mouse-accessible path in the UI, such as a button, menu item, inline control, or compact icon toolbar with an accessible label and tooltip. Mouse controls remain secondary, but they must be complete when a pointer is easier or keyboard access is unavailable.
 
 Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progressive disclosure, and existing surfaces over large duplicate controls or dashboard clutter. A keyboard shortcut alone is not enough, and a mouse affordance should not require adding a noisy control to every row.
