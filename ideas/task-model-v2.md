@@ -1,24 +1,26 @@
-# Task model v2 direction
+# TaskDB v2 data model proposal
 
-**Status:** Working design notes based on decisions so far. This is not implemented behavior. The current v1 model remains in the [system specification](../spec/model.md).
+**Status:** Working design, not implemented behavior. The current v1 model remains authoritative in the [system specification](../spec/model.md). See the separate [v2 behavior proposal](task-behavior-v2.md) for lifecycle and timestamp mutation rules, and the [Syncthing sync and ordering note](syncthing-sync-ordering.md) for replicated-file concerns.
 
-## Proposed shape
+## Scope
 
-The workspace manifest identifies and versions the whole TaskDB workspace. Its version applies to every task and order file in that workspace.
+This note defines the candidate canonical data shape and the meaning of its fields. It does not define UI interactions, command behavior, controller routing, or platform-specific storage mechanics.
 
-`workspace.json`:
+## Workspace manifest
+
+The selected directory is the collection boundary. The proposed root manifest has one field; version 2 is provisional.
 
 ```json
 {
-  "format": "taskdb",
-  "formatVersion": 2,
-  "workspaceId": "workspace-id"
+  "schemaVersion": 2
 }
 ```
 
-The example uses `2` as the next version number; that number is not yet locked.
+Omit `format` and `workspaceId`. Do not repeat the schema version or a record-type discriminator on task files.
 
-A task file stays a flat task object. The path under `tasks/` establishes that it is a task, so it needs no separate record-type field. `workspaceId` and format version are not repeated on every task. Synchronization data remains grouped separately from task data for now:
+## Candidate task record
+
+Task records stay flat. The containing path establishes their role, so they need no separate `type` field.
 
 ```json
 {
@@ -31,35 +33,35 @@ A task file stays a flat task object. The path under `tasks/` establishes that i
   "tags": ["product"],
   "parentId": null,
   "dependencyIds": [],
+  "orderKey": "a0",
   "createdAt": "2026-09-08T20:51:04.113Z",
   "updatedAt": "2026-09-08T20:51:04.113Z",
-  "closedAt": null,
-  "sync": {
-    "revision": 1,
-    "modifiedBy": "laptop",
-    "basedOnHash": null,
-    "contentHash": "<sha256>"
-  }
+  "closedAt": null
 }
 ```
 
-The core `Task` is the task fields without `sync`. A portable or in-memory task can omit synchronization data; a canonical TaskDB task file includes it. Workspace format and identity live in the workspace manifest. Order records remain separate under `order/` and use the format version declared by the workspace.
+The `orderKey` value and exact encoding are illustrative, not a locked algorithm.
 
-## Decisions captured so far
+| Field | Proposed meaning |
+| --- | --- |
+| `description` | Markdown content; replaces `descriptionMarkdown`. |
+| `status` | Existing task states remain the baseline: `open`, `in_progress`, `paused`, `done`, and `canceled`. |
+| `category` | One lowercase value or `null`. |
+| `tags` | A list of lowercase values. |
+| `closedAt` | Timestamp associated with the current terminal state, `done` or `canceled`. Its mutation rules are in the [behavior proposal](task-behavior-v2.md). |
+| `updatedAt` | Timestamp whose proposed meaning and update triggers are defined in the [behavior proposal](task-behavior-v2.md). |
+| `orderKey` | Leading candidate for sparse per-task manual ordering. See the [sync and ordering note](syncthing-sync-ordering.md). |
 
-- `description` is a Markdown string; Markdown is a content rule, not part of the field name.
-- `category` is either one lowercase value or `null`. `tags` is a list of lowercase values. Inputs compare case-insensitively and are normalized to lowercase when stored. No separate display labels are stored.
-- `@category` and `#tag` remain UI input/presentation syntax. The UI can style them inline, but the saved title is plain title text and the values are stored in their own fields.
-- `closedAt` replaces `completedAt` and `canceledAt`. It is set when entering `done` or `canceled`, and cleared when reopened. `status` tells which terminal state the timestamp refers to.
-- There is one format version per workspace, not a schema version per task. `workspaceId` is stored once in the manifest; task IDs and relationships are scoped to that workspace.
-- Keep per-record `sync.revision` for now. Android currently uses it as its optimistic task version; Node uses a separate local version. It does not choose a winner when devices conflict.
+Keep `@category` and `#tag` as input or presentation syntax, not markers stored in task titles.
 
-A configured `sourceKey` remains a local route to a workspace, not a field on each task. At a boundary that combines workspaces, identity can include both `workspaceId` and task `id`.
+## Excluded from canonical task files
 
-## Still open
+- No task `type` or per-task schema version.
+- No `sync` block, including `revision`, writer identity, `basedOnHash`, or `contentHash`.
+- No device-local optimistic version or observed-file hash. Those remain local cache/sync state, as described in the [sync and ordering note](syncthing-sync-ordering.md).
 
-- Whether `sync.contentHash` includes the workspace identity after `workspaceId` moves to the manifest, or hashes only the task file content.
-- The long-term sync contract. Revision is currently useful for Android stale-write checks, but it is not a global clock or a conflict-resolution rule. Hash ancestry and conflict behavior need a deliberate contract.
-- The exact input-token grammar, escaping, and compatibility behavior for CLI/imports when `@category` and `#tags` become UI shorthand rather than stored title text.
-- Whether tags have a canonical serialized order. They are set-like, but the storage rule is not decided.
-- The v1 migration and compatibility/export behavior.
+## Open data questions
+
+- Exact category/tag input grammar, escaping, canonical tag order, and CLI/import compatibility.
+- Exact fractional-key algorithm, comparison rules, and v1 order migration.
+- Final v1-to-v2 compatibility/export contract and the version number.
