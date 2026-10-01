@@ -3,6 +3,8 @@ import { executeCommand } from "./commands.js";
 import { watchCanonicalWorkspace, withCanonicalRootPath } from "./canonicalWorkspace.js";
 import { readSourceRegistry } from "./sourceRegistry.js";
 import { getDatabasePath } from "./paths.js";
+import { executeV2Line } from "./v2Gateway.js";
+import type { V2Response } from "./v2Protocol.js";
 import {
   errorResponse,
   parseLine,
@@ -16,7 +18,7 @@ function optionValue(args: string[], name: string): string | undefined {
   return index === -1 ? undefined : args[index + 1];
 }
 
-function writeResponse(response: ProtocolResponse): void {
+function writeResponse(response: ProtocolResponse | V2Response): void {
   process.stdout.write(`${JSON.stringify(response)}\n`);
 }
 
@@ -81,8 +83,36 @@ async function runStdio(databasePath: string): Promise<void> {
   await backgroundSync;
 }
 
+async function runV2Stdio(rootPath: string, cachePath: string): Promise<void> {
+  let buffered = Buffer.alloc(0);
+  const respond = (line: Buffer): void => {
+    if (line.every(byte => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
+    writeResponse(executeV2Line(line, rootPath, cachePath));
+  };
+  // Frame bytes before UTF-8 decoding so invalid input cannot become replacement characters.
+  for await (const chunk of process.stdin) {
+    buffered = Buffer.concat([buffered, chunk as Buffer]);
+    let newline: number;
+    while ((newline = buffered.indexOf(0x0a)) !== -1) {
+      respond(buffered.subarray(0, newline));
+      buffered = buffered.subarray(newline + 1);
+    }
+  }
+  if (buffered.length > 0) respond(buffered);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  if (args.includes("--v2-root")) {
+    const rootPath = optionValue(args, "--v2-root");
+    const cachePath = optionValue(args, "--database");
+    if (!args.includes("--stdio") || args.includes("--probe") || !rootPath?.trim() || !cachePath?.trim()
+      || rootPath.startsWith("--") || cachePath.startsWith("--")) {
+      throw new Error("v2 requires --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT");
+    }
+    await runV2Stdio(rootPath, cachePath);
+    return;
+  }
   const databasePath = optionValue(args, "--database") ?? getDatabasePath();
 
   if (args.includes("--stdio")) {
@@ -96,7 +126,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH]\n");
+  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT\n");
   process.exitCode = 2;
 }
 

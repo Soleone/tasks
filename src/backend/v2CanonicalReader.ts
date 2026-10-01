@@ -9,6 +9,7 @@ import type { V2CanonicalTask } from "./v2TaskModel.js";
 export type V2FileObservation = { relativePath: string; sha256: string };
 export type V2CanonicalSnapshot = {
   rootPath: string;
+  rootIdentity: string;
   tasks: V2CanonicalTask[];
   files: V2FileObservation[];
   conflictFiles: V2FileObservation[];
@@ -88,7 +89,42 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
     const rightParent = right.parentId ?? "";
     return leftParent === rightParent ? compareV2Tasks(left, right) : leftParent < rightParent ? -1 : 1;
   });
-  return { rootPath, tasks, files, conflictFiles };
+  return { rootPath, rootIdentity, tasks, files, conflictFiles };
+}
+
+export type V2RootInspection = {
+  rootPath: string;
+  rootIdentity: string;
+  state: "empty" | "ready" | "incomplete" | "unsupported";
+  schemaVersion: number | null;
+  issues: { code: string; message: string }[];
+  snapshot?: V2CanonicalSnapshot;
+};
+
+export function inspectV2CanonicalRoot(directory: string): V2RootInspection {
+  const rootPath = realpathSync(directory);
+  const rootIdentity = directoryIdentity(rootPath);
+  const base = { rootPath, rootIdentity };
+  let schemaVersion: number | null = null;
+  try {
+    if (readdirSync(rootPath).length === 0) return { ...base, state: "empty", schemaVersion, issues: [] };
+    const manifestPath = path.join(rootPath, "workspace.json");
+    if (!existsSync(manifestPath)) invalidEntry();
+    const manifest = parseV2CanonicalJson(regularFileBytes(manifestPath));
+    if (manifest !== null && typeof manifest === "object" && !Array.isArray(manifest)
+      && Number.isSafeInteger((manifest as Record<string, unknown>).schemaVersion)) {
+      schemaVersion = (manifest as { schemaVersion: number }).schemaVersion;
+    }
+    validateV2Manifest(manifest);
+    const snapshot = observeRoot(rootPath);
+    if (snapshot.rootIdentity !== rootIdentity) throw new CommandError("STALE_SCOPE", "root changed during inspection");
+    const issues = snapshot.conflictFiles.map(() => ({ code: "CONFLICT_COPY", message: "raw conflict copy requires reviewed repair" }));
+    return { ...base, state: "ready", schemaVersion, issues, snapshot };
+  } catch (error) {
+    const code = error instanceof CommandError ? error.code : "INVALID_STORAGE";
+    const message = error instanceof CommandError ? error.message : "root could not be inspected completely";
+    return { ...base, state: code === "UNSUPPORTED_SCHEMA" ? "unsupported" : "incomplete", schemaVersion, issues: [{ code, message }] };
+  }
 }
 
 /** Read-only Node observation, not an API projection, writer lock, journal or distributed snapshot. */

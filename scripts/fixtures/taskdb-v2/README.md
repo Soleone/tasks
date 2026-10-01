@@ -1,6 +1,6 @@
 # Accepted-target v2 fixtures
 
-**These are declarative expectations, not v2 implementation output.** Production Node/Android still implement v1. `scripts/taskdbV2Spec.test.mjs` checks this corpus's integrity and golden data only; it does not run a v2 command engine or prove recovery/migration.
+**These are declarative expectations, not v2 implementation output.** Default Node/Android surfaces still implement v1; an explicit opt-in Node query subset now executes selected cases under the [evidence matrix](../../../spec/v2/conformance.md), not the entire corpus. `scripts/taskdbV2Spec.test.mjs` checks this corpus's integrity and golden data only; it does not run a v2 command engine or prove recovery/migration.
 
 - `root/` is the hand-authored full-field golden target for the existing [v1 canonical fixture](../taskdb-v1/README.md). Its descriptor and four task files are complete schema-2 records. Never sync/mutate the committed fixture directly; copy to disposable roots.
 - `cases.json` has fixtureVersion 1, status accepted-target, a complete taskTemplate, and named cases `{id,profile,rule,given,action,expect}`. Rule anchors resolve under [spec/v2/](../../../spec/v2/overview.md). Profiles are model, inputs, mutations, protocol, ordering, storage, migration and cli. They group tests, not runtime capabilities.

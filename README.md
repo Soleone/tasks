@@ -24,10 +24,24 @@ Current task state lives in ordinary JSON files under `sync/`; SQLite is a local
 
 If another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. Tasks backs up and empties the local workspace, locks the UI, and waits for the existing workspace. Follow [the Syncthing setup](docs/syncthing.md) for the complete procedure.
 
+## Disposable v2 query probe
+
+The default app/CLI remains v1. This explicit read-only Node subset supports `workspace.info`, `task.get`, `task.list`, `category.list`, and `tag.list`; mutations/previews and migration remain unsupported. It writes only its separate local query cache, never canonical files. Use disposable copies, not personal data:
+
+```bash
+pnpm build:backend
+scratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$scratch/root"
+printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
+  node dist/backend/cli.js --stdio --v2-root "$scratch/root" --database "$scratch/cache.db"
+```
+
+The cache must be outside the canonical tree. See [the evidence matrix](spec/v2/conformance.md) for the limited coverage and unsupported capabilities. This is not migration, recovery, or native acceptance.
+
 ## Documentation
 
 - [Current system specification](spec/overview.md): the implemented v1 task model, storage, protocol, queries, mutations, CLI, sources, and UI behavior.
-- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, not a production reader/writer.
+- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, with a bounded opt-in Node query subset; writable behavior is not implemented.
 - [Development and validation](docs/development.md): architecture, developer workflows, packaging, scratch data, and platform checks.
 - [Ideas and proposals](ideas/overview.md): aspirational designs and the earlier TaskDB 2.0 roadmap.
 - [Keyboard and UI guide](docs/usage-guide.md): home-screen focus, mouse paths, shortcuts, filters, sorting, and agent-facing UI contract.
