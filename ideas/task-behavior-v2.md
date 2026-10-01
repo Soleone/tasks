@@ -9,7 +9,7 @@ This note describes domain rules that should hold regardless of whether a task i
 - The [v1 mutation catalog](../spec/mutations.md) remains the baseline for supported actions and transitions unless a v2 decision explicitly changes it.
 - The [v1 protocol](../spec/protocol.md) remains the baseline for request, version, idempotency, and error behavior.
 - User-visible interaction belongs in the [UI specification](../spec/ui/overview.md). Platform and storage mechanics belong in the relevant implementation documentation.
-- Syncthing file observation and stale-write checks belong in the [sync and ordering proposal](syncthing-sync-ordering.md).
+- Syncthing file observation and stale-write checks belong in the [sync and ordering proposal](syncthing-sync-ordering.md); physical deletion preconditions and first join belong in the [collection lifecycle proposal](collection-lifecycle-v2.md).
 
 ## Proposed timestamp semantics
 

@@ -16,7 +16,7 @@ The selected directory is the collection boundary. The proposed root manifest ha
 }
 ```
 
-Omit `format` and `workspaceId`. Do not repeat the schema version or a record-type discriminator on task files.
+Omit `format` and `workspaceId`. Do not repeat the schema version or a record-type discriminator on task files. Directory identity, joining, and migration are worked through in the [collection lifecycle proposal](collection-lifecycle-v2.md); the exact manifest encoding is still open.
 
 ## Candidate task record
 

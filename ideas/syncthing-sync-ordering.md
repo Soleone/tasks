@@ -9,11 +9,9 @@
 - Syncthing syncs files, not TaskDB operations or JSON structures. Concurrent edits to the same path can create conflict copies that are painful for ordinary users.
 - Manual ordering is required. Avoid creating conflicts for common, compatible actions such as independently capturing different tasks while devices are offline.
 
-## Workspace identity
+## Collection lifecycle boundary
 
-The current v1 `workspaceId` labels a dataset, but Syncthing does not require it. The current receive/adopt flow responds to a different ID by backing up and clearing the receiving canonical directory before adopting the incoming files. That destructive policy is an application choice, not a requirement of the ID.
-
-**Current recommendation:** omit `workspaceId` from v2 and treat the selected directory as the collection. Keep a small root manifest with one `schemaVersion`; omit the redundant `format` discriminator. If identity is retained, a mismatch must not imply deleting local tasks; a merge path is needed. Merging two directories still needs same-task conflict handling and an ordering policy.
+The [collection lifecycle proposal](collection-lifecycle-v2.md) owns the no-`workspaceId` direction, automatic first join of disjoint task files, ID collisions, physical deletion, and staged migration. This note owns the per-task ordering candidate and local file-observation rule, not the join workflow. Syncthing [describes a newly added folder as merging with remote files](https://docs.syncthing.net/users/faq.html), but same-path edits require conflict handling; automatic union is not yet proven for our format.
 
 ## Ordering
 
@@ -33,8 +31,8 @@ This should remove the common conflict where devices add different tasks to the 
 
 ## Still to decide and validate
 
-- Confirm removal of `workspaceId` and define how first-time merging of independently used devices selects the resulting collection.
+- Prove the [collection lifecycle](collection-lifecycle-v2.md) with two real Syncthing instances; distinguish automatic union of distinct files from same-path conflict repair.
 - Choose and test the exact fractional-key algorithm, tie-break, comparison rules, and migration from v1 order files.
-- Define automatic handling for independent additions, incompatible reorders, and same-task conflict copies. Keep losing data recoverable.
+- Prove independent additions and incompatible reorders under sparse keys. Same-ID conflict-copy repair belongs in the [collection lifecycle proposal](collection-lifecycle-v2.md); keep losing data recoverable.
 - Decide whether any writer attribution is needed in local conflict UI. It is not part of the v2 canonical task record.
 - Keep the initial design short of a sequence CRDT or append-only operation log unless these tests show they are needed.

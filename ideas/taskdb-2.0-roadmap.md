@@ -1,6 +1,6 @@
 # TaskDB 2.0 pivot
 
-**Status:** Aspirational and historical. This roadmap reflects the earlier multi-source-led pivot, not the current implementation order. The current direction is to clarify the task model and specification before expanding source support; see [`spec/overview.md`](../spec/overview.md).  
+**Status:** Superseded implementation sequence. Stages 0–3 below record completed v1 audit, conformance, and opt-in Node controller evidence; unchecked stages 4–7 are proposals, **not** the current next-work queue. The 2026-09-30 [plan](../PLAN.md) instead prioritizes a spec-driven, single-directory TaskDB contract with safe v1 migration and Syncthing behavior. Keep the controller as a bounded prototype; do not begin an external adapter based on this historical checklist. See [the current spec](../spec/overview.md) for what actually ships.
 **Working name:** TaskDB, not a naming or package-identity decision.  
 **Goal:** An open, local-first task engine with a great keyboard-first app and a dependable CLI for people and their agents.
 
@@ -66,9 +66,9 @@ Begin by codifying *observed v1 behavior* and label 2.0 proposals as proposed un
 - `src/platform/androidBackendEngine.ts`, `scripts/platformParity.test.mjs`, existing backend tests and `scripts/check-ui.mjs` for parity and end-to-end evidence.
 - `src/backend/adapters/tasks/` in the separate pi-tasks repository is an external consumer and compatibility probe, not a module to relocate automatically.
 
-## Stages and exit gates
+## Historical stages and exit gates
 
-Keep each stage reviewable and reversible. Do not mark it complete while its gate fails. Native recovery and M1 safety blockers take precedence over architecture extraction.
+The checked boxes are historical evidence, not approval of the remaining multi-source stages. Keep each stage reviewable and reversible. Do not mark it complete while its gate fails. Native recovery and M1 safety blockers take precedence over architecture extraction.
 
 - [x] **0. Establish `spec/` and the product contract.** Capture the model, command boundary, v1 storage and UX from code and the existing guides. Work three examples: a personal TaskDB workspace; an agent in one `@category` (or a project-local sq source); and a writable external source viewed beside it. Explain source identity, default capture, edits, All/Uncategorized filtering and source authority without assuming any new package or network server. **Gate:** a reader can reconstruct command routing, storage ownership and the editing path without consulting TypeScript; contradictions with v1 are flagged, not silently rewritten.
 

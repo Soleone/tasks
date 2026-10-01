@@ -2,7 +2,7 @@
 
 A local-first, keyboard-first task app for people and their existing agents. Tasks uses a TypeScript command path, a Tauri desktop shell, a standalone JSON-lines CLI, and a canonical JSON workspace with a rebuildable SQLite cache.
 
-**Status:** M0 is complete and M1 is in progress. The current slice covers task capture and state changes, priorities, filters and search, shallow relationships, manual ordering, activity and idempotent agent writes, themes, export/restore, and canonical-workspace sync. Windows 11 packaging and desktop/WSL bridge checks pass; Omarchy/Linux desktop validation is later work.
+**Status:** M0 is complete; M1 native acceptance remains open even though the app already implements capture, state changes, priorities, filters and search, shallow relationships, manual ordering, activity and idempotent agent writes, themes, export/restore, and canonical-workspace sync. Windows 11 packaging and desktop/WSL bridge checks pass; Omarchy/Linux desktop validation is later work. The [current plan](PLAN.md) prioritizes a spec-driven, single-directory TaskDB v2 contract and safe migration. V2 proposals are not shipped behavior or a public standard; the opt-in multi-source controller is a Node-only prototype, not the next release path.
 
 ## Start here
 
@@ -34,7 +34,7 @@ If another device already has task history, use **Settings → Sync with another
 - [Syncthing setup](docs/syncthing.md): safe initial seeding, folder modes, versioning, and recovery rules.
 - [Android SAF performance](docs/android-saf-performance.md): bounded-read decision, device measurements, and how to repeat the investigation.
 - [Themes](docs/themes.md): built-in palettes, workspace `colors.toml` files, and the preview page.
-- [Previous milestone baseline](PLAN.md): existing M0-M3 decisions and open M1 obligations.
+- [Current plan and previous milestone baseline](PLAN.md): the single-root TaskDB reset, next gates, and open native M1 obligations.
 - [Guidelines](GUIDELINES.md): product principles.
 - [Agent instructions](AGENTS.md): repository starting points and development tracking.
 

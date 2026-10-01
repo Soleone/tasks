@@ -1,8 +1,10 @@
-# Current system specification
+# TaskDB specification
 
-This folder describes the behavior implemented in this repository today. It is the current-state reference for the task model, storage, protocol, queries, mutations, CLI, and first-party UI. Aspirational proposals belong in [`ideas/`](../ideas/), not here.
+The root pages in this folder describe behavior implemented in this repository today: the v1 task model, storage, protocol, queries, mutations, CLI, sources, and first-party UI. They are the current-state reference. Aspirational proposals belong in [`ideas/`](../ideas/), not here.
 
-This is a specification of Tasks, not a claim that the format is a universal standard. Version and platform limits are stated where they matter. Automated evidence is mapped in [Conformance](conformance.md).
+For spec-driven work, first resolve a proposal in `ideas/`, then add the accepted next-version contract under `spec/v2/` **before implementing it**. Mark each such page `accepted target, not implemented` until its black-box fixtures and platform evidence pass; do not fold target behavior into the root v1 pages or imply that acceptance means it ships. Record version negotiation, compatibility and failure behavior as well as the success case. The [current plan](../PLAN.md) lists the promotion gates. The [ideas overview](../ideas/overview.md) maps proposal topics to the corresponding current contracts; create only the v2 spec pages needed for an accepted change.
+
+This is a specification of Tasks, not a claim that the format is a universal standard. Independent writer/readers and conformance are required before claiming interoperability. Version and platform limits are stated where they matter. Automated evidence is mapped in [Conformance](conformance.md).
 
 ## System at a glance
 

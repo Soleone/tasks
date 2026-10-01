@@ -1,8 +1,29 @@
-# Tasks: previous milestone baseline
+# Tasks: direction and delivery plan
+
+**Reset:** 2026-09-30. **Current decision:** develop a portable, single-directory TaskDB contract through specs and conformance, with Tasks as its first-party app. A public standard is a goal to earn through an independent implementation, not a claim about the current v1 format. The opt-in multi-source v1 controller remains supported as a bounded prototype, but external adapters, a combined-source UI, and cross-source moves are not the next milestones. Do not alter v1 data before an opt-in, reversible migration is proven.
+
+## Where we are
+
+- M0 runtime proof is complete. The app has more implemented features than the old M1 scope, but M1 native UI/restart/restore acceptance is still open. Feature presence does not close that gate.
+- V1 canonical files, command/CLI behavior, and the limited Node-only source controller are documented in [spec/](spec/overview.md). The v2 data, behavior, and Syncthing/ordering documents in [ideas/](ideas/overview.md) are proposals, not accepted rules or shipped functionality.
+- On 2026-09-30 in WSL2, `pnpm check`, `pnpm test` (118/118), `pnpm test:sidecar`, and `pnpm lint` passed. The Linux SEA probe emitted `.note` injection warnings but both executables ran. This is not native Windows, Omarchy, or Android acceptance. See [conformance](spec/conformance.md) and [the v1 audit](docs/taskdb-audit.md) for the limits of prior evidence.
+- The previous multi-source-led [TaskDB 2.0 roadmap](ideas/taskdb-2.0-roadmap.md) records completed audit/controller work, but its stages 4–7 are superseded as the implementation sequence. Preserve those results; do not start an external adapter just because it is the next unchecked box.
+
+## Next gates
+
+1. **Settle v2 safety decisions in ideas.** Specify collection identity and first-time merge (including duplicate task IDs), file layout and deletion semantics, v1-to-v2 migration/rollback with mixed-version refusal, canonical category/tag/title compatibility, timestamp/undo/activity behavior, and the public command boundary. Keep one owner per contract; cross-link rather than repeat rules.
+2. **Prove sync and order candidates on disposable roots.** Test independent offline captures, equal-key inserts, conflicting reorders, same-task edits, external-file races, missing files, crash/retry, and conflict-copy preservation. Select an exact sparse-key algorithm/comparator and a recoverable merge policy. A local observed-file hash is a stale-write check, not an atomic cross-device compare-and-swap.
+3. **Promote accepted decisions to a versioned `spec/v2/` contract before implementation.** Give each contract explicit status (`accepted target` until implemented), normative examples, failures, backward-compatibility rules, and black-box fixtures. `spec/` is the accepted contract; `ideas/` is the matching proposal workspace. Existing root `spec/*.md` remains the current v1 reference. Do not label target behavior as shipped until conformance passes.
+4. **Build one recoverable v2 slice only after the contract and fixtures exist.** Keep old v1 readers/writers safe, back up and validate migration/restore on scratch data, and exercise the same contract through Node CLI and Android or document an intentional platform limitation. No second writable authority or silent data loss.
+5. **Complete native evidence in parallel on capable hosts.** Windows 11 UI dogfood/relaunch/restore, Omarchy webview/focus, and Android SAF process-lifecycle/provider checks remain open. WSL, Chromium, and emulator standard-picker checks do not close their respective native or physical-provider gates. Use [development instructions](docs/development.md) and the [v1 audit](docs/taskdb-audit.md).
+
+The immediate implementation gate is **an accepted, tested single-root v2 contract and a safe migration story**, not the next adapter. No v2 fields, file versions, or published standard are approved merely by appearing in `ideas/`. The local development queue is `sq list --ready`; `.sift/` is ignored by Git, so this plan remains the portable record of direction and gates.
+
+## Previous milestone baseline
 
 **Reviewed:** 2026-09-06
 
-**Status:** M0 complete; M1 in progress. This file preserves the existing decisions and M1/native recovery obligations. The current implemented behavior is described in the [system specification](spec/overview.md); the earlier multi-source-led TaskDB 2.0 roadmap is retained as an aspirational note in [ideas](ideas/taskdb-2.0-roadmap.md). Technical details live in [Development and validation](docs/development.md), with first-party interaction guidance in [Usage and interaction](docs/usage-guide.md).
+**Status at that review:** M0 complete; M1 in progress. The following decisions and M1/native recovery obligations describe the earlier app baseline. When v2 proposals challenge a v1 decision, resolve the difference explicitly in the versioned spec rather than silently rewriting this history. Current behavior is described in [the system specification](spec/overview.md); technical details live in [Development and validation](docs/development.md), with first-party interaction guidance in [Usage and interaction](docs/usage-guide.md).
 
 ## Direction
 
