@@ -14,4 +14,6 @@ The v1 fixture under `scripts/fixtures/taskdb-v1/` is disposable test input with
 
 The registry integration test creates two temporary TaskDB roots, checks aggregate queries and TaskRefs, routes protocol and CLI writes, confirms the other root stays unchanged, and verifies that mounting the same workspace twice fails closed. Registry-enabled first-party UI and Android behavior are not covered because they are not implemented.
 
+The [v2 target conformance page](v2/conformance.md) separately maps declarative expectations and unproven writer/platform capabilities. `scripts/taskdbV2Spec.test.mjs` checks fixture/spec integrity only; its passing checks do not execute the v2 cases or change any current v1 claim.
+
 Validation procedures and commands live in [Development and validation](../docs/development.md). Native acceptance and platform-specific evidence are tracked there, not inferred from this test list.

@@ -1,6 +1,6 @@
 # Syncthing sync and ordering direction
 
-**Status:** Working direction for the next format, not implemented behavior. The current v1 contract remains in the [specification](../spec/overview.md).
+**Status:** Selected rules promoted to the [accepted v2 target](../spec/v2/ordering.md) on 2026-10-01, **not implemented**. This document preserves proposal reasoning, earlier reconciliation and bounded evidence; the versioned target is authoritative where details differ. Root [v1 specs](../spec/overview.md) remain shipped behavior. Promotion does not prove migration, doctor, receipts, native providers or interoperability.
 
 ## Product constraints and goals
 

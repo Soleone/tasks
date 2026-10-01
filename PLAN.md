@@ -5,7 +5,7 @@
 ## Where we are
 
 - M0 runtime proof is complete. The app has more implemented features than the old M1 scope, but M1 native UI/restart/restore acceptance is still open. Feature presence does not close that gate.
-- V1 canonical files, command/CLI behavior, and the limited Node-only source controller are documented in [spec/](spec/overview.md). The v2 data, behavior, and Syncthing/ordering documents in [ideas/](ideas/overview.md) are proposals, not accepted rules or shipped functionality.
+- V1 canonical files, command/CLI behavior, and the limited Node-only source controller remain the implemented root [spec/](spec/overview.md). The single-root [v2 contracts](spec/v2/overview.md) are now **accepted targets, not implemented**, with declarative fixtures. [Ideas](ideas/overview.md) preserves proposal reasoning and bounded model/transport evidence; it is not a second normative authority.
 - On 2026-09-30 in WSL2, `pnpm check`, `pnpm test` (118/118), `pnpm test:sidecar`, and `pnpm lint` passed. The Linux SEA probe emitted `.note` injection warnings but both executables ran. This is not native Windows, Omarchy, or Android acceptance. See [conformance](spec/conformance.md) and [the v1 audit](docs/taskdb-audit.md) for the limits of prior evidence.
 - The previous multi-source-led [TaskDB 2.0 roadmap](ideas/taskdb-2.0-roadmap.md) records completed audit/controller work, but its stages 4–7 are superseded as the implementation sequence. Preserve those results; do not start an external adapter just because it is the next unchecked box.
 
@@ -17,7 +17,9 @@
 4. **Build one recoverable v2 slice only after the contract and fixtures exist.** Keep old v1 readers/writers safe, back up and validate migration/restore on scratch data, and exercise the same contract through Node CLI and Android or document an intentional platform limitation. No second writable authority or silent data loss.
 5. **Complete native evidence in parallel on capable hosts.** Windows 11 UI dogfood/relaunch/restore, Omarchy webview/focus, and Android SAF process-lifecycle/provider checks remain open. WSL, Chromium, and emulator standard-picker checks do not close their respective native or physical-provider gates. Use [development instructions](docs/development.md) and the [v1 audit](docs/taskdb-audit.md).
 
-The immediate implementation gate is **an accepted, tested single-root v2 contract and a safe migration story**, not the next adapter. No v2 fields, file versions, or published standard are approved merely by appearing in `ideas/`. The local development queue is `sq list --ready`; `.sift/` is ignored by Git, so this plan remains the portable record of direction and gates.
+**Gate progress (2026-10-01):** proposal reconciliation and bounded ordering/transport design gates are complete; versioned v2 target contracts and a declarative corpus of 112 cases plus a full-field v1 mapping golden root now exist. Corpus integrity is not execution of those cases. Gate 4 is in progress, starting with an isolated strict read-only Node filesystem helper and execution of the model fixtures. This is not a v2 gateway, writable slice or native acceptance. Still required: a recoverable Node slice on disposable roots, actual archive/migration/rollback and pending/receipt evidence, with unsupported Android/provider capabilities explicit. Personal/v1 data remains unchanged and native M1 is still open.
+
+The immediate implementation gate is **the accepted single-root v2 target plus actual safe migration/recovery proof**, not the next adapter. No v2 fields, file versions, or published standard are approved merely by appearing in `ideas/`. The local development queue is `sq list --ready`; `.sift/` is ignored by Git, so this plan remains the portable record of direction and gates.
 
 ## Previous milestone baseline
 

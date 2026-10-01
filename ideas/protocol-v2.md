@@ -1,6 +1,6 @@
 # TaskDB v2 command boundary proposal
 
-**Status:** Reconciled working proposal, not accepted or implemented. [V1 protocol](../spec/protocol.md), [queries](../spec/queries.md), [CLI](../spec/cli.md) and [mutations](../spec/mutations.md) still govern shipped clients. This note owns input/projection/version/retry/error contracts; [model](task-model-v2.md) owns field validation, [behavior](task-behavior-v2.md) owns effects/undo, [lifecycle](collection-lifecycle-v2.md) owns root/repair/migration safety, and [ordering](syncthing-sync-ordering.md) owns key allocation.
+**Status:** Selected rules promoted to the [accepted v2 target](../spec/v2/protocol.md) on 2026-10-01, **not implemented**. This document preserves proposal reasoning, earlier reconciliation and bounded evidence; the versioned target is authoritative where details differ. Root [v1 specs](../spec/overview.md) remain shipped behavior. Promotion does not prove migration, doctor, receipts, native providers or interoperability.
 
 ## Version and selected-root boundary
 

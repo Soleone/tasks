@@ -1,6 +1,6 @@
 # TaskDB v2 domain behavior proposal
 
-**Status:** Reconciled working proposal, not accepted or implemented. [Current v1 mutations](../spec/mutations.md) remain shipped behavior. [Model](task-model-v2.md) owns canonical values, [commands](protocol-v2.md) owns API/retry/error rules, [ordering](syncthing-sync-ordering.md) owns key allocation, and [lifecycle](collection-lifecycle-v2.md) owns transport, purge, doctor, and migration. No production behavior changes follow merely from this document.
+**Status:** Selected rules promoted to the [accepted v2 target](../spec/v2/mutations.md) on 2026-10-01, **not implemented**. This document preserves proposal reasoning, earlier reconciliation and bounded evidence; the versioned target is authoritative where details differ. Root [v1 specs](../spec/overview.md) remain shipped behavior. Promotion does not prove migration, doctor, receipts, native providers or interoperability.
 
 ## Unchanged domain baseline
 

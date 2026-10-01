@@ -1,6 +1,6 @@
 # Ideas and proposals
 
-This directory contains proposals and historical roadmap material, not current behavior or implementation commitments. For the implemented system, start at [the current specification](../spec/overview.md). The [current plan](../PLAN.md) prioritizes a portable **single-directory** TaskDB contract; the older combined-source roadmap is not the next-work queue.
+This directory contains proposal reasoning and historical roadmap material, not current behavior. Selected single-root rules are promoted to the [accepted v2 target](../spec/v2/overview.md), which owns normative details; acceptance is not implementation. For the implemented system, start at [the current specification](../spec/overview.md). The [current plan](../PLAN.md) prioritizes a portable **single-directory** TaskDB contract; the older combined-source roadmap is not the next-work queue.
 
 ## Contract symmetry
 
@@ -29,7 +29,7 @@ The model, behavior, command and lifecycle proposals now describe one matching *
 - One nominated device performs reviewed conflict/link repairs with fixed plan IDs, original-byte recovery copies, and no cross-device exactly-once claim.
 - Convert verified v1 data only into a separate staged root; preserve the old root and report transformations/refusals. Rollback returns to the old snapshot, not a reverse conversion of subsequent v2 edits.
 
-Next promote reviewed decisions and black-box fixtures to `spec/v2/` as **accepted targets**, before implementation. Full migration/doctor/cache-loss/native/provider conformance remains open; closing a proposal task does not close those gates.
+These decisions are now promoted to [versioned accepted targets and declarative fixtures](../spec/v2/conformance.md). Next execute a bounded recoverable slice against them on disposable data; corpus integrity is not writer conformance. Full migration/doctor/cache-loss/native/provider conformance remains open; closing a proposal task does not close those gates.
 
 ## Current proposals
 

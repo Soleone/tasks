@@ -1,0 +1,17 @@
+{
+  "id": "c8d4206d-c25a-4317-baa4-a2c5443060e9",
+  "title": "Plan launch",
+  "description": "",
+  "status": "open",
+  "priority": 1,
+  "category": "planning",
+  "tags": [
+    "product"
+  ],
+  "parentId": null,
+  "dependencyIds": [],
+  "orderKey": "a2",
+  "createdAt": "2026-09-26T03:06:01.914Z",
+  "updatedAt": "2026-09-26T03:06:01.914Z",
+  "closedAt": null
+}

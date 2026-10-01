@@ -1,6 +1,6 @@
 # TaskDB v2 data model proposal
 
-**Status:** Reconciled working proposal, not accepted or implemented. Root [spec/model.md](../spec/model.md) remains the v1 authority. [Behavior](task-behavior-v2.md) owns mutations/timestamps, [commands](protocol-v2.md) owns inputs/projections/retries, [collection lifecycle](collection-lifecycle-v2.md) owns file identity/validation/migration procedure, and [ordering](syncthing-sync-ordering.md) owns exact keys and observation rules. Promote a versioned target with fixtures before production changes.
+**Status:** Selected rules promoted to the [accepted v2 target](../spec/v2/model.md) on 2026-10-01, **not implemented**. This document preserves proposal reasoning, earlier reconciliation and bounded evidence; the versioned target is authoritative where details differ. Root [v1 specs](../spec/overview.md) remain shipped behavior. Promotion does not prove migration, doctor, receipts, native providers or interoperability.
 
 ## Manifest and canonical task
 

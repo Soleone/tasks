@@ -1,6 +1,6 @@
 # TaskDB v2 collection lifecycle proposal
 
-**Status:** Reconciled working choices, not an accepted spec or implemented behavior. The [v1 storage contract](../spec/storage.md) and [current receive flow](../docs/syncthing.md) still govern existing data. [Task fields](task-model-v2.md), [ordering and file observation](syncthing-sync-ordering.md), and [domain mutations](task-behavior-v2.md) have separate owners.
+**Status:** Selected rules promoted to the [accepted v2 target](../spec/v2/storage.md) on 2026-10-01, **not implemented**. This document preserves proposal reasoning, earlier reconciliation and bounded evidence; the versioned target is authoritative where details differ. Root [v1 specs](../spec/overview.md) remain shipped behavior. Promotion does not prove migration, doctor, receipts, native providers or interoperability.
 
 ## Root layout, encoding and identity
 

@@ -4,6 +4,8 @@ The root pages in this folder describe behavior implemented in this repository t
 
 For spec-driven work, first resolve a proposal in `ideas/`, then add the accepted next-version contract under `spec/v2/` **before implementing it**. Mark each such page `accepted target, not implemented` until its black-box fixtures and platform evidence pass; do not fold target behavior into the root v1 pages or imply that acceptance means it ships. Record version negotiation, compatibility and failure behavior as well as the success case. The [current plan](../PLAN.md) lists the promotion gates. The [ideas overview](../ideas/overview.md) maps proposal topics to the corresponding current contracts; create only the v2 spec pages needed for an accepted change.
 
+The accepted next-version contract is now under [spec/v2/](v2/overview.md), with a [declarative corpus and evidence matrix](v2/conformance.md). Those pages are **accepted target, not implemented**; root v1 semantics and current version table below are unchanged.
+
 This is a specification of Tasks, not a claim that the format is a universal standard. Independent writer/readers and conformance are required before claiming interoperability. Version and platform limits are stated where they matter. Automated evidence is mapped in [Conformance](conformance.md).
 
 ## System at a glance

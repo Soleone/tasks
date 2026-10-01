@@ -2,7 +2,7 @@
 
 Read [GUIDELINES.md](GUIDELINES.md) for project principles and [PLAN.md](PLAN.md) for scope, confirmed decisions, and milestone exit criteria. Read [docs/usage-guide.md](docs/usage-guide.md) for the keyboard-first home-screen contract and UI focus behavior.
 
-M0 is complete, but M1 native lifecycle/recovery acceptance remains open. The current priority is a spec-driven, single-directory TaskDB contract, not expansion of the opt-in multi-source controller. Root [spec/](spec/overview.md) describes implemented v1 behavior; [ideas/](ideas/overview.md) holds proposals; promote accepted v2 rules to a versioned spec with conformance fixtures before implementing them. Follow the current gates in [PLAN.md](PLAN.md). Use the commands in [README.md](README.md), work on disposable data, and record native-platform blockers rather than treating browser builds as desktop validation.
+M0 is complete, but M1 native lifecycle/recovery acceptance remains open. The current priority is a spec-driven, single-directory TaskDB contract, not expansion of the opt-in multi-source controller. Root [spec/](spec/overview.md) describes implemented v1 behavior. [spec/v2/](spec/v2/overview.md) now contains accepted targets and declarative fixtures, not implemented/conformance claims; [ideas/](ideas/overview.md) preserves proposal reasoning. Implement only a bounded recoverable slice against those contracts on disposable data, with unsupported capabilities explicit. Follow the current gates in [PLAN.md](PLAN.md). Use the commands in [README.md](README.md), work on disposable data, and record native-platform blockers rather than treating browser builds as desktop validation.
 
 ## Android emulator
 

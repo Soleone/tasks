@@ -1,0 +1,2993 @@
+{
+  "format": "taskdb.conformance-cases",
+  "fixtureVersion": 1,
+  "status": "accepted-target",
+  "taskTemplate": {
+    "id": "a",
+    "title": "The task",
+    "description": "",
+    "status": "open",
+    "priority": 2,
+    "category": null,
+    "tags": [],
+    "parentId": null,
+    "dependencyIds": [],
+    "orderKey": "a0",
+    "createdAt": "2026-09-08T12:00:00.000Z",
+    "updatedAt": "2026-09-08T12:00:00.000Z",
+    "closedAt": null
+  },
+  "cases": [
+    {
+      "id": "record-literal",
+      "profile": "model",
+      "rule": "model.md#fields",
+      "given": {
+        "patch": {
+          "title": "Call @alice"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "title": "Call @alice",
+          "category": null,
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "record-unknown",
+      "profile": "model",
+      "rule": "model.md#fields",
+      "given": {
+        "patch": {
+          "sync": {
+            "revision": 1
+          }
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-missing",
+      "profile": "model",
+      "rule": "model.md#fields",
+      "given": {
+        "remove": [
+          "category"
+        ]
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-terminal",
+      "profile": "model",
+      "rule": "model.md#fields",
+      "given": {
+        "patch": {
+          "status": "done",
+          "closedAt": null
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-invalid-date",
+      "profile": "model",
+      "rule": "model.md#timestamps",
+      "given": {
+        "patch": {
+          "createdAt": "2026-02-30T12:00:00.000Z"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL"
+      }
+    },
+    {
+      "id": "record-clock-backward",
+      "profile": "model",
+      "rule": "model.md#timestamps",
+      "given": {
+        "patch": {
+          "createdAt": "2026-09-08T14:00:00.000Z",
+          "updatedAt": "2026-09-08T12:00:00.000Z"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "createdAt": "2026-09-08T14:00:00.000Z",
+          "updatedAt": "2026-09-08T12:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "record-utf8",
+      "profile": "model",
+      "rule": "model.md#text",
+      "given": {
+        "rawFieldHex": {
+          "title": "22ff22"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-surrogate",
+      "profile": "model",
+      "rule": "model.md#text",
+      "given": {
+        "rawField": {
+          "title": "\"\\ud800\""
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-duplicate",
+      "profile": "model",
+      "rule": "model.md#text",
+      "given": {
+        "duplicateField": {
+          "field": "title",
+          "values": [
+            "First",
+            "Second"
+          ]
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "title-limit",
+      "profile": "model",
+      "rule": "model.md#text",
+      "given": {
+        "patch": {
+          "title": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "accepted": true,
+        "titleUnits": 1000
+      }
+    },
+    {
+      "id": "title-over-limit",
+      "profile": "model",
+      "rule": "model.md#text",
+      "given": {
+        "patch": {
+          "title": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL"
+      }
+    },
+    {
+      "id": "graph-missing",
+      "profile": "model",
+      "rule": "model.md#graph",
+      "given": {
+        "patch": {
+          "parentId": "missing"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "graph-parent-cycle",
+      "profile": "model",
+      "rule": "model.md#graph",
+      "given": {
+        "records": {
+          "a": {
+            "parentId": "b"
+          },
+          "b": {
+            "parentId": "a"
+          }
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL"
+      }
+    },
+    {
+      "id": "graph-dependency-cycle",
+      "profile": "model",
+      "rule": "model.md#graph",
+      "given": {
+        "records": {
+          "a": {
+            "dependencyIds": [
+              "b"
+            ]
+          },
+          "b": {
+            "dependencyIds": [
+              "a"
+            ]
+          }
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL"
+      }
+    },
+    {
+      "id": "literal-create",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "Call @alice"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Call @alice",
+          "category": null,
+          "tags": []
+        },
+        "newId": "uuidv4"
+      }
+    },
+    {
+      "id": "literal-update",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {
+        "patch": {
+          "category": "work",
+          "tags": [
+            "todo"
+          ]
+        }
+      },
+      "action": {
+        "command": "task.update",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17,
+          "title": "Call @alice"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Call @alice",
+          "category": "work",
+          "tags": [
+            "todo"
+          ]
+        }
+      }
+    },
+    {
+      "id": "classification-clear",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {
+        "patch": {
+          "category": "work",
+          "tags": [
+            "todo"
+          ]
+        }
+      },
+      "action": {
+        "command": "task.update",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17,
+          "category": null,
+          "tags": []
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "The task",
+          "category": null,
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "text-replace",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {
+        "patch": {
+          "category": "work",
+          "tags": [
+            "todo"
+          ]
+        }
+      },
+      "action": {
+        "command": "task.update",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17,
+          "text": "New task"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "New task",
+          "category": null,
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "text-mixed",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "Review @work",
+          "category": "work"
+        }
+      },
+      "expect": {
+        "error": "INVALID_ARGUMENT",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "text-empty",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "@Work #TODO"
+        }
+      },
+      "expect": {
+        "error": "INVALID_ARGUMENT",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "text-escape",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "Call \\@alice \\#literal"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Call @alice #literal",
+          "category": null,
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "text-code",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "Read `@home #todo` @Work"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Read `@home #todo`",
+          "category": "work",
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "text-boundary",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "See https://host/#anchor #TODO-"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "See https://host/#anchor -",
+          "category": null,
+          "tags": [
+            "todo"
+          ]
+        }
+      }
+    },
+    {
+      "id": "text-gaps",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "Review @work now"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Review  now",
+          "category": "work",
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "text-multiple",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "Review @Work @Other"
+        }
+      },
+      "expect": {
+        "error": "MULTIPLE_CATEGORIES",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "tags-normalize",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "Review",
+          "category": "WORK",
+          "tags": [
+            "Zulu",
+            "alpha",
+            "ALPHA"
+          ]
+        }
+      },
+      "expect": {
+        "fields": {
+          "category": "work",
+          "tags": [
+            "alpha",
+            "zulu"
+          ]
+        }
+      }
+    },
+    {
+      "id": "old-alias",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.update",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17,
+          "descriptionMarkdown": "Old field"
+        }
+      },
+      "expect": {
+        "error": "INVALID_ARGUMENT",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "status-matrix",
+      "profile": "mutations",
+      "rule": "mutations.md#states-and-relationships",
+      "given": {},
+      "action": {
+        "kind": "matrix",
+        "commands": [
+          "start",
+          "pause",
+          "complete",
+          "reopen",
+          "cancel",
+          "delete"
+        ],
+        "statuses": [
+          "open",
+          "in_progress",
+          "paused",
+          "done",
+          "canceled"
+        ]
+      },
+      "expect": {
+        "targets": {
+          "start": "in_progress",
+          "pause": "paused",
+          "complete": "done",
+          "reopen": "open",
+          "cancel": "canceled",
+          "delete": "canceled"
+        },
+        "allowed": {
+          "start": [
+            "open",
+            "in_progress",
+            "paused",
+            "done"
+          ],
+          "pause": [
+            "open",
+            "in_progress",
+            "paused"
+          ],
+          "complete": [
+            "open",
+            "in_progress",
+            "paused",
+            "done"
+          ],
+          "reopen": [
+            "open",
+            "in_progress",
+            "paused",
+            "done",
+            "canceled"
+          ],
+          "cancel": [
+            "open",
+            "in_progress",
+            "paused",
+            "canceled"
+          ],
+          "delete": [
+            "open",
+            "in_progress",
+            "paused",
+            "done",
+            "canceled"
+          ]
+        },
+        "forbiddenError": "INVALID_TRANSITION",
+        "sameStatusNoop": true
+      }
+    },
+    {
+      "id": "time-complete",
+      "profile": "mutations",
+      "rule": "mutations.md#time",
+      "given": {
+        "patch": {
+          "updatedAt": "2026-09-08T13:00:00.000Z"
+        }
+      },
+      "action": {
+        "command": "task.complete",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17
+        },
+        "at": "2026-09-08T14:00:00.000Z"
+      },
+      "expect": {
+        "fields": {
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "updatedAt": "2026-09-08T13:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z",
+          "status": "done"
+        },
+        "versionChanged": true,
+        "activityGroups": 1
+      }
+    },
+    {
+      "id": "time-noop",
+      "profile": "mutations",
+      "rule": "mutations.md#time",
+      "given": {
+        "patch": {
+          "status": "done",
+          "updatedAt": "2026-09-08T13:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        }
+      },
+      "action": {
+        "command": "task.complete",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17
+        },
+        "at": "2026-09-08T15:00:00.000Z"
+      },
+      "expect": {
+        "fields": {
+          "updatedAt": "2026-09-08T13:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        },
+        "changed": false,
+        "canonicalWrites": 0,
+        "versionChanged": false,
+        "activityGroups": 0
+      }
+    },
+    {
+      "id": "time-edit-closed",
+      "profile": "mutations",
+      "rule": "mutations.md#time",
+      "given": {
+        "patch": {
+          "status": "done",
+          "updatedAt": "2026-09-08T13:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        }
+      },
+      "action": {
+        "command": "task.update",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17,
+          "description": "Changed"
+        },
+        "at": "2026-09-08T15:00:00.000Z"
+      },
+      "expect": {
+        "fields": {
+          "updatedAt": "2026-09-08T15:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "time-status-undo",
+      "profile": "mutations",
+      "rule": "mutations.md#undo",
+      "given": {
+        "patch": {
+          "status": "done",
+          "updatedAt": "2026-09-08T13:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.reopen",
+            "id": "a",
+            "at": "2026-09-08T15:00:00.000Z"
+          },
+          {
+            "command": "task.status.undo",
+            "id": "a",
+            "at": "2026-09-08T16:00:00.000Z"
+          }
+        ]
+      },
+      "expect": {
+        "fields": {
+          "status": "done",
+          "updatedAt": "2026-09-08T13:00:00.000Z",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "time-parent",
+      "profile": "mutations",
+      "rule": "mutations.md#time",
+      "given": {
+        "records": {
+          "a": {},
+          "parent": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "command": "task.move",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17,
+          "parentId": "parent"
+        },
+        "at": "2026-09-08T15:00:00.000Z"
+      },
+      "expect": {
+        "fields": {
+          "parentId": "parent",
+          "updatedAt": "2026-09-08T15:00:00.000Z",
+          "closedAt": null
+        }
+      }
+    },
+    {
+      "id": "time-reorder",
+      "profile": "mutations",
+      "rule": "mutations.md#time",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0",
+            "updatedAt": "2026-09-08T13:00:00.000Z"
+          },
+          "b": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "command": "task.reorder",
+        "args": {
+          "tasks": [
+            {
+              "id": "a",
+              "expectedVersion": 17
+            }
+          ],
+          "placement": {
+            "last": true
+          }
+        },
+        "at": "2026-09-08T15:00:00.000Z"
+      },
+      "expect": {
+        "preserveFields": [
+          "createdAt",
+          "updatedAt",
+          "closedAt"
+        ],
+        "order": [
+          "b",
+          "a"
+        ]
+      }
+    },
+    {
+      "id": "undo-cycle",
+      "profile": "mutations",
+      "rule": "mutations.md#undo",
+      "given": {
+        "records": {
+          "a": {
+            "parentId": "b"
+          },
+          "b": {}
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.move",
+            "id": "a",
+            "parentId": null
+          },
+          {
+            "externalPatch": {
+              "b": {
+                "parentId": "a"
+              }
+            }
+          },
+          {
+            "command": "operation.undo",
+            "operation": "first"
+          }
+        ]
+      },
+      "expect": {
+        "error": "PARENT_CYCLE",
+        "canonicalWritesAtFailure": 0,
+        "retainExternalPatch": true
+      }
+    },
+    {
+      "id": "undo-unrelated-edit",
+      "profile": "mutations",
+      "rule": "mutations.md#undo",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.update",
+            "id": "a",
+            "priority": 0
+          },
+          {
+            "externalPatch": {
+              "a": {
+                "description": "New unrelated note"
+              }
+            }
+          },
+          {
+            "command": "operation.undo",
+            "operation": "first",
+            "at": "2026-09-08T15:00:00.000Z"
+          }
+        ]
+      },
+      "expect": {
+        "fields": {
+          "priority": 2,
+          "description": "New unrelated note",
+          "updatedAt": "2026-09-08T15:00:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "undo-order-arrival",
+      "profile": "mutations",
+      "rule": "mutations.md#undo",
+      "given": {
+        "records": {
+          "a": {},
+          "b": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.reorder",
+            "ids": [
+              "a"
+            ],
+            "placement": {
+              "last": true
+            }
+          },
+          {
+            "arrival": {
+              "new": {
+                "orderKey": "a0"
+              }
+            }
+          },
+          {
+            "command": "operation.undo",
+            "operation": "first"
+          }
+        ]
+      },
+      "expect": {
+        "error": "OPERATION_UNAVAILABLE",
+        "canonicalWritesAtFailure": 0,
+        "retainArrival": true
+      }
+    },
+    {
+      "id": "undo-missing-history",
+      "profile": "mutations",
+      "rule": "mutations.md#undo",
+      "given": {
+        "patch": {
+          "status": "done",
+          "closedAt": "2026-09-08T14:00:00.000Z"
+        },
+        "history": []
+      },
+      "action": {
+        "command": "task.status.undo",
+        "args": {
+          "id": "a",
+          "expectedVersion": 17
+        }
+      },
+      "expect": {
+        "error": "UNDO_UNAVAILABLE",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "protocol-version",
+      "profile": "protocol",
+      "rule": "protocol.md#envelope",
+      "given": {},
+      "action": {
+        "envelope": {
+          "version": 3,
+          "command": "task.list",
+          "args": {}
+        }
+      },
+      "expect": {
+        "error": "UNSUPPORTED_VERSION",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "protocol-schema",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {
+        "manifest": {
+          "schemaVersion": 1,
+          "format": "tasks.workspace",
+          "formatVersion": 1,
+          "workspaceId": "legacy"
+        }
+      },
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "New"
+        }
+      },
+      "expect": {
+        "error": "UNSUPPORTED_SCHEMA",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "protocol-duplicate",
+      "profile": "protocol",
+      "rule": "protocol.md#envelope",
+      "given": {},
+      "action": {
+        "rawEnvelope": "{\"version\":2,\"command\":\"task.list\",\"command\":\"task.get\",\"args\":{}}"
+      },
+      "expect": {
+        "error": "INVALID_REQUEST",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "protocol-nonfinite",
+      "profile": "protocol",
+      "rule": "protocol.md#envelope",
+      "given": {},
+      "action": {
+        "rawEnvelope": "{\"version\":2,\"command\":\"task.create\",\"args\":{\"title\":\"New\",\"parentId\":1e999}}"
+      },
+      "expect": {
+        "error": "INVALID_REQUEST",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "context-required",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "New"
+        },
+        "writeContext": null
+      },
+      "expect": {
+        "error": "WRITE_CONTEXT_REQUIRED",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "context-loss",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.create",
+            "title": "New",
+            "key": "same",
+            "context": "ctx-A"
+          },
+          {
+            "loseCache": true
+          },
+          {
+            "repeat": "first"
+          }
+        ]
+      },
+      "expect": {
+        "error": "STALE_WRITE_CONTEXT",
+        "newTaskCount": 1,
+        "canonicalWritesAtFailure": 0
+      }
+    },
+    {
+      "id": "context-root-switch",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "captureContext": "ctx-A"
+          },
+          {
+            "selectOtherRoot": true
+          },
+          {
+            "command": "task.create",
+            "title": "Wrong root",
+            "context": "ctx-A"
+          }
+        ]
+      },
+      "expect": {
+        "error": "STALE_WRITE_CONTEXT",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "receipt-replay",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.create",
+            "title": "New",
+            "key": "same"
+          },
+          {
+            "repeat": "first",
+            "requestId": "different"
+          }
+        ]
+      },
+      "expect": {
+        "sameHistoricalResult": true,
+        "newTaskCount": 1,
+        "activityGroups": 1
+      }
+    },
+    {
+      "id": "receipt-changed",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.create",
+            "title": "New",
+            "key": "same"
+          },
+          {
+            "command": "task.create",
+            "title": "Different",
+            "key": "same"
+          }
+        ]
+      },
+      "expect": {
+        "error": "IDEMPOTENCY_KEY_REUSED",
+        "newTaskCount": 1,
+        "canonicalWritesAtFailure": 0
+      }
+    },
+    {
+      "id": "receipt-actor",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.create",
+            "title": "New",
+            "key": "same",
+            "actor": {
+              "kind": "agent",
+              "label": "one"
+            }
+          },
+          {
+            "repeat": "first",
+            "actor": {
+              "kind": "agent",
+              "label": "two"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "error": "IDEMPOTENCY_KEY_REUSED",
+        "newTaskCount": 1
+      }
+    },
+    {
+      "id": "receipt-rebuild",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.update",
+            "id": "a",
+            "title": "Edited",
+            "key": "same"
+          },
+          {
+            "command": "workspace.rebuild",
+            "preserveSQLite": true
+          },
+          {
+            "repeat": "first"
+          }
+        ]
+      },
+      "expect": {
+        "sameHistoricalResult": true,
+        "currentVersionDiffersFromReplayed": true,
+        "activityGroupsForFirst": 1
+      }
+    },
+    {
+      "id": "noop-receipt",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {},
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "task.update",
+            "id": "a",
+            "priority": 2,
+            "key": "same"
+          },
+          {
+            "repeat": "first"
+          }
+        ]
+      },
+      "expect": {
+        "changed": false,
+        "canonicalWrites": 0,
+        "versionChanged": false,
+        "activityGroups": 0,
+        "receiptCount": 1
+      }
+    },
+    {
+      "id": "capability-refusal",
+      "profile": "protocol",
+      "rule": "protocol.md#commands",
+      "given": {
+        "unsupportedCommands": [
+          "workspace.doctor.apply"
+        ]
+      },
+      "action": {
+        "command": "workspace.doctor.apply",
+        "args": {
+          "planId": "plan-A"
+        }
+      },
+      "expect": {
+        "error": "UNSUPPORTED_COMMAND",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "query-literal",
+      "profile": "protocol",
+      "rule": "protocol.md#queries-and-cli",
+      "given": {
+        "patch": {
+          "title": "Call @alice",
+          "category": null
+        }
+      },
+      "action": {
+        "command": "category.list",
+        "args": {}
+      },
+      "expect": {
+        "categories": [],
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "query-readiness",
+      "profile": "protocol",
+      "rule": "protocol.md#queries-and-cli",
+      "given": {
+        "records": {
+          "a": {
+            "dependencyIds": [
+              "done",
+              "gone"
+            ]
+          },
+          "done": {
+            "status": "done",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          },
+          "gone": {
+            "status": "canceled",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          }
+        }
+      },
+      "action": {
+        "command": "task.get",
+        "args": {
+          "id": "a"
+        }
+      },
+      "expect": {
+        "fields": {
+          "dependencyIds": [
+            "done",
+            "gone"
+          ],
+          "blockedByIds": [
+            "done"
+          ]
+        }
+      }
+    },
+    {
+      "id": "key-vectors",
+      "profile": "ordering",
+      "rule": "ordering.md#keys",
+      "given": {},
+      "action": {
+        "kind": "allocation-vectors",
+        "vectors": [
+          {
+            "lower": null,
+            "upper": null,
+            "count": 1
+          },
+          {
+            "lower": null,
+            "upper": "a0",
+            "count": 1
+          },
+          {
+            "lower": "a0",
+            "upper": null,
+            "count": 1
+          },
+          {
+            "lower": "a0",
+            "upper": "a1",
+            "count": 1
+          },
+          {
+            "lower": "a0",
+            "upper": "a1",
+            "count": 2
+          },
+          {
+            "lower": null,
+            "upper": null,
+            "count": 3
+          }
+        ]
+      },
+      "expect": {
+        "keys": [
+          [
+            "a0"
+          ],
+          [
+            "Zz"
+          ],
+          [
+            "a1"
+          ],
+          [
+            "a0V"
+          ],
+          [
+            "a0G",
+            "a0V"
+          ],
+          [
+            "a0",
+            "a1",
+            "a2"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "key-invalid",
+      "profile": "ordering",
+      "rule": "ordering.md#keys",
+      "given": {
+        "invalidKeys": [
+          "",
+          "a",
+          "b0",
+          "a_",
+          "a0é",
+          "a0V0",
+          "A00000000000000000000000000"
+        ]
+      },
+      "action": {
+        "kind": "read-each-key"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "key-limit",
+      "profile": "ordering",
+      "rule": "ordering.md#keys",
+      "given": {
+        "patch": {
+          "orderKey": "a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "accepted": true,
+        "keyBytes": 256
+      }
+    },
+    {
+      "id": "key-overflow",
+      "profile": "ordering",
+      "rule": "ordering.md#keys",
+      "given": {
+        "records": {
+          "lower": {
+            "orderKey": "a0"
+          },
+          "upper": {
+            "orderKey": "a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+          },
+          "move": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "command": "task.reorder",
+        "args": {
+          "tasks": [
+            {
+              "id": "move",
+              "expectedVersion": 17
+            }
+          ],
+          "placement": {
+            "beforeId": "upper"
+          }
+        }
+      },
+      "expect": {
+        "error": "ORDER_KEY_LIMIT",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "key-byte-order",
+      "profile": "ordering",
+      "rule": "ordering.md#keys",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0"
+          },
+          "Z": {
+            "orderKey": "a0"
+          },
+          "A": {
+            "orderKey": "a0"
+          },
+          "z": {
+            "orderKey": "a0"
+          },
+          "before": {
+            "orderKey": "Zz"
+          }
+        }
+      },
+      "action": {
+        "kind": "manual-order"
+      },
+      "expect": {
+        "order": [
+          "before",
+          "A",
+          "Z",
+          "a",
+          "z"
+        ]
+      }
+    },
+    {
+      "id": "reorder-tied",
+      "profile": "ordering",
+      "rule": "ordering.md#placement",
+      "given": {
+        "records": {
+          "lower": {
+            "orderKey": "a0"
+          },
+          "a": {
+            "orderKey": "a1"
+          },
+          "b": {
+            "orderKey": "a1",
+            "status": "canceled",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          },
+          "upper": {
+            "orderKey": "a2"
+          },
+          "move": {
+            "orderKey": "a3"
+          },
+          "tail": {
+            "orderKey": "a4"
+          }
+        }
+      },
+      "action": {
+        "command": "task.reorder",
+        "args": {
+          "tasks": [
+            {
+              "id": "move",
+              "expectedVersion": 17
+            }
+          ],
+          "placement": {
+            "beforeId": "b"
+          }
+        }
+      },
+      "expect": {
+        "order": [
+          "lower",
+          "a",
+          "move",
+          "b",
+          "upper",
+          "tail"
+        ],
+        "keys": {
+          "a": "a0V",
+          "move": "a1",
+          "b": "a1V"
+        },
+        "rewrittenIds": [
+          "a",
+          "move",
+          "b"
+        ],
+        "preserveNonOrder": true
+      }
+    },
+    {
+      "id": "reorder-selected-unchanged",
+      "profile": "ordering",
+      "rule": "ordering.md#placement",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0"
+          },
+          "b": {
+            "orderKey": "a0"
+          },
+          "move": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "command": "task.reorder",
+        "args": {
+          "tasks": [
+            {
+              "id": "move",
+              "expectedVersion": 17
+            }
+          ],
+          "placement": {
+            "beforeId": "b"
+          }
+        }
+      },
+      "expect": {
+        "order": [
+          "a",
+          "move",
+          "b"
+        ],
+        "keys": {
+          "a": "a0",
+          "move": "a1",
+          "b": "a2"
+        },
+        "rewrittenIds": [
+          "b"
+        ],
+        "versionsChanged": [
+          "move",
+          "b"
+        ],
+        "activityGroups": 1,
+        "preserveNonOrder": true
+      }
+    },
+    {
+      "id": "reorder-noop",
+      "profile": "ordering",
+      "rule": "ordering.md#placement",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0"
+          },
+          "b": {
+            "orderKey": "a0"
+          },
+          "move": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "command": "task.reorder",
+        "args": {
+          "tasks": [
+            {
+              "id": "move",
+              "expectedVersion": 17
+            }
+          ],
+          "placement": {
+            "last": true
+          }
+        }
+      },
+      "expect": {
+        "changed": false,
+        "canonicalWrites": 0,
+        "activityGroups": 0
+      }
+    },
+    {
+      "id": "reorder-hidden",
+      "profile": "ordering",
+      "rule": "ordering.md#placement",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0"
+          },
+          "hidden": {
+            "orderKey": "a0",
+            "status": "canceled",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          },
+          "move": {
+            "orderKey": "a1"
+          }
+        },
+        "visibleIds": [
+          "a",
+          "move"
+        ]
+      },
+      "action": {
+        "command": "task.reorder",
+        "args": {
+          "tasks": [
+            {
+              "id": "move",
+              "expectedVersion": 17
+            }
+          ],
+          "placement": {
+            "beforeId": "hidden"
+          }
+        }
+      },
+      "expect": {
+        "order": [
+          "a",
+          "move",
+          "hidden"
+        ],
+        "rewrittenIds": [
+          "hidden"
+        ],
+        "preserveNonOrder": true
+      }
+    },
+    {
+      "id": "normalize",
+      "profile": "ordering",
+      "rule": "ordering.md#normalization",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0V"
+          },
+          "b": {
+            "orderKey": "a1V"
+          }
+        }
+      },
+      "action": {
+        "command": "task.order.normalize",
+        "args": {
+          "parentId": null,
+          "tasks": [
+            {
+              "id": "a",
+              "expectedVersion": 17
+            },
+            {
+              "id": "b",
+              "expectedVersion": 18
+            }
+          ]
+        }
+      },
+      "expect": {
+        "order": [
+          "a",
+          "b"
+        ],
+        "keys": {
+          "a": "a0",
+          "b": "a1"
+        },
+        "activityGroups": 1,
+        "preserveNonOrder": true
+      }
+    },
+    {
+      "id": "normalize-noop",
+      "profile": "ordering",
+      "rule": "ordering.md#normalization",
+      "given": {
+        "records": {
+          "a": {
+            "orderKey": "a0"
+          },
+          "b": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "command": "task.order.normalize",
+        "args": {
+          "parentId": null,
+          "tasks": [
+            {
+              "id": "a",
+              "expectedVersion": 17
+            },
+            {
+              "id": "b",
+              "expectedVersion": 18
+            }
+          ]
+        }
+      },
+      "expect": {
+        "changed": false,
+        "canonicalWrites": 0,
+        "activityGroups": 0
+      }
+    },
+    {
+      "id": "scope-arrival",
+      "profile": "storage",
+      "rule": "storage.md#observation",
+      "given": {
+        "records": {
+          "a": {},
+          "b": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "kind": "guard-fault",
+        "operation": "reorder",
+        "beforeFirstWrite": {
+          "arrival": {
+            "new": {
+              "orderKey": "a0"
+            }
+          }
+        }
+      },
+      "expect": {
+        "error": "STALE_SCOPE",
+        "canonicalWrites": 0,
+        "retainArrival": true
+      }
+    },
+    {
+      "id": "scope-formatting",
+      "profile": "storage",
+      "rule": "storage.md#observation",
+      "given": {},
+      "action": {
+        "kind": "guard-fault",
+        "operation": "update",
+        "beforeFirstWrite": {
+          "formattingOnly": true
+        }
+      },
+      "expect": {
+        "error": "STALE_FILE",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "scope-delete",
+      "profile": "storage",
+      "rule": "storage.md#journal",
+      "given": {
+        "records": {
+          "a": {},
+          "b": {
+            "orderKey": "a1"
+          }
+        }
+      },
+      "action": {
+        "kind": "guard-fault",
+        "operation": "reorder",
+        "beforeFirstWrite": {
+          "delete": "b"
+        }
+      },
+      "expect": {
+        "error": "STALE_SCOPE",
+        "canonicalWrites": 0,
+        "notResurrected": [
+          "b"
+        ]
+      }
+    },
+    {
+      "id": "recover-prefix",
+      "profile": "storage",
+      "rule": "storage.md#journal",
+      "given": {
+        "fixtureCase": "reorder-tied"
+      },
+      "action": {
+        "kind": "interrupt-every-file-prefix",
+        "operation": "reorder-tied",
+        "then": "workspace.recovery.resume"
+      },
+      "expect": {
+        "sameFinalAs": "reorder-tied",
+        "samePlannedIds": true,
+        "noReplayOfAppliedBytes": true,
+        "notDistributedAtomic": true
+      }
+    },
+    {
+      "id": "recover-divergence",
+      "profile": "storage",
+      "rule": "storage.md#journal",
+      "given": {
+        "fixtureCase": "reorder-tied"
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "interruptAfterFiles": 1,
+            "operation": "reorder-tied"
+          },
+          {
+            "externalPatch": {
+              "b": {
+                "description": "Other writer"
+              }
+            }
+          },
+          {
+            "command": "workspace.recovery.resume",
+            "operation": "pending"
+          }
+        ]
+      },
+      "expect": {
+        "error": "RECOVERY_CONFLICT",
+        "retainJournal": true,
+        "retainExternalPatch": true,
+        "rollback": false
+      }
+    },
+    {
+      "id": "root-empty",
+      "profile": "storage",
+      "rule": "storage.md#root",
+      "given": {
+        "records": {},
+        "manifest": null
+      },
+      "action": {
+        "command": "workspace.init",
+        "args": {}
+      },
+      "expect": {
+        "manifestBytes": "{\"schemaVersion\":2}\n",
+        "taskCount": 0
+      }
+    },
+    {
+      "id": "root-missing-manifest",
+      "profile": "storage",
+      "rule": "storage.md#root",
+      "given": {
+        "manifest": null
+      },
+      "action": {
+        "command": "task.list",
+        "args": {}
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "root-mixed",
+      "profile": "storage",
+      "rule": "storage.md#root",
+      "given": {
+        "legacyOrderFile": true
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "root-unsupported",
+      "profile": "storage",
+      "rule": "storage.md#root",
+      "given": {
+        "manifest": {
+          "schemaVersion": 3
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "UNSUPPORTED_SCHEMA",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "root-alias",
+      "profile": "storage",
+      "rule": "storage.md#identity",
+      "given": {
+        "records": {
+          "a": {},
+          "A": {}
+        },
+        "provider": {
+          "caseInsensitive": true
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "join-disjoint",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "peers": [
+          {
+            "records": {
+              "a": {
+                "title": "One"
+              }
+            }
+          },
+          {
+            "records": {
+              "b": {
+                "title": "Two"
+              }
+            }
+          }
+        ]
+      },
+      "action": {
+        "kind": "sync-union"
+      },
+      "expect": {
+        "canonicalIds": [
+          "a",
+          "b"
+        ],
+        "taskCount": 2,
+        "sharedOrderFiles": 0
+      }
+    },
+    {
+      "id": "join-identical",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "peers": [
+          {
+            "records": {
+              "a": {
+                "title": "One"
+              }
+            }
+          },
+          {
+            "records": {
+              "a": {
+                "title": "One"
+              }
+            }
+          }
+        ]
+      },
+      "action": {
+        "kind": "sync-union"
+      },
+      "expect": {
+        "canonicalIds": [
+          "a"
+        ],
+        "taskCount": 1
+      }
+    },
+    {
+      "id": "join-conflict",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "command": "workspace.doctor.inspect",
+        "args": {}
+      },
+      "expect": {
+        "canonicalIds": [
+          "a"
+        ],
+        "unresolvedIssues": 1,
+        "preserveAllVersions": true,
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "edit-delete",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "records": {},
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Edited while offline"
+          }
+        }
+      },
+      "action": {
+        "command": "workspace.doctor.inspect",
+        "args": {}
+      },
+      "expect": {
+        "canonicalIds": [],
+        "notResurrected": [
+          "a"
+        ],
+        "preserveAllVersions": true
+      }
+    },
+    {
+      "id": "purge-referenced",
+      "profile": "storage",
+      "rule": "storage.md#purge",
+      "given": {
+        "records": {
+          "a": {
+            "status": "canceled",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          },
+          "child": {
+            "parentId": "a",
+            "status": "done",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          }
+        }
+      },
+      "action": {
+        "command": "task.purgeCanceled",
+        "args": {}
+      },
+      "expect": {
+        "error": "PURGE_REFERENCED",
+        "references": [
+          {
+            "taskId": "child",
+            "targetId": "a",
+            "field": "parentId"
+          }
+        ],
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "purge-closed-subgraph",
+      "profile": "storage",
+      "rule": "storage.md#purge",
+      "given": {
+        "records": {
+          "a": {
+            "status": "canceled",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          },
+          "child": {
+            "parentId": "a",
+            "dependencyIds": [
+              "a"
+            ],
+            "status": "canceled",
+            "closedAt": "2026-09-08T14:00:00.000Z"
+          }
+        }
+      },
+      "action": {
+        "command": "task.purgeCanceled",
+        "args": {}
+      },
+      "expect": {
+        "purgedIds": [
+          "a",
+          "child"
+        ],
+        "remainingIds": [],
+        "recoveryCopyBeforeDeletion": true
+      }
+    },
+    {
+      "id": "scan-partial",
+      "profile": "storage",
+      "rule": "storage.md#observation",
+      "given": {
+        "provider": {
+          "enumerationComplete": false
+        }
+      },
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "Unsafe capture"
+        }
+      },
+      "expect": {
+        "error": "INVALID_STORAGE",
+        "canonicalWrites": 0,
+        "cacheDeletion": false
+      }
+    },
+    {
+      "id": "doctor-ambiguous",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "records": {
+          "a": {},
+          "child": {
+            "parentId": "a"
+          }
+        },
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "command": "workspace.doctor.plan",
+        "args": {
+          "kind": "keep-both",
+          "issueIds": [
+            "issue-A"
+          ],
+          "canonicalVersions": [
+            {
+              "issueId": "issue-A",
+              "versionRef": "canonical-A"
+            }
+          ],
+          "linkChoices": []
+        }
+      },
+      "expect": {
+        "error": "AMBIGUOUS_LINK",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "doctor-replay",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "planKeepBoth": "issue-A",
+            "key": "plan-key"
+          },
+          {
+            "apply": "first-plan",
+            "key": "apply-key"
+          },
+          {
+            "repeat": "second"
+          }
+        ]
+      },
+      "expect": {
+        "taskCount": 2,
+        "sameCloneIds": true,
+        "sameHistoricalResult": true,
+        "recoveryCopyBeforeDeletion": true
+      }
+    },
+    {
+      "id": "doctor-stale",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "planKeepBoth": "issue-A"
+          },
+          {
+            "externalPatch": {
+              "a": {
+                "description": "Later edit"
+              }
+            }
+          },
+          {
+            "apply": "first-plan"
+          }
+        ]
+      },
+      "expect": {
+        "error": "STALE_REPAIR_PLAN",
+        "canonicalWritesAtFailure": 0,
+        "retainExternalPatch": true
+      }
+    },
+    {
+      "id": "doctor-cache-loss",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "planKeepBoth": "issue-A",
+            "context": "ctx-A"
+          },
+          {
+            "loseCache": true
+          },
+          {
+            "apply": "first-plan",
+            "context": "ctx-A"
+          }
+        ]
+      },
+      "expect": {
+        "error": "STALE_WRITE_CONTEXT",
+        "taskCount": 1,
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "doctor-late-link",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "planKeepBoth": "issue-A"
+          },
+          {
+            "apply": "first-plan"
+          },
+          {
+            "arrival": {
+              "child": {
+                "parentId": "a"
+              }
+            }
+          },
+          {
+            "command": "workspace.doctor.inspect"
+          }
+        ]
+      },
+      "expect": {
+        "unreviewedIncomingLinks": [
+          "child"
+        ],
+        "redirectedLinks": [],
+        "canonicalWritesAtInspection": 0
+      }
+    },
+    {
+      "id": "doctor-cleanup",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "conflict": {
+          "id": "a",
+          "alternate": {
+            "title": "Other"
+          }
+        }
+      },
+      "action": {
+        "kind": "interrupt-before-conflict-cleanup",
+        "then": "workspace.recovery.resume"
+      },
+      "expect": {
+        "taskCount": 2,
+        "sameCloneIds": true,
+        "preserveAllVersions": true,
+        "removeConflictOnlyAfterVerification": true
+      }
+    },
+    {
+      "id": "preview-pending",
+      "profile": "storage",
+      "rule": "storage.md#journal",
+      "given": {
+        "fixtureCase": "recover-prefix"
+      },
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "Preview"
+        },
+        "dryRun": true
+      },
+      "expect": {
+        "error": "RECOVERY_PENDING",
+        "canonicalWrites": 0,
+        "resumePending": false
+      }
+    },
+    {
+      "id": "migrate-golden",
+      "profile": "migration",
+      "rule": "migration.md#mapping",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync"
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "goldenRoot": "root",
+        "sourceBytesUnchanged": true,
+        "selectionUnchanged": true,
+        "taskCount": 4
+      }
+    },
+    {
+      "id": "migrate-title-only-tokens",
+      "profile": "migration",
+      "rule": "migration.md#mapping",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "patchV1": {
+          "title": "@Work #TODO"
+        },
+        "rehashV1": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "error": "MIGRATION_INVALID_SOURCE",
+        "sourceBytesUnchanged": true,
+        "selectionUnchanged": true
+      }
+    },
+    {
+      "id": "migrate-legacy-escape",
+      "profile": "migration",
+      "rule": "migration.md#mapping",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "patchV1": {
+          "title": "Call \\@Work"
+        },
+        "rehashV1": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Call \\",
+          "category": "work"
+        },
+        "sourceBytesUnchanged": true
+      }
+    },
+    {
+      "id": "migrate-offset",
+      "profile": "migration",
+      "rule": "migration.md#mapping",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "patchV1": {
+          "createdAt": "2026-09-08T14:00:00.000+02:00"
+        },
+        "rehashV1": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "fields": {
+          "createdAt": "2026-09-08T12:00:00.000Z"
+        },
+        "sourceBytesUnchanged": true
+      }
+    },
+    {
+      "id": "migrate-invalid-time",
+      "profile": "migration",
+      "rule": "migration.md#mapping",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "patchV1": {
+          "createdAt": "2026-09-08T14:00:00.000-00:00"
+        },
+        "rehashV1": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "error": "MIGRATION_INVALID_SOURCE",
+        "selectionUnchanged": true
+      }
+    },
+    {
+      "id": "migrate-order-missing",
+      "profile": "migration",
+      "rule": "migration.md#source",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "removeV1": "order/root.json"
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "error": "MIGRATION_INVALID_SOURCE",
+        "selectionUnchanged": true
+      }
+    },
+    {
+      "id": "migrate-unknown-field",
+      "profile": "migration",
+      "rule": "migration.md#source",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "patchV1": {
+          "extra": "Do not discard"
+        },
+        "rehashV1": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "error": "MIGRATION_INVALID_SOURCE",
+        "selectionUnchanged": true
+      }
+    },
+    {
+      "id": "migrate-interrupted",
+      "profile": "migration",
+      "rule": "migration.md#stage",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync"
+      },
+      "action": {
+        "kind": "interrupt-every-stage-step",
+        "operation": "migrate-golden"
+      },
+      "expect": {
+        "sourceBytesUnchanged": true,
+        "selectionUnchanged": true,
+        "stageUsable": false,
+        "retainIntent": true
+      }
+    },
+    {
+      "id": "migrate-source-change",
+      "profile": "migration",
+      "rule": "migration.md#stage",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync"
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "interruptStage": true
+          },
+          {
+            "externalSourceEdit": true
+          },
+          {
+            "resumeStage": true
+          }
+        ]
+      },
+      "expect": {
+        "error": "MIGRATION_CONFLICT",
+        "selectionUnchanged": true,
+        "retainStage": true
+      }
+    },
+    {
+      "id": "migrate-destination",
+      "profile": "migration",
+      "rule": "migration.md#stage",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "destinationNonempty": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "occupied-stage"
+        }
+      },
+      "expect": {
+        "error": "DESTINATION_NOT_EMPTY",
+        "sourceBytesUnchanged": true,
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "rollback",
+      "profile": "migration",
+      "rule": "migration.md#rollback",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync"
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "migrate": "migrate-golden"
+          },
+          {
+            "selectVerifiedStage": true
+          },
+          {
+            "editV2": true
+          },
+          {
+            "selectPreservedV1": true
+          }
+        ]
+      },
+      "expect": {
+        "v1PreMigrationBytes": true,
+        "preserveV2EditsSeparately": true,
+        "reverseConversion": false,
+        "freshAuthority": true
+      }
+    },
+    {
+      "id": "cli-literal",
+      "profile": "cli",
+      "rule": "protocol.md#queries-and-cli",
+      "given": {},
+      "action": {
+        "argv": [
+          "add",
+          "--title",
+          "Call @alice",
+          "--category",
+          "WORK",
+          "--tag",
+          "TODO"
+        ]
+      },
+      "expect": {
+        "command": "task.create",
+        "args": {
+          "title": "Call @alice",
+          "category": "WORK",
+          "tags": [
+            "TODO"
+          ]
+        },
+        "fields": {
+          "title": "Call @alice",
+          "category": "work",
+          "tags": [
+            "todo"
+          ]
+        }
+      }
+    },
+    {
+      "id": "cli-text",
+      "profile": "cli",
+      "rule": "protocol.md#queries-and-cli",
+      "given": {},
+      "action": {
+        "argv": [
+          "add",
+          "Review @Work #TODO"
+        ]
+      },
+      "expect": {
+        "command": "task.create",
+        "args": {
+          "text": "Review @Work #TODO"
+        },
+        "fields": {
+          "title": "Review",
+          "category": "work",
+          "tags": [
+            "todo"
+          ]
+        }
+      }
+    },
+    {
+      "id": "cli-key-context",
+      "profile": "cli",
+      "rule": "protocol.md#queries-and-cli",
+      "given": {},
+      "action": {
+        "argv": [
+          "add",
+          "New",
+          "--idempotency-key",
+          "retry-key"
+        ]
+      },
+      "expect": {
+        "error": "WRITE_CONTEXT_REQUIRED",
+        "canonicalWrites": 0,
+        "noAutomaticAuthorityRefresh": true
+      }
+    },
+    {
+      "id": "archive-restore",
+      "profile": "storage",
+      "rule": "protocol.md#commands",
+      "given": {
+        "goldenRoot": "root"
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "workspace.archive",
+            "destinationDirectory": "empty-archive"
+          },
+          {
+            "command": "workspace.restore",
+            "sourceDirectory": "empty-archive",
+            "destinationDirectory": "empty-restored"
+          }
+        ]
+      },
+      "expect": {
+        "sameCanonicalBytes": true,
+        "sourceBytesUnchanged": true,
+        "selectionUnchanged": true,
+        "noCacheCopied": true
+      }
+    },
+    {
+      "id": "record-tags-unsorted",
+      "profile": "model",
+      "rule": "model.md#classification",
+      "given": {
+        "patch": {
+          "tags": [
+            "zulu",
+            "alpha"
+          ]
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "text-fence",
+      "profile": "inputs",
+      "rule": "protocol.md#inputs",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "text": "Read ```\n  @home #todo\n``` @Work"
+        }
+      },
+      "expect": {
+        "fields": {
+          "title": "Read ```\n  @home #todo\n```",
+          "category": "work",
+          "tags": []
+        }
+      }
+    },
+    {
+      "id": "key-too-long",
+      "profile": "ordering",
+      "rule": "ordering.md#keys",
+      "given": {
+        "fixtureCase": "key-limit",
+        "appendKey": "V"
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "key-required",
+      "profile": "protocol",
+      "rule": "protocol.md#envelope",
+      "given": {},
+      "action": {
+        "command": "task.create",
+        "args": {
+          "title": "New"
+        },
+        "idempotencyKey": null
+      },
+      "expect": {
+        "error": "IDEMPOTENCY_REQUIRED",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "doctor-dangling",
+      "profile": "storage",
+      "rule": "storage.md#doctor",
+      "given": {
+        "patch": {
+          "parentId": "missing",
+          "dependencyIds": [
+            "missing"
+          ]
+        }
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "command": "workspace.doctor.plan",
+            "args": {
+              "kind": "repair-links",
+              "edits": [
+                {
+                  "taskId": "a",
+                  "parentId": null,
+                  "removeDependencyIds": [
+                    "missing"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "apply": "first-plan",
+            "at": "2026-09-08T15:00:00.000Z"
+          }
+        ]
+      },
+      "expect": {
+        "fields": {
+          "parentId": null,
+          "dependencyIds": [],
+          "updatedAt": "2026-09-08T15:00:00.000Z"
+        },
+        "recoveryCopyBeforeDeletion": true
+      }
+    },
+    {
+      "id": "migrate-markdown",
+      "profile": "migration",
+      "rule": "migration.md#mapping",
+      "given": {
+        "sourceRoot": "../taskdb-v1/sync",
+        "patchV1": {
+          "descriptionMarkdown": "## Checklist\r\n\r\n- [ ] @literal #not-metadata\r\n"
+        },
+        "rehashV1": true
+      },
+      "action": {
+        "command": "workspace.migrateV1",
+        "args": {
+          "destinationDirectory": "empty-stage"
+        }
+      },
+      "expect": {
+        "fields": {
+          "description": "## Checklist\r\n\r\n- [ ] @literal #not-metadata\r\n",
+          "category": "planning",
+          "tags": [
+            "product"
+          ]
+        },
+        "sourceBytesUnchanged": true
+      }
+    },
+    {
+      "id": "root-escape",
+      "profile": "storage",
+      "rule": "storage.md#root",
+      "given": {
+        "symlink": {
+          "path": "tasks/a.json",
+          "target": "outside-tree"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0,
+        "outsideContentRead": false
+      }
+    },
+    {
+      "id": "destination-overlap",
+      "profile": "storage",
+      "rule": "protocol.md#commands",
+      "given": {},
+      "action": {
+        "command": "workspace.archive",
+        "args": {
+          "destinationDirectory": "selected-root/inside"
+        }
+      },
+      "expect": {
+        "error": "INVALID_ARGUMENT",
+        "canonicalWrites": 0,
+        "sourceBytesUnchanged": true
+      }
+    },
+    {
+      "id": "restore-cache-authority",
+      "profile": "protocol",
+      "rule": "protocol.md#authority",
+      "given": {
+        "goldenRoot": "root"
+      },
+      "action": {
+        "kind": "sequence",
+        "steps": [
+          {
+            "captureContext": "ctx-A"
+          },
+          {
+            "restoreToNewRoot": true
+          },
+          {
+            "selectRestoredRoot": true
+          },
+          {
+            "command": "task.create",
+            "title": "Old authority",
+            "context": "ctx-A"
+          }
+        ]
+      },
+      "expect": {
+        "error": "STALE_WRITE_CONTEXT",
+        "canonicalWritesAtFailure": 0
+      }
+    }
+  ]
+}

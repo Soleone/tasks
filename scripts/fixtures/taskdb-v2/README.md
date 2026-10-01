@@ -1,0 +1,32 @@
+# Accepted-target v2 fixtures
+
+**These are declarative expectations, not v2 implementation output.** Production Node/Android still implement v1. `scripts/taskdbV2Spec.test.mjs` checks this corpus's integrity and golden data only; it does not run a v2 command engine or prove recovery/migration.
+
+- `root/` is the hand-authored full-field golden target for the existing [v1 canonical fixture](../taskdb-v1/README.md). Its descriptor and four task files are complete schema-2 records. Never sync/mutate the committed fixture directly; copy to disposable roots.
+- `cases.json` has fixtureVersion 1, status accepted-target, a complete taskTemplate, and named cases `{id,profile,rule,given,action,expect}`. Rule anchors resolve under [spec/v2/](../../../spec/v2/overview.md). Profiles are model, inputs, mutations, protocol, ordering, storage, migration and cli. They group tests, not runtime capabilities.
+
+## Materialization
+
+Non-raw command actions use protocol 2, normalized agent/cli actor, captured current context and a stable case key for execution unless explicitly overridden. Action writeContext/idempotencyKey null means OMIT that field, not transmit JSON null. Read commands need no key. `guard-fault` injects the named beforeFirstWrite change after initial reads/token validation but BEFORE immutable journal staging; recovery faults occur after the specified applied-file prefix.
+
+Default input is a descriptor with exact `{"schemaVersion":2}\n` and task `a` from taskTemplate. Explicit `given.records` REPLACES that record set, expanding each entry from the template and its keyed ID, then the listed overrides. `given.patch`/`remove` affect task a. Arrays replace rather than merge. `goldenRoot:"root"` chooses the committed golden tree instead. `manifest:null` removes the descriptor; a supplied descriptor replaces it. Negative inputs intentionally need not validate.
+
+appendKey appends exact characters to the inherited task-a key; rawField/rawFieldHex replace the serialized JSON VALUE at a named task-a field with exact text/bytes, preserving otherwise complete JSON. duplicateField serializes the specified repeated member, not an object that silently loses it. rawEnvelope is transmitted exactly. These distinguish replacement decoding/duplicate acceptance from unrelated missing-field errors. All surrounding case JSON remains valid UTF-8; negative raw data is encoded within it.
+
+sourceRoot paths resolve relative to this fixture directory. Copy first. patchV1 applies to the planning parent `c8d4206d-c25a-4317-baa4-a2c5443060e9`; rehashV1 recomputes its existing v1 content hash according to the v1 contract so a time/title test is not merely stale-hash input. removeV1 removes the indicated relative file from the COPY. Given provider/incomplete-enumeration/case-alias flags need fault-capable provider adapters, not fabricated claims about the host filesystem.
+
+A fixtureCase or operation naming another case reuses its setup/operation. References must be acyclic; a named setup may follow another declared setup. `kind:"read"` validates the full tree before a normal task projection; info/doctor can instead diagnose incomplete roots. Allocation vectors are callable library/reader expectations, not a new public generation command. Sync-union scenarios concern observable file convergence; real transport evidence is required separately.
+
+## Bindings and observation
+
+IDs of existing records are literal. Newly generated IDs, ctx-A, issue/version/plan references, numeric expected-version examples (17/18), and first/second/pending operation labels are logical bindings. A black-box adapter MUST establish actual authority from info/get/inspect/results, capture it once, and reuse the ORIGINAL prepared payload on repeat. It must not force an allocator to produce version 17, read/write private SQLite to seed state, or refresh authority on a retry. Context-loss/root-switch events retain the old binding for the failing attempt. Sequence shorthand command fields become the same named public args/envelope through the adapter.
+
+`at` instants and time expectations label a deterministic test clock, not public command fields. A subprocess adapter without clock injection may bind operation-time labels to observed activity/result times and validate equality/preservation plus the bounded host call interval; it MUST NOT pass timestamps through ordinary task commands. Given record timestamps and exact historical restoration/migration instants remain literal. Fault events (externalPatch, arrival, deletion, formatting, interruption, cache loss) are out-of-band test actions on disposable input only, never alternate business commands.
+
+Expect fields/error/keys/order/goldenRoot are exact assertions on their named observables. Boolean/number checks assert effects: canonicalWrites counts task/descriptor writes by the attempted operation, excludes out-of-band faults/local cache; AtFailure/AtInspection scopes that count to the indicated step. No-op/retry counts receipt/activity/IDs without treating a historical result as a fresh read. Preserve/nonresurrection/rollback checks compare before/after files and raw recovery originals. rewrites/versions lists assert membership (order immaterial); sibling order is exact. SameFinalAs compares against that named case's expected outcome, not a freshly recomputed implementation oracle. Read-only capability may skip unsupported WRITE execution, but its report must list that coverage as unproven/unsupported, not passed.
+
+## Golden root
+
+The expected root sequence is paused notes (`a0`), completed inbox (`a1`), planning parent (`a2`); the planning child is `a0` in its own scope. IDs/graph/priority/status/Markdown/all mapped instants are retained. Title metadata is extracted into fields, legacy sync/format/workspace-ID fields and order files are absent. Source updatedAt is preserved, including terminal status time; this does not invent earlier edits.
+
+Before claiming conformance, execute the applicable cases through an actual separately tested reader/writer, including malformed bytes, subprocess interruption, SQLite commit/reply cut points, conflict cleanup, stage/rollback and real providers. [Conformance](../../../spec/v2/conformance.md) owns the support/evidence matrix. No such implementation is included in this corpus.
