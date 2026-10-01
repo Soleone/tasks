@@ -7,23 +7,35 @@ import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
-import { candidateBytes, candidateTask, compareCandidateTasks, generateKeyBetween } from "./fixtures/taskdb-v2-candidate.mjs";
+import {
+  applyCandidateBatch, candidateBytes, candidateReorderPlan, candidateTask,
+  compareCandidateTasks, generateKeyBetween, observeCandidateScope, stageCandidateBatch,
+} from "./fixtures/taskdb-v2-candidate.mjs";
 
 const binary = process.env.TASKDB_V2_SYNCTHING_BIN;
 const folderId = "taskdb-v2-disposable-probe";
+const allocatedPorts = new Set();
 const ids = [
   "00000000-0000-4000-8000-000000000001",
   "00000000-0000-4000-8000-000000000002",
   "00000000-0000-4000-8000-000000000003",
+  "00000000-0000-4000-8000-000000000004",
+  "00000000-0000-4000-8000-000000000005",
 ];
 
 async function availablePort() {
-  const server = createServer();
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const port = server.address().port;
-  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  return port;
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const server = createServer();
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const port = server.address().port;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    // Closing a reservation lets the OS return that same port on the next call.
+    if (allocatedPorts.has(port)) continue;
+    allocatedPorts.add(port);
+    return port;
+  }
+  throw new Error("Could not allocate distinct loopback ports");
 }
 
 function invoke(...args) {
@@ -141,7 +153,7 @@ async function converge(peers, count, conflictCount) {
   });
 }
 
-test("v2 proposal transport: offline captures, distinct reorders, same-task conflicts", {
+test("v2 proposal transport: offline captures, tied-run repairs, and same-task conflicts", {
   skip: !binary && "Set TASKDB_V2_SYNCTHING_BIN to an isolated Syncthing v1.29.5 binary",
   timeout: 180_000,
 }, async (t) => {
@@ -155,6 +167,7 @@ test("v2 proposal transport: offline captures, distinct reorders, same-task conf
     rmSync(directory, { recursive: true, force: true });
   });
   for (const name of ["a", "b"]) peers.push(await createPeer(path.join(directory, name)));
+  assert.equal(new Set(peers.flatMap((peer) => [peer.syncPort, peer.guiPort])).size, 4);
   configurePeer(peers[0], peers[1]);
   configurePeer(peers[1], peers[0]);
   const common = candidateTask(ids[0], "a1");
@@ -188,20 +201,45 @@ test("v2 proposal transport: offline captures, distinct reorders, same-task conf
   }
 
   {
+    writeFileSync(taskPath(peers[0], ids[3]), candidateBytes(candidateTask(ids[3], "a3")));
+    writeFileSync(taskPath(peers[0], ids[4]), candidateBytes(candidateTask(ids[4], "a4")));
+    await converge(peers, 5, 0);
+    await Promise.all(peers.map(stopPeer));
+    const repairedVersions = [];
+    for (const [index, peer] of peers.entries()) {
+      const observed = observeCandidateScope(path.join(peer.root, "tasks"), null);
+      const baseline = observed.files.map(({ bytes }) => JSON.parse(bytes));
+      const plan = candidateReorderPlan(baseline, [ids[index + 3]], 2);
+      repairedVersions.push(candidateBytes(plan.writes.find((task) => task.id === ids[2])));
+      const pending = stageCandidateBatch(path.join(peer.home, "rekey-pending.json"), observed, plan.writes);
+      applyCandidateBatch(pending);
+      assert.deepEqual(records(peer).map(({ bytes }) => JSON.parse(bytes)).sort(compareCandidateTasks).map((task) => task.id), plan.finalIds);
+    }
+    assert.notEqual(repairedVersions[0], repairedVersions[1]);
+    await Promise.all(peers.map(startPeer));
+    await converge(peers, 6, 1);
+    const preserved = records(peers[0]).filter(({ name }) => name.startsWith(ids[2])).map(({ bytes }) => bytes);
+    assert.deepEqual(preserved.sort(), repairedVersions.sort());
+    assert.equal(records(peers[0]).filter(({ name }) => !name.includes(".sync-conflict-")).length, 5);
+    t.diagnostic("Concurrent tied-run repairs: requested local gaps honored; overlapping task versions retained in one conflict copy");
+  }
+
+  {
     await Promise.all(peers.map(stopPeer));
     const versionA = candidateBytes({ ...common, orderKey: "Zz" });
     const versionB = candidateBytes({ ...common, title: "Offline content edit", orderKey: "a3" });
     writeFileSync(taskPath(peers[0], common.id), versionA);
     writeFileSync(taskPath(peers[1], common.id), versionB);
     await Promise.all(peers.map(startPeer));
-    await converge(peers, 4, 1);
+    await converge(peers, 7, 2);
     const versions = records(peers[0]).filter(({ name }) => name.startsWith(common.id)).map(({ bytes }) => bytes);
     assert.deepEqual(versions.sort(), [versionA, versionB].sort());
     assert.equal(readFileSync(path.join(peers[0].root, "workspace.json"), "utf8"), '{"schemaVersion":2}\n');
+    const beforeRestart = records(peers[0]);
     await Promise.all(peers.map(stopPeer));
     await Promise.all(peers.map(startPeer));
-    await converge(peers, 4, 1);
-    assert.deepEqual(records(peers[0]).filter(({ name }) => name.startsWith(common.id)).map(({ bytes }) => bytes).sort(), versions.sort());
-    t.diagnostic("Same-task reorder/edit: both byte versions retained, one conflict copy, unchanged after restart");
+    await converge(peers, 7, 2);
+    assert.deepEqual(records(peers[0]), beforeRestart);
+    t.diagnostic("Same-task reorder/edit: both byte versions retained; both repair and edit conflict copies unchanged after restart");
   }
 });
