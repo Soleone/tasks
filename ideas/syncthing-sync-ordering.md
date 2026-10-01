@@ -21,6 +21,18 @@ V1 stores each sibling sequence in one `order/<parent>.json` file. Creating a ta
 
 This should remove the common conflict where devices add different tasks to the same sibling list. It does not eliminate conflicts when both devices edit the same task. Fractional keys also do not guarantee that every pair of simultaneous reorder intentions can be preserved exactly. Do not adopt a plain linked list or an append-only event log unless the simpler candidate fails the required scenarios.
 
+### Exact candidate under test
+
+The disposable model pins the [CC0 fractional-indexing 3.2.0 reference](https://registry.npmjs.org/fractional-indexing/-/fractional-indexing-3.2.0.tgz), using its default base-62 digits (`0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`) and A–Z/a–z integer-length heads. This is a development-only dependency, not a production v2 engine or an accepted contract. Pin the version: newer upstream algorithms must not silently change interoperable key bytes.
+
+- Generate a key with `generateKeyBetween(lower, upper)`, where `null` denotes the beginning/end and two supplied bounds must be strictly ascending. For a selected group, `generateNKeysBetween` allocates ascending keys in existing selected order after removing that group from the sibling sequence.
+- Compare valid ASCII keys bytewise, shorter prefix first, then compare the exact task ID by the same rule. Never use locale-aware comparison or case folding; migrated v1 IDs may include uppercase characters.
+- Reference vectors: empty collection → `a0`; before `a0` → `Zz`; after `a0` → `a1`; between `a0` and `a1` → `a0V`; two between `a0` and `a1` → `["a0G","a0V"]`.
+- Proposed migration maps each validated v1 sibling sequence independently to `generateNKeysBetween(null, null, count)` and preserves IDs and sequence. This is a mapping candidate, not a tested full converter.
+- The generator is not a complete canonical-input validator. The accepted reader must separately define and reject invalid alphabets, integer lengths, trailing fractional zero, unsupported/oversized keys, and malformed IDs.
+
+**Unresolved equal-key gap:** independent same-gap inserts and moves can produce the same key. The task-ID tie-break gives deterministic display, but `generateKeyBetween("a0", "a0")` cannot insert between two tied tasks. Before acceptance, choose and test either explicit recoverable rekeying of the tied group, a collision-resistant allocation scheme with a specified fallback, or a documented refusal/coarser placement. Never silently move outside the requested gap or automatically rewrite all siblings on sync. The plain candidate is not ready for promotion solely because it sorts ties.
+
 ## Canonical versus local sync state
 
 - **Current direction:** omit the entire `sync` block from v2 canonical task files. Do not serialize `revision`, writer identity, `basedOnHash`, or `contentHash`.
@@ -31,8 +43,40 @@ This should remove the common conflict where devices add different tasks to the 
 
 ## Still to decide and validate
 
-- Prove the [collection lifecycle](collection-lifecycle-v2.md) with two real Syncthing instances; distinguish automatic union of distinct files from same-path conflict repair.
-- Choose and test the exact fractional-key algorithm, tie-break, comparison rules, and migration from v1 order files.
+- Extend the [collection lifecycle](collection-lifecycle-v2.md) transport evidence to application behavior; distinguish automatic union of distinct files from same-path conflict repair.
+- Resolve the equal-key insertion gap in the exact candidate above, then test its recovery and concurrency policy before accepting the ordering algorithm. Complete full-fixture v1 order migration proof.
 - Prove independent additions and incompatible reorders under sparse keys. Same-ID conflict-copy repair belongs in the [collection lifecycle proposal](collection-lifecycle-v2.md); keep losing data recoverable.
 - Decide whether any writer attribution is needed in local conflict UI. It is not part of the v2 canonical task record.
 - Keep the initial design short of a sequence CRDT or append-only operation log unless these tests show they are needed.
+
+## Disposable candidate evidence (2026-09-30)
+
+[`scripts/taskdbV2Candidates.test.mjs`](../scripts/taskdbV2Candidates.test.mjs) exercises an isolated proposal model, never the production reader/writer. The model pins key vectors and ASCII/ID ordering, same-gap captures and moves, equal-key failure, sibling-sequence mapping, observed-byte hashing, and simulated journal/retry states. A thousand successive inserts into the same shrinking gap remain ordered but grow keys beyond 100 bytes; key-size limits and a recoverable maintenance policy still need a contract. A no-op recovery recognizes already-written bytes; divergent or missing current bytes refuse recovery and preserve the local intent. These are model assertions, not process-kill, fsync/power-loss, SQLite receipt, Android, or platform conformance.
+
+[`scripts/taskdbV2Transport.test.mjs`](../scripts/taskdbV2Transport.test.mjs) repeats real transport with two isolated Syncthing v1.29.5 instances, fresh homes/index databases, loopback-only peer/API ports, no discovery/relays/NAT/upgrades/reporting, and matching manifest bytes. It uses complete-shaped synthetic candidate task JSON and confirms both peers have indexed the common starting state before offline changes. There is still no v2 application reader.
+
+| Case | Observed result |
+| --- | --- |
+| Both offline peers capture different IDs before a common task | Both files reach both roots with the same key; no shared order file and no conflict copy. Task-ID comparison yields the same display sequence. |
+| Offline peers move different tasks into the same gap | Both changes survive with equal keys and no conflict copy. Only one task can end up immediately adjacent to the target; sorting is convergence, not preservation of both intentions. |
+| Both offline peers change one task's file (reorder versus content/order edit) | One canonical file plus one propagated conflict copy preserves both exact byte versions. No automatic JSON merge. |
+| Restart after the same-task conflict | Both peers retain the same two versions and one conflict copy; restart does not duplicate the task ID or repair the conflict. |
+| External edit changes only JSON formatting before staging | The exact-byte SHA-256 baseline rejects it as stale despite equivalent parsed content. |
+| Another editor writes after the final check but before rename | The model overwrites that unseen edit. Its journal contains only the previously observed and proposed bytes, not the racing version. |
+
+**Race limitation:** an atomic file replacement is not an atomic hash-preconditioned replacement. Rechecking on recovery narrows the race but does not eliminate it. A local journal and Syncthing conflict preservation cannot guarantee recovery of a version neither client nor Syncthing observed. The accepted contract must explicitly bound support for noncooperating writers and must not promise lossless compare-and-swap. Doctor repair, partial-scan/deletion detection, and local-version behavior after cache loss remain separate unproven application obligations.
+
+Repeat the local model with:
+
+```bash
+node --test scripts/taskdbV2Candidates.test.mjs
+```
+
+Transport is opt-in and otherwise reported as skipped by `pnpm test`. Supply an independently obtained v1.29.5 binary; the test creates and removes only its own temporary roots:
+
+```bash
+TASKDB_V2_SYNCTHING_BIN=/absolute/path/to/syncthing \
+  node --test scripts/taskdbV2Transport.test.mjs
+```
+
+The transport test uses an internal `STMONITORED=yes` setting to run the worker directly, so stopping it waits for the actual process and database lock rather than just a monitor. This probe is pinned to v1.29.5; passing on WSL2 is not native Windows, Omarchy, Android SAF, cross-version, or independent-client acceptance.
