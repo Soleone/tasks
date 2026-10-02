@@ -142,6 +142,6 @@ test("v2 verified stages support byte-preserving restore staging and fresh local
   for (const command of ["workspace.migrateV1"]) {
     const response = executeV2Line(Buffer.from(JSON.stringify({ version: 2, command })), root, cache);
     assert.equal(response.ok, false);
-    if (!response.ok) assert.equal(response.error.code, "UNSUPPORTED_COMMAND");
+    if (!response.ok) assert.equal(response.error.code, process.platform === "linux" ? "MIGRATION_INVALID_SOURCE" : "UNSUPPORTED_COMMAND");
   }
 });

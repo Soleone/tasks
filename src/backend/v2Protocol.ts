@@ -16,7 +16,7 @@ export type V2Request = {
 };
 export type V2Response =
   | { version: 2; requestId: string | null; ok: true; writeContext: string; result: Record<string, unknown> }
-  | { version: 2; requestId: string | null; ok: false; error: { code: string; message: string } };
+  | { version: 2; requestId: string | null; ok: false; error: { code: string; message: string; details?: Record<string, unknown> } };
 
 export const V2_QUERY_COMMANDS = ["category.list", "tag.list", "task.get", "task.list", "workspace.info"] as const;
 const knownCommands = new Set<string>([...COMMAND_NAMES, "task.order.normalize", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]);

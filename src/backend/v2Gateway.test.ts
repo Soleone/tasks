@@ -87,7 +87,7 @@ test("v2 info inspects empty, partial and unsupported roots without creating can
   const ready = result(query(current, "workspace.info"));
   assert.equal(ready.state, "ready");
   assert.deepEqual(ready.commands, process.platform === "linux"
-    ? ["activity.list", "category.list", "tag.list", "task.get", "task.list", "task.update", "workspace.archive", "workspace.info", "workspace.recovery.resume", "workspace.restore"]
+    ? ["activity.list", "category.list", "tag.list", "task.get", "task.list", "task.update", "workspace.archive", "workspace.info", "workspace.migrateV1", "workspace.recovery.resume", "workspace.restore"]
     : ["category.list", "tag.list", "task.get", "task.list", "workspace.info"]);
   writeFileSync(path.join(current.root, "tasks/a.json"), '{"title":"partial secret');
   const incomplete = result(query(current, "workspace.info"));

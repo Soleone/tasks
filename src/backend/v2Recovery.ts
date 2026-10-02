@@ -1,5 +1,5 @@
 import { CommandError } from "./errors.js";
-import { readV2RootDescriptor } from "./v2CanonicalReader.js";
+import { readV2ControlRoot } from "./v2ControlRoot.js";
 import { retireV2Copy } from "./v2CopyJournal.js";
 import { commitV2Copy } from "./v2CopyWriter.js";
 import { retireV2Pending, withV2RootWriterLock } from "./v2LocalDomain.js";
@@ -13,7 +13,7 @@ import { applyV2Journal, guardV2Update } from "./v2UpdateJournal.js";
 import { commitV2Update } from "./v2UpdateWriter.js";
 
 export function resumeV2Operation(request: V2Request, rootPath: string, cachePath: string) {
-  const root = readV2RootDescriptor(rootPath);
+  const root = readV2ControlRoot(rootPath);
   return withV2RootWriterLock(root, () => {
     let completed: V2PendingIntent | undefined;
     let replayed = false;

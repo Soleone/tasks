@@ -4,6 +4,8 @@ import { inspectV2CanonicalRoot } from "./v2CanonicalReader.js";
 import { observeV2QueryAuthority, synchronizeV2Authority, withV2CacheTransaction } from "./v2QueryCache.js";
 import { executeV2Update } from "./v2UpdateWriter.js";
 import { executeV2Copy } from "./v2CopyWriter.js";
+import { executeV2Migration } from "./v2MigrationWriter.js";
+import { V1MigrationSourceError } from "./v2MigrationSource.js";
 import { resumeV2Operation } from "./v2Recovery.js";
 import { readV2Pending } from "./v2Pending.js";
 import { executeV2Query, projectV2Tasks } from "./v2Queries.js";
@@ -17,17 +19,19 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     if (isV2Record(envelope) && typeof envelope.requestId === "string") requestId = envelope.requestId;
     const request = parseV2Request(envelope);
     const writable = process.platform === "linux";
-    if (writable && ["task.update", "workspace.recovery.resume", "workspace.archive", "workspace.restore"].includes(request.command)) {
+    if (writable && ["task.update", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1"].includes(request.command)) {
       const outcome = request.command === "task.update" ? executeV2Update(request, rootPath, cachePath)
         : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath)
+        : request.command === "workspace.migrateV1" ? executeV2Migration(request, rootPath, cachePath)
         : executeV2Copy(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
+    if (!writable && request.command === "workspace.migrateV1") throw new CommandError("UNSUPPORTED_COMMAND", "migration is unavailable on this platform");
     const inspection = inspectV2CanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
       throw new CommandError("UNSUPPORTED_SCHEMA", "task commands require canonical schema 2");
     }
-    const commands = [...V2_QUERY_COMMANDS, ...(writable ? ["task.update", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "activity.list"] : [])].sort();
+    const commands = [...V2_QUERY_COMMANDS, ...(writable ? ["task.update", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "activity.list"] : [])].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this bounded v2 slice");
     }
@@ -60,6 +64,6 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     const storageError = isV2Record(error) && typeof error.code === "string" && /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
     const code = error instanceof CommandError ? error.code : storageError ? "INVALID_STORAGE" : "INTERNAL_ERROR";
     const message = error instanceof CommandError ? error.message.slice(error.code.length + 2) : "v2 query could not complete safely";
-    return { version: 2, requestId, ok: false, error: { code, message } };
+    return { version: 2, requestId, ok: false, error: { code, message, ...(error instanceof V1MigrationSourceError ? { details: error.details } : {}) } };
   }
 }

@@ -13,19 +13,21 @@ import { localPathOutsideV2Root } from "./v2QueryCache.js";
 import type { V2RootBinding } from "./v2QueryCache.js";
 import { validateV2Graph, validateV2Manifest, validateV2Task } from "./v2TaskModel.js";
 import { exactV2Hash } from "./v2UpdateJournal.js";
+import { guardV2MigrationSource, migrationCompletion, parseV2MigrationEvidence, persistV2MigrationRecovery, verifyV2MigrationRecovery } from "./v2MigrationJournal.js";
+import type { V2MigrationEvidence } from "./v2MigrationJournal.js";
 
-type CopyFile = { relativePath: string; sha256: string; bytes: string };
+export type CopyFile = { relativePath: string; sha256: string; bytes: string };
 export type V2CopyIntent = {
   format: "taskdb.pending-copy"; version: 1; root: V2RootBinding; source: V2RootBinding;
   cachePath: string; request: V2Request; operationId: string;
-  destination: CopyDestination; stageDirectory: string; files: CopyFile[];
+  destination: CopyDestination; stageDirectory: string; files: CopyFile[]; migration?: V2MigrationEvidence;
 };
 type CopyProgress = { operationId: string; stageIdentity: string; tasksIdentity: string; written: string[] };
 
 function conflict(): never { throw new CommandError("RECOVERY_CONFLICT", "copy has missing, divergent or invalid evidence"); }
 
 export function parseV2CopyArgs(request: V2Request): { sourceDirectory?: string; destinationDirectory: string } {
-  assertV2Args(request.args, request.command === "workspace.archive" ? ["destinationDirectory"] : ["sourceDirectory", "destinationDirectory"]);
+  assertV2Args(request.args, request.command === "workspace.restore" ? ["sourceDirectory", "destinationDirectory"] : ["destinationDirectory"]);
   const destination = request.args.destinationDirectory;
   const source = request.args.sourceDirectory;
   if (typeof destination !== "string" || destination.trim() === "" || (request.command === "workspace.restore" && (typeof source !== "string" || source.trim() === ""))) {
@@ -53,9 +55,9 @@ export function parseV2CopyIntent(value: unknown, root: V2RootBinding): V2CopyIn
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(intent.operationId)) conflict();
     for (const binding of [intent.root, intent.source]) if (!path.isAbsolute(binding.rootPath) || typeof binding.rootIdentity !== "string" || !/^\d+:\d+$/.test(binding.rootIdentity)) conflict();
     const request = parseV2Request(intent.request);
-    if (!["workspace.archive", "workspace.restore"].includes(request.command) || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) conflict();
+    if (!["workspace.archive", "workspace.restore", "workspace.migrateV1"].includes(request.command) || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) conflict();
     parseV2CopyArgs(request);
-    if (request.command === "workspace.archive" && (intent.source.rootPath !== root.rootPath || intent.source.rootIdentity !== root.rootIdentity)) conflict();
+    if (request.command !== "workspace.restore" && (intent.source.rootPath !== root.rootPath || intent.source.rootIdentity !== root.rootIdentity)) conflict();
     if (!path.isAbsolute(intent.cachePath) || !path.isAbsolute(intent.destination.directory) || !/^\d+:\d+$/.test(intent.destination.parentIdentity)
       || (intent.destination.identity !== null && !/^\d+:\d+$/.test(intent.destination.identity))) conflict();
     const stage = path.join(path.dirname(intent.destination.directory), `.${path.basename(intent.destination.directory)}.taskdb-copy-${intent.operationId}.stage`);
@@ -67,6 +69,8 @@ export function parseV2CopyIntent(value: unknown, root: V2RootBinding): V2CopyIn
         || Buffer.from(file.bytes, "base64").toString("base64") !== file.bytes || file.sha256 !== exactV2Hash(Buffer.from(file.bytes, "base64"))) conflict();
     }
     validateCopyFiles(intent.files);
+    if (request.command === "workspace.migrateV1") parseV2MigrationEvidence(intent.migration, root, intent.files);
+    else if (intent.migration !== undefined) conflict();
     for (const binding of [root, intent.source]) {
       localPathOutsideV2Root(intent.destination.directory, binding.rootPath);
       localPathOutsideV2Root(binding.rootPath, intent.destination.directory);
@@ -125,6 +129,7 @@ function guardPartialStage(intent: V2CopyIntent, progress: CopyProgress): string
 }
 
 function guardSource(intent: V2CopyIntent): V2CanonicalSnapshot {
+  if (intent.migration) return guardV2MigrationSource(intent);
   if (readV2RootDescriptor(intent.root.rootPath).rootIdentity !== intent.root.rootIdentity) conflict();
   const source = readV2CanonicalRoot(intent.source.rootPath);
   if (source.rootIdentity !== intent.source.rootIdentity || JSON.stringify(source.files) !== JSON.stringify(intent.files.map(({ relativePath, sha256 }) => ({ relativePath, sha256 })))) conflict();
@@ -133,6 +138,7 @@ function guardSource(intent: V2CopyIntent): V2CanonicalSnapshot {
 }
 
 function verifyPublishedCopy(intent: V2CopyIntent, progress: CopyProgress): V2CanonicalSnapshot {
+  if (intent.migration) verifyV2MigrationRecovery(intent);
   if (progress.written.length !== intent.files.length || !readV2RegularFile(evidencePaths(intent).verified).equals(verifiedCopyBytes(intent, progress))) conflict();
   if (existsSync(intent.stageDirectory) || directoryIdentity(intent.destination.directory) !== progress.stageIdentity
     || directoryIdentity(path.join(intent.destination.directory, "tasks")) !== progress.tasksIdentity) conflict();
@@ -143,7 +149,7 @@ function verifyPublishedCopy(intent: V2CopyIntent, progress: CopyProgress): V2Ca
 }
 
 function verifiedCopyBytes(intent: V2CopyIntent, progress: CopyProgress): Buffer {
-  return Buffer.from(`${JSON.stringify({ operationId: intent.operationId, stageIdentity: progress.stageIdentity, files: intent.files.map(({ relativePath, sha256 }) => ({ relativePath, sha256 })) })}\n`);
+  return Buffer.from(`${JSON.stringify({ operationId: intent.operationId, stageIdentity: progress.stageIdentity, files: intent.files.map(({ relativePath, sha256 }) => ({ relativePath, sha256 })), ...(intent.migration ? { completion: migrationCompletion(intent) } : {}) })}\n`);
 }
 
 function copyTarget(intent: V2CopyIntent, progress: CopyProgress) {
@@ -174,10 +180,14 @@ export function applyV2CopyJournal(intent: V2CopyIntent): Record<string, unknown
       const target = copyTarget(intent, progress);
       if (!readV2RegularFile(pendingV2Path(target.root)).equals(Buffer.from(`${JSON.stringify(target)}\n`))) conflict();
       const source = withV2RootWriterLock(target.root, () => verifyPublishedCopy(intent, progress!));
-      return { destinationDirectory: intent.destination.directory, taskCount: source.tasks.length, changed: true, operationId: intent.operationId };
+      return { destinationDirectory: intent.destination.directory, taskCount: source.tasks.length, changed: true, operationId: intent.operationId, ...(intent.migration ? migrationCompletion(intent) : {}) };
     }
     guardSource(intent);
     guardCopyDestination(intent.source.rootPath, intent.destination);
+    if (intent.migration) {
+      if (progress) verifyV2MigrationRecovery(intent);
+      else persistV2MigrationRecovery(intent);
+    }
     if (!progress) {
       if (existsSync(intent.stageDirectory)) conflict();
       mkdirSync(intent.stageDirectory, { mode: 0o700 });
@@ -209,9 +219,12 @@ export function applyV2CopyJournal(intent: V2CopyIntent): Record<string, unknown
       reserveCopyTarget(intent, progress!);
       renameSync(intent.stageDirectory, intent.destination.directory);
       const verified = verifyPublishedCopy(intent, progress!);
-      return { destinationDirectory: intent.destination.directory, taskCount: verified.tasks.length, changed: true, operationId: intent.operationId };
+      return { destinationDirectory: intent.destination.directory, taskCount: verified.tasks.length, changed: true, operationId: intent.operationId, ...(intent.migration ? migrationCompletion(intent) : {}) };
     });
-  } catch { return conflict(); }
+  } catch (error) {
+    if (error instanceof CommandError && error.code === "MIGRATION_CONFLICT") throw error;
+    return conflict();
+  }
 }
 
 export function retireV2Copy(intent: V2CopyIntent): void {

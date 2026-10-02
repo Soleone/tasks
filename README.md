@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, verified archive/restore to separate folders, and explicit recovery of published update/copy intents. Create, status/order/relationship changes, undo, doctor and v1 migration remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, and explicit recovery of published update/copy/migration intents. Create, status/order/relationship changes, undo and doctor remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -38,7 +38,7 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
 
 For `task.update`, retain the returned `writeContext`, task `version` as `args.expectedVersion`, and a stable `idempotencyKey` with the original payload. Supported fields are `title` (literal), `text` (shorthand replacement), `description`, `priority`, `category`, and `tags`. `workspace.info` reports an interrupted operation's `pendingOperationId`; explicitly execute `workspace.recovery.resume` with that `operationId`, current context and a new stable recovery key. Never refresh authority and blindly retry an uncertain original operation.
 
-The cache must be outside the canonical tree. Root-scoped locks/pending intent live in the same user's app-data profile (`taskdb-v2/roots/`), outside the synced root, independently of the selected cache. Participating processes must share that profile; do not move it during pending work. Windows/Android writable commands are withheld. See [the evidence matrix](spec/v2/conformance.md) for WSL2-only execution, manual-inspection cases, race and power-loss limits. This is not migration or native acceptance.
+The cache must be outside the canonical tree. Root-scoped locks/pending intent live in the same user's app-data profile (`taskdb-v2/roots/`), outside the synced root, independently of the selected cache. Participating processes must share that profile; do not move it during pending work. Windows/Android writable commands are withheld. See [the evidence matrix](spec/v2/conformance.md) for WSL2-only execution, manual-inspection cases, race and power-loss limits. These controls are not native/provider acceptance or permission to migrate personal data.
 
 ### Back up or restore an experimental v2 folder
 
@@ -75,7 +75,46 @@ console.log(`${plan.tasks.length} tasks checked; ${plan.files.length} v2 files p
 NODE
 ```
 
-Expect four tasks and five planned files. IDs, notes, relationships, complete sibling order and timestamp instants are retained. Legacy title metadata becomes category/tag fields without new escape decoding. Verified staging, explicit selection with fresh authority, and rollback to preserved v1 are still missing. Keep using disposable copies; do not use personal data. See [conversion evidence](spec/v2/conformance.md#read-only-v1-conversion-component).
+Expect four tasks and five planned files. IDs, notes, relationships, complete sibling order and timestamp instants are retained. Legacy title metadata becomes category/tag fields without new escape decoding. This helper remains read-only; the separate Linux command below handles verified staging. Keep using disposable copies; do not use personal data. See [conversion evidence](spec/v2/conformance.md#read-only-v1-conversion-component).
+
+### Migrate a disposable v1 copy, then choose a version explicitly
+
+Linux only. Pause all v1 writers and sharing yourself, and use a disconnected destination. The new lock does **not** stop legacy writers or Syncthing. This example uses only committed synthetic fixtures and needs `jq`:
+
+```bash
+pnpm build:backend
+migscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v1/sync "$migscratch/v1"
+migrate() {
+  XDG_DATA_HOME="$migscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$migscratch/v1" --database "$migscratch/control.db"
+}
+context=$(printf '%s\n' '{"version":2,"command":"workspace.info"}' | migrate | jq -r '.writeContext')
+jq -nc --arg ctx "$context" --arg dest "$migscratch/v2" \
+  '{version:2,command:"workspace.migrateV1",writeContext:$ctx,dryRun:true,args:{destinationDirectory:$dest}}' | migrate
+jq -nc --arg ctx "$context" --arg dest "$migscratch/v2" \
+  '{version:2,command:"workspace.migrateV1",writeContext:$ctx,idempotencyKey:"migration-1",args:{destinationDirectory:$dest}}' | migrate
+```
+
+Expect four tasks. Success publishes the separate v2 folder, retains the untouched v1 folder and an independent raw-byte recovery archive under local app-data, and returns their locations plus a rollback warning. It does not switch the app, enable sharing or import the old database. The raw archive is recovery data, not another selectable workspace; keep it and the original v1 folder. Partial/unpublished evidence and changed sources/stages/backups require inspection. To resume, use the original **v1 root, control cache and app-data profile** with `workspace.recovery.resume`; retain the original context/key/payload for uncertain retries.
+
+Only after success, explicitly inspect/select v2 with a **fresh cache**:
+
+```bash
+printf '%s\n' '{"version":2,"command":"workspace.info"}' | \
+  XDG_DATA_HOME="$migscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$migscratch/v2" --database "$migscratch/fresh-v2.db"
+```
+
+**Rollback restores pre-migration v1 state. Later v2 edits are not brought back.** Keep the v2 folder separately, and explicitly reopen the preserved v1 folder with the v1 client:
+
+```bash
+printf '%s\n' '{"version":1,"requestId":"rollback-check","command":"task.list","args":{"sort":"manual"}}' | \
+  TASKS_SYNC_ROOT="$migscratch/v1" XDG_DATA_HOME="$migscratch/local-data" \
+  node dist/backend/cli.js --stdio --database "$migscratch/fresh-v1.db"
+```
+
+This changes only the root/client selected for that invocation, not the default UI or registry. No reverse conversion or automatic rollback command exists. Native/UI migration and personal-data rollout remain unaccepted. See [migration evidence](spec/v2/conformance.md#guarded-v1-migration-and-explicit-rollback).
 
 ## Documentation
 

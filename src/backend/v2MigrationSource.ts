@@ -189,6 +189,26 @@ function transferTemporary(name: string): boolean {
   return name.startsWith(".syncthing.") && name.endsWith(".tmp");
 }
 
+function validateV1Descriptor(value: unknown): CanonicalWorkspaceFile {
+  const descriptor = recordFields(value, ["format", "formatVersion", "workspaceId", "schemaVersion"], "workspace.json");
+  if (descriptor.format !== "tasks.workspace" || descriptor.formatVersion !== 1 || descriptor.schemaVersion !== 1) invalidV1Source("workspace.json", "format/schemaVersion", "expected canonical v1 descriptor");
+  if (typeof descriptor.workspaceId !== "string" || descriptor.workspaceId.trim() === "") invalidV1Source("workspace.json", "workspaceId", "expected nonempty workspace identity");
+  return descriptor as unknown as CanonicalWorkspaceFile;
+}
+
+/** Descriptor-only control binding permits historical replay before live inventory checks. */
+export function readV1MigrationRootDescriptor(directory: string): { rootPath: string; rootIdentity: string } {
+  const rootPath = sourceBoundary(".", "directory", () => realpathSync(directory));
+  const rootIdentity = sourceBoundary(".", "directory", () => {
+    const stat = lstatSync(rootPath, { bigint: true });
+    if (!stat.isDirectory()) invalidV1Source(".", "directory", "expected physical directory");
+    return `${stat.dev}:${stat.ino}`;
+  });
+  const bytes = sourceBoundary("workspace.json", "file", () => readV2RegularFile(path.join(rootPath, "workspace.json")));
+  validateV1Descriptor(sourceBoundary("workspace.json", "JSON", () => parseV2CanonicalJson(bytes)));
+  return { rootPath, rootIdentity };
+}
+
 /** Strict read-only observation, not a writer lock, pinned filesystem snapshot or migration. */
 export function readV1MigrationSnapshot(directory: string): V1MigrationSnapshot {
   const rootPath = sourceBoundary(".", "directory", () => realpathSync(directory));
@@ -208,9 +228,7 @@ export function readV1MigrationSnapshot(directory: string): V1MigrationSnapshot 
     files.push({ relativePath, sha256: createHash("sha256").update(bytes).digest("hex") });
     return sourceBoundary(relativePath, "JSON", () => parseV2CanonicalJson(bytes));
   };
-  const descriptor = recordFields(readRecord("workspace.json"), ["format", "formatVersion", "workspaceId", "schemaVersion"], "workspace.json");
-  if (descriptor.format !== "tasks.workspace" || descriptor.formatVersion !== 1 || descriptor.schemaVersion !== 1) invalidV1Source("workspace.json", "format/schemaVersion", "expected canonical v1 descriptor");
-  if (typeof descriptor.workspaceId !== "string" || descriptor.workspaceId.trim() === "") invalidV1Source("workspace.json", "workspaceId", "expected nonempty workspace identity");
+  const descriptor = validateV1Descriptor(readRecord("workspace.json"));
   const tasks: CanonicalTaskFile[] = [];
   const orders: CanonicalOrderFile[] = [];
   for (const inventory of inventories.slice(1)) {
@@ -241,6 +259,6 @@ export function readV1MigrationSnapshot(directory: string): V1MigrationSnapshot 
   return {
     rootPath, rootIdentity: inventories[0].identity,
     directories: inventories.map(({ relativePath, identity }) => ({ relativePath, identity })),
-    workspace: descriptor as unknown as CanonicalWorkspaceFile, tasks, orders, files,
+    workspace: descriptor, tasks, orders, files,
   };
 }
