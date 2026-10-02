@@ -40,6 +40,8 @@ For `task.update`, retain the returned `writeContext`, task `version` as `args.e
 
 The cache must be outside the canonical tree. Root-scoped locks/pending intent live in the same user's app-data profile (`taskdb-v2/roots/`), outside the synced root, independently of the selected cache. Participating processes must share that profile; do not move it during pending work. Windows/Android writable commands are withheld. See [the evidence matrix](spec/v2/conformance.md) for WSL2-only execution, manual-inspection cases, race and power-loss limits. This is not migration or native acceptance.
 
+An internal Linux-only [canonical-copy staging primitive](src/backend/v2CopyStage.ts) now verifies byte-preserving backup/restore stages on disposable roots, including file-prefix interruption checks. It deliberately leaves the requested destination unpublished; public archive/restore/migration commands, stage resume and adoption remain unsupported. A complete-looking private stage is not permission to select or share it.
+
 ## Documentation
 
 - [Current system specification](spec/overview.md): the implemented v1 task model, storage, protocol, queries, mutations, CLI, sources, and UI behavior.
