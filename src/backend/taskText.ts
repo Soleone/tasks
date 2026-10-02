@@ -30,7 +30,7 @@ function token(slug: string): ClassificationToken {
 
 const classificationTokenPattern = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b/g;
 
-function classificationTokenRanges(text: string): Array<{ start: number; end: number }> {
+export function classificationTokenRanges(text: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
   const searchableText = blankCode(text);
 

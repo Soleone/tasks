@@ -60,6 +60,23 @@ jq -nc --arg ctx "$context" --arg src "$scratch/archive" --arg dest "$scratch/re
 
 Copies preserve exact canonical/known task conflict bytes, not SQLite or transport history. They are verified before publication; pending destinations stay blocked until receipt completion. If interrupted, resume through the **original selected root and cache**, not the new destination. Keep the original context/key/payload for an uncertain retry. Malformed/partial evidence, unrecorded directory creation and changed files/bindings require inspection rather than automatic repair. Do not select/share a private `.stage` folder. The earlier [stage-only primitive](src/backend/v2CopyStage.ts) still deliberately leaves destinations unpublished; its artifacts are not public-command receipts. All this remains experimental Linux/WSL2 evidence, not native/provider acceptance or v1 migration.
 
+### Check a disposable v1 conversion
+
+The read-only developer helper checks a complete v1 copy and plans its v2 files in memory. It refuses missing orders, unresolved conflicts, unknown fields or lossy timestamps rather than guessing. This is **not a migration command**: it writes no files and does not switch collections.
+
+```bash
+pnpm build:backend
+v1scratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v1/sync "$v1scratch/source"
+node --input-type=module - "$v1scratch/source" <<'NODE'
+import { planV1ToV2Conversion } from './dist/backend/v2V1Conversion.js';
+const plan = planV1ToV2Conversion(process.argv[2]);
+console.log(`${plan.tasks.length} tasks checked; ${plan.files.length} v2 files planned in memory. No files written.`);
+NODE
+```
+
+Expect four tasks and five planned files. IDs, notes, relationships, complete sibling order and timestamp instants are retained. Legacy title metadata becomes category/tag fields without new escape decoding. Verified staging, explicit selection with fresh authority, and rollback to preserved v1 are still missing. Keep using disposable copies; do not use personal data. See [conversion evidence](spec/v2/conformance.md#read-only-v1-conversion-component).
+
 ## Documentation
 
 - [Current system specification](spec/overview.md): the implemented v1 task model, storage, protocol, queries, mutations, CLI, sources, and UI behavior.

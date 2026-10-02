@@ -32,6 +32,9 @@ importers:
       cn:
         specifier: ^0.2.6
         version: 0.2.6
+      fractional-indexing:
+        specifier: 3.2.0
+        version: 3.2.0
       lucide-react:
         specifier: ^1.41.0
         version: 1.41.0(react@19.2.8)
@@ -75,9 +78,6 @@ importers:
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
-      fractional-indexing:
-        specifier: 3.2.0
-        version: 3.2.0
       oxlint:
         specifier: ^1.82.0
         version: 1.82.0

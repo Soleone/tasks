@@ -82,7 +82,18 @@ export function compareV2Tasks(left: V2CanonicalTask, right: V2CanonicalTask): n
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 
-export function validateV2Graph(tasks: readonly V2CanonicalTask[]): void {
+export class V2GraphError extends CommandError {
+  readonly taskId: string;
+  readonly relation: "parentId" | "dependencyIds";
+
+  constructor(taskId: string, relation: "parentId" | "dependencyIds") {
+    super("INVALID_CANONICAL", `invalid canonical task ${relation} graph`);
+    this.taskId = taskId;
+    this.relation = relation;
+  }
+}
+
+export function validateV2Graph(tasks: readonly Pick<V2CanonicalTask, "id" | "parentId" | "dependencyIds">[]): void {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   if (byId.size !== tasks.length) invalidTask("duplicate IDs");
   // Walk edge kinds separately: a parent/dependency combination is not itself a forbidden cycle.
@@ -96,7 +107,7 @@ export function validateV2Graph(tasks: readonly V2CanonicalTask[]): void {
         if (current.exit) { active.delete(current.id); complete.add(current.id); continue; }
         if (complete.has(current.id)) continue;
         const record = byId.get(current.id);
-        if (!record || active.has(current.id)) invalidTask(`${relation} graph`);
+        if (!record || active.has(current.id)) throw new V2GraphError(current.id, relation);
         active.add(current.id);
         stack.push({ id: current.id, exit: true });
         const targets = relation === "dependencyIds" ? record.dependencyIds : record.parentId === null ? [] : [record.parentId];
