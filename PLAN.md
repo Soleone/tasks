@@ -21,6 +21,29 @@
 
 The immediate implementation gate is **the accepted single-root v2 target plus actual safe migration/recovery proof**, not the next adapter. No v2 fields, file versions, or published standard are approved merely by appearing in `ideas/`. The local development queue is `sq list --ready`; `.sift/` is ignored by Git, so this plan remains the portable record of direction and gates.
 
+### Remaining v2 work queue
+
+The staging implementation is committed as `4caaee9`. `xz2` remains the recoverable-slice umbrella, with concrete backup/conversion/migration children below; `69t` retains the existing native M1 obligations. Children are not blocked by their open umbrella. The queue records accepted-target work, not permission to upgrade personal data or a claim that the full target is implemented.
+
+**Next:** finish usable backup/restore (`64y`), implement the strict converter (`88e`), then prove staged migration and rollback (`4qj`). The read-only converter can be developed independently; migration needs both prerequisites. These are priority 2. The remaining implementation/acceptance work is priority 3, and independent interoperability is a later priority-4 gate. Per-capability fixture/fault tests belong in each implementation task; the final conformance task is not permission to defer them.
+
+| Work | sq task(s) |
+| --- | --- |
+| Usable backup/restore, fixed copy recovery, receipts and verified publication | `64y` |
+| Strict complete v1 snapshot validation and full-field conversion | `88e` |
+| Guarded migration, fresh-authority adoption and explicit v1 rollback | `4qj` (requires `64y`, `88e`) |
+| Explicit collection initialization and cache rebuild | `7qe` |
+| Capture/status commands, then parent/dependency edits | `ydv`, `5xb` |
+| Production ordering/normalization with multi-file recovery, then grouped undo | `q3h`, `6nf` |
+| Verified canceled-task purge and reviewed conflict repair | `fag`, `wsd` |
+| Opt-in human CLI and Tasks UI integration | `q7r`, `m1p` |
+| Supported native Windows writes and Android document-provider implementation | `82r`, `erd` |
+| Remaining black-box corpus execution and separate v2 native acceptance | `23b`, `gex` |
+| Human migration/rollout guide after runnable behavior and acceptance | `y9b` |
+| Independent second-implementation proof before a public-standard claim | `zaq` |
+
+All mutation/migration work uses disposable roots and retains default v1 behavior. Platform tasks must withhold unsupported capabilities rather than approximate guarantees. V2 native acceptance is separate from `69t`; neither browser/WSL evidence nor a completed converter closes either native gate. Actual dependencies and acceptance criteria live in `sq show <id>`; this table is the portable map because `.sift/` is not tracked.
+
 ## Previous milestone baseline
 
 **Reviewed:** 2026-09-06
