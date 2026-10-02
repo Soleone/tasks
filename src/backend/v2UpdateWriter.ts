@@ -7,17 +7,17 @@ import { readV2CanonicalRoot, readV2RegularFile, readV2RootDescriptor } from "./
 import type { V2CanonicalSnapshot } from "./v2CanonicalReader.js";
 import { persistV2Pending, retireV2Pending, syncV2Directory, withV2RootWriterLock } from "./v2LocalDomain.js";
 import { projectV2Tasks } from "./v2Queries.js";
-import { assertV2Args } from "./v2Protocol.js";
 import type { V2Request } from "./v2Protocol.js";
 import { localPathOutsideV2Root, synchronizeV2Authority, withV2CacheTransaction } from "./v2QueryCache.js";
 import { findV2Receipt, requireV2WriteContext, storeV2Receipt } from "./v2Receipts.js";
 import { applyV2Update, parseV2Update } from "./v2UpdateInputs.js";
-import { applyV2Journal, exactV2Hash, guardV2Update, readV2Pending } from "./v2UpdateJournal.js";
+import { readV2Pending } from "./v2Pending.js";
+import { applyV2Journal, exactV2Hash, guardV2Update } from "./v2UpdateJournal.js";
 import type { V2UpdateIntent } from "./v2UpdateJournal.js";
 
 type WriteOutcome = { writeContext: string; result: Record<string, unknown> };
 
-function commitV2Update(database: DatabaseSync, intent: V2UpdateIntent, snapshot: V2CanonicalSnapshot): Record<string, unknown> {
+export function commitV2Update(database: DatabaseSync, intent: V2UpdateIntent, snapshot: V2CanonicalSnapshot): Record<string, unknown> {
   const authority = synchronizeV2Authority(database, intent.root, snapshot);
   const task = projectV2Tasks(snapshot.tasks, authority).find(task => task.id === intent.taskId)!;
   const before = parseV2CanonicalJson(Buffer.from(intent.beforeBytes, "base64"));
@@ -74,44 +74,6 @@ export function executeV2Update(request: V2Request, rootPath: string, cachePath:
       persistV2Pending(root, intent);
       const verified = applyV2Journal(intent);
       const result = commitV2Update(database, intent, verified);
-      retire = true;
-      return { writeContext: authority.writeContext, result };
-    });
-    if (retire) retireV2Pending(root);
-    return outcome;
-  });
-}
-
-export function resumeV2Update(request: V2Request, rootPath: string, cachePath: string): WriteOutcome {
-  const root = readV2RootDescriptor(rootPath);
-  return withV2RootWriterLock(root, () => {
-    let retire = false;
-    const outcome = withV2CacheTransaction(cachePath, root, database => {
-      const authority = synchronizeV2Authority(database, root);
-      requireV2WriteContext(request, authority);
-      assertV2Args(request.args, ["operationId"]);
-      if (typeof request.args.operationId !== "string" || request.args.operationId === "") throw new CommandError("INVALID_ARGUMENT", "operationId is required");
-      const replay = findV2Receipt(database, request);
-      if (replay) {
-        // Retained completion proof may finish retirement, never a different pending operation.
-        try { retire = readV2Pending(root)?.operationId === replay.operationId; } catch (error) {
-          if (!(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error;
-        }
-        return { writeContext: authority.writeContext, result: replay };
-      }
-      const intent = readV2Pending(root);
-      if (!intent || intent.operationId !== request.args.operationId) throw new CommandError("OPERATION_UNAVAILABLE", "pending operation is unavailable");
-      if (request.dryRun || request.readOnly) throw new CommandError("UNSUPPORTED_COMMAND", "recovery requires explicit execution, not preview");
-      if (intent.cachePath !== localPathOutsideV2Root(cachePath, root.rootPath)) throw new CommandError("RECOVERY_CONFLICT", "resume must use the original cache location, or manual reconciliation");
-      const originalReceipt = authority.writeContext === intent.request.writeContext ? findV2Receipt(database, intent.request) : undefined;
-      if (!originalReceipt) {
-        const guarded = guardV2Update(intent, true);
-        const counter = database.prepare("SELECT counter FROM v2_query_state WHERE singleton = 1").get()!.counter as number;
-        if (!Number.isSafeInteger(counter + guarded.tasks.length * 3 + 4)) throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before recovery");
-      }
-      const originalResult = originalReceipt ?? commitV2Update(database, intent, applyV2Journal(intent));
-      const result = { operationId: intent.operationId, outcome: "complete", originalResult };
-      storeV2Receipt(database, request, result);
       retire = true;
       return { writeContext: authority.writeContext, result };
     });

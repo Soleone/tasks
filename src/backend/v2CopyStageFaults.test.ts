@@ -1,27 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
-import type { TestContext } from "node:test";
+import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
+import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
 import { inspectV2CanonicalRoot, readV2CanonicalRoot } from "./v2CanonicalReader.js";
 import { v2LocalDomain } from "./v2LocalDomain.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
 const stagingModule = new URL("./v2CopyStage.js", import.meta.url).href;
 const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
-type Workspace = { directory: string; root: string; destination: string };
-function setup(t: TestContext): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-copy-cut-"));
-  const before = process.env.XDG_DATA_HOME;
-  process.env.XDG_DATA_HOME = path.join(directory, "local");
-  t.after(() => { if (before === undefined) delete process.env.XDG_DATA_HOME; else process.env.XDG_DATA_HOME = before; rmSync(directory, { recursive: true, force: true }); });
-  const root = path.join(directory, "root");
-  cpSync(golden, root, { recursive: true });
-  return { directory, root, destination: path.join(directory, "archive") };
-}
 function faultProcess(workspace: Workspace, fault: string, prefix = -1) {
   const loader = path.join(workspace.directory, "copy-fault-loader.mjs");
   const worker = path.join(workspace.directory, "copy-worker.mjs");

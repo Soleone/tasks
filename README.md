@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, and explicit recovery of published update intents. Create, status/order/relationship changes, undo, doctor and migration/archive/restore remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, verified archive/restore to separate folders, and explicit recovery of published update/copy intents. Create, status/order/relationship changes, undo, doctor and v1 migration remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -36,11 +36,29 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
   XDG_DATA_HOME="$scratch/local-data" node dist/backend/cli.js --stdio --v2-root "$scratch/root" --database "$scratch/cache.db"
 ```
 
-For `task.update`, retain the returned `writeContext`, task `version` as `args.expectedVersion`, and a stable `idempotencyKey` with the original payload. Supported fields are `title` (literal), `text` (shorthand replacement), `description`, `priority`, `category`, and `tags`. `workspace.info` reports an interrupted update's `pendingOperationId`; explicitly execute `workspace.recovery.resume` with that `operationId`, current context and a new stable recovery key. Never refresh authority and blindly retry an uncertain original operation.
+For `task.update`, retain the returned `writeContext`, task `version` as `args.expectedVersion`, and a stable `idempotencyKey` with the original payload. Supported fields are `title` (literal), `text` (shorthand replacement), `description`, `priority`, `category`, and `tags`. `workspace.info` reports an interrupted operation's `pendingOperationId`; explicitly execute `workspace.recovery.resume` with that `operationId`, current context and a new stable recovery key. Never refresh authority and blindly retry an uncertain original operation.
 
 The cache must be outside the canonical tree. Root-scoped locks/pending intent live in the same user's app-data profile (`taskdb-v2/roots/`), outside the synced root, independently of the selected cache. Participating processes must share that profile; do not move it during pending work. Windows/Android writable commands are withheld. See [the evidence matrix](spec/v2/conformance.md) for WSL2-only execution, manual-inspection cases, race and power-loss limits. This is not migration or native acceptance.
 
-An internal Linux-only [canonical-copy staging primitive](src/backend/v2CopyStage.ts) now verifies byte-preserving backup/restore stages on disposable roots, including file-prefix interruption checks. It deliberately leaves the requested destination unpublished; public archive/restore/migration commands, stage resume and adoption remain unsupported. A complete-looking private stage is not permission to select or share it.
+### Back up or restore an experimental v2 folder
+
+`workspace.archive` copies the selected schema-2 folder to a separate destination. `workspace.restore` copies a named schema-2 backup into a new destination. Neither switches your selected folder or converts v1 data. Both require current context and a stable key; `readOnly`/`dryRun` previews require context but no key. Destinations must be absent or explicitly empty, disjoint from the source/selected root, with an existing parent. Cache and app-data must stay outside them.
+
+After the disposable probe above, this example needs `jq`:
+
+```bash
+v2() {
+  XDG_DATA_HOME="$scratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$scratch/root" --database "$scratch/cache.db"
+}
+context=$(printf '%s\n' '{"version":2,"command":"workspace.info"}' | v2 | jq -r '.writeContext')
+jq -nc --arg ctx "$context" --arg dest "$scratch/archive" \
+  '{version:2,command:"workspace.archive",writeContext:$ctx,idempotencyKey:"backup-1",args:{destinationDirectory:$dest}}' | v2
+jq -nc --arg ctx "$context" --arg src "$scratch/archive" --arg dest "$scratch/restored" \
+  '{version:2,command:"workspace.restore",writeContext:$ctx,idempotencyKey:"restore-1",args:{sourceDirectory:$src,destinationDirectory:$dest}}' | v2
+```
+
+Copies preserve exact canonical/known task conflict bytes, not SQLite or transport history. They are verified before publication; pending destinations stay blocked until receipt completion. If interrupted, resume through the **original selected root and cache**, not the new destination. Keep the original context/key/payload for an uncertain retry. Malformed/partial evidence, unrecorded directory creation and changed files/bindings require inspection rather than automatic repair. Do not select/share a private `.stage` folder. The earlier [stage-only primitive](src/backend/v2CopyStage.ts) still deliberately leaves destinations unpublished; its artifacts are not public-command receipts. All this remains experimental Linux/WSL2 evidence, not native/provider acceptance or v1 migration.
 
 ## Documentation
 

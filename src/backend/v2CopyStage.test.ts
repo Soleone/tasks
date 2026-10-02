@@ -1,27 +1,15 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
-import type { TestContext } from "node:test";
+import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
 import { readV2CanonicalRoot } from "./v2CanonicalReader.js";
 import { stageV2CanonicalCopy } from "./v2CopyStage.js";
 import { executeV2Line } from "./v2Gateway.js";
 import { persistV2Pending, withV2RootWriterLock } from "./v2LocalDomain.js";
 import { parseV2Request } from "./v2Protocol.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
 const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
-function setup(t: TestContext): { directory: string; root: string; destination: string } {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-copy-"));
-  const before = process.env.XDG_DATA_HOME;
-  process.env.XDG_DATA_HOME = path.join(directory, "local");
-  t.after(() => { if (before === undefined) delete process.env.XDG_DATA_HOME; else process.env.XDG_DATA_HOME = before; rmSync(directory, { recursive: true, force: true }); });
-  const root = path.join(directory, "root");
-  cpSync(golden, root, { recursive: true });
-  return { directory, root, destination: path.join(directory, "archive") };
-}
 
 const linuxOnly = { skip: process.platform !== "linux" };
 test("v2 copy stage preserves every canonical byte and known raw conflict, not transport/cache state", linuxOnly, (t) => {
@@ -151,7 +139,7 @@ test("v2 verified stages support byte-preserving restore staging and fresh local
   const restoredRead = executeV2Line(request, restored.stageDirectory, cache);
   assert.equal(restoredRead.ok, true);
   if (first.ok && restoredRead.ok) assert.notEqual(restoredRead.writeContext, first.writeContext);
-  for (const command of ["workspace.archive", "workspace.restore", "workspace.migrateV1"]) {
+  for (const command of ["workspace.migrateV1"]) {
     const response = executeV2Line(Buffer.from(JSON.stringify({ version: 2, command })), root, cache);
     assert.equal(response.ok, false);
     if (!response.ok) assert.equal(response.error.code, "UNSUPPORTED_COMMAND");

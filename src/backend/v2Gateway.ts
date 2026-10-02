@@ -2,8 +2,10 @@ import { CommandError } from "./errors.js";
 import { listV2Activity } from "./v2Activity.js";
 import { inspectV2CanonicalRoot } from "./v2CanonicalReader.js";
 import { observeV2QueryAuthority, synchronizeV2Authority, withV2CacheTransaction } from "./v2QueryCache.js";
-import { executeV2Update, resumeV2Update } from "./v2UpdateWriter.js";
-import { readV2Pending } from "./v2UpdateJournal.js";
+import { executeV2Update } from "./v2UpdateWriter.js";
+import { executeV2Copy } from "./v2CopyWriter.js";
+import { resumeV2Operation } from "./v2Recovery.js";
+import { readV2Pending } from "./v2Pending.js";
 import { executeV2Query, projectV2Tasks } from "./v2Queries.js";
 import { assertV2Args, decodeV2Envelope, isV2Record, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
 import type { V2Response } from "./v2Protocol.js";
@@ -15,15 +17,17 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     if (isV2Record(envelope) && typeof envelope.requestId === "string") requestId = envelope.requestId;
     const request = parseV2Request(envelope);
     const writable = process.platform === "linux";
-    if (writable && (request.command === "task.update" || request.command === "workspace.recovery.resume")) {
-      const outcome = request.command === "task.update" ? executeV2Update(request, rootPath, cachePath) : resumeV2Update(request, rootPath, cachePath);
+    if (writable && ["task.update", "workspace.recovery.resume", "workspace.archive", "workspace.restore"].includes(request.command)) {
+      const outcome = request.command === "task.update" ? executeV2Update(request, rootPath, cachePath)
+        : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath)
+        : executeV2Copy(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     const inspection = inspectV2CanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
       throw new CommandError("UNSUPPORTED_SCHEMA", "task commands require canonical schema 2");
     }
-    const commands = [...V2_QUERY_COMMANDS, ...(writable ? ["task.update", "workspace.recovery.resume", "activity.list"] : [])].sort();
+    const commands = [...V2_QUERY_COMMANDS, ...(writable ? ["task.update", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "activity.list"] : [])].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this bounded v2 slice");
     }
@@ -43,7 +47,7 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
       state: pending || pendingIssue ? "recovery_pending" : inspection.state,
       schemaVersion: inspection.schemaVersion,
       commands,
-      issues: [...inspection.issues, ...(pendingIssue ? [pendingIssue] : [])],
+      issues: [...inspection.issues, ...(pendingIssue ? [pendingIssue] : []), ...(pending?.format === "taskdb.pending-copy-target" ? [{ code: "RECOVERY_PENDING", message: `resume copy from its original selected root: ${pending.owner.rootPath}` }] : [])],
       pendingOperationId: pending?.operationId ?? null,
       workspaceRevision: authority.workspaceRevision,
     } : request.command === "activity.list" ? withV2CacheTransaction(cachePath, inspection, database => {
