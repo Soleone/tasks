@@ -24,24 +24,26 @@ Current task state lives in ordinary JSON files under `sync/`; SQLite is a local
 
 If another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. Tasks backs up and empties the local workspace, locks the UI, and waits for the existing workspace. Follow [the Syncthing setup](docs/syncthing.md) for the complete procedure.
 
-## Disposable v2 query probe
+## Disposable v2 probe
 
-The default app/CLI remains v1. This explicit read-only Node subset supports `workspace.info`, `task.get`, `task.list`, `category.list`, and `tag.list`; mutations/previews and migration remain unsupported. It writes only its separate local query cache, never canonical files. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, and explicit recovery of published update intents. Create, status/order/relationship changes, undo, doctor and migration/archive/restore remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
 scratch=$(mktemp -d)
 cp -R scripts/fixtures/taskdb-v2/root "$scratch/root"
 printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
-  node dist/backend/cli.js --stdio --v2-root "$scratch/root" --database "$scratch/cache.db"
+  XDG_DATA_HOME="$scratch/local-data" node dist/backend/cli.js --stdio --v2-root "$scratch/root" --database "$scratch/cache.db"
 ```
 
-The cache must be outside the canonical tree. See [the evidence matrix](spec/v2/conformance.md) for the limited coverage and unsupported capabilities. This is not migration, recovery, or native acceptance.
+For `task.update`, retain the returned `writeContext`, task `version` as `args.expectedVersion`, and a stable `idempotencyKey` with the original payload. Supported fields are `title` (literal), `text` (shorthand replacement), `description`, `priority`, `category`, and `tags`. `workspace.info` reports an interrupted update's `pendingOperationId`; explicitly execute `workspace.recovery.resume` with that `operationId`, current context and a new stable recovery key. Never refresh authority and blindly retry an uncertain original operation.
+
+The cache must be outside the canonical tree. Root-scoped locks/pending intent live in the same user's app-data profile (`taskdb-v2/roots/`), outside the synced root, independently of the selected cache. Participating processes must share that profile; do not move it during pending work. Windows/Android writable commands are withheld. See [the evidence matrix](spec/v2/conformance.md) for WSL2-only execution, manual-inspection cases, race and power-loss limits. This is not migration or native acceptance.
 
 ## Documentation
 
 - [Current system specification](spec/overview.md): the implemented v1 task model, storage, protocol, queries, mutations, CLI, sources, and UI behavior.
-- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, with a bounded opt-in Node query subset; writable behavior is not implemented.
+- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, with a bounded opt-in Node query/update/recovery subset; the complete target is not implemented.
 - [Development and validation](docs/development.md): architecture, developer workflows, packaging, scratch data, and platform checks.
 - [Ideas and proposals](ideas/overview.md): aspirational designs and the earlier TaskDB 2.0 roadmap.
 - [Keyboard and UI guide](docs/usage-guide.md): home-screen focus, mouse paths, shortcuts, filters, sorting, and agent-facing UI contract.

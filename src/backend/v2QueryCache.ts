@@ -12,7 +12,7 @@ type CacheState = { binding: string; context: string; counter: number; revision:
 type CachedObservation = { id: string; fingerprint: string; version: number };
 const applicationId = 0x54534432;
 
-function cachePathOutsideRoot(cachePath: string, rootPath: string): string {
+export function localPathOutsideV2Root(cachePath: string, rootPath: string): string {
   let ancestor = path.resolve(cachePath);
   const suffix: string[] = [];
   while (lstatSync(ancestor, { throwIfNoEntry: false }) === undefined) {
@@ -36,11 +36,12 @@ function initializeQueryCache(database: DatabaseSync): void {
   const id = database.prepare("PRAGMA application_id").get()!.application_id;
   const version = database.prepare("PRAGMA user_version").get()!.user_version;
   const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
-  if (id === applicationId && version === 1) return;
-  if (id !== 0 || version !== 0 || tables.length !== 0) {
+  if (id === applicationId && version === 2) return;
+  const upgrade = id === applicationId && version === 1;
+  if (!upgrade && (id !== 0 || version !== 0 || tables.length !== 0)) {
     throw new CommandError("INVALID_STORAGE", "database is not a supported v2 query cache");
   }
-  database.exec(`
+  if (!upgrade) database.exec(`
     PRAGMA application_id = ${applicationId};
     PRAGMA user_version = 1;
     CREATE TABLE v2_query_state (
@@ -48,6 +49,12 @@ function initializeQueryCache(database: DatabaseSync): void {
       counter INTEGER NOT NULL, revision INTEGER NOT NULL, fingerprint TEXT NOT NULL
     );
     CREATE TABLE v2_query_tasks (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, version INTEGER NOT NULL);
+  `);
+  database.exec(`
+    CREATE TABLE v2_receipts (context TEXT NOT NULL, key TEXT NOT NULL, identity TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(context, key));
+    CREATE TABLE v2_operations (id TEXT PRIMARY KEY, context TEXT NOT NULL, task_id TEXT NOT NULL, command TEXT NOT NULL,
+      actor TEXT NOT NULL, created_at TEXT NOT NULL, before_record TEXT NOT NULL, after_record TEXT NOT NULL);
+    PRAGMA user_version = 2;
   `);
 }
 
@@ -63,8 +70,12 @@ function snapshotObservations(snapshot: V2CanonicalSnapshot): Map<string, string
   return new Map(snapshot.tasks.map(task => [task.id, JSON.stringify([hashes.get(`tasks/${task.id}.json`), sequences.get(task.parentId)])]));
 }
 
-function synchronizeQueryAuthority(database: DatabaseSync, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
-  const binding = JSON.stringify([root.rootPath, root.rootIdentity]);
+export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
+  const main = database.prepare("PRAGMA database_list").all().find(row => row.name === "main");
+  if (typeof main?.file !== "string" || main.file === "") throw new CommandError("INVALID_STORAGE", "v2 authority requires a physical cache file");
+  const cacheIdentity = lstatSync(main.file, { bigint: true });
+  if (!cacheIdentity.isFile() || cacheIdentity.isSymbolicLink()) throw new CommandError("INVALID_STORAGE", "v2 authority requires a regular cache file");
+  const binding = JSON.stringify([root.rootPath, root.rootIdentity, main.file, `${cacheIdentity.dev}:${cacheIdentity.ino}`]);
   const previous = database.prepare("SELECT binding, context, counter, revision, fingerprint FROM v2_query_state WHERE singleton = 1").get() as CacheState | undefined;
   const state = previous ?? { binding, context: randomUUID(), counter: 0, revision: 0, fingerprint: "" };
   if (![state.counter, state.revision].every(value => Number.isSafeInteger(value) && value >= 0) || typeof state.context !== "string" || state.context === "") {
@@ -76,7 +87,7 @@ function synchronizeQueryAuthority(database: DatabaseSync, root: V2RootBinding, 
     state.counter = 0;
     state.revision = 0;
     state.fingerprint = "";
-    database.exec("DELETE FROM v2_query_tasks");
+    database.exec("DELETE FROM v2_query_tasks; DELETE FROM v2_receipts; DELETE FROM v2_operations");
   }
   const versions = new Map<string, number>();
   if (snapshot) {
@@ -100,19 +111,22 @@ function synchronizeQueryAuthority(database: DatabaseSync, root: V2RootBinding, 
   return { writeContext: state.context, workspaceRevision: state.revision, versions };
 }
 
-/** Local query tokens only. No receipts, rebuild, reset or write authority is advertised yet. */
-export function observeV2QueryAuthority(cachePath: string, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
-  const resolved = cachePathOutsideRoot(cachePath, root.rootPath);
+export function withV2CacheTransaction<T>(cachePath: string, root: V2RootBinding, action: (database: DatabaseSync) => T): T {
+  const resolved = localPathOutsideV2Root(cachePath, root.rootPath);
   mkdirSync(path.dirname(resolved), { recursive: true });
   const database = new DatabaseSync(resolved);
   try {
-    database.exec("PRAGMA busy_timeout = 1000; BEGIN IMMEDIATE");
+    database.exec("PRAGMA busy_timeout = 1000; PRAGMA synchronous = FULL; BEGIN IMMEDIATE");
     initializeQueryCache(database);
-    const result = synchronizeQueryAuthority(database, root, snapshot);
+    const result = action(database);
     database.exec("COMMIT");
     return result;
   } finally {
     // Closing an uncommitted SQLite connection rolls back without swallowing the original error.
     database.close();
   }
+}
+
+export function observeV2QueryAuthority(cachePath: string, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
+  return withV2CacheTransaction(cachePath, root, database => synchronizeV2Authority(database, root, snapshot));
 }

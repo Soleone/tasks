@@ -25,7 +25,7 @@ function directoryIdentity(directory: string): string {
   return `${stat.dev}:${stat.ino}`;
 }
 
-function regularFileBytes(filePath: string): Buffer {
+export function readV2RegularFile(filePath: string): Buffer {
   const observed = lstatSync(filePath, { bigint: true });
   if (!observed.isFile()) invalidEntry();
   const descriptor = openSync(filePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -50,7 +50,7 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
   const manifestPath = path.join(rootPath, "workspace.json");
   const taskDirectory = path.join(rootPath, "tasks");
   if (!existsSync(manifestPath)) invalidEntry();
-  const manifestBytes = regularFileBytes(manifestPath);
+  const manifestBytes = readV2RegularFile(manifestPath);
   validateV2Manifest(parseV2CanonicalJson(manifestBytes));
   if (!existsSync(taskDirectory)) invalidEntry();
   const taskIdentity = directoryIdentity(taskDirectory);
@@ -68,7 +68,7 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
     if (name.startsWith(".syncthing.") && name.endsWith(".tmp")) continue;
     const conflict = /^[A-Za-z0-9_-]+\.sync-conflict-.+\.json$/.test(name);
     if (!conflict && !/^[A-Za-z0-9_-]+\.json$/.test(name)) invalidEntry();
-    const bytes = regularFileBytes(path.join(taskDirectory, name));
+    const bytes = readV2RegularFile(path.join(taskDirectory, name));
     const observation = { relativePath: `tasks/${name}`, sha256: exactHash(bytes) };
     files.push(observation);
     if (conflict) { conflictFiles.push(observation); continue; }
@@ -80,7 +80,7 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
   for (const observation of files) {
-    if (exactHash(regularFileBytes(path.join(rootPath, observation.relativePath))) !== observation.sha256) {
+    if (exactHash(readV2RegularFile(path.join(rootPath, observation.relativePath))) !== observation.sha256) {
       throw new CommandError("STALE_FILE", "canonical bytes changed during observation");
     }
   }
@@ -90,6 +90,13 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
     return leftParent === rightParent ? compareV2Tasks(left, right) : leftParent < rightParent ? -1 : 1;
   });
   return { rootPath, rootIdentity, tasks, files, conflictFiles };
+}
+
+export function readV2RootDescriptor(directory: string): { rootPath: string; rootIdentity: string } {
+  const rootPath = realpathSync(directory);
+  const rootIdentity = directoryIdentity(rootPath);
+  validateV2Manifest(parseV2CanonicalJson(readV2RegularFile(path.join(rootPath, "workspace.json"))));
+  return { rootPath, rootIdentity };
 }
 
 export type V2RootInspection = {
@@ -110,7 +117,7 @@ export function inspectV2CanonicalRoot(directory: string): V2RootInspection {
     if (readdirSync(rootPath).length === 0) return { ...base, state: "empty", schemaVersion, issues: [] };
     const manifestPath = path.join(rootPath, "workspace.json");
     if (!existsSync(manifestPath)) invalidEntry();
-    const manifest = parseV2CanonicalJson(regularFileBytes(manifestPath));
+    const manifest = parseV2CanonicalJson(readV2RegularFile(manifestPath));
     if (manifest !== null && typeof manifest === "object" && !Array.isArray(manifest)
       && Number.isSafeInteger((manifest as Record<string, unknown>).schemaVersion)) {
       schemaVersion = (manifest as { schemaVersion: number }).schemaVersion;

@@ -30,6 +30,24 @@ test("v2 query context and versions persist across cache reopen; complete cache 
   assert.deepEqual(readV2CanonicalRoot(root).files, snapshot.files);
 });
 
+test("v2 copied/moved caches cannot inherit another physical cache's context", (t) => {
+  const { root, cache } = setup(t);
+  const snapshot = readV2CanonicalRoot(root);
+  const first = observeV2QueryAuthority(cache, snapshot, snapshot);
+  const copy = `${cache}.copy`;
+  cpSync(cache, copy);
+  const copied = observeV2QueryAuthority(copy, snapshot, snapshot);
+  assert.notEqual(copied.writeContext, first.writeContext);
+  assert.deepEqual(observeV2QueryAuthority(cache, snapshot, snapshot), first);
+  const replacement = `${cache}.replacement`;
+  cpSync(cache, replacement);
+  renameSync(cache, `${cache}.old`);
+  renameSync(replacement, cache);
+  const replaced = observeV2QueryAuthority(cache, snapshot, snapshot);
+  assert.notEqual(replaced.writeContext, first.writeContext);
+  assert.deepEqual(observeV2QueryAuthority(cache, snapshot, snapshot), replaced);
+});
+
 test("v2 query tokens notice formatting, deletion/reappearance and moves whose selected key stays unchanged", (t) => {
   const { root, cache } = setup(t);
   let snapshot = readV2CanonicalRoot(root);
