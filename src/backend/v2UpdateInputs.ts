@@ -7,7 +7,7 @@ export type V2UpdateInput = { id: string; expectedVersion: number; patch: Partia
 const slugPattern = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 
 function invalidInput(field: string): never {
-  throw new CommandError("INVALID_ARGUMENT", `invalid update ${field}`);
+  throw new CommandError("INVALID_ARGUMENT", `invalid task ${field}`);
 }
 
 function slugInput(value: unknown): string {
@@ -65,12 +65,7 @@ export function parseV2Shorthand(input: string): Pick<V2CanonicalTask, "title" |
   return { title: title.trim(), category: [...categories][0] ?? null, tags: [...tags].sort() };
 }
 
-export function parseV2Update(args: Record<string, unknown>): V2UpdateInput {
-  assertV2Args(args, ["id", "expectedVersion", "title", "text", "description", "priority", "category", "tags"]);
-  if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) invalidInput("id");
-  if (!Number.isSafeInteger(args.expectedVersion) || (args.expectedVersion as number) <= 0) {
-    throw new CommandError("EXPECTED_VERSION_REQUIRED", "positive safe expectedVersion is required");
-  }
+export function parseV2ContentPatch(args: Record<string, unknown>): V2UpdateInput["patch"] {
   if (args.text !== undefined && ["title", "category", "tags"].some(field => args[field] !== undefined)) invalidInput("mixed text/classification");
   const patch: V2UpdateInput["patch"] = {};
   if (args.text !== undefined) {
@@ -95,7 +90,16 @@ export function parseV2Update(args: Record<string, unknown>): V2UpdateInput {
     if (!Array.isArray(args.tags)) invalidInput("tags");
     patch.tags = [...new Set(args.tags.map(slugInput))].sort();
   }
-  return { id: args.id, expectedVersion: args.expectedVersion as number, patch };
+  return patch;
+}
+
+export function parseV2Update(args: Record<string, unknown>): V2UpdateInput {
+  assertV2Args(args, ["id", "expectedVersion", "title", "text", "description", "priority", "category", "tags"]);
+  if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) invalidInput("id");
+  if (!Number.isSafeInteger(args.expectedVersion) || (args.expectedVersion as number) <= 0) {
+    throw new CommandError("EXPECTED_VERSION_REQUIRED", "positive safe expectedVersion is required");
+  }
+  return { id: args.id, expectedVersion: args.expectedVersion as number, patch: parseV2ContentPatch(args) };
 }
 
 export function applyV2Update(task: V2CanonicalTask, input: V2UpdateInput, at: string): { task: V2CanonicalTask; changed: boolean } {

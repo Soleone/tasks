@@ -35,6 +35,8 @@ Check decoded envelope/command, root descriptor/binding/schema, context and argu
 
 Absent receipt proceeds through pending-state, full observation and domain guards. No-op stores a success receipt without task effects. Failed preconditions/previews do not consume keys. Receipts remain in SQLite for the context lifetime; explicit deletion/pruning that loses them rotates context. No silent expiry, synced ledger or permanent independent receipt store. Lost cache means old requests fail `STALE_WRITE_CONTEXT`, including create; callers MUST NOT silently refresh context/key/version and retry an uncertain intent. Inspect canonical/recovery state and reconcile manually. Do not infer identity from a matching title. Retained pending intent can be explicitly recovered but cannot guarantee old-context replay after total cache loss.
 
+The [bounded Linux capture/status commands](conformance.md#recoverable-capture-and-status) now execute the original input/context/receipt vectors. Preview creation IDs/times/versions are hypothetical, not reserved authority; uncertain executing retries retain the original context/key/payload/version. Missing publication evidence is not permission to allocate a new identity or resurrect a task.
+
 The [bounded Linux lifecycle controls](conformance.md#explicit-initialization-and-retained-cache-rebuild) implement retained same-cache rebuild: context/receipts/history survive and task versions are reissued. `preserveSQLite` in the fixture is a test-adapter event, not a public argument. Complete cache loss still refuses original authority; rebuild does not bypass pending work or import an old database.
 
 ## Commands

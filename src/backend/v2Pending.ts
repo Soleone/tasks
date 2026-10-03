@@ -7,13 +7,15 @@ import { parseV2CopyIntent } from "./v2CopyJournal.js";
 import type { V2CopyIntent } from "./v2CopyJournal.js";
 import { parseV2InitIntent } from "./v2InitJournal.js";
 import type { V2InitIntent } from "./v2InitJournal.js";
+import { parseV2CreateIntent } from "./v2CreateJournal.js";
+import type { V2CreateIntent } from "./v2CreateJournal.js";
 import { pendingV2Path } from "./v2LocalDomain.js";
 import type { V2RootBinding } from "./v2QueryCache.js";
 import { readV2Pending as readUpdatePending } from "./v2UpdateJournal.js";
 import type { V2UpdateIntent } from "./v2UpdateJournal.js";
 
 export type V2CopyTarget = { format: "taskdb.pending-copy-target"; version: 1; root: V2RootBinding; owner: V2RootBinding; operationId: string };
-export type V2PendingIntent = V2UpdateIntent | V2CopyIntent | V2CopyTarget | V2InitIntent;
+export type V2PendingIntent = V2UpdateIntent | V2CopyIntent | V2CopyTarget | V2InitIntent | V2CreateIntent;
 
 export function readV2Pending(root: V2RootBinding): V2PendingIntent | undefined {
   const file = pendingV2Path(root);
@@ -26,6 +28,7 @@ export function readV2Pending(root: V2RootBinding): V2PendingIntent | undefined 
     if (value.format === "taskdb.pending-update") return readUpdatePending(root);
     if (value.format === "taskdb.pending-copy") return parseV2CopyIntent(value, root);
     if (value.format === "taskdb.pending-init") return parseV2InitIntent(value, root);
+    if (value.format === "taskdb.pending-create") return parseV2CreateIntent(value, root);
     if (value.format !== "taskdb.pending-copy-target" || value.version !== 1 || value.root.rootPath !== root.rootPath || value.root.rootIdentity !== root.rootIdentity
       || !path.isAbsolute(value.owner.rootPath) || !/^\d+:\d+$/.test(value.owner.rootIdentity)
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value.operationId)) {

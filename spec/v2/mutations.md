@@ -17,6 +17,8 @@ Same-state requests are no-ops; other disallowed transitions fail `INVALID_TRANS
 
 New parent/blocker choices MUST exist and not be canceled. Existing canceled references remain removable or restorable from valid undo history. Same parent/removing absent link are no-ops. Changed parent prepends in the new scope; descendants retain their links. Parent/dependency cycles and self-links MUST fail before writes, including batch undo/repair. Preserve the readiness baseline: done dependencies still block; canceled dependencies do not.
 
+The [bounded Linux capture/status implementation](conformance.md#recoverable-capture-and-status) now executes the matrix, fixed creation/default/parent allocation, closure and receipt-only no-ops on disposable roots. Existing relationship edits, ordering, undo and native/provider acceptance remain outside this evidence.
+
 ## Time
 
 Use one captured operation UTC instant, not per-file clocks. `createdAt` never changes on ordinary edit/undo. Local activity has operation time independently of task edit time.

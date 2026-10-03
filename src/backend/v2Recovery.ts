@@ -2,6 +2,8 @@ import { CommandError } from "./errors.js";
 import { readV2ControlRoot } from "./v2ControlRoot.js";
 import { retireV2Copy } from "./v2CopyJournal.js";
 import { commitV2Copy } from "./v2CopyWriter.js";
+import { retireV2Create } from "./v2CreateJournal.js";
+import { commitV2Create } from "./v2CreateWriter.js";
 import { retireV2Init } from "./v2InitJournal.js";
 import { commitV2Init } from "./v2LifecycleWriter.js";
 import { retireV2Pending, withV2RootWriterLock } from "./v2LocalDomain.js";
@@ -43,8 +45,8 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
       let originalResult = originalReceipt;
       if (!originalResult && intent.format === "taskdb.pending-update") {
         const guarded = guardV2Update(intent, true);
-        const counter = database.prepare("SELECT counter FROM v2_query_state WHERE singleton = 1").get()!.counter as number;
-        if (!Number.isSafeInteger(counter + guarded.tasks.length * 3 + 4)) throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before recovery");
+        const budget = database.prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1").get()!;
+        if (!Number.isSafeInteger((budget.counter as number) + guarded.tasks.length * 3 + 4) || !Number.isSafeInteger((budget.revision as number) + 3)) throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before recovery");
         originalResult = commitV2Update(database, intent, applyV2Journal(intent));
       }
       if (!originalResult && intent.format === "taskdb.pending-copy") {
@@ -55,23 +57,26 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
         });
       }
       if (!originalResult && intent.format === "taskdb.pending-init") originalResult = commitV2Init(database, intent);
+      if (!originalResult && intent.format === "taskdb.pending-create") originalResult = commitV2Create(database, intent);
       const result = { operationId: intent.operationId, outcome: "complete", originalResult };
       storeV2Receipt(database, request, result);
       completed = intent;
       return { writeContext: authority.writeContext, result };
     });
-    if (completed?.format === "taskdb.pending-copy") {
-      try { retireV2Copy(completed); } catch (error) {
+    if (completed) {
+      try {
+        switch (completed.format) {
+          case "taskdb.pending-copy": retireV2Copy(completed); break;
+          case "taskdb.pending-init": retireV2Init(completed); break;
+          case "taskdb.pending-create": retireV2Create(completed); break;
+          case "taskdb.pending-update": retireV2Pending(root); break;
+          case "taskdb.pending-copy-target": throw new CommandError("RECOVERY_CONFLICT", "copy target must be retired by its original owner");
+        }
+      } catch (error) {
         // Historical success remains replayable; corrupt cleanup evidence stays pending for inspection.
         if (!replayed || !(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error;
       }
     }
-    if (completed?.format === "taskdb.pending-init") {
-      try { retireV2Init(completed); } catch (error) {
-        if (!replayed || !(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error;
-      }
-    }
-    if (completed?.format === "taskdb.pending-update") retireV2Pending(root);
     return outcome;
   });
 }

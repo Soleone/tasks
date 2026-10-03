@@ -32,7 +32,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function isTimestamp(value: unknown): value is string {
+export function isV2Timestamp(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
   const date = new Date(value);
   return Number.isFinite(date.getTime()) && date.toISOString() === value;
@@ -71,9 +71,9 @@ export function validateV2Task(value: unknown, filenameId: string): V2CanonicalT
   if (value.parentId !== null && (typeof value.parentId !== "string" || !safeId.test(value.parentId))) invalidTask("parentId");
   if (!isSortedStrings(value.dependencyIds, safeId)) invalidTask("dependencyIds");
   if (!isV2OrderKey(value.orderKey)) invalidTask("orderKey");
-  if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt)) invalidTask("timestamps");
+  if (!isV2Timestamp(value.createdAt) || !isV2Timestamp(value.updatedAt)) invalidTask("timestamps");
   const terminal = value.status === "done" || value.status === "canceled";
-  if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null) invalidTask("closedAt/status");
+  if (terminal ? !isV2Timestamp(value.closedAt) : value.closedAt !== null) invalidTask("closedAt/status");
   return value as V2CanonicalTask;
 }
 

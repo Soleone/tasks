@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published update/copy/migration/init intents. Create, status/order/relationship changes, undo and doctor remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content edits/status changes (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/copy/migration/init intents. Relationship edits, reorder/normalization, undo, purge and doctor remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -66,6 +66,38 @@ Expect schema 2 and zero tasks. Both commands support `dryRun`/`readOnly` with c
 `workspace.rebuild` validates the whole schema-2 tree and rebuilds only its local projection. It does not edit canonical files, import a v1 database or discard pending recovery. With the same retained cache, context, success receipts and activity survive; every task gets a fresh non-reused version. Old requests still replay their historical result, but old task versions cannot authorize a new edit. Re-read before further mutations. **Deleting the cache is not a rebuild:** lost cache means fresh authority and refusal of old requests.
 
 Interrupted init is recovered through the original selected folder/cache/profile using `workspace.recovery.resume`. Unbound directory creation, unpublished/partial progress, changed entries or a divergent/missing recorded descriptor require preserved inspection, not adoption or recreation. Descriptor publication cannot overwrite an arriving file. This is Linux/WSL2 process evidence, not native/provider or hardware power-loss acceptance. See [lifecycle evidence](spec/v2/conformance.md#explicit-initialization-and-retained-cache-rebuild).
+
+### Capture and complete an experimental task
+
+Linux only, with `jq`. This creates a fresh disposable collection, captures a shorthand title, then completes the returned task:
+
+```bash
+pnpm build:backend
+capturescratch=$(mktemp -d)
+mkdir "$capturescratch/root"
+capture() {
+  XDG_DATA_HOME="$capturescratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$capturescratch/root" --database "$capturescratch/cache.db"
+}
+context=$(printf '%s\n' '{"version":2,"command":"workspace.info"}' | capture | jq -r '.writeContext')
+jq -nc --arg ctx "$context" \
+  '{version:2,command:"workspace.init",writeContext:$ctx,idempotencyKey:"init-1"}' | capture
+created=$(jq -nc --arg ctx "$context" \
+  '{version:2,command:"task.create",writeContext:$ctx,idempotencyKey:"capture-1",args:{text:"Plan @Work #TODO"}}' | capture)
+printf '%s\n' "$created"
+id=$(printf '%s\n' "$created" | jq -r '.result.task.id')
+version=$(printf '%s\n' "$created" | jq -r '.result.task.version')
+jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
+  '{version:2,command:"task.complete",writeContext:$ctx,idempotencyKey:"complete-1",args:{id:$id,expectedVersion:$version}}' | capture
+```
+
+`task.create` requires exactly one literal `title` or shorthand `text`, and may supply `description`, `priority`, `category`/`tags` with literal title, and `parentId`. New IDs are generated UUIDv4; defaults are open/P2, empty notes, no classification/links, and first in the complete sibling scope. A new parent must exist and not be canceled. Caller IDs, status, dependency/key/time fields and v1 aliases are rejected.
+
+`task.start`, `task.pause`, `task.complete`, `task.reopen`, `task.cancel` and `task.delete` take only `id`/`expectedVersion` plus envelope context/key. Delete means **cancellation, not file removal**, even for done tasks; cancel itself refuses done. See the [transition matrix](spec/v2/mutations.md#states-and-relationships). Status changes preserve edit time/order/relationships, set closure on done/canceled and clear it on active states. No cascades. Same-state requests are receipt-only no-ops.
+
+Previews consume no key or canonical effects. Creation preview IDs/times/versions are hypothetical, not reserved authority or a prepared executing request. Keep the **original** context/key/payload/version for an uncertain execution; re-read only before a genuinely new edit. Historical replay can return an old version, including after a task disappears, without recreating it.
+
+Capture recovery uses a fixed UUID/time/key and a no-clobber publication. After publication start is durably recorded, a missing target is uncertain: preserve the task/stage/journal for inspection rather than recreate it. Missing/partial progress, late membership, changed bytes or wrong cache location also refuse. Resume through the original root/cache/profile only. These remain disposable Linux/WSL2 controls, not native/provider or personal-rollout acceptance. See [capture/status evidence](spec/v2/conformance.md#recoverable-capture-and-status).
 
 ### Back up or restore an experimental v2 folder
 
@@ -146,7 +178,7 @@ This changes only the root/client selected for that invocation, not the default 
 ## Documentation
 
 - [Current system specification](spec/overview.md): the implemented v1 task model, storage, protocol, queries, mutations, CLI, sources, and UI behavior.
-- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, with a bounded opt-in Node query/update/recovery subset; the complete target is not implemented.
+- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, with a bounded opt-in Node task/control subset; the complete target is not implemented.
 - [Development and validation](docs/development.md): architecture, developer workflows, packaging, scratch data, and platform checks.
 - [Ideas and proposals](ideas/overview.md): aspirational designs and the earlier TaskDB 2.0 roadmap.
 - [Keyboard and UI guide](docs/usage-guide.md): home-screen focus, mouse paths, shortcuts, filters, sorting, and agent-facing UI contract.

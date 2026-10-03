@@ -4,6 +4,7 @@ import path from "node:path";
 import { CommandError } from "./errors.js";
 import { canonicalJson } from "./canonicalJson.js";
 import { applyV2Update, parseV2Update } from "./v2UpdateInputs.js";
+import { applyV2Status, parseV2StatusInput, V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
 import { parseV2CanonicalJson } from "./v2CanonicalJson.js";
 import { readV2CanonicalRoot, readV2RegularFile } from "./v2CanonicalReader.js";
 import type { V2CanonicalSnapshot, V2FileObservation } from "./v2CanonicalReader.js";
@@ -11,7 +12,7 @@ import { pendingV2Path, syncV2Directory, writeV2DurableFile } from "./v2LocalDom
 import { parseV2Request } from "./v2Protocol.js";
 import type { V2Request } from "./v2Protocol.js";
 import type { V2RootBinding } from "./v2QueryCache.js";
-import { validateV2Task } from "./v2TaskModel.js";
+import { isV2Timestamp, validateV2Task } from "./v2TaskModel.js";
 
 export type V2UpdateIntent = {
   format: "taskdb.pending-update"; version: 1; root: V2RootBinding; cachePath: string;
@@ -44,16 +45,17 @@ export function readV2Pending(root: V2RootBinding): V2UpdateIntent | undefined {
       validateV2Task(parseV2CanonicalJson(Buffer.from(encoded, "base64")), intent.taskId);
     }
     const request = parseV2Request(intent.request);
-    if (request.command !== "task.update" || request.args.id !== intent.taskId || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) recoveryConflict();
+    if (!["task.update", ...V2_STATUS_COMMANDS].includes(request.command) || request.args.id !== intent.taskId || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) recoveryConflict();
     if (!Array.isArray(intent.guards) || intent.guards.length === 0 || new Set(intent.guards.map(file => file.relativePath)).size !== intent.guards.length) recoveryConflict();
     for (const file of intent.guards) {
       if (typeof file.relativePath !== "string" || typeof file.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(file.sha256)) recoveryConflict();
     }
     if (!intent.guards.some(file => file.relativePath === `tasks/${intent.taskId}.json` && file.sha256 === exactV2Hash(Buffer.from(intent.beforeBytes, "base64")))) recoveryConflict();
     const next = validateV2Task(parseV2CanonicalJson(Buffer.from(intent.nextBytes, "base64")), intent.taskId);
-    if (intent.at !== next.updatedAt) recoveryConflict();
+    if (!isV2Timestamp(intent.at)) recoveryConflict();
     const before = validateV2Task(parseV2CanonicalJson(Buffer.from(intent.beforeBytes, "base64")), intent.taskId);
-    const expected = applyV2Update(before, parseV2Update(request.args), intent.at);
+    if (request.command !== "task.update") parseV2StatusInput(request.args);
+    const expected = request.command === "task.update" ? applyV2Update(before, parseV2Update(request.args), intent.at) : applyV2Status(before, request.command, intent.at);
     if (!expected.changed || canonicalJson(expected.task) !== canonicalJson(next)) recoveryConflict();
     return { ...intent, request };
   } catch {
