@@ -5,6 +5,7 @@ import { CommandError } from "./errors.js";
 import { canonicalJson } from "./canonicalJson.js";
 import { applyV2Update, parseV2Update } from "./v2UpdateInputs.js";
 import { applyV2Status, parseV2StatusInput, V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
+import { applyV2Relationship, matchesV2RelationshipEffect, parseV2Relationship, V2_RELATIONSHIP_COMMANDS } from "./v2TaskRelationships.js";
 import { parseV2CanonicalJson } from "./v2CanonicalJson.js";
 import { readV2CanonicalRoot, readV2RegularFile } from "./v2CanonicalReader.js";
 import type { V2CanonicalSnapshot, V2FileObservation } from "./v2CanonicalReader.js";
@@ -12,7 +13,7 @@ import { pendingV2Path, syncV2Directory, writeV2DurableFile } from "./v2LocalDom
 import { parseV2Request } from "./v2Protocol.js";
 import type { V2Request } from "./v2Protocol.js";
 import type { V2RootBinding } from "./v2QueryCache.js";
-import { isV2Timestamp, validateV2Task } from "./v2TaskModel.js";
+import { isV2Timestamp, validateV2Graph, validateV2Task } from "./v2TaskModel.js";
 
 export type V2UpdateIntent = {
   format: "taskdb.pending-update"; version: 1; root: V2RootBinding; cachePath: string;
@@ -45,7 +46,7 @@ export function readV2Pending(root: V2RootBinding): V2UpdateIntent | undefined {
       validateV2Task(parseV2CanonicalJson(Buffer.from(encoded, "base64")), intent.taskId);
     }
     const request = parseV2Request(intent.request);
-    if (!["task.update", ...V2_STATUS_COMMANDS].includes(request.command) || request.args.id !== intent.taskId || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) recoveryConflict();
+    if (!["task.update", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS].includes(request.command) || request.args.id !== intent.taskId || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) recoveryConflict();
     if (!Array.isArray(intent.guards) || intent.guards.length === 0 || new Set(intent.guards.map(file => file.relativePath)).size !== intent.guards.length) recoveryConflict();
     for (const file of intent.guards) {
       if (typeof file.relativePath !== "string" || typeof file.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(file.sha256)) recoveryConflict();
@@ -54,9 +55,13 @@ export function readV2Pending(root: V2RootBinding): V2UpdateIntent | undefined {
     const next = validateV2Task(parseV2CanonicalJson(Buffer.from(intent.nextBytes, "base64")), intent.taskId);
     if (!isV2Timestamp(intent.at)) recoveryConflict();
     const before = validateV2Task(parseV2CanonicalJson(Buffer.from(intent.beforeBytes, "base64")), intent.taskId);
-    if (request.command !== "task.update") parseV2StatusInput(request.args);
-    const expected = request.command === "task.update" ? applyV2Update(before, parseV2Update(request.args), intent.at) : applyV2Status(before, request.command, intent.at);
-    if (!expected.changed || canonicalJson(expected.task) !== canonicalJson(next)) recoveryConflict();
+    if (V2_RELATIONSHIP_COMMANDS.includes(request.command)) {
+      if (!matchesV2RelationshipEffect(before, next, parseV2Relationship(request.command, request.args), intent.at)) recoveryConflict();
+    } else {
+      if (request.command !== "task.update") parseV2StatusInput(request.args);
+      const expected = request.command === "task.update" ? applyV2Update(before, parseV2Update(request.args), intent.at) : applyV2Status(before, request.command, intent.at);
+      if (!expected.changed || canonicalJson(expected.task) !== canonicalJson(next)) recoveryConflict();
+    }
     return { ...intent, request };
   } catch {
     return recoveryConflict();
@@ -70,7 +75,7 @@ export function guardV2Update(intent: V2UpdateIntent, recovery: boolean): V2Cano
     if (recovery) return recoveryConflict();
     throw error;
   }
-  if (snapshot.rootIdentity !== intent.root.rootIdentity) fail("STALE_SCOPE");
+  if (snapshot.rootPath !== intent.root.rootPath || snapshot.rootIdentity !== intent.root.rootIdentity) fail("STALE_SCOPE");
   const observed = new Map(snapshot.files.map(file => [file.relativePath, file.sha256]));
   if (observed.size !== intent.guards.length || intent.guards.some(file => !observed.has(file.relativePath))) fail("STALE_SCOPE");
   const nextHash = exactV2Hash(Buffer.from(intent.nextBytes, "base64"));
@@ -78,6 +83,19 @@ export function guardV2Update(intent: V2UpdateIntent, recovery: boolean): V2Cano
     const actual = observed.get(file.relativePath);
     const alreadyApplied = recovery && file.relativePath === `tasks/${intent.taskId}.json` && actual === nextHash;
     if (actual !== file.sha256 && !alreadyApplied) fail("STALE_FILE");
+  }
+  if (V2_RELATIONSHIP_COMMANDS.includes(intent.request.command)) {
+    try {
+      const before = validateV2Task(parseV2CanonicalJson(Buffer.from(intent.beforeBytes, "base64")), intent.taskId);
+      // All other exact bytes passed the guards; substitute the fixed preimage if the target was already applied.
+      const original = snapshot.tasks.map(task => task.id === intent.taskId ? before : task);
+      validateV2Graph(original);
+      const expected = applyV2Relationship(before, parseV2Relationship(intent.request.command, intent.request.args), original, intent.at);
+      if (!expected.changed || canonicalJson(expected.task) !== canonicalJson(parseV2CanonicalJson(Buffer.from(intent.nextBytes, "base64")))) fail("STALE_SCOPE");
+    } catch (error) {
+      if (recovery) return recoveryConflict();
+      throw error;
+    }
   }
   return snapshot;
 }

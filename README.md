@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content edits/status changes (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/copy/migration/init intents. Relationship edits, reorder/normalization, undo, purge and doctor remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/copy/migration/init intents. Undo, purge and doctor remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -98,6 +98,72 @@ jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
 Previews consume no key or canonical effects. Creation preview IDs/times/versions are hypothetical, not reserved authority or a prepared executing request. Keep the **original** context/key/payload/version for an uncertain execution; re-read only before a genuinely new edit. Historical replay can return an old version, including after a task disappears, without recreating it.
 
 Capture recovery uses a fixed UUID/time/key and a no-clobber publication. After publication start is durably recorded, a missing target is uncertain: preserve the task/stage/journal for inspection rather than recreate it. Missing/partial progress, late membership, changed bytes or wrong cache location also refuse. Resume through the original root/cache/profile only. These remain disposable Linux/WSL2 controls, not native/provider or personal-rollout acceptance. See [capture/status evidence](spec/v2/conformance.md#recoverable-capture-and-status).
+
+### Move a task or change its blockers
+
+Linux only, with `jq`, using a disposable copy of the example collection. This moves its child task to another parent, adds a done task as a blocker, then explicitly removes that blocker:
+
+```bash
+pnpm build:backend
+relscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$relscratch/root"
+relationships() {
+  XDG_DATA_HOME="$relscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$relscratch/root" --database "$relscratch/cache.db"
+}
+id=6e1bf023-da3c-4785-b8a9-a696ac1fa5c1
+parent=62f159c1-22a7-45cb-89a0-c0c35aaeb1ed
+blocker=f3e5499b-402e-4d7d-8b61-eefc4409ca32
+current=$(jq -nc --arg id "$id" '{version:2,command:"task.get",args:{id:$id}}' | relationships)
+context=$(printf '%s\n' "$current" | jq -r '.writeContext')
+version=$(printf '%s\n' "$current" | jq -r '.result.task.version')
+moved=$(jq -nc --arg ctx "$context" --arg id "$id" --arg parent "$parent" --argjson version "$version" \
+  '{version:2,command:"task.move",writeContext:$ctx,idempotencyKey:"move-1",args:{id:$id,expectedVersion:$version,parentId:$parent}}' | relationships)
+printf '%s\n' "$moved"
+version=$(printf '%s\n' "$moved" | jq -r '.result.task.version')
+added=$(jq -nc --arg ctx "$context" --arg id "$id" --arg blocker "$blocker" --argjson version "$version" \
+  '{version:2,command:"task.dependency.add",writeContext:$ctx,idempotencyKey:"blocker-1",args:{id:$id,expectedVersion:$version,dependsOnId:$blocker}}' | relationships)
+printf '%s\n' "$added"
+version=$(printf '%s\n' "$added" | jq -r '.result.task.version')
+jq -nc --arg ctx "$context" --arg id "$id" --arg blocker "$blocker" --argjson version "$version" \
+  '{version:2,command:"task.dependency.remove",writeContext:$ctx,idempotencyKey:"remove-1",args:{id:$id,expectedVersion:$version,dependsOnId:$blocker}}' | relationships
+```
+
+`task.move` requires explicit `parentId` (use JSON `null` to remove a parent), `id` and fresh `expectedVersion`. A changed parent places the task first in the **complete** new sibling scope, including canceled/hidden tasks; same-parent requests do not reorder it. Descendant links stay intact. New parents/blockers must exist and not be canceled; existing canceled links may remain unchanged or be removed. Parent and dependency graphs are separate DAGs, checked before writes. No cascades or implicit unlinking.
+
+Dependency commands take `dependsOnId`, not a replacement array. Adding an existing link or removing an absent link is a receipt-only no-op. Done dependencies still block; canceled dependencies do not, although their links remain until explicitly removed. Relationship edits advance edit time and versions while preserving closure, creation time and other content; reparenting also advances affected old/new sibling tokens without rewriting sibling files.
+
+For each **new** edit use its current task version. Keep the original context/key/payload/version when retrying an uncertain call. Recovery retains the fixed key/time and checks the full guarded graph and sibling observations: arrivals, formatting edits, changed links/state or missing files require inspection, not reallocation or resurrection. [Relationship evidence](spec/v2/conformance.md#guarded-parent-and-dependency-edits) remains Linux/WSL2 process proof only, not native/provider or personal-data acceptance.
+
+### Reorder siblings or explicitly normalize their keys
+
+Linux only, with `jq`, on a disposable copy. This puts the planning task first, then normalizes the complete root sibling scope without changing its sequence:
+
+```bash
+pnpm build:backend
+orderscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$orderscratch/root"
+ordering() {
+  XDG_DATA_HOME="$orderscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$orderscratch/root" --database "$orderscratch/cache.db"
+}
+id=c8d4206d-c25a-4317-baa4-a2c5443060e9
+current=$(jq -nc --arg id "$id" '{version:2,command:"task.get",args:{id:$id}}' | ordering)
+context=$(printf '%s\n' "$current" | jq -r '.writeContext')
+version=$(printf '%s\n' "$current" | jq -r '.result.task.version')
+jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
+  '{version:2,command:"task.reorder",writeContext:$ctx,idempotencyKey:"order-1",args:{tasks:[{id:$id,expectedVersion:$version}],placement:{first:true}}}' | ordering
+siblings=$(printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual","limit":100}}' | ordering | \
+  jq -c '[.result.tasks[] | select(.parentId == null) | {id,expectedVersion:.version}]')
+jq -nc --arg ctx "$context" --argjson tasks "$siblings" \
+  '{version:2,command:"task.order.normalize",writeContext:$ctx,idempotencyKey:"normalize-1",args:{parentId:null,tasks:$tasks}}' | ordering
+```
+
+Reorder supplies unique versioned IDs **in their current sibling order** and exactly one placement: `beforeId`, `afterId`, `first:true`, or `last:true`. An anchor must be an unselected sibling. Canceled/hidden tasks still belong to the scope. A gap inside equal keys may rewrite the surrounding tied run, not outside neighbors. `rewrittenIds` lists actual file changes; a selected task's position/version can change even if its key stays the same. All non-order fields and timestamps remain intact.
+
+Normalization requires explicit `parentId` (JSON `null` for roots) and **every sibling**, including canceled/hidden tasks, in current order. The small example fits in one page; larger scopes require all pages from a consistent observation, not a filtered or truncated list. Normalization preserves sequence but is meaningful unless all keys already match. It is never an automatic overflow fallback. Both commands have non-consuming previews and receipt-only no-ops; use fresh versions for a new edit, but keep the original context/key/versioned list/placement/actor/flags for an uncertain retry.
+
+Multi-file recovery recognizes exact before/next bytes and finishes only the fixed plan. Arrivals, deletion, formatting or other divergence stop with preserved pending evidence, without rollback, resurrection or choosing another gap. Resume through the original root/cache/profile. Grouped history keeps selected intent, incidental rewrites and complete old/new scopes; undo is not implemented yet. See [ordering evidence](spec/v2/conformance.md#recoverable-ordering-and-normalization) for process-only Linux/WSL2 limits. Default v1 UI/CLI and personal data remain untouched.
 
 ### Back up or restore an experimental v2 folder
 

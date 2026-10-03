@@ -93,13 +93,17 @@ export function parseV2ContentPatch(args: Record<string, unknown>): V2UpdateInpu
   return patch;
 }
 
-export function parseV2Update(args: Record<string, unknown>): V2UpdateInput {
-  assertV2Args(args, ["id", "expectedVersion", "title", "text", "description", "priority", "category", "tags"]);
+export function parseV2TaskVersion(args: Record<string, unknown>): { id: string; expectedVersion: number } {
   if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) invalidInput("id");
   if (!Number.isSafeInteger(args.expectedVersion) || (args.expectedVersion as number) <= 0) {
     throw new CommandError("EXPECTED_VERSION_REQUIRED", "positive safe expectedVersion is required");
   }
-  return { id: args.id, expectedVersion: args.expectedVersion as number, patch: parseV2ContentPatch(args) };
+  return { id: args.id, expectedVersion: args.expectedVersion as number };
+}
+
+export function parseV2Update(args: Record<string, unknown>): V2UpdateInput {
+  assertV2Args(args, ["id", "expectedVersion", "title", "text", "description", "priority", "category", "tags"]);
+  return { ...parseV2TaskVersion(args), patch: parseV2ContentPatch(args) };
 }
 
 export function applyV2Update(task: V2CanonicalTask, input: V2UpdateInput, at: string): { task: V2CanonicalTask; changed: boolean } {

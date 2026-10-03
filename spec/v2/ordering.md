@@ -32,6 +32,8 @@ Normative vector: `lower:a0, a:a1, b:a1(canceled), upper:a2, move:a3, tail:a4`; 
 
 Capture/new-parent move prepends through key allocation, never through a shared order file. Independent captures may choose the same key; the ID tie sorts them. Concurrent overlapping rekeys may conflict and cannot preserve both placement intentions. No automatic sync repair loop or CRDT promise.
 
+The [bounded Linux relationship slice](conformance.md#guarded-parent-and-dependency-edits) now executes first-in-new-scope reparenting, including complete hidden/canceled/tied sibling observations and affected tokens without sibling rewrites. The later [bounded Linux ordering slice](conformance.md#recoverable-ordering-and-normalization) now implements `task.reorder`, normalization, tied-run repair and fixed multi-file recovery. Complete selected/incidental group history and conservative affected-scope token refresh are implemented; grouped undo remains a separate unsupported gate. The candidate/transport evidence is not a substitute for these command tests.
+
 ## Normalization
 
 `task.order.normalize` explicitly supplies parent ID and the full versioned sibling list in current order (empty allowed). Generate `generateNKeysBetween(null,null,count)` in that order. It preserves sequence and all non-order fields, with one grouped maintenance event/undo/journal. All keys already matching is a no-op; identical sequence alone is not. This is not an automatic overflow fallback and cannot silently repair malformed canonical records. Preview/execution guards must include arrivals, outside changes and exact bytes.

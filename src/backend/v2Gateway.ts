@@ -5,6 +5,9 @@ import { observeV2QueryAuthority, synchronizeV2Authority, withV2CacheTransaction
 import { executeV2Update } from "./v2UpdateWriter.js";
 import { executeV2Create } from "./v2CreateWriter.js";
 import { V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
+import { executeV2Order } from "./v2OrderWriter.js";
+import { V2_ORDER_COMMANDS } from "./v2TaskOrdering.js";
+import { V2_RELATIONSHIP_COMMANDS } from "./v2TaskRelationships.js";
 import { executeV2Copy } from "./v2CopyWriter.js";
 import { executeV2Migration } from "./v2MigrationWriter.js";
 import { executeV2Lifecycle } from "./v2LifecycleWriter.js";
@@ -15,7 +18,7 @@ import { executeV2Query, projectV2Tasks } from "./v2Queries.js";
 import { assertV2Args, decodeV2Envelope, isV2Record, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
 import type { V2Response } from "./v2Protocol.js";
 
-const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild"];
+const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS, ...V2_ORDER_COMMANDS, "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild"];
 
 export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: string): V2Response {
   let requestId: string | null = null;
@@ -26,7 +29,8 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     const writable = process.platform === "linux";
     if (writable && writeCommands.includes(request.command)) {
       const outcome = request.command === "task.create" ? executeV2Create(request, rootPath, cachePath)
-        : ["task.update", ...V2_STATUS_COMMANDS].includes(request.command) ? executeV2Update(request, rootPath, cachePath)
+        : V2_ORDER_COMMANDS.includes(request.command) ? executeV2Order(request, rootPath, cachePath)
+        : ["task.update", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS].includes(request.command) ? executeV2Update(request, rootPath, cachePath)
         : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath)
         : request.command === "workspace.migrateV1" ? executeV2Migration(request, rootPath, cachePath)
         : ["workspace.init", "workspace.rebuild"].includes(request.command) ? executeV2Lifecycle(request, rootPath, cachePath)

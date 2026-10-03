@@ -1,5 +1,6 @@
 import { CommandError } from "./errors.js";
 import { assertV2Args } from "./v2Protocol.js";
+import { parseV2TaskVersion } from "./v2UpdateInputs.js";
 import { validateV2Task } from "./v2TaskModel.js";
 import type { V2CanonicalTask } from "./v2TaskModel.js";
 
@@ -15,9 +16,7 @@ const transitions: Record<string, { sources: V2CanonicalTask["status"][]; target
 
 export function parseV2StatusInput(args: Record<string, unknown>): { id: string; expectedVersion: number } {
   assertV2Args(args, ["id", "expectedVersion"]);
-  if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) throw new CommandError("INVALID_ARGUMENT", "invalid status task id");
-  if (!Number.isSafeInteger(args.expectedVersion) || (args.expectedVersion as number) <= 0) throw new CommandError("EXPECTED_VERSION_REQUIRED", "positive safe expectedVersion is required");
-  return { id: args.id, expectedVersion: args.expectedVersion as number };
+  return parseV2TaskVersion(args);
 }
 
 export function applyV2Status(task: V2CanonicalTask, command: string, at: string): { task: V2CanonicalTask; changed: boolean } {

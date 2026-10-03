@@ -37,6 +37,10 @@ Absent receipt proceeds through pending-state, full observation and domain guard
 
 The [bounded Linux capture/status commands](conformance.md#recoverable-capture-and-status) now execute the original input/context/receipt vectors. Preview creation IDs/times/versions are hypothetical, not reserved authority; uncertain executing retries retain the original context/key/payload/version. Missing publication evidence is not permission to allocate a new identity or resurrect a task.
 
+The [bounded Linux relationship commands](conformance.md#guarded-parent-and-dependency-edits) implement the declared `task.move` and dependency add/remove shapes with current selected-task versions, exact request replay and non-consuming previews. Complete graph/scope/byte guards precede effects; existing canceled references may be unchanged or removed, while new choices refuse canceled targets. Dependency arrays and parent/key/time fields still cannot be set through `task.update`.
+
+The [bounded Linux ordering commands](conformance.md#recoverable-ordering-and-normalization) implement the declared `task.reorder` and `task.order.normalize` versioned-list shapes, non-consuming previews and exact historical replay. Lists/placement remain part of original retry identity; receipt replay precedes live scope/version checks. Meaningful ordering returns selected/scope projections and actual `rewrittenIds`, including fresh selected tokens even for unchanged bytes. Grouped history is local; undo remains unsupported.
+
 The [bounded Linux lifecycle controls](conformance.md#explicit-initialization-and-retained-cache-rebuild) implement retained same-cache rebuild: context/receipts/history survive and task versions are reissued. `preserveSQLite` in the fixture is a test-adapter event, not a public argument. Complete cache loss still refuses original authority; rebuild does not bypass pending work or import an old database.
 
 ## Commands

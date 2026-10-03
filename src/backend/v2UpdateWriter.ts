@@ -13,6 +13,7 @@ import { localPathOutsideV2Root, synchronizeV2Authority, withV2CacheTransaction 
 import { findV2Receipt, requireV2WriteContext, storeV2Receipt } from "./v2Receipts.js";
 import { applyV2Update, parseV2Update } from "./v2UpdateInputs.js";
 import { applyV2Status, parseV2StatusInput } from "./v2TaskStatus.js";
+import { applyV2Relationship, parseV2Relationship, V2_RELATIONSHIP_COMMANDS } from "./v2TaskRelationships.js";
 import { readV2Pending } from "./v2Pending.js";
 import { applyV2Journal, exactV2Hash, guardV2Update } from "./v2UpdateJournal.js";
 import type { V2UpdateIntent } from "./v2UpdateJournal.js";
@@ -39,7 +40,8 @@ export function executeV2Update(request: V2Request, rootPath: string, cachePath:
       let authority = synchronizeV2Authority(database, root);
       requireV2WriteContext(request, authority);
       const contentInput = request.command === "task.update" ? parseV2Update(request.args) : undefined;
-      const input = contentInput ?? parseV2StatusInput(request.args);
+      const relationshipInput = V2_RELATIONSHIP_COMMANDS.includes(request.command) ? parseV2Relationship(request.command, request.args) : undefined;
+      const input = contentInput ?? relationshipInput ?? parseV2StatusInput(request.args);
       const receipt = findV2Receipt(database, request);
       if (receipt) return { writeContext: authority.writeContext, result: receipt };
       if (readV2Pending(root)) throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
@@ -52,7 +54,8 @@ export function executeV2Update(request: V2Request, rootPath: string, cachePath:
       if (!task) throw new CommandError("TASK_NOT_FOUND", "task was not found");
       if (authority.versions.get(task.id) !== input.expectedVersion) throw new CommandError("STALE_TASK_VERSION", "task version changed");
       const at = new Date().toISOString();
-      const update = contentInput ? applyV2Update(task, contentInput, at) : applyV2Status(task, request.command, at);
+      const update = contentInput ? applyV2Update(task, contentInput, at)
+        : relationshipInput ? applyV2Relationship(task, relationshipInput, snapshot.tasks, at) : applyV2Status(task, request.command, at);
       const projected = projectV2Tasks([update.task, ...snapshot.tasks.filter(item => item.id !== task.id)], authority)[0];
       if (request.readOnly || request.dryRun) return { writeContext: authority.writeContext, result: { task: projected, changed: update.changed, readOnly: request.readOnly, dryRun: request.dryRun } };
       if (!update.changed) {
