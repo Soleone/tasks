@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/copy/migration/init intents. Undo, purge and doctor remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo and status batches are now supported; purge and doctor remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -163,7 +163,47 @@ Reorder supplies unique versioned IDs **in their current sibling order** and exa
 
 Normalization requires explicit `parentId` (JSON `null` for roots) and **every sibling**, including canceled/hidden tasks, in current order. The small example fits in one page; larger scopes require all pages from a consistent observation, not a filtered or truncated list. Normalization preserves sequence but is meaningful unless all keys already match. It is never an automatic overflow fallback. Both commands have non-consuming previews and receipt-only no-ops; use fresh versions for a new edit, but keep the original context/key/versioned list/placement/actor/flags for an uncertain retry.
 
-Multi-file recovery recognizes exact before/next bytes and finishes only the fixed plan. Arrivals, deletion, formatting or other divergence stop with preserved pending evidence, without rollback, resurrection or choosing another gap. Resume through the original root/cache/profile. Grouped history keeps selected intent, incidental rewrites and complete old/new scopes; undo is not implemented yet. See [ordering evidence](spec/v2/conformance.md#recoverable-ordering-and-normalization) for process-only Linux/WSL2 limits. Default v1 UI/CLI and personal data remain untouched.
+Multi-file recovery recognizes exact before/next bytes and finishes only the fixed plan. Arrivals, deletion, formatting or other divergence stop with preserved pending evidence, without rollback, resurrection or choosing another gap. Resume through the original root/cache/profile. Grouped history keeps selected intent, incidental rewrites and complete old/new scopes; eligible inverses use `operation.undo` below. See [ordering evidence](spec/v2/conformance.md#recoverable-ordering-and-normalization) for process-only Linux/WSL2 limits. Default v1 UI/CLI and personal data remain untouched.
+
+### Undo an eligible local change
+
+Linux only, with `jq`, on a disposable copy. This reopens a done example task, restores its exact historical status/closure, then makes and undoes a priority edit:
+
+```bash
+pnpm build:backend
+undoscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$undoscratch/root"
+experimental_undo() {
+  XDG_DATA_HOME="$undoscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$undoscratch/root" --database "$undoscratch/cache.db"
+}
+id=f3e5499b-402e-4d7d-8b61-eefc4409ca32
+current=$(jq -nc --arg id "$id" '{version:2,command:"task.get",args:{id:$id}}' | experimental_undo)
+context=$(printf '%s\n' "$current" | jq -r '.writeContext')
+version=$(printf '%s\n' "$current" | jq -r '.result.task.version')
+reopened=$(jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
+  '{version:2,command:"task.reopen",writeContext:$ctx,idempotencyKey:"reopen-1",args:{id:$id,expectedVersion:$version}}' | experimental_undo)
+printf '%s\n' "$reopened"
+version=$(printf '%s\n' "$reopened" | jq -r '.result.task.version')
+restored=$(jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
+  '{version:2,command:"task.status.undo",writeContext:$ctx,idempotencyKey:"status-undo-1",args:{id:$id,expectedVersion:$version}}' | experimental_undo)
+printf '%s\n' "$restored"
+version=$(printf '%s\n' "$restored" | jq -r '.result.task.version')
+edited=$(jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
+  '{version:2,command:"task.update",writeContext:$ctx,idempotencyKey:"priority-1",args:{id:$id,expectedVersion:$version,priority:0}}' | experimental_undo)
+printf '%s\n' "$edited"
+operation=$(printf '%s\n' "$edited" | jq -r '.result.operationId')
+jq -nc --arg ctx "$context" --arg op "$operation" \
+  '{version:2,command:"operation.undo",writeContext:$ctx,idempotencyKey:"priority-undo-1",args:{operationId:$op}}' | experimental_undo
+```
+
+`task.status.undo` needs fresh context/version and the latest meaningful local status history. An intervening meaningful task change makes it unavailable; no-ops do not replace history. `task.status.undoMany` takes unique `{id,expectedVersion}` items and restores eligible histories in one group. `task.transitionMany` takes unique `{id,expectedVersion,command}` items using one of the six supported status commands. Any invalid item refuses the entire batch before writes; empty/all-no-op batches are receipt-only.
+
+`operation.undo` names an eligible local operation ID, not a task version. It checks current affected fields, full graph and relevant recorded sibling sequence/keys, while preserving unrelated later fields. Content/relationship inverses use one new edit time; status/order-only inverses preserve current edit time and restore exact historic closure where affected. Ordering also restores unchanged-key selected tasks' local authority. An already-consumed or partially undone group is unavailable; this slice does not provide redo or undo-of-undo, purge, doctor or migration reversal.
+
+Creation undo is deliberately stricter: only unchanged exact capture bytes, latest retained history and no incoming children/blockers or conflict copies qualify. Success physically removes that one file, returns `removedIds` plus `recoveryLocation`, and permanently retains independently verified raw originals outside the synced root. Do not automatically restore/adopt those copies or delete them during pending work. This differs from `task.delete`, which only cancels.
+
+Retained-cache restart/rebuild keeps history, receipts and consumed-history marks; cache loss cannot invent undo authority. A retained pending journal can be explicitly recovered at the original root/cache/profile with fresh context after cache loss, but old-context retries remain invalid. Keep the original context/key/payload/versioned list/operation ID/actor/flags for uncertain calls. Missing/divergent archive, stage, canonical bytes or scope membership stops recovery without rollback, resurrection or another inverse plan. See [undo evidence](spec/v2/conformance.md#guarded-status-and-grouped-undo). These are experimental Linux/WSL2 controls, not native/provider or personal-rollout acceptance.
 
 ### Back up or restore an experimental v2 folder
 

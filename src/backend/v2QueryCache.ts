@@ -36,8 +36,8 @@ function initializeQueryCache(database: DatabaseSync): void {
   const id = database.prepare("PRAGMA application_id").get()!.application_id;
   const version = database.prepare("PRAGMA user_version").get()!.user_version;
   const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
-  if (id === applicationId && version === 3) return;
-  const upgrade = id === applicationId && (version === 1 || version === 2);
+  if (id === applicationId && version === 4) return;
+  const upgrade = id === applicationId && (version === 1 || version === 2 || version === 3);
   if (!upgrade && (id !== 0 || version !== 0 || tables.length !== 0)) {
     throw new CommandError("INVALID_STORAGE", "database is not a supported v2 query cache");
   }
@@ -50,16 +50,20 @@ function initializeQueryCache(database: DatabaseSync): void {
     );
     CREATE TABLE v2_query_tasks (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, version INTEGER NOT NULL);
   `);
-  if (version !== 2) database.exec(`
+  if (version !== 2 && version !== 3) database.exec(`
     CREATE TABLE v2_receipts (context TEXT NOT NULL, key TEXT NOT NULL, identity TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(context, key));
     CREATE TABLE v2_operations (id TEXT PRIMARY KEY, context TEXT NOT NULL, task_id TEXT NOT NULL, command TEXT NOT NULL,
       actor TEXT NOT NULL, created_at TEXT NOT NULL, before_record TEXT NOT NULL, after_record TEXT NOT NULL);
     PRAGMA user_version = 2;
   `);
-  database.exec(`
+  if (version !== 3) database.exec(`
     CREATE TABLE v2_operation_members (operation_id TEXT NOT NULL, task_id TEXT NOT NULL, PRIMARY KEY(operation_id, task_id));
     CREATE INDEX v2_operation_members_task ON v2_operation_members(task_id, operation_id);
     PRAGMA user_version = 3;
+  `);
+  database.exec(`
+    CREATE TABLE v2_undo_claims (operation_id TEXT NOT NULL, task_id TEXT NOT NULL, undo_id TEXT NOT NULL, PRIMARY KEY(operation_id, task_id));
+    PRAGMA user_version = 4;
   `);
 }
 
@@ -92,7 +96,7 @@ export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBindi
     state.counter = 0;
     state.revision = 0;
     state.fingerprint = "";
-    database.exec("DELETE FROM v2_query_tasks; DELETE FROM v2_receipts; DELETE FROM v2_operations; DELETE FROM v2_operation_members");
+    database.exec("DELETE FROM v2_query_tasks; DELETE FROM v2_receipts; DELETE FROM v2_operations; DELETE FROM v2_operation_members; DELETE FROM v2_undo_claims");
   }
   const versions = new Map<string, number>();
   if (snapshot) {

@@ -39,7 +39,9 @@ The [bounded Linux capture/status commands](conformance.md#recoverable-capture-a
 
 The [bounded Linux relationship commands](conformance.md#guarded-parent-and-dependency-edits) implement the declared `task.move` and dependency add/remove shapes with current selected-task versions, exact request replay and non-consuming previews. Complete graph/scope/byte guards precede effects; existing canceled references may be unchanged or removed, while new choices refuse canceled targets. Dependency arrays and parent/key/time fields still cannot be set through `task.update`.
 
-The [bounded Linux ordering commands](conformance.md#recoverable-ordering-and-normalization) implement the declared `task.reorder` and `task.order.normalize` versioned-list shapes, non-consuming previews and exact historical replay. Lists/placement remain part of original retry identity; receipt replay precedes live scope/version checks. Meaningful ordering returns selected/scope projections and actual `rewrittenIds`, including fresh selected tokens even for unchanged bytes. Grouped history is local; undo remains unsupported.
+The [bounded Linux ordering commands](conformance.md#recoverable-ordering-and-normalization) implement the declared `task.reorder` and `task.order.normalize` versioned-list shapes, non-consuming previews and exact historical replay. Lists/placement remain part of original retry identity; receipt replay precedes live scope/version checks. Meaningful ordering returns selected/scope projections and actual `rewrittenIds`, including fresh selected tokens even for unchanged bytes. Grouped history is local; the later [guarded undo slice](conformance.md#guarded-status-and-grouped-undo) supplies eligible inverses.
+
+The [bounded Linux undo/status-batch commands](conformance.md#guarded-status-and-grouped-undo) implement the declared status undo/undoMany/transitionMany and operation-ID inverse shapes. Batch versions and array order remain retry identity; historical replay precedes live eligibility. Creation inverse additionally reports `removedIds` and `recoveryLocation` for independently retained raw originals, not another selectable root. Unsafe history/scope/graph refuses without effects; redo/undo-of-undo and destructive control reversal remain unavailable.
 
 The [bounded Linux lifecycle controls](conformance.md#explicit-initialization-and-retained-cache-rebuild) implement retained same-cache rebuild: context/receipts/history survive and task versions are reissued. `preserveSQLite` in the fixture is a test-adapter event, not a public argument. Complete cache loss still refuses original authority; rebuild does not bypass pending work or import an old database.
 
@@ -58,7 +60,7 @@ Listed args are the allowed write shapes; inherited read filters are defined bel
 | task.order.normalize | parentId, complete tasks:[{id,expectedVersion}] in scope order | scope tasks, parentId, changed, rewrittenIds, optional operationId |
 | task.transitionMany | tasks:[{id,expectedVersion,command}] with allowed status command names | tasks, changed, optional operationId |
 | task.status.undoMany | tasks:[{id,expectedVersion}] | tasks, changed, optional operationId |
-| operation.undo | operationId | affected tasks, changed, optional new operationId |
+| operation.undo | operationId | affected tasks, changed, optional new operationId; creation removal adds removedIds, recoveryLocation |
 | task.purgeCanceled | none | purgedIds, changed, recoveryLocation if nonempty |
 | task.get | id | task |
 | task.list | query filters | tasks, optional contextTasks, total, limit, offset, workspaceRevision |

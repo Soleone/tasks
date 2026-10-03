@@ -87,7 +87,7 @@ test("v2 info inspects empty, partial and unsupported roots without creating can
   const ready = result(query(current, "workspace.info"));
   assert.equal(ready.state, "ready");
   assert.deepEqual(ready.commands, process.platform === "linux"
-    ? ["activity.list", "category.list", "tag.list", "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove", "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.reopen", "task.reorder", "task.start", "task.update", "workspace.archive", "workspace.info", "workspace.init", "workspace.migrateV1", "workspace.rebuild", "workspace.recovery.resume", "workspace.restore"]
+    ? ["activity.list", "category.list", "operation.undo", "tag.list", "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove", "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.reopen", "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update", "workspace.archive", "workspace.info", "workspace.init", "workspace.migrateV1", "workspace.rebuild", "workspace.recovery.resume", "workspace.restore"]
     : ["category.list", "tag.list", "task.get", "task.list", "workspace.info"]);
   writeFileSync(path.join(current.root, "tasks/a.json"), '{"title":"partial secret');
   const incomplete = result(query(current, "workspace.info"));
