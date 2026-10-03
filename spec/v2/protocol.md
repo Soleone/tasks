@@ -43,6 +43,8 @@ The [bounded Linux ordering commands](conformance.md#recoverable-ordering-and-no
 
 The [bounded Linux undo/status-batch commands](conformance.md#guarded-status-and-grouped-undo) implement the declared status undo/undoMany/transitionMany and operation-ID inverse shapes. Batch versions and array order remain retry identity; historical replay precedes live eligibility. Creation inverse additionally reports `removedIds` and `recoveryLocation` for independently retained raw originals, not another selectable root. Unsafe history/scope/graph refuses without effects; redo/undo-of-undo and destructive control reversal remain unavailable.
 
+The [bounded Linux purge command](conformance.md#verified-canceled-task-purge) implements empty public args with current context/key, non-consuming previews and historical receipt precedence. A meaningful result also identifies its grouped local `operationId`; `recoveryLocation` points to verified independent raw recovery data, not another root or receipt ledger. `PURGE_REFERENCED` includes `details.references` with exact survivor/target/field triples. Previews do not reserve the canceled set. Unknown subset/filter/force args refuse rather than approximate this destructive command.
+
 The [bounded Linux lifecycle controls](conformance.md#explicit-initialization-and-retained-cache-rebuild) implement retained same-cache rebuild: context/receipts/history survive and task versions are reissued. `preserveSQLite` in the fixture is a test-adapter event, not a public argument. Complete cache loss still refuses original authority; rebuild does not bypass pending work or import an old database.
 
 ## Commands

@@ -55,4 +55,6 @@ Record one grouped local operation with actor, time, operation/request identity 
 - Purge, doctor and migration are not generic undo. Their explicit recovery copies/restore procedure replace that promise. Nonempty destructive operations invalidate unsuitable prior undo; no-ops leave it intact.
 - Validate all batch effects before first write; retain one immutable local pending intent for interrupted work. No rollback/resurrection on divergence.
 
+The [bounded Linux purge slice](conformance.md#verified-canceled-task-purge) now consumes prior retained undo involving removed tasks, historical incoming links or complete recorded scopes, so reappearing bytes cannot regain that authority. Unrelated eligible inverses remain available; empty purge preserves all undo. Purge itself remains outside generic `operation.undo`; its raw recovery copy is for explicit reviewed reconciliation/restore, not automatic reversal.
+
 Normative cases: `status-matrix`, `time-complete`, `time-noop`, `time-edit-closed`, `time-status-undo`, `time-parent`, `time-reorder`, `undo-cycle`, `undo-unrelated-edit`, `undo-order-arrival`, `undo-missing-history`, `reorder-selected-unchanged`, `noop-receipt`. Production v1 tests do not prove these new timestamp/effect rules.

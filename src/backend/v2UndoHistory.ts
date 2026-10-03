@@ -2,10 +2,34 @@ import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import { parseV2CanonicalJson } from "./v2CanonicalJson.js";
 import { historyAffected, historyTasks } from "./v2UndoPlan.js";
+import { isV2Record } from "./v2Protocol.js";
 import type { V2HistorySource, V2UndoInput } from "./v2UndoPlan.js";
 import type { V2CanonicalTask } from "./v2TaskModel.js";
 
 type HistoryRow = { id: string; command: string; before_record: string; after_record: string };
+
+/** Removed IDs, incoming historical links and complete ordered scopes cannot regain old undo eligibility on reappearance. */
+export function invalidateV2PurgeUndo(database: DatabaseSync, context: string, purgedIds: readonly string[], purgeId: string): void {
+  const removed = new Set(purgedIds);
+  const claim = database.prepare("INSERT OR IGNORE INTO v2_undo_claims VALUES (?, ?, ?)");
+  const rows = database.prepare("SELECT * FROM v2_operations WHERE context = ?").all(context) as (HistoryRow & { task_id: string })[];
+  for (const row of rows) {
+    let touches = false;
+    try {
+      for (const raw of [row.before_record, row.after_record]) {
+        const value = parseV2CanonicalJson(Buffer.from(raw));
+        if (historyTasks(value).some(task => removed.has(task.id) || (task.parentId !== null && removed.has(task.parentId)) || task.dependencyIds.some(id => removed.has(id)))
+          || (isV2Record(value) && Array.isArray(value.scope) && value.scope.some(pair => isV2Record(pair) && typeof pair.id === "string" && removed.has(pair.id)))) touches = true;
+      }
+    } catch (error) {
+      if (!(error instanceof CommandError)) throw error;
+      touches = true;
+    }
+    if (!touches) continue;
+    const members = database.prepare("SELECT task_id FROM v2_operation_members WHERE operation_id = ?").all(row.id) as { task_id: string }[];
+    for (const id of new Set([row.task_id, ...members.map(member => member.task_id)])) claim.run(row.id, id, purgeId);
+  }
+}
 function latest(database: DatabaseSync, context: string, taskId: string): HistoryRow | undefined {
   return database.prepare("SELECT operations.* FROM v2_operations AS operations WHERE context = ? AND (task_id = ? OR EXISTS (SELECT 1 FROM v2_operation_members AS members WHERE members.operation_id = operations.id AND members.task_id = ?)) ORDER BY operations.rowid DESC LIMIT 1").get(context, taskId, taskId) as HistoryRow | undefined;
 }

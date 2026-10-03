@@ -45,7 +45,7 @@ function exactHash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function observeRoot(rootPath: string): V2CanonicalSnapshot {
+function observeRoot(rootPath: string, deletedTasks: readonly V2CanonicalTask[] = []): V2CanonicalSnapshot {
   const rootIdentity = directoryIdentity(rootPath);
   const manifestPath = path.join(rootPath, "workspace.json");
   const taskDirectory = path.join(rootPath, "tasks");
@@ -74,7 +74,8 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
     if (conflict) { conflictFiles.push(observation); continue; }
     tasks.push(validateV2Task(parseV2CanonicalJson(bytes), name.slice(0, -5)));
   }
-  validateV2Graph(tasks);
+  if (deletedTasks.some(deleted => tasks.some(task => task.id === deleted.id))) invalidEntry();
+  validateV2Graph([...tasks, ...deletedTasks]);
   if (directoryIdentity(rootPath) !== rootIdentity || directoryIdentity(taskDirectory) !== taskIdentity
     || JSON.stringify(readdirSync(taskDirectory).sort()) !== JSON.stringify(names)) {
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
@@ -90,6 +91,16 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
     return leftParent === rightParent ? compareV2Tasks(left, right) : leftParent < rightParent ? -1 : 1;
   });
   return { rootPath, rootIdentity, tasks, files, conflictFiles };
+}
+
+/** Only purge recovery calls this after proving each absent preimage's bound quarantine. */
+export function readV2CanonicalDeletionPrefix(directory: string, deletedTasks: readonly V2CanonicalTask[]): V2CanonicalSnapshot {
+  try {
+    return observeRoot(realpathSync(directory), deletedTasks.map(task => validateV2Task(task, task.id)));
+  } catch (error) {
+    if (error instanceof CommandError) throw error;
+    throw new CommandError("INVALID_STORAGE", "v2 deletion prefix could not be read completely");
+  }
 }
 
 /** Resolve an explicitly selected existing directory, without assuming or creating a schema. */

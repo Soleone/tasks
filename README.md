@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo and status batches are now supported; purge and doctor remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo, status batches and verified canceled-task purge are now supported; doctor remains unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -204,6 +204,38 @@ jq -nc --arg ctx "$context" --arg op "$operation" \
 Creation undo is deliberately stricter: only unchanged exact capture bytes, latest retained history and no incoming children/blockers or conflict copies qualify. Success physically removes that one file, returns `removedIds` plus `recoveryLocation`, and permanently retains independently verified raw originals outside the synced root. Do not automatically restore/adopt those copies or delete them during pending work. This differs from `task.delete`, which only cancels.
 
 Retained-cache restart/rebuild keeps history, receipts and consumed-history marks; cache loss cannot invent undo authority. A retained pending journal can be explicitly recovered at the original root/cache/profile with fresh context after cache loss, but old-context retries remain invalid. Keep the original context/key/payload/versioned list/operation ID/actor/flags for uncertain calls. Missing/divergent archive, stage, canonical bytes or scope membership stops recovery without rollback, resurrection or another inverse plan. See [undo evidence](spec/v2/conformance.md#guarded-status-and-grouped-undo). These are experimental Linux/WSL2 controls, not native/provider or personal-rollout acceptance.
+
+### Purge canceled tasks from a disposable folder
+
+Linux only, with `jq`. This cancels an unreferenced example task, previews the **complete canceled set**, then removes that set with an independent raw recovery copy:
+
+```bash
+pnpm build:backend
+purgescratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$purgescratch/root"
+experimental_purge() {
+  XDG_DATA_HOME="$purgescratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$purgescratch/root" --database "$purgescratch/cache.db"
+}
+id=62f159c1-22a7-45cb-89a0-c0c35aaeb1ed
+current=$(jq -nc --arg id "$id" '{version:2,command:"task.get",args:{id:$id}}' | experimental_purge)
+context=$(printf '%s\n' "$current" | jq -r '.writeContext')
+version=$(printf '%s\n' "$current" | jq -r '.result.task.version')
+jq -nc --arg ctx "$context" --arg id "$id" --argjson version "$version" \
+  '{version:2,command:"task.cancel",writeContext:$ctx,idempotencyKey:"cancel-1",args:{id:$id,expectedVersion:$version}}' | experimental_purge
+jq -nc --arg ctx "$context" \
+  '{version:2,command:"task.purgeCanceled",writeContext:$ctx,dryRun:true}' | experimental_purge
+purged=$(jq -nc --arg ctx "$context" \
+  '{version:2,command:"task.purgeCanceled",writeContext:$ctx,idempotencyKey:"purge-1"}' | experimental_purge)
+printf '%s\n' "$purged"
+printf '%s\n' "$purged" | jq -r '.result.recoveryLocation'
+```
+
+`task.delete` still only cancels. `task.purgeCanceled` takes **no args**, IDs, versions or filters: each new execution observes every canceled task, not a displayed page. A preview reserves nothing. Pause other writers and sharing yourself before destructive work; the local lock cannot stop arbitrary editors or Syncthing. Any surviving parent/dependency reference, even from a done task, refuses the entire purge with `PURGE_REFERENCED` and `error.details.references`. Explicitly unlink/cancel linked tasks in a separate reviewed edit; purge never does it for you. A wholly canceled linked subgraph can be removed together. An empty set is receipt-only, without activity, archive or undo invalidation.
+
+The recovery copy preserves exact descriptor/task/known conflict bytes outside the synced root, including survivors; canonical conflict copies are not cleaned up. It is raw recovery data, not another selectable root or an automatically applied restore. Keep it independently backed up. Purge has no generic undo; related prior task/link/scope undo becomes unavailable, while unrelated eligible edits remain reversible. Survivors retain their bytes/timestamps; affected sibling tokens may advance.
+
+Interrupted purge fixes the original canceled set, raw bytes, actor/time and root/cache/profile. Bound transient quarantines prove journal-authored deletion, including linked-subgraph prefixes; an unexplained missing file never qualifies. Missing/divergent archives, changed/reintroduced files, lost quarantine proof or changed bindings stop without further deletion, rollback or resurrection. Use explicit `workspace.recovery.resume` through the original root/cache/profile. Fresh-cache recovery can finish only with retained proof, never validate an old-context retry. Cache loss after committed quarantine cleanup has removed that proof requires manual reconciliation, not regenerated evidence. Keep the original context/key/payload/actor/flags for an uncertain original call. See [purge evidence](spec/v2/conformance.md#verified-canceled-task-purge). Native/provider, hardware power-loss and personal-rollout acceptance remain open.
 
 ### Back up or restore an experimental v2 folder
 

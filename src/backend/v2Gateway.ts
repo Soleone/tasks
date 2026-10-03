@@ -6,6 +6,8 @@ import { executeV2Update } from "./v2UpdateWriter.js";
 import { executeV2Create } from "./v2CreateWriter.js";
 import { V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
 import { executeV2Undo } from "./v2UndoWriter.js";
+import { executeV2Purge } from "./v2PurgeWriter.js";
+import { V2PurgeReferencedError } from "./v2PurgePlan.js";
 import { V2_UNDO_COMMANDS } from "./v2UndoPlan.js";
 import { executeV2Order } from "./v2OrderWriter.js";
 import { V2_ORDER_COMMANDS } from "./v2TaskOrdering.js";
@@ -20,7 +22,7 @@ import { executeV2Query, projectV2Tasks } from "./v2Queries.js";
 import { assertV2Args, decodeV2Envelope, isV2Record, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
 import type { V2Response } from "./v2Protocol.js";
 
-const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS, ...V2_ORDER_COMMANDS, ...V2_UNDO_COMMANDS, "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild"];
+const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS, ...V2_ORDER_COMMANDS, ...V2_UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild"];
 
 export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: string): V2Response {
   let requestId: string | null = null;
@@ -31,6 +33,7 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     const writable = process.platform === "linux";
     if (writable && writeCommands.includes(request.command)) {
       const outcome = request.command === "task.create" ? executeV2Create(request, rootPath, cachePath)
+        : request.command === "task.purgeCanceled" ? executeV2Purge(request, rootPath, cachePath)
         : V2_UNDO_COMMANDS.includes(request.command) ? executeV2Undo(request, rootPath, cachePath)
         : V2_ORDER_COMMANDS.includes(request.command) ? executeV2Order(request, rootPath, cachePath)
         : ["task.update", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS].includes(request.command) ? executeV2Update(request, rootPath, cachePath)
@@ -78,6 +81,6 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     const storageError = isV2Record(error) && typeof error.code === "string" && /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
     const code = error instanceof CommandError ? error.code : storageError ? "INVALID_STORAGE" : "INTERNAL_ERROR";
     const message = error instanceof CommandError ? error.message.slice(error.code.length + 2) : "v2 query could not complete safely";
-    return { version: 2, requestId, ok: false, error: { code, message, ...(error instanceof V1MigrationSourceError ? { details: error.details } : {}) } };
+    return { version: 2, requestId, ok: false, error: { code, message, ...(error instanceof V1MigrationSourceError || error instanceof V2PurgeReferencedError ? { details: error.details } : {}) } };
   }
 }

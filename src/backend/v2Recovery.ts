@@ -8,6 +8,8 @@ import { retireV2Init } from "./v2InitJournal.js";
 import { commitV2Init } from "./v2LifecycleWriter.js";
 import { retireV2BatchStages } from "./v2BatchJournal.js";
 import { commitV2Undo } from "./v2UndoWriter.js";
+import { retireV2PurgeQuarantines } from "./v2PurgeJournal.js";
+import { commitV2Purge } from "./v2PurgeWriter.js";
 import { retireV2OrderStages } from "./v2OrderJournal.js";
 import { commitV2Order } from "./v2OrderWriter.js";
 import { retireV2Pending, withV2RootWriterLock } from "./v2LocalDomain.js";
@@ -64,6 +66,7 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
       if (!originalResult && intent.format === "taskdb.pending-create") originalResult = commitV2Create(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-order") originalResult = commitV2Order(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-batch") originalResult = commitV2Undo(database, intent);
+      if (!originalResult && intent.format === "taskdb.pending-purge") originalResult = commitV2Purge(database, intent);
       const result = { operationId: intent.operationId, outcome: "complete", originalResult };
       storeV2Receipt(database, request, result);
       completed = intent;
@@ -78,6 +81,7 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
           case "taskdb.pending-update": retireV2Pending(root); break;
           case "taskdb.pending-order": retireV2OrderStages(completed); retireV2Pending(root); break;
           case "taskdb.pending-batch": retireV2BatchStages(completed); retireV2Pending(root); break;
+          case "taskdb.pending-purge": retireV2PurgeQuarantines(completed); retireV2Pending(root); break;
           case "taskdb.pending-copy-target": throw new CommandError("RECOVERY_CONFLICT", "copy target must be retired by its original owner");
         }
       } catch (error) {
