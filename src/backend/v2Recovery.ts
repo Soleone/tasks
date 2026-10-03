@@ -2,6 +2,8 @@ import { CommandError } from "./errors.js";
 import { readV2ControlRoot } from "./v2ControlRoot.js";
 import { retireV2Copy } from "./v2CopyJournal.js";
 import { commitV2Copy } from "./v2CopyWriter.js";
+import { retireV2Init } from "./v2InitJournal.js";
+import { commitV2Init } from "./v2LifecycleWriter.js";
 import { retireV2Pending, withV2RootWriterLock } from "./v2LocalDomain.js";
 import { readV2Pending } from "./v2Pending.js";
 import type { V2PendingIntent } from "./v2Pending.js";
@@ -52,6 +54,7 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
           return recover();
         });
       }
+      if (!originalResult && intent.format === "taskdb.pending-init") originalResult = commitV2Init(database, intent);
       const result = { operationId: intent.operationId, outcome: "complete", originalResult };
       storeV2Receipt(database, request, result);
       completed = intent;
@@ -60,6 +63,11 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
     if (completed?.format === "taskdb.pending-copy") {
       try { retireV2Copy(completed); } catch (error) {
         // Historical success remains replayable; corrupt cleanup evidence stays pending for inspection.
+        if (!replayed || !(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error;
+      }
+    }
+    if (completed?.format === "taskdb.pending-init") {
+      try { retireV2Init(completed); } catch (error) {
         if (!replayed || !(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error;
       }
     }

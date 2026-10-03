@@ -111,6 +111,17 @@ export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBindi
   return { writeContext: state.context, workspaceRevision: state.revision, versions };
 }
 
+/** Rebuild the projection only; retained context, receipts and grouped history remain authoritative. */
+export function rebuildV2QueryAuthority(database: DatabaseSync, root: V2RootBinding, snapshot: V2CanonicalSnapshot): V2QueryAuthority {
+  const state = database.prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1").get() as Pick<CacheState, "counter" | "revision">;
+  // Reserve the rebuild allocations and the following complete read, without rotating mid-command.
+  if (!Number.isSafeInteger(state.counter + snapshot.tasks.length * 2 + 2) || !Number.isSafeInteger(state.revision + 2)) {
+    throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before rebuild");
+  }
+  database.exec("DELETE FROM v2_query_tasks; UPDATE v2_query_state SET fingerprint = '' WHERE singleton = 1");
+  return synchronizeV2Authority(database, root, snapshot);
+}
+
 export function withV2CacheTransaction<T>(cachePath: string, root: V2RootBinding, action: (database: DatabaseSync) => T): T {
   const resolved = localPathOutsideV2Root(cachePath, root.rootPath);
   mkdirSync(path.dirname(resolved), { recursive: true });

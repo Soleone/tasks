@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, and explicit recovery of published update/copy/migration intents. Create, status/order/relationship changes, undo and doctor remain unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded single-task content updates (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published update/copy/migration/init intents. Create, status/order/relationship changes, undo and doctor remain unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -39,6 +39,33 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
 For `task.update`, retain the returned `writeContext`, task `version` as `args.expectedVersion`, and a stable `idempotencyKey` with the original payload. Supported fields are `title` (literal), `text` (shorthand replacement), `description`, `priority`, `category`, and `tags`. `workspace.info` reports an interrupted operation's `pendingOperationId`; explicitly execute `workspace.recovery.resume` with that `operationId`, current context and a new stable recovery key. Never refresh authority and blindly retry an uncertain original operation.
 
 The cache must be outside the canonical tree. Root-scoped locks/pending intent live in the same user's app-data profile (`taskdb-v2/roots/`), outside the synced root, independently of the selected cache. Participating processes must share that profile; do not move it during pending work. Windows/Android writable commands are withheld. See [the evidence matrix](spec/v2/conformance.md) for WSL2-only execution, manual-inspection cases, race and power-loss limits. These controls are not native/provider acceptance or permission to migrate personal data.
+
+### Initialize an empty experimental folder or rebuild its cache
+
+Linux only. `workspace.init` creates a v2 descriptor and empty `tasks/` in an explicitly selected **existing empty directory**. It allows an already-empty `tasks/` and physical Syncthing markers/history/ignore files, but refuses task records, partial transfers, unrelated entries and existing descriptors. It never upgrades v1 or changes the app's selected folder. Reads do not initialize anything.
+
+This standalone example needs `jq` and uses a disposable folder:
+
+```bash
+pnpm build:backend
+initscratch=$(mktemp -d)
+mkdir "$initscratch/root"
+collection() {
+  XDG_DATA_HOME="$initscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$initscratch/root" --database "$initscratch/cache.db"
+}
+context=$(printf '%s\n' '{"version":2,"command":"workspace.info"}' | collection | jq -r '.writeContext')
+jq -nc --arg ctx "$context" \
+  '{version:2,command:"workspace.init",writeContext:$ctx,idempotencyKey:"init-1"}' | collection
+jq -nc --arg ctx "$context" \
+  '{version:2,command:"workspace.rebuild",writeContext:$ctx,idempotencyKey:"rebuild-1"}' | collection
+```
+
+Expect schema 2 and zero tasks. Both commands support `dryRun`/`readOnly` with current context and no required key. For uncertain execution, retain the original context/key/payload.
+
+`workspace.rebuild` validates the whole schema-2 tree and rebuilds only its local projection. It does not edit canonical files, import a v1 database or discard pending recovery. With the same retained cache, context, success receipts and activity survive; every task gets a fresh non-reused version. Old requests still replay their historical result, but old task versions cannot authorize a new edit. Re-read before further mutations. **Deleting the cache is not a rebuild:** lost cache means fresh authority and refusal of old requests.
+
+Interrupted init is recovered through the original selected folder/cache/profile using `workspace.recovery.resume`. Unbound directory creation, unpublished/partial progress, changed entries or a divergent/missing recorded descriptor require preserved inspection, not adoption or recreation. Descriptor publication cannot overwrite an arriving file. This is Linux/WSL2 process evidence, not native/provider or hardware power-loss acceptance. See [lifecycle evidence](spec/v2/conformance.md#explicit-initialization-and-retained-cache-rebuild).
 
 ### Back up or restore an experimental v2 folder
 

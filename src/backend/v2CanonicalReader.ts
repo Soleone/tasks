@@ -92,11 +92,16 @@ function observeRoot(rootPath: string): V2CanonicalSnapshot {
   return { rootPath, rootIdentity, tasks, files, conflictFiles };
 }
 
-export function readV2RootDescriptor(directory: string): { rootPath: string; rootIdentity: string } {
+/** Resolve an explicitly selected existing directory, without assuming or creating a schema. */
+export function readV2PhysicalRoot(directory: string): { rootPath: string; rootIdentity: string } {
   const rootPath = realpathSync(directory);
-  const rootIdentity = directoryIdentity(rootPath);
-  validateV2Manifest(parseV2CanonicalJson(readV2RegularFile(path.join(rootPath, "workspace.json"))));
-  return { rootPath, rootIdentity };
+  return { rootPath, rootIdentity: directoryIdentity(rootPath) };
+}
+
+export function readV2RootDescriptor(directory: string): { rootPath: string; rootIdentity: string } {
+  const root = readV2PhysicalRoot(directory);
+  validateV2Manifest(parseV2CanonicalJson(readV2RegularFile(path.join(root.rootPath, "workspace.json"))));
+  return root;
 }
 
 export type V2RootInspection = {
