@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { executeCommand } from "./commands.js";
 import { getDatabasePath } from "./paths.js";
 import type { ProtocolRequest, TaskRecord } from "./protocol.js";
+import { hasV2HumanRoot } from "./v2HumanArgs.js";
+import { runV2HumanCli } from "./v2HumanCli.js";
 
 const VERSION = 1 as const;
 
@@ -453,6 +455,10 @@ function handleList(argv: string[], parsed: ParsedArgs, globals: GlobalOptions):
 
 function main(): void {
   const raw = process.argv.slice(2);
+  if (hasV2HumanRoot(raw, VALUE_FLAGS)) {
+    runV2HumanCli(raw);
+    return;
+  }
   let parsed: ParsedArgs;
   try {
     parsed = parseArgv(raw);

@@ -1,0 +1,257 @@
+import path from "node:path";
+import { CommandError } from "./errors.js";
+import { parseV2Request } from "./v2Protocol.js";
+import type { V2Request } from "./v2Protocol.js";
+
+const VALUE_FLAGS = new Set([
+  "v2-root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
+  "actor-kind", "actor-label", "title", "text", "description", "priority", "parent", "category",
+  "tag", "status", "search", "limit", "offset", "sort", "direction", "task",
+]);
+const BOOLEAN_FLAGS = new Set([
+  "json", "dry-run", "read-only", "help", "root", "clear-category", "clear-tags",
+  "uncategorized", "unblocked", "include-ancestors",
+]);
+const GLOBAL_FLAGS = [
+  "v2-root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
+  "actor-kind", "actor-label", "json", "dry-run", "read-only", "help",
+];
+const VERSIONED_COMMANDS = new Set([
+  "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel",
+  "task.delete", "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove",
+]);
+type Flags = Map<string, (string | true)[]>;
+export class V2HumanUsageError extends CommandError {
+  constructor(message: string) { super("INVALID_ARGUMENT", message); }
+}
+function usage(message: string): never { throw new V2HumanUsageError(message); }
+export type V2HumanInvocation = {
+  help: false; rootPath: string; cachePath: string; json: boolean; requestHash?: string;
+  request: V2Request; mutation: boolean; versioned: boolean;
+};
+export type V2HumanArgs = V2HumanInvocation | { help: true; json: boolean };
+
+/** A flag-valued note or a word after -- must not opt a v1 invocation into v2. */
+export function hasV2HumanOption(argv: readonly string[], name: string, v1Values?: ReadonlySet<string>): boolean {
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+    if (token === "--") return false;
+    if (token === `--${name}` || token.startsWith(`--${name}=`)) return true;
+    if (token.startsWith("--") && !token.includes("=") && (VALUE_FLAGS.has(token.slice(2)) || v1Values?.has(token.slice(2)))) index++;
+  }
+  return false;
+}
+export function hasV2HumanRoot(argv: readonly string[], v1Values: ReadonlySet<string>): boolean {
+  return hasV2HumanOption(argv, "v2-root", v1Values);
+}
+function tokenize(argv: string[]): { flags: Flags; words: string[] } {
+  const flags: Flags = new Map(), words: string[] = [];
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+    if (token === "--") { words.push(...argv.slice(index + 1)); break; }
+    if (token === "-h") { flags.set("help", [true]); continue; }
+    if (!token.startsWith("--")) { words.push(token); continue; }
+    const equal = token.indexOf("="), name = token.slice(2, equal < 0 ? undefined : equal);
+    if (!VALUE_FLAGS.has(name) && !BOOLEAN_FLAGS.has(name)) usage("unrecognized option; use --help for supported v2 flags");
+    if (flags.has(name) && name !== "tag" && name !== "status") usage(`--${name} may only be supplied once`);
+    let supplied: string | true;
+    if (VALUE_FLAGS.has(name)) {
+      const text = equal < 0 ? argv[++index] : token.slice(equal + 1);
+      if (text === undefined) usage(`--${name} requires a value`);
+      supplied = text;
+    } else {
+      if (equal >= 0) usage(`--${name} does not take a value`);
+      supplied = true;
+    }
+    flags.set(name, [...(flags.get(name) ?? []), supplied]);
+  }
+  return { flags, words };
+}
+function value(flags: Flags, name: string): string | undefined { return flags.get(name)?.[0] as string | undefined; }
+function integer(flags: Flags, name: string, min: number, max = Number.MAX_SAFE_INTEGER): number | undefined {
+  const raw = value(flags, name);
+  if (raw === undefined) return undefined;
+  const number = Number(raw);
+  if (!raw.trim() || !Number.isSafeInteger(number) || number < min || number > max) usage(`--${name} requires an in-range safe integer`);
+  return number;
+}
+function requirePositionals(words: string[], n: number, verb: string): void {
+  if (words.length !== n) usage(`wrong arguments for ${verb}; use --help`);
+}
+function directoryArgument(text: string): string {
+  if (!text.trim()) usage("directory arguments must be explicit and nonempty");
+  return path.resolve(text);
+}
+function classification(flags: Flags, args: Record<string, unknown>): void {
+  if (flags.has("category") && flags.has("clear-category")) usage("choose --category or --clear-category, not both");
+  if (flags.has("tag") && flags.has("clear-tags")) usage("choose --tag or --clear-tags, not both");
+  if (flags.has("category")) args.category = value(flags, "category");
+  else if (flags.has("clear-category")) args.category = null;
+  if (flags.has("tag")) args.tags = flags.get("tag");
+  else if (flags.has("clear-tags")) args.tags = [];
+}
+function content(flags: Flags, args: Record<string, unknown>): void {
+  if (flags.has("title") && flags.has("text")) usage("choose literal --title or shorthand --text, not both");
+  if (flags.has("text") && ["category", "clear-category", "tag", "clear-tags"].some(name => flags.has(name))) usage("shorthand --text cannot mix with classification overrides");
+  for (const field of ["title", "text", "description"]) if (flags.has(field)) args[field] = value(flags, field);
+  const priority = integer(flags, "priority", 0, 4);
+  if (priority !== undefined) args.priority = priority;
+  classification(flags, args);
+}
+export function parseV2HumanArgs(argv: string[]): V2HumanArgs {
+  const { flags, words } = tokenize(argv), [verb, ...positionals] = words;
+  if (flags.has("help")) return { help: true, json: flags.has("json") };
+  const rootPath = value(flags, "v2-root"), cachePath = value(flags, "database");
+  if (!rootPath?.trim() || !cachePath?.trim()) usage("v2 requires explicit --v2-root PATH and --database CACHE_OUTSIDE_ROOT; no environment/default fallback");
+  if (!verb) usage("no command; use tasks-cli --v2-root PATH --help");
+  let command: string, allowed: string[] = [], mutation = true;
+  const args: Record<string, unknown> = {};
+  switch (verb) {
+    case "list": {
+      command = "task.list"; mutation = false;
+      allowed = ["status", "priority", "category", "uncategorized", "tag", "search", "limit", "offset", "sort", "direction", "unblocked", "include-ancestors"];
+      if (flags.has("search") && positionals.length) usage("choose --search or positional search, not both");
+      if (flags.has("status")) args.status = (flags.get("status") as string[]).flatMap(text => text.split(",")).map(text => text.trim());
+      for (const name of ["category", "search", "sort", "direction"]) if (flags.has(name)) args[name] = value(flags, name);
+      if (flags.has("category") && flags.has("uncategorized")) usage("choose --category or --uncategorized");
+      if (flags.has("uncategorized")) args.categoryIsNull = true;
+      if (flags.has("tag")) args.tags = flags.get("tag");
+      for (const name of ["limit", "offset", "priority"]) {
+        const n = integer(flags, name, 0, name === "priority" ? 4 : Number.MAX_SAFE_INTEGER);
+        if (n !== undefined) args[name] = n;
+      }
+      if (positionals.length) args.search = positionals.join(" ");
+      if (flags.has("unblocked")) args.unblocked = true;
+      if (flags.has("include-ancestors")) args.includeAncestors = true;
+      break;
+    }
+    case "show":
+      command = "task.get"; mutation = false;
+      requirePositionals(positionals, 1, verb); args.id = positionals[0];
+      break;
+    case "add": {
+      command = "task.create";
+      allowed = ["title", "text", "description", "priority", "parent", "category", "clear-category", "tag", "clear-tags"];
+      if (positionals.length && (flags.has("title") || flags.has("text"))) usage("choose positional shorthand or explicit --title/--text");
+      if (positionals.length) args.text = positionals.join(" ");
+      if (!positionals.length && !flags.has("title") && !flags.has("text")) usage("add needs positional shorthand, --text or literal --title");
+      content(flags, args);
+      if ("text" in args && ["category", "tags"].some(name => name in args)) usage("positional shorthand cannot mix with classification overrides");
+      if (flags.has("parent")) args.parentId = value(flags, "parent");
+      break;
+    }
+    case "update":
+      command = "task.update";
+      allowed = ["title", "text", "description", "priority", "category", "clear-category", "tag", "clear-tags"];
+      requirePositionals(positionals, 1, verb); content(flags, args);
+      if (!Object.keys(args).length) usage("nothing to update");
+      args.id = positionals[0];
+      break;
+    case "start": case "pause": case "complete": case "reopen": case "cancel": case "delete":
+      command = `task.${verb}`; requirePositionals(positionals, 1, verb); args.id = positionals[0];
+      break;
+    case "undo":
+      command = "task.status.undo"; requirePositionals(positionals, 1, verb); args.id = positionals[0];
+      break;
+    case "undo-operation":
+      command = "operation.undo"; requirePositionals(positionals, 1, verb); args.operationId = positionals[0];
+      break;
+    case "move":
+      command = "task.move"; allowed = ["parent", "root"]; requirePositionals(positionals, 1, verb);
+      if (flags.has("parent") === flags.has("root")) usage("move needs exactly --parent ID or --root");
+      args.id = positionals[0]; args.parentId = flags.has("root") ? null : value(flags, "parent");
+      break;
+    case "dep-add": case "dep-remove":
+      command = verb === "dep-add" ? "task.dependency.add" : "task.dependency.remove";
+      requirePositionals(positionals, 2, verb); args.id = positionals[0]; args.dependsOnId = positionals[1];
+      break;
+    case "purge-canceled":
+      command = "task.purgeCanceled"; requirePositionals(positionals, 0, verb);
+      break;
+    case "activity":
+      command = "activity.list"; mutation = false; allowed = ["task", "limit"]; requirePositionals(positionals, 0, verb);
+      if (flags.has("task")) args.taskId = value(flags, "task");
+      if (flags.has("limit")) args.limit = integer(flags, "limit", 0);
+      break;
+    case "categories": case "tags": case "info":
+      command = verb === "info" ? "workspace.info" : verb === "tags" ? "tag.list" : "category.list";
+      mutation = false; requirePositionals(positionals, 0, verb);
+      break;
+    case "init": case "rebuild":
+      command = `workspace.${verb}`; requirePositionals(positionals, 0, verb);
+      break;
+    case "archive": case "migrate-v1":
+      command = verb === "archive" ? "workspace.archive" : "workspace.migrateV1";
+      requirePositionals(positionals, 1, verb); args.destinationDirectory = directoryArgument(positionals[0]);
+      break;
+    case "restore":
+      command = "workspace.restore"; requirePositionals(positionals, 2, verb);
+      args.sourceDirectory = directoryArgument(positionals[0]); args.destinationDirectory = directoryArgument(positionals[1]);
+      break;
+    case "recover":
+      command = "workspace.recovery.resume"; requirePositionals(positionals, 1, verb); args.operationId = positionals[0];
+      break;
+    default: usage("human command is unavailable in v2; use --help or the documented JSON-lines advanced controls");
+  }
+  for (const name of flags.keys()) if (!GLOBAL_FLAGS.includes(name) && !allowed.includes(name)) usage(`--${name} is not allowed for ${verb}`);
+  if (!mutation && ["write-context", "idempotency-key", "expected-version", "request-hash"].some(name => flags.has(name))) usage("retry authority options require a mutation");
+  if (!VERSIONED_COMMANDS.has(command) && flags.has("expected-version")) usage("--expected-version requires an existing-task mutation");
+  const actorKind = value(flags, "actor-kind") ?? "agent";
+  if (!["human", "agent"].includes(actorKind)) usage("--actor-kind must be human or agent");
+  const expectedVersion = integer(flags, "expected-version", 1);
+  if (expectedVersion !== undefined) args.expectedVersion = expectedVersion;
+  const request = parseV2Request({
+    version: 2, command, args, actor: { kind: actorKind, label: value(flags, "actor-label") ?? "tasks-cli" },
+    writeContext: value(flags, "write-context"), idempotencyKey: value(flags, "idempotency-key"),
+    dryRun: flags.has("dry-run"), readOnly: flags.has("read-only"),
+  });
+  const requestHash = value(flags, "request-hash");
+  if (requestHash !== undefined && !/^[0-9a-f]{64}$/.test(requestHash)) usage("--request-hash requires the retained SHA-256 hash");
+  return { help: false, rootPath: path.resolve(rootPath), cachePath: path.resolve(cachePath), json: flags.has("json"), requestHash, request, mutation, versioned: VERSIONED_COMMANDS.has(command) };
+}
+export function v2HumanUsage(): string { return `tasks-cli: explicitly selected v2 filesystem mode
+
+  tasks-cli --v2-root PATH --database CACHE_OUTSIDE_ROOT COMMAND [OPTIONS]
+  No v1 environment, registry, default database, initialization or adoption fallback.
+  Linux writes only. Pause other writers/sharing before destructive work.
+
+QUERIES
+  info | list [SEARCH] | show ID | categories | tags
+  activity [--task ID] [--limit N]
+  list: --status STATUS (repeat/comma), --priority 0..4, --category SLUG,
+        --uncategorized, --tag SLUG (repeat), --search TEXT, --unblocked,
+        --limit N, --offset N, --sort created|updated|priority|manual,
+        --direction asc|desc (not manual), --include-ancestors
+
+WRITES
+  add TEXT... | add --title LITERAL | add --text SHORTHAND
+  update ID [--title LITERAL | --text SHORTHAND]
+    content flags: --description TEXT, --priority 0..4, --category SLUG,
+                   --clear-category, --tag SLUG (repeat), --clear-tags
+    add also allows --parent ID. Shorthand cannot mix classification overrides.
+  start|pause|complete|reopen|cancel|delete|undo ID
+  undo-operation OPERATION_ID | purge-canceled
+  move ID --parent ID | move ID --root
+  dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
+  init | rebuild | archive DESTINATION | restore SOURCE DESTINATION
+  migrate-v1 DESTINATION | recover OPERATION_ID
+  Copy/migration never switches selection or enables sharing. Rollback selects
+  preserved pre-migration v1 state with a v1 client; later v2 edits stay separate.
+  Ordering, batches and doctor remain advanced JSON-lines controls, not new verbs.
+
+OUTPUT AND RETRIES
+  --json prints result/error only. --dry-run / --read-only previews never execute.
+  --actor-kind human|agent (default agent), --actor-label LABEL (default tasks-cli)
+  First calls may fetch context/version and generate a key. Before an executing
+  write, stderr synchronously reports retry metadata without task payload text.
+  Record that line and retain the exact original arguments, root/cache/profile.
+  Stable --idempotency-key KEY requires original --write-context CONTEXT and,
+  for existing-task writes, --expected-version N. No automatic refresh/retry.
+  --request-hash HASH verifies the retained request and selected root/cache/profile
+  paths before dispatch. Reuse the original directory arguments and working directory.
+  New keys after uncertain replies can duplicate effects. Inspect pending work;
+  recover explicitly with fresh recovery authority, never silently reissue it.
+
+EXIT: 0 success, 1 protocol/storage error, 2 CLI usage, 3 stale task version.
+      Stale authority or version is not permission to refresh an uncertain retry.
+`; }

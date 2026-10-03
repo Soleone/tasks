@@ -24,9 +24,47 @@ Current task state lives in ordinary JSON files under `sync/`; SQLite is a local
 
 If another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. Tasks backs up and empties the local workspace, locks the UI, and waits for the existing workspace. Follow [the Syncthing setup](docs/syncthing.md) for the complete procedure.
 
+## Opt-in v2 human CLI
+
+The app and `tasks-cli` **without `--v2-root` remain v1**. The friendly Node CLI now has an explicitly selected v2 mode over the same protocol gateway. Linux writes only; use disposable copies and pause other writers/sharing before destructive work. It requires both a root and a separate cache, with no v1 environment or registry fallback.
+
+This example needs `jq`. It adds a literal title with explicit classification, replays the exact capture once, clears classification/notes, and previews shorthand capture:
+
+```bash
+pnpm build:backend
+humanscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$humanscratch/root"
+v2tasks() {
+  XDG_DATA_HOME="$humanscratch/local-data" node dist/backend/tasks-cli.js \
+    --v2-root "$humanscratch/root" --database "$humanscratch/cache.db" "$@"
+}
+created=$(v2tasks add --title 'Call @alice' --category WORK --tag TODO \
+  --description '**Markdown** notes' --json 2>"$humanscratch/create.stderr")
+id=$(printf '%s\n' "$created" | jq -r '.task.id')
+retry=$(jq -Rc 'select(startswith("tasks-cli retry: ")) | ltrimstr("tasks-cli retry: ") | fromjson' \
+  "$humanscratch/create.stderr")
+replayed=$(v2tasks add --title 'Call @alice' --category WORK --tag TODO \
+  --description '**Markdown** notes' --json \
+  --write-context "$(printf '%s\n' "$retry" | jq -r '.writeContext')" \
+  --idempotency-key "$(printf '%s\n' "$retry" | jq -r '.idempotencyKey')" \
+  --request-hash "$(printf '%s\n' "$retry" | jq -r '.requestHash')")
+test "$id" = "$(printf '%s\n' "$replayed" | jq -r '.task.id')"
+v2tasks update "$id" --clear-category --clear-tags --description ''
+v2tasks add 'Review @Work #TODO' --dry-run
+v2tasks list --sort manual
+```
+
+`--title` is literal; positional `add` or `--text` is replacement shorthand. `update --title` preserves omitted classification; `update --text` replaces title/category/tags together. Repeated `--tag` replaces tags, `--clear-tags` empties them, and `--clear-category` removes the category. Conflicting/mixed forms are rejected. `--description` maps the canonical `description` field, including empty strings and Markdown. `--source-key`/`sources` remain v1-only. `--json` prints a result or error, not a protocol envelope; `info --json` also exposes the current `writeContext`. See `v2tasks --help` for task/query/undo/link/purge verbs and exits (stale task version is still exit 3).
+
+For a **new** operation the CLI may fetch context/version and generate a key. Before an executing write it synchronously reports `tasks-cli retry: {...}` to stderr, without title/description/classification payload text. Save that line and the exact original arguments. A supplied key requires original `--write-context`; existing-task writes also require original `--expected-version`. Reuse original actor/preview flags, directory arguments, root/cache and retained app-data profile. Include the reported `--request-hash` to reject changed payload, actor, flags, placement or selected root/cache/profile paths **before dispatch**. This is a client guard over lexical paths and protocol identity, not physical-profile recovery or distributed exactly-once. A failed or incomplete retry-metadata report prevents execution, but saving terminal output is your responsibility. No automatic retry, authority refresh, plaintext payload log or second success ledger is added.
+
+If `info` reports `recovery_pending`, preserve everything and use `recover OPERATION_ID` explicitly through the original root/cache/profile. That is a separate recovery operation with current authority, not permission to reissue an uncertain original with a new key or version. Lost profile/evidence can require manual reconciliation; deleting the cache is not a rebuild. Previews consume no effects/key and their IDs/times/versions are hypothetical.
+
+Lifecycle verbs are `init`, `rebuild`, `archive DESTINATION`, `restore SOURCE DESTINATION`, and `migrate-v1 DESTINATION`. `init` requires a selected existing empty folder; `rebuild` changes only the retained cache. Archive copies the selected v2 root; restore uses the named v2 source plus a separate selected v2 control root; migration selects the preserved v1 source with a separate v2 control cache. Destinations must be disjoint/empty with existing parents. None switches selection or enables sharing. Rollback means opening preserved pre-migration v1 state with a v1 client; later v2 edits stay separate. Ordering, status batches and reviewed doctor remain [advanced JSON-lines controls](#disposable-v2-probe), not invented friendly verbs. The [human CLI evidence](spec/v2/conformance.md#explicit-opt-in-human-cli) is WSL2 Node process proof, not UI/native/provider or personal-rollout acceptance.
+
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo, status batches and verified canceled-task purge are now supported. Reviewed doctor inspection, fixed local planning, guarded apply/conflict cleanup and published-intent recovery are now supported. Use disposable copies, not personal data:
+The default app and CLI without `--v2-root` remain v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo, status batches and verified canceled-task purge are now supported. Reviewed doctor inspection, fixed local planning, guarded apply/conflict cleanup and published-intent recovery are now supported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
