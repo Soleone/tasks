@@ -26,7 +26,7 @@ If another device already has task history, use **Settings → Sync with another
 
 ## Disposable v2 probe
 
-The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo, status batches and verified canceled-task purge are now supported; doctor remains unsupported. Use disposable copies, not personal data:
+The default app/CLI remains v1. Explicit protocol-2 Node mode supports info/get/list/category/tag. On Linux it additionally supports guarded task creation/content/status/parent/dependency edits and ordering/normalization (including previews), local activity, verified archive/restore, guarded v1 migration to a separate folder, explicit empty-folder initialization, cache-only rebuild, and recovery of published task/order/batch/copy/migration/init intents. Guarded status/grouped undo, status batches and verified canceled-task purge are now supported. Doctor inspection and retained local planning are available; doctor apply/cleanup remains unsupported. Use disposable copies, not personal data:
 
 ```bash
 pnpm build:backend
@@ -236,6 +236,40 @@ printf '%s\n' "$purged" | jq -r '.result.recoveryLocation'
 The recovery copy preserves exact descriptor/task/known conflict bytes outside the synced root, including survivors; canonical conflict copies are not cleaned up. It is raw recovery data, not another selectable root or an automatically applied restore. Keep it independently backed up. Purge has no generic undo; related prior task/link/scope undo becomes unavailable, while unrelated eligible edits remain reversible. Survivors retain their bytes/timestamps; affected sibling tokens may advance.
 
 Interrupted purge fixes the original canceled set, raw bytes, actor/time and root/cache/profile. Bound transient quarantines prove journal-authored deletion, including linked-subgraph prefixes; an unexplained missing file never qualifies. Missing/divergent archives, changed/reintroduced files, lost quarantine proof or changed bindings stop without further deletion, rollback or resurrection. Use explicit `workspace.recovery.resume` through the original root/cache/profile. Fresh-cache recovery can finish only with retained proof, never validate an old-context retry. Cache loss after committed quarantine cleanup has removed that proof requires manual reconciliation, not regenerated evidence. Keep the original context/key/payload/actor/flags for an uncertain original call. See [purge evidence](spec/v2/conformance.md#verified-canceled-task-purge). Native/provider, hardware power-loss and personal-rollout acceptance remain open.
+
+### Inspect a conflict and prepare a local repair plan
+
+Linux only, with `jq`. This creates a synthetic conflict **inside a disposable copy**, inspects its versions, and prepares a keep-both plan retaining the current canonical version:
+
+```bash
+pnpm build:backend
+doctorscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$doctorscratch/root"
+doctor_control() {
+  XDG_DATA_HOME="$doctorscratch/local-data" node dist/backend/cli.js \
+    --stdio --v2-root "$doctorscratch/root" --database "$doctorscratch/cache.db"
+}
+id=62f159c1-22a7-45cb-89a0-c0c35aaeb1ed
+jq '.title = "Alternate meeting notes"' "$doctorscratch/root/tasks/$id.json" \
+  > "$doctorscratch/root/tasks/$id.sync-conflict-demo.json"
+inspected=$(printf '%s\n' '{"version":2,"command":"workspace.doctor.inspect"}' | doctor_control)
+context=$(printf '%s\n' "$inspected" | jq -r '.writeContext')
+issue=$(printf '%s\n' "$inspected" | jq -r --arg id "$id" \
+  '.result.issues[] | select(.code == "CONFLICT_COPY" and .taskId == $id) | .issueId')
+original=$(printf '%s\n' "$inspected" | jq -r --arg id "$id" \
+  '.result.versionRefs[] | select(.canonical and .taskId == $id) | .versionRef')
+planned=$(jq -nc --arg ctx "$context" --arg issue "$issue" --arg original "$original" \
+  '{version:2,command:"workspace.doctor.plan",writeContext:$ctx,idempotencyKey:"plan-1",args:{kind:"keep-both",issueIds:[$issue],canonicalVersions:[{issueId:$issue,versionRef:$original}],linkChoices:[]}}' | doctor_control)
+printf '%s\n' "$planned"
+```
+
+**Nothing is repaired or deleted.** The result has fixed local `planId`/clone IDs, chosen canonical versions, planned link edits and cleanup paths, plus `applyAvailable:false`. `recoveryReady:false` means the reported recovery location is only a planned destination; no verified archive exists yet. `workspace.doctor.apply` still returns `UNSUPPORTED_COMMAND`. Do not select/share planned outputs or remove conflict copies yourself to imitate apply.
+
+Inspection reports path/ID/exact-byte version references, incoming links and invalid/orphan evidence without turning alternate versions or an incomplete graph into normal task authority. It remains available during pending work; planning cannot resume or bypass that work. Invalid canonical records, invalid selected alternates, unsafe entries, descriptor conflicts and orphan copies are not repair sources in this bounded slice. Nonempty `keep-both` plans require an explicit choice for **every** surviving parent/dependency reference to a split ID, including references inside versions being copied. Use the [declared choice shapes](spec/v2/protocol.md#commands); omission refuses with `AMBIGUOUS_LINK`, never a guessed redirect.
+
+`kind:"repair-links"` permits only explicit edits to reported dangling parents/dependencies, not arbitrary relationships/content. The complete proposed graph must be valid; new canceled parents/blockers refuse. Plans preserve each copied source's content/times/key, except explicit changed-parent placement is first in the complete new scope. Edit times do not advance during planning; a future executing apply must capture its own fixed instant. No task version, canonical byte or activity group changes here.
+
+Executing planning retains one local plan and SQLite receipt under the original root/cache/context. Same-key retry keeps the original payload/actor/flags and returns the same IDs, even after source bytes change; that historical result is not renewed apply authority. Cache loss/copy invalidates old authority; retained-cache rebuild preserves plans and receipts. `dryRun`/`readOnly` consumes neither, and preview IDs are hypothetical rather than reserved. A future applying client must recheck the retained fixed witnesses and require confirmation on one nominated, quiesced repair device. Sharing/writers must be paused by people, not inferred from folder bytes. See [bounded planning evidence](spec/v2/conformance.md#doctor-inspection-and-retained-planning); apply/cleanup/recovery, late-link detection, native/provider and personal-rollout acceptance remain open.
 
 ### Back up or restore an experimental v2 folder
 

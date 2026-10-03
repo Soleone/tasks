@@ -191,13 +191,13 @@ for (const command of ["task.status.undo", "task.status.undoMany", "task.transit
   test(`${command} context/key/preview/actor/replay, schema-3 upgrade and failed request effects`, linux, t => {
     const w = materialize(t);const initial = ok(send(w, prepared(w, "task.complete", { id: "a" })));
     const req = command === "operation.undo" ? prepared(w, command, { operationId: initial.result.operationId }) : command === "task.status.undo" ? prepared(w, command, { id: "a" }) : batch(w, command, [{ id: "a", ...(command === "task.transitionMany" ? { command: "task.reopen" } : {}) }]);
-    const db = new DatabaseSync(w.cache);db.exec("DROP TABLE v2_undo_claims; PRAGMA user_version = 3;");db.close();
+    const db = new DatabaseSync(w.cache);db.exec("DROP TABLE v2_undo_claims; DROP TABLE v2_doctor_plans; PRAGMA user_version = 3;");db.close();
     const before = raw(w);const tokens = get(w).version;
     fail(send(w, { ...req, writeContext: undefined }), "WRITE_CONTEXT_REQUIRED");fail(send(w, { ...req, writeContext: "other" }), "STALE_WRITE_CONTEXT");fail(send(w, { ...req, idempotencyKey: undefined }), "IDEMPOTENCY_REQUIRED");
     for (const flag of ["dryRun", "readOnly"]) { ok(send(w, { ...req, [flag]: true, idempotencyKey: undefined }));assert.deepEqual(raw(w), before);assert.equal(get(w).version, tokens);assert.deepEqual(counts(w), [1, 1, 0]); }
     const result = ok(send(w, req)).result;assert.deepEqual(ok(send(w, { ...req, requestId: "later" })).result, result);
     fail(send(w, { ...req, actor: { kind: "system", label: "another" } }), "IDEMPOTENCY_KEY_REUSED");fail(send(w, { ...req, readOnly: true }), "IDEMPOTENCY_KEY_REUSED");
-    const verify = new DatabaseSync(w.cache);assert.equal(verify.prepare("PRAGMA user_version").get()!.user_version, 4);verify.close();
+    const verify = new DatabaseSync(w.cache);assert.equal(verify.prepare("PRAGMA user_version").get()!.user_version, 5);verify.close();
   });
 }
 

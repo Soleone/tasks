@@ -182,7 +182,7 @@ test("cache schema-2 upgrade preserves retained authority/receipts/history and r
   const oldHistory = activity(w);
   const req = request(w, "task.reorder", { tasks: [{ id: "move" }], placement: { beforeId: "b" } });
   const context = req.writeContext;
-  const db = new DatabaseSync(w.cache);db.exec("DROP TABLE v2_operation_members; DROP TABLE v2_undo_claims; PRAGMA user_version = 2;");db.close();
+  const db = new DatabaseSync(w.cache);db.exec("DROP TABLE v2_operation_members; DROP TABLE v2_undo_claims; DROP TABLE v2_doctor_plans; PRAGMA user_version = 2;");db.close();
   assert.equal(success(send(w, { command: "workspace.info" })).writeContext, context);
   assert.deepEqual(success(send(w, oldRequest)).result, oldResult);
   assert.deepEqual(activity(w), oldHistory);
@@ -198,7 +198,7 @@ test("cache schema-2 upgrade preserves retained authority/receipts/history and r
   assert.deepEqual(activity(w), history);
   assert.deepEqual(success(send(w, req)).result, original.result);
   assert.deepEqual(raw(w), bytes);
-  const verify = new DatabaseSync(w.cache);assert.equal(verify.prepare("PRAGMA user_version").get()!.user_version, 4);verify.close();
+  const verify = new DatabaseSync(w.cache);assert.equal(verify.prepare("PRAGMA user_version").get()!.user_version, 5);verify.close();
 });
 
 for (const command of ["task.reorder", "task.order.normalize"]) {
