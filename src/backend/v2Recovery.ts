@@ -1,3 +1,5 @@
+import { commitV2Doctor } from "./v2DoctorApply.js";
+import { retireV2DoctorStages } from "./v2DoctorJournal.js";
 import { CommandError } from "./errors.js";
 import { readV2ControlRoot } from "./v2ControlRoot.js";
 import { retireV2Copy } from "./v2CopyJournal.js";
@@ -67,6 +69,7 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
       if (!originalResult && intent.format === "taskdb.pending-order") originalResult = commitV2Order(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-batch") originalResult = commitV2Undo(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-purge") originalResult = commitV2Purge(database, intent);
+      if (!originalResult && intent.format === "taskdb.pending-doctor") originalResult = commitV2Doctor(database, intent);
       const result = { operationId: intent.operationId, outcome: "complete", originalResult };
       storeV2Receipt(database, request, result);
       completed = intent;
@@ -82,6 +85,7 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
           case "taskdb.pending-order": retireV2OrderStages(completed); retireV2Pending(root); break;
           case "taskdb.pending-batch": retireV2BatchStages(completed); retireV2Pending(root); break;
           case "taskdb.pending-purge": retireV2PurgeQuarantines(completed); retireV2Pending(root); break;
+          case "taskdb.pending-doctor": retireV2DoctorStages(completed); retireV2Pending(root); break;
           case "taskdb.pending-copy-target": throw new CommandError("RECOVERY_CONFLICT", "copy target must be retired by its original owner");
         }
       } catch (error) {

@@ -64,7 +64,7 @@ test("v2 stdio preserves invalid UTF-8, nulls unsafe correlation and continues a
     Buffer.from(' \t\r\n{"version":2,"requestId":"unsafe","command":"task.list","args":{"search":"'),
     Buffer.from([0xff]),
     Buffer.from('"}}\n{"version":2,"command":"task.list","args":{"search":"\\ud800"}}\n'),
-    lines([{ requestId: "known", command: "workspace.doctor.apply", args: { title: "sensitive" }, readOnly: true }, { requestId: "last", command: "task.list" }]),
+    lines([{ requestId: "known", command: "workspace.receive.prepare", args: { title: "sensitive" }, readOnly: true }, { requestId: "last", command: "task.list" }]),
   ]);
   const responses = run(current, bytes);
   assert.equal(responses.length, 4);

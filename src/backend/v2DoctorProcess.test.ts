@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
+import { createDoctorWorkspace as setup, doctorCorpus as corpus, doctorRaw as raw } from "./v2DoctorTestWorkspace.js";
 import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
 import { executeV2Line } from "./v2Gateway.js";
 import { readV2RootDescriptor } from "./v2CanonicalReader.js";
@@ -14,15 +14,12 @@ import { pendingV2Path } from "./v2LocalDomain.js";
 import type { V2Response } from "./v2Protocol.js";
 import type { V2DoctorIssue, V2DoctorVersion } from "./v2DoctorSource.js";
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 function send(w: Workspace, request: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
 function ok(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r));if (!r.ok) throw Error("failed");return r; }
 function fail(r: V2Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r));if (!r.ok) assert.equal(r.error.code, code); }
-function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(name => [name, readFileSync(path.join(w.root, "tasks", name)).toString("base64")]); }
 function scenario(t: TestContext) {
-  const w = setup(t);for (const name of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", name));
-  for (const [name, title] of [["a.json", "Original"], ["a.sync-conflict-test.json", "Other"]]) writeFileSync(path.join(w.root, "tasks", name), JSON.stringify({ ...corpus.taskTemplate, id: "a", title }));
+  const w = setup(t, { a: { title: "Original" } }, { a: { title: "Other" } });
   const inspect = ok(send(w, { command: "workspace.doctor.inspect" })), issue = (inspect.result.issues as V2DoctorIssue[]).find(issue => issue.code === "CONFLICT_COPY")!, original = (inspect.result.versionRefs as V2DoctorVersion[]).find(version => version.canonical)!;
   return { w, request: { version: 2, command: "workspace.doctor.plan", writeContext: inspect.writeContext, idempotencyKey: "plan-key", args: { kind: "keep-both", issueIds: [issue.issueId], canonicalVersions: [{ issueId: issue.issueId, versionRef: original.versionRef }], linkChoices: [] }, actor: { kind: "human", label: "plan process" } } };
 }

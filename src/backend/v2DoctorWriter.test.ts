@@ -1,30 +1,18 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
-import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
+import { createDoctorWorkspace as materialize, doctorCorpus as corpus, doctorRaw as raw } from "./v2DoctorTestWorkspace.js";
 import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
 import { executeV2Line } from "./v2Gateway.js";
 import type { V2Response } from "./v2Protocol.js";
 import type { V2DoctorPlan } from "./v2DoctorPlan.js";
 import type { V2DoctorIssue, V2DoctorLink, V2DoctorVersion } from "./v2DoctorSource.js";
-import type { V2CanonicalTask } from "./v2TaskModel.js";
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 function send(w: Workspace, request: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
 function ok(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r));if (!r.ok) throw Error("failed");return r; }
 function fail(r: V2Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r));if (!r.ok) assert.equal(r.error.code, code); }
-function materialize(t: TestContext, records: Record<string, Partial<V2CanonicalTask>> = { a: {} }, alternates: Record<string, Partial<V2CanonicalTask>> = { a: { title: "Other" } }) {
-  const w = setup(t);
-  for (const name of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", name));
-  for (const [id, fields] of Object.entries(records)) writeFileSync(path.join(w.root, "tasks", `${id}.json`), JSON.stringify({ ...corpus.taskTemplate, ...fields, id }) + "\n");
-  for (const [id, fields] of Object.entries(alternates)) writeFileSync(path.join(w.root, "tasks", `${id}.sync-conflict-test.json`), JSON.stringify({ ...corpus.taskTemplate, ...fields, id }) + "\n");
-  return w;
-}
-function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(name => [name, readFileSync(path.join(w.root, "tasks", name)).toString("base64")]); }
 function inspect(w: Workspace) { const response = ok(send(w, { command: "workspace.doctor.inspect" }));return { ...response, result: response.result as { issues: V2DoctorIssue[]; versionRefs: V2DoctorVersion[]; incomingLinks: V2DoctorLink[]; canonicalIds: string[]; applyAvailable: boolean } }; }
 function keep(w: Workspace, chooseAlternate = false) {
   const response = inspect(w), issue = response.result.issues.find(issue => issue.code === "CONFLICT_COPY")!;
@@ -52,12 +40,12 @@ test("stable exact path/ID/byte refs inspect all valid versions and never projec
 function keepFrom(response: ReturnType<typeof inspect>) { const issue = response.result.issues.find(issue => issue.code === "CONFLICT_COPY")!;return { command: "workspace.doctor.plan", writeContext: response.writeContext, idempotencyKey: "stale-refs", args: { kind: "keep-both", issueIds: [issue.issueId], canonicalVersions: [{ issueId: issue.issueId, versionRef: response.result.versionRefs.find(version => version.canonical)!.versionRef }], linkChoices: [] } }; }
 for (const alternate of [false, true]) test(`retained keep-both plan chooses ${alternate ? "alternate" : "original"} original ID, fixed clones/keys/times/raw guards but applies nothing`, linux, t => {
   const w = materialize(t, { a: { description: "**Original**\r\n", orderKey: "a0" }, z: { orderKey: "a2" } }, { a: { description: "Alternate\r\n", title: "Other", orderKey: "a1" } }), before = raw(w), request = keep(w, alternate), response = ok(send(w, request)), plan = retained(w, response.result.planId);
-  assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [1, 1, 0]);assert.equal(response.result.applyAvailable, false);assert.equal(response.result.recoveryReady, false);assert.equal(existsSync(response.result.recoveryLocation as string), false);
+  assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [1, 1, 0]);assert.equal(response.result.applyAvailable, true);assert.equal(response.result.recoveryReady, false);assert.equal(existsSync(response.result.recoveryLocation as string), false);
   const clone = plan.clones[0];assert.match(clone.taskId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(clone.orderKey, alternate ? "a0" : "a1");
   const original = plan.source.versionRefs.find(version => version.canonical !== alternate && version.taskId === "a")!.task!;
   assert.deepEqual(plan.nextTasks.find(task => task.id === "a"), original);const cloneSource = plan.source.versionRefs.find(version => version.canonical === alternate && version.taskId === "a")!.task!;assert.deepEqual(plan.nextTasks.find(task => task.id === clone.taskId), { ...cloneSource, id: clone.taskId });
   assert.deepEqual(ok(send(w, { ...request, requestId: "other" })).result, response.result);assert.deepEqual(plan.removedConflictPaths, ["tasks/a.sync-conflict-test.json"]);assert.deepEqual(counts(w), [1, 1, 0]);
-  fail(send(w, { command: "workspace.doctor.apply", writeContext: response.writeContext, idempotencyKey: "apply", args: { planId: plan.planId } }), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);
+  ok(send(w, { command: "workspace.doctor.apply", writeContext: response.writeContext, readOnly: true, args: { planId: plan.planId } }));assert.deepEqual(raw(w), before);
 });
 for (const flags of [{ readOnly: true }, { dryRun: true }, { readOnly: true, dryRun: true }]) test(`planning preview ${JSON.stringify(flags)} persists no plan/receipt or canonical effects`, linux, t => {
   const w = materialize(t), request = keep(w), before = raw(w), first = ok(send(w, { ...request, idempotencyKey: undefined, ...flags }));assert.equal(first.result.hypothetical, true);assert.deepEqual(counts(w), [0, 0, 0]);

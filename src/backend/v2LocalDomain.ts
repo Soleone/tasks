@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
@@ -49,11 +49,11 @@ export function withV2RootWriterLock<T>(root: V2RootBinding, action: () => T): T
 
 export function persistV2Pending(root: V2RootBinding, intent: unknown): void {
   const pending = pendingV2Path(root);
-  if (existsSync(pending)) throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
+  if (lstatSync(pending, { throwIfNoEntry: false })) throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
   const bytes = Buffer.from(`${JSON.stringify(intent)}\n`);
   const temporary = `${pending}.preparing`;
   // A crashed pre-publication stage had no canonical effects; preserve it for diagnosis.
-  if (existsSync(temporary)) throw new CommandError("RECOVERY_CONFLICT", "unpublished intent stage requires explicit inspection");
+  if (lstatSync(temporary, { throwIfNoEntry: false })) throw new CommandError("RECOVERY_CONFLICT", "unpublished intent stage requires explicit inspection");
   writeV2DurableFile(temporary, bytes);
   renameSync(temporary, pending);
   syncV2Directory(path.dirname(pending));

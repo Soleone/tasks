@@ -37,7 +37,7 @@ function result(response: V2Response): Record<string, unknown> {
 
 const caseIds = ["protocol-version", "protocol-schema", "protocol-duplicate", "protocol-nonfinite", "capability-refusal", "query-literal", "query-readiness"];
 for (const entry of corpus.cases.filter(entry => caseIds.includes(entry.id))) {
-  test(`Node v2 query gateway executes ${entry.id}`, (t) => {
+  test(`Node v2 query gateway executes ${entry.id}`, { skip: entry.id === "capability-refusal" && process.platform === "linux" ? "Fixture requires withheld doctor.apply; Linux now advertises it. Do not substitute a different command." : false }, (t) => {
     const current = workspace(t, entry.given.records ?? { a: entry.given.patch ?? {} });
     if (entry.given.manifest) writeFileSync(path.join(current.root, "workspace.json"), JSON.stringify(entry.given.manifest));
     const manifest = readFileSync(path.join(current.root, "workspace.json"));
@@ -64,7 +64,7 @@ test("v2 envelope correlation, strict types, unsupported names and previews cann
     [{ extra: true }, "INVALID_REQUEST"], [{ args: null }, "INVALID_REQUEST"], [{ actor: { kind: "human", label: " " } }, "INVALID_REQUEST"],
     [{ actor: { kind: "agent", label: "ok", extra: 1 } }, "INVALID_REQUEST"], [{ requestId: 42 }, "INVALID_REQUEST"],
     [{ readOnly: "true" }, "INVALID_REQUEST"], [{ writeContext: null }, "INVALID_REQUEST"], [{ command: "made.up" }, "UNKNOWN_COMMAND"],
-    [{ command: "workspace.doctor.apply", readOnly: true, dryRun: true, args: { title: "private text" } }, "UNSUPPORTED_COMMAND"],
+    [{ command: "workspace.receive.prepare", readOnly: true, dryRun: true, args: { title: "private text" } }, "UNSUPPORTED_COMMAND"],
   ] as const) {
     const response = executeV2Line(Buffer.from(JSON.stringify({ version: 2, requestId: "correlated", command: "task.list", ...patch })), current.root, current.cache);
     assert.equal(response.ok, false);
@@ -87,7 +87,7 @@ test("v2 info inspects empty, partial and unsupported roots without creating can
   const ready = result(query(current, "workspace.info"));
   assert.equal(ready.state, "ready");
   assert.deepEqual(ready.commands, process.platform === "linux"
-    ? ["activity.list", "category.list", "operation.undo", "tag.list", "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove", "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.purgeCanceled", "task.reopen", "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update", "workspace.archive", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.info", "workspace.init", "workspace.migrateV1", "workspace.rebuild", "workspace.recovery.resume", "workspace.restore"]
+    ? ["activity.list", "category.list", "operation.undo", "tag.list", "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove", "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.purgeCanceled", "task.reopen", "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update", "workspace.archive", "workspace.doctor.apply", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.info", "workspace.init", "workspace.migrateV1", "workspace.rebuild", "workspace.recovery.resume", "workspace.restore"]
     : ["category.list", "tag.list", "task.get", "task.list", "workspace.info"]);
   writeFileSync(path.join(current.root, "tasks/a.json"), '{"title":"partial secret');
   const incomplete = result(query(current, "workspace.info"));

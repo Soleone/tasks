@@ -5,6 +5,7 @@ import { parseV2CanonicalJson } from "./v2CanonicalJson.js";
 import { readV2PhysicalRoot, readV2RegularFile } from "./v2CanonicalReader.js";
 import { directoryIdentity } from "./v2CopyFiles.js";
 import type { V2RootBinding } from "./v2QueryCache.js";
+import { isV2Record } from "./v2Protocol.js";
 import { validateV2Graph, validateV2Manifest, validateV2Task } from "./v2TaskModel.js";
 import type { V2CanonicalTask } from "./v2TaskModel.js";
 import { exactV2Hash } from "./v2UpdateJournal.js";
@@ -64,6 +65,28 @@ function projectVersions(source: V2DoctorSource): void {
   }
 }
 
+// Reconstruct private plan witnesses from exact raw originals, never trust cached task projections.
+export function restoreV2DoctorSource(value: unknown): V2DoctorSource {
+  if (!isV2Record(value)) throw new Error("invalid doctor source");
+  const saved = value as unknown as V2DoctorSource;
+  if (!path.isAbsolute(saved.root.rootPath) || !/^\d+:\d+$/.test(saved.root.rootIdentity) || !/^\d+:\d+$/.test(saved.taskDirectoryIdentity ?? "")) throw new Error("invalid doctor binding");
+  for (const names of [saved.rootEntries, saved.taskEntries]) {
+    if (!Array.isArray(names) || names.some(name => typeof name !== "string" || !name || /[/\\]/.test(name)) || JSON.stringify([...new Set(names)].sort()) !== JSON.stringify(names)) throw new Error("invalid doctor inventory");
+  }
+  if (!Array.isArray(saved.files) || new Set(saved.files.map(file => file.relativePath)).size !== saved.files.length) throw new Error("invalid doctor files");
+  for (const file of saved.files) {
+    if ((file.relativePath !== "workspace.json" && !/^tasks\/[A-Za-z0-9_-]+(?:\.sync-conflict-[^/\\]+)?\.json$/.test(file.relativePath)) || !/^\d+:\d+$/.test(file.identity)
+      || typeof file.beforeBytes !== "string" || Buffer.from(file.beforeBytes, "base64").toString("base64") !== file.beforeBytes) throw new Error("invalid doctor original");
+  }
+  const descriptor = saved.files.find(file => file.relativePath === "workspace.json");
+  if (!descriptor || !saved.rootEntries.includes("workspace.json") || !saved.rootEntries.includes("tasks")
+    || JSON.stringify(saved.taskEntries.filter(name => !(name.startsWith(".syncthing.") && name.endsWith(".tmp"))).map(name => `tasks/${name}`)) !== JSON.stringify(saved.files.filter(file => file.relativePath.startsWith("tasks/")).map(file => file.relativePath))) throw new Error("incomplete doctor originals");
+  validateV2Manifest(parseV2CanonicalJson(Buffer.from(descriptor.beforeBytes, "base64")));
+  const source: V2DoctorSource = { root: saved.root, taskDirectoryIdentity: saved.taskDirectoryIdentity, rootEntries: saved.rootEntries, taskEntries: saved.taskEntries, files: saved.files, issues: [], versionRefs: [], incomingLinks: [] };
+  projectVersions(source);
+  return source;
+}
+
 /** Inspect raw candidates without treating an incomplete graph as ordinary task authority. */
 export function readV2DoctorSource(directory: string): V2DoctorSource {
   const root = readV2PhysicalRoot(directory), rootEntries = readdirSync(root.rootPath).sort();
@@ -102,5 +125,5 @@ export function guardV2DoctorSource(source: V2DoctorSource): void {
   const current = readV2DoctorSource(source.root.rootPath);
   if (current.root.rootIdentity !== source.root.rootIdentity || current.taskDirectoryIdentity !== source.taskDirectoryIdentity
     || JSON.stringify(current.rootEntries) !== JSON.stringify(source.rootEntries) || JSON.stringify(current.taskEntries) !== JSON.stringify(source.taskEntries)
-    || JSON.stringify(current.files) !== JSON.stringify(source.files)) throw new CommandError("STALE_REPAIR_PLAN", "doctor source bytes, inventory or bindings changed");
+    || JSON.stringify(current.files) !== JSON.stringify(source.files) || JSON.stringify(current.issues) !== JSON.stringify(source.issues)) throw new CommandError("STALE_REPAIR_PLAN", "doctor source bytes, inventory or bindings changed");
 }

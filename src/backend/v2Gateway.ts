@@ -7,6 +7,7 @@ import { executeV2Create } from "./v2CreateWriter.js";
 import { V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
 import { executeV2Undo } from "./v2UndoWriter.js";
 import { executeV2Purge } from "./v2PurgeWriter.js";
+import { executeV2DoctorApply } from "./v2DoctorApply.js";
 import { executeV2DoctorInspect, executeV2DoctorPlan } from "./v2DoctorWriter.js";
 import { V2PurgeReferencedError } from "./v2PurgePlan.js";
 import { V2_UNDO_COMMANDS } from "./v2UndoPlan.js";
@@ -23,7 +24,7 @@ import { executeV2Query, projectV2Tasks } from "./v2Queries.js";
 import { assertV2Args, decodeV2Envelope, isV2Record, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
 import type { V2Response } from "./v2Protocol.js";
 
-const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS, ...V2_ORDER_COMMANDS, ...V2_UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild", "workspace.doctor.plan"];
+const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS, ...V2_ORDER_COMMANDS, ...V2_UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild", "workspace.doctor.plan", "workspace.doctor.apply"];
 
 export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: string): V2Response {
   let requestId: string | null = null;
@@ -40,6 +41,7 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
       const outcome = request.command === "task.create" ? executeV2Create(request, rootPath, cachePath)
         : request.command === "task.purgeCanceled" ? executeV2Purge(request, rootPath, cachePath)
         : request.command === "workspace.doctor.plan" ? executeV2DoctorPlan(request, rootPath, cachePath)
+        : request.command === "workspace.doctor.apply" ? executeV2DoctorApply(request, rootPath, cachePath)
         : V2_UNDO_COMMANDS.includes(request.command) ? executeV2Undo(request, rootPath, cachePath)
         : V2_ORDER_COMMANDS.includes(request.command) ? executeV2Order(request, rootPath, cachePath)
         : ["task.update", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS].includes(request.command) ? executeV2Update(request, rootPath, cachePath)
