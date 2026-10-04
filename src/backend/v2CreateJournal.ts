@@ -128,8 +128,9 @@ export function applyV2CreateJournal(intent: V2CreateIntent): V2CanonicalSnapsho
       saveProgress(intent, progress);
       guardCreate(intent, progress, true);
       linkSync(stage, targetPath(intent));
-      syncV2Directory(path.dirname(stage));
     }
+    // A crash can follow the link but precede its directory flush. Reflush owned publication on recovery.
+    syncV2Directory(path.dirname(stage));
     const snapshot = guardCreate(intent, progress);
     progress.published = true;
     saveProgress(intent, progress);

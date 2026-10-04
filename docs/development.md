@@ -324,7 +324,7 @@ The single spawn list has **eight positions**, with five fixed flags and three v
 0 --stdio
 1 --v2-root              2 ROOT
 3 --database             4 CACHE
-5 --windows-update-proof
+5 --windows-task-proof
 6 --local-profile        7 APPDATA_PROFILE
 ```
 
@@ -334,7 +334,7 @@ Installed shell **2.3.6** still selects the **first same-name scope**, replaces 
 
 ### Current subset, later gates and removal
 
-- **Supported now:** `workspace.info`, `task.get`, `task.list`, `category.list`, `tag.list`, `activity.list`, existing-task `task.update` and update-only `workspace.recovery.resume`. This is backend process evidence only. A future first native content scene may not pretend capture/status/undo/archive/restore are available.
+- **Supported now (after `7hr`):** `workspace.info`, `task.get`, `task.list`, `category.list`, `tag.list`, `activity.list`, `task.create`, existing-task `task.update` and create/update-only `workspace.recovery.resume`, under the single renamed `--windows-task-proof` flag. No old flag alias. This is backend process evidence only; status/undo/archive/restore and native launch remain unavailable.
 - **Next selected work:** `mg8` traces/types the update path without expanding commands. Pending Windows proofs are `7hr` (capture), then `byy` (single-task statuses/latest-status undo), then `gxm` (disjoint archive/restore). Each ends in review; none was started here. All three are explicit `m1p` blockers. Broad `82r`, migration, doctor, purge, relationship/order/batch controls and Android remain held.
 - **Native client/lifecycle gate:** implement the one concrete `JsonLineSession` transport, selection/capability checks and useful existing UI in `m1p` only after the writer gates. Current `V2App`/reader/editor still refuse native launch/editing and the browser editor expects a different command set. No HTTP health token or full Linux editor allowlist substitutes for the actual selected eight-command handshake.
 - **Retry:** keep correlation/120-second timeout/child cleanup, but never mistake restarting the child for replay. Retain the original context/key/version/actor/payload/flags after uncertain execution, explicitly recover through the same paths/profile, then replay the original request. Capture/status/undo/copy families need their own reviewed ownership guards. Memory-only request loss on window reload/close remains an acceptance issue, not fixed by this decision.
@@ -349,6 +349,14 @@ The [one-request trace](update-request-trace.md) follows actual client preparati
 Types/lint and full regression pass: **1,621 passed, two known skips**. The current bundle repeated all **38 Windows Node/SEA** scene groups on the declared fixed NTFS host, including every original interruption and directory-flush-refusal cut; [new report](update-request-proof.json) records bundle/artifact provenance without replacing the original `fcf` evidence. Seven postject signature warnings remain. The first 180-second harness timeout had no surviving checker/backend, and a fresh 600-second bounded run passed; its earlier disposable scratch was retained. No personal tasks, owner D: source, native UI or additional Windows capabilities were touched.
 
 The owner's current autonomous loop replaces routine task-end pauses with validated self-review/commit/next-ready-task. It does not waive human/native/safety gates. Next is `7hr`, not `82r` or `m1p`.
+
+## Windows capture proof (`7hr`, 2026-10-04)
+
+[Capture evidence and instructions](windows-create-proof.md), [structured report](windows-create-proof.json): actual Windows Node/SEA pass **64 capture groups** plus **38 retained update groups**, full regression **1,622 passed/two known skips**, types/lint pass. The shared creation journal now reflushes an already-linked task directory before history/receipt/progress completion. No-clobber, fixed UUID/time/key, exact stage/target ownership, started absence, progress loss/divergence, late collision, historical replay, explicit recovery's own lost reply and cache-loss authority are exercised. No generic engine, native implementation or other Windows commands were added.
+
+The one private flag is now `--windows-task-proof`, with creation/update-only recovery including receipt-based cleanup; the old flag is not an alias. The prospective eight-position inline capability above uses the new fixed flag. Default permissions still launch v1 and were not modified. Older `fcf`/`mg8` reports preserve their original flag/artifact evidence; current checker commands use the new flag.
+
+The proof is limited to **short dedicated paths**. A diagnostic deep scene gave a 254-character SQLite lock path whose journal exceeded the host's 260-character limit and refused before capture intent/effect; that failed synthetic scratch is retained. `m1p` must validate supported complete path lengths or separately prove longer paths before native selection. This is not permission to mutate or shorten uncertain selected paths. Fifteen create/seven update packaging signature warnings and repeated-postject listener warnings are not signing/release evidence. Native UI/lifecycle, status/undo/control port, power-loss, hostile races and network/provider acceptance remain open. Next bounded work is `byy` under the active validated task/commit loop.
 
 ## Android status
 

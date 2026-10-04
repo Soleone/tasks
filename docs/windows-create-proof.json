@@ -1,0 +1,274 @@
+{
+  "evidenceTask": "7hr",
+  "profile": "--windows-task-proof --local-profile EXPLICIT_OUTSIDE_ROOT_PROFILE",
+  "sourceBundle": {
+    "path": "dist/sidecar/cli.cjs",
+    "sha256": "f0bdd8638c12aa45ece62e2d11a9fc40acc87aeb0e962af10d181a825187ddae",
+    "bytes": 512340,
+    "provenance": "Current WSL-generated bundle copied byte-for-byte to the isolated Windows proof checkout. That checkout has older source files; only the executed bundle/checkers are current."
+  },
+  "create": {
+    "runtime": {
+      "platform": "win32",
+      "os": "10.0.26200",
+      "arch": "x64",
+      "node": "v24.19.0",
+      "libuv": "1.52.1",
+      "volume": {
+        "filesystem": "NTFS",
+        "driveType": "Fixed"
+      }
+    },
+    "checkout": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-fcf-checkout-addd29aeed9544cc8b94f6a0f3bf4ae2",
+    "sourceBundle": {
+      "path": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-fcf-checkout-addd29aeed9544cc8b94f6a0f3bf4ae2\\dist\\sidecar\\cli.cjs",
+      "sha256": "f0bdd8638c12aa45ece62e2d11a9fc40acc87aeb0e962af10d181a825187ddae",
+      "bytes": 512340
+    },
+    "artifacts": [
+      {
+        "name": "tasks-backend",
+        "sha256": "e24ce1a17f36167a9229bba2992b64e5182bfb2d05ed4fe29adfd07b12969e5b",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-intent",
+        "sha256": "a9fa5c4743e516d8da71149413360d51370374b2d6222c5c8f3f67be6668ca4b",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-stage-written",
+        "sha256": "ce8041b25b77e431f7e77a65b21ed8b6d0f583921ee86112832a686f4a0a05fb",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-stage-bound",
+        "sha256": "a14b86ab602c672123f374bc3b359af0d060158b2676876c2a73977efde69ed4",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-publication-started",
+        "sha256": "6cf03cd5f587ba44b45f4144116acfa397a7c076dfdef1222cdb3e421a2d3e4d",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-published",
+        "sha256": "b9b335a8017705883e3badea700929dcc01ef70acfc217d98cb31cb33a61c35d",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-verified",
+        "sha256": "dc0e44363effc7ff808e4054439a58c865554b35d252d1fa36afc9776c43e800",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-beforeCommit",
+        "sha256": "69b0229fbc3525cbafd227849cfe7cd19550d4a87080c6171f42a3283846dd88",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-afterCommit",
+        "sha256": "7a11a638194dc72a4649c1cd003f0369187dc0c75b7cade42db60a8e45485e4e",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-retiring-stage",
+        "sha256": "52bce2a46c0fe496be8ca445363cb325b6512cc74333beb388f3e47fdb892b05",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-retiring-evidence",
+        "sha256": "a6959a5f9a34e6252fe3bcd5daa272ac585a03307c7faf5e84dab8ca2a095f6a",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-progress-preparing",
+        "sha256": "405932b377e63abe84f17564b1c8f9a2c90948d53b858727a73ca8230ea24975",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-lostReply",
+        "sha256": "900f8262e815ca057e221716c28501b57be37d40f11c14b7671e35bd244d445f",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-flushRefusal",
+        "sha256": "edb44e324ab321da9acb0a51470382190625cace62db00c199d11f77d93f289b",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-lateCollision",
+        "sha256": "8738ad4187a85964890cc4f67e5bf55b2c7dd0dfbe38f30e27b63bd78be624bc",
+        "bytes": 93464576
+      }
+    ],
+    "passed": [
+      "node: explicit allowlist/default refusal, preview/invalid input, UUID/time/defaults/classification, unchanged files, restart/identity, historical absence without resurrection",
+      "node: actual termination intent, fixed original authority or preserved uncertain absence",
+      "node: actual termination stage-written, fixed original authority or preserved uncertain absence",
+      "node: actual termination stage-bound, fixed original authority or preserved uncertain absence",
+      "node: actual termination publication-started, fixed original authority or preserved uncertain absence",
+      "node: actual termination published, fixed original authority or preserved uncertain absence",
+      "node: actual termination verified, fixed original authority or preserved uncertain absence",
+      "node: actual termination beforeCommit, fixed original authority or preserved uncertain absence",
+      "node: actual termination afterCommit, fixed original authority or preserved uncertain absence",
+      "node: actual termination retiring-stage, fixed original authority or preserved uncertain absence",
+      "node: actual termination retiring-evidence, fixed original authority or preserved uncertain absence",
+      "node: actual termination progress-preparing, fixed original authority or preserved uncertain absence",
+      "node: actual termination lostReply, fixed original authority or preserved uncertain absence",
+      "node: already-linked publication requires directory flush before history/receipts/retirement",
+      "node: preserves evidence on formatting",
+      "node: preserves evidence on arrival",
+      "node: preserves evidence on target-arrival",
+      "node: preserves evidence on target-same-bytes",
+      "node: preserves evidence on target-missing",
+      "node: preserves evidence on target-replaced",
+      "node: preserves evidence on target-divergent",
+      "node: preserves evidence on stage-missing",
+      "node: preserves evidence on stage-replaced",
+      "node: preserves evidence on stage-partial",
+      "node: preserves evidence on progress-missing",
+      "node: preserves evidence on progress-partial",
+      "node: preserves evidence on task-directory",
+      "node: preserves evidence on other-cache",
+      "node: preserves evidence on copied-cache",
+      "node: no-clobber target arriving after final guard is never overwritten",
+      "node: recovery lost reply replays its own receipt; corrupt cleanup evidence stays pending without resurrection",
+      "node: original-location cache loss permits explicit fixed recovery, never old-context replay",
+      "sea: explicit allowlist/default refusal, preview/invalid input, UUID/time/defaults/classification, unchanged files, restart/identity, historical absence without resurrection",
+      "sea: actual termination intent, fixed original authority or preserved uncertain absence",
+      "sea: actual termination stage-written, fixed original authority or preserved uncertain absence",
+      "sea: actual termination stage-bound, fixed original authority or preserved uncertain absence",
+      "sea: actual termination publication-started, fixed original authority or preserved uncertain absence",
+      "sea: actual termination published, fixed original authority or preserved uncertain absence",
+      "sea: actual termination verified, fixed original authority or preserved uncertain absence",
+      "sea: actual termination beforeCommit, fixed original authority or preserved uncertain absence",
+      "sea: actual termination afterCommit, fixed original authority or preserved uncertain absence",
+      "sea: actual termination retiring-stage, fixed original authority or preserved uncertain absence",
+      "sea: actual termination retiring-evidence, fixed original authority or preserved uncertain absence",
+      "sea: actual termination progress-preparing, fixed original authority or preserved uncertain absence",
+      "sea: actual termination lostReply, fixed original authority or preserved uncertain absence",
+      "sea: already-linked publication requires directory flush before history/receipts/retirement",
+      "sea: preserves evidence on formatting",
+      "sea: preserves evidence on arrival",
+      "sea: preserves evidence on target-arrival",
+      "sea: preserves evidence on target-same-bytes",
+      "sea: preserves evidence on target-missing",
+      "sea: preserves evidence on target-replaced",
+      "sea: preserves evidence on target-divergent",
+      "sea: preserves evidence on stage-missing",
+      "sea: preserves evidence on stage-replaced",
+      "sea: preserves evidence on stage-partial",
+      "sea: preserves evidence on progress-missing",
+      "sea: preserves evidence on progress-partial",
+      "sea: preserves evidence on task-directory",
+      "sea: preserves evidence on other-cache",
+      "sea: preserves evidence on copied-cache",
+      "sea: no-clobber target arriving after final guard is never overwritten",
+      "sea: recovery lost reply replays its own receipt; corrupt cleanup evidence stays pending without resurrection",
+      "sea: original-location cache loss permits explicit fixed recovery, never old-context replay"
+    ],
+    "count": 64,
+    "limitations": "Capture/update explicit profile on one fixed local NTFS host. No native UI, status/undo/control port, power-loss, hostile reparse race, network/provider or release acceptance.",
+    "scratchWillBeRemoved": true
+  },
+  "update": {
+    "runtime": {
+      "platform": "win32",
+      "os": "10.0.26200",
+      "arch": "x64",
+      "node": "v24.19.0",
+      "libuv": "1.52.1",
+      "volume": {
+        "filesystem": "NTFS",
+        "driveType": "Fixed"
+      }
+    },
+    "checkout": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-fcf-checkout-addd29aeed9544cc8b94f6a0f3bf4ae2",
+    "artifacts": [
+      {
+        "name": "tasks-backend",
+        "sha256": "323b47b8441c02bcd80edc5fd65e220f5bbd8d054753646c32c709de4f8978ff",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-staged",
+        "sha256": "4d04b4f1ce14cea611efeaf3d3c886e89d526f4f4ee3837e81f3b1324d6be393",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-replaced",
+        "sha256": "fe307a319a522d367c6571dadb03c4c2102cf92c8cb13cca599cd8285eef5e13",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-beforeCommit",
+        "sha256": "e9a37f11b8c11d02227cf39d78f4a6f42dea6d052cd6b0641a293d9e4ce12023",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-afterCommit",
+        "sha256": "ad4be9371baffdb1a6fae5722ffc571ee99b8666ebc0b092d8cadf43286394d5",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-lostReply",
+        "sha256": "9fb9a9433e7636255daa12a4178d90a24e5a3b6830e1a0d089238455dc2c26d6",
+        "bytes": 93464576
+      },
+      {
+        "name": "sea-flushRefusal",
+        "sha256": "dc758f28fbb976a5d100cbfb7dc89114014a2be0abf1b1c14561930a05c53cca",
+        "bytes": 93464576
+      }
+    ],
+    "passed": [
+      "node: allowlist/default refusal, preview/no-op, content/untouched fields, restart/historical replay, stale/identity refusal, outside-root selection",
+      "node: authorized root/cache-parent junction resolves to retained physical authority",
+      "node: historical receipt after target absence never resurrects the file",
+      "node: actual process termination staged, fixed retry/recovery, one effect/history",
+      "node: actual process termination replaced, fixed retry/recovery, one effect/history",
+      "node: actual process termination beforeCommit, fixed retry/recovery, one effect/history",
+      "node: actual process termination afterCommit, fixed retry/recovery, one effect/history",
+      "node: actual process termination lostReply, fixed retry/recovery, one effect/history",
+      "node: already-replaced recovery must flush the directory before receipt/retirement",
+      "node: preserves evidence on divergence",
+      "node: preserves evidence on formatting",
+      "node: preserves evidence on missing",
+      "node: preserves evidence on arrival",
+      "node: preserves evidence on other-cache",
+      "node: preserves evidence on status-intent",
+      "node: cache loss uses explicit recovery, never old-context replay",
+      "node: record/filename case alias refusal without rewriting",
+      "node: static task-directory junction refusal",
+      "node: cooperating cross-process root lock and post-termination release",
+      "sea: allowlist/default refusal, preview/no-op, content/untouched fields, restart/historical replay, stale/identity refusal, outside-root selection",
+      "sea: authorized root/cache-parent junction resolves to retained physical authority",
+      "sea: historical receipt after target absence never resurrects the file",
+      "sea: actual process termination staged, fixed retry/recovery, one effect/history",
+      "sea: actual process termination replaced, fixed retry/recovery, one effect/history",
+      "sea: actual process termination beforeCommit, fixed retry/recovery, one effect/history",
+      "sea: actual process termination afterCommit, fixed retry/recovery, one effect/history",
+      "sea: actual process termination lostReply, fixed retry/recovery, one effect/history",
+      "sea: already-replaced recovery must flush the directory before receipt/retirement",
+      "sea: preserves evidence on divergence",
+      "sea: preserves evidence on formatting",
+      "sea: preserves evidence on missing",
+      "sea: preserves evidence on arrival",
+      "sea: preserves evidence on other-cache",
+      "sea: preserves evidence on status-intent",
+      "sea: cache loss uses explicit recovery, never old-context replay",
+      "sea: record/filename case alias refusal without rewriting",
+      "sea: static task-directory junction refusal",
+      "sea: cooperating cross-process root lock and post-termination release"
+    ],
+    "count": 38,
+    "limitations": "Content-update opt-in profile only, local NTFS on the declared host. No native UI, capture/status/undo/control port, hardware power-loss, hostile reparse race, network filesystem or release acceptance.",
+    "scratchWillBeRemoved": true
+  },
+  "limitations": [
+    "Short dedicated disposable root/cache/profile paths only. SQLite lock-journal path exceeding 260 characters refused before capture intent in an earlier deep-path scene. Native selection must validate supported path lengths; arbitrary long-path acceptance is not claimed.",
+    "Fifteen create and seven update SEA signature-corruption packaging warnings; signing unvalidated. Repeated postject instances additionally emitted MaxListenersExceededWarning in the create checker. No production listener changes or warning suppression.",
+    "No native UI/lifecycle, status/undo/control port, power-loss, hostile reparse race, network/provider storage or release acceptance."
+  ]
+}

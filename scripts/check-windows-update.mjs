@@ -41,7 +41,7 @@ function workspace(name) {
   return { directory, root, profile, cache: path.join(directory, "cache.db"), domain, pending: path.join(domain, "pending.json"), file: path.join(root, "tasks", `${id}.json`) };
 }
 function argv(w, proof = true) {
-  return ["--stdio", "--v2-root", w.root, "--database", w.cache, ...(proof ? ["--windows-update-proof", "--local-profile", w.profile] : [])];
+  return ["--stdio", "--v2-root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])];
 }
 function run(runner, w, request, proof = true, cut) {
   const program = cut ? runner.faults[cut] : runner.normal;
@@ -131,10 +131,10 @@ try {
     const prefix = runner === node ? "node" : "sea";
     const w = workspace(`${prefix}-content`);
     const info = ok(send(runner, w, { command: "workspace.info" }));
-    assert.deepEqual(info.result.commands, ["activity.list", "category.list", "tag.list", "task.get", "task.list", "task.update", "workspace.info", "workspace.recovery.resume"].sort());
+    assert.deepEqual(info.result.commands, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "workspace.info", "workspace.recovery.resume"].sort());
     const request = prepared(runner, w), before = raw(w), original = JSON.parse(readFileSync(w.file, "utf8"));
     fail(send(runner, w, request, false), "UNSUPPORTED_COMMAND");
-    for (const command of ["task.create", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "task.move", "task.dependency.add", "task.reorder", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.rebuild", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
+    for (const command of ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "task.move", "task.dependency.add", "task.reorder", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.rebuild", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
     assert.deepEqual(raw(w), before);
     assert.deepEqual(counts(w), [0, 0]);
     const preview = ok(send(runner, w, { ...request, dryRun: true, idempotencyKey: undefined }));

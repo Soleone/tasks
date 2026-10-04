@@ -86,7 +86,7 @@ async function runStdio(databasePath: string): Promise<void> {
   await backgroundSync;
 }
 
-async function runV2Stdio(rootPath: string, cachePath: string, writerProfile?: "windows-update-proof"): Promise<void> {
+async function runV2Stdio(rootPath: string, cachePath: string, writerProfile?: "windows-task-proof"): Promise<void> {
   let buffered = Buffer.alloc(0);
   const respond = (line: Buffer): void => {
     if (line.every(byte => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
@@ -106,12 +106,12 @@ async function runV2Stdio(rootPath: string, cachePath: string, writerProfile?: "
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const windowsUpdateProof = args.includes("--windows-update-proof");
+  const windowsTaskProof = args.includes("--windows-task-proof");
   const localProfile = optionValue(args, "--local-profile");
-  if (windowsUpdateProof || args.includes("--local-profile")) {
-    if (!windowsUpdateProof || process.platform !== "win32" || !args.includes("--v2-root")
+  if (windowsTaskProof || args.includes("--local-profile")) {
+    if (!windowsTaskProof || process.platform !== "win32" || !args.includes("--v2-root")
       || !localProfile || !/^[A-Za-z]:[\\/]/.test(localProfile) || localProfile.includes("\u0000")) {
-      throw new Error("Windows update proof requires Windows, --v2-root, --database and --local-profile ABSOLUTE_NTFS_PATH");
+      throw new Error("Windows task proof requires Windows, --v2-root, --database and --local-profile ABSOLUTE_NTFS_PATH");
     }
     process.env.APPDATA = path.win32.resolve(localProfile);
   }
@@ -122,13 +122,13 @@ async function main(): Promise<void> {
       || rootPath.startsWith("--") || cachePath.startsWith("--")) {
       throw new Error("v2 requires --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT");
     }
-    if (windowsUpdateProof) {
+    if (windowsTaskProof) {
       if ([rootPath, cachePath].some(value => !/^[A-Za-z]:[\\/]/.test(value) || value.includes("\u0000"))) {
-        throw new Error("Windows update proof requires explicit local absolute root/cache paths");
+        throw new Error("Windows task proof requires explicit local absolute root/cache paths");
       }
       localPathOutsideV2Root(localProfile!, realpathSync(rootPath));
     }
-    await runV2Stdio(rootPath, cachePath, windowsUpdateProof ? "windows-update-proof" : undefined);
+    await runV2Stdio(rootPath, cachePath, windowsTaskProof ? "windows-task-proof" : undefined);
     return;
   }
   const databasePath = optionValue(args, "--database") ?? getDatabasePath();
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT [--windows-update-proof --local-profile ABSOLUTE_NTFS_PATH]\n");
+  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT [--windows-task-proof --local-profile ABSOLUTE_NTFS_PATH]\n");
   process.exitCode = 2;
 }
 

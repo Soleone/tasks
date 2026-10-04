@@ -29,13 +29,13 @@ The destination is:
 
 Today the default UI/CLI still use the old model. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
 
-The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android writes remain withheld. An explicitly selected Windows content-update/recovery proof now has process evidence on local NTFS; no native UI or full Windows writer acceptance is added. Native lifecycle/recovery evidence remains open for the replacement app.
+The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android writes remain withheld. An explicitly selected Windows create/update/recovery proof now has process evidence on short dedicated local NTFS paths; no native UI or full Windows writer acceptance is added. Native lifecycle/recovery evidence remains open for the replacement app.
 
 **First defect:** `src/backend/v2QueryCache.ts` repeats a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The latest parent commit did not change this path.
 
 ## Work order
 
-One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. Next is only `7hr`, the bounded creation proof, not native UI implementation or broad Windows porting. The owner chose Windows-first because rebooting into Omarchy is impractical.
+One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. `7hr` then passed 64 capture and 38 retained update scene groups in the one private Windows task-proof profile. Next is only `byy`, single-task statuses/eligible latest-status undo, not native UI implementation or broad Windows porting. The owner chose Windows-first because rebooting into Omarchy is impractical.
 
 **Owner override (2026-10-04): run the task → validate/self-review → quick commit → next ready task loop without routine supervision, including continuation after auto-compaction.** This replaces the per-task owner review pauses below, not bounded scope, safety, tests, native acceptance or human/personal-data approval gates. Do not auto-switch providers when usage is exhausted. Use fresh quota/reset evidence and a verified session-only wake if available; no closed-process resumption guarantee. Durable loop state is under `$DATA/handoffs/2026-10-04-tasks-autonomous-loop.md`.
 
@@ -45,7 +45,7 @@ One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host
 | Prerequisite | `fcf` | Complete: actual Windows Node/SEA content-update/recovery proof; review checkpoint |
 | 2 | `dh1` | Complete: Windows content-only profile, one inline pilot capability and existing SEA; launch remains unimplemented |
 | 3 | `mg8` | Complete: typed single-file update path/results, readable trace, retained receipt validation; Windows 38/38 |
-| Windows prerequisite | `7hr` | After `mg8` review, prove capture/no-clobber publication and absence-safe recovery |
+| Windows prerequisite | `7hr` | Complete: Windows Node/SEA capture 64/64 plus update 38/38; short-path profile, already-linked directory reflush |
 | Windows prerequisite | `byy` | After `7hr` review, prove single-task statuses and latest-status undo |
 | Windows prerequisite | `gxm` | After `byy` review, prove separate-root archive/restore publication and recovery |
 | 4 | `m1p` | After all three Windows proofs, prove the basic task loop in one native app |
@@ -91,7 +91,7 @@ A read-only feasibility decision, not a platform-port umbrella.
 Keep the useful browser work, but add no browser mutations to fill a native blocker.
 
 - Adapt useful existing UI through the shared application path. Add only the launch/client changes needed for capture, content editing, single-task status/latest-status undo, search and CLI-visible refresh.
-- Require explicit disposable root/cache/profile selection and truthful capability limits; no legacy fallback. This pilot is a temporary validation step, not a permanent second application.
+- Require explicit disposable root/cache/profile selection and truthful capability limits; no legacy fallback. This pilot is a temporary validation step, not a permanent second application. `7hr` found Windows SQLite lock-journal long-path refusal: validate supported complete lock-journal/cache/profile lengths before dispatch, or separately prove longer paths; never silently shorten an uncertain selection.
 - Exercise keyboard/mouse/focus, external CLI edits without restart, relaunch persistence and a declared interrupted-write/lost-reply recovery scene with original-request replay.
 - Prove separate-root backup/restore through existing CLI controls; no new migration/control UI is required.
 - Record preview/apply friction, definite refusals versus uncertain writes and memory-only retry loss on reload. Safety rules can be changed deliberately, not bypassed for a demo.

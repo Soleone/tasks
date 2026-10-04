@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
 import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
@@ -91,6 +92,34 @@ for (const cut of ["intent", "stage-written", "stage-bound", "published", "verif
     assert.equal((success(send(workspace, { command: "task.list" })).result.tasks as object[]).length, 5);
   });
 }
+
+test("already-linked capture recovery must flush publication before receipt or evidence retirement", linuxOnly, t => {
+  const workspace = setup(t);
+  const { request, pending, intent, progress, stage, target } = crashCreate(workspace, "published");
+  const pendingBytes = readFileSync(pending), progressBytes = readFileSync(progress), targetBytes = readFileSync(target);
+  const loader = path.join(workspace.directory, "capture-flush-refusal.mjs");
+  writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);
+if(!url.endsWith('/v2CreateJournal.js'))return result;let source=result.source.toString();
+const needle='syncV2Directory(path.dirname(stage));\\n        const snapshot = guardCreate(intent, progress);';
+if(source.split(needle).length!==2)throw Error('unique publication flush required');
+return {...result,source:source.replace(needle,'throw Object.assign(new Error("test-only capture directory flush refusal"),{code:"EPERM"});'+needle)};}});`);
+  const recovery = { version: 2, command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: intent.request.writeContext, idempotencyKey: "capture-flush-resume" };
+  const child = run(workspace, recovery, loader);
+  assert.equal(child.status, 0, child.stderr);
+  fail(JSON.parse(child.stdout), "RECOVERY_CONFLICT");
+  assert.deepEqual(readFileSync(pending), pendingBytes);
+  assert.deepEqual(readFileSync(progress), progressBytes);
+  assert.deepEqual(readFileSync(target), targetBytes);
+  assert.equal(existsSync(stage), true);
+  const database = new DatabaseSync(workspace.cache);
+  assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0);
+  assert.equal(database.prepare("SELECT count(*) AS n FROM v2_operations").get()!.n, 0);
+  database.close();
+  success(send(workspace, recovery));
+  success(send(workspace, request));
+  assert.equal(existsSync(pending), false);
+  assert.deepEqual(readFileSync(target), targetBytes);
+});
 
 for (const cut of ["publication-started", "progress-preparing"]) {
   test(`capture ${cut} preserves uncertain absence/evidence instead of recreating or adopting`, linuxOnly, (t) => {
