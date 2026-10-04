@@ -26,18 +26,20 @@ import type { V2Response } from "./v2Protocol.js";
 
 const writeCommands = ["task.update", "task.create", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS, ...V2_ORDER_COMMANDS, ...V2_UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild", "workspace.doctor.plan", "workspace.doctor.apply"];
 
-export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: string): V2Response {
+export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: string, writerProfile?: "windows-update-proof"): V2Response {
   let requestId: string | null = null;
   try {
     const envelope = decodeV2Envelope(bytes);
     if (isV2Record(envelope) && typeof envelope.requestId === "string") requestId = envelope.requestId;
     const request = parseV2Request(envelope);
     const writable = process.platform === "linux";
+    const windowsUpdateProof = process.platform === "win32" && writerProfile === "windows-update-proof";
+    const allowedWrites = windowsUpdateProof ? ["task.update", "workspace.recovery.resume"] : writable ? writeCommands : [];
     if (writable && request.command === "workspace.doctor.inspect") {
       const outcome = executeV2DoctorInspect(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
-    if (writable && writeCommands.includes(request.command)) {
+    if (allowedWrites.includes(request.command)) {
       const outcome = request.command === "task.create" ? executeV2Create(request, rootPath, cachePath)
         : request.command === "task.purgeCanceled" ? executeV2Purge(request, rootPath, cachePath)
         : request.command === "workspace.doctor.plan" ? executeV2DoctorPlan(request, rootPath, cachePath)
@@ -45,18 +47,18 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
         : V2_UNDO_COMMANDS.includes(request.command) ? executeV2Undo(request, rootPath, cachePath)
         : V2_ORDER_COMMANDS.includes(request.command) ? executeV2Order(request, rootPath, cachePath)
         : ["task.update", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS].includes(request.command) ? executeV2Update(request, rootPath, cachePath)
-        : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath)
+        : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath, windowsUpdateProof)
         : request.command === "workspace.migrateV1" ? executeV2Migration(request, rootPath, cachePath)
         : ["workspace.init", "workspace.rebuild"].includes(request.command) ? executeV2Lifecycle(request, rootPath, cachePath)
         : executeV2Copy(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
-    if (!writable && writeCommands.includes(request.command)) throw new CommandError("UNSUPPORTED_COMMAND", "write is unavailable on this platform");
+    if (writeCommands.includes(request.command)) throw new CommandError("UNSUPPORTED_COMMAND", "write is unavailable in this platform/profile");
     const inspection = inspectV2CanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
       throw new CommandError("UNSUPPORTED_SCHEMA", "task commands require canonical schema 2");
     }
-    const commands = [...V2_QUERY_COMMANDS, ...(writable ? [...writeCommands, "activity.list", "workspace.doctor.inspect"] : [])].sort();
+    const commands = [...V2_QUERY_COMMANDS, ...allowedWrites, ...(writable ? ["activity.list", "workspace.doctor.inspect"] : windowsUpdateProof ? ["activity.list"] : [])].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this bounded v2 slice");
     }

@@ -83,6 +83,35 @@ for (const cut of ["staged", "replaced", "beforeCommit", "afterCommit"]) {
   });
 }
 
+test("already-replaced recovery requires directory flush before committing receipts or retiring evidence", { skip: process.platform !== "linux" }, t => {
+  const workspace = setup(t);
+  const { request, pending } = crash(workspace, "replaced");
+  const pendingBytes = readFileSync(pending), taskBytes = readFileSync(path.join(workspace.root, "tasks", `${id}.json`));
+  const intent = JSON.parse(pendingBytes.toString());
+  const recovery = { version: 2, command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: intent.request.writeContext, idempotencyKey: "flush-resume" };
+  const loader = path.join(workspace.directory, "refuse-directory-flush.mjs");
+  writeFileSync(loader, `import {registerHooks} from 'node:module';
+registerHooks({load(url,context,next){const result=next(url,context);let source=result.source?.toString();
+if(!url.endsWith('/v2UpdateJournal.js')||!source)return result;
+const needle='syncV2Directory(path.dirname(target));';if(source.split(needle).length!==2)throw Error('flush must be unique');
+return {...result,source:source.replace(needle,'throw Object.assign(new Error("test-only flush refusal"),{code:"EPERM"});'+needle)};}});`);
+  const child = spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(recovery), timeout: 10_000 });
+  assert.equal(child.status, 0, child.stderr.toString());
+  const refused = JSON.parse(child.stdout.toString());
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error.code, "INVALID_STORAGE");
+  assert.deepEqual(readFileSync(pending), pendingBytes);
+  assert.deepEqual(readFileSync(path.join(workspace.root, "tasks", `${id}.json`)), taskBytes);
+  const database = new DatabaseSync(workspace.cache);
+  assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0);
+  assert.equal(database.prepare("SELECT count(*) AS n FROM v2_operations").get()!.n, 0);
+  database.close();
+  success(send(workspace, recovery));
+  success(send(workspace, request));
+  assert.equal(existsSync(pending), false);
+  assert.deepEqual(readFileSync(path.join(workspace.root, "tasks", `${id}.json`)), taskBytes);
+});
+
 test("schema-5 sibling-array cache preserves a pending update through compact observation refresh and original replay", { skip: process.platform !== "linux" }, t => {
   const workspace = setup(t);
   const { request, pending } = crash(workspace, "replaced");

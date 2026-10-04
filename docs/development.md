@@ -87,6 +87,7 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm check` | Type-check the backend and web app. |
 | `pnpm test` | Build the backend and run the file-backed SQLite tests. |
 | `pnpm test:sidecar` | Build the target Node SEA sidecar and run it with a minimal environment. |
+| `node scripts/check-windows-update.mjs` | After bundling on Windows, build/run disposable Windows Node/SEA content-update and recovery scenes on local NTFS. Not a native UI or release pass. |
 | `pnpm build:sidecar` | Rebuild the target sidecar and `tasks-cli` binaries without running their probes. |
 | `pnpm test:ui` | Exercise the default v1 UI in Chromium against a temporary workspace. |
 | `node scripts/check-v2-ui.mjs` | Exercise the explicit read-only v2 browser reader, CLI visibility, pending/recovery and default-v1 isolation on disposable roots. |
@@ -191,7 +192,7 @@ The checked Windows host has WebView2. Other Windows machines still need the nor
 
 ## Native replacement feasibility checkpoint (`dh1`, 2026-10-04)
 
-**Owner chose Windows-first; blocked on bounded Windows writer proof `fcf`.** Rebooting into Omarchy is currently impractical. This is a read-only feasibility record after `fwk`, not a native launch or writer acceptance. Checkout `c7f3f1f`, branch `main`, was clean during inspection. No native builds/launches, installations, SSH permission changes or personal task selection were performed.
+**Historical read-only checkpoint. Owner chose Windows-first; the later bounded `fcf` evidence is recorded below for review.** Rebooting into Omarchy is currently impractical. This is a read-only feasibility record after `fwk`, not a native launch or writer acceptance. Checkout `c7f3f1f`, branch `main`, was clean during inspection. No native builds/launches, installations, SSH permission changes or personal task selection were performed.
 
 ### Hosts actually checked
 
@@ -201,7 +202,7 @@ The checked Windows host has WebView2. Other Windows machines still need the nor
 | Local Windows host through PowerShell | Windows 11 Home 10.0.26200, WebView2 154.0.4258.53, Node 24.19.0, pnpm 11.22.0, Rust 1.98.1/MSVC target and VS 2022 C++ Build Tools | Plausible native shell/build host, but `v2Gateway.ts` withholds every write command outside Linux. A Windows-first pilot needs a separately approved bounded writer proof, not `82r` or implicit Windows/WSL filesystem mixing. No checkout exists at the wrapper's documented default `/mnt/d/src/wsl/tasks`. |
 | Configured SSH alias `validator` | Connection attempted with `BatchMode=yes`, `ConnectTimeout=10`; no remote command executed | SSH exited 255: local `~/.ssh/validator` is mode `0644`, so OpenSSH ignores it and authentication fails with `Permission denied (publickey,password)`. No remote OS, desktop session, toolchain or checkout could be verified; this alias is not assumed to be Omarchy. Do not repair credentials or change permissions as part of this read-only task. |
 
-The project describes an Omarchy setup, but the owner cannot conveniently reboot into it. Host decision `snr` is resolved: use the checked Windows 11 host. The new bounded prerequisite `fcf` starts with actual Windows filesystem/API feasibility and proves one existing-task `task.update`, no-op, restart, interrupted publication, divergence refusal and original-request retry/recovery using disposable NTFS data and actual Windows Node/SEA processes. Root/cache and dedicated `APPDATA` must be explicit; local evidence lives under `<APPDATA>/com.soleone.tasks/taskdb-v2/roots/`. Stop on missing durability/tooling guarantees rather than removing platform gates. This does not approve the broad `82r` port or enable other unproven Windows commands. `dh1` stays in progress pending the reviewed proof; `mg8`/`m1p` remain gated.
+The project describes an Omarchy setup, but the owner cannot conveniently reboot into it. Host decision `snr` is resolved: use the checked Windows 11 host. The new bounded prerequisite `fcf` starts with actual Windows filesystem/API feasibility and proves one existing-task `task.update`, no-op, restart, interrupted publication, divergence refusal and original-request retry/recovery using disposable NTFS data and actual Windows Node/SEA processes. Root/cache and dedicated `APPDATA` must be explicit; local evidence lives under `<APPDATA>/com.soleone.tasks/taskdb-v2/roots/`. Stop on missing durability/tooling guarantees rather than removing platform gates. This does not approve the broad `82r` port or enable other unproven Windows commands. `dh1` remains pending until the reviewed proof completes its decision; `mg8`/`m1p` remain gated.
 
 ### One backend route, not two matching permissions
 
@@ -211,6 +212,7 @@ The installed/locked `tauri-plugin-shell` **2.3.6**, `src/scope.rs:257`, uses `s
 
 ```text
 --stdio --v2-root <explicit absolute disposable root> --database <explicit absolute outside-root cache>
+--windows-update-proof --local-profile <explicit absolute outside-root APPDATA profile>
 ```
 
 Use fixed flag positions and narrowly validated absolute path arguments, never `args: true`, `sh`, a system Node executable, arbitrary executable names or a second same-name entry. Do not permit a bare `--stdio` route in the pilot. The shell scope is not itself a filesystem sandbox: canonical/cache physical-path checks remain in the backend. Deny unexpected command/argument shapes at the concrete client/native boundary as well; the plugin is not an exact-length validator for all supplied argument lists.
@@ -242,7 +244,63 @@ Once the selected Windows profile has reviewed evidence for the required command
 5. Archive and restore into a separate root through existing CLI controls, verify exact canonical bytes and open the restored root with fresh authority. Never reuse a copied cache to claim old receipt authority.
 6. Record actual platform/UI evidence, definite refusal versus uncertain-write behavior, preview/apply costs and reload/retry loss. WSL/browser tests, tool inventory and a design proposal cannot close native acceptance.
 
-The host choice is resolved, but there is no approved/runnable Windows writer route yet. Leave `dh1` in progress blocked on `fcf`; stop for review before beginning that proof. Do not start `mg8`/`m1p` or broaden platform work to fill the gap.
+The host choice is resolved. The backend-only content route below is runnable; the native permission/client route remains unimplemented. Leave `dh1` pending for review of that evidence and its launch decision. Do not start `mg8`/`m1p` or broaden platform work to fill the gap.
+
+## Windows content-update proof (`fcf`, 2026-10-04)
+
+**Bounded backend process proof, not native app acceptance.** The shared update writer now runs under an explicitly selected Windows-only proof profile. No parallel engine, canonical/schema change, native capability, UI integration or personal-data operation was added. Unflagged Windows v2 writes remain unavailable; the default v1 app/sidecar launch is unchanged.
+
+### Host, boundary and artifacts
+
+- Windows 11 Home **10.0.26200**, x64; actual `C:\Program Files\nodejs\node.exe` **24.19.0**, libuv **1.52.1**. PowerShell `Get-Volume` reports C: as a fixed **NTFS** volume; D: was inventoried but not used for the proof.
+- Windows source snapshot: `C:\Users\soleone\AppData\Local\Temp\Tasks-fcf-checkout-addd29aeed9544cc8b94f6a0f3bf4ae2`. Base `0c4e26e` plus the current bounded source/bundle changes. All execution was Windows-native, not Linux Node accessing mounted Windows task/cache files.
+- Every scene copies the golden synthetic root into checkout-local `.tmp/windows-update-*/<scene>/root`, with separate `<scene>/cache.db` and `<scene>/profile`. The CLI makes that explicit profile its APPDATA; local lock/intent state is under `profile/com.soleone.tasks/taskdb-v2/roots/<physical-root-hash>`. Default v1 root/cache/profile traps remain absent.
+- The proof packages the actual Windows Node executable with the current CJS bundle using the existing SEA/postject mechanism, then launches both that SEA and Windows Node. The normal SEA was **93,461,504 bytes**, SHA-256 `93defe226d2f269be1fc60cb7e98410a25d7cb0a46cef4b316934a7959401f2f`. [Structured evidence](windows-update-proof.json) retains runtime, all seven binary hashes and scene groups. Binaries and synthetic scene data are explicitly removed after the checker, not installed artifacts.
+- Postject printed seven `The signature seems corrupted!` warnings when altering signed Node PE copies. All resulting executables launched and passed; this does **not** establish Authenticode signing, installer or release acceptance.
+
+Initial inspection did find a real blocker: opening a directory with `r` allowed the handle but Node fsync returned `EPERM`; native read-only `FlushFileBuffers` returned Win32 error 5. Native writable/read-write directory handles and Windows Node `r+` flush succeeded without elevation. `syncV2Directory` now uses `r+` only on Windows, still throws every open/flush failure and keeps Linux behavior. File exclusive creation/flush and replacement of an existing target were observed independently. `scripts/probe-windows-directory-flush.ps1` and `scripts/probe-windows-update-files.mjs` reproduce those API probes.
+
+The longer real proof then exposed recursive mkdir returning a `\\?\`-prefixed first-created path while the selected domain used ordinary drive spelling. The retained-parent comparison now uses the same namespaced spelling on both sides, preventing an erroneous walk beyond the owned profile parent. Focused filesystem tests exercise initial and repeated lock-domain entry. No flush is dropped, replaced with a delay or approximated by browser/Linux behavior. Review also caught an inherited recovery gap: observing already-replaced bytes could skip the task-directory flush before receipt commit. Recovery now flushes that directory even when it does not rewrite the target. A test-only flush refusal after the rename cut must preserve pending/target bytes and leave zero receipts/history; successful retry flushes before committing/retiring. API success and process recovery are not hardware/power-loss evidence.
+
+### Exactly the supported subset
+
+From a Windows checkout, the explicit backend argv is:
+
+```text
+--stdio --v2-root ABSOLUTE_NTFS_ROOT --database ABSOLUTE_OUTSIDE_ROOT_CACHE
+--windows-update-proof --local-profile ABSOLUTE_OUTSIDE_ROOT_APPDATA_PROFILE
+```
+
+Missing/orphan profile flags and non-Windows activation fail before cache creation. Root/cache/profile must be explicit local drive-letter absolute paths; the profile is physically checked outside the root before dispatch, and cache/sidecars retain the existing physical checks. This is declared local NTFS tooling, not a filesystem sandbox or portable/network-storage claim.
+
+Info advertises exactly `workspace.info`, `task.get`, `task.list`, `category.list`, `tag.list`, `activity.list`, `task.update`, `workspace.recovery.resume`. Recovery only accepts `taskdb.pending-update` whose original command is `task.update`, including retirement after historical recovery receipts. A valid pending status intent is refused intact. Capture, every status/undo/relationship/order/batch operation, init/rebuild, doctor, purge, archive/restore and migration remain unsupported in this profile. The human-friendly CLI and browser editor are not Windows-enabled by this flag.
+
+### Actual exercised flow
+
+`node scripts/check-windows-update.mjs` passes **38 scene groups**, 19 each through Windows Node and the Windows SEA, using a minimal child environment and retained root/cache/profile across newly started processes:
+
+1. Query/context preparation, preview, receipt-only no-op, literal title/Markdown edit, untouched-field/file preservation, restart and exact original-request historical replay. A real edit produces one operation/activity and one original-key receipt; a no-op adds only its own receipt. Stale versions and changed payload under the original key refuse without another effect.
+2. Actual process termination after durable pending staging, after canonical replacement, immediately before SQLite COMMIT, immediately after COMMIT before retirement, and after retirement before reply. Info exposes pending work, ordinary reads refuse, and explicit recovery plus unchanged original-envelope replay yields one effect/history. The complete original context/key/version/actor/payload/flags and fixed edit time are checked. Explicit recovery has its own acknowledgment receipt, not a second edit.
+3. Divergent/formatting-only target bytes, missing planned target, newly arrived task membership and a different cache stop recovery with `RECOVERY_CONFLICT`, preserving pending bytes and canonical files. A non-update status intent returns `UNSUPPORTED_COMMAND` without retirement. Missing target replay against an already completed historical receipt never recreates a file.
+4. Cache loss at the original location rotates context; old original requests remain stale before and after explicit fresh-authority recovery. The fixed recorded outcome/time is recognized rather than inventing another edit.
+5. Authorized root and cache-parent junction aliases resolve to the same physical authority. A record/filename case mismatch and a tasks-directory junction refuse instead of silently importing/overwriting. A separate Windows process holding the root SQLite writer lock blocks the update without a pending/task effect; termination releases it and the original new edit can execute.
+
+Fault cuts are inserted into disposable test-only copies of the built bundle, with unique-source assertions, then packaged into Windows SEAs. No production fault flag or generic shell command endpoint exists. The checker deliberately disposes only its known synthetic scenes after preserving/verifying failure evidence.
+
+### Reproduce and review gate
+
+Use the normal prerequisites and `pnpm install` in a **local Windows NTFS checkout**, then run in PowerShell:
+
+```powershell
+pnpm build:backend:bundle
+node scripts/check-windows-update.mjs
+```
+
+The checker selects its own golden disposable root/cache/dedicated profile, verifies fixed NTFS, builds the native test binaries and removes its scratch data. Do not substitute `bin/tasks`, personal paths, WSL Node or an existing retained production cache.
+
+Validation: backend/web types and lint pass; `pnpm test` has **1,602 passed, two known skips, zero failures**. Six focused CLI/filesystem tests also pass in actual Windows Node. The two historical Linux skips remain the normative withheld-doctor fixture and opt-in isolated Syncthing transport run, not Windows test substitutions. Clean-code review kept production changes at the CLI capability and filesystem/recovery boundaries.
+
+**Stop for review.** This closes only the backend content-update prerequisite. No Tauri app was launched, no native UI/focus/lifecycle or capture/status/undo/backup/restore path is proven, and no installer/signing, power-loss, hostile reparse/hardlink race, network filesystem, Android/provider, distributed CAS or release claim is made. `dh1` next reviews the host/profile/single-permission route; further capabilities require separately approved bounded proofs before the native basic loop.
 
 ## Android status
 

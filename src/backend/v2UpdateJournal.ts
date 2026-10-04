@@ -114,8 +114,9 @@ export function applyV2Journal(intent: V2UpdateIntent): V2CanonicalSnapshot {
     writeV2DurableFile(temporary, bytes);
     guardV2Update(intent, true);
     renameSync(temporary, target);
-    syncV2Directory(path.dirname(target));
   }
+  // Recovery may see next bytes after a process died between rename and directory flush.
+  syncV2Directory(path.dirname(target));
   snapshot = guardV2Update(intent, true);
   if (snapshot.files.find(file => file.relativePath === `tasks/${intent.taskId}.json`)!.sha256 !== exactV2Hash(bytes)) recoveryConflict();
   return snapshot;

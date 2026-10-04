@@ -1,9 +1,12 @@
 import { createInterface } from "node:readline";
+import path from "node:path";
+import { realpathSync } from "node:fs";
 import { executeCommand } from "./commands.js";
 import { watchCanonicalWorkspace, withCanonicalRootPath } from "./canonicalWorkspace.js";
 import { readSourceRegistry } from "./sourceRegistry.js";
 import { getDatabasePath } from "./paths.js";
 import { executeV2Line } from "./v2Gateway.js";
+import { localPathOutsideV2Root } from "./v2QueryCache.js";
 import type { V2Response } from "./v2Protocol.js";
 import {
   errorResponse,
@@ -83,11 +86,11 @@ async function runStdio(databasePath: string): Promise<void> {
   await backgroundSync;
 }
 
-async function runV2Stdio(rootPath: string, cachePath: string): Promise<void> {
+async function runV2Stdio(rootPath: string, cachePath: string, writerProfile?: "windows-update-proof"): Promise<void> {
   let buffered = Buffer.alloc(0);
   const respond = (line: Buffer): void => {
     if (line.every(byte => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
-    writeResponse(executeV2Line(line, rootPath, cachePath));
+    writeResponse(executeV2Line(line, rootPath, cachePath, writerProfile));
   };
   // Frame bytes before UTF-8 decoding so invalid input cannot become replacement characters.
   for await (const chunk of process.stdin) {
@@ -103,6 +106,15 @@ async function runV2Stdio(rootPath: string, cachePath: string): Promise<void> {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const windowsUpdateProof = args.includes("--windows-update-proof");
+  const localProfile = optionValue(args, "--local-profile");
+  if (windowsUpdateProof || args.includes("--local-profile")) {
+    if (!windowsUpdateProof || process.platform !== "win32" || !args.includes("--v2-root")
+      || !localProfile || !/^[A-Za-z]:[\\/]/.test(localProfile) || localProfile.includes("\u0000")) {
+      throw new Error("Windows update proof requires Windows, --v2-root, --database and --local-profile ABSOLUTE_NTFS_PATH");
+    }
+    process.env.APPDATA = path.win32.resolve(localProfile);
+  }
   if (args.includes("--v2-root")) {
     const rootPath = optionValue(args, "--v2-root");
     const cachePath = optionValue(args, "--database");
@@ -110,7 +122,13 @@ async function main(): Promise<void> {
       || rootPath.startsWith("--") || cachePath.startsWith("--")) {
       throw new Error("v2 requires --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT");
     }
-    await runV2Stdio(rootPath, cachePath);
+    if (windowsUpdateProof) {
+      if ([rootPath, cachePath].some(value => !/^[A-Za-z]:[\\/]/.test(value) || value.includes("\u0000"))) {
+        throw new Error("Windows update proof requires explicit local absolute root/cache paths");
+      }
+      localPathOutsideV2Root(localProfile!, realpathSync(rootPath));
+    }
+    await runV2Stdio(rootPath, cachePath, windowsUpdateProof ? "windows-update-proof" : undefined);
     return;
   }
   const databasePath = optionValue(args, "--database") ?? getDatabasePath();
@@ -126,7 +144,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT\n");
+  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT [--windows-update-proof --local-profile ABSOLUTE_NTFS_PATH]\n");
   process.exitCode = 2;
 }
 

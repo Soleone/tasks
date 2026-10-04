@@ -29,18 +29,18 @@ The destination is:
 
 Today the default UI/CLI still use the old model. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
 
-The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Windows/Android writes remain withheld, and native lifecycle/recovery evidence remains open for the replacement app.
+The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android writes remain withheld. An explicitly selected Windows content-update/recovery proof now has process evidence on local NTFS; no native UI or full Windows writer acceptance is added. Native lifecycle/recovery evidence remains open for the replacement app.
 
 **First defect:** `src/backend/v2QueryCache.ts` repeats a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The latest parent commit did not change this path.
 
 ## Work order
 
-One bounded task at a time. `fwk` is complete. **The owner chose Windows-first because rebooting into Omarchy is impractical; `fcf` is now the next ready task, a bounded Windows writer proof prerequisite to finishing `dh1`.** Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
+One bounded task at a time. `fwk` and the bounded Windows proof `fcf` are complete. **Stop for review of the Windows Node/SEA evidence in [development](docs/development.md#windows-content-update-proof-fcf-2026-10-04). After review, `dh1` is the next task, finishing the host/profile/launch decision, not enabling further commands.** The owner chose Windows-first because rebooting into Omarchy is impractical. Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
 
 | Order | SQ task | Outcome |
 | --- | --- | --- |
 | 1 | `fwk` | Remove quadratic fingerprints without adding a cache framework |
-| Prerequisite | `fcf` | Prove one `task.update` publication/recovery path on actual Windows, then review |
+| Prerequisite | `fcf` | Complete: actual Windows Node/SEA content-update/recovery proof; review checkpoint |
 | 2 | `dh1` | Finish the selected Windows host/profile and safe, minimal launch decision after `fcf` |
 | 3 | `mg8` | Trace and tighten one real `task.update` request/recovery path |
 | 4 | `m1p` | Prove the basic task loop in one native app |

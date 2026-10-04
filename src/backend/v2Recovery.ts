@@ -24,7 +24,7 @@ import { findV2Receipt, requireV2WriteContext, storeV2Receipt } from "./v2Receip
 import { applyV2Journal, guardV2Update } from "./v2UpdateJournal.js";
 import { commitV2Update } from "./v2UpdateWriter.js";
 
-export function resumeV2Operation(request: V2Request, rootPath: string, cachePath: string) {
+export function resumeV2Operation(request: V2Request, rootPath: string, cachePath: string, updateOnly = false) {
   const root = readV2ControlRoot(rootPath);
   return withV2RootWriterLock(root, () => {
     let completed: V2PendingIntent | undefined;
@@ -40,12 +40,20 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
         // A historical receipt can retire its own intent, never unrelated or malformed work.
         try {
           const pending = readV2Pending(root);
-          if (pending?.operationId === replay.operationId) completed = pending;
+          if (pending && pending.operationId === replay.operationId) {
+            if (updateOnly && (pending.format !== "taskdb.pending-update" || pending.request.command !== "task.update")) {
+              throw new CommandError("UNSUPPORTED_COMMAND", "Windows proof can recover only task.update intents");
+            }
+            completed = pending;
+          }
         } catch (error) { if (!(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error; }
         return { writeContext: authority.writeContext, result: replay };
       }
       const intent = readV2Pending(root);
       if (!intent || intent.operationId !== request.args.operationId) throw new CommandError("OPERATION_UNAVAILABLE", "pending operation is unavailable");
+      if (updateOnly && (intent.format !== "taskdb.pending-update" || intent.request.command !== "task.update")) {
+        throw new CommandError("UNSUPPORTED_COMMAND", "Windows proof can recover only task.update intents");
+      }
       if (intent.format === "taskdb.pending-copy-target") throw new CommandError("RECOVERY_CONFLICT", `resume copy from its original selected root: ${intent.owner.rootPath}`);
       if (request.dryRun || request.readOnly) throw new CommandError("UNSUPPORTED_COMMAND", "recovery requires explicit execution, not preview");
       if (intent.cachePath !== localPathOutsideV2Root(cachePath, root.rootPath)) throw new CommandError("RECOVERY_CONFLICT", "resume requires the original cache location, or manual reconciliation");

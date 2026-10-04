@@ -17,7 +17,8 @@ export function pendingV2Path(root: V2RootBinding): string {
 }
 
 export function syncV2Directory(directory: string): void {
-  const descriptor = openSync(directory, "r");
+  // Windows FlushFileBuffers requires GENERIC_WRITE, including for directory handles.
+  const descriptor = openSync(directory, process.platform === "win32" ? "r+" : "r");
   try { fsyncSync(descriptor); } finally { closeSync(descriptor); }
 }
 
@@ -33,7 +34,8 @@ export function withV2RootWriterLock<T>(root: V2RootBinding, action: () => T): T
     const retainedParent = path.dirname(firstCreated);
     for (let directory = domain; ; directory = path.dirname(directory)) {
       syncV2Directory(directory);
-      if (directory === retainedParent) break;
+      // Recursive mkdir can return \\?\-prefixed Windows paths; compare the same spelling.
+      if (path.toNamespacedPath(directory) === path.toNamespacedPath(retainedParent)) break;
     }
   }
   const lockPath = localPathOutsideV2Root(path.join(domain, "lock.db"), root.rootPath);
