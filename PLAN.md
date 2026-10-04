@@ -1,143 +1,156 @@
-# Tasks: direction and delivery plan
+# Tasks: clean-cut delivery plan
 
-**Reset:** 2026-09-30. **Current decision:** develop a portable, single-directory TaskDB contract through specs and conformance, with Tasks as its first-party app. A public standard is a goal to earn through an independent implementation, not a claim about the current v1 format. The opt-in multi-source v1 controller remains supported as a bounded prototype, but external adapters, a combined-source UI, and cross-source moves are not the next milestones. Do not alter v1 data before an opt-in, reversible migration is proven.
+**Reset: 2026-10-04. Baseline: `905c65a`.** Keep the useful new model, canonical files and recovery tests. Fix the measured defect, prove daily use, then replace the old application rather than maintain a parallel successor.
 
-## Where we are
+## Direction and destination
 
-- M0 runtime proof is complete. The app has more implemented features than the old M1 scope, but M1 native UI/restart/restore acceptance is still open. Feature presence does not close that gate.
-- V1 canonical files, command/CLI behavior, and the limited Node-only source controller remain the implemented root [spec/](spec/overview.md). The single-root [v2 contracts](spec/v2/overview.md) are now **accepted targets, not implemented**, with declarative fixtures. [Ideas](ideas/overview.md) preserves proposal reasoning and bounded model/transport evidence; it is not a second normative authority.
-- On 2026-09-30 in WSL2, `pnpm check`, `pnpm test` (118/118), `pnpm test:sidecar`, and `pnpm lint` passed. The Linux SEA probe emitted `.note` injection warnings but both executables ran. This is not native Windows, Omarchy, or Android acceptance. See [conformance](spec/conformance.md) and [the v1 audit](docs/taskdb-audit.md) for the limits of prior evidence.
-- The previous multi-source-led [TaskDB 2.0 roadmap](ideas/taskdb-2.0-roadmap.md) records completed audit/controller work, but its stages 4–7 are superseded as the implementation sequence. Preserve those results; do not start an external adapter just because it is the next unchecked box.
+Tasks is a local-first, keyboard-first task app for one person working alongside external agents:
 
-## Next gates
+> capture quickly → clarify → choose work → complete it → understand what changed
 
-1. **Settle v2 safety decisions in ideas.** Specify collection identity and first-time merge (including duplicate task IDs), file layout and deletion semantics, v1-to-v2 migration/rollback with mixed-version refusal, canonical category/tag/title compatibility, timestamp/undo/activity behavior, and the public command boundary. Keep one owner per contract; cross-link rather than repeat rules.
-2. **Prove sync and order candidates on disposable roots.** Test independent offline captures, equal-key inserts, conflicting reorders, same-task edits, external-file races, missing files, crash/retry, and conflict-copy preservation. Select an exact sparse-key algorithm/comparator and a recoverable merge policy. A local observed-file hash is a stale-write check, not an atomic cross-device compare-and-swap.
-3. **Promote accepted decisions to a versioned `spec/v2/` contract before implementation.** Give each contract explicit status (`accepted target` until implemented), normative examples, failures, backward-compatibility rules, and black-box fixtures. `spec/` is the accepted contract; `ideas/` is the matching proposal workspace. Existing root `spec/*.md` remains the current v1 reference. Do not label target behavior as shipped until conformance passes.
-4. **Build one recoverable v2 slice only after the contract and fixtures exist.** Keep old v1 readers/writers safe, back up and validate migration/restore on scratch data, and exercise the same contract through Node CLI and Android or document an intentional platform limitation. No second writable authority or silent data loss.
-5. **Complete native evidence in parallel on capable hosts.** Windows 11 UI dogfood/relaunch/restore, Omarchy webview/focus, and Android SAF process-lifecycle/provider checks remain open. WSL, Chromium, and emulator standard-picker checks do not close their respective native or physical-provider gates. Use [development instructions](docs/development.md) and the [v1 audit](docs/taskdb-audit.md).
+**The owner wants one elegant, publishable codebase, not permanent v1/v2 coexistence.** There are no external installations requiring a long compatibility window. The owner's existing tasks need a verified one-time conversion, not a permanent legacy runtime or strangler framework.
 
-**Gate progress (2026-10-02):** proposal reconciliation and bounded ordering/transport design gates are complete; versioned v2 target contracts and a declarative corpus of 112 cases plus a full-field v1 mapping golden root now exist. Corpus integrity is not execution of those cases. Gate 4 is in progress, starting with an isolated strict read-only Node filesystem helper and execution of the model fixtures. An explicit opt-in Node JSON-lines subset now supports info/get/list/category/tag without v1 watcher/registry fallback. On Linux it additionally supports guarded single-task content updates/previews, local SQLite receipts/activity, a shared-profile physical-root lock/immutable pending intent and explicit published-intent recovery. Disposable WSL2 tests include real subprocess kills after staging/replacement, before/after receipt commit, historical replay, cache loss and divergent/missing/partial/scope-arrival refusal. Windows/Android writable commands are withheld; malformed/unpublished local intent and different-cache recovery require inspection/reconciliation. The Linux stage-only copy primitive remains available as component evidence. Public opt-in `workspace.archive`/`workspace.restore` now add fixed byte-bearing copy intents, durable prefix/binding evidence, verified publication, SQLite receipt replay and explicit copy recovery. Both archive/restore CLI paths pass all 0–5 file prefixes, verification/reservation/publication, receipt/lost-reply and retirement cuts. Published targets remain locally pending until receipt completion; selection never changes automatically. Unbound directory creation, malformed/partial evidence, missing recorded files and changed bindings require preserved inspection, not guessed ownership or repair. A strict read-only v1 converter now checks complete source records/hashes/graphs/orders and returns deterministic v2 bytes in memory; it matches the independent full-field golden byte-for-byte and checks eight adapted mapping/invalid-source vectors. Converter subprocess kills and late source changes produce no publication or source repair. Linux `workspace.migrateV1` now uses fixed source/mapping witnesses, independently retained raw v1 recovery data and the guarded copy/prefix/report/publication/SQLite receipt path. All 12 migration corpus cases execute, including actual CLI interruption/replay and explicit fresh-authority v2 selection followed by preserved-v1 client rollback, without reverse conversion of later v2 edits. Linux-only `workspace.init` now explicitly initializes existing empty roots with exact no-clobber descriptor publication and guarded pending recovery; `workspace.rebuild` atomically refreshes only the retained cache projection, preserving context/receipts/history while reissuing task tokens. Lifecycle tests execute `root-empty` and `receipt-rebuild`, plus actual CLI publication/receipt/retirement cuts, divergence and cache-loss refusal. Linux capture/status now add fixed UUID/time and complete-sibling first placement, all six accepted status commands without cascades, receipt-only no-ops, guarded task publication and explicit recovery. Creation durably records progress before pending publication and records publication start before the no-clobber link: missing progress or an unexplained missing target requires inspection, not resurrection. Public input/status/time/authority cases and actual process cuts/races pass. Linux `task.move`/`task.dependency.add/remove` now validate full prospective graphs and target eligibility, preserve descendants/closure, use fixed relationship edit time and complete first-in-new-scope allocation, and reuse guarded replacement/replay/recovery. Reparenting reissues affected old/new scope tokens without sibling rewrites. Public `time-parent` plus independent graph/no-op/version cases and actual CLI cuts/races pass. Linux `task.reorder`/`task.order.normalize` now add pinned complete-scope planning, bounded tied-run repair, immutable multi-file preimage/next-byte intents and per-replacement/final verification. Selected unchanged-key moves receive fresh tokens and appear in one selected/incidental group with complete old/new scopes. Same-cache schema-3 membership upgrade retains receipts/history/context. Original key/time/scope/prefix/divergence cases and all actual CLI prefixes/receipt/cleanup cuts pass; at that milestone the full suite was 841 passed/one optional skip. Linux status undo/undoMany/transitionMany and operation-ID inverse now add eligible retained-history/consumed-claim checks, unaffected-field preservation, exact closure, complete graph/order postconditions and fixed full-root multi-file recovery. Only unchanged unreferenced creation may be physically removed, with verified permanent raw recovery bytes preceding publication/deletion. Same-cache schema-4 claims preserve prior authority/receipts/history across upgrade/rebuild. Original five undo cases plus actual batch/replacement/deletion/receipt/archive/cleanup/cache-loss cuts pass. Linux `task.purgeCanceled` now observes the complete canceled set, refuses surviving references with exact diagnostics, preserves a verified independent full raw recovery copy, fixes immutable root/cache/request/time/deletion witnesses and removes only bound exact preimages. Transient quarantines prove authored absence during linked-subgraph prefixes; unknown disappearance/divergence never permits resurrection. Related prior task/link/scope undo is consumed without invalidating unrelated eligible inverses; empty purge is receipt-only. Both original purge cases plus all actual deletion/receipt/archive/cleanup/cache-loss cuts and source races pass; at that milestone the full suite was 1099 passed/one optional skip (1100 total). Linux doctor inspection and retained local keep-both/reported-dangling-only plans now add exact raw version refs/incoming links, explicit copied/surviving split choices, fixed UUIDs/keys, full prospective graphs, source byte/inode guards and SQLite plan+receipt atomicity without canonical effects. Schema-5 planning retains earlier authority/receipts/history/claims. At the planning-only milestone apply/archives/conflict cleanup/late-link recovery remained withheld; the subsequent bounded application slice follows here. Those initial inspector/plan checks passed at the 1154-test milestone. Confirmed Linux doctor apply now reproduces fixed plans from raw originals, verifies independent recovery before initialized progress/pending/effects, retains staged-inode publication proof and removes selected conflict copies only after full output/graph verification using original-inode quarantines. One local group/receipt consumes the plan and records reviewed split links for later diagnostics, with no automatic redirect. All six original apply-dependent cases execute separately; 29 command/102 actual CLI tests cover every 0–4 write prefix, cleanup/receipt/evidence retirement, 34 faults, six pre-intent races and cache loss/lost reply. Schema remains 5. Missing/progress/publication/archive/deletion evidence never authorizes resurrection; committed cleanup plus cache loss may require manual reconciliation. At the doctor-application milestone Linux corpus execution was 98/112, not 99: the formerly withheld doctor command became supported, so its original capability-refusal fixture is skipped rather than adapted. Full regression was 1284 passed/two skips (1286 total), with types/lint/diff and disposable control validation. Legacy writers/sharing must be paused manually; they do not share the new control lock. This is not the complete writer/protocol profile, power-loss, UI migration, native/provider or personal-data rollout acceptance. Still required: remaining vertical-slice conformance, clients and intentional provider limits. Personal/v1 data remains unchanged and native M1 is still open.
+The destination is:
 
-**Human CLI progress (2026-10-03):** explicitly selected `tasks-cli --v2-root PATH --database CACHE_OUTSIDE_ROOT` now routes friendly task/query/undo/link/purge and supported lifecycle verbs through the same gateway, before all default v1 setup. Literal/shorthand/clears/description, safe previews, result/error JSON and stale exit 3 are covered. Initial new calls may obtain authority; supplied keys require original context/version before any query. Synchronous task-payload-free retry metadata and an optional prepared hash preserve/check request identity and lexical root/cache/profile paths before execution, without another receipt ledger or automatic retry/recovery/selection. All three original CLI cases execute independently with raw argv/request evidence; 72 new actual subprocess tests cover inputs/lifecycle/v1 boundaries, prepared/canonical/receipt/lost-reply cuts, metadata sinks, races, cache loss and exact retries. Current corpus is **101/112**; full regression is **1356 passed/two skips (1358 total)**. Cache schema remains 5. Both bundles and disposable README/retained control checks pass; advanced ordering/batches/doctor remain JSON-lines. This is bounded WSL2 Node client evidence, not Tasks UI, native/provider, physical-profile continuity, hardware power-loss, distributed exactly-once, interoperability or personal rollout.
+- One task model and application command path shared by UI, CLI and agents.
+- One default app, with concrete Node, SQLite and native boundaries. Reuse useful existing UI instead of maintaining a second product workbench.
+- Responsibility-based module names, without `v2` prefixes or legacy/new routing. Format/protocol version numbers remain where they describe data; they do not justify two application architectures.
+- One current specification for supported behavior, with future ideas and historical evidence clearly separate.
+- A small, isolated migration tool plus preserved backups. Old binaries can be retrieved from Git if needed; they do not have to ship inside the replacement app.
 
-**Read-only app milestone (2026-10-03):** `m1p` is now in progress. Explicit dev-launch root/cache flags and a separate confirmation gate provide a query-only browser reader through the same v2 gateway, with literal canonical projections, CLI-visible refresh, focus-preserving search/details, and visible pending/conflict/unsupported states. No selected root is saved or inferred from v1 defaults. Shared JSON-lines framing is exercised with real selected Node subprocesses; native v2 launch is withheld because a duplicate same-name Tauri shell permission can select the default v1 fixed arguments. Native permissions/code remain unchanged. UI writes/original-authority retry/previews, confirmed migration/adoption/rollback controls and native lifecycle/provider acceptance are still required. Disposable browser evidence is recorded in [conformance](spec/v2/conformance.md#explicit-read-only-app-reader); original corpus remains 101/112. This milestone does not close `m1p`, `xz2` or native gates.
+**Generic means reusable by clients, not configurable for every task system.** No new adapter framework, plugin model, metadata bag, compatibility facade or public-standard claim is needed. Publishing the app does not require proving an independently implemented public standard.
 
-The immediate implementation gate is **the accepted single-root v2 target plus actual safe migration/recovery proof**, not the next adapter. No v2 fields, file versions, or published standard are approved merely by appearing in `ideas/`. The local development queue is `sq list --ready`; `.sift/` is ignored by Git, so this plan remains the portable record of direction and gates.
+## Authority and present state
 
-### Remaining v2 work queue
+- **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
+- [Guidelines](GUIDELINES.md) owns project principles. [Usage and interaction](docs/usage-guide.md) records today's keyboard-first UI and experimental subsets. Preserve useful interactions; record deliberate changes rather than silently dropping them.
+- [Root specs](spec/overview.md) currently describe implemented legacy behavior. [New-format specs](spec/v2/overview.md) contain accepted targets; [conformance](spec/v2/conformance.md) records bounded evidence. This temporary documentation split must end at cutover, not become a permanent product boundary. Target acceptance is not permission to implement the entire target.
+- [Ideas](ideas/overview.md) preserves reasoning and proposals. [Reset inventory](docs/refactor-reset.md) records the audit and decision changes. The previous full plan is preserved at `905c65a:PLAN.md`.
 
-The staging implementation is committed as `4caaee9`. `xz2` remains the recoverable-slice umbrella, with concrete backup/conversion/migration children below; `69t` retains the existing native M1 obligations. Children are not blocked by their open umbrella. The queue records accepted-target work, not permission to upgrade personal data or a claim that the full target is implemented.
+Today the default UI/CLI still use the old model. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
 
-**Bounded editor milestone (2026-10-03):** explicit `--v2-edit` adds only literal capture/content updates on Linux with root/cache/profile confirmation, hypothetical previews and immutable memory-held executing envelopes. Every executing error locks fields and retains original context/key/version/payload/actor/flags/correlation; retry dispatches without querying, renewing authority, replanning or automatically recovering. Explicit copy/manual reconciliation and unload warnings do not make reload durable. Read-only mode/default v1 stay unchanged; profile-path/token guards are lexical/development checks, not physical-profile proof. Forty-eight editor tests include ten actual HTTP subprocess crash scenes at intent/publication/pre/postcommit/lost reply. Retained reader/framing gives 83 focused; full suite: 1,438 passed and two known skips of 1,440, zero failures. Isolated Chromium proves literal/clears/closure/no-op/preview, keyboard/mouse, draft/focus refresh, fixed stale/lost-reply retries and explicit CLI pending recovery. No corpus IDs are added:101/112. See [editor conformance](spec/v2/conformance.md#explicit-browser-capture-and-content-editing).
+The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Windows/Android writes remain withheld, and native lifecycle/recovery evidence remains open for the replacement app.
 
-**Single-task status UI milestone (2026-10-03):** on user-committed editor baseline `ef033cd`, explicit `--v2-edit` now adds all six accepted status commands through T/Change status, explicit hypothetical preview/apply and the same immutable memory-held retry lifecycle. Status effects retain content/edit time/order/graphs; no cascades, file removal or automatic undo. Disallowed transitions refuse; no-ops store only a receipt. The exact eight-command editor handshake has no read-only/v1 downgrade. Seventy-one added tests include independent30 matrix scenes and30 real HTTP crash scenes across all six commands;119 editor tests/154 focused pass. Full suite:1,509passed/two known skips of1,511, zero failures. Editor/status/reader/default-v1 Chromium and axe pass; status focus/choice survive CLI refresh, stale/lost-reply/pending retries retain the original command/version and recovery remains explicit CLI work. Corpus101/112/schema5/default-v1/native paths are unchanged. See [status UI conformance](spec/v2/conformance.md#explicit-browser-single-task-status).
+**First defect:** `src/backend/v2QueryCache.ts` repeats a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The latest parent commit did not change this path.
 
-**Latest local status undo UI milestone (2026-10-04):** on user-committed status baseline `4cba616`, the explicit Linux editor now permits only `task.status.undo` in addition to the prior eight commands. T/Change status offers Undo latest local status through the same protected preview/apply/original-memory-request lifecycle. It restores exact retained historical status/closure, preserves content/edit time/order/graphs, consumes one eligible task inverse and refuses missing/malformed/consumed/intervening history. No grouped/operation/deletion undo, redo, immediate shortcuts or native routes are added. A small history-selection guard brings missing historical status/closure/task refusal into the existing `UNDO_UNAVAILABLE` contract. Thirty-seven added checks include eight independent inverse vectors, ten history-refusal scenes, six malformed/lost replies and five real HTTP crash scenes;156 editor/191 focused pass, including45 HTTP crash scenes in total. Full suite:1,546 passed/two known skips of1,548, zero failures. Chromium covers historical closure, keyboard/mouse, non-consuming/canceled/invalidated previews, exact focus/choice, consumed-history refusal, locked stale/lost-reply/pending retries and explicit CLI recovery; reader/default-v1 regressions and axe pass. Corpus101/112/schema5/default-v1/native boundaries are unchanged. See [status undo UI conformance](spec/v2/conformance.md#explicit-browser-latest-local-status-undo).
+## Work order
 
-**Single-task parent UI milestone (2026-10-04):** on user-committed undo baseline `bdc7dad`, the explicit Linux editor adds only `task.move` through M/Change parent, non-canceled literal 50-result search/pages, explicit root removal and the existing protected preview/apply/original-memory-request lifecycle. Only deliberate menu choices change parent; synthetic/autofill selection changes cannot remove it. Backend complete-graph/complete-sibling guards remain authoritative. Meaningful moves place first and advance edit time while preserving content/status/closure/dependencies/descendant bytes; same-parent (including current canceled links) is a receipt-only no-op. Forty-five added checks include ten independent state/attach/removal vectors and ten real HTTP attach/removal crash scenes;201 editor/236 focused pass, including55 HTTP crash scenes total. Full suite:1,591 passed/two known skips of1,593, zero failures. Chromium/axe covers keyboard/mouse, retained literal search/choice/exact focus, pages beyond the home filter, subtree/no-op/cycle/canceled-current cases, locked stale/canceled-target/lost/pending retries and explicit CLI recovery; reader/default-v1 regressions pass. Corpus101/112/schema5/default-v1/native boundaries are unchanged. See [parent UI conformance](spec/v2/conformance.md#explicit-browser-single-task-parent-changes). This slice remains uncommitted.
+One bounded task at a time. **`fwk` is the sole default ready task.** Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
 
-**Next client implementation:** continue `m1p` beyond bounded browser capture/content/status/latest-status-undo/parent changes: other app mutations, confirmed migration/adoption/rollback, and a distinct safe native sidecar launch route. Preserve the keyboard-first focus contract and default v1 behavior. The opt-in human Node CLI (`q7r`) now has bounded Linux acceptance; its advanced controls remain JSON-lines. Windows/Android (`82r`, `erd`), remaining applicable corpus (`23b`) and native/provider gates still need their own evidence. Doctor inspection/planning/confirmed apply and prefix/cleanup recovery now have bounded Linux command acceptance; native/provider/cross-device guarantees remain separate. `64y`, `88e`, `4qj`, `7qe`, `ydv`, `5xb`, `q3h`, `6nf`, `fag`, `wsd` and `q7r` now have bounded Linux backup/converter/migration/lifecycle/capture/status/relationship/ordering/undo/purge/doctor/human-CLI acceptance, including explicit root/client adoption, preserved-v1 rollback, empty-root initialization, retained-cache rebuild and conservative absent-target recovery. Rebuild retains receipts/context while reissuing task versions, following the accepted fixture rather than the queue's corrected stale unconditional-reset wording. `xz2` stays open for broader vertical-slice conformance/acceptance; native `69t` is still open. No personal rollout, complete writable UI integration, native/provider or power-loss acceptance follows from these disposable controls. The remaining implementation/acceptance work is priority 3, and independent interoperability is a later priority-4 gate. Per-capability fixture/fault tests belong in each implementation task; the final conformance task is not permission to defer them.
+| Order | SQ task | Outcome |
+| --- | --- | --- |
+| 1 | `fwk` | Remove quadratic fingerprints without adding a cache framework |
+| 2 | `dh1` | Identify a capable native host and safe, minimal launch route |
+| 3 | `mg8` | Trace and tighten one real `task.update` request/recovery path |
+| 4 | `m1p` | Prove the basic task loop in one native app |
+| 5 | `hzv` | Dogfood; agree the essential keep/replace/drop workflow checklist |
+| 6 | `y9b` | Rehearse the one-time migration on a disposable source copy |
+| 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
+| Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |
 
-| Work | sq task(s) |
+### 1. Fix the measured cache defect (`fwk`)
+
+- Compute one fixed-size signature per complete sibling scope, combined with each task's exact-byte hash. No watcher, second projection store or new performance framework.
+- Preserve formatting-change detection, scope invalidation, unchanged-key selected moves, deletion/reappearance, retained context, receipts and rebuild semantics.
+- Handle existing schema-5 cache observations explicitly. Prefer the smallest safe transition; do not build a general compatibility layer or discard history/recovery evidence to hide the defect.
+- Add structural growth assertions and disposable flat/nested 1k/5k measurements. Record cache size and unchanged info/get/update cost; avoid timing-only regression assertions.
+- Exit: focused authority/recovery checks, full tests, types/lint and a short reviewed diff. No canonical format change.
+
+### 2. Establish a real native path (`dh1`)
+
+A read-only feasibility decision, not a platform-port umbrella.
+
+- Identify an actual capable host, native shell/webview, bundled runtime and supported writer profile. Prefer the existing Linux writer for a technical pilot if a capable host exists; Windows 11 remains the primary product target.
+- A Windows-first pilot needs a separately bounded writer-proof decision. The broad `82r` task is not implicitly authorized.
+- Inspect the same-binary Tauri permission first-match problem. Prefer one unambiguous fixed backend entrypoint; if a distinct temporary pilot route is necessary, record its removal in `dvs`. No arbitrary shell interface or silent legacy fallback.
+- Record allowed commands, root/cache/profile selection, process/retry behavior, filesystem assumptions and native acceptance steps in [development](docs/development.md).
+- Exit: a feasible reviewed host/profile/route or an exact blocker. **If no capable host exists, stop and ask.** More browser features are not a substitute.
+
+### 3. Make one request understandable (`mg8`)
+
+**Start with `task.update`, not an API redesign.** Trace client preparation → decoding → domain effect → publication → receipt → retry/recovery.
+
+- Review deletion/simplification opportunities in that neighborhood before extracting anything. `v2CopyStage.ts` is a known superseded candidate, but it belongs in the later cutover unless actually needed here.
+- Keep unknown JSON at decoding; give this command concrete decoded inputs/results so invalid internal calls fail compilation. Extend typing only to directly required query/envelope plumbing.
+- Make touched update/recovery transitions readable. Explain non-obvious publication, receipt and retirement invariants, not obvious assignments.
+- Do not introduce repository/service interfaces, a generic writer engine or a new folder architecture. Creation, replacement and deletion have different safety guarantees. Repetition is preferable to hiding those differences; extract only after three real equivalent call sites justify it.
+- Private client/protocol plumbing may change with its callers and tests in the same diff. No legacy aliases are required. Canonical behavior and exact-request retry safety stay intact unless an explicit contract decision changes them.
+- Preserve crash coverage, including source-transform fault harnesses affected by readability changes.
+- Exit: one human-readable traced request and reviewed diff, not a fully redesigned backend. Broader command typing and doctor/purge/order cleanup need real demand.
+
+### 4. Prove a native vertical slice (`m1p`)
+
+Keep the useful browser work, but add no browser mutations to fill a native blocker.
+
+- Adapt useful existing UI through the shared application path. Add only the launch/client changes needed for capture, content editing, single-task status/latest-status undo, search and CLI-visible refresh.
+- Require explicit disposable root/cache/profile selection and truthful capability limits; no legacy fallback. This pilot is a temporary validation step, not a permanent second application.
+- Exercise keyboard/mouse/focus, external CLI edits without restart, relaunch persistence and a declared interrupted-write/lost-reply recovery scene with original-request replay.
+- Prove separate-root backup/restore through existing CLI controls; no new migration/control UI is required.
+- Record preview/apply friction, definite refusals versus uncertain writes and memory-only retry loss on reload. Safety rules can be changed deliberately, not bypassed for a demo.
+- Exit: actual native evidence and runnable instructions on the declared host/profile. Browser/WSL process tests cannot close this gate; full legacy feature parity is not required.
+
+### 5. Dogfood and choose what survives (`hzv`)
+
+- Use realistic disposable tasks in at least three short native sessions across two days. The owner actually captures, edits, completes, undoes, searches and reopens the app.
+- Record defects, unnecessary clicks, technical language, focus and retry/reload friction. Fix only scoped defects in this loop.
+- Produce a short **keep / replace / intentionally drop** checklist for daily use: keyboard capture/editing, classification, priorities, filters, search, relationships, manual order, undo and backup/restore. A missing essential capability becomes a named bounded prerequisite to `dvs`; do not automatically rebuild the whole old feature set.
+- Decide which existing UI pieces to adapt and which prototypes to delete. The owner must agree deliberate workflow losses before cutover.
+- Exit: a reviewed usability report and essential-workflow checklist. Do not expand the model or add speculative frameworks.
+
+### 6. Rehearse the one-time migration (`y9b`)
+
+The owner is the only existing user. This is a bounded conversion job, not a general rollout/version-compatibility program.
+
+- Inspect the existing converter first. Reuse its verified mapping and publication path; remove unnecessary orchestration only where it does not weaken preservation or interruption safety.
+- Plan for one frozen legacy snapshot, an independent backup and a separate destination. Test disposable fixtures first; use a copy of personal tasks only after explicit approval to read that data. Never modify the original source.
+- Verify task IDs/counts, Markdown, statuses, priorities, classification, timestamp instants, graph edges and full sibling order. Report actual refusal cases rather than guessing around unsupported records.
+- Verify the converted root opens with fresh authority and that an interrupted attempt is recognizable and recoverable. Do not transfer old cache/receipt authority.
+- Keep instructions short: back up, pause writers/sharing, convert, inspect, explicitly switch. Returning to the preserved snapshot loses later new-format edits; keep both roots rather than promise reverse conversion.
+- Exit: verified disposable rehearsal, minimum isolated converter dependencies and a short one-user runbook. **Actual personal conversion and selection still require explicit owner approval.** No migration wizard, dual-write engine or perpetual old-client support.
+
+### 7. Make the clean cut (`dvs`)
+
+This is a functional consolidation, not a cosmetic prefix-removal project.
+
+- Make the new model/application path the sole default for UI and CLI. Remove old dispatch/fallback modes, opt-in version flags and temporary pilot routes rather than keeping compatibility aliases.
+- Reuse the reviewed UI pieces and satisfy the essential-workflow checklist. Delete superseded runtime, unused prototypes and their obsolete tests after checking callers. Do not remove current safety tests merely to lower line count.
+- Rename surviving production modules, types and commands/scripts by responsibility without `v2` code names. Update imports, entrypoints and tests together; no facade wrappers pointing to a still-parallel implementation.
+- Keep only the minimum legacy-reading code needed by the isolated one-time migration tool. Default app startup must not import or initialize a legacy engine. Old application source and binaries remain recoverable through Git/artifacts, not shipped forever.
+- Reconcile documentation into one current model/API/storage/UI contract. Keep schema/protocol numbers and historical fixture names where meaningful, not two competing current specs. Do not bulk-rewrite historical evidence as if it had tested the final app.
+- Account for changed cache/profile locations and authority bindings. Never strand pending journals or discard needed receipts/backups for a rename; document an explicit safe transition rather than silently switching locations.
+- Exit: one default UI/CLI/native launch path, responsibility-based production names, isolated migration tooling, no legacy application fallback, and disposable workflow/restart/recovery proof. Release only platforms actually validated.
+
+## Publication gate and deferred work
+
+`xz2` reviews the consolidated application, essential workflow, migration rehearsal and native evidence. It records one explicit next release scope or blockers, not an unbounded “finish the target” instruction. A Linux pilot alone does not establish Windows readiness; Windows 11 remains the primary target. New platform or missing-essential work gets a bounded task before implementation.
+
+| Work | Disposition |
 | --- | --- |
-| Usable backup/restore, fixed copy recovery, receipts and verified publication | `64y` (bounded Linux subset complete) |
-| Strict complete v1 snapshot validation and full-field conversion | `88e` (read-only component complete) |
-| Guarded migration, fresh-authority adoption and explicit v1 rollback | `4qj` (bounded Linux control/client proof complete) |
-| Explicit collection initialization and retained-cache rebuild | `7qe` (bounded Linux controls complete) |
-| Capture/status and guarded parent/dependency edits | `ydv` (closed), `5xb` (bounded Linux commands complete) |
-| Guarded status/batch/grouped undo and archived unreferenced creation removal | `6nf` (bounded Linux subset complete) |
-| Verified canceled-task purge with bound deletion recovery | `fag` (bounded Linux subset complete) |
-| Reviewed conflict inspection/planning and confirmed guarded apply/archive/cleanup/recovery | `wsd` (bounded Linux subset complete) |
-| Opt-in human CLI and Tasks UI integration | `q7r` (bounded Linux friendly subset complete), `m1p` (in progress; explicit reader and bounded browser capture/content/status/latest-status-undo/parent changes verified) |
-| Supported native Windows writes and Android document-provider implementation | `82r`, `erd` |
-| Remaining black-box corpus execution and separate v2 native acceptance | `23b`, `gex` |
-| Human migration/rollout guide after runnable behavior and acceptance | `y9b` |
-| Independent second-implementation proof before a public-standard claim | `zaq` |
+| Missing agreed daily-use capabilities | Name and approve individually after `hzv`; block `dvs` if essential |
+| Broad Windows writes (`82r`) / Android SAF port (`erd`) | Held for explicit platform scope; use the same model/rules, not another versioned engine |
+| Remaining corpus (`23b`) | Audit applicability to declared support, not implement unrelated features to reach 112/112 |
+| Wider native/provider matrix (`gex`) | Validate the replacement app for selected release claims; do not keep a legacy-native gate |
+| Independent interoperability (`zaq`) | Needed only for a public-standard claim, not app publication |
+| More advanced browser/control features, multi-source/adapters | Off the critical path; retain only if the real product needs them |
+| Hosted sync, collaboration, recurrence, reminders, calendars, built-in AI, plugins, MCP | Deferred pending actual use evidence |
 
-All mutation/migration work uses disposable roots and retains default v1 behavior. Platform tasks must withhold unsupported capabilities rather than approximate guarantees. V2 native acceptance is separate from `69t`; neither browser/WSL evidence nor a completed converter closes either native gate. Actual dependencies and acceptance criteria live in `sq show <id>`; this table is the portable map because `.sift/` is not tracked.
+The old legacy-only native task `69t` is superseded, not passed. Its still-relevant lifecycle/restore/focus obligations move to `m1p` and replacement-app release validation (`gex`). Closed implementation/evidence tasks remain historical records; do not reopen them to rewrite history.
 
-## Previous milestone baseline
+## Safety and working protocol
 
-**Reviewed:** 2026-09-06
+- No need for compatibility with unknown external installations. Cleanly change private APIs with their clients and tests. Consequential model/format changes still need an explicit spec decision.
+- Compatibility with old code is optional; preserving the owner's data is not. Use separate-root migration and independent backups, no implicit live upgrade or personal-root inference.
+- Canonical JSON owns task state. SQLite also retains local receipts/history; deleting it is not a supported rebuild. Preserve active recovery evidence and original-request retry safety.
+- TypeScript owns domain rules; Tauri 2/React and bundled Node remain the desktop direction. Keep native/storage details at concrete boundaries. License stays MIT.
+- Keep accepted literal-title/classification, sparse order, timestamp/status rules unless a deliberate decision changes them. Do not silently alter inherited readiness behavior such as done dependencies still blocking.
 
-**Status at that review:** M0 complete; M1 in progress. The following decisions and M1/native recovery obligations describe the earlier app baseline. When v2 proposals challenge a v1 decision, resolve the difference explicitly in the versioned spec rather than silently rewriting this history. Current behavior is described in [the system specification](spec/overview.md); technical details live in [Development and validation](docs/development.md), with first-party interaction guidance in [Usage and interaction](docs/usage-guide.md).
+For each task:
 
-## Direction
+1. Read this plan, `sq show ID`, relevant specs and neighboring code. Start from `sq list --ready`; user instructions override queue priority.
+2. Mark only that task in progress. Use disposable data and one writer per working directory.
+3. Apply clean-code in order: delete → simplify → rename → extract → pattern. Keep one explainable outcome; run the review checklist, types/lint/full tests and relevant process/UI checks.
+4. Report the exercised command/client flow, changed lines, failures/skips/native limits and next small step. Update task evidence, not every historical milestone paragraph.
+5. **Stop for review.** An unresolved host/tooling/contract/UX blocker stops the sequence; do not fill the gap with features.
+6. SQ is shared local metadata under `.sift/`, outside Git. Keep pi-task fields under `pi_tasks` and dependencies consistent with this plan.
 
-Tasks is a local-first, keyboard-first task app for one person working alongside existing external agents such as pi. Its core loop is:
-
-> capture quickly → clarify → choose today's work → complete it → understand what changed
-
-The UI and standalone CLI use the same typed TypeScript command path. Agents inspect and update the workspace only when explicitly invoked; Tasks is not an autonomous agent platform.
-
-The first release should prove a useful personal workflow rather than become a team tracker or general agent framework.
-
-## Confirmed decisions
-
-- **Core:** TypeScript owns domain rules, validation, commands, and contracts.
-- **Desktop:** Tauri 2 with React, Vite, and a thin Rust/native boundary.
-- **Runtime:** a bundled Node LTS sidecar runs the TypeScript backend; users do not need Node installed.
-- **Storage:** canonical task state is inspectable JSON; SQLite is a local, rebuildable query cache. See [Canonical workspace files](docs/canonical-workspace.md).
-- **Agent access:** a standalone local JSON-lines CLI shares the command path and workspace with the desktop app.
-- **Platforms:** Windows 11 is the primary native target; Omarchy/Linux is a secondary target.
-- **UI foundation:** shadcn/ui with Base UI primitives, Tailwind, and semantic design tokens.
-- **License:** MIT.
-
-These decisions should not be reopened without new evidence from implementation, packaging, or real use.
-
-## Scope
-
-### First usable release
-
-- One local workspace with quick capture, editing, completion, reopening, cancellation, and search.
-- Inbox and a small daily working set with planning, due, and defer dates.
-- Lightweight parent/child tasks and dependencies, with a deliberately shallow first hierarchy surface.
-- One optional `@category` and any number of `#tags` parsed from the task title.
-- Keyboard-first list/detail UI, discoverable commands, and Markdown notes.
-- CLI create/read/update/state commands with structured output, previews, safe retries, and activity history.
-- Backups, tested restore, versioned JSON snapshots, and readable task export.
-
-### Deferred
-
-Hosted sync, collaboration, PWA/browser storage, built-in AI or chat, autonomous execution, recurrence, reminders, calendar integration, complex taxonomies, plugins, Obsidian folder sync, and MCP. Do not reserve tables or build adapters for these until daily use provides evidence.
-
-## Milestones
-
-### M0 — Runtime and packaging proof — complete
-
-Prove the TypeScript backend, SQLite/FTS5, CLI, Tauri bridge, bundled sidecar, and process lifecycle. The current evidence includes Linux backend/sidecar probes, native Windows 11 desktop and WSL bridge checks, sidecar recovery, and Windows MSI/NSIS builds. Omarchy native validation remains open.
-
-### M1 — Recoverable vertical slice — in progress
-
-Ship reliable flat-task capture and management over the real command path: activity, classification, optimistic versions, idempotency, previews, backup/restore, JSON export, and conflict handling. Native Windows UI dogfood and restart/restore evidence remain open.
-
-Exit evidence includes UI capture, CLI edits visible without restart, persistence across relaunch, classification updates, stale-write and duplicate-retry tests, rollback/failure tests, and fresh-workspace restore tests.
-
-### M2 — Daily human-and-agent workflow
-
-Add Inbox/Today, dates and deferral, FTS search, keyboard completion for categories/tags, subtasks/dependencies, Markdown export, and visible agent activity. Dogfood for a working week and test dates, graph safety, search consistency, focus, accessibility, and hostile Markdown in actual desktop webviews.
-
-### M3 — Distributable beta
-
-Harden packaging, recovery, upgrade/data retention, documentation, licensing notices, repeatable Windows/Linux builds, and performance measurement on a representative 10,000-task workspace. Signing and public naming are decisions for this milestone.
-
-## Current open items
-
-- Complete M1 native Windows UI dogfood, restart, and restore evidence.
-- Finish remaining M2 planning and search work and exercise the relationship slice in daily use.
-- Validate themed surfaces and the core workflow natively on Omarchy/Linux.
-- Keep the Node/SQLite binding and cross-platform distribution approach pinned to a supported runtime after packaging evidence, rather than relying on developer-machine versions.
-- Record native-platform blockers explicitly; browser previews and WSL checks do not substitute for native desktop validation.
-
-## Technical reference
-
-For the implementation contract, consult [Development and validation](docs/development.md), especially:
-
-- process architecture and module boundaries;
-- shared command, version, idempotency, and activity rules;
-- SQLite/cache, concurrency, sidecar lifecycle, and WSL access;
-- backup, restore, import/export, and security expectations;
-- required commands and native-platform validation boundaries.
-
-For canonical files, conflicts, and rebuild behavior, consult [Canonical workspace files](docs/canonical-workspace.md). For multi-device operation, consult [Syncthing setup](docs/syncthing.md).
+Commands and native setup are in [README](README.md) and [development](docs/development.md). This planning change authorizes the destination and scope, not implemented platform support, personal migration or a release claim.

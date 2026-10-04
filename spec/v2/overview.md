@@ -1,6 +1,6 @@
 # TaskDB v2 target
 
-**Status: accepted target, not implemented.** Accepted for the bounded single-directory implementation gate (2026-10-01). Acceptance specifies intended behavior; it is not a passing writer, migration, native-platform or public-standard claim. The [root specification](../overview.md) remains implemented v1. No live directory is upgraded merely by installing a newer client.
+**Status: accepted target, not implemented.** Accepted for the bounded single-directory implementation gate (2026-10-01). Acceptance specifies intended behavior; it is not a passing writer, migration, native-platform or public-standard claim. The [root specification](../overview.md) remains implemented v1. No live directory is upgraded merely by installing a newer client. The [clean-cut plan](../../PLAN.md) now targets one replacement application and one current specification, not permanent v1/v2 runtimes. Legacy support will be isolated to one-time conversion; schema/protocol version numbers remain meaningful. Current opt-in behavior below is evidence of today's implementation, not a compatibility promise.
 
 MUST/MUST NOT are requirements. MAY is optional behavior that cannot weaken a MUST. A client claiming a capability MUST pass its applicable cases and declare unsupported operations rather than approximate them.
 
