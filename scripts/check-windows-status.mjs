@@ -18,7 +18,7 @@ mkdirSync(path.join(checkout, ".tmp"), { recursive: true }); const scratch = mkd
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9", golden = path.join(checkout, "scripts/fixtures/taskdb-v2/root");
 const states = ["open", "in_progress", "paused", "done", "canceled"];
 const matrix = { start: [["open", "in_progress", "paused", "done"], "in_progress"], pause: [["open", "in_progress", "paused"], "paused"], complete: [["open", "in_progress", "paused", "done"], "done"], reopen: [states, "open"], cancel: [["open", "in_progress", "paused", "canceled"], "canceled"], delete: [states, "canceled"] };
-const commands = ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "workspace.info", "workspace.recovery.resume", ...Object.keys(matrix).map(suffix => `task.${suffix}`), "task.status.undo"].sort();
+const commands = ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "workspace.info", "workspace.archive", "workspace.restore", "workspace.recovery.resume", ...Object.keys(matrix).map(suffix => `task.${suffix}`), "task.status.undo"].sort();
 const cuts = ["intent", "staged", "replaced", "verified", "beforeCommit", "afterCommit", "lostReply"];
 const faultNames = [...cuts.filter(cut => !["beforeCommit", "afterCommit"].includes(cut)).flatMap(cut => [`status-${cut}`, `undo-${cut}`]), "beforeCommit", "afterCommit", "undo-flushRefusal"];
 const passed = [], artifacts = []; let index = 0, complete = false;
@@ -97,7 +97,7 @@ try {
     const allow = workspace(`${prefix}-allowlist`), baseline = raw(allow), request = prepared(runner, allow, "task.start");
     assert.deepEqual(ok(send(runner, allow, { command: "workspace.info" })).result.commands, commands);
     for (const command of [...Object.keys(matrix).map(suffix => `task.${suffix}`), "task.status.undo"]) fail(send(runner, allow, { ...request, command }, undefined, false), "UNSUPPORTED_COMMAND");
-    for (const command of ["task.transitionMany", "task.status.undoMany", "operation.undo", "task.move", "task.dependency.add", "task.reorder", "task.purgeCanceled", "workspace.archive", "workspace.restore", "workspace.doctor.apply"]) fail(send(runner, allow, { ...request, command }), "UNSUPPORTED_COMMAND");
+    for (const command of ["task.transitionMany", "task.status.undoMany", "operation.undo", "task.move", "task.dependency.add", "task.reorder", "task.purgeCanceled", "workspace.doctor.apply"]) fail(send(runner, allow, { ...request, command }), "UNSUPPORTED_COMMAND");
     assert.deepEqual(raw(allow), baseline); assert.deepEqual(counts(allow), [0, 0, 0]); passed.push(`${prefix}: exact private allowlist; defaults/grouped/arbitrary/control refusals`);
     for (const [suffix, [sources, target]] of Object.entries(matrix)) for (const status of states) {
       const w = workspace(`${prefix}-${suffix}-${status}`, status), command = `task.${suffix}`, request = prepared(runner, w, command), before = JSON.parse(readFileSync(w.file)), baseline = raw(w);

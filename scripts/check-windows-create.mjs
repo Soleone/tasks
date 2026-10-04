@@ -147,9 +147,9 @@ try {
     }
     const w = workspace(`${prefix}-capture`), request = prepared(runner, w), before = raw(w);
     const advertised = ok(send(runner, w, { command: "workspace.info" })).result.commands;
-    assert.deepEqual(advertised, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "workspace.info", "workspace.recovery.resume"].sort());
+    assert.deepEqual(advertised, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "workspace.info", "workspace.archive", "workspace.restore", "workspace.recovery.resume"].sort());
     fail(send(runner, w, request, false), "UNSUPPORTED_COMMAND");
-    for (const command of ["task.status.undoMany", "task.move", "task.dependency.add", "task.reorder", "task.transitionMany", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
+    for (const command of ["task.status.undoMany", "task.move", "task.dependency.add", "task.reorder", "task.transitionMany", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.migrateV1", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
     const preview = ok(send(runner, w, { ...request, idempotencyKey: undefined, dryRun: true }));
     assert.match(preview.result.task.id, uuid); assert.equal(preview.result.operationId, undefined);
     assert.deepEqual(raw(w), before); assert.deepEqual(counts(w), [0, 0]);
