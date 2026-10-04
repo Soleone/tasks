@@ -35,7 +35,9 @@ The refactor mostly added a parallel implementation. Do not revert the useful wo
 
 ## Work order
 
-One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. **Stop for review of the [final native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04). Next is `mg8`, the single update-request trace, not native UI implementation or more Windows capabilities.** The owner chose Windows-first because rebooting into Omarchy is impractical. Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
+One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded; current work is `mg8`, the single update-request trace, not native UI implementation or more Windows capabilities. The owner chose Windows-first because rebooting into Omarchy is impractical.
+
+**Owner override (2026-10-04): run the task → validate/self-review → quick commit → next ready task loop without routine supervision, including continuation after auto-compaction.** This replaces the per-task owner review pauses below, not bounded scope, safety, tests, native acceptance or human/personal-data approval gates. Do not auto-switch providers when usage is exhausted. Use fresh quota/reset evidence and a verified session-only wake if available; no closed-process resumption guarantee. Durable loop state is under `$DATA/handoffs/2026-10-04-tasks-autonomous-loop.md`.
 
 | Order | SQ task | Outcome |
 | --- | --- | --- |
@@ -155,7 +157,7 @@ For each task:
 2. Mark only that task in progress. Use disposable data and one writer per working directory.
 3. Apply clean-code in order: delete → simplify → rename → extract → pattern. Keep one explainable outcome; run the review checklist, types/lint/full tests and relevant process/UI checks.
 4. Report the exercised command/client flow, changed lines, failures/skips/native limits and next small step. Update task evidence, not every historical milestone paragraph.
-5. **Stop for review.** An unresolved host/tooling/contract/UX blocker stops the sequence; do not fill the gap with features.
+5. Self-review each task, quick commit validated scoped changes and continue while the owner's autonomous loop is active. **Stop or pause for a real blocker**, including missing native guarantees, failing checks, personal-data permission or required owner participation; do not fill the gap with features or declare that gate passed. Preserve in-progress state/diff and a durable handoff at quota/compaction boundaries.
 6. SQ is shared local metadata under `.sift/`, outside Git. Keep pi-task fields under `pi_tasks` and dependencies consistent with this plan.
 
 Commands and native setup are in [README](README.md) and [development](docs/development.md). This planning change authorizes the destination and scope, not implemented platform support, personal migration or a release claim.
