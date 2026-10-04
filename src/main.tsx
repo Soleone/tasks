@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import favicon16Url from "../assets/branding/favicon-two-color-v8-16.png";
 import favicon32Url from "../assets/branding/favicon-two-color-v8-32.png";
@@ -10,6 +10,8 @@ import { applyStoredFontSizeIncrease } from "./fontSize";
 import { applyStoredTheme } from "./theme";
 import { runtimeKind } from "./platform/runtime";
 import "./styles.css";
+
+const V2App = lazy(() => import("./V2App"));
 
 document.title = APP_NAME;
 if (runtimeKind() === "android") document.documentElement.classList.add("android");
@@ -37,7 +39,9 @@ applyStoredFontSizeIncrease();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      <App />
+      {import.meta.env.VITE_TASKDB_V2 === "1" ? (
+        <Suspense fallback={<p role="status">Loading the v2 reader...</p>}><V2App /></Suspense>
+      ) : <App />}
     </TooltipProvider>
   </StrictMode>,
 );

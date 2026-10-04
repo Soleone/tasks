@@ -26,6 +26,10 @@ Standalone CLI -> the same TypeScript commands and storage adapters
 
 At the React surface, `App.tsx` owns task-query and refresh lifecycle, persisted view choices, and dialog orchestration. `TaskList.tsx` owns home-list focus and active/selection identity, list shortcuts, and sibling reorder interaction. Keep the focus-preserving refresh bridge at that boundary.
 
+The default path remains protocol 1. The [experimental v2 browser reader](../README.md#opt-in-v2-browser-reader) has a separate `V2App.tsx` confirmation gate, `V2ReaderView.tsx` query/focus lifecycle and `v2BackendClient.ts` strict v2 projections. `scripts/dev-web.mjs --v2-root PATH --database CACHE` selects a read-only dev bridge and sets `VITE_TASKDB_V2=1` for Vite; unflagged launches explicitly use the v1 app. Only the matching dev bridge's per-process selection token is accepted. No selection is persisted or passed through the v1 client/registry.
+
+`JsonLineSession` shares process framing/correlation/timeouts; `BackendSession` retains its v1 parser and unchanged `--stdio` launch. The v2 reader's selected Node process factory is exercised by tests, not exposed as a native capability. Native v2 launch is withheld: the current shell plugin chooses the first matching binary permission, so adding another entry with different arguments could silently launch v1. Packaging a distinct native route and validating its lifecycle remain open. Android v2 UI is also withheld. Default Tauri permissions and native code are unchanged.
+
 Keep the boundaries concrete:
 
 - **Domain/contracts** contain task rules, schemas, command/query types, and stable errors. They do not import Tauri, Node, the DOM, or SQLite.
@@ -80,7 +84,8 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm test` | Build the backend and run the file-backed SQLite tests. |
 | `pnpm test:sidecar` | Build the target Node SEA sidecar and run it with a minimal environment. |
 | `pnpm build:sidecar` | Rebuild the target sidecar and `tasks-cli` binaries without running their probes. |
-| `pnpm test:ui` | Exercise the UI in Chromium against a temporary workspace. |
+| `pnpm test:ui` | Exercise the default v1 UI in Chromium against a temporary workspace. |
+| `node scripts/check-v2-ui.mjs` | Exercise the explicit read-only v2 browser reader, CLI visibility, pending/recovery and default-v1 isolation on disposable roots. |
 | `pnpm dev:web` | Run Vite and the dev-only local backend. |
 | `pnpm dev:backend` | Run only the dev backend. |
 | `pnpm dev:tauri` | Run the native Tauri shell, rebuilding the sidecar only when needed. On Linux, the app applies the WebKitGTK workaround before webview startup. |
@@ -109,7 +114,7 @@ $env:TASKS_SYNC_ROOT = "$PWD\.tmp\tasks-dev\sync"
 pnpm dev:web
 ```
 
-The dev backend binds to `127.0.0.1`. Its default port is `5174`; set `TASKS_DEV_BACKEND_PORT` to change it. Vite arguments can be passed after `--`, for example `pnpm dev:web -- --port 5199`. `pnpm dev` starts Vite without a backend; set `VITE_DEV_BACKEND_URL` when connecting it to a separately started bridge. The bridge only accepts local-page origins and is never packaged.
+The dev backend binds to `127.0.0.1`. Its default port is `5174`; set `TASKS_DEV_BACKEND_PORT` to change it. Vite arguments can be passed after `--`, for example `pnpm dev:web -- --port 5199`. `pnpm dev` starts Vite without a backend; set `VITE_DEV_BACKEND_URL` when connecting it to a separately started bridge. The bridge only accepts local-page origins and is never packaged. For v2 use the [disposable reader walkthrough](../README.md#opt-in-v2-browser-reader), with both directory flags before `--`. V2 health reports configuration without querying a root; confirmed queries may create/update its outside-root cache. Raw HTTP mutations are refused even if the underlying Linux CLI gateway advertises them. Do not treat this dev listener, selection token or browser checks as a filesystem security sandbox, native lifecycle or writable-client acceptance.
 
 The theme preview is served at `http://127.0.0.1:5173/themes.html` while `pnpm dev:web` is running. It reads the same built-in and workspace theme files but does not persist a selection.
 

@@ -120,4 +120,19 @@ Treat this document as the UI interaction contract when using browser automation
 - While visible, the home list checks a shared workspace revision and reloads only when it changes, so CLI and agent writes appear without a restart. Refreshes must preserve focus and unsaved inline-editor content. A new data result should update the active row without moving the user's focus unless the focused element no longer exists.
 - Keep the end-to-end assertions in `scripts/check-ui.mjs` aligned with this guide. Run `pnpm test:ui` when Chromium and `agent-browser` are available; use a scratch database only.
 
+## Experimental v2 browser reader
+
+The default app and the interaction contract above remain v1. The [explicit browser reader](../README.md#opt-in-v2-browser-reader) is a partial, read-only v2 client, not a replacement home screen or a complete v2 UI acceptance claim.
+
+- Launch with explicit `--v2-root` and outside-root `--database`, then confirm both displayed paths. The dev bridge is query-only. Confirmation precedes task queries and cache creation; selection is not persisted.
+- Initial ready/empty-results focus belongs on the list; initial unavailable/error states focus Retry. Search and dialog focus are preserved across visible-page polling. Active task identity survives fresh results while present.
+- While the list is focused, arrows/J/K and Home/End navigate the matching page; Enter opens literal details. Click a row and use Show details for the mouse path. Escape or Close returns from details to the list.
+- Search is applied on Enter/Search, not as a side effect of refresh. Status has a separate dropdown. Results use manual preorder, with excluded ancestors shown as context and pagination bounded to 50 matching tasks. This does not implement v1 collapse, group selection, filter-toolbar or full home-shortcut behavior.
+- Canonical title/description and string category/tag slugs are rendered without v1 classification parsing or legacy `descriptionMarkdown`/closure aliases. Details are an explicitly read-only snapshot.
+- Pending/invalid evidence suppresses task rows, reports available diagnostics/operation ID and never executes recovery. Known task conflict copies are reported separately; alternate versions are never adopted implicitly.
+- A restarted/replaced dev bridge refuses the retained page's selection token. Reload and confirm the displayed selection rather than silently reconnecting to another root or default v1.
+- No capture, edit, status, relationship, order, undo, purge, doctor, initialization, migration, rollback or recovery controls are provided. Supported CLI controls remain separate. Native desktop launch and Android v2 UI are withheld; no v1 sidecar fallback occurs.
+
+`node scripts/check-v2-ui.mjs` exercises disposable browser/process scenes, including actual CLI edits and explicit pending recovery, with a separately preserved v1 UI return. It does not execute an app migration/adoption/rollback flow or establish native/provider acceptance. `m1p` remains open for those controls and original-authority mutation/retry handling.
+
 The backend and standalone CLI are separate keyboard-free agent surfaces that use the same typed command path and SQLite workspace. `task.list` accepts `sort: "manual"`; `task.reorder` accepts an explicit `tasks` list with expected versions and one `beforeId`, `afterId`, `first`, or `last` placement. UI focus does not replace those interfaces, and UI-only behavior must not introduce duplicate task or storage rules.

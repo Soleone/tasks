@@ -18,6 +18,30 @@ export type V2Response =
   | { version: 2; requestId: string | null; ok: true; writeContext: string; result: Record<string, unknown> }
   | { version: 2; requestId: string | null; ok: false; error: { code: string; message: string; details?: Record<string, unknown> } };
 
+export function parseV2Response(value: unknown): V2Response {
+  if (!isV2Record(value) || value.version !== 2
+    || (value.requestId !== null && typeof value.requestId !== "string")) {
+    throw new Error("backend did not return a protocol-2 response");
+  }
+  const fields = value.ok === true
+    ? ["version", "requestId", "ok", "writeContext", "result"]
+    : ["version", "requestId", "ok", "error"];
+  if (Object.keys(value).some(field => !fields.includes(field))) {
+    throw new Error("backend returned unexpected protocol-2 response fields");
+  }
+  if (value.ok === true && typeof value.writeContext === "string" && value.writeContext.trim() !== "" && isV2Record(value.result)) {
+    return value as V2Response;
+  }
+  if (value.ok === false && isV2Record(value.error)
+    && typeof value.error.code === "string" && value.error.code !== ""
+    && typeof value.error.message === "string"
+    && (value.error.details === undefined || isV2Record(value.error.details))
+    && Object.keys(value.error).every(field => ["code", "message", "details"].includes(field))) {
+    return value as V2Response;
+  }
+  throw new Error("backend returned an invalid protocol-2 response");
+}
+
 export const V2_QUERY_COMMANDS = ["category.list", "tag.list", "task.get", "task.list", "workspace.info"] as const;
 const knownCommands = new Set<string>([...COMMAND_NAMES, "task.order.normalize", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]);
 const envelopeFields = new Set(["version", "requestId", "command", "args", "actor", "idempotencyKey", "writeContext", "readOnly", "dryRun"]);

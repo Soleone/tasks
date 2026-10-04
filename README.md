@@ -24,6 +24,30 @@ Current task state lives in ordinary JSON files under `sync/`; SQLite is a local
 
 If another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. Tasks backs up and empties the local workspace, locks the UI, and waits for the existing workspace. Follow [the Syncthing setup](docs/syncthing.md) for the complete procedure.
 
+## Opt-in v2 browser reader
+
+The default app stays v1. A separate, **read-only** v2 browser mode now lets you inspect a disposable schema-2 folder, watch CLI changes, search/filter by status and open literal task details. It is an unfinished client milestone, not the full v2 app or native acceptance.
+
+Start it from the project root:
+
+```bash
+viewscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$viewscratch/root"
+printf 'Disposable reader workspace: %s\n' "$viewscratch"
+XDG_DATA_HOME="$viewscratch/local-data" pnpm dev:web \
+  --v2-root "$viewscratch/root" --database "$viewscratch/cache.db"
+```
+
+1. Open the URL Vite prints. Check the displayed task folder and outside-root cache, then choose **Browse this v2 folder**. No task query or cache creation occurs before confirmation.
+2. The task list receives initial focus. Use arrows or J/K while the list is focused; Enter or **Show details** opens a read-only snapshot, and Escape returns to the list. Titles such as `Call @alice` stay literal. Category/tag badges show canonical slugs, not inferred labels.
+3. In another terminal, use the [opt-in human CLI](#opt-in-v2-human-cli) with the **same printed root, cache and `XDG_DATA_HOME`**. New CLI changes appear during visible-page refresh without stealing search or dialog focus.
+4. Pending recovery pauses browsing. Preserve the original root/cache/profile/evidence and use the CLI's explicit recovery controls or manual inspection. Refresh does not repair, retry writes or switch folders.
+5. **Leave folder** returns to confirmation. Reloads also require confirmation; this mode saves no selection. Stop the server and run the ordinary v1 app with your separately preserved v1 folder to return to v1. Later v2 edits are not reverse-converted.
+
+Both directory flags are required; v1 environment/registry/database defaults are never used in this mode. Put optional Vite flags after `--`. The dev bridge accepts only v2 queries and uses a per-process selection token to refuse a restarted/replaced backend until you reload and confirm again. This is a local development guard, not a filesystem sandbox or distributed authority. Reads can update the **local** query cache; they never initialize or edit canonical tasks.
+
+Capture, status changes, editing, relationships, ordering, undo, purge, doctor, migration/adoption/rollback and recovery controls remain unavailable in this UI. Native desktop launch and Android v2 integration are withheld. A second permission entry for the same Tauri binary is unsafe with the current first-match shell scope, so native permissions and the default v1 sidecar remain unchanged. See [reader evidence](spec/v2/conformance.md#explicit-read-only-app-reader) and [the interaction subset](docs/usage-guide.md#experimental-v2-browser-reader). Run `node scripts/check-v2-ui.mjs` for the isolated Chromium check; it requires `agent-browser` and is not native acceptance.
+
 ## Opt-in v2 human CLI
 
 The app and `tasks-cli` **without `--v2-root` remain v1**. The friendly Node CLI now has an explicitly selected v2 mode over the same protocol gateway. Linux writes only; use disposable copies and pause other writers/sharing before destructive work. It requires both a root and a separate cache, with no v1 environment or registry fallback.

@@ -5,8 +5,10 @@ import {
   type ProtocolResponse,
 } from "../backend/protocol";
 
-type PendingRequest = {
-  resolve: (response: ProtocolResponse) => void;
+type CorrelatedResponse = { requestId: string | null };
+
+type PendingRequest<Response extends CorrelatedResponse> = {
+  resolve: (response: Response) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
 };
@@ -21,29 +23,30 @@ function asError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 
-export class BackendSession {
+export class JsonLineSession<Response extends CorrelatedResponse> {
   private child: Child | null = null;
   private starting: Promise<void> | null = null;
   private stdoutBuffer = "";
-  private readonly pending = new Map<string, PendingRequest>();
+  private readonly pending = new Map<string, PendingRequest<Response>>();
 
   constructor(
-    private readonly makeCommand: () => Promise<Command<string>> = async () => {
-      const { Command } = await import("@tauri-apps/plugin-shell");
-      return Command.sidecar("binaries/tasks-backend", ["--stdio"]);
-    },
+    private readonly makeCommand: () => Promise<Command<string>>,
+    private readonly decodeResponse: (value: unknown) => Response,
     private readonly requestTimeoutMs = REQUEST_TIMEOUT_MS,
   ) {}
 
-  async request(request: ProtocolRequest): Promise<ProtocolResponse> {
+  async request(request: { requestId: string }): Promise<Response> {
     await this.ensureStarted();
 
     if (!this.child) {
       throw new Error("backend process is not available");
     }
 
+    if (this.pending.has(request.requestId)) {
+      throw new Error("backend request ID is already pending");
+    }
     const child = this.child;
-    return new Promise<ProtocolResponse>((resolve, reject) => {
+    return new Promise<Response>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (this.pending.has(request.requestId)) {
           this.fail(new Error(`backend request timed out after ${this.requestTimeoutMs} ms; retry uncertain writes with the same idempotency key`));
@@ -128,12 +131,12 @@ export class BackendSession {
       }
 
       try {
-        const response = parseResponse(JSON.parse(line));
-        const request = this.pending.get(response.requestId);
+        const response = this.decodeResponse(JSON.parse(line));
+        const request = typeof response.requestId === "string" ? this.pending.get(response.requestId) : undefined;
         if (!request) {
           throw new Error(`backend returned an unknown request ID: ${response.requestId}`);
         }
-        this.pending.delete(response.requestId);
+        this.pending.delete(response.requestId!);
         clearTimeout(request.timeout);
         request.resolve(response);
       } catch (error) {
@@ -171,5 +174,21 @@ export class BackendSession {
     } catch {
       // The process may have exited between the failure and cleanup.
     }
+  }
+}
+
+export class BackendSession extends JsonLineSession<ProtocolResponse> {
+  constructor(
+    makeCommand: () => Promise<Command<string>> = async () => {
+      const { Command } = await import("@tauri-apps/plugin-shell");
+      return Command.sidecar("binaries/tasks-backend", ["--stdio"]);
+    },
+    requestTimeoutMs = REQUEST_TIMEOUT_MS,
+  ) {
+    super(makeCommand, parseResponse, requestTimeoutMs);
+  }
+
+  override request(request: ProtocolRequest): Promise<ProtocolResponse> {
+    return super.request(request);
   }
 }

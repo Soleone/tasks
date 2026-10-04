@@ -27,7 +27,7 @@ export function taskContextMessage(task: TaskRecord): string {
 }
 
 /** Informational status icon. Interactive toggling stays with the list. */
-export function TaskStatusDisplay({ task }: { task: TaskRecord }): ReactElement {
+export function TaskStatusDisplay({ task }: { task: Pick<TaskRecord, "status"> }): ReactElement {
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
   return (

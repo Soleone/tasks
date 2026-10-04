@@ -1,21 +1,21 @@
 import { execFileSync, spawn } from "node:child_process";
 import path from "node:path";
+import { devWebOptions } from "./dev-web-options.mjs";
 
+const { backendArgs, viteArgs, v2 } = devWebOptions(process.argv.slice(2));
 const root = path.resolve(import.meta.dirname, "..");
 
 execFileSync("pnpm", ["build:backend"], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });
 
-const backend = spawn(process.execPath, ["dist/backend/devServer.js"], {
+const backend = spawn(process.execPath, ["dist/backend/devServer.js", ...backendArgs], {
   cwd: root,
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,
 });
-const separator = process.argv.indexOf("--");
-const viteArgs = separator === -1 ? [] : process.argv.slice(separator + 1);
 const vite = spawn(process.execPath, ["node_modules/vite/bin/vite.js", ...viteArgs], {
   cwd: root,
   stdio: ["ignore", "pipe", "pipe"],
-  env: process.env,
+  env: { ...process.env, VITE_TASKDB_V2: v2 ? "1" : "0" },
 });
 
 function pipe(child, name) {
