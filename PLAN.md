@@ -35,15 +35,18 @@ The refactor mostly added a parallel implementation. Do not revert the useful wo
 
 ## Work order
 
-One bounded task at a time. `fwk` and the bounded Windows proof `fcf` are complete. **Stop for review of the Windows Node/SEA evidence in [development](docs/development.md#windows-content-update-proof-fcf-2026-10-04). After review, `dh1` is the next task, finishing the host/profile/launch decision, not enabling further commands.** The owner chose Windows-first because rebooting into Omarchy is impractical. Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
+One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. **Stop for review of the [final native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04). Next is `mg8`, the single update-request trace, not native UI implementation or more Windows capabilities.** The owner chose Windows-first because rebooting into Omarchy is impractical. Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
 
 | Order | SQ task | Outcome |
 | --- | --- | --- |
 | 1 | `fwk` | Remove quadratic fingerprints without adding a cache framework |
 | Prerequisite | `fcf` | Complete: actual Windows Node/SEA content-update/recovery proof; review checkpoint |
-| 2 | `dh1` | Finish the selected Windows host/profile and safe, minimal launch decision after `fcf` |
+| 2 | `dh1` | Complete: Windows content-only profile, one inline pilot capability and existing SEA; launch remains unimplemented |
 | 3 | `mg8` | Trace and tighten one real `task.update` request/recovery path |
-| 4 | `m1p` | Prove the basic task loop in one native app |
+| Windows prerequisite | `7hr` | After `mg8` review, prove capture/no-clobber publication and absence-safe recovery |
+| Windows prerequisite | `byy` | After `7hr` review, prove single-task statuses and latest-status undo |
+| Windows prerequisite | `gxm` | After `byy` review, prove separate-root archive/restore publication and recovery |
+| 4 | `m1p` | After all three Windows proofs, prove the basic task loop in one native app |
 | 5 | `hzv` | Dogfood; agree the essential keep/replace/drop workflow checklist |
 | 6 | `y9b` | Rehearse the one-time migration on a disposable source copy |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
@@ -65,6 +68,7 @@ A read-only feasibility decision, not a platform-port umbrella.
 - **Owner decision (2026-10-04): Windows-first.** `fcf` is the separately bounded prerequisite: inspect actual Windows filesystem/durability APIs, then prove one existing-task `task.update`, no-op, restart, interrupted publication and original-request retry/recovery on disposable NTFS data with explicit cache/APPDATA. Use actual Windows Node and its SEA binary, not Linux processes against mounted Windows files. Stop on an unsupported durability/contract/tooling boundary; do not merely remove Linux-only gates or introduce another engine. This first proof does not enable capture, status/undo, backup/restore or other unproven Windows controls. Approve the smallest further prerequisite only after its review. The broad `82r` task remains held.
 - Inspect the same-binary Tauri permission first-match problem. Prefer one unambiguous fixed backend entrypoint; if a distinct temporary pilot route is necessary, record its removal in `dvs`. No arbitrary shell interface or silent legacy fallback.
 - Record allowed commands, root/cache/profile selection, process/retry behavior, filesystem assumptions and native acceptance steps in [development](docs/development.md).
+- Decision recorded: local Windows 11/WebView2, actual Windows Node/SEA on local NTFS, and one Windows-only inline capability in an explicitly selected pilot config outside `capabilities/`. Only the content-update/recovery subset has process acceptance. Default capabilities, native launcher and UI remain unchanged; do not run `pnpm dev:tauri` as the replacement pilot. The pending `7hr` → `byy` → `gxm` proofs gate `m1p`; naming these scopes does not authorize execution during `dh1`.
 - Exit: a feasible reviewed host/profile/route or an exact blocker. **If no capable host exists, stop and ask.** More browser features are not a substitute.
 
 ### 3. Make one request understandable (`mg8`)

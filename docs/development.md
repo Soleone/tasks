@@ -244,7 +244,7 @@ Once the selected Windows profile has reviewed evidence for the required command
 5. Archive and restore into a separate root through existing CLI controls, verify exact canonical bytes and open the restored root with fresh authority. Never reuse a copied cache to claim old receipt authority.
 6. Record actual platform/UI evidence, definite refusal versus uncertain-write behavior, preview/apply costs and reload/retry loss. WSL/browser tests, tool inventory and a design proposal cannot close native acceptance.
 
-The host choice is resolved. The backend-only content route below is runnable; the native permission/client route remains unimplemented. Leave `dh1` pending for review of that evidence and its launch decision. Do not start `mg8`/`m1p` or broaden platform work to fill the gap.
+This checkpoint was superseded by the content proof and [selected native-route decision](#selected-windows-native-route-dh1-2026-10-04) below. The backend content route is runnable; the native permission/client route remains unimplemented. Neither the original proposal nor its later selection constitutes native app acceptance.
 
 ## Windows content-update proof (`fcf`, 2026-10-04)
 
@@ -252,7 +252,7 @@ The host choice is resolved. The backend-only content route below is runnable; t
 
 ### Host, boundary and artifacts
 
-- Windows 11 Home **10.0.26200**, x64; actual `C:\Program Files\nodejs\node.exe` **24.19.0**, libuv **1.52.1**. PowerShell `Get-Volume` reports C: as a fixed **NTFS** volume; D: was inventoried but not used for the proof.
+- Windows 11 Home **10.0.26200**, x64; actual `C:\Program Files\nodejs\node.exe` **24.19.0**, libuv **1.52.1**. PowerShell `Get-Volume` reports C: as a fixed **NTFS** volume. The initial agent proof used C:; the owner later reproduced all scenes on D:, recorded below.
 - Windows source snapshot: `C:\Users\soleone\AppData\Local\Temp\Tasks-fcf-checkout-addd29aeed9544cc8b94f6a0f3bf4ae2`. Base `0c4e26e` plus the current bounded source/bundle changes. All execution was Windows-native, not Linux Node accessing mounted Windows task/cache files.
 - Every scene copies the golden synthetic root into checkout-local `.tmp/windows-update-*/<scene>/root`, with separate `<scene>/cache.db` and `<scene>/profile`. The CLI makes that explicit profile its APPDATA; local lock/intent state is under `profile/com.soleone.tasks/taskdb-v2/roots/<physical-root-hash>`. Default v1 root/cache/profile traps remain absent.
 - The proof packages the actual Windows Node executable with the current CJS bundle using the existing SEA/postject mechanism, then launches both that SEA and Windows Node. The normal SEA was **93,461,504 bytes**, SHA-256 `93defe226d2f269be1fc60cb7e98410a25d7cb0a46cef4b316934a7959401f2f`. [Structured evidence](windows-update-proof.json) retains runtime, all seven binary hashes and scene groups. Binaries and synthetic scene data are explicitly removed after the checker, not installed artifacts.
@@ -300,7 +300,47 @@ The checker selects its own golden disposable root/cache/dedicated profile, veri
 
 Validation: backend/web types and lint pass; `pnpm test` has **1,602 passed, two known skips, zero failures**. Six focused CLI/filesystem tests also pass in actual Windows Node. The two historical Linux skips remain the normative withheld-doctor fixture and opt-in isolated Syncthing transport run, not Windows test substitutions. Clean-code review kept production changes at the CLI capability and filesystem/recovery boundaries.
 
-**Stop for review.** This closes only the backend content-update prerequisite. No Tauri app was launched, no native UI/focus/lifecycle or capture/status/undo/backup/restore path is proven, and no installer/signing, power-loss, hostile reparse/hardlink race, network filesystem, Android/provider, distributed CAS or release claim is made. `dh1` next reviews the host/profile/single-permission route; further capabilities require separately approved bounded proofs before the native basic loop.
+**Scope remains backend-only.** No Tauri app was launched, no native UI/focus/lifecycle or capture/status/undo/backup/restore path is proven, and no installer/signing, power-loss, hostile reparse/hardlink race, network filesystem, Android/provider, distributed CAS or release claim is made. The owner reproduced the proof and authorized `dh1`; its route decision and remaining gates follow.
+
+## Selected Windows native route (`dh1`, 2026-10-04)
+
+**Decision complete; native launch not implemented.** After the owner reproduced `fcf` and requested continuation, review selected the existing Windows SEA with **one inline Windows-only capability in an explicitly supplied pilot config overlay**. No new file is added under `src-tauri/capabilities/`, no duplicate same-name spawn scope, second engine/binary, arbitrary shell or v1/HTTP fallback. This task changed documentation and SQ gates only, not native code, permissions, frontend or backend.
+
+### Reviewed host and owner reproduction
+
+- Owner ran `node scripts/check-windows-update.mjs` in `D:\src\wsl\tasks`: **38/38** scene groups, Windows 11 10.0.26200 x64, Node 24.19.0/libuv 1.52.1, fixed local **NTFS** volume. Reported normal SEA: 93,461,504 bytes, SHA-256 `74355eef3fefe9304845501b44dfb694d1d58d1334c1f350ce774c9dc6b41981`. Seven packaging signature warnings remain, not signing/release acceptance. This owner output is distinct from the initial C: artifact report; do not substitute one hash for the other.
+- Read-only host recheck confirmed WebView2 **154.0.4258.53**, pnpm **11.22.0**, Rust **1.98.1**, target **x86_64-pc-windows-msvc**, C++ Build Tools **17.14.37614.0** and Windows SDKs **10.0.19041.0 / 10.0.22621.0 / 10.0.26100.0**. This is a feasible build/webview host, not a new Tauri build or desktop launch.
+- D: is a source copy without `.git`; the attempted revision lookup returned `not a git repository`. Provenance was then checked by native `Get-FileHash`: `cli.ts`, `v2LocalDomain.ts`, `v2UpdateJournal.ts`, the Windows checker, default capability and Cargo lock match the WSL source at **4957d82** byte-for-byte. No credentials, toolchain, personal tasks or Windows files were changed during the recheck.
+
+### Selected capability contract for the later implementation
+
+The later pilot config must set **nonempty** `app.security.capabilities` to exactly its one **inlined** local/main-window Windows capability. Inline placement outside `capabilities/` avoids a standalone permission file being discovered by unflagged default startup. Do not include the `default`/mobile capability or append additional capability files through launcher arguments. Keep the unchanged v1 capability inactive in this pilot; leave it recoverable only until the clean cutover.
+
+The inline capability permits `core:default`, `shell:allow-spawn`, `shell:allow-stdin-write`, `shell:allow-kill`, and exactly one spawn scope named `binaries/tasks-backend` with `sidecar:true`. No `shell:allow-execute`/open, unrestricted args, system Node, other executable or unnecessary global-shortcut grant. Additional permissions require concrete native acceptance demand, not copying the v1 set wholesale.
+
+The single spawn list has **eight positions**, with five fixed flags and three validated path values:
+
+```text
+0 --stdio
+1 --v2-root              2 ROOT
+3 --database             4 CACHE
+5 --windows-update-proof
+6 --local-profile        7 APPDATA_PROFILE
+```
+
+Path validators must be anchored, nonempty local drive-letter absolute strings with no NUL/CR/LF or UNC/drive-relative substitution. Physical root/cache/profile resolution and outside-root checks remain backend responsibilities. Display and confirm all three paths **before spawning or querying**; use synthetic fixtures and dedicated local NTFS cache/profile, never the wrapper/default personal roots. Freeze the selection through pending/uncertain work; app and external JSON-lines CLI must use that same profile. Do not call the unflagged friendly CLI to perform Windows proof writes.
+
+Installed shell **2.3.6** still selects the **first same-name scope**, replaces supplied fixed-slot strings, validates only variable slots and ignores extra supplied args. Therefore the selected scope must be the only one, the client must construct/validate the exact eight-position call, and acceptance must inspect the **actual reconstructed argv**. Do not claim the plugin itself rejects every wrong fixed flag or extra argument; missing/invalid variable slots must refuse and no supplied shape may reconstruct a bare-v1 route. `tauri-utils` **2.9.3** explicitly selects only the single inline capability for a nonempty capability list. These conclusions were rechecked against the pinned Rust sources, not inferred from a browser build.
+
+### Current subset, later gates and removal
+
+- **Supported now:** `workspace.info`, `task.get`, `task.list`, `category.list`, `tag.list`, `activity.list`, existing-task `task.update` and update-only `workspace.recovery.resume`. This is backend process evidence only. A future first native content scene may not pretend capture/status/undo/archive/restore are available.
+- **Next selected work:** `mg8` traces/types the update path without expanding commands. Pending Windows proofs are `7hr` (capture), then `byy` (single-task statuses/latest-status undo), then `gxm` (disjoint archive/restore). Each ends in review; none was started here. All three are explicit `m1p` blockers. Broad `82r`, migration, doctor, purge, relationship/order/batch controls and Android remain held.
+- **Native client/lifecycle gate:** implement the one concrete `JsonLineSession` transport, selection/capability checks and useful existing UI in `m1p` only after the writer gates. Current `V2App`/reader/editor still refuse native launch/editing and the browser editor expects a different command set. No HTTP health token or full Linux editor allowlist substitutes for the actual selected eight-command handshake.
+- **Retry:** keep correlation/120-second timeout/child cleanup, but never mistake restarting the child for replay. Retain the original context/key/version/actor/payload/flags after uncertain execution, explicitly recover through the same paths/profile, then replay the original request. Capture/status/undo/copy families need their own reviewed ownership guards. Memory-only request loss on window reload/close remains an acceptance issue, not fixed by this decision.
+- **Removal:** `dvs` removes the temporary overlay/launcher, proof flag and versioned routing rather than leaving another app. Preserve selected root/cache/profile and pending journals/history across that change; do not solve naming or disk growth by deleting authority. The installed product must have one default backend path and no system-Node dependency.
+
+`pnpm dev:tauri` still starts v1, **not** this replacement pilot. There is no new native command to run yet. The native acceptance steps above remain mandatory when `m1p` implements the route. Types/lint/full regression are recorded for this documentation checkpoint; no new native process or UI acceptance is implied. Stop for review before `mg8` or any capability proof.
 
 ## Android status
 
