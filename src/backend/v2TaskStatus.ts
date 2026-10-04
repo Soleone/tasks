@@ -5,6 +5,7 @@ import { validateV2Task } from "./v2TaskModel.js";
 import type { V2CanonicalTask } from "./v2TaskModel.js";
 
 export const V2_STATUS_COMMANDS = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"] as const;
+export type V2StatusCommand = typeof V2_STATUS_COMMANDS[number];
 const transitions: Record<string, { sources: V2CanonicalTask["status"][]; target: V2CanonicalTask["status"] }> = {
   "task.start": { sources: ["open", "in_progress", "paused", "done"], target: "in_progress" },
   "task.pause": { sources: ["open", "in_progress", "paused"], target: "paused" },

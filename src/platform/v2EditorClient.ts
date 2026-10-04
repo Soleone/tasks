@@ -1,7 +1,10 @@
 import { isV2Record, type V2Request } from "../backend/v2Protocol";
 import type { V2TaskProjection } from "../backend/v2Queries";
+import { V2_STATUS_COMMANDS, type V2StatusCommand } from "../backend/v2TaskStatus";
 import { parseV2TaskProjection, parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
 import { runtimeKind } from "./runtime";
+
+const editorCommands = ["task.create", "task.update", ...V2_STATUS_COMMANDS];
 
 export type V2EditorSelection = V2DevConnection & { readOnly: false; profilePath: string; writeCommands: readonly string[] };
 export type V2EditBaseline = { writeContext: string; task: V2TaskProjection | null };
@@ -16,8 +19,8 @@ function validateEditorSelection(value: unknown): asserts value is V2EditorSelec
   if (!isV2Record(value) || value.version !== 2 || value.readOnly !== false
     || typeof value.rootPath !== "string" || typeof value.databasePath !== "string" || typeof value.profilePath !== "string"
     || typeof value.selectionToken !== "string" || !value.selectionToken
-    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== 2
-    || value.writeCommands[0] !== "task.create" || value.writeCommands[1] !== "task.update") {
+    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== editorCommands.length
+    || value.writeCommands.some((command, index) => command !== editorCommands[index])) {
     throw new Error("This editor requires an explicitly enabled --v2-edit backend. No read-only or v1 fallback.");
   }
   validateV2Selection(value as V2EditorSelection);
@@ -53,9 +56,9 @@ export class V2PreparedEdit {
 
   constructor(private readonly url: string, selection: V2EditorSelection, request: V2Request & { requestId: string }) {
     validateEditorSelection(selection);
-    if (!["task.create", "task.update"].includes(request.command) || !request.writeContext || !request.idempotencyKey
+    if (!editorCommands.includes(request.command) || !request.writeContext || !request.idempotencyKey
       || typeof request.requestId !== "string" || !request.requestId
-      || request.readOnly !== false || request.dryRun !== false || (request.command === "task.update"
+      || request.readOnly !== false || request.dryRun !== false || (request.command !== "task.create"
         && (!Number.isSafeInteger(request.args.expectedVersion) || (request.args.expectedVersion as number) < 1))) {
       throw new Error("Original executing context/key/correlation and positive existing-task version are required.");
     }
@@ -92,7 +95,7 @@ export class V2PreparedEdit {
       if (!response.ok) throw new V2EditorError(response.error.code, response.error.message);
       if (response.writeContext !== request.writeContext) throw new Error("v2 editor returned different authority; retain the original request.");
       const result = editorResult(response.result, preview);
-      if (request.command === "task.update" && result.task.id !== request.args?.id) throw new Error("v2 editor returned another task; retain the original request.");
+      if (request.command !== "task.create" && result.task.id !== request.args.id) throw new Error("v2 editor returned another task; retain the original request.");
       return result;
     } finally { this.inFlight = false; }
   }
@@ -106,12 +109,13 @@ export class V2EditorClient {
     this.selection = Object.freeze({ ...selection, writeCommands: Object.freeze([...selection.writeCommands]) });
   }
 
-  async begin(taskId?: string): Promise<V2EditBaseline> {
+  async begin(taskId?: string, mode: "content" | "status" = "content"): Promise<V2EditBaseline> {
+    if (mode === "status" && taskId === undefined) throw new Error("Select an existing task for a status operation; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
-    const command = taskId === undefined ? "task.create" : "task.update";
+    const commands = mode === "status" ? V2_STATUS_COMMANDS : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
-    if (!workspace.commands.includes(command)) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected content operation.");
+    if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
     const response = await this.query("task.get", { id: taskId });
     if (response.writeContext !== info.writeContext) throw new V2EditorError("STALE_WRITE_CONTEXT", "Context changed during preparation; no mutation was sent.");
@@ -129,6 +133,13 @@ export class V2EditorClient {
     if (baseline.task) { args.id = baseline.task.id; args.expectedVersion = baseline.task.version; }
     return new V2PreparedEdit(this.url, this.selection, { version: 2, requestId: crypto.randomUUID(),
       command: baseline.task ? "task.update" : "task.create", args, writeContext: baseline.writeContext,
+      idempotencyKey: crypto.randomUUID(), actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
+  }
+
+  prepareStatus(baseline: V2EditBaseline, command: V2StatusCommand): V2PreparedEdit {
+    if (!baseline.task || !V2_STATUS_COMMANDS.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
+    return new V2PreparedEdit(this.url, this.selection, { version: 2, requestId: crypto.randomUUID(), command,
+      args: { id: baseline.task.id, expectedVersion: baseline.task.version }, writeContext: baseline.writeContext,
       idempotencyKey: crypto.randomUUID(), actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
   }
 

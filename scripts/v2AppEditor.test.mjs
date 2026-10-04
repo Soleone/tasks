@@ -15,6 +15,8 @@ const readerBundle = await build({ entryPoints: ["src/platform/v2BackendClient.t
 const { readV2DevSelection } = await import(`data:text/javascript;base64,${Buffer.from(readerBundle.outputFiles[0].text).toString("base64")}`);
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
+const statusCommands = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"];
+const statusSources = { "task.start": "done", "task.pause": "in_progress", "task.complete": "paused", "task.reopen": "done", "task.cancel": "paused", "task.delete": "done" };
 
 function workspace(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "taskdb-v2-app-editor-"));
@@ -70,7 +72,7 @@ test("editor/read-only handshakes cannot silently cross modes; health creates no
   const selected = workspace(t), original = bytes(selected.root);
   const writable = await server(t, selected);
   assert.equal(writable.handshake.readOnly, false);
-  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update"]);
+  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"]);
   assert.equal(existsSync(selected.cache), false); assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
   await assert.rejects(readV2DevSelection(writable.dev.url), /No v1 fallback/);
   const readonly = await server(t, selected, false);
@@ -79,15 +81,16 @@ test("editor/read-only handshakes cannot silently cross modes; health creates no
   assert.deepEqual(bytes(selected.root), original);
 });
 
-test("editor health requires the exact two-command whitelist, not comma coercion or expansion", async t => {
+test("editor health requires the exact connected-command whitelist, not comma coercion or expansion", async t => {
   const selected = workspace(t), { dev } = await server(t, selected);
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
-  for (writeCommands of [["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
+  const allowed = ["task.create", "task.update", ...statusCommands];
+  for (writeCommands of [["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), [...allowed.slice(0, -1), "task.status.undo"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
-for (const command of ["task.complete", "task.move", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
+for (const command of ["task.status.undo", "task.move", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async t => {
     const selected = workspace(t), original = bytes(selected.root);
     const { dev, handshake } = await server(t, selected);
@@ -250,7 +253,7 @@ test("prepared requests copy caller payload/selection and reject absent original
   const metadata = JSON.parse(prepared.retryMetadata); assert.equal(metadata.rootPath, selected.root); assert.equal(metadata.databasePath, selected.cache);
   assert.equal((await prepared.execute()).task.title, literal.title);
   const request = JSON.parse(prepared.originalRequest);
-  for (const changes of [{ writeContext: undefined }, { idempotencyKey: undefined }, { requestId: undefined }, { requestId: "" }, { readOnly: true }, { dryRun: true }, { command: "task.complete" }, { command: "task.update", args: { id: closedId, expectedVersion: 0, title: "bad" } }]) assert.throws(() => new V2PreparedEdit(dev.url, handshake, { ...request, ...changes }));
+  for (const changes of [{ writeContext: undefined }, { idempotencyKey: undefined }, { requestId: undefined }, { requestId: "" }, { readOnly: true }, { dryRun: true }, { command: "task.move" }, { command: "task.update", args: { id: closedId, expectedVersion: 0, title: "bad" } }]) assert.throws(() => new V2PreparedEdit(dev.url, handshake, { ...request, ...changes }));
 });
 
 test("parallel execute cannot issue a second request while the original is in flight", async t => {
@@ -307,6 +310,123 @@ test("simulated withheld host refuses the explicit editor launcher before storag
   assert.equal(result.status, 1); assert.match(result.stderr, /editing is unavailable on this platform/); assert.equal(existsSync(selected.cache), false);
 });
 
+const statusMatrix = {
+  "task.start": { allowed: ["open", "in_progress", "paused", "done"], target: "in_progress" },
+  "task.pause": { allowed: ["open", "in_progress", "paused"], target: "paused" },
+  "task.complete": { allowed: ["open", "in_progress", "paused", "done"], target: "done" },
+  "task.reopen": { allowed: ["open", "in_progress", "paused", "done", "canceled"], target: "open" },
+  "task.cancel": { allowed: ["open", "in_progress", "paused", "canceled"], target: "canceled" },
+  "task.delete": { allowed: ["open", "in_progress", "paused", "done", "canceled"], target: "canceled" },
+};
+for (const [command, expected] of Object.entries(statusMatrix)) for (const source of ["open", "in_progress", "paused", "done", "canceled"]) {
+  test(`editor status ${command} from ${source}: independent transition/closure/no-op contract`, async t => {
+    const selected = workspace(t), file = path.join(selected.root, "tasks", `${closedId}.json`);
+    const task = JSON.parse(readFileSync(file, "utf8")); task.status = source;
+    task.closedAt = ["done", "canceled"].includes(source) ? task.closedAt : null;
+    writeFileSync(file, JSON.stringify(task) + "\n");
+    const { editor } = await server(t, selected), baseline = await editor.begin(closedId, "status");
+    const original = bytes(selected.root), prepared = editor.prepareStatus(baseline, command);
+    const envelope = JSON.parse(prepared.originalRequest), calls = traceFetch(t);
+    assert.deepEqual(envelope.args, { id: closedId, expectedVersion: baseline.task.version });
+    if (!expected.allowed.includes(source)) {
+      await assert.rejects(prepared.preview(), /INVALID_TRANSITION/); assert.equal(prepared.hasExecuted, false);
+      await assert.rejects(prepared.execute(), /INVALID_TRANSITION/); await assert.rejects(prepared.execute(), /INVALID_TRANSITION/);
+      assert.deepEqual(calls[1], calls[2]); assert.deepEqual(bytes(selected.root), original);
+      assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 }); return;
+    }
+    const preview = await prepared.preview(), changed = source !== expected.target;
+    assert.equal(preview.changed, changed); assert.equal(preview.task.status, expected.target);
+    assert.deepEqual(bytes(selected.root), original); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+    const started = new Date().toISOString(), applied = await prepared.execute(), ended = new Date().toISOString();
+    assert.equal(applied.changed, changed); assert.equal(applied.task.status, expected.target);
+    for (const field of Object.keys(task).filter(field => !["status", "closedAt"].includes(field))) assert.deepEqual(applied.task[field], task[field]);
+    if (!changed) { assert.equal(applied.task.closedAt, task.closedAt); assert.equal(applied.task.version, baseline.task.version); assert.deepEqual(bytes(selected.root), original); }
+    else if (["done", "canceled"].includes(expected.target)) assert.ok(applied.task.closedAt >= started && applied.task.closedAt <= ended);
+    else assert.equal(applied.task.closedAt, null);
+    if (changed) assert.ok(applied.task.version > baseline.task.version);
+    assert.deepEqual(counts(selected.cache), { receipts: 1, operations: changed ? 1 : 0 });
+    assert.deepEqual(await prepared.execute(), applied); assert.deepEqual(calls[1], calls[2]);
+    assert.equal(calls.some(call => ["workspace.info", "task.get"].includes(call.command)), false);
+  });
+}
+
+test("status changes do not cascade, sever links or treat a done dependency as unblocked", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected);
+  const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", childId = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
+  const childFile = path.join(selected.root, "tasks", `${childId}.json`), childBytes = readFileSync(childFile, "base64");
+  await editor.prepareStatus(await editor.begin(parentId, "status"), "task.complete").execute();
+  let child = await editor.begin(childId); assert.deepEqual(child.task.blockedByIds, [parentId]); assert.equal(readFileSync(childFile, "base64"), childBytes);
+  await editor.prepareStatus(await editor.begin(parentId, "status"), "task.delete").execute();
+  child = await editor.begin(childId); assert.deepEqual(child.task.blockedByIds, []); assert.equal(readFileSync(childFile, "base64"), childBytes); assert.equal(child.task.parentId, parentId);
+});
+
+for (const failure of ["lost-reply", "wrong-task", "wrong-context", "v1-response", "missing-operation"]) {
+  test(`status executing ${failure} retains context/version/command and replays without negotiation`, async t => {
+    const selected = workspace(t), { editor } = await server(t, selected);
+    const baseline = await editor.begin(closedId, "status"), prepared = editor.prepareStatus(baseline, "task.delete");
+    const original = prepared.originalRequest; let failed = false;
+    const calls = traceFetch(t, async response => {
+      if (failed) return response; failed = true; const body = await response.json(); assert.equal(body.ok, true);
+      if (failure === "lost-reply") throw new TypeError("lost status reply after commit");
+      if (failure === "wrong-task") body.result.task.id = "other-task";
+      if (failure === "wrong-context") body.writeContext = "other-context";
+      if (failure === "v1-response") body.version = 1;
+      if (failure === "missing-operation") delete body.result.operationId;
+      return new Response(JSON.stringify(body));
+    });
+    await assert.rejects(prepared.execute()); assert.equal(prepared.hasExecuted, true); assert.equal(prepared.originalRequest, original);
+    await assert.rejects(prepared.preview(), /cannot renew uncertain authority/);
+    const applied = await prepared.execute(); assert.equal(applied.task.status, "canceled"); assert.deepEqual(calls[0], calls[1]); assert.equal(calls.length, 2);
+    assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 1 });
+  });
+}
+
+test("status preparation refuses missing IDs/commands and withheld advertised capabilities before mutation", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected); let withheld = false;
+  const calls = traceFetch(t, async response => { if (!withheld) return response; const body = await response.json(); if (body.result?.commands) body.result.commands = body.result.commands.filter(command => command !== "task.pause"); return new Response(JSON.stringify(body)); });
+  await assert.rejects(editor.begin(undefined, "status"), /existing task/); assert.equal(calls.length, 0);
+  const baseline = await editor.begin(closedId, "status");
+  assert.throws(() => editor.prepareStatus({ ...baseline, task: null }, "task.start"));
+  assert.throws(() => editor.prepareStatus(baseline, "operation.undo"));
+  withheld = true;
+  await assert.rejects(editor.begin(closedId, "status"), /UNSUPPORTED_COMMAND/); assert.equal(counts(selected.cache).operations, 0);
+});
+
+test("stale status execution never refreshes authority or changes concurrent content", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), baseline = await editor.begin(closedId, "status");
+  const prepared = editor.prepareStatus(baseline, "task.start"); await prepared.preview();
+  const file = path.join(selected.root, "tasks", `${closedId}.json`), task = JSON.parse(readFileSync(file, "utf8")); task.title = "External status race"; writeFileSync(file, JSON.stringify(task) + "\n");
+  const original = bytes(selected.root), calls = traceFetch(t);
+  await assert.rejects(prepared.execute(), /STALE_TASK_VERSION/); await assert.rejects(prepared.execute(), /STALE_TASK_VERSION/);
+  assert.equal(calls.length, 2); assert.deepEqual(calls[0], calls[1]); assert.deepEqual(bytes(selected.root), original);
+  assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+});
+
+test("readonly bridge refuses all six status commands before authority or cache creation", async t => {
+  const selected = workspace(t), { dev, handshake } = await server(t, selected, false), original = bytes(selected.root);
+  for (const command of statusCommands) {
+    const response = await fetch(`${dev.url}/command`, { method: "POST", headers: { "content-type": "application/json", "x-taskdb-selection": handshake.selectionToken }, body: JSON.stringify({ version: 2, requestId: command, command, args: { id: closedId, expectedVersion: 1 }, dryRun: true }) });
+    assert.equal((await response.json()).error.code, "UNSUPPORTED_COMMAND");
+  }
+  assert.equal(existsSync(selected.cache), false); assert.deepEqual(bytes(selected.root), original);
+});
+
+test("lost status cache authority after committed/lost reply refuses exact retry without inferred completion", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), baseline = await editor.begin(closedId, "status");
+  const prepared = editor.prepareStatus(baseline, "task.delete"); let lost = true;
+  const calls = traceFetch(t, async response => { if (!lost) return response; lost = false; assert.equal((await response.json()).ok, true); throw new TypeError("lost status reply"); });
+  await assert.rejects(prepared.execute()); const canonical = bytes(selected.root); rmSync(selected.cache);
+  await assert.rejects(prepared.execute(), /STALE_WRITE_CONTEXT/); assert.deepEqual(calls[0], calls[1]); assert.equal(calls.length, 2); assert.deepEqual(bytes(selected.root), canonical);
+});
+
+test("historic status replay precedes missing task and never recreates canceled bytes", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), baseline = await editor.begin(closedId, "status");
+  const prepared = editor.prepareStatus(baseline, "task.delete"), applied = await prepared.execute();
+  const file = path.join(selected.root, "tasks", `${closedId}.json`); rmSync(file);
+  const calls = traceFetch(t); assert.deepEqual(await prepared.execute(), applied); assert.equal(calls.length, 1); assert.equal(existsSync(file), false);
+  assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 1 });
+});
+
 async function processDev(t, selected, loader, port = 0) {
   const child = spawn(process.execPath, [...(loader ? ["--import", loader] : []), "dist/backend/devServer.js", "--port", String(port), "--v2-root", selected.root, "--database", selected.cache, "--v2-edit"], { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "", stderr = "";
@@ -329,10 +449,12 @@ function manualLine(selected, envelope) {
   return JSON.parse(execFileSync(process.execPath, ["dist/backend/cli.js", "--stdio", "--v2-root", selected.root, "--database", selected.cache], { env: process.env, input: envelope + "\n", encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
 }
 
-for (const command of ["task.create", "task.update"]) {
+for (const command of ["task.create", "task.update", ...statusCommands]) {
   for (const cut of ["intent", "published", "beforeCommit", "afterCommit", "lostReply"]) {
     test(`actual editor HTTP ${command} crash at ${cut} preserves original request for explicit recovery/manual replay`, async t => {
       const selected = workspace(t);
+      const originalTask = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${closedId}.json`), "utf8"));
+      if (statusCommands.includes(command)) writeFileSync(path.join(selected.root, "tasks", `${closedId}.json`), JSON.stringify({ ...originalTask, status: statusSources[command], closedAt: statusSources[command] === "done" ? originalTask.closedAt : null }) + "\n");
       const { inspectV2CanonicalRoot } = await import("../dist/backend/v2CanonicalReader.js");
       const { pendingV2Path } = await import("../dist/backend/v2LocalDomain.js");
       const pendingPath = pendingV2Path(inspectV2CanonicalRoot(selected.root));
@@ -343,14 +465,14 @@ if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.
 registerHooks({load(url,context,next){const result=next(url,context); if(!result.source)return result; let source=String(result.source); function replace(marker){if(source.split(marker).length!==2)throw Error('fault marker not unique: '+marker); source=source.replace(marker,marker+'\\nprocess.kill(process.pid,"SIGKILL");');}
 if(cut==='intent'&&url.endsWith('/v2LocalDomain.js'))replace('renameSync(temporary, pending);');
 if(cut==='published'&&command==='task.create'&&url.endsWith('/v2CreateJournal.js'))replace('linkSync(stage, targetPath(intent));');
-if(cut==='published'&&command==='task.update'&&url.endsWith('/v2UpdateJournal.js'))replace('renameSync(temporary, target);');
+if(cut==='published'&&command!=='task.create'&&url.endsWith('/v2UpdateJournal.js'))replace('renameSync(temporary, target);');
 if(cut==='lostReply'&&url.endsWith('/devServer.js')){const marker='const result = executeDevV2Command(body, selection, request.headers["x-taskdb-selection"]);';if(source.split(marker).length!==2)throw Error('HTTP fault marker missing');source=source.replace(marker,marker+'\\nif(JSON.parse(body).command===command&&!JSON.parse(body).dryRun&&!JSON.parse(body).readOnly)process.kill(process.pid,"SIGKILL");'.replace('===command','==='+JSON.stringify(command)));}
 return {...result,source};}});\n`);
       const initial = await processDev(t, selected, loader);
       const handshake = await readV2EditorSelection(initial.url);
       const editor = new V2EditorClient(initial.url, handshake);
-      const baseline = await editor.begin(command === "task.update" ? closedId : undefined);
-      const prepared = editor.prepare(baseline, baseline.task ? { ...baseline.task, title: literal.title } : literal);
+      const baseline = await editor.begin(command === "task.create" ? undefined : closedId, statusCommands.includes(command) ? "status" : "content");
+      const prepared = statusCommands.includes(command) ? editor.prepareStatus(baseline, command) : editor.prepare(baseline, baseline.task ? { ...baseline.task, title: literal.title } : literal);
       const originalRequest = prepared.originalRequest;
       await prepared.preview();
       await assert.rejects(prepared.execute());
@@ -369,7 +491,8 @@ return {...result,source};}});\n`);
       }
       const replay = manualLine(selected, originalRequest); assert.equal(replay.ok, true, JSON.stringify(replay));
       if (fixedId) assert.equal(replay.result.task.id, fixedId);
-      assert.equal(replay.result.task.title, literal.title);
+      assert.equal(replay.result.task.title, statusCommands.includes(command) ? originalTask.title : literal.title);
+      if (statusCommands.includes(command)) { assert.equal(replay.result.task.updatedAt, originalTask.updatedAt); assert.equal(replay.result.task.createdAt, originalTask.createdAt); }
       assert.equal(readdirSync(path.join(selected.root, "tasks")).length, command === "task.create" ? 5 : 4);
       assert.deepEqual(counts(selected.cache), { receipts: cut === "lostReply" ? 1 : 2, operations: 1 });
       const canonical = bytes(selected.root);

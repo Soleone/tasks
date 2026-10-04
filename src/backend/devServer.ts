@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCommand } from "./commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
+import { V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
 import { errorResponse, parseRequest, successResponse } from "./protocol.js";
 import { executeV2Line } from "./v2Gateway.js";
 import { decodeV2Envelope, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
@@ -26,7 +27,7 @@ export type DevServerOptions = {
   v2Edit?: boolean;
 };
 
-const V2_EDITOR_COMMANDS = ["task.create", "task.update"];
+const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS];
 type V2DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: boolean; profilePath?: string; writeCommands?: string[] };
 
 export type DevServer = {
@@ -189,7 +190,7 @@ function executeDevV2Command(body: Buffer, selection: V2DevSelection, token: str
     }
     if (!(V2_QUERY_COMMANDS as readonly string[]).includes(request.command)
       && (selection.readOnly || !V2_EDITOR_COMMANDS.includes(request.command))) {
-      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture and content updates; other controls remain unavailable" } };
+      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture, content updates and single-task status changes; other controls remain unavailable" } };
     }
     return executeV2Line(body, selection.rootPath, selection.databasePath);
   } catch {

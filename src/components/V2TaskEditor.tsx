@@ -8,16 +8,23 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
+import type { V2StatusCommand } from "@/backend/v2TaskStatus";
+import { taskStatusMeta } from "./taskFilters";
 
 type Draft = { title: string; description: string; category: string; tags: string; priority: V2LiteralContent["priority"] };
 const emptyDraft: Draft = { title: "", description: "", category: "", tags: "", priority: 2 };
+const statusLabels: Record<V2StatusCommand, string> = {
+  "task.start": "Start or resume", "task.pause": "Pause", "task.complete": "Complete", "task.reopen": "Reopen",
+  "task.cancel": "Cancel except done", "task.delete": "Cancel any state (delete alias)",
+};
 
-export function V2TaskEditor({ editor, taskId, onClose, onComplete, returnFocus }: {
-  editor: V2EditorClient; taskId?: string; onClose: () => void; onComplete: (result: V2EditResult) => void;
+export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onComplete, returnFocus }: {
+  editor: V2EditorClient; taskId?: string; statusMode?: boolean; onClose: () => void; onComplete: (result: V2EditResult) => void;
   returnFocus: () => HTMLElement | undefined;
 }): ReactElement {
   const [baseline, setBaseline] = useState<V2EditBaseline | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [statusCommand, setStatusCommand] = useState<V2StatusCommand>("task.complete");
   const [prepared, setPrepared] = useState<V2PreparedEdit | null>(null);
   const [preview, setPreview] = useState<V2EditResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,6 +33,7 @@ export function V2TaskEditor({ editor, taskId, onClose, onComplete, returnFocus 
   const [manual, setManual] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
+  const statusRef = useRef<HTMLButtonElement>(null);
   const retryRef = useRef<HTMLButtonElement>(null);
   const attempted = prepared?.hasExecuted ?? false;
   const disabled = !baseline || busy || attempted;
@@ -33,16 +41,16 @@ export function V2TaskEditor({ editor, taskId, onClose, onComplete, returnFocus 
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    void editor.begin(taskId).then(value => {
+    void editor.begin(taskId, statusMode ? "status" : "content").then(value => {
       if (cancelled) return;
       setBaseline(value);
       const task = value.task;
       setDraft(task ? { title: task.title, description: task.description, category: task.category ?? "", tags: task.tags.join(", "), priority: task.priority } : emptyDraft);
-    }).catch((reason: unknown) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Could not prepare this content operation."); });
+    }).catch((reason: unknown) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Could not prepare this task operation."); });
     return () => { cancelled = true; };
-  }, [editor, taskId, loadAttempt]);
+  }, [editor, taskId, statusMode, loadAttempt]);
 
-  useEffect(() => { if (baseline) titleRef.current?.focus(); }, [baseline]);
+  useEffect(() => { if (baseline) (statusMode ? statusRef : titleRef).current?.focus(); }, [baseline, statusMode]);
   useEffect(() => { if (error && attempted) retryRef.current?.focus(); }, [error, attempted]);
   useEffect(() => {
     if (!attempted) return;
@@ -62,8 +70,9 @@ export function V2TaskEditor({ editor, taskId, onClose, onComplete, returnFocus 
     if (!baseline || busy || attempted) return;
     setBusy(true); setError(null); setPreview(null);
     try {
-      const request = editor.prepare(baseline, { title: draft.title, description: draft.description, priority: draft.priority,
-        category: draft.category.trim() || null, tags: draft.tags.trim() ? draft.tags.split(",").map(tag => tag.trim()) : [] });
+      const request = statusMode ? editor.prepareStatus(baseline, statusCommand)
+        : editor.prepare(baseline, { title: draft.title, description: draft.description, priority: draft.priority,
+          category: draft.category.trim() || null, tags: draft.tags.trim() ? draft.tags.split(",").map(tag => tag.trim()) : [] });
       setPrepared(request);
       setPreview(await request.preview());
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Preview could not complete. Nothing was applied."); }
@@ -86,16 +95,31 @@ export function V2TaskEditor({ editor, taskId, onClose, onComplete, returnFocus 
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !busy && !attempted) onClose(); }}>
-      <DialogContent className="overflow-y-auto sm:max-w-lg" showCloseButton={!attempted && !busy} initialFocus={() => titleRef.current ?? undefined} finalFocus={returnFocus}>
+      <DialogContent className="overflow-y-auto sm:max-w-lg" showCloseButton={!attempted && !busy} initialFocus={() => (statusMode ? statusRef : titleRef).current ?? undefined} finalFocus={returnFocus}>
         <DialogHeader>
-          <DialogTitle>{taskId ? "Edit literal task content" : "Capture a literal task"}</DialogTitle>
-          <DialogDescription>Title, category and tags are separate fields. No shorthand parsing, status changes or relationship editing.</DialogDescription>
+          <DialogTitle>{statusMode ? "Change task status" : taskId ? "Edit literal task content" : "Capture a literal task"}</DialogTitle>
+          <DialogDescription>{statusMode ? "Preview one explicit status command. Cancellation keeps the file; no status cascades or automatic undo." : "Title, category and tags are separate fields. No shorthand parsing, status changes or relationship editing."}</DialogDescription>
         </DialogHeader>
-        {!baseline && !error && <p role="status">Preparing the selected content operation...</p>}
-        {error && <Alert variant="destructive"><AlertTitle>{attempted ? "Original request retained, not resolved" : "Content operation unavailable"}</AlertTitle><AlertDescription className="break-words">{error}</AlertDescription></Alert>}
+        {!baseline && !error && <p role="status">Preparing the selected task operation...</p>}
+        {error && <Alert variant="destructive"><AlertTitle>{attempted ? "Original request retained, not resolved" : "Task operation unavailable"}</AlertTitle><AlertDescription className="break-words">{error}</AlertDescription></Alert>}
         {!baseline && error && <Button variant="outline" onClick={() => setLoadAttempt(value => value + 1)}>Retry preparation</Button>}
         {baseline && <form onSubmit={event => { void previewDraft(event); }} className="flex flex-col gap-5">
           <FieldGroup>
+            {statusMode ? <>
+              <p className="break-words text-sm">{baseline.task?.title}</p>
+              <Field data-disabled={disabled}>
+                <FieldLabel htmlFor="v2-change-status">Status action</FieldLabel>
+                <Select value={statusCommand} disabled={disabled} onValueChange={value => {
+                  if (disabled) return;
+                  const command = Object.keys(statusLabels).find(command => command === value) as V2StatusCommand | undefined;
+                  if (command) { setStatusCommand(command); setPrepared(null); setPreview(null); setError(null); }
+                }}>
+                  <SelectTrigger ref={statusRef} id="v2-change-status"><SelectValue>{statusLabels[statusCommand]}</SelectValue></SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}><SelectGroup>{Object.entries(statusLabels).map(([command, label]) => <SelectItem key={command} value={command}>{label}</SelectItem>)}</SelectGroup></SelectContent>
+                </Select>
+                <FieldDescription>Observed status: {baseline.task && taskStatusMeta[baseline.task.status].label}. Commands keep content, edit time, ordering and relationships unchanged. Disallowed transitions are refused.</FieldDescription>
+              </Field>
+            </> : <>
             <Field data-disabled={disabled}>
               <FieldLabel htmlFor="v2-edit-title">Literal title</FieldLabel>
               <Input ref={titleRef} id="v2-edit-title" value={draft.title} maxLength={1000} required disabled={disabled} onChange={event => change("title", event.target.value)} />
@@ -116,12 +140,14 @@ export function V2TaskEditor({ editor, taskId, onClose, onComplete, returnFocus 
                 <SelectContent alignItemWithTrigger={false}><SelectGroup>{[0, 1, 2, 3, 4].map(value => <SelectItem key={value} value={String(value)}>P{value}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </Field>
+            </>}
           </FieldGroup>
           {!attempted && <div className="flex flex-wrap gap-3"><Button type="submit" disabled={disabled}>{busy ? "Preparing preview..." : "Preview changes"}</Button><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button></div>}
         </form>}
-        {preview && !attempted && <Alert><AlertTitle>{preview.changed ? "Preview only" : "Preview: no content change"}</AlertTitle><AlertDescription>
-          <p className="break-words">{preview.task.title}</p><p>Category: {preview.task.category ?? "None"}. Tags: {preview.task.tags.join(", ") || "None"}. Priority: P{preview.task.priority}.</p>
-          <p>No canonical effects, receipt or history. Creation identity/time/version are hypothetical, not reserved. Applying may refuse changed authority.</p>
+        {preview && !attempted && <Alert><AlertTitle>{preview.changed ? "Preview only" : statusMode ? "Preview: no status change" : "Preview: no content change"}</AlertTitle><AlertDescription>
+          <p className="break-words">{preview.task.title}</p>
+          {statusMode ? <p>Status: {taskStatusMeta[preview.task.status].label}. Closure: {preview.task.closedAt ?? "Not closed"}.</p> : <p>Category: {preview.task.category ?? "None"}. Tags: {preview.task.tags.join(", ") || "None"}. Priority: P{preview.task.priority}.</p>}
+          <p>No canonical effects, receipt or history. {statusMode ? "Any new closure time is hypothetical, not reserved." : "Creation identity/time/version are hypothetical, not reserved."} Applying may refuse changed authority.</p>
         </AlertDescription><Button className="mt-3" disabled={busy} onClick={() => { void apply(); }}>Apply original request</Button></Alert>}
         {attempted && <div className="flex min-w-0 flex-col gap-4">
           <p className="text-sm text-muted-foreground">Do not reload, change folders or renew authority. This request exists only in this page. Retry sends its exact original context, key, payload, actor, flags and version. Pending work requires explicit CLI recovery; a restarted backend requires manual reconciliation, not automatic reconnection.</p>

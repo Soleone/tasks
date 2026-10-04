@@ -50,7 +50,7 @@ Capture, status changes, editing, relationships, ordering, undo, purge, doctor, 
 
 ## Opt-in v2 capture and editing
 
-Linux development only, on disposable data. The reader stays read-only unless you add **`--v2-edit`**. This bounded browser mode enables literal `task.create` and content-only `task.update`, not the full v2 app or native acceptance.
+Linux development only, on disposable data. The reader stays read-only unless you add **`--v2-edit`**. This bounded browser mode enables literal capture, content editing and six single-task status commands, not the full v2 app or native acceptance.
 
 ```bash
 editscratch=$(mktemp -d)
@@ -60,15 +60,17 @@ XDG_DATA_HOME="$editscratch/local-data" pnpm dev:web \
   --v2-root "$editscratch/root" --database "$editscratch/cache.db" --v2-edit
 ```
 
-1. Confirm the displayed folder, cache and retained local profile, then choose **Enable capture and editing in this folder**. The list still receives initial focus.
-2. Press **C** or choose **New task** to capture a root task. Press **Enter** on the active row or choose **Edit content** to edit it. Title is literal; category is a separate slug and tags are comma-separated slugs. Empty category/tags/description clear those fields. No shorthand, parent selection or status controls are provided.
+1. Confirm the displayed folder, cache and retained local profile, then choose **Enable editing and status changes in this folder**. The list still receives initial focus.
+2. Press **C** or choose **New task** to capture a root task. Press **Enter** on the active row or choose **Edit content** to edit it. Title is literal; category is a separate slug and tags are comma-separated slugs. Empty category/tags/description clear those fields. No shorthand or parent selection is provided. For status, press **T** on the list or choose **Change status**. Pick Start or resume, Pause, Complete, Reopen, Cancel except done, or Cancel any state (delete alias), then preview and apply. These are explicit commands, not direct editing of the stored status field.
 3. Choose **Preview changes**. No canonical changes, receipt or activity are made. Creation IDs/time/versions are hypothetical, not reserved. Editing a field invalidates the preview. **Apply original request** sends the prepared context, key, payload, actor, flags and original task version; changed authority is refused, not silently refreshed.
 4. A failed executing reply locks the editor and retains that exact request **only in this page**. **Retry same request** sends no authority-negotiating query, new key, new payload or automatic recovery. A successful replay is historical: the app refreshes current tasks separately instead of treating the returned version as fresh authority.
 5. For pending work, preserve the original root/cache/profile/evidence and use explicit CLI recovery. If the backend restarts/replaces selection, the retained token is refused; the editor does not reconnect automatically. Use **Copy original request**, also retain the displayed paths, and reconcile through the original CLI context. The collapsible **Original request and local paths** section is a manual-copy fallback. Closing for manual reconciliation requires explicit acknowledgment and does not claim completion.
 
 **Do not reload, change roots/profiles, restart the frontend or edit source files while a write is unresolved.** Retry state is memory-only; a reload/tab loss discards it. The page asks before leaving, but that prompt is not durable recovery. There is no plaintext retry log, saved selection or second success ledger. Copying an envelope is an explicit user action and includes task content; keep it private, outside the synced root. The profile path/token guard is lexical/development evidence, not proof of physical-profile continuity, a filesystem sandbox or distributed exactly-once. Cache loss rejects the old context even if a matching title exists.
 
-The bridge still refuses status, relationships, ordering, undo, purge, doctor, initialization, migration/adoption/rollback and recovery commands. Native desktop launch, Windows editing and Android v2 UI remain withheld. Read-only and editable handshakes cannot silently cross modes; unflagged `pnpm dev:web` stays v1. See [editor evidence](spec/v2/conformance.md#explicit-browser-capture-and-content-editing) and [interaction details](docs/usage-guide.md#experimental-v2-content-editor). Run `node scripts/check-v2-editor-ui.mjs` for the disposable Chromium check.
+Status commands preserve content, creation/edit time, ordering and relationships. Closing sets closure time; reopening/starting clears it. Same-state actions are receipt-only no-ops. No status cascades occur; a done dependency still blocks, while cancellation stops blocking without removing the link. **Cancel except done** refuses done tasks; **Cancel any state (delete alias)** accepts them. Neither removes a file. Status previews show hypothetical new closure times, not a reserved plan. If another process changes the task, the old version is refused and the exact executing request remains locked for reconciliation.
+
+The bridge still refuses status batches/undo, relationships, ordering, purge, doctor, initialization, migration/adoption/rollback and recovery commands. Native desktop launch, Windows editing and Android v2 UI remain withheld. Read-only and editable handshakes cannot silently cross modes; unflagged `pnpm dev:web` stays v1. See [editor evidence](spec/v2/conformance.md#explicit-browser-capture-and-content-editing) and [interaction details](docs/usage-guide.md#experimental-v2-content-editor). Run `node scripts/check-v2-editor-ui.mjs` for the disposable Chromium check.
 
 ## Opt-in v2 human CLI
 

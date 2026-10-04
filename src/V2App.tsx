@@ -61,7 +61,7 @@ export default function V2App(): ReactElement {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header><h1 className="font-heading text-xl font-semibold">{APP_NAME}: select a v2 folder</h1></header>
-      <p className="text-sm text-muted-foreground">This opt-in reader is separate from your v1 app. Confirm the selected folder and local cache before browsing. It never upgrades, initializes, repairs, or changes sharing. {editing ? "Literal capture and editing are explicitly enabled; all other writes remain unavailable." : "This mode is read-only."}</p>
+      <p className="text-sm text-muted-foreground">This opt-in reader is separate from your v1 app. Confirm the selected folder and local cache before browsing. It never upgrades, initializes, repairs, or changes sharing. {editing ? "Capture, content editing and single-task status changes are explicitly enabled; all other writes remain unavailable." : "This mode is read-only."}</p>
       {kind !== "browser" ? (
         <Alert><AlertTitle>The native v2 reader is unavailable</AlertTitle><AlertDescription>Use the explicitly selected browser reader for this milestone. Android and desktop sidecar launch remain withheld; the v1 sidecar and directory selection have not been used.</AlertDescription></Alert>
       ) : (
@@ -76,11 +76,11 @@ export default function V2App(): ReactElement {
           </div>
           <p className="text-sm text-muted-foreground">After migration, select its verified v2 output with a separate v2 cache. Do not reuse v1 authority. Rollback uses the preserved v1 folder with the v1 app; later v2 edits remain separate.</p>
           {devSelection?.readOnly === false && <p className="break-words text-sm text-muted-foreground">Retained local profile: {devSelection.profilePath}. Keep this profile, root and cache during pending or uncertain work.</p>}
-          <div><Button ref={confirmRef} type="submit" disabled={!devSelection}>{editing ? "Enable capture and editing in this folder" : "Browse this v2 folder"}</Button></div>
+          <div><Button ref={confirmRef} type="submit" disabled={!devSelection}>{editing ? "Enable editing and status changes in this folder" : "Browse this v2 folder"}</Button></div>
         </form>
       )}
       {error && <Alert variant="destructive"><AlertTitle>V2 selection is unavailable</AlertTitle><AlertDescription>{error}</AlertDescription><Button ref={retryRef} variant="outline" className="mt-3" onClick={() => setAttempt(value => value + 1)}>Retry selection</Button></Alert>}
-      <p className="text-sm text-muted-foreground">{editing ? "Content-only milestone: previews, literal capture and editing. Retry state lives only in this page, not a saved payload log." : "Read-only milestone: capture and editing are unavailable."} Status, ordering, migration, rollback and recovery controls are not connected. No selection is saved across reloads.</p>
+      <p className="text-sm text-muted-foreground">{editing ? "Bounded editing milestone: previews, literal capture, content and single-task status changes. Retry state lives only in this page, not a saved payload log." : "Read-only milestone: capture and editing are unavailable."} Undo, ordering, migration, rollback and recovery controls are not connected. No selection is saved across reloads.</p>
     </main>
   );
 }
