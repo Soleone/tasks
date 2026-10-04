@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
-import { V2EditorClient, type V2EditBaseline, type V2EditResult, type V2PreparedEdit, type V2LiteralContent } from "@/platform/v2EditorClient";
+import { V2EditorClient, type V2EditBaseline, type V2EditResult, type V2PreparedEdit, type V2LiteralContent, type V2StatusAction } from "@/platform/v2EditorClient";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -8,14 +8,14 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import type { V2StatusCommand } from "@/backend/v2TaskStatus";
 import { taskStatusMeta } from "./taskFilters";
 
 type Draft = { title: string; description: string; category: string; tags: string; priority: V2LiteralContent["priority"] };
 const emptyDraft: Draft = { title: "", description: "", category: "", tags: "", priority: 2 };
-const statusLabels: Record<V2StatusCommand, string> = {
+const statusLabels: Record<V2StatusAction, string> = {
   "task.start": "Start or resume", "task.pause": "Pause", "task.complete": "Complete", "task.reopen": "Reopen",
   "task.cancel": "Cancel except done", "task.delete": "Cancel any state (delete alias)",
+  "task.status.undo": "Undo latest local status",
 };
 
 export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onComplete, returnFocus }: {
@@ -24,7 +24,7 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
 }): ReactElement {
   const [baseline, setBaseline] = useState<V2EditBaseline | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [statusCommand, setStatusCommand] = useState<V2StatusCommand>("task.complete");
+  const [statusCommand, setStatusCommand] = useState<V2StatusAction>("task.complete");
   const [prepared, setPrepared] = useState<V2PreparedEdit | null>(null);
   const [preview, setPreview] = useState<V2EditResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -111,13 +111,13 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
                 <FieldLabel htmlFor="v2-change-status">Status action</FieldLabel>
                 <Select value={statusCommand} disabled={disabled} onValueChange={value => {
                   if (disabled) return;
-                  const command = Object.keys(statusLabels).find(command => command === value) as V2StatusCommand | undefined;
+                  const command = Object.keys(statusLabels).find(command => command === value) as V2StatusAction | undefined;
                   if (command) { setStatusCommand(command); setPrepared(null); setPreview(null); setError(null); }
                 }}>
                   <SelectTrigger ref={statusRef} id="v2-change-status"><SelectValue>{statusLabels[statusCommand]}</SelectValue></SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}><SelectGroup>{Object.entries(statusLabels).map(([command, label]) => <SelectItem key={command} value={command}>{label}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
-                <FieldDescription>Observed status: {baseline.task && taskStatusMeta[baseline.task.status].label}. Commands keep content, edit time, ordering and relationships unchanged. Disallowed transitions are refused.</FieldDescription>
+                <FieldDescription>Observed status: {baseline.task && taskStatusMeta[baseline.task.status].label}. Commands keep content, edit time, ordering and relationships unchanged. {statusCommand === "task.status.undo" ? "Undo restores the previous status and exact closure from eligible retained local history. Missing, consumed or intervening history is refused; no redo or file-deletion undo." : "Disallowed transitions are refused."}</FieldDescription>
               </Field>
             </> : <>
             <Field data-disabled={disabled}>
@@ -147,7 +147,7 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
         {preview && !attempted && <Alert><AlertTitle>{preview.changed ? "Preview only" : statusMode ? "Preview: no status change" : "Preview: no content change"}</AlertTitle><AlertDescription>
           <p className="break-words">{preview.task.title}</p>
           {statusMode ? <p>Status: {taskStatusMeta[preview.task.status].label}. Closure: {preview.task.closedAt ?? "Not closed"}.</p> : <p>Category: {preview.task.category ?? "None"}. Tags: {preview.task.tags.join(", ") || "None"}. Priority: P{preview.task.priority}.</p>}
-          <p>No canonical effects, receipt or history. {statusMode ? "Any new closure time is hypothetical, not reserved." : "Creation identity/time/version are hypothetical, not reserved."} Applying may refuse changed authority.</p>
+          <p>No canonical effects, receipt or history. {statusMode ? statusCommand === "task.status.undo" ? "The previous status and closure come from retained history, not a new closure time. Eligibility is checked again on apply." : "Any new closure time is hypothetical, not reserved." : "Creation identity/time/version are hypothetical, not reserved."} Applying may refuse changed authority.</p>
         </AlertDescription><Button className="mt-3" disabled={busy} onClick={() => { void apply(); }}>Apply original request</Button></Alert>}
         {attempted && <div className="flex min-w-0 flex-col gap-4">
           <p className="text-sm text-muted-foreground">Do not reload, change folders or renew authority. This request exists only in this page. Retry sends its exact original context, key, payload, actor, flags and version. Pending work requires explicit CLI recovery; a restarted backend requires manual reconciliation, not automatic reconnection.</p>

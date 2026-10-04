@@ -121,7 +121,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
       <div className="min-w-0 text-sm text-muted-foreground">
         <p className="break-words"><span className="font-medium text-foreground">Folder:</span> {reader.selection.rootPath}</p>
         <p className="break-words"><span className="font-medium text-foreground">Local cache:</span> {reader.selection.databasePath}</p>
-        <p className="mt-2">{editor ? "Capture, content editing and single-task status previews enabled. Undo, relationships, ordering, migration and recovery remain unavailable." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
+        <p className="mt-2">{editor ? "Capture, content editing, single-task status and latest local status undo previews enabled. Grouped undo, batches, relationships, ordering, migration and recovery remain unavailable." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
         {editor && <p className="break-words">Retained profile: {editor.selection.profilePath}. No retry payload is saved across reloads.</p>}
       </div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setOffset(0); setSearch(searchDraft.trim()); }}>

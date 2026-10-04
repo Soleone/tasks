@@ -1,10 +1,12 @@
 import { isV2Record, type V2Request } from "../backend/v2Protocol";
 import type { V2TaskProjection } from "../backend/v2Queries";
-import { V2_STATUS_COMMANDS, type V2StatusCommand } from "../backend/v2TaskStatus";
+import { V2_STATUS_COMMANDS } from "../backend/v2TaskStatus";
 import { parseV2TaskProjection, parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
 import { runtimeKind } from "./runtime";
 
-const editorCommands = ["task.create", "task.update", ...V2_STATUS_COMMANDS];
+const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
+const editorCommands = ["task.create", "task.update", ...statusActions];
+export type V2StatusAction = typeof statusActions[number];
 
 export type V2EditorSelection = V2DevConnection & { readOnly: false; profilePath: string; writeCommands: readonly string[] };
 export type V2EditBaseline = { writeContext: string; task: V2TaskProjection | null };
@@ -113,7 +115,7 @@ export class V2EditorClient {
     if (mode === "status" && taskId === undefined) throw new Error("Select an existing task for a status operation; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
-    const commands = mode === "status" ? V2_STATUS_COMMANDS : [taskId === undefined ? "task.create" : "task.update"];
+    const commands = mode === "status" ? statusActions : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
@@ -136,8 +138,8 @@ export class V2EditorClient {
       idempotencyKey: crypto.randomUUID(), actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
   }
 
-  prepareStatus(baseline: V2EditBaseline, command: V2StatusCommand): V2PreparedEdit {
-    if (!baseline.task || !V2_STATUS_COMMANDS.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
+  prepareStatus(baseline: V2EditBaseline, command: V2StatusAction): V2PreparedEdit {
+    if (!baseline.task || !statusActions.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
     return new V2PreparedEdit(this.url, this.selection, { version: 2, requestId: crypto.randomUUID(), command,
       args: { id: baseline.task.id, expectedVersion: baseline.task.version }, writeContext: baseline.writeContext,
       idempotencyKey: crypto.randomUUID(), actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
