@@ -7,11 +7,15 @@ export function isV2SingleStatusSource(source: V2HistorySource): boolean {
   return (V2_STATUS_COMMANDS as readonly string[]).includes(source.command);
 }
 
-/** Windows proof authorizes only the published single-task families, including receipt-based cleanup. */
+/** Windows proof checks concrete families and destination scope, including receipt-based cleanup. */
 export function isV2WindowsProofIntent(intent: V2PendingIntent): boolean {
   if (intent.format === "taskdb.pending-create") return intent.request.command === "task.create";
   if (intent.format === "taskdb.pending-update") {
     return intent.request.command === "task.update" || (V2_STATUS_COMMANDS as readonly string[]).includes(intent.request.command);
+  }
+  if (intent.format === "taskdb.pending-copy") {
+    return ["workspace.archive", "workspace.restore"].includes(intent.request.command)
+      && intent.destination.identity === null && intent.migration === undefined;
   }
   if (intent.format !== "taskdb.pending-batch" || intent.request.command !== "task.status.undo"
     || intent.sources.length !== 1 || !isV2SingleStatusSource(intent.sources[0])) return false;

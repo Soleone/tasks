@@ -7,6 +7,9 @@ import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
 import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
 import { readV2CanonicalRoot, readV2RootDescriptor } from "./v2CanonicalReader.js";
 import { executeV2Line } from "./v2Gateway.js";
+import { executeV2Copy } from "./v2CopyWriter.js";
+import { parseV2Request } from "./v2Protocol.js";
+import { DatabaseSync } from "node:sqlite";
 import { pendingV2Path } from "./v2LocalDomain.js";
 import type { V2Response } from "./v2Protocol.js";
 
@@ -34,6 +37,32 @@ function rawCanonical(root: string) {
     .map(name => [name, readFileSync(path.join(root, name)).toString("base64")]);
 }
 const linuxOnly = { skip: process.platform !== "linux" };
+
+for (const command of ["workspace.archive", "workspace.restore"]) {
+  test(`Windows absence-only ${command} refuses an empty destination before staging without consuming the key`, linuxOnly, t => {
+    const workspace = setup(t), canonical = rawCanonical(workspace.root);
+    mkdirSync(workspace.destination);
+    const request = parseV2Request({ version: 2, ...prepared(workspace, command, {
+      destinationDirectory: workspace.destination, ...(command === "workspace.restore" ? { sourceDirectory: workspace.root } : {}),
+    }) });
+    for (const flags of [{}, { readOnly: true }, { dryRun: true }]) {
+      assert.throws(() => executeV2Copy({ ...request, ...flags }, workspace.root, workspace.cache, true),
+        { code: "UNSUPPORTED_COMMAND", message: "UNSUPPORTED_COMMAND: Windows copy proof requires an absent destination; existing empty directories are not supported" });
+      assert.deepEqual(rawCanonical(workspace.root), canonical);
+      assert.deepEqual(readdirSync(workspace.destination), []);
+      assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+      const database = new DatabaseSync(workspace.cache);
+      try { assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0); }
+      finally { database.close(); }
+    }
+    // Disposable preparation, not a production delete-before-publication fallback.
+    rmSync(workspace.destination, { recursive: true });
+    const result = executeV2Copy(request, workspace.root, workspace.cache, true);
+    assert.deepEqual(rawCanonical(workspace.destination), canonical);
+    assert.deepEqual(rawCanonical(workspace.root), canonical);
+    assert.deepEqual(executeV2Copy(request, workspace.root, workspace.cache, true).result, result.result);
+  });
+}
 
 test("Node v2 copy commands execute archive-restore corpus case without changing selection or authority", linuxOnly, (t) => {
   const entry = corpus.cases.find(entry => entry.id === "archive-restore")!;

@@ -20,7 +20,7 @@ export function commitV2Copy(database: DatabaseSync, intent: V2CopyIntent): Reco
   return result;
 }
 
-export function executeV2Copy(request: V2Request, rootPath: string, cachePath: string) {
+export function executeV2Copy(request: V2Request, rootPath: string, cachePath: string, windowsAbsentDestination = false) {
   const root = readV2RootDescriptor(rootPath);
   return withV2RootWriterLock(root, () => {
     let completed: V2CopyIntent | undefined;
@@ -40,6 +40,9 @@ export function executeV2Copy(request: V2Request, rootPath: string, cachePath: s
         if (source.rootIdentity !== sourceRoot.rootIdentity) throw new CommandError("STALE_SCOPE", "source binding changed");
         guardCopySource(source);
         const destination = inspectCopyDestination(source.rootPath, input.destinationDirectory);
+        if (windowsAbsentDestination && destination.identity !== null) {
+          throw new CommandError("UNSUPPORTED_COMMAND", "Windows copy proof requires an absent destination; existing empty directories are not supported");
+        }
         inspectCopyDestination(root.rootPath, destination.directory);
         for (const binding of [root, sourceRoot]) {
           localPathOutsideV2Root(cachePath, binding.rootPath);

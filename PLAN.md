@@ -47,7 +47,7 @@ One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host
 | 3 | `mg8` | Complete: typed single-file update path/results, readable trace, retained receipt validation; Windows 38/38 |
 | Windows prerequisite | `7hr` | Complete: Windows Node/SEA capture 64/64 plus update 38/38; short-path profile, already-linked directory reflush |
 | Windows prerequisite | `byy` | Complete: Windows Node/SEA 156/156 plus retained capture 64/update 38; single-source inverse/recovery scope and already-applied directory reflush |
-| Windows prerequisite | `gxm` | After `byy` review, prove separate-root archive/restore publication and recovery |
+| Windows prerequisite | `gxm` | In progress: owner-selected absent Windows destinations only; refuse existing empty directories before staging; prove disjoint archive/restore and matching recovery |
 | 4 | `m1p` | After all three Windows proofs, prove the basic task loop in one native app |
 | 5 | `hzv` | Dogfood; agree the essential keep/replace/drop workflow checklist |
 | 6 | `y9b` | Rehearse the one-time migration on a disposable source copy |
