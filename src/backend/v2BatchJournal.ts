@@ -108,10 +108,15 @@ export function applyV2BatchJournal(intent: V2BatchIntent): V2CanonicalSnapshot 
     if (file.beforeBytes === file.nextBytes) continue;
     const snapshot = guardV2Batch(intent, true);
     const actual = snapshot.files.find(actual => actual.relativePath === `tasks/${file.taskId}.json`);
-    if (file.nextBytes === null ? !actual : actual?.sha256 === exactV2Hash(Buffer.from(file.nextBytes, "base64"))) continue;
     const target = path.join(intent.root.rootPath, "tasks", `${file.taskId}.json`);
-    if (file.nextBytes === null) unlinkSync(target);
-    else {
+    if (file.nextBytes === null ? !actual : actual?.sha256 === exactV2Hash(Buffer.from(file.nextBytes, "base64"))) {
+      // Recognized effects may follow a crash before the original directory flush.
+      syncV2Directory(path.dirname(target));
+      continue;
+    }
+    if (file.nextBytes === null) {
+      unlinkSync(target);
+    } else {
       const temporary = stagePath(intent, index), next = Buffer.from(file.nextBytes, "base64");
       if (!existsSync(temporary)) writeV2DurableFile(temporary, next);
       guardV2Batch(intent, true);

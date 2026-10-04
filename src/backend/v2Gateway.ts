@@ -35,7 +35,7 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
     const request = parseV2Request(envelope);
     const writable = process.platform === "linux";
     const windowsTaskProof = process.platform === "win32" && writerProfile === "windows-task-proof";
-    const allowedWrites = windowsTaskProof ? ["task.create", "task.update", "workspace.recovery.resume"] : writable ? writeCommands : [];
+    const allowedWrites = windowsTaskProof ? ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", "workspace.recovery.resume"] : writable ? writeCommands : [];
     if (writable && request.command === "workspace.doctor.inspect") {
       const outcome = executeV2DoctorInspect(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
@@ -45,7 +45,7 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
         : request.command === "task.purgeCanceled" ? executeV2Purge(request, rootPath, cachePath)
         : request.command === "workspace.doctor.plan" ? executeV2DoctorPlan(request, rootPath, cachePath)
         : request.command === "workspace.doctor.apply" ? executeV2DoctorApply(request, rootPath, cachePath)
-        : V2_UNDO_COMMANDS.includes(request.command) ? executeV2Undo(request, rootPath, cachePath)
+        : V2_UNDO_COMMANDS.includes(request.command) ? executeV2Undo(request, rootPath, cachePath, windowsTaskProof)
         : V2_ORDER_COMMANDS.includes(request.command) ? executeV2Order(request, rootPath, cachePath)
         : isV2TaskEditRequest(request) ? executeV2Update(request, rootPath, cachePath)
         : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath, windowsTaskProof)

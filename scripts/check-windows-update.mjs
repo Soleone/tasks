@@ -28,9 +28,11 @@ const cuts = ["staged", "replaced", "beforeCommit", "afterCommit", "lostReply"];
 const passed = [];
 const runtime = { platform: process.platform, os: os.release(), arch: process.arch, node: process.version, libuv: process.versions.uv, volume };
 const artifacts = [];
+let workspaceIndex = 0;
 
 function workspace(name) {
-  const directory = path.join(scratch, name);
+  // Numeric disposable scenes keep the existing short-path proof inside the Windows SQLite boundary.
+  const directory = path.join(scratch, String(workspaceIndex++));
   mkdirSync(directory);
   const root = path.join(directory, "root");
   cpSync(golden, root, { recursive: true });
@@ -38,7 +40,7 @@ function workspace(name) {
   const stat = lstatSync(root, { bigint: true });
   const key = createHash("sha256").update(JSON.stringify([realpathSync(root), `${stat.dev}:${stat.ino}`])).digest("hex");
   const domain = path.join(profile, "com.soleone.tasks/taskdb-v2/roots", key);
-  return { directory, root, profile, cache: path.join(directory, "cache.db"), domain, pending: path.join(domain, "pending.json"), file: path.join(root, "tasks", `${id}.json`) };
+  return { name, directory, root, profile, cache: path.join(directory, "cache.db"), domain, pending: path.join(domain, "pending.json"), file: path.join(root, "tasks", `${id}.json`) };
 }
 function argv(w, proof = true) {
   return ["--stdio", "--v2-root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])];
@@ -86,7 +88,7 @@ function interrupted(runner, w, cut) {
   const request = prepared(runner, w);
   const child = run(runner, w, request, true, cut);
   assert.equal(child.error, undefined);
-  assert.notEqual(child.status, 0);
+  assert.notEqual(child.status, 0, child.stdout + child.stderr);
   assert.match(child.stderr, new RegExp(`TASKS_TEST_CUT:${cut}`), child.stderr);
   assert.equal(existsSync(w.pending), cut !== "lostReply");
   return request;
@@ -131,10 +133,10 @@ try {
     const prefix = runner === node ? "node" : "sea";
     const w = workspace(`${prefix}-content`);
     const info = ok(send(runner, w, { command: "workspace.info" }));
-    assert.deepEqual(info.result.commands, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "workspace.info", "workspace.recovery.resume"].sort());
+    assert.deepEqual(info.result.commands, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "workspace.info", "workspace.recovery.resume"].sort());
     const request = prepared(runner, w), before = raw(w), original = JSON.parse(readFileSync(w.file, "utf8"));
     fail(send(runner, w, request, false), "UNSUPPORTED_COMMAND");
-    for (const command of ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "task.move", "task.dependency.add", "task.reorder", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.rebuild", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
+    for (const command of ["task.status.undoMany", "task.transitionMany", "task.move", "task.dependency.add", "task.reorder", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.rebuild", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
     assert.deepEqual(raw(w), before);
     assert.deepEqual(counts(w), [0, 0]);
     const preview = ok(send(runner, w, { ...request, dryRun: true, idempotencyKey: undefined }));
@@ -229,24 +231,24 @@ try {
     assert.deepEqual(counts(unflushed), [2, 1]);
     passed.push(`${prefix}: already-replaced recovery must flush the directory before receipt/retirement`);
 
-    for (const fault of ["divergence", "formatting", "missing", "arrival", "other-cache", "status-intent"]) {
+    for (const fault of ["divergence", "formatting", "missing", "arrival", "other-cache", "relationship-intent"]) {
       const w = workspace(`${prefix}-${fault}`), request = interrupted(runner, w, "staged");
       const intent = JSON.parse(readFileSync(w.pending, "utf8"));
       if (fault === "divergence") writeFileSync(w.file, JSON.stringify({ ...JSON.parse(readFileSync(w.file, "utf8")), title: "External divergence" }));
       if (fault === "formatting") writeFileSync(w.file, " " + readFileSync(w.file, "utf8"));
       if (fault === "missing") rmSync(w.file);
       if (fault === "arrival") writeFileSync(path.join(w.root, "tasks/late.json"), JSON.stringify({ ...JSON.parse(readFileSync(w.file, "utf8")), id: "late" }));
-      if (fault === "status-intent") {
-        intent.request.command = "task.start";
-        intent.request.args = { id, expectedVersion: request.args.expectedVersion };
+      if (fault === "relationship-intent") {
+        intent.request.command = "task.dependency.add";
+        intent.request.args = { id, expectedVersion: request.args.expectedVersion, dependsOnId: "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed" };
         const before = JSON.parse(Buffer.from(intent.beforeBytes, "base64").toString());
-        intent.nextBytes = Buffer.from(JSON.stringify({ ...before, status: "in_progress", closedAt: null }) + "\n").toString("base64");
+        intent.nextBytes = Buffer.from(JSON.stringify({ ...before, dependencyIds: [intent.request.args.dependsOnId], updatedAt: intent.at }) + "\n").toString("base64");
         writeFileSync(w.pending, JSON.stringify(intent) + "\n");
       }
       const guarded = fault === "other-cache" ? { ...w, cache: path.join(w.directory, "other.db") } : w;
       const info = ok(send(runner, guarded, { command: "workspace.info" }));
       const pendingBytes = readFileSync(w.pending), canonical = raw(w);
-      fail(send(runner, guarded, { command: "workspace.recovery.resume", writeContext: info.writeContext, idempotencyKey: "refused-resume", args: { operationId: intent.operationId } }), fault === "status-intent" ? "UNSUPPORTED_COMMAND" : "RECOVERY_CONFLICT");
+      fail(send(runner, guarded, { command: "workspace.recovery.resume", writeContext: info.writeContext, idempotencyKey: "refused-resume", args: { operationId: intent.operationId } }), fault === "relationship-intent" ? "UNSUPPORTED_COMMAND" : "RECOVERY_CONFLICT");
       assert.deepEqual(readFileSync(w.pending), pendingBytes);
       assert.deepEqual(raw(w), canonical);
       assert.deepEqual(counts(w), [0, 0]);

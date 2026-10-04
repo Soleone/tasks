@@ -14,6 +14,7 @@ import { pendingV2Path } from "./v2LocalDomain.js";
 import { v2UndoRecoveryLocation } from "./v2BatchJournal.js";
 import type { V2BatchIntent } from "./v2BatchJournal.js";
 import type { V2Response } from "./v2Protocol.js";
+import { isV2WindowsProofIntent } from "./v2WindowsTaskProof.js";
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
@@ -61,6 +62,40 @@ return{...result,source};}});`);
   const child = run(w, request, loader);assert.equal(child.signal, "SIGKILL", child.stderr);
   return { pending, intent: existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as V2BatchIntent : undefined };
 }
+
+test("Windows proof accepts only single-status undo evidence, never grouped/arbitrary batch history", linux, t => {
+  for (const kind of ["status", "transition", "undoMany", "order", "create", "content"]) {
+    const { w, request } = scenario(t, kind), { intent } = crash(w, request, "intent");
+    assert.ok(intent);
+    assert.equal(isV2WindowsProofIntent(intent), kind === "status");
+    if (kind === "undoMany") {
+      const disguised = { ...intent, request: { ...intent.request, command: "task.status.undo", args: { id: "a", expectedVersion: 1 } }, sources: [intent.sources[0]] };
+      assert.equal(isV2WindowsProofIntent(disguised), false);
+    }
+  }
+});
+
+test("already-applied single-status inverse requires directory flush before history/claim/receipt", linux, t => {
+  const { w, request } = scenario(t, "status"), { pending, intent } = crash(w, request, "prefix-1");
+  assert.ok(intent);
+  const pendingBytes = readFileSync(pending), target = path.join(w.root, "tasks/a.json"), targetBytes = readFileSync(target);
+  const loader = path.join(w.directory, "undo-flush-refusal.mjs");
+  writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);
+if(!url.endsWith('/v2BatchJournal.js'))return result;let source=result.source.toString();
+const needle='syncV2Directory(path.dirname(target));\\n            continue;';
+if(source.split(needle).length!==2)throw Error('unique already-applied flush required');
+return {...result,source:source.replace(needle,'throw Object.assign(new Error("test-only inverse flush refusal"),{code:"EPERM"});'+needle)};}});`);
+  const resume = { version: 2, command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: request.writeContext, idempotencyKey: "flush-inverse" };
+  const child = run(w, resume, loader); assert.equal(child.status, 0, child.stderr);
+  fail(JSON.parse(child.stdout), "INVALID_STORAGE");
+  assert.deepEqual(readFileSync(pending), pendingBytes); assert.deepEqual(readFileSync(target), targetBytes);
+  const db = new DatabaseSync(w.cache);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM v2_operations").get()!.n, 1);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 1);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM v2_undo_claims").get()!.n, 0); db.close();
+  ok(send(w, resume)); ok(send(w, request)); assert.equal(existsSync(pending), false);
+  assert.deepEqual(readFileSync(target), targetBytes);
+});
 
 for (const [kind, writes] of [["transition", 3], ["undoMany", 3], ["order", 3], ["status", 1], ["create", 1], ["content", 1]] as const) {
   const cuts = ["intent", ...(kind === "create" ? [] : ["staged"]), ...Array.from({ length: writes + 1 }, (_, index) => `prefix-${index}`), "verified", "beforeCommit", "afterCommit", "retired"];

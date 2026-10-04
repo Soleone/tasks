@@ -23,6 +23,7 @@ import { localPathOutsideV2Root, synchronizeV2Authority, withV2CacheTransaction 
 import { findV2Receipt, findV2TaskEditReceipt, requireV2WriteContext, storeV2Receipt } from "./v2Receipts.js";
 import { applyV2Journal, guardV2Update } from "./v2UpdateJournal.js";
 import { commitV2Update } from "./v2UpdateWriter.js";
+import { isV2WindowsProofIntent } from "./v2WindowsTaskProof.js";
 
 export function resumeV2Operation(request: V2Request, rootPath: string, cachePath: string, windowsTaskProof = false) {
   const root = readV2ControlRoot(rootPath);
@@ -41,9 +42,8 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
         try {
           const pending = readV2Pending(root);
           if (pending && pending.operationId === replay.operationId) {
-            if (windowsTaskProof && !((pending.format === "taskdb.pending-update" && pending.request.command === "task.update")
-              || (pending.format === "taskdb.pending-create" && pending.request.command === "task.create"))) {
-              throw new CommandError("UNSUPPORTED_COMMAND", "Windows proof can recover only task.create/task.update intents");
+            if (windowsTaskProof && !isV2WindowsProofIntent(pending)) {
+              throw new CommandError("UNSUPPORTED_COMMAND", "Windows proof requires a supported single-task intent");
             }
             completed = pending;
           }
@@ -52,9 +52,8 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
       }
       const intent = readV2Pending(root);
       if (!intent || intent.operationId !== request.args.operationId) throw new CommandError("OPERATION_UNAVAILABLE", "pending operation is unavailable");
-      if (windowsTaskProof && !((intent.format === "taskdb.pending-update" && intent.request.command === "task.update")
-        || (intent.format === "taskdb.pending-create" && intent.request.command === "task.create"))) {
-        throw new CommandError("UNSUPPORTED_COMMAND", "Windows proof can recover only task.create/task.update intents");
+      if (windowsTaskProof && !isV2WindowsProofIntent(intent)) {
+        throw new CommandError("UNSUPPORTED_COMMAND", "Windows proof requires a supported single-task intent");
       }
       if (intent.format === "taskdb.pending-copy-target") throw new CommandError("RECOVERY_CONFLICT", `resume copy from its original selected root: ${intent.owner.rootPath}`);
       if (request.dryRun || request.readOnly) throw new CommandError("UNSUPPORTED_COMMAND", "recovery requires explicit execution, not preview");

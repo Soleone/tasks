@@ -18,6 +18,7 @@ import { selectV2UndoHistory } from "./v2UndoHistory.js";
 import { parseV2Undo, planV2Undo } from "./v2UndoPlan.js";
 import type { V2UndoPlan } from "./v2UndoPlan.js";
 import { exactV2Hash } from "./v2UpdateJournal.js";
+import { isV2SingleStatusSource } from "./v2WindowsTaskProof.js";
 
 function requireUndoBudget(database: DatabaseSync, count: number): void {
   const state = database.prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1").get()!;
@@ -54,7 +55,7 @@ function batchIntentPlanOriginals(intent: V2BatchIntent): V2CanonicalTask[] {
   return intent.files.map(file => JSON.parse(Buffer.from(file.beforeBytes, "base64").toString()) as V2CanonicalTask);
 }
 
-export function executeV2Undo(request: V2Request, rootPath: string, cachePath: string) {
+export function executeV2Undo(request: V2Request, rootPath: string, cachePath: string, windowsSingleStatus = false) {
   const root = readV2RootDescriptor(rootPath);
   return withV2RootWriterLock(root, () => {
     let completed: V2BatchIntent | undefined;
@@ -77,6 +78,9 @@ export function executeV2Undo(request: V2Request, rootPath: string, cachePath: s
       }
       const at = new Date().toISOString();
       const sources = selectV2UndoHistory(database, authority.writeContext, input, snapshot.tasks);
+      if (windowsSingleStatus && (request.command !== "task.status.undo" || sources.length !== 1 || !isV2SingleStatusSource(sources[0]))) {
+        throw new CommandError("UNDO_UNAVAILABLE", "Windows proof requires retained single-task status history, not a grouped or arbitrary inverse");
+      }
       const plan = planV2Undo(input, snapshot.tasks, at, sources);
       for (const id of plan.removedIds) {
         if (snapshot.conflictFiles.some(file => file.relativePath.startsWith(`tasks/${id}.sync-conflict-`))) throw new CommandError("OPERATION_UNAVAILABLE", "creation has conflict evidence requiring inspection");
