@@ -13,7 +13,7 @@ import { Input } from "./ui/input";
 import { Item } from "./ui/item";
 import { Label } from "./ui/label";
 import { V2WorkspaceReader, type V2TaskPage, type V2WorkspaceInfo } from "@/platform/v2BackendClient";
-import type { V2EditorClient } from "@/platform/v2EditorClient";
+import type { V2EditorClient, V2EditorMode } from "@/platform/v2EditorClient";
 
 const V2TaskEditor = lazy(() => import("./V2TaskEditor").then(module => ({ default: module.V2TaskEditor })));
 
@@ -51,7 +51,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
   const [refresh, setRefresh] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [details, setDetails] = useState<V2TaskProjection | null>(null);
-  const [editing, setEditing] = useState<{ id?: string; statusMode?: true } | null>(null);
+  const [editing, setEditing] = useState<{ id?: string; mode?: V2EditorMode } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const retryRef = useRef<HTMLButtonElement>(null);
@@ -121,7 +121,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
       <div className="min-w-0 text-sm text-muted-foreground">
         <p className="break-words"><span className="font-medium text-foreground">Folder:</span> {reader.selection.rootPath}</p>
         <p className="break-words"><span className="font-medium text-foreground">Local cache:</span> {reader.selection.databasePath}</p>
-        <p className="mt-2">{editor ? "Capture, content editing, single-task status and latest local status undo previews enabled. Grouped undo, batches, relationships, ordering, migration and recovery remain unavailable." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
+        <p className="mt-2">{editor ? "Capture, content, status/undo and parent-change previews enabled. Grouped undo, batches, dependency editing, ordering, migration and recovery remain unavailable." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
         {editor && <p className="break-words">Retained profile: {editor.selection.profilePath}. No retry payload is saved across reloads.</p>}
       </div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setOffset(0); setSearch(searchDraft.trim()); }}>
@@ -141,7 +141,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
       <div className="flex flex-wrap items-center gap-3">
         <Button ref={retryRef} variant="outline" onClick={() => setRefresh(value => value + 1)}>{error || workspace?.state !== "ready" ? "Retry" : "Refresh"}</Button>
         <Button variant="outline" disabled={!active} onClick={() => { if (active) setDetails(active); }}>Show details</Button>
-        {editor && <><Button variant="outline" disabled={workspace?.state !== "ready" || !!error} onClick={() => setEditing({})}>New task</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id }); }}>Edit content</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, statusMode: true }); }}>Change status</Button></>}
+        {editor && <><Button variant="outline" disabled={workspace?.state !== "ready" || !!error} onClick={() => setEditing({})}>New task</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id }); }}>Edit content</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, mode: "status" }); }}>Change status</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, mode: "parent" }); }}>Change parent</Button></>}
         {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
         {page && <p role="status" className="text-sm text-muted-foreground">{page.total} matching {page.total === 1 ? "task" : "tasks"}, manual order</p>}
       </div>
@@ -154,7 +154,8 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
         if (next !== null) { event.preventDefault(); setActiveId(page.tasks[next]?.id ?? null); }
         else if (event.key === "Enter" && active) { event.preventDefault(); if (editor) setEditing({ id: active.id }); else setDetails(active); }
         else if (event.key === "c" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && workspace?.state === "ready" && !error) { event.preventDefault(); setEditing({}); }
-        else if (event.key === "t" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && active && !error) { event.preventDefault(); setEditing({ id: active.id, statusMode: true }); }
+        else if (event.key === "t" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && active && !error) { event.preventDefault(); setEditing({ id: active.id, mode: "status" }); }
+        else if (event.key === "m" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && active && !error) { event.preventDefault(); setEditing({ id: active.id, mode: "parent" }); }
       }}>
         {page?.contextTasks.map(task => <Item key={task.id} state="context"><p className="min-w-0 break-words text-sm">Ancestor: {task.title}</p></Item>)}
         {page?.tasks.map(task => (
@@ -167,8 +168,8 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
         {!workspace && !error && <p role="status" className="p-3 text-sm text-muted-foreground">Loading the selected v2 folder...</p>}
       </div>
       {page && (page.total > page.limit || offset > 0) && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - page.limit))}>Previous page</Button><Button variant="outline" disabled={offset + page.limit >= page.total} onClick={() => setOffset(value => value + page.limit)}>Next page</Button><span className="text-sm text-muted-foreground">{Math.min(offset + 1, page.total)}–{Math.min(offset + page.limit, page.total)} of {page.total}</span></div>}
-      <p className="text-sm text-muted-foreground">Arrow keys or J/K move through tasks. {editor ? "C opens capture; Enter edits content; T opens status actions. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
-      {editor && editing && <Suspense fallback={<p role="status">Loading task editor...</p>}><V2TaskEditor editor={editor} taskId={editing.id} statusMode={editing.statusMode} returnFocus={() => listRef.current ?? undefined} onClose={() => setEditing(null)} onComplete={result => { setEditing(null); setActiveId(result.task.id); setRefresh(value => value + 1); setNotice(result.changed ? "Original request completed. Refreshing current tasks." : "No change; original request completed."); }} /></Suspense>}
+      <p className="text-sm text-muted-foreground">Arrow keys or J/K move through tasks. {editor ? "C opens capture; Enter edits content; T opens status actions; M opens parent selection. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
+      {editor && editing && <Suspense fallback={<p role="status">Loading task editor...</p>}><V2TaskEditor editor={editor} taskId={editing.id} mode={editing.mode} returnFocus={() => listRef.current ?? undefined} onClose={() => setEditing(null)} onComplete={result => { setEditing(null); setActiveId(result.task.id); setRefresh(value => value + 1); setNotice(result.changed ? "Original request completed. Refreshing current tasks." : "No change; original request completed."); }} /></Suspense>}
       <Dialog open={details !== null} onOpenChange={open => { if (!open) setDetails(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto" finalFocus={() => listRef.current ?? undefined}>{details && <TaskDetails task={details} />}</DialogContent></Dialog>
     </main>
   );

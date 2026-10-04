@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
-import { V2EditorClient, type V2EditBaseline, type V2EditResult, type V2PreparedEdit, type V2LiteralContent, type V2StatusAction } from "@/platform/v2EditorClient";
+import { V2EditorClient, type V2EditBaseline, type V2EditResult, type V2PreparedEdit, type V2LiteralContent, type V2StatusAction, type V2EditorMode } from "@/platform/v2EditorClient";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -9,6 +9,7 @@ import { Input } from "./ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
 import { taskStatusMeta } from "./taskFilters";
+import { V2ParentChoice } from "./V2ParentChoice";
 
 type Draft = { title: string; description: string; category: string; tags: string; priority: V2LiteralContent["priority"] };
 const emptyDraft: Draft = { title: "", description: "", category: "", tags: "", priority: 2 };
@@ -18,12 +19,13 @@ const statusLabels: Record<V2StatusAction, string> = {
   "task.status.undo": "Undo latest local status",
 };
 
-export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onComplete, returnFocus }: {
-  editor: V2EditorClient; taskId?: string; statusMode?: boolean; onClose: () => void; onComplete: (result: V2EditResult) => void;
+export function V2TaskEditor({ editor, taskId, mode = "content", onClose, onComplete, returnFocus }: {
+  editor: V2EditorClient; taskId?: string; mode?: V2EditorMode; onClose: () => void; onComplete: (result: V2EditResult) => void;
   returnFocus: () => HTMLElement | undefined;
 }): ReactElement {
   const [baseline, setBaseline] = useState<V2EditBaseline | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [statusCommand, setStatusCommand] = useState<V2StatusAction>("task.complete");
   const [prepared, setPrepared] = useState<V2PreparedEdit | null>(null);
   const [preview, setPreview] = useState<V2EditResult | null>(null);
@@ -34,23 +36,27 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
   const [loadAttempt, setLoadAttempt] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
   const statusRef = useRef<HTMLButtonElement>(null);
+  const parentRef = useRef<HTMLButtonElement>(null);
   const retryRef = useRef<HTMLButtonElement>(null);
   const attempted = prepared?.hasExecuted ?? false;
   const disabled = !baseline || busy || attempted;
+  const statusMode = mode === "status";
+  const initialFocus = mode === "parent" ? parentRef : statusMode ? statusRef : titleRef;
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    void editor.begin(taskId, statusMode ? "status" : "content").then(value => {
+    void editor.begin(taskId, mode).then(value => {
       if (cancelled) return;
       setBaseline(value);
       const task = value.task;
+      setParentId(task?.parentId ?? null);
       setDraft(task ? { title: task.title, description: task.description, category: task.category ?? "", tags: task.tags.join(", "), priority: task.priority } : emptyDraft);
     }).catch((reason: unknown) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Could not prepare this task operation."); });
     return () => { cancelled = true; };
-  }, [editor, taskId, statusMode, loadAttempt]);
+  }, [editor, taskId, mode, loadAttempt]);
 
-  useEffect(() => { if (baseline) (statusMode ? statusRef : titleRef).current?.focus(); }, [baseline, statusMode]);
+  useEffect(() => { if (baseline) initialFocus.current?.focus(); }, [baseline, initialFocus]);
   useEffect(() => { if (error && attempted) retryRef.current?.focus(); }, [error, attempted]);
   useEffect(() => {
     if (!attempted) return;
@@ -70,7 +76,7 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
     if (!baseline || busy || attempted) return;
     setBusy(true); setError(null); setPreview(null);
     try {
-      const request = statusMode ? editor.prepareStatus(baseline, statusCommand)
+      const request = mode === "parent" ? editor.prepareParent(baseline, parentId) : statusMode ? editor.prepareStatus(baseline, statusCommand)
         : editor.prepare(baseline, { title: draft.title, description: draft.description, priority: draft.priority,
           category: draft.category.trim() || null, tags: draft.tags.trim() ? draft.tags.split(",").map(tag => tag.trim()) : [] });
       setPrepared(request);
@@ -95,17 +101,20 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !busy && !attempted) onClose(); }}>
-      <DialogContent className="overflow-y-auto sm:max-w-lg" showCloseButton={!attempted && !busy} initialFocus={() => (statusMode ? statusRef : titleRef).current ?? undefined} finalFocus={returnFocus}>
+      <DialogContent className="overflow-y-auto sm:max-w-lg" showCloseButton={!attempted && !busy} initialFocus={() => initialFocus.current ?? undefined} finalFocus={returnFocus}>
         <DialogHeader>
-          <DialogTitle>{statusMode ? "Change task status" : taskId ? "Edit literal task content" : "Capture a literal task"}</DialogTitle>
-          <DialogDescription>{statusMode ? "Preview one explicit status command. Cancellation keeps the file; no status cascades or automatic undo." : "Title, category and tags are separate fields. No shorthand parsing, status changes or relationship editing."}</DialogDescription>
+          <DialogTitle>{mode === "parent" ? "Change task parent" : statusMode ? "Change task status" : taskId ? "Edit literal task content" : "Capture a literal task"}</DialogTitle>
+          <DialogDescription>{mode === "parent" ? "Move this task first under a chosen parent, or remove its parent. Content, status, closure, dependencies and descendant files stay unchanged." : statusMode ? "Preview one explicit status command. Cancellation keeps the file; no status cascades or automatic undo." : "Title, category and tags are separate fields. No shorthand parsing, status changes or relationship editing."}</DialogDescription>
         </DialogHeader>
         {!baseline && !error && <p role="status">Preparing the selected task operation...</p>}
         {error && <Alert variant="destructive"><AlertTitle>{attempted ? "Original request retained, not resolved" : "Task operation unavailable"}</AlertTitle><AlertDescription className="break-words">{error}</AlertDescription></Alert>}
         {!baseline && error && <Button variant="outline" onClick={() => setLoadAttempt(value => value + 1)}>Retry preparation</Button>}
         {baseline && <form onSubmit={event => { void previewDraft(event); }} className="flex flex-col gap-5">
           <FieldGroup>
-            {statusMode ? <>
+            {mode === "parent" ? <V2ParentChoice editor={editor} baseline={baseline} value={parentId} disabled={disabled} triggerRef={parentRef} onChange={value => {
+              if (disabled) return;
+              setParentId(value); setPrepared(null); setPreview(null); setError(null);
+            }} /> : statusMode ? <>
               <p className="break-words text-sm">{baseline.task?.title}</p>
               <Field data-disabled={disabled}>
                 <FieldLabel htmlFor="v2-change-status">Status action</FieldLabel>
@@ -144,10 +153,10 @@ export function V2TaskEditor({ editor, taskId, statusMode = false, onClose, onCo
           </FieldGroup>
           {!attempted && <div className="flex flex-wrap gap-3"><Button type="submit" disabled={disabled}>{busy ? "Preparing preview..." : "Preview changes"}</Button><Button type="button" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button></div>}
         </form>}
-        {preview && !attempted && <Alert><AlertTitle>{preview.changed ? "Preview only" : statusMode ? "Preview: no status change" : "Preview: no content change"}</AlertTitle><AlertDescription>
+        {preview && !attempted && <Alert><AlertTitle>{preview.changed ? "Preview only" : mode === "parent" ? "Preview: no parent change" : statusMode ? "Preview: no status change" : "Preview: no content change"}</AlertTitle><AlertDescription>
           <p className="break-words">{preview.task.title}</p>
-          {statusMode ? <p>Status: {taskStatusMeta[preview.task.status].label}. Closure: {preview.task.closedAt ?? "Not closed"}.</p> : <p>Category: {preview.task.category ?? "None"}. Tags: {preview.task.tags.join(", ") || "None"}. Priority: P{preview.task.priority}.</p>}
-          <p>No canonical effects, receipt or history. {statusMode ? statusCommand === "task.status.undo" ? "The previous status and closure come from retained history, not a new closure time. Eligibility is checked again on apply." : "Any new closure time is hypothetical, not reserved." : "Creation identity/time/version are hypothetical, not reserved."} Applying may refuse changed authority.</p>
+          {mode === "parent" ? <p className="break-all">Parent: {preview.task.parentId ?? "Root (no parent)"}. Position key: {preview.task.orderKey}.</p> : statusMode ? <p>Status: {taskStatusMeta[preview.task.status].label}. Closure: {preview.task.closedAt ?? "Not closed"}.</p> : <p>Category: {preview.task.category ?? "None"}. Tags: {preview.task.tags.join(", ") || "None"}. Priority: P{preview.task.priority}.</p>}
+          <p>No canonical effects, receipt or history. {mode === "parent" ? "New edit time and first-position key are hypothetical, not reserved. Complete graph/sibling guards run again on apply." : statusMode ? statusCommand === "task.status.undo" ? "The previous status and closure come from retained history, not a new closure time. Eligibility is checked again on apply." : "Any new closure time is hypothetical, not reserved." : "Creation identity/time/version are hypothetical, not reserved."} Applying may refuse changed authority.</p>
         </AlertDescription><Button className="mt-3" disabled={busy} onClick={() => { void apply(); }}>Apply original request</Button></Alert>}
         {attempted && <div className="flex min-w-0 flex-col gap-4">
           <p className="text-sm text-muted-foreground">Do not reload, change folders or renew authority. This request exists only in this page. Retry sends its exact original context, key, payload, actor, flags and version. Pending work requires explicit CLI recovery; a restarted backend requires manual reconciliation, not automatic reconnection.</p>

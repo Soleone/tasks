@@ -73,7 +73,7 @@ test("editor/read-only handshakes cannot silently cross modes; health creates no
   const selected = workspace(t), original = bytes(selected.root);
   const writable = await server(t, selected);
   assert.equal(writable.handshake.readOnly, false);
-  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo"]);
+  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "task.move"]);
   assert.equal(existsSync(selected.cache), false); assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
   await assert.rejects(readV2DevSelection(writable.dev.url), /No v1 fallback/);
   const readonly = await server(t, selected, false);
@@ -86,12 +86,12 @@ test("editor health requires the exact connected-command whitelist, not comma co
   const selected = workspace(t), { dev } = await server(t, selected);
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
-  const allowed = ["task.create", "task.update", ...statusActions];
+  const allowed = ["task.create", "task.update", ...statusActions, "task.move"];
   for (writeCommands of [["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "operation.undo"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
-for (const command of ["task.status.undoMany", "task.transitionMany", "task.move", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
+for (const command of ["task.status.undoMany", "task.transitionMany", "task.dependency.add", "task.dependency.remove", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async t => {
     const selected = workspace(t), original = bytes(selected.root);
     const { dev, handshake } = await server(t, selected);
@@ -403,9 +403,9 @@ test("stale status execution never refreshes authority or changes concurrent con
   assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
 });
 
-test("readonly bridge refuses all six status commands and status undo before authority or cache creation", async t => {
+test("readonly bridge refuses all status commands/undo and parent changes before authority or cache creation", async t => {
   const selected = workspace(t), { dev, handshake } = await server(t, selected, false), original = bytes(selected.root);
-  for (const command of statusActions) {
+  for (const command of [...statusActions, "task.move"]) {
     const response = await fetch(`${dev.url}/command`, { method: "POST", headers: { "content-type": "application/json", "x-taskdb-selection": handshake.selectionToken }, body: JSON.stringify({ version: 2, requestId: command, command, args: { id: closedId, expectedVersion: 1 }, dryRun: true }) });
     assert.equal((await response.json()).error.code, "UNSUPPORTED_COMMAND");
   }
@@ -450,11 +450,12 @@ function manualLine(selected, envelope) {
   return JSON.parse(execFileSync(process.execPath, ["dist/backend/cli.js", "--stdio", "--v2-root", selected.root, "--database", selected.cache], { env: process.env, input: envelope + "\n", encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
 }
 
-for (const command of ["task.create", "task.update", ...statusActions]) {
+for (const { command, removeParent = false } of [...["task.create", "task.update", ...statusActions, "task.move"].map(command => ({ command })), { command: "task.move", removeParent: true }]) {
   for (const cut of ["intent", "published", "beforeCommit", "afterCommit", "lostReply"]) {
-    test(`actual editor HTTP ${command} crash at ${cut} preserves original request for explicit recovery/manual replay`, async t => {
+    test(`actual editor HTTP ${command}${removeParent ? " removal" : ""} crash at ${cut} preserves original request for explicit recovery/manual replay`, async t => {
       const selected = workspace(t);
       const originalTask = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${closedId}.json`), "utf8"));
+      if (removeParent) { originalTask.parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9"; writeFileSync(path.join(selected.root, "tasks", `${closedId}.json`), JSON.stringify(originalTask) + "\n"); }
       if (statusCommands.includes(command)) writeFileSync(path.join(selected.root, "tasks", `${closedId}.json`), JSON.stringify({ ...originalTask, status: statusSources[command], closedAt: statusSources[command] === "done" ? originalTask.closedAt : null }) + "\n");
       if (command === "task.status.undo") {
         const info = manualLine(selected, JSON.stringify({ version: 2, command: "workspace.info", args: {} }));
@@ -478,8 +479,8 @@ return {...result,source};}});\n`);
       const initial = await processDev(t, selected, loader);
       const handshake = await readV2EditorSelection(initial.url);
       const editor = new V2EditorClient(initial.url, handshake);
-      const baseline = await editor.begin(command === "task.create" ? undefined : closedId, statusActions.includes(command) ? "status" : "content");
-      const prepared = statusActions.includes(command) ? editor.prepareStatus(baseline, command) : editor.prepare(baseline, baseline.task ? { ...baseline.task, title: literal.title } : literal);
+      const baseline = await editor.begin(command === "task.create" ? undefined : closedId, command === "task.move" ? "parent" : statusActions.includes(command) ? "status" : "content");
+      const prepared = command === "task.move" ? editor.prepareParent(baseline, removeParent ? null : "c8d4206d-c25a-4317-baa4-a2c5443060e9") : statusActions.includes(command) ? editor.prepareStatus(baseline, command) : editor.prepare(baseline, baseline.task ? { ...baseline.task, title: literal.title } : literal);
       const originalRequest = prepared.originalRequest;
       await prepared.preview();
       await assert.rejects(prepared.execute());
@@ -498,9 +499,10 @@ return {...result,source};}});\n`);
       }
       const replay = manualLine(selected, originalRequest); assert.equal(replay.ok, true, JSON.stringify(replay));
       if (fixedId) assert.equal(replay.result.task.id, fixedId);
-      assert.equal(replay.result.task.title, statusActions.includes(command) ? originalTask.title : literal.title);
+      assert.equal(replay.result.task.title, statusActions.includes(command) || command === "task.move" ? originalTask.title : literal.title);
       if (statusActions.includes(command)) { assert.equal(replay.result.task.updatedAt, originalTask.updatedAt); assert.equal(replay.result.task.createdAt, originalTask.createdAt); }
       if (command === "task.status.undo") { assert.equal(replay.result.task.status, originalTask.status); assert.equal(replay.result.task.closedAt, originalTask.closedAt); }
+      if (command === "task.move") { assert.equal(replay.result.task.parentId, removeParent ? null : "c8d4206d-c25a-4317-baa4-a2c5443060e9"); assert.equal(replay.result.task.closedAt, originalTask.closedAt); assert.equal(replay.result.task.createdAt, originalTask.createdAt); }
       assert.equal(readdirSync(path.join(selected.root, "tasks")).length, command === "task.create" ? 5 : 4);
       assert.deepEqual(counts(selected.cache), { receipts: (cut === "lostReply" ? 1 : 2) + (command === "task.status.undo" ? 1 : 0), operations: command === "task.status.undo" ? 2 : 1 });
       const canonical = bytes(selected.root);
@@ -654,4 +656,108 @@ test("status mode refuses missing advertised undo capability before any selected
   const selected = workspace(t), { editor } = await server(t, selected);
   const calls = traceFetch(t, async response => { const body = await response.json(); if (body.result?.commands) body.result.commands = body.result.commands.filter(command => command !== "task.status.undo"); return new Response(JSON.stringify(body)); });
   await assert.rejects(editor.begin(closedId, "status"), /UNSUPPORTED_COMMAND/); assert.deepEqual(calls.map(call => call.command), ["workspace.info"]); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+});
+
+const planningId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", parkedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed", childId = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
+for (const state of ["open", "in_progress", "paused", "done", "canceled"]) for (const remove of [false, true]) {
+  test(`parent ${remove ? "removal" : "attachment"} from ${state} independently preserves content/closure/links and places first`, async t => {
+    const selected = workspace(t), file = path.join(selected.root, "tasks", `${closedId}.json`), original = JSON.parse(readFileSync(file, "utf8"));
+    original.status = state; original.closedAt = ["done", "canceled"].includes(state) ? original.closedAt : null; original.parentId = remove ? planningId : null;
+    writeFileSync(file, JSON.stringify(original) + "\n");
+    const { editor } = await server(t, selected), baseline = await editor.begin(closedId, "parent"), target = remove ? null : parkedId;
+    const prepared = editor.prepareParent(baseline, target), before = bytes(selected.root), calls = traceFetch(t);
+    assert.deepEqual(JSON.parse(prepared.originalRequest).args, { id: closedId, expectedVersion: baseline.task.version, parentId: target });
+    const preview = await prepared.preview(); assert.equal(preview.changed, true); assert.equal(preview.task.parentId, target); assert.equal(preview.task.orderKey, remove ? "Zz" : "a0");
+    assert.deepEqual(bytes(selected.root), before); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+    const started = new Date().toISOString(), result = await prepared.execute(), ended = new Date().toISOString();
+    assert.equal(result.task.parentId, target); assert.equal(result.task.orderKey, remove ? "Zz" : "a0"); assert.ok(result.task.updatedAt >= started && result.task.updatedAt <= ended); assert.ok(result.task.version > baseline.task.version);
+    for (const [field, value] of Object.entries(original).filter(([field]) => !["parentId", "orderKey", "updatedAt"].includes(field))) assert.deepEqual(result.task[field], value);
+    const after = bytes(selected.root); for (const name of Object.keys(before).filter(name => name !== `tasks/${closedId}.json`)) assert.equal(after[name], before[name]);
+    assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 1 }); assert.deepEqual(await prepared.execute(), result); assert.deepEqual(calls[1], calls[2]); assert.equal(calls.length, 3);
+  });
+}
+
+for (const kind of ["root", "canceled-current"]) test(`parent unchanged ${kind} stores only a receipt, preserving bytes/version/closure`, async t => {
+  const selected = workspace(t);
+  if (kind === "canceled-current") { const file = path.join(selected.root, "tasks", `${planningId}.json`), task = JSON.parse(readFileSync(file, "utf8")); task.status = "canceled"; task.closedAt = "2026-01-01T00:00:00.000Z"; writeFileSync(file, JSON.stringify(task) + "\n"); }
+  const { editor } = await server(t, selected), baseline = await editor.begin(kind === "root" ? closedId : childId, "parent");
+  const before = bytes(selected.root), prepared = editor.prepareParent(baseline, baseline.task.parentId);
+  assert.equal((await prepared.preview()).changed, false); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+  const result = await prepared.execute(); assert.equal(result.changed, false); assert.deepEqual(result.task, baseline.task); assert.deepEqual(bytes(selected.root), before); assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 0 });
+  if (kind === "canceled-current") assert.equal((await editor.parentCandidates(baseline)).tasks.some(task => task.id === planningId), false);
+});
+
+test("parent movement preserves descendant files, dependency links and complete untouched sibling bytes", async t => {
+  const selected = workspace(t), template = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${childId}.json`), "utf8"));
+  writeFileSync(path.join(selected.root, "tasks", "grandchild.json"), JSON.stringify({ ...template, id: "grandchild", parentId: childId, dependencyIds: [], title: "Grandchild" }) + "\n");
+  const { editor } = await server(t, selected), before = bytes(selected.root), baseline = await editor.begin(planningId, "parent");
+  const result = await editor.prepareParent(baseline, parkedId).execute(); assert.equal(result.task.parentId, parkedId);
+  const after = bytes(selected.root); for (const name of Object.keys(before).filter(name => name !== `tasks/${planningId}.json`)) assert.equal(after[name], before[name]);
+  const child = await editor.begin(childId); assert.equal(child.task.parentId, planningId); assert.deepEqual(child.task.dependencyIds, [planningId]); assert.deepEqual(child.task.blockedByIds, [planningId]);
+});
+
+for (const kind of ["self", "descendant", "missing", "canceled"]) test(`parent ${kind} choice refuses in preview and exact execution without effects or alternate selection`, async t => {
+  const selected = workspace(t); if (kind === "canceled") { const file = path.join(selected.root, "tasks", `${parkedId}.json`), task = JSON.parse(readFileSync(file, "utf8")); task.status = "canceled"; task.closedAt = "2026-01-01T00:00:00.000Z"; writeFileSync(file, JSON.stringify(task) + "\n"); }
+  const { editor } = await server(t, selected), baseline = await editor.begin(planningId, "parent"), target = { self: planningId, descendant: childId, missing: "missing-parent", canceled: parkedId }[kind];
+  const prepared = editor.prepareParent(baseline, target), before = bytes(selected.root), calls = traceFetch(t), error = ["self", "descendant"].includes(kind) ? /PARENT_CYCLE/ : /INVALID_PARENT/;
+  await assert.rejects(prepared.preview(), error); assert.equal(prepared.hasExecuted, false); await assert.rejects(prepared.execute(), error); await assert.rejects(prepared.execute(), error);
+  assert.deepEqual(calls[1], calls[2]); assert.equal(calls.length, 3); assert.deepEqual(bytes(selected.root), before); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+});
+
+test("parent inputs and withheld capability refuse before mutation or selected-task query", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), calls = traceFetch(t);
+  await assert.rejects(editor.begin(undefined, "parent"), /existing task/); assert.equal(calls.length, 0);
+  const baseline = await editor.begin(closedId, "parent"), queried = calls.length;
+  for (const value of [undefined, "", "a/b", "../root", "a b", 0]) assert.throws(() => editor.prepareParent(baseline, value));
+  assert.throws(() => editor.prepareParent({ ...baseline, task: null }, null));
+  for (const [search, offset] of [[null, 0], ["", -1], ["", 0.5], ["", Number.MAX_SAFE_INTEGER + 1]]) await assert.rejects(editor.parentCandidates(baseline, search, offset));
+  assert.equal(calls.length, queried);
+  const fetchBefore = globalThis.fetch; globalThis.fetch = async (...args) => { const response = await fetchBefore(...args), body = await response.json(); if (body.result?.commands) body.result.commands = body.result.commands.filter(command => command !== "task.move"); return new Response(JSON.stringify(body)); };
+  await assert.rejects(editor.begin(closedId, "parent"), /UNSUPPORTED_COMMAND/); assert.equal(calls.at(-1).command, "workspace.info"); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+});
+
+test("parent candidates are strict query-only literal paged snapshots, not the reader page or renewed source authority", async t => {
+  const selected = workspace(t), template = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${closedId}.json`), "utf8"));
+  for (let i = 0; i < 60; i++) { const id = `parent-${String(i).padStart(2, "0")}`; writeFileSync(path.join(selected.root, "tasks", `${id}.json`), JSON.stringify({ ...template, id, title: `Candidate parent ${i}${i === 59 ? " #Literal @parent 😀" : ""}`, status: "open", closedAt: null, orderKey: "a0" }) + "\n"); }
+  const { editor } = await server(t, selected), baseline = await editor.begin(closedId, "parent"), original = structuredClone(baseline), before = bytes(selected.root), calls = traceFetch(t);
+  const first = await editor.parentCandidates(baseline, "Candidate parent"), last = await editor.parentCandidates(baseline, "Candidate parent", 50);
+  assert.equal(first.total, 60); assert.equal(first.tasks.length, 50); assert.equal(last.tasks.length, 10); assert.equal(last.offset, 50);
+  assert.equal((await editor.parentCandidates(baseline, "#Literal @parent 😀")).tasks[0].id, "parent-59");
+  assert.ok(calls.every(call => call.command === "task.list" && call.readOnly && call.dryRun === false && !call.writeContext && !call.idempotencyKey && call.args.limit === 50 && call.args.includeAncestors === false));
+  assert.deepEqual(baseline, original); assert.deepEqual(bytes(selected.root), before); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+  assert.equal(JSON.parse(editor.prepareParent(baseline, last.tasks[9].id).originalRequest).args.expectedVersion, original.task.version);
+});
+
+for (const failure of ["context", "correlation", "page", "canceled", "v1"]) test(`parent candidate ${failure} reply refuses without refreshing authority or mutating`, async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), baseline = await editor.begin(closedId, "parent"), before = bytes(selected.root);
+  const calls = traceFetch(t, async response => { const body = await response.json(); if (failure === "context") body.writeContext = "other-context"; if (failure === "correlation") body.requestId = "other-request"; if (failure === "page") body.result.offset = 50; if (failure === "canceled") { body.result.tasks[0].status = "canceled"; body.result.tasks[0].closedAt = "2026-01-01T00:00:00.000Z"; } if (failure === "v1") body.version = 1; return new Response(JSON.stringify(body)); });
+  await assert.rejects(editor.parentCandidates(baseline)); assert.equal(calls.length, 1); assert.equal(calls[0].command, "task.list"); assert.deepEqual(bytes(selected.root), before); assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+});
+
+for (const failure of ["lost-reply", "wrong-task", "wrong-context", "wrong-request", "v1-response", "missing-operation"]) test(`parent executing ${failure} retains original target/scope/version and directly replays one fixed operation`, async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), baseline = await editor.begin(closedId, "parent"), prepared = editor.prepareParent(baseline, planningId), envelope = prepared.originalRequest; let failed = false;
+  const calls = traceFetch(t, async response => { if (failed) return response; failed = true; const body = await response.json(); assert.equal(body.ok, true); if (failure === "lost-reply") throw new TypeError("lost parent reply"); if (failure === "wrong-task") body.result.task.id = "other-task"; if (failure === "wrong-context") body.writeContext = "other-context"; if (failure === "wrong-request") body.requestId = "other-request"; if (failure === "v1-response") body.version = 1; if (failure === "missing-operation") delete body.result.operationId; return new Response(JSON.stringify(body)); });
+  await assert.rejects(prepared.execute()); assert.equal(prepared.hasExecuted, true); assert.equal(prepared.originalRequest, envelope); await assert.rejects(prepared.preview(), /cannot renew uncertain authority/);
+  const canonical = bytes(selected.root), result = await prepared.execute(); assert.equal(result.task.parentId, planningId); assert.equal(result.task.closedAt, baseline.task.closedAt);
+  assert.deepEqual(calls[0], calls[1]); assert.equal(calls.length, 2); assert.deepEqual(bytes(selected.root), canonical); assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 1 });
+});
+
+for (const race of ["source", "canceled-target"]) test(`parent ${race} race after preview locks original selection without new queries or intended effects`, async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), prepared = editor.prepareParent(await editor.begin(closedId, "parent"), parkedId); await prepared.preview();
+  if (race === "source") { const latest = await editor.begin(closedId); await editor.prepare(latest, { ...latest.task, title: "Concurrent parent content" }).execute(); }
+  else await editor.prepareStatus(await editor.begin(parkedId, "status"), "task.cancel").execute();
+  const before = bytes(selected.root), state = counts(selected.cache), calls = traceFetch(t), error = race === "source" ? /STALE_TASK_VERSION/ : /INVALID_PARENT/;
+  await assert.rejects(prepared.execute(), error); await assert.rejects(prepared.execute(), error); assert.equal(calls.length, 2); assert.deepEqual(calls[0], calls[1]); assert.deepEqual(bytes(selected.root), before); assert.deepEqual(counts(selected.cache), state);
+});
+
+test("committed parent lost reply plus cache loss refuses original context without inferred completion", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), prepared = editor.prepareParent(await editor.begin(closedId, "parent"), planningId); let lost = true;
+  const calls = traceFetch(t, async response => { if (!lost) return response; lost = false; assert.equal((await response.json()).ok, true); throw new TypeError("lost parent reply"); });
+  await assert.rejects(prepared.execute()); const before = bytes(selected.root); rmSync(selected.cache); await assert.rejects(prepared.execute(), /STALE_WRITE_CONTEXT/); assert.deepEqual(calls[0], calls[1]); assert.equal(calls.length, 2); assert.deepEqual(bytes(selected.root), before);
+});
+
+test("historic parent replay precedes a missing target and does not renew, reparent or reconstruct live tasks", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), prepared = editor.prepareParent(await editor.begin(closedId, "parent"), parkedId), result = await prepared.execute();
+  rmSync(path.join(selected.root, "tasks", `${parkedId}.json`)); const before = bytes(selected.root), calls = traceFetch(t);
+  assert.deepEqual(await prepared.execute(), result); assert.equal(calls.length, 1); assert.deepEqual(bytes(selected.root), before); assert.equal(existsSync(path.join(selected.root, "tasks", `${parkedId}.json`)), false);
 });
