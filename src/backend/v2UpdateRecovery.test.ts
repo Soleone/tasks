@@ -4,10 +4,11 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import type { TestContext } from "node:test";
 import { executeV2Line } from "./v2Gateway.js";
-import { readV2RootDescriptor } from "./v2CanonicalReader.js";
+import { readV2CanonicalRoot, readV2RootDescriptor } from "./v2CanonicalReader.js";
 import { pendingV2Path } from "./v2LocalDomain.js";
 import type { V2Response } from "./v2Protocol.js";
 
@@ -81,6 +82,37 @@ for (const cut of ["staged", "replaced", "beforeCommit", "afterCommit"]) {
     assert.equal((success(send(workspace, { command: "activity.list" })).result.activity as object[]).length, 1);
   });
 }
+
+test("schema-5 sibling-array cache preserves a pending update through compact observation refresh and original replay", { skip: process.platform !== "linux" }, t => {
+  const workspace = setup(t);
+  const { request, pending } = crash(workspace, "replaced");
+  const pendingBytes = readFileSync(pending);
+  const intent = JSON.parse(pendingBytes.toString());
+  const snapshot = readV2CanonicalRoot(workspace.root);
+  const database = new DatabaseSync(workspace.cache);
+  const rows = database.prepare("SELECT id, fingerprint FROM v2_query_tasks").all();
+  const update = database.prepare("UPDATE v2_query_tasks SET fingerprint = ? WHERE id = ?");
+  for (const row of rows) {
+    const task = snapshot.tasks.find(task => task.id === row.id)!;
+    const siblings = snapshot.tasks.filter(sibling => sibling.parentId === task.parentId).map(sibling => sibling.id);
+    update.run(JSON.stringify([JSON.parse(row.fingerprint as string)[0], siblings]), task.id);
+  }
+  assert.equal(database.prepare("PRAGMA user_version").get()!.user_version, 5);
+  database.close();
+  const info = success(send(workspace, { command: "workspace.info" }));
+  assert.equal(info.writeContext, intent.request.writeContext);
+  assert.equal(info.result.pendingOperationId, intent.operationId);
+  assert.deepEqual(readFileSync(pending), pendingBytes);
+  const recovery = success(send(workspace, { command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: info.writeContext, idempotencyKey: "schema-5-resume" }));
+  assert.equal(existsSync(pending), false);
+  const replay = success(send(workspace, request));
+  assert.deepEqual(replay.result, recovery.result.originalResult);
+  assert.equal(replay.result.operationId, intent.operationId);
+  assert.equal((success(send(workspace, { command: "activity.list" })).result.activity as object[]).length, 1);
+  const verify = new DatabaseSync(workspace.cache);
+  assert.equal(verify.prepare("SELECT max(length(fingerprint)) AS size FROM v2_query_tasks").get()!.size, 135);
+  verify.close();
+});
 
 for (const fault of ["divergence", "missing", "partial", "arrival"]) {
   test(`v2 recovery refuses ${fault} without rollback/resurrection`, { skip: process.platform !== "linux" }, (t) => {

@@ -79,8 +79,10 @@ function snapshotObservations(snapshot: V2CanonicalSnapshot): Map<string, string
     scope.push(task);
     scopes.set(task.parentId, scope);
   }
-  const sequences = new Map([...scopes].map(([id, scope]) => [id, scope.sort(compareV2Tasks).map(task => task.id)]));
-  return new Map(snapshot.tasks.map(task => [task.id, JSON.stringify([hashes.get(`tasks/${task.id}.json`), sequences.get(task.parentId)])]));
+  const scopeSignatures = new Map([...scopes].map(([id, scope]) => [id,
+    createHash("sha256").update(JSON.stringify(scope.sort(compareV2Tasks).map(task => task.id))).digest("hex"),
+  ]));
+  return new Map(snapshot.tasks.map(task => [task.id, JSON.stringify([hashes.get(`tasks/${task.id}.json`), scopeSignatures.get(task.parentId)])]));
 }
 
 export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
@@ -109,6 +111,8 @@ export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBindi
     const upsert = database.prepare("INSERT INTO v2_query_tasks(id, fingerprint, version) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET fingerprint = excluded.fingerprint, version = excluded.version");
     for (const [id, fingerprint] of observations) {
       const old = cached.get(id);
+      // Old schema-5 fingerprints contain sibling arrays, not signatures. The first complete
+      // observation reissues their versions atomically, retaining context, receipts and history.
       const version = old?.fingerprint === fingerprint ? old.version : ++state.counter;
       if (!Number.isSafeInteger(version) || version <= 0 || version > state.counter) throw new CommandError("INVALID_STORAGE", "v2 task authority is corrupt");
       upsert.run(id, fingerprint, version);
