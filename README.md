@@ -48,9 +48,31 @@ Both directory flags are required; v1 environment/registry/database defaults are
 
 Capture, status changes, editing, relationships, ordering, undo, purge, doctor, migration/adoption/rollback and recovery controls remain unavailable in this UI. Native desktop launch and Android v2 integration are withheld. A second permission entry for the same Tauri binary is unsafe with the current first-match shell scope, so native permissions and the default v1 sidecar remain unchanged. See [reader evidence](spec/v2/conformance.md#explicit-read-only-app-reader) and [the interaction subset](docs/usage-guide.md#experimental-v2-browser-reader). Run `node scripts/check-v2-ui.mjs` for the isolated Chromium check; it requires `agent-browser` and is not native acceptance.
 
+## Opt-in v2 capture and editing
+
+Linux development only, on disposable data. The reader stays read-only unless you add **`--v2-edit`**. This bounded browser mode enables literal `task.create` and content-only `task.update`, not the full v2 app or native acceptance.
+
+```bash
+editscratch=$(mktemp -d)
+cp -R scripts/fixtures/taskdb-v2/root "$editscratch/root"
+printf 'Disposable editor workspace: %s\n' "$editscratch"
+XDG_DATA_HOME="$editscratch/local-data" pnpm dev:web \
+  --v2-root "$editscratch/root" --database "$editscratch/cache.db" --v2-edit
+```
+
+1. Confirm the displayed folder, cache and retained local profile, then choose **Enable capture and editing in this folder**. The list still receives initial focus.
+2. Press **C** or choose **New task** to capture a root task. Press **Enter** on the active row or choose **Edit content** to edit it. Title is literal; category is a separate slug and tags are comma-separated slugs. Empty category/tags/description clear those fields. No shorthand, parent selection or status controls are provided.
+3. Choose **Preview changes**. No canonical changes, receipt or activity are made. Creation IDs/time/versions are hypothetical, not reserved. Editing a field invalidates the preview. **Apply original request** sends the prepared context, key, payload, actor, flags and original task version; changed authority is refused, not silently refreshed.
+4. A failed executing reply locks the editor and retains that exact request **only in this page**. **Retry same request** sends no authority-negotiating query, new key, new payload or automatic recovery. A successful replay is historical: the app refreshes current tasks separately instead of treating the returned version as fresh authority.
+5. For pending work, preserve the original root/cache/profile/evidence and use explicit CLI recovery. If the backend restarts/replaces selection, the retained token is refused; the editor does not reconnect automatically. Use **Copy original request**, also retain the displayed paths, and reconcile through the original CLI context. The collapsible **Original request and local paths** section is a manual-copy fallback. Closing for manual reconciliation requires explicit acknowledgment and does not claim completion.
+
+**Do not reload, change roots/profiles, restart the frontend or edit source files while a write is unresolved.** Retry state is memory-only; a reload/tab loss discards it. The page asks before leaving, but that prompt is not durable recovery. There is no plaintext retry log, saved selection or second success ledger. Copying an envelope is an explicit user action and includes task content; keep it private, outside the synced root. The profile path/token guard is lexical/development evidence, not proof of physical-profile continuity, a filesystem sandbox or distributed exactly-once. Cache loss rejects the old context even if a matching title exists.
+
+The bridge still refuses status, relationships, ordering, undo, purge, doctor, initialization, migration/adoption/rollback and recovery commands. Native desktop launch, Windows editing and Android v2 UI remain withheld. Read-only and editable handshakes cannot silently cross modes; unflagged `pnpm dev:web` stays v1. See [editor evidence](spec/v2/conformance.md#explicit-browser-capture-and-content-editing) and [interaction details](docs/usage-guide.md#experimental-v2-content-editor). Run `node scripts/check-v2-editor-ui.mjs` for the disposable Chromium check.
+
 ## Opt-in v2 human CLI
 
-The app and `tasks-cli` **without `--v2-root` remain v1**. The friendly Node CLI now has an explicitly selected v2 mode over the same protocol gateway. Linux writes only; use disposable copies and pause other writers/sharing before destructive work. It requires both a root and a separate cache, with no v1 environment or registry fallback.
+The default app and `tasks-cli` **without `--v2-root` remain v1**. The friendly Node CLI now has an explicitly selected v2 mode over the same protocol gateway. Linux writes only; use disposable copies and pause other writers/sharing before destructive work. It requires both a root and a separate cache, with no v1 environment or registry fallback.
 
 This example needs `jq`. It adds a literal title with explicit classification, replays the exact capture once, clears classification/notes, and previews shorthand capture:
 

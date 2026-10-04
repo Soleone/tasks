@@ -135,4 +135,18 @@ The default app and the interaction contract above remain v1. The [explicit brow
 
 `node scripts/check-v2-ui.mjs` exercises disposable browser/process scenes, including actual CLI edits and explicit pending recovery, with a separately preserved v1 UI return. It does not execute an app migration/adoption/rollback flow or establish native/provider acceptance. `m1p` remains open for those controls and original-authority mutation/retry handling.
 
+## Experimental v2 content editor
+
+The [explicit `--v2-edit` browser mode](../README.md#opt-in-v2-capture-and-editing) adds literal capture and content editing to the reader subset. Default v1 and the unflagged v2 reader remain unchanged. This is not the v1 inline editor or full v2/native acceptance.
+
+- Confirm displayed root/cache/profile before domain queries. Initial home focus remains on the list, never New task. C and New task open capture; Enter/double-click on a matching row or Edit content open its editor. Show details remains a separate read-only snapshot.
+- The dialog protects draft/retry focus from list polling. Title receives initial focus; fields support ordinary Tab navigation. Category/tag slugs are explicit, not parsed from title/description. Tags use commas; empty values clear classification/description. Status, graph, keys and timestamps cannot be edited.
+- Preview is explicit and non-consuming. Draft changes invalidate it. Applying retains the exact original request, including positive existing-task version. No-op Apply stores only the existing backend success receipt, with unchanged task bytes/version/time and no activity.
+- Escape/Cancel may close only an unsent draft. During execution and after any executing error, inputs are locked; Escape/backdrop/close cannot silently discard the request. Retry same request does not re-read authority or switch selection. Stale errors never authorize refreshing an uncertain request.
+- Copy original request is an explicit content-bearing clipboard action. The collapsible original envelope/path view supports manual copy when the clipboard is unavailable. No envelope is persisted in browser storage or a payload log. Retain it privately before reload/tab loss or manual reconciliation.
+- A pending operation still pauses task browsing. Recovery remains an explicit CLI action through the retained root/cache/profile. A backend launch/profile change is refused, not auto-reconnected. After preserving the original request, explicit acknowledgment may close the editor for external reconciliation without declaring it complete.
+- Success returns focus to the list and independently refreshes current tasks. Historical replay does not resurrect a missing task or renew its returned version. Status/undo, migration/adoption/rollback, native launch and other writable UI controls remain queued.
+
+`node scripts/check-v2-editor-ui.mjs` proves disposable keyboard/mouse fields, preview/cancel, clears/closure/no-op, refresh focus/draft preservation, fixed stale/lost-reply retries, explicit pending recovery and responsive overflow. Node HTTP subprocess crash tests are separate, not native/provider acceptance. `m1p` remains open.
+
 The backend and standalone CLI are separate keyboard-free agent surfaces that use the same typed command path and SQLite workspace. `task.list` accepts `sort: "manual"`; `task.reorder` accepts an explicit `tasks` list with expected versions and one `beforeId`, `afterId`, `first`, or `last` placement. UI focus does not replace those interfaces, and UI-only behavior must not introduce duplicate task or storage rules.

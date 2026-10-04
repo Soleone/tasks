@@ -28,6 +28,10 @@ At the React surface, `App.tsx` owns task-query and refresh lifecycle, persisted
 
 The default path remains protocol 1. The [experimental v2 browser reader](../README.md#opt-in-v2-browser-reader) has a separate `V2App.tsx` confirmation gate, `V2ReaderView.tsx` query/focus lifecycle and `v2BackendClient.ts` strict v2 projections. `scripts/dev-web.mjs --v2-root PATH --database CACHE` selects a read-only dev bridge and sets `VITE_TASKDB_V2=1` for Vite; unflagged launches explicitly use the v1 app. Only the matching dev bridge's per-process selection token is accepted. No selection is persisted or passed through the v1 client/registry.
 
+Adding `--v2-edit` explicitly enables the Linux-only [literal editor](../README.md#opt-in-v2-capture-and-editing). The launcher sets `VITE_TASKDB_V2_EDIT=1` only for that mode and otherwise explicitly sets it to `0`. Health additionally declares the two allowed content commands and retained profile path, without creating a cache/profile. `v2EditorClient.ts` prepares immutable serialized memory-held requests; `V2TaskEditor.tsx` owns preview/apply/unresolved/manual-reconciliation states. Reader polling never overwrites draft or retry authority. The shared HTTP adapter retains separate read-only/editor handshakes and the server whitelists only create/update in editor mode. Profile selection changes are refused before gateway access. No automatic token refresh/recovery, saved payload/selection or native launch is added.
+
+Vite pre-optimizes the lazy editor's checkbox dependency so opening it cannot trigger a late-optimization page reload. HMR/source edits, frontend restarts, browser crashes and reloads are still not durable retry storage; preserve unresolved requests and do not use HMR during them.
+
 `JsonLineSession` shares process framing/correlation/timeouts; `BackendSession` retains its v1 parser and unchanged `--stdio` launch. The v2 reader's selected Node process factory is exercised by tests, not exposed as a native capability. Native v2 launch is withheld: the current shell plugin chooses the first matching binary permission, so adding another entry with different arguments could silently launch v1. Packaging a distinct native route and validating its lifecycle remain open. Android v2 UI is also withheld. Default Tauri permissions and native code are unchanged.
 
 Keep the boundaries concrete:
@@ -86,6 +90,7 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm build:sidecar` | Rebuild the target sidecar and `tasks-cli` binaries without running their probes. |
 | `pnpm test:ui` | Exercise the default v1 UI in Chromium against a temporary workspace. |
 | `node scripts/check-v2-ui.mjs` | Exercise the explicit read-only v2 browser reader, CLI visibility, pending/recovery and default-v1 isolation on disposable roots. |
+| `node scripts/check-v2-editor-ui.mjs` | Exercise explicitly enabled literal capture/editing, fixed stale/lost-reply retries and explicit CLI pending recovery on disposable roots. |
 | `pnpm dev:web` | Run Vite and the dev-only local backend. |
 | `pnpm dev:backend` | Run only the dev backend. |
 | `pnpm dev:tauri` | Run the native Tauri shell, rebuilding the sidecar only when needed. On Linux, the app applies the WebKitGTK workaround before webview startup. |
@@ -114,7 +119,7 @@ $env:TASKS_SYNC_ROOT = "$PWD\.tmp\tasks-dev\sync"
 pnpm dev:web
 ```
 
-The dev backend binds to `127.0.0.1`. Its default port is `5174`; set `TASKS_DEV_BACKEND_PORT` to change it. Vite arguments can be passed after `--`, for example `pnpm dev:web -- --port 5199`. `pnpm dev` starts Vite without a backend; set `VITE_DEV_BACKEND_URL` when connecting it to a separately started bridge. The bridge only accepts local-page origins and is never packaged. For v2 use the [disposable reader walkthrough](../README.md#opt-in-v2-browser-reader), with both directory flags before `--`. V2 health reports configuration without querying a root; confirmed queries may create/update its outside-root cache. Raw HTTP mutations are refused even if the underlying Linux CLI gateway advertises them. Do not treat this dev listener, selection token or browser checks as a filesystem security sandbox, native lifecycle or writable-client acceptance.
+The dev backend binds to `127.0.0.1`. Its default port is `5174`; set `TASKS_DEV_BACKEND_PORT` to change it. Vite arguments can be passed after `--`, for example `pnpm dev:web -- --port 5199`. `pnpm dev` starts Vite without a backend; set `VITE_DEV_BACKEND_URL` when connecting it to a separately started bridge. The bridge only accepts local-page origins and is never packaged. For v2 use the [disposable reader walkthrough](../README.md#opt-in-v2-browser-reader), with both directory flags before `--`. V2 health reports configuration without querying a root; confirmed queries may create/update its outside-root cache. In read-only mode all raw HTTP mutations are refused even if the Linux gateway advertises them. Explicit `--v2-edit` permits create/update only; all other writes remain refused. Do not treat this dev listener, lexical profile path, selection token or browser checks as a filesystem security sandbox, native lifecycle or complete writable-client acceptance.
 
 The theme preview is served at `http://127.0.0.1:5173/themes.html` while `pnpm dev:web` is running. It reads the same built-in and workspace theme files but does not persist a selection.
 

@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCommand } from "./commands.js";
-import { getDatabasePath } from "./paths.js";
+import { getDataDirectory, getDatabasePath } from "./paths.js";
 import { errorResponse, parseRequest, successResponse } from "./protocol.js";
 import { executeV2Line } from "./v2Gateway.js";
 import { decodeV2Envelope, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
@@ -23,9 +23,11 @@ export type DevServerOptions = {
   host?: string;
   databasePath?: string;
   v2Root?: string;
+  v2Edit?: boolean;
 };
 
-type V2DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: true };
+const V2_EDITOR_COMMANDS = ["task.create", "task.update"];
+type V2DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: boolean; profilePath?: string; writeCommands?: string[] };
 
 export type DevServer = {
   server: http.Server;
@@ -66,6 +68,8 @@ function readBody(request: http.IncomingMessage): Promise<Buffer> {
 }
 
 export function startDevServer(options: DevServerOptions = {}): Promise<DevServer> {
+  if (options.v2Edit && options.v2Root === undefined) throw new Error("--v2-edit requires explicit --v2-root and --database");
+  if (options.v2Edit && process.platform !== "linux") throw new Error("v2 browser editing is unavailable on this platform");
   if (options.v2Root !== undefined && (!options.v2Root.trim() || !options.databasePath?.trim())) {
     throw new Error("v2 requires explicit --v2-root PATH and --database CACHE_OUTSIDE_ROOT; no environment/default fallback");
   }
@@ -73,7 +77,8 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
     ? options.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath()
     : path.resolve(options.databasePath!);
   const selection: V2DevSelection | undefined = options.v2Root === undefined ? undefined : {
-    version: 2, rootPath: path.resolve(options.v2Root), databasePath, selectionToken: randomUUID(), readOnly: true,
+    version: 2, rootPath: path.resolve(options.v2Root), databasePath, selectionToken: randomUUID(), readOnly: !options.v2Edit,
+    ...(options.v2Edit ? { profilePath: path.resolve(getDataDirectory()), writeCommands: V2_EDITOR_COMMANDS } : {}),
   };
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
@@ -144,7 +149,7 @@ async function handleRequest(
   if (request.method === "POST" && (request.url === "/command" || request.url === "/")) {
     const body = await readBody(request);
     if (selection !== undefined) {
-      const result = executeDevV2Query(body, selection, request.headers["x-taskdb-selection"]);
+      const result = executeDevV2Command(body, selection, request.headers["x-taskdb-selection"]);
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(result));
       return;
@@ -174,20 +179,21 @@ async function handleRequest(
   response.end(JSON.stringify({ ok: false, error: { code: "NOT_FOUND", message: "use POST /command or GET /health" } }));
 }
 
-function executeDevV2Query(body: Buffer, selection: V2DevSelection, token: string | string[] | undefined): unknown {
+function executeDevV2Command(body: Buffer, selection: V2DevSelection, token: string | string[] | undefined): unknown {
   let requestId: string | null = null;
   try {
     const request = parseV2Request(decodeV2Envelope(body));
     requestId = request.requestId;
-    if (token !== selection.selectionToken) {
-      return { version: 2, requestId, ok: false, error: { code: "STALE_DEV_SELECTION", message: "dev backend selection changed; reload and confirm the selected folder" } };
+    if (token !== selection.selectionToken || (selection.profilePath !== undefined && selection.profilePath !== path.resolve(getDataDirectory()))) {
+      return { version: 2, requestId, ok: false, error: { code: "STALE_DEV_SELECTION", message: selection.readOnly ? "dev backend selection changed; reload and confirm the selected folder" : "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection" } };
     }
-    if (!(V2_QUERY_COMMANDS as readonly string[]).includes(request.command)) {
-      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: "v2 dev app bridge is read-only; use explicit CLI controls outside the app" } };
+    if (!(V2_QUERY_COMMANDS as readonly string[]).includes(request.command)
+      && (selection.readOnly || !V2_EDITOR_COMMANDS.includes(request.command))) {
+      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture and content updates; other controls remain unavailable" } };
     }
     return executeV2Line(body, selection.rootPath, selection.databasePath);
   } catch {
-    return { version: 2, requestId, ok: false, error: { code: "INVALID_REQUEST", message: "v2 dev app bridge requires a valid protocol-2 query" } };
+    return { version: 2, requestId, ok: false, error: { code: "INVALID_REQUEST", message: "v2 dev app bridge requires a valid protocol-2 request" } };
   }
 }
 
@@ -207,7 +213,7 @@ async function main(): Promise<void> {
   if (args.includes("--v2-root") && (v2Root === undefined || v2Root.startsWith("--"))) throw new Error("--v2-root requires PATH");
   const databasePath = optionValue(args, "--database") ?? (v2Root === undefined ? process.env.TASKS_DATABASE_PATH : undefined);
 
-  const dev = await startDevServer({ port, databasePath, v2Root });
+  const dev = await startDevServer({ port, databasePath, v2Root, v2Edit: args.includes("--v2-edit") });
   process.stdout.write(`tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`);
 
   const shutdown = (): void => {

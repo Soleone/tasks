@@ -12,6 +12,8 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  // Late dependency optimization reloads the page, losing in-memory write requests.
+  optimizeDeps: { include: ["@base-ui/react/checkbox"] },
   clearScreen: false,
   server: {
     port: 5173,

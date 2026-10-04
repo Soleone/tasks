@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactElement } from "react";
 import { APP_NAME } from "@/backend/branding";
 import type { V2TaskProjection } from "@/backend/v2Queries";
 import type { TaskStatus } from "@/backend/protocol";
@@ -13,6 +13,9 @@ import { Input } from "./ui/input";
 import { Item } from "./ui/item";
 import { Label } from "./ui/label";
 import { V2WorkspaceReader, type V2TaskPage, type V2WorkspaceInfo } from "@/platform/v2BackendClient";
+import type { V2EditorClient } from "@/platform/v2EditorClient";
+
+const V2TaskEditor = lazy(() => import("./V2TaskEditor").then(module => ({ default: module.V2TaskEditor })));
 
 function TaskDetails({ task }: { task: V2TaskProjection }): ReactElement {
   return (
@@ -37,7 +40,7 @@ function TaskDetails({ task }: { task: V2TaskProjection }): ReactElement {
   );
 }
 
-export function V2ReaderView({ reader, onLeave }: { reader: V2WorkspaceReader; onLeave: () => void }): ReactElement {
+export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceReader; editor?: V2EditorClient; onLeave: () => void }): ReactElement {
   const [page, setPage] = useState<V2TaskPage | null>(null);
   const [workspace, setWorkspace] = useState<V2WorkspaceInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +51,8 @@ export function V2ReaderView({ reader, onLeave }: { reader: V2WorkspaceReader; o
   const [refresh, setRefresh] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [details, setDetails] = useState<V2TaskProjection | null>(null);
+  const [editing, setEditing] = useState<{ id?: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const retryRef = useRef<HTMLButtonElement>(null);
   const initialFocus = useRef(true);
@@ -110,13 +115,14 @@ export function V2ReaderView({ reader, onLeave }: { reader: V2WorkspaceReader; o
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-xl font-semibold">{APP_NAME} <span className="text-sm font-normal text-muted-foreground">v2 reader</span></h1>
+        <h1 className="font-heading text-xl font-semibold">{APP_NAME} <span className="text-sm font-normal text-muted-foreground">{editor ? "v2 content editor" : "v2 reader"}</span></h1>
         <Button variant="outline" onClick={onLeave}>Leave folder</Button>
       </header>
       <div className="min-w-0 text-sm text-muted-foreground">
         <p className="break-words"><span className="font-medium text-foreground">Folder:</span> {reader.selection.rootPath}</p>
         <p className="break-words"><span className="font-medium text-foreground">Local cache:</span> {reader.selection.databasePath}</p>
-        <p className="mt-2">Read-only. App capture, editing, ordering, migration and recovery are unavailable. Refreshes never execute recovery or switch folders.</p>
+        <p className="mt-2">{editor ? "Literal capture/editing enabled. Status, relationships, ordering, migration and recovery remain unavailable." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
+        {editor && <p className="break-words">Retained profile: {editor.selection.profilePath}. No retry payload is saved across reloads.</p>}
       </div>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setOffset(0); setSearch(searchDraft.trim()); }}>
         <div className="flex min-w-0 flex-1 flex-col gap-2"><Label htmlFor="v2-search">Search title or description</Label><Input id="v2-search" value={searchDraft} onChange={event => setSearchDraft(event.target.value)} placeholder="Literal search" /></div>
@@ -135,29 +141,33 @@ export function V2ReaderView({ reader, onLeave }: { reader: V2WorkspaceReader; o
       <div className="flex flex-wrap items-center gap-3">
         <Button ref={retryRef} variant="outline" onClick={() => setRefresh(value => value + 1)}>{error || workspace?.state !== "ready" ? "Retry" : "Refresh"}</Button>
         <Button variant="outline" disabled={!active} onClick={() => { if (active) setDetails(active); }}>Show details</Button>
+        {editor && <><Button variant="outline" disabled={workspace?.state !== "ready" || !!error} onClick={() => setEditing({})}>New task</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id }); }}>Edit content</Button></>}
+        {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
         {page && <p role="status" className="text-sm text-muted-foreground">{page.total} matching {page.total === 1 ? "task" : "tasks"}, manual order</p>}
       </div>
       <div ref={listRef} role="listbox" aria-label="V2 tasks" aria-activedescendant={activeId && page?.tasks.some(task => task.id === activeId) ? `v2-task-${activeId}` : undefined} tabIndex={0} className="flex flex-col gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring" onKeyDown={event => {
-        if (details || !page) return;
+        if (details || editing || !page) return;
         const current = page.tasks.findIndex(task => task.id === activeId);
         const next = event.key === "ArrowDown" || event.key === "j" ? Math.min(page.tasks.length - 1, current + 1)
           : event.key === "ArrowUp" || event.key === "k" ? Math.max(0, current - 1)
           : event.key === "Home" ? 0 : event.key === "End" ? page.tasks.length - 1 : null;
         if (next !== null) { event.preventDefault(); setActiveId(page.tasks[next]?.id ?? null); }
-        else if (event.key === "Enter" && active) { event.preventDefault(); setDetails(active); }
+        else if (event.key === "Enter" && active) { event.preventDefault(); if (editor) setEditing({ id: active.id }); else setDetails(active); }
+        else if (event.key === "c" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && workspace?.state === "ready" && !error) { event.preventDefault(); setEditing({}); }
       }}>
         {page?.contextTasks.map(task => <Item key={task.id} state="context"><p className="min-w-0 break-words text-sm">Ancestor: {task.title}</p></Item>)}
         {page?.tasks.map(task => (
-          <Item key={task.id} id={`v2-task-${task.id}`} role="option" aria-selected={activeId === task.id} state={activeId === task.id ? "active" : undefined} onMouseDown={event => event.preventDefault()} onClick={() => { setActiveId(task.id); listRef.current?.focus(); }} onDoubleClick={() => setDetails(task)}>
+          <Item key={task.id} id={`v2-task-${task.id}`} role="option" aria-selected={activeId === task.id} state={activeId === task.id ? "active" : undefined} onMouseDown={event => event.preventDefault()} onClick={() => { setActiveId(task.id); listRef.current?.focus(); }} onDoubleClick={() => { if (editor) setEditing({ id: task.id }); else setDetails(task); }}>
             <TaskStatusDisplay task={task} />
             <div className="min-w-0 flex-1"><p className="break-words font-medium">{task.title}</p><div className="mt-1 flex flex-wrap gap-2">{task.category && <Badge variant="category">{task.category}</Badge>}{task.tags.map(tag => <Badge key={tag} variant="tag">{tag}</Badge>)}<span className="text-xs text-muted-foreground">P{task.priority}</span></div>{task.blockedByIds.length > 0 && <p className="mt-1 break-words text-sm text-muted-foreground">Blocked by {task.blockedByIds.join(", ")}</p>}</div>
           </Item>
         ))}
-        {page?.tasks.length === 0 && <Empty><EmptyHeader><EmptyTitle>No matching tasks</EmptyTitle><EmptyDescription>Clear your search or change status. This reader cannot create tasks.</EmptyDescription></EmptyHeader></Empty>}
+        {page?.tasks.length === 0 && <Empty><EmptyHeader><EmptyTitle>No matching tasks</EmptyTitle><EmptyDescription>Clear your search or change status. {editor ? "Use New task or C to capture a literal task." : "This reader cannot create tasks."}</EmptyDescription></EmptyHeader></Empty>}
         {!workspace && !error && <p role="status" className="p-3 text-sm text-muted-foreground">Loading the selected v2 folder...</p>}
       </div>
       {page && (page.total > page.limit || offset > 0) && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - page.limit))}>Previous page</Button><Button variant="outline" disabled={offset + page.limit >= page.total} onClick={() => setOffset(value => value + page.limit)}>Next page</Button><span className="text-sm text-muted-foreground">{Math.min(offset + 1, page.total)}–{Math.min(offset + page.limit, page.total)} of {page.total}</span></div>}
-      <p className="text-sm text-muted-foreground">Arrow keys or J/K move through tasks. Enter shows details; Escape closes them. These controls are also available by mouse. Titles and descriptions remain literal.</p>
+      <p className="text-sm text-muted-foreground">Arrow keys or J/K move through tasks. {editor ? "C opens capture; Enter edits the active task. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
+      {editor && editing && <Suspense fallback={<p role="status">Loading content editor...</p>}><V2TaskEditor editor={editor} taskId={editing.id} returnFocus={() => listRef.current ?? undefined} onClose={() => setEditing(null)} onComplete={result => { setEditing(null); setActiveId(result.task.id); setRefresh(value => value + 1); setNotice(result.changed ? "Original request completed. Refreshing current tasks." : "No content change; original request completed."); }} /></Suspense>}
       <Dialog open={details !== null} onOpenChange={open => { if (!open) setDetails(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto" finalFocus={() => listRef.current ?? undefined}>{details && <TaskDetails task={details} />}</DialogContent></Dialog>
     </main>
   );

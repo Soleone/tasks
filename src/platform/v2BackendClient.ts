@@ -6,7 +6,8 @@ import { JsonLineSession } from "./backendSession";
 import { runtimeKind } from "./runtime";
 
 export type V2Selection = { rootPath: string; databasePath: string };
-export type V2DevSelection = V2Selection & { version: 2; selectionToken: string; readOnly: true };
+export type V2DevConnection = V2Selection & { version: 2; selectionToken: string; readOnly: boolean };
+export type V2DevSelection = V2DevConnection & { readOnly: true };
 export type V2WorkspaceState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
 export type V2WorkspaceInfo = {
   state: V2WorkspaceState;
@@ -97,7 +98,7 @@ export async function readV2DevSelection(url: string): Promise<V2DevSelection> {
   return selected;
 }
 
-export async function postV2DevQuery(url: string, selection: V2DevSelection, request: V2ClientRequest): Promise<V2Response> {
+export async function postV2DevRequest(url: string, selection: V2DevConnection, request: V2ClientRequest): Promise<V2Response> {
   const response = await fetch(`${url}/command`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-taskdb-selection": selection.selectionToken },
@@ -110,12 +111,12 @@ export async function postV2DevQuery(url: string, selection: V2DevSelection, req
 
 export class V2WorkspaceReader {
   readonly selection: Readonly<V2Selection>;
-  private readonly dev: { url: string; selection: V2DevSelection } | undefined;
+  private readonly dev: { url: string; selection: V2DevConnection } | undefined;
   private readonly session: JsonLineSession<V2Response> | null;
 
   constructor(
     selection: V2Selection,
-    dev?: { url: string; selection: V2DevSelection },
+    dev?: { url: string; selection: V2DevConnection },
     makeCommand?: () => Promise<Command<string>>,
   ) {
     validateV2Selection(selection);
@@ -138,7 +139,7 @@ export class V2WorkspaceReader {
       actor: { kind: "human", label: "Tasks v2 reader" }, readOnly: true, dryRun: false,
     };
     const response = this.dev
-      ? await postV2DevQuery(this.dev.url, this.dev.selection, request)
+      ? await postV2DevRequest(this.dev.url, this.dev.selection, request)
       : await this.session!.request(request);
     if (response.requestId !== request.requestId) throw new Error("v2 backend returned a different request ID");
     if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`);

@@ -55,7 +55,7 @@ async function freePort() {
 async function startWeb(backendUrl, v2) {
   const port = await freePort();
   const child = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
-    cwd: project, env: { ...process.env, VITE_DEV_BACKEND_URL: backendUrl, VITE_TASKDB_V2: v2 ? "1" : "0" }, stdio: ["ignore", "pipe", "pipe"],
+    cwd: project, env: { ...process.env, VITE_DEV_BACKEND_URL: backendUrl, VITE_TASKDB_V2: v2 ? "1" : "0", VITE_TASKDB_V2_EDIT: "0" }, stdio: ["ignore", "pipe", "pipe"],
   });
   webChildren.push(child);
   child.stdout.on("data", chunk => { logs += chunk; }); child.stderr.on("data", chunk => { logs += chunk; });
