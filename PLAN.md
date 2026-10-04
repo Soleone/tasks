@@ -35,12 +35,13 @@ The refactor mostly added a parallel implementation. Do not revert the useful wo
 
 ## Work order
 
-One bounded task at a time. **`fwk` is the sole default ready task.** Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
+One bounded task at a time. `fwk` is complete. **The owner chose Windows-first because rebooting into Omarchy is impractical; `fcf` is now the next ready task, a bounded Windows writer proof prerequisite to finishing `dh1`.** Each row ends in review; a generic “proceed” authorizes at most the next unblocked task, not the whole sequence. The cutover direction below is approved, but implementation and personal-data operations are not authorized by this planning edit alone.
 
 | Order | SQ task | Outcome |
 | --- | --- | --- |
 | 1 | `fwk` | Remove quadratic fingerprints without adding a cache framework |
-| 2 | `dh1` | Identify a capable native host and safe, minimal launch route |
+| Prerequisite | `fcf` | Prove one `task.update` publication/recovery path on actual Windows, then review |
+| 2 | `dh1` | Finish the selected Windows host/profile and safe, minimal launch decision after `fcf` |
 | 3 | `mg8` | Trace and tighten one real `task.update` request/recovery path |
 | 4 | `m1p` | Prove the basic task loop in one native app |
 | 5 | `hzv` | Dogfood; agree the essential keep/replace/drop workflow checklist |
@@ -61,7 +62,7 @@ One bounded task at a time. **`fwk` is the sole default ready task.** Each row e
 A read-only feasibility decision, not a platform-port umbrella.
 
 - Identify an actual capable host, native shell/webview, bundled runtime and supported writer profile. Prefer the existing Linux writer for a technical pilot if a capable host exists; Windows 11 remains the primary product target.
-- A Windows-first pilot needs a separately bounded writer-proof decision. The broad `82r` task is not implicitly authorized.
+- **Owner decision (2026-10-04): Windows-first.** `fcf` is the separately bounded prerequisite: inspect actual Windows filesystem/durability APIs, then prove one existing-task `task.update`, no-op, restart, interrupted publication and original-request retry/recovery on disposable NTFS data with explicit cache/APPDATA. Use actual Windows Node and its SEA binary, not Linux processes against mounted Windows files. Stop on an unsupported durability/contract/tooling boundary; do not merely remove Linux-only gates or introduce another engine. This first proof does not enable capture, status/undo, backup/restore or other unproven Windows controls. Approve the smallest further prerequisite only after its review. The broad `82r` task remains held.
 - Inspect the same-binary Tauri permission first-match problem. Prefer one unambiguous fixed backend entrypoint; if a distinct temporary pilot route is necessary, record its removal in `dvs`. No arbitrary shell interface or silent legacy fallback.
 - Record allowed commands, root/cache/profile selection, process/retry behavior, filesystem assumptions and native acceptance steps in [development](docs/development.md).
 - Exit: a feasible reviewed host/profile/route or an exact blocker. **If no capable host exists, stop and ask.** More browser features are not a substitute.
