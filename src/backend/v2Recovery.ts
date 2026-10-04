@@ -20,7 +20,7 @@ import type { V2PendingIntent } from "./v2Pending.js";
 import { assertV2Args } from "./v2Protocol.js";
 import type { V2Request } from "./v2Protocol.js";
 import { localPathOutsideV2Root, synchronizeV2Authority, withV2CacheTransaction } from "./v2QueryCache.js";
-import { findV2Receipt, requireV2WriteContext, storeV2Receipt } from "./v2Receipts.js";
+import { findV2Receipt, findV2TaskEditReceipt, requireV2WriteContext, storeV2Receipt } from "./v2Receipts.js";
 import { applyV2Journal, guardV2Update } from "./v2UpdateJournal.js";
 import { commitV2Update } from "./v2UpdateWriter.js";
 
@@ -57,13 +57,16 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
       if (intent.format === "taskdb.pending-copy-target") throw new CommandError("RECOVERY_CONFLICT", `resume copy from its original selected root: ${intent.owner.rootPath}`);
       if (request.dryRun || request.readOnly) throw new CommandError("UNSUPPORTED_COMMAND", "recovery requires explicit execution, not preview");
       if (intent.cachePath !== localPathOutsideV2Root(cachePath, root.rootPath)) throw new CommandError("RECOVERY_CONFLICT", "resume requires the original cache location, or manual reconciliation");
-      const originalReceipt = authority.writeContext === intent.request.writeContext ? findV2Receipt(database, intent.request) : undefined;
+      const originalReceipt = authority.writeContext !== intent.request.writeContext ? undefined
+        : intent.format === "taskdb.pending-update" ? findV2TaskEditReceipt(database, intent.request)
+        : findV2Receipt(database, intent.request);
       let originalResult = originalReceipt;
       if (!originalResult && intent.format === "taskdb.pending-update") {
         const guarded = guardV2Update(intent, true);
         const budget = database.prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1").get()!;
         if (!Number.isSafeInteger((budget.counter as number) + guarded.tasks.length * 3 + 4) || !Number.isSafeInteger((budget.revision as number) + 3)) throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before recovery");
-        originalResult = commitV2Update(database, intent, applyV2Journal(intent));
+        const verified = applyV2Journal(intent);
+        originalResult = commitV2Update(database, intent, verified);
       }
       if (!originalResult && intent.format === "taskdb.pending-copy") {
         const recover = () => commitV2Copy(database, intent);
@@ -79,6 +82,7 @@ export function resumeV2Operation(request: V2Request, rootPath: string, cachePat
       if (!originalResult && intent.format === "taskdb.pending-purge") originalResult = commitV2Purge(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-doctor") originalResult = commitV2Doctor(database, intent);
       const result = { operationId: intent.operationId, outcome: "complete", originalResult };
+      // The recovery acknowledgment and original effect/receipt commit together before cleanup.
       storeV2Receipt(database, request, result);
       completed = intent;
       return { writeContext: authority.writeContext, result };

@@ -3,6 +3,7 @@ import { listV2Activity } from "./v2Activity.js";
 import { inspectV2CanonicalRoot } from "./v2CanonicalReader.js";
 import { observeV2QueryAuthority, synchronizeV2Authority, withV2CacheTransaction } from "./v2QueryCache.js";
 import { executeV2Update } from "./v2UpdateWriter.js";
+import { isV2TaskEditRequest } from "./v2TaskEditRequest.js";
 import { executeV2Create } from "./v2CreateWriter.js";
 import { V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
 import { executeV2Undo } from "./v2UndoWriter.js";
@@ -46,7 +47,7 @@ export function executeV2Line(bytes: Uint8Array, rootPath: string, cachePath: st
         : request.command === "workspace.doctor.apply" ? executeV2DoctorApply(request, rootPath, cachePath)
         : V2_UNDO_COMMANDS.includes(request.command) ? executeV2Undo(request, rootPath, cachePath)
         : V2_ORDER_COMMANDS.includes(request.command) ? executeV2Order(request, rootPath, cachePath)
-        : ["task.update", ...V2_STATUS_COMMANDS, ...V2_RELATIONSHIP_COMMANDS].includes(request.command) ? executeV2Update(request, rootPath, cachePath)
+        : isV2TaskEditRequest(request) ? executeV2Update(request, rootPath, cachePath)
         : request.command === "workspace.recovery.resume" ? resumeV2Operation(request, rootPath, cachePath, windowsUpdateProof)
         : request.command === "workspace.migrateV1" ? executeV2Migration(request, rootPath, cachePath)
         : ["workspace.init", "workspace.rebuild"].includes(request.command) ? executeV2Lifecycle(request, rootPath, cachePath)

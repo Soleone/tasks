@@ -35,7 +35,7 @@ The refactor mostly added a parallel implementation. Do not revert the useful wo
 
 ## Work order
 
-One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded; current work is `mg8`, the single update-request trace, not native UI implementation or more Windows capabilities. The owner chose Windows-first because rebooting into Omarchy is impractical.
+One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. Next is only `7hr`, the bounded creation proof, not native UI implementation or broad Windows porting. The owner chose Windows-first because rebooting into Omarchy is impractical.
 
 **Owner override (2026-10-04): run the task → validate/self-review → quick commit → next ready task loop without routine supervision, including continuation after auto-compaction.** This replaces the per-task owner review pauses below, not bounded scope, safety, tests, native acceptance or human/personal-data approval gates. Do not auto-switch providers when usage is exhausted. Use fresh quota/reset evidence and a verified session-only wake if available; no closed-process resumption guarantee. Durable loop state is under `$DATA/handoffs/2026-10-04-tasks-autonomous-loop.md`.
 
@@ -44,7 +44,7 @@ One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host
 | 1 | `fwk` | Remove quadratic fingerprints without adding a cache framework |
 | Prerequisite | `fcf` | Complete: actual Windows Node/SEA content-update/recovery proof; review checkpoint |
 | 2 | `dh1` | Complete: Windows content-only profile, one inline pilot capability and existing SEA; launch remains unimplemented |
-| 3 | `mg8` | Trace and tighten one real `task.update` request/recovery path |
+| 3 | `mg8` | Complete: typed single-file update path/results, readable trace, retained receipt validation; Windows 38/38 |
 | Windows prerequisite | `7hr` | After `mg8` review, prove capture/no-clobber publication and absence-safe recovery |
 | Windows prerequisite | `byy` | After `7hr` review, prove single-task statuses and latest-status undo |
 | Windows prerequisite | `gxm` | After `byy` review, prove separate-root archive/restore publication and recovery |
@@ -84,6 +84,7 @@ A read-only feasibility decision, not a platform-port umbrella.
 - Private client/protocol plumbing may change with its callers and tests in the same diff. No legacy aliases are required. Canonical behavior and exact-request retry safety stay intact unless an explicit contract decision changes them.
 - Preserve crash coverage, including source-transform fault harnesses affected by readability changes.
 - Exit: one human-readable traced request and reviewed diff, not a fully redesigned backend. Broader command typing and doctor/purge/order cleanup need real demand.
+- Completed: [request trace and evidence](docs/update-request-trace.md). Types/lint pass; 1,621 passed/two known skips; actual Windows Node/SEA 38/38, source-transform fault coverage intact. Invalid receipt shape preserves bytes/history/pending evidence and retry authority. No new capabilities or native launch.
 
 ### 4. Prove a native vertical slice (`m1p`)
 

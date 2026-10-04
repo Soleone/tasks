@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import type { TestContext } from "node:test";
 import { executeV2Line } from "./v2Gateway.js";
@@ -61,6 +62,24 @@ test("v2 update commits once, preserves classifications/closure, and replays bef
   }
   rmSync(path.join(workspace.root, "tasks", `${parentId}.json`));
   assert.deepEqual(success(send(workspace, request)).result, first.result);
+});
+
+test("malformed task result in a retained receipt cannot become typed historical success", { skip: process.platform !== "linux" }, t => {
+  const workspace = setup(t), request = prepared(workspace, { description: "Typed receipt boundary" });
+  const committed = success(send(workspace, request));
+  const file = path.join(workspace.root, "tasks", `${parentId}.json`), bytes = readFileSync(file);
+  const database = new DatabaseSync(workspace.cache);
+  database.prepare("UPDATE v2_receipts SET result = ?").run(JSON.stringify({ ...committed.result, operationId: undefined }));
+  database.close();
+  const replay = send(workspace, request);
+  assert.equal(replay.ok, false);
+  if (!replay.ok) assert.equal(replay.error.code, "INVALID_STORAGE");
+  assert.deepEqual(readFileSync(file), bytes);
+  assert.equal((success(send(workspace, { command: "activity.list" })).result.activity as object[]).length, 1);
+  const restore = new DatabaseSync(workspace.cache);
+  restore.prepare("UPDATE v2_receipts SET result = ?").run(JSON.stringify(committed.result));
+  restore.close();
+  assert.deepEqual(success(send(workspace, request)).result, committed.result);
 });
 
 test("v2 copied cache refuses original receipts without changing canonical bytes", { skip: process.platform !== "linux" }, (t) => {

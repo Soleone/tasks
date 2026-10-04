@@ -4,6 +4,9 @@ import { canonicalJson } from "./canonicalJson.js";
 import { CommandError } from "./errors.js";
 import type { V2Request } from "./v2Protocol.js";
 import type { V2QueryAuthority } from "./v2QueryCache.js";
+import type { V2TaskEditRequest } from "./v2TaskEditRequest.js";
+import { parseV2TaskEditResult } from "./v2TaskResults.js";
+import type { V2TaskExecutionResult } from "./v2TaskResults.js";
 
 export function v2RequestIdentity(request: V2Request): string {
   return createHash("sha256").update(canonicalJson({
@@ -28,6 +31,13 @@ export function findV2Receipt(database: DatabaseSync, request: V2Request): Recor
   if (!row) return undefined;
   if (row.identity !== v2RequestIdentity(request)) throw new CommandError("IDEMPOTENCY_KEY_REUSED", "key already identifies a different request");
   return JSON.parse(row.result) as Record<string, unknown>;
+}
+
+export function findV2TaskEditReceipt(database: DatabaseSync, request: V2TaskEditRequest): V2TaskExecutionResult | undefined {
+  const result = findV2Receipt(database, request);
+  if (!result) return undefined;
+  try { return parseV2TaskEditResult(result, "execution"); }
+  catch { throw new CommandError("INVALID_STORAGE", "retained task-edit receipt has an invalid result; evidence retained"); }
 }
 
 export function storeV2Receipt(database: DatabaseSync, request: V2Request, result: Record<string, unknown>): void {

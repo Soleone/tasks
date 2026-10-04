@@ -1,7 +1,8 @@
 import { isV2Record, type V2Request } from "../backend/v2Protocol";
 import type { V2TaskProjection } from "../backend/v2Queries";
 import { V2_STATUS_COMMANDS } from "../backend/v2TaskStatus";
-import { parseV2TaskPage, parseV2TaskProjection, parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
+import { parseV2TaskEditResult, parseV2TaskProjection, type V2TaskExecutionResult, type V2TaskPreviewResult } from "../backend/v2TaskResults";
+import { parseV2TaskPage, parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
 import { runtimeKind } from "./runtime";
 
 const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
@@ -12,7 +13,7 @@ export type V2StatusAction = typeof statusActions[number];
 export type V2EditorSelection = V2DevConnection & { readOnly: false; profilePath: string; writeCommands: readonly string[] };
 export type V2EditBaseline = { writeContext: string; task: V2TaskProjection | null };
 export type V2LiteralContent = Pick<V2TaskProjection, "title" | "description" | "priority" | "category" | "tags">;
-export type V2EditResult = { task: V2TaskProjection; changed: boolean; operationId?: string };
+export type V2EditResult = V2TaskExecutionResult | Pick<V2TaskPreviewResult, "task" | "changed">;
 
 export class V2EditorError extends Error {
   constructor(readonly code: string, message: string) { super(`${code}: ${message}`); }
@@ -40,15 +41,10 @@ export async function readV2EditorSelection(url: string): Promise<V2EditorSelect
 }
 
 function editorResult(result: Record<string, unknown>, preview: boolean): V2EditResult {
-  if (typeof result.changed !== "boolean"
-    || (result.operationId !== undefined && (typeof result.operationId !== "string" || !result.operationId))
-    || (!preview && !result.changed && result.operationId !== undefined)
-    || (preview ? result.dryRun !== true || result.readOnly !== false || result.operationId !== undefined
-      : result.dryRun !== undefined || result.readOnly !== undefined || (result.changed && (typeof result.operationId !== "string" || !result.operationId)))) {
-    throw new Error("v2 editor returned invalid mutation data; retain the original request.");
-  }
-  return { task: parseV2TaskProjection(result.task), changed: result.changed,
-    ...(typeof result.operationId === "string" ? { operationId: result.operationId } : {}) };
+  if (!preview) return parseV2TaskEditResult(result, "execution");
+  const decoded = parseV2TaskEditResult(result, "preview");
+  if (!decoded.dryRun || decoded.readOnly) throw new Error("v2 editor returned invalid preview flags; retain the original request.");
+  return { task: decoded.task, changed: decoded.changed };
 }
 
 export class V2PreparedEdit {

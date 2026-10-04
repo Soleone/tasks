@@ -6,7 +6,7 @@ import { compareV2Tasks, isV2OrderKey, validateV2Graph, validateV2Task, V2GraphE
 import type { V2CanonicalTask } from "./v2TaskModel.js";
 import { parseV2TaskVersion } from "./v2UpdateInputs.js";
 
-export const V2_RELATIONSHIP_COMMANDS: readonly string[] = ["task.move", "task.dependency.add", "task.dependency.remove"];
+export const V2_RELATIONSHIP_COMMANDS = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
 export type V2RelationshipInput = { id: string; expectedVersion: number } & (
   | { kind: "parent"; parentId: string | null }
   | { kind: "add" | "remove"; dependsOnId: string }

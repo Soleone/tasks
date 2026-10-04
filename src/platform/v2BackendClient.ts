@@ -1,6 +1,6 @@
 import type { Command } from "@tauri-apps/plugin-shell";
 import { isV2Record, parseV2Response, V2_QUERY_COMMANDS, type V2Request, type V2Response } from "../backend/v2Protocol";
-import { validateV2Task } from "../backend/v2TaskModel";
+import { parseV2TaskProjection } from "../backend/v2TaskResults";
 import type { V2TaskProjection } from "../backend/v2Queries";
 import { JsonLineSession } from "./backendSession";
 import { runtimeKind } from "./runtime";
@@ -57,16 +57,6 @@ export function parseV2WorkspaceInfo(result: Record<string, unknown>): V2Workspa
     || (result.pendingOperationId !== null && typeof result.pendingOperationId !== "string")
     || !nonnegativeInteger(result.workspaceRevision)) invalidReply();
   return result as V2WorkspaceInfo;
-}
-
-export function parseV2TaskProjection(value: unknown): V2TaskProjection {
-  if (!isV2Record(value)) invalidReply();
-  const { version, blockedByIds, ...fields } = value;
-  if (typeof fields.id !== "string" || !nonnegativeInteger(version) || version === 0 || !Array.isArray(blockedByIds)) invalidReply();
-  const task = validateV2Task(fields, fields.id);
-  if (!blockedByIds.every((id, index) => typeof id === "string" && task.dependencyIds.includes(id)
-    && (index === 0 || blockedByIds[index - 1] < id))) invalidReply();
-  return { ...task, version, blockedByIds };
 }
 
 export function parseV2TaskPage(result: Record<string, unknown>): V2TaskPage {

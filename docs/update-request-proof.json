@@ -1,0 +1,102 @@
+{
+  "runtime": {
+    "platform": "win32",
+    "os": "10.0.26200",
+    "arch": "x64",
+    "node": "v24.19.0",
+    "libuv": "1.52.1",
+    "volume": {
+      "filesystem": "NTFS",
+      "driveType": "Fixed"
+    }
+  },
+  "checkout": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-fcf-checkout-addd29aeed9544cc8b94f6a0f3bf4ae2",
+  "artifacts": [
+    {
+      "name": "tasks-backend",
+      "sha256": "ba2d6cb71bd8a291882d83fe0dd6f139500869ca2da8c24c7aa7aa48532943bc",
+      "bytes": 93464064
+    },
+    {
+      "name": "sea-staged",
+      "sha256": "1c2a22fbbebd8da05a81c81ea400368416b97e52059efeea2c37142cdba43fd4",
+      "bytes": 93464576
+    },
+    {
+      "name": "sea-replaced",
+      "sha256": "7618f57c4d4a8d0e70eb05de57b018359006313b8e8315bf3335e74ef57d8ab0",
+      "bytes": 93464576
+    },
+    {
+      "name": "sea-beforeCommit",
+      "sha256": "79d6d310a50e504368b25bad6014f4a457d52ecdc912a8cd07bac9c8770588be",
+      "bytes": 93464576
+    },
+    {
+      "name": "sea-afterCommit",
+      "sha256": "527091f3d644b843d884c7d6a9a85bc2c250adca93da0848e3207edccbc62573",
+      "bytes": 93464576
+    },
+    {
+      "name": "sea-lostReply",
+      "sha256": "8bbfc191b454442ae783f28827218744b4447c4bfe1b40e830ef23bb0e372bf1",
+      "bytes": 93464576
+    },
+    {
+      "name": "sea-flushRefusal",
+      "sha256": "920cdb90639edb40ec57847e36ccb1aacd6bbb0fd9ee933fc3005b88497df3c7",
+      "bytes": 93464576
+    }
+  ],
+  "passed": [
+    "node: allowlist/default refusal, preview/no-op, content/untouched fields, restart/historical replay, stale/identity refusal, outside-root selection",
+    "node: authorized root/cache-parent junction resolves to retained physical authority",
+    "node: historical receipt after target absence never resurrects the file",
+    "node: actual process termination staged, fixed retry/recovery, one effect/history",
+    "node: actual process termination replaced, fixed retry/recovery, one effect/history",
+    "node: actual process termination beforeCommit, fixed retry/recovery, one effect/history",
+    "node: actual process termination afterCommit, fixed retry/recovery, one effect/history",
+    "node: actual process termination lostReply, fixed retry/recovery, one effect/history",
+    "node: already-replaced recovery must flush the directory before receipt/retirement",
+    "node: preserves evidence on divergence",
+    "node: preserves evidence on formatting",
+    "node: preserves evidence on missing",
+    "node: preserves evidence on arrival",
+    "node: preserves evidence on other-cache",
+    "node: preserves evidence on status-intent",
+    "node: cache loss uses explicit recovery, never old-context replay",
+    "node: record/filename case alias refusal without rewriting",
+    "node: static task-directory junction refusal",
+    "node: cooperating cross-process root lock and post-termination release",
+    "sea: allowlist/default refusal, preview/no-op, content/untouched fields, restart/historical replay, stale/identity refusal, outside-root selection",
+    "sea: authorized root/cache-parent junction resolves to retained physical authority",
+    "sea: historical receipt after target absence never resurrects the file",
+    "sea: actual process termination staged, fixed retry/recovery, one effect/history",
+    "sea: actual process termination replaced, fixed retry/recovery, one effect/history",
+    "sea: actual process termination beforeCommit, fixed retry/recovery, one effect/history",
+    "sea: actual process termination afterCommit, fixed retry/recovery, one effect/history",
+    "sea: actual process termination lostReply, fixed retry/recovery, one effect/history",
+    "sea: already-replaced recovery must flush the directory before receipt/retirement",
+    "sea: preserves evidence on divergence",
+    "sea: preserves evidence on formatting",
+    "sea: preserves evidence on missing",
+    "sea: preserves evidence on arrival",
+    "sea: preserves evidence on other-cache",
+    "sea: preserves evidence on status-intent",
+    "sea: cache loss uses explicit recovery, never old-context replay",
+    "sea: record/filename case alias refusal without rewriting",
+    "sea: static task-directory junction refusal",
+    "sea: cooperating cross-process root lock and post-termination release"
+  ],
+  "count": 38,
+  "limitations": "Content-update opt-in profile only, local NTFS on the declared host. No native UI, capture/status/undo/control port, hardware power-loss, hostile reparse race, network filesystem or release acceptance.",
+  "scratchWillBeRemoved": true,
+  "evidenceTask": "mg8",
+  "sourceBundle": {
+    "path": "dist/sidecar/cli.cjs",
+    "sha256": "654f3456371741374e3d9b35595a87c77585226d3eb98d9a7303e8e4632ac3e8",
+    "bytes": 512133,
+    "provenance": "Current WSL-generated bundle copied byte-for-byte to the isolated Windows fcf proof checkout. The checker executes this bundle, not that checkout's older source files."
+  },
+  "packagingWarnings": "Seven postject signature-corruption warnings; signing remains unvalidated."
+}

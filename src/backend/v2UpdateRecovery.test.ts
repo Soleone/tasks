@@ -83,6 +83,32 @@ for (const cut of ["staged", "replaced", "beforeCommit", "afterCommit"]) {
   });
 }
 
+test("malformed completed-update receipt preserves pending evidence and recovery retry authority", { skip: process.platform !== "linux" }, t => {
+  const workspace = setup(t), { request, pending } = crash(workspace, "afterCommit");
+  const pendingBytes = readFileSync(pending), intent = JSON.parse(pendingBytes.toString());
+  const file = path.join(workspace.root, "tasks", `${id}.json`), taskBytes = readFileSync(file);
+  const database = new DatabaseSync(workspace.cache);
+  const stored = database.prepare("SELECT result FROM v2_receipts").get()!.result as string;
+  database.prepare("UPDATE v2_receipts SET result = ?").run(JSON.stringify({ ...JSON.parse(stored), operationId: undefined }));
+  database.close();
+  const recovery = { command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: intent.request.writeContext, idempotencyKey: "typed-resume" };
+  const refused = send(workspace, recovery);
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.error.code, "INVALID_STORAGE");
+  assert.deepEqual(readFileSync(pending), pendingBytes);
+  assert.deepEqual(readFileSync(file), taskBytes);
+  const restore = new DatabaseSync(workspace.cache);
+  assert.equal(restore.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 1);
+  assert.equal(restore.prepare("SELECT count(*) AS n FROM v2_operations").get()!.n, 1);
+  restore.prepare("UPDATE v2_receipts SET result = ?").run(stored);
+  restore.close();
+  const completed = success(send(workspace, recovery));
+  assert.deepEqual(completed.result.originalResult, JSON.parse(stored));
+  assert.deepEqual(success(send(workspace, request)).result, JSON.parse(stored));
+  assert.equal(existsSync(pending), false);
+  assert.deepEqual(readFileSync(file), taskBytes);
+});
+
 test("already-replaced recovery requires directory flush before committing receipts or retiring evidence", { skip: process.platform !== "linux" }, t => {
   const workspace = setup(t);
   const { request, pending } = crash(workspace, "replaced");

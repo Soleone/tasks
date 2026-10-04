@@ -10,7 +10,8 @@ import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundled = await build({ entryPoints: ["src/platform/v2BackendClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const client = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`);
-const { V2WorkspaceReader, readV2DevSelection, parseV2TaskProjection, parseV2TaskPage, parseV2WorkspaceInfo, v2SidecarArgs } = client;
+const { V2WorkspaceReader, readV2DevSelection, parseV2TaskPage, parseV2WorkspaceInfo, v2SidecarArgs } = client;
+const { parseV2TaskProjection } = await import("../dist/backend/v2TaskResults.js");
 const { parseV2Response } = await import("../dist/backend/v2Protocol.js");
 const task = JSON.parse(readFileSync("scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", "utf8"));
 const projection = { ...task, version: 1, blockedByIds: [] };
