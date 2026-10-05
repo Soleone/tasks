@@ -4,6 +4,7 @@ import { parseV2TaskProjection } from "../backend/v2TaskResults";
 import type { V2TaskProjection } from "../backend/v2Queries";
 import { JsonLineSession } from "./backendSession";
 import { runtimeKind } from "./runtime";
+import { V2_NATIVE_COMMANDS } from "./v2NativeSelection";
 
 export type V2Selection = { rootPath: string; databasePath: string };
 export type V2DevConnection = V2Selection & { version: 2; selectionToken: string; readOnly: boolean };
@@ -103,22 +104,25 @@ export class V2WorkspaceReader {
   readonly selection: Readonly<V2Selection>;
   private readonly dev: { url: string; selection: V2DevConnection } | undefined;
   private readonly session: JsonLineSession<V2Response> | null;
+  private readonly windowsProof: boolean;
 
   constructor(
     selection: V2Selection,
     dev?: { url: string; selection: V2DevConnection },
-    makeCommand?: () => Promise<Command<string>>,
+    native?: (() => Promise<Command<string>>) | JsonLineSession<V2Response>,
   ) {
     validateV2Selection(selection);
+    if (dev && native) throw new Error("Select one backend connection; native sessions cannot fall back to HTTP.");
+    this.windowsProof = native instanceof JsonLineSession;
     if (dev && (selection.rootPath !== dev.selection.rootPath || selection.databasePath !== dev.selection.databasePath)) {
       throw new Error("Dev backend does not match the selected root and cache.");
     }
     this.selection = Object.freeze({ rootPath: selection.rootPath, databasePath: selection.databasePath });
     this.dev = dev ? { url: dev.url, selection: Object.freeze({ ...dev.selection }) } : undefined;
-    if (!dev && !makeCommand) {
+    if (!dev && !native) {
       throw new Error("Native v2 launch is unavailable; use the explicitly selected browser reader. No v1 sidecar was launched.");
     }
-    this.session = !dev && makeCommand ? new JsonLineSession(makeCommand, parseV2Response) : null;
+    this.session = dev || !native ? null : native instanceof JsonLineSession ? native : new JsonLineSession(native, parseV2Response);
   }
 
   async query(command: V2Query, args: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
@@ -137,7 +141,11 @@ export class V2WorkspaceReader {
   }
 
   async workspaceInfo(): Promise<V2WorkspaceInfo> {
-    return parseV2WorkspaceInfo(await this.query("workspace.info"));
+    const workspace = parseV2WorkspaceInfo(await this.query("workspace.info"));
+    if (this.windowsProof && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) {
+      throw new Error("The selected native backend does not advertise the proven Windows command set; no fallback or task query was performed.");
+    }
+    return workspace;
   }
 
   async tasks(args: Record<string, unknown> = {}): Promise<V2TaskPage> {

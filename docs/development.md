@@ -32,7 +32,7 @@ Adding `--v2-edit` explicitly enables the Linux-only [literal editor](../README.
 
 Vite pre-optimizes the lazy editor's checkbox dependency so opening it cannot trigger a late-optimization page reload. HMR/source edits, frontend restarts, browser crashes and reloads are still not durable retry storage; preserve unresolved requests and do not use HMR during them.
 
-`JsonLineSession` shares process framing/correlation/timeouts; `BackendSession` retains its v1 parser and unchanged `--stdio` launch. The v2 reader's selected Node process factory is exercised by tests, not exposed as a native capability. Native v2 launch is withheld: the current shell plugin chooses the first matching binary permission, so adding another entry with different arguments could silently launch v1. Packaging a distinct native route and validating its lifecycle remain open. Android v2 UI is also withheld. Default Tauri permissions and native code are unchanged.
+`JsonLineSession` shares process framing/correlation/timeouts; `BackendSession` retains its v1 parser and unchanged `--stdio` launch. The v2 reader's selected Node process factory is exercised by tests, not exposed as a native capability. The initial reader milestone withheld native v2 launch because the shell plugin chooses the first matching binary permission. The subsequent [disposable Windows native pilot](windows-native-pilot.md) selects one explicit inline capability and shared session, rather than adding another same-name scope. Android v2 UI remains withheld. Default Tauri permissions and native Rust code are unchanged.
 
 Keep the boundaries concrete:
 
@@ -349,6 +349,12 @@ The [one-request trace](update-request-trace.md) follows actual client preparati
 Types/lint and full regression pass: **1,621 passed, two known skips**. The current bundle repeated all **38 Windows Node/SEA** scene groups on the declared fixed NTFS host, including every original interruption and directory-flush-refusal cut; [new report](update-request-proof.json) records bundle/artifact provenance without replacing the original `fcf` evidence. Seven postject signature warnings remain. The first 180-second harness timeout had no surviving checker/backend, and a fresh 600-second bounded run passed; its earlier disposable scratch was retained. No personal tasks, owner D: source, native UI or additional Windows capabilities were touched.
 
 The owner's current autonomous loop replaces routine task-end pauses with validated self-review/commit/next-ready-task. It does not waive human/native/safety gates. Next is `7hr`, not `82r` or `m1p`.
+
+## Windows native basic-loop proof (`m1p`)
+
+[Runnable setup, native walkthrough and limits](windows-native-pilot.md), [machine-readable evidence](windows-native-pilot.json): actual Windows 11/WebView2, one existing SEA shared by reader/editor, explicit physically resolved root/cache/profile and one Windows/local/main inline capability. Capture/content/status/eligible undo, keyboard/mouse/focus, external CLI refresh without restart, native close/relaunch, committed lost-reply exact replay and separate-root CLI archive/restore passed on synthetic data. Native minimum-size window and scrollable editor passed; native axe/design had no findings. Full regression **1,657 passed/two known skips**, types/lint and 31 native tests on both hosts. The writer bundle is byte-identical to `gxm` below.
+
+Run `pnpm dev:native --v2-root ROOT --database CACHE --local-profile PROFILE`, not `pnpm dev:tauri`. The old `dh1` text above is a historical prerequisite/decision record, not the current launch status. The pilot is temporary: `dvs` must remove it during single-codebase cutover. Memory-only UI requests are not restored after reload/close; explicit CLI recovery remains outside the app. No owner dogfood, personal selection, migration or release acceptance is implied. Next is owner `hzv` across at least three short native sessions/two days.
 
 ## Windows absent-destination archive/restore proof (`gxm`)
 

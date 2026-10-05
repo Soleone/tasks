@@ -1,12 +1,15 @@
-import { isV2Record, type V2Request } from "../backend/v2Protocol";
+import { isV2Record, type V2Request, type V2Response } from "../backend/v2Protocol";
 import type { V2TaskProjection } from "../backend/v2Queries";
 import { V2_STATUS_COMMANDS } from "../backend/v2TaskStatus";
 import { parseV2TaskEditResult, parseV2TaskProjection, type V2TaskExecutionResult, type V2TaskPreviewResult } from "../backend/v2TaskResults";
 import { parseV2TaskPage, parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
 import { runtimeKind } from "./runtime";
+import { JsonLineSession } from "./backendSession";
+import { validateV2NativeSelection, V2_NATIVE_COMMANDS } from "./v2NativeSelection";
 
 const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
-const editorCommands = ["task.create", "task.update", ...statusActions, "task.move"];
+export const V2_NATIVE_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
+const editorCommands = [...V2_NATIVE_EDITOR_COMMANDS, "task.move"];
 export type V2EditorMode = "content" | "status" | "parent";
 export type V2StatusAction = typeof statusActions[number];
 
@@ -19,16 +22,18 @@ export class V2EditorError extends Error {
   constructor(readonly code: string, message: string) { super(`${code}: ${message}`); }
 }
 
-function validateEditorSelection(value: unknown): asserts value is V2EditorSelection {
+function validateEditorSelection(value: unknown, native = false): asserts value is V2EditorSelection {
+  const allowed = native ? V2_NATIVE_EDITOR_COMMANDS : editorCommands;
   if (!isV2Record(value) || value.version !== 2 || value.readOnly !== false
     || typeof value.rootPath !== "string" || typeof value.databasePath !== "string" || typeof value.profilePath !== "string"
     || typeof value.selectionToken !== "string" || !value.selectionToken
-    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== editorCommands.length
-    || value.writeCommands.some((command, index) => command !== editorCommands[index])) {
+    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== allowed.length
+    || value.writeCommands.some((command, index) => command !== allowed[index])) {
     throw new Error("This editor requires an explicitly enabled --v2-edit backend. No read-only or v1 fallback.");
   }
   validateV2Selection(value as V2EditorSelection);
   validateV2Selection({ rootPath: value.profilePath, databasePath: value.databasePath });
+  if (native) validateV2NativeSelection(value as V2EditorSelection);
 }
 
 export async function readV2EditorSelection(url: string): Promise<V2EditorSelection> {
@@ -53,9 +58,9 @@ export class V2PreparedEdit {
   private attempted = false;
   private inFlight = false;
 
-  constructor(private readonly url: string, selection: V2EditorSelection, request: V2Request & { requestId: string }) {
-    validateEditorSelection(selection);
-    if (!editorCommands.includes(request.command) || !request.writeContext || !request.idempotencyKey
+  constructor(private readonly connection: string | JsonLineSession<V2Response>, selection: V2EditorSelection, request: V2Request & { requestId: string }) {
+    validateEditorSelection(selection, connection instanceof JsonLineSession);
+    if (!selection.writeCommands.includes(request.command) || !request.writeContext || !request.idempotencyKey
       || typeof request.requestId !== "string" || !request.requestId
       || request.readOnly !== false || request.dryRun !== false || (request.command !== "task.create"
         && (!Number.isSafeInteger(request.args.expectedVersion) || (request.args.expectedVersion as number) < 1))) {
@@ -82,14 +87,14 @@ export class V2PreparedEdit {
   async execute(): Promise<V2EditResult> { return this.send(false); }
 
   private async send(preview: boolean): Promise<V2EditResult> {
-    if (runtimeKind() !== "browser") throw new Error("V2 app editing is browser-only; no native sidecar was launched.");
+    if (runtimeKind() === "android" || (runtimeKind() !== "browser" && !(this.connection instanceof JsonLineSession))) throw new Error("Native editing requires the explicitly selected desktop session; no fallback was launched.");
     if (this.inFlight) throw new Error("The original request is already in flight.");
     this.inFlight = true;
     if (!preview) this.attempted = true;
     try {
       const request = JSON.parse(this.serialized) as V2Request & { requestId: string };
       if (preview) { delete request.idempotencyKey; request.dryRun = true; request.requestId = crypto.randomUUID(); }
-      const response = await postV2DevRequest(this.url, this.selection, request);
+      const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postV2DevRequest(this.connection, this.selection, request);
       if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID; retain the original request.");
       if (!response.ok) throw new V2EditorError(response.error.code, response.error.message);
       if (response.writeContext !== request.writeContext) throw new Error("v2 editor returned different authority; retain the original request.");
@@ -102,16 +107,21 @@ export class V2PreparedEdit {
 
 export class V2EditorClient {
   readonly selection: V2EditorSelection;
-  constructor(private readonly url: string, selection: V2EditorSelection) {
-    if (runtimeKind() !== "browser") throw new Error("V2 app editing is browser-only; no native sidecar was launched.");
-    validateEditorSelection(selection);
+  constructor(private readonly connection: string | JsonLineSession<V2Response>, selection: V2EditorSelection) {
+    if (runtimeKind() !== "browser" && !(connection instanceof JsonLineSession)) throw new Error("V2 app editing is browser-only; no native sidecar was launched.");
+    if (runtimeKind() === "android") throw new Error("The native task editor is unavailable on Android.");
+    validateEditorSelection(selection, connection instanceof JsonLineSession);
     this.selection = Object.freeze({ ...selection, writeCommands: Object.freeze([...selection.writeCommands]) });
   }
 
+  get isNative(): boolean { return this.connection instanceof JsonLineSession; }
+
   async begin(taskId?: string, mode: V2EditorMode = "content"): Promise<V2EditBaseline> {
     if (mode !== "content" && taskId === undefined) throw new Error("Select an existing task for this operation; no query was sent.");
+    if (mode === "parent" && !this.selection.writeCommands.includes("task.move")) throw new V2EditorError("UNSUPPORTED_COMMAND", "Parent editing is unavailable in this native profile; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
+    if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) throw new V2EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
     const commands = mode === "status" ? statusActions : [mode === "parent" ? "task.move" : taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
@@ -144,6 +154,7 @@ export class V2EditorClient {
   }
 
   async parentCandidates(baseline: V2EditBaseline, search = "", offset = 0) {
+    if (!this.selection.writeCommands.includes("task.move")) throw new V2EditorError("UNSUPPORTED_COMMAND", "Parent editing is unavailable in this native profile; no query was sent.");
     if (!baseline.task || typeof search !== "string" || !Number.isSafeInteger(offset) || offset < 0) throw new Error("An existing task and valid parent search/page are required; no query was sent.");
     const response = await this.query("task.list", { ...(search.trim() ? { search } : {}), offset, limit: 50, sort: "manual", includeAncestors: false, status: ["open", "in_progress", "paused", "done"] });
     if (response.writeContext !== baseline.writeContext) throw new V2EditorError("STALE_WRITE_CONTEXT", "Context changed during parent search; original authority was not refreshed.");
@@ -153,7 +164,7 @@ export class V2EditorClient {
   }
 
   private prepareTaskRequest(baseline: V2EditBaseline, command: string, args: Record<string, unknown>): V2PreparedEdit {
-    return new V2PreparedEdit(this.url, this.selection, { version: 2, requestId: crypto.randomUUID(), command, args,
+    return new V2PreparedEdit(this.connection, this.selection, { version: 2, requestId: crypto.randomUUID(), command, args,
       writeContext: baseline.writeContext, idempotencyKey: crypto.randomUUID(),
       actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
   }
@@ -161,7 +172,7 @@ export class V2EditorClient {
   private async query(command: string, args: Record<string, unknown>) {
     const request = { version: 2 as const, requestId: crypto.randomUUID(), command, args,
       actor: { kind: "human" as const, label: "Tasks v2 editor" }, readOnly: true, dryRun: false };
-    const response = await postV2DevRequest(this.url, this.selection, request);
+    const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postV2DevRequest(this.connection, this.selection, request);
     if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID.");
     if (!response.ok) throw new V2EditorError(response.error.code, response.error.message);
     return response;

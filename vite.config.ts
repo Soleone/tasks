@@ -23,7 +23,8 @@ export default defineConfig({
       ? { protocol: "ws", host, port: 1421 }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      // Disposable native data and proof executables are not frontend source.
+      ignored: ["**/src-tauri/**", "**/.tmp/**"],
     },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],
