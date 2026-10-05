@@ -67,6 +67,15 @@ try {
   evaluate('window.__editorRequests=[];window.__dropNextWrite=false;const base=window.fetch.bind(window);window.fetch=async(...args)=>{const request=args[1]?.body?JSON.parse(args[1].body):null;if(request)window.__editorRequests.push(request);const response=await base(...args);if(window.__dropNextWrite&&request?.command==="task.create"&&!request.dryRun&&!request.readOnly){window.__dropNextWrite=false;const body=await response.json();if(!body.ok)throw Error("Fault expected a committed success");window.__lostReplyResult=body.result;throw TypeError("Disposable lost reply after receipt commit");}return response;};true');
   click("Enable editing and status changes in this folder"); wait('document.activeElement?.getAttribute("aria-label") === "V2 tasks"');
   check('document.querySelectorAll("[role=option]").length===4');
+  check('!document.querySelector("h1").textContent.includes("v2")');
+  check('Array.from(document.querySelectorAll("main > details")).length===2 && Array.from(document.querySelectorAll("main > details")).every(element=>!element.open)');
+  check('!document.querySelector("main").innerText.includes("Retained profile:") && !document.querySelector("main").innerText.includes("Refreshes never")');
+  browser("focus", "main > details > summary"); browser("press", "Enter");
+  check('document.querySelector("main > details").open && document.querySelector("main").innerText.includes("Retained profile:")');
+  browser("press", "Enter"); browser("focus", '[role="listbox"]');
+  browser("set", "viewport", "1100", "760"); browser("screenshot", "/tmp/tasks-calm-home-desktop.png");
+  browser("set", "viewport", "720", "500"); check('document.documentElement.scrollWidth<=window.innerWidth'); browser("screenshot", "/tmp/tasks-calm-home-minimum.png");
+  browser("set", "viewport", "1280", "900");
   check('document.querySelector("[role=listbox]").dispatchEvent(new KeyboardEvent("keydown",{key:"c",ctrlKey:true,bubbles:true,cancelable:true}))'); check('!document.querySelector("[role=dialog]")');
   openCapture(); fill("#v2-edit-title", "Unsent @literal"); preview();
   assert.deepEqual(files(), original); assert.equal(operations(), 0);
@@ -103,7 +112,7 @@ try {
   const executing = JSON.parse(envelope); assert.equal(executing.command, "task.update"); assert.ok(executing.args.expectedVersion>0);
   evaluate('window.__copiedOriginal=null;navigator.clipboard.writeText=async text=>{window.__copiedOriginal=text;};true'); click("Copy original request"); wait('document.body.textContent.includes("Original envelope copied")'); assert.equal(evaluate('window.__copiedOriginal'), envelope);
   auditDialog();
-  browser("click", "summary"); check('document.querySelector("details").open && document.querySelector("#v2-original-envelope").value.length>0'); browser("click", "summary");
+  browser("click", '[role="dialog"] summary'); check('document.querySelector("[role=dialog] details").open && document.querySelector("#v2-original-envelope").value.length>0'); browser("click", '[role="dialog"] summary');
   browser("press", "Escape"); check('document.querySelector("[role=dialog]")!==null');
   const traceStart = evaluate('window.__editorRequests.length'); click("Retry same request"); wait('document.querySelector("[role=dialog]")?.textContent.includes("STALE_TASK_VERSION")');
   const retryCalls = evaluate(`window.__editorRequests.slice(${traceStart}).filter(request=>request.actor?.label==="Tasks v2 editor")`);

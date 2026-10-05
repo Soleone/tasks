@@ -116,15 +116,18 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-xl font-semibold">{APP_NAME} <span className="text-sm font-normal text-muted-foreground">{editor ? "v2 editor" : "v2 reader"}</span></h1>
+        <h1 className="font-heading text-xl font-semibold">{APP_NAME}</h1>
         <Button variant="outline" onClick={onLeave}>Leave folder</Button>
       </header>
-      <div className="min-w-0 text-sm text-muted-foreground">
+      <details className="min-w-0 text-sm text-muted-foreground">
+        <summary className="cursor-pointer">Workspace details{!editor && " · Read-only"}</summary>
+        <div className="mt-3 flex flex-col gap-2">
         <p className="break-words"><span className="font-medium text-foreground">Folder:</span> {reader.selection.rootPath}</p>
         <p className="break-words"><span className="font-medium text-foreground">Local cache:</span> {reader.selection.databasePath}</p>
         <p className="mt-2">{editor ? parentEditing ? "Capture, content, status/undo and parent-change previews enabled. Grouped undo, batches, dependency editing, ordering, migration and recovery remain unavailable." : "Capture, content and single-task status/undo previews enabled. Parent editing and other app writes remain unavailable; use explicit CLI recovery for pending work." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
         {editor && <p className="break-words">Retained profile: {editor.selection.profilePath}. No retry payload is saved across reloads.</p>}
-      </div>
+        </div>
+      </details>
       <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setOffset(0); setSearch(searchDraft.trim()); }}>
         <div className="flex min-w-0 flex-1 flex-col gap-2"><Label htmlFor="v2-search">Search title or description</Label><Input id="v2-search" value={searchDraft} onChange={event => setSearchDraft(event.target.value)} placeholder="Literal search" /></div>
         <Button type="submit" variant="outline">Search</Button>
@@ -169,7 +172,10 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
         {!workspace && !error && <p role="status" className="p-3 text-sm text-muted-foreground">Loading the selected v2 folder...</p>}
       </div>
       {page && (page.total > page.limit || offset > 0) && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - page.limit))}>Previous page</Button><Button variant="outline" disabled={offset + page.limit >= page.total} onClick={() => setOffset(value => value + page.limit)}>Next page</Button><span className="text-sm text-muted-foreground">{Math.min(offset + 1, page.total)}–{Math.min(offset + page.limit, page.total)} of {page.total}</span></div>}
-      <p className="text-sm text-muted-foreground">Arrow keys or J/K move through tasks. {editor ? parentEditing ? "C opens capture; Enter edits content; T opens status actions; M opens parent selection. Preview before applying. Escape cancels only unsent drafts." : "C opens capture; Enter edits content; T opens status actions. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
+      <details className="text-sm text-muted-foreground">
+        <summary className="cursor-pointer">Keyboard help</summary>
+        <p className="mt-3">Arrow keys or J/K move through tasks. {editor ? parentEditing ? "C opens capture; Enter edits content; T opens status actions; M opens parent selection. Preview before applying. Escape cancels only unsent drafts." : "C opens capture; Enter edits content; T opens status actions. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
+      </details>
       {editor && editing && <Suspense fallback={<p role="status">Loading task editor...</p>}><V2TaskEditor editor={editor} taskId={editing.id} mode={editing.mode} returnFocus={() => listRef.current ?? undefined} onClose={() => setEditing(null)} onComplete={result => { setEditing(null); setActiveId(result.task.id); setRefresh(value => value + 1); setNotice(result.changed ? "Original request completed. Refreshing current tasks." : "No change; original request completed."); }} /></Suspense>}
       <Dialog open={details !== null} onOpenChange={open => { if (!open) setDetails(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto" finalFocus={() => listRef.current ?? undefined}>{details && <TaskDetails task={details} />}</DialogContent></Dialog>
     </main>

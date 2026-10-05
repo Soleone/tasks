@@ -18,6 +18,8 @@ The destination is:
 - One current specification for supported behavior, with future ideas and historical evidence clearly separate.
 - A small, isolated migration tool plus preserved backups. Old binaries can be retrieved from Git if needed; they do not have to ship inside the replacement app.
 
+**Every client must remain elegant, minimal and calm, including experimental readers, native pilots and manual-test builds.** A technically working client is not enough. Preserve the previous app's restrained visual identity and keyboard-first interaction quality; reuse its useful UI rather than expose a developer workbench. The task list is the main surface, not a place for implementation/version labels, raw paths, permanent capability disclaimers or unsolicited instructions. Put secondary details in help, settings or progressive disclosure. Show necessary selection confirmation and actionable safety/error guidance at the point of use; never hide a real risk merely to look cleaner. Visual and interaction quality are acceptance requirements before owner dogfood, not polish deferred until cutover.
+
 **Generic means reusable by clients, not configurable for every task system.** No new adapter framework, plugin model, metadata bag, compatibility facade or public-standard claim is needed. Publishing the app does not require proving an independently implemented public standard.
 
 ## Authority and present state
@@ -100,11 +102,12 @@ Keep the useful browser work, but add no browser mutations to fill a native bloc
 
 ### 5. Dogfood and choose what survives (`hzv`)
 
+- Before owner testing, ensure the client is elegant, minimal and calm. Remove developer-facing home-screen clutter, preserve the established visual identity and check the normal, empty, editor and error states. A passing technical or accessibility check alone does not establish this quality gate. Keep cleanup bounded; do not redesign the app or rebuild feature parity without approval.
 - Use realistic disposable tasks in at least three short native sessions across two days. The owner actually captures, edits, completes, undoes, searches and reopens the app.
 - Record defects, unnecessary clicks, technical language, focus and retry/reload friction. Fix only scoped defects in this loop.
 - Produce a short **keep / replace / intentionally drop** checklist for daily use: keyboard capture/editing, classification, priorities, filters, search, relationships, manual order, undo and backup/restore. A missing essential capability becomes a named bounded prerequisite to `dvs`; do not automatically rebuild the whole old feature set.
 - Decide which existing UI pieces to adapt and which prototypes to delete. The owner must agree deliberate workflow losses before cutover.
-- Exit: a reviewed usability report and essential-workflow checklist. Do not expand the model or add speculative frameworks.
+- Exit: an owner-reviewed usability report and essential-workflow checklist, including agreement that the client retains the app's elegant, minimal character. Do not expand the model or add speculative frameworks.
 
 ### 6. Rehearse the one-time migration (`y9b`)
 
