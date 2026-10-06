@@ -24,9 +24,23 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
     await assert.rejects(() => client.transitionTask("task.start", "id", 1, options), /Nothing was sent/);
   }
   await assert.rejects(() => client.createTask("Child", "", { parentId: "parent" }), /Child capture/);
-  await assert.rejects(() => client.transitionTasks([{ id: "id", expectedVersion: 1, command: "task.start" }], {}), /selected workspace/);
-  await assert.rejects(() => client.undoOperation("operation", {}), /selected workspace/);
-  await assert.rejects(() => client.moveTask("id", null, 1, {}), /selected workspace/);
+  const withheldActions = [
+    ["transitionTasks", [[{ id: "id", expectedVersion: 1, command: "task.start" }], {}]],
+    ["undoStatusChanges", [[{ id: "id", expectedVersion: 1 }], {}]],
+    ["undoOperation", ["operation", {}]],
+    ["moveTask", ["id", null, 1, {}]],
+    ["reorderTasks", [[{ id: "id", expectedVersion: 1 }], { first: true }, {}]],
+    ["addDependency", ["id", "blocker", 1, {}]],
+    ["removeDependency", ["id", "blocker", 1, {}]],
+    ["purgeCanceledTasks", [{}]],
+    ["listActivity", []],
+    ["exportTasks", []],
+    ["prepareReceiveWorkspace", []],
+    ["abortReceiveWorkspace", []],
+  ];
+  for (const [action, args] of withheldActions) {
+    await assert.rejects(() => client[action](...args), /selected workspace/, `${action} must not use the legacy transport`);
+  }
   assert.deepEqual(calls, []);
   await client.createTask("Inline @work", "Notes", { priority: 1, idempotencyKey: "capture-key" });
   await client.updateTask("id", "Inline @work", "Notes", 3, { idempotencyKey: "edit-key" });

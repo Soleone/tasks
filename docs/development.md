@@ -98,7 +98,7 @@ The native shell additionally needs the [Tauri prerequisites](https://v2.tauri.a
 | `pnpm build` | Check and build the web app and backend. |
 | `pnpm build:tauri` | Build the sidecar, web app, and native release bundles. |
 
-`pnpm test:ui` needs `agent-browser` and Linux Chromium. It covers keyboard and mouse paths, conflicts, persistence, responsive layouts, themes, exports, and accessibility checks. If those tools are unavailable, use `pnpm dev:web` for manual checks and record that native/browser automation was not run.
+`pnpm test:ui` needs `agent-browser` and Linux Chromium. It covers keyboard and mouse paths, conflicts, persistence, responsive layouts, themes, exports, and accessibility checks. The UI runner and `test:sidecar` explicitly isolate canonical roots/cache/app-data and ignore inherited source registries; the UI runner's external CLI shares that same scratch environment. Startup probes close their connections so synchronous browser commands cannot leave stale pooled health sockets. See [unattended QA evidence and native workflow gaps](unattended-qa.md). If those tools are unavailable, use `pnpm dev:web` for manual checks and record that native/browser automation was not run.
 
 ## Use a scratch workspace
 

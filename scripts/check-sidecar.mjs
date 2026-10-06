@@ -18,7 +18,14 @@ if (!existsSync(cliBinary)) {
 
 const probeDirectory = mkdtempSync(path.join(os.tmpdir(), "tasks-sidecar-check-"));
 const databasePath = path.join(probeDirectory, "probe.db");
-const environment = { ...process.env };
+const environment = {
+  ...process.env,
+  TASKS_DATABASE_PATH: databasePath,
+  TASKS_SYNC_ROOT: path.join(probeDirectory, "sync"),
+  TASKS_SOURCE_REGISTRY_PATH: "",
+  XDG_DATA_HOME: path.join(probeDirectory, "local-data"),
+  APPDATA: path.join(probeDirectory, "local-data"),
+};
 environment.PATH = process.platform === "win32" ? `${process.env.SystemRoot ?? "C:\\Windows"}\\System32` : "/usr/bin:/bin";
 delete environment.NODE_PATH;
 delete environment.NODE_OPTIONS;

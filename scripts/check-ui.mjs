@@ -23,9 +23,17 @@ const webPort = await freePort();
 const backendPort = await freePort();
 const url = `http://127.0.0.1:${webPort}`;
 const backendUrl = `http://127.0.0.1:${backendPort}`;
+const testEnvironment = {
+  ...process.env,
+  TASKS_DATABASE_PATH: path.join(scratch, "tasks.db"),
+  TASKS_SYNC_ROOT: path.join(scratch, "sync"),
+  TASKS_SOURCE_REGISTRY_PATH: "",
+  XDG_DATA_HOME: path.join(scratch, "local-data"),
+  APPDATA: path.join(scratch, "local-data"),
+};
 const app = spawn(process.execPath, ["scripts/dev-web.mjs", "--", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], {
   cwd: root,
-  env: { ...process.env, TASKS_DATABASE_PATH: path.join(scratch, "tasks.db"), TASKS_DEV_BACKEND_PORT: String(backendPort), VITE_DEV_BACKEND_URL: backendUrl },
+  env: { ...testEnvironment, TASKS_DEV_BACKEND_PORT: String(backendPort), VITE_DEV_BACKEND_URL: backendUrl },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let serverLog = "";
@@ -94,7 +102,8 @@ try {
   for (let attempt = 0; attempt < 100; attempt++) {
     if (app.exitCode !== null) throw new Error(serverLog);
     try {
-      ready = (await fetch(`${backendUrl}/health`)).ok && (await fetch(url)).ok;
+      // Browser CLI calls block this event loop, so do not retain idle startup sockets.
+      ready = (await fetch(`${backendUrl}/health`, { headers: { connection: "close" } })).ok && (await fetch(url, { headers: { connection: "close" } })).ok;
     } catch { /* Startup may not have bound its ports yet. */ }
     if (ready) break;
     await delay(100);
@@ -1974,7 +1983,7 @@ try {
     "--json",
     "--database",
     path.join(scratch, "tasks.db"),
-  ], { cwd: root, encoding: "utf8" });
+  ], { cwd: root, env: testEnvironment, encoding: "utf8" });
   const externalTask = JSON.parse(externalOutput).task;
   assert.equal(externalTask.title, externalTitle);
   waitFor(`([...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`);
