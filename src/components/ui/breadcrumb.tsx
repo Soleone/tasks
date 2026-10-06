@@ -75,12 +75,12 @@ function BreadcrumbSeparator({ children, className, ...props }: ComponentProps<"
   return (
     <li
       data-slot="breadcrumb-separator"
-      role="presentation"
+      aria-hidden="true"
       className={cn("inline-flex shrink-0 items-center [&>svg]:size-3.5", className)}
       {...props}
     >
       {children ?? <ChevronRight aria-hidden="true" />}
-      {/* Exposed separator text keeps text queries and live-region announcements stable. */}
+      {/* Keep DOM text summaries stable while the separator stays decorative. */}
       <span className="sr-only">{" · "}</span>
     </li>
   );

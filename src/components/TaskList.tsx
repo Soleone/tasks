@@ -261,7 +261,8 @@ const TaskOption = memo(function TaskOption({
       id={`task-option-${task.id}`}
       role="option"
       aria-selected={selected}
-      aria-expanded={row.hasChildren ? expanded : undefined}
+      aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
+      data-expanded={row.hasChildren ? expanded : undefined}
       aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
       tabIndex={-1}
       data-active={active || undefined}
@@ -299,6 +300,9 @@ const TaskOption = memo(function TaskOption({
           />
         }
       />
+      {row.hasChildren ? (
+        <span id={`task-children-${task.id}`} hidden>Children {expanded ? "expanded" : "collapsed"}.</span>
+      ) : null}
       {row.hasChildren ? (
         <span
           role="img"

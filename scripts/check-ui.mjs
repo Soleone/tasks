@@ -42,6 +42,14 @@ function evaluate(script) {
 }
 function waitFor(script) { browser("wait", "--fn", script); }
 function check(script) { assert.equal(evaluate(script), true, script); }
+function auditTaskList() {
+  check('[...document.querySelectorAll("[role=option]")].every(row => !row.hasAttribute("aria-expanded") && !row.querySelector("button, a[href], input, select, textarea, [role=button]"))');
+  check('[...document.querySelectorAll("[role=option][data-expanded]")].every(row => document.getElementById(row.getAttribute("aria-describedby"))?.hidden === true && document.getElementById(row.getAttribute("aria-describedby"))?.textContent === `Children ${row.dataset.expanded === "true" ? "expanded" : "collapsed"}.`)');
+  const audit = JSON.parse(browser("--json", "a11y", "--selector", "#task-list"));
+  assert.equal(audit.success, true);
+  assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
+  assert.equal(audit.data.incomplete.length, 0, JSON.stringify(audit.data));
+}
 function toastWithText(message) {
   return `[...document.querySelectorAll("[data-sonner-toast]")].find((toast) => toast.textContent.includes(${JSON.stringify(message)}))`;
 }
@@ -947,7 +955,8 @@ try {
   })()`);
   browser("press", "ArrowRight");
   waitFor('document.querySelectorAll("[role=option]").length === 7 && document.querySelectorAll("[data-depth=\\"1\\"]").length === 2');
-  check('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Release parent")');
+  check('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Release parent")');
+  auditTaskList();
   check('document.querySelector("[data-depth=\\"1\\"] .pl-6") !== null');
   browser("press", "ArrowDown");
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant").includes("' + treeGrandchild.id + '")');
@@ -1072,10 +1081,16 @@ try {
   browser("press", "Escape");
   browser("press", "Escape");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 9');
+  auditTaskList();
+  check('document.querySelector("[data-task-category=launch]").getAttribute("role") === "img" && document.querySelector("[data-task-category=launch]").getAttribute("aria-label").includes("press @")');
   // Clicking a task's category badge filters to that category without opening the picker.
   evaluate('document.querySelector("[data-task-category=launch]").click(); true');
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1 && document.activeElement.matches("[role=listbox]")');
   check('document.querySelector("[data-filter-summary] [data-filter-category]")?.textContent === "launch"');
+  const summaryAudit = JSON.parse(browser("--json", "a11y", "--selector", "[data-filter-summary]"));
+  assert.equal(summaryAudit.success, true);
+  assert.equal(summaryAudit.data.violations.length, 0, JSON.stringify(summaryAudit.data));
+  assert.equal(summaryAudit.data.incomplete.length, 0, JSON.stringify(summaryAudit.data));
   check('document.querySelector("[role=option]").textContent.includes("Launch follow-up")');
   browser("press", "f");
   browser("press", "4");
@@ -1359,7 +1374,7 @@ try {
     document.querySelector('[role=listbox]')?.focus();
     return true;
   })()`);
-  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Detach parent")');
+  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Detach parent")');
   browser("press", "ArrowDown");
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === "task-option-' + detachChild.id + '"');
   browser("press", "m");
@@ -1544,12 +1559,13 @@ try {
     return true;
   })()`);
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Completed context parent")');
+  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Completed context parent")');
+  auditTaskList();
   const contextParentIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
   browser("press", "Space");
-  waitFor('document.querySelector("[role=option][aria-expanded=true] [data-status=in_progress]") !== null');
+  waitFor('document.querySelector("[role=option][data-expanded=true] [data-status=in_progress]") !== null');
   browser("press", "Space");
-  waitFor('document.querySelector("[role=option][data-context-parent][aria-expanded=true]")?.textContent.includes("Completed context parent")');
+  waitFor('document.querySelector("[role=option][data-context-parent][data-expanded=true]")?.textContent.includes("Completed context parent")');
   const contextVisibleCount = evaluate('document.querySelectorAll("[role=option]:not([data-context-parent])").length');
   const contextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
   check(`${contextAfterIndex} === ${contextParentIndex}`);
@@ -1578,11 +1594,12 @@ try {
     return true;
   })()`);
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Canceled context parent updated")');
   const canceledParentIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Canceled context parent updated"))');
 
   browser("press", "Delete");
-  waitFor('document.querySelector("[role=option][data-context-parent][aria-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  waitFor('document.querySelector("[role=option][data-context-parent][data-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  auditTaskList();
   const canceledContextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Canceled context parent updated"))');
 
   check(`${canceledContextAfterIndex} === ${canceledParentIndex}`);
@@ -1762,7 +1779,7 @@ try {
   browser("press", "m");
   waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true"');
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Manual parent")');
+  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Manual parent")');
   browser("press", "Control+ArrowDown");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual child"))');
   const parentRowIndex = evaluate('[...document.querySelectorAll("[role=option]")].findIndex((item) => item.textContent.includes("Manual parent"))');
@@ -1804,7 +1821,7 @@ try {
     browser("press", "ArrowDown");
   }
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][aria-expanded=true]")?.textContent.includes("Manual move target")');
+  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Manual move target")');
   for (let step = 0; step < 12; step++) {
     if (String(evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""')).includes("Manual move subject")) break;
     browser("press", "ArrowDown");

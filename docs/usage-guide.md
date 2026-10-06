@@ -16,7 +16,7 @@ Keep the interface minimal, sleek, and calm. Prefer small icon toolbars, progres
 - Loading or refreshing tasks must not steal focus from the current task, an open editor, or another dialog.
 - `New task` is a backup action beside the list for mouse discovery and use. It is not the launch focus or a tab stop; `C` or the command palette opens the inline editor from the keyboard.
 
-The list uses a single focus stop. Arrow keys move the active row and do not add a tab stop for every task. The active row is exposed through `aria-activedescendant`; the list is multi-selectable and exposes selected rows through `aria-selected`.
+The list uses a single focus stop. Arrow keys move the active row and do not add a tab stop for every task. The active row is exposed through `aria-activedescendant`; the list is multi-selectable and exposes selected rows through `aria-selected`. Parent options describe whether children are expanded or collapsed through `aria-describedby`, not unsupported `aria-expanded`. Status/category/disclosure glyphs are pointer shortcuts within the option, not nested button widgets or additional Tab stops; the corresponding keyboard actions remain on the list and toolbar.
 
 ## Filter toolbar
 

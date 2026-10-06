@@ -138,11 +138,13 @@ export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: 
     <ItemDescription metadata>
       {category ? (
         onSelectCategory ? (
-          <button
-            type="button"
+          // A pointer shortcut inside a list option, like the status glyph.
+          // Keyboard filtering belongs to the list/toolbar, not a nested button.
+          <span
+            role="img"
             tabIndex={-1}
             data-task-category={category.slug}
-            aria-label={`Filter by category ${category.label}`}
+            aria-label={`Category ${category.label}. Click to filter; press @ to choose a category.`}
             title={`Filter by ${category.label}`}
             onMouseDown={preventFocusSteal}
             onClick={(event) => {
@@ -155,7 +157,7 @@ export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: 
               <Folder data-icon="inline-start" aria-hidden="true" />
               {category.label}
             </Badge>
-          </button>
+          </span>
         ) : (
           <Badge variant="category">
             <Folder data-icon="inline-start" aria-hidden="true" />
