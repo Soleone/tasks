@@ -22,6 +22,12 @@ The destination is:
 
 **Generic means reusable by clients, not configurable for every task system.** No new adapter framework, plugin model, metadata bag, compatibility facade or public-standard claim is needed. Publishing the app does not require proving an independently implemented public standard.
 
+### Owner correction: preserve the main client (2026-10-06)
+
+The owner rejects the experimental reader/editor workbench as a replacement client and refuses dogfood of it. **Reuse `src/App.tsx`, `TaskList`, `TaskComposer`, the compact toolbar, themes, help/settings and their established interaction design. Adapt the concrete data/command integration to the new model; do not recreate the UI or ask the owner to rebuild it.** A backend replacement does not authorize a frontend rewrite. The experimental workbench is engineering evidence only, not the daily-use candidate.
+
+`4t6` reconnects the established client to the explicitly selected native workspace, with actual Windows inline capture/edit/priority/status/undo, external-refresh/stale-draft and immutable lost-reply retry evidence. The owner's baseline-matching `D:\src\wsl\tasks` source copy is updated and running the restored main client against the owner's declared disposable root. [Implementation, evidence and limits](docs/restored-main-client.md). Unsupported native writers remain withheld without legacy fallback. Owner dogfood `hzv` can now use this client, not the workbench; zero owner sessions have been counted. Migration/cutover still wait for owner-reviewed use and essentials. Inherited main-list accessibility findings remain explicit publication cleanup, not a claimed clean native audit. Do not construe engineering automation as owner approval.
+
 ## Authority and present state
 
 - **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
@@ -29,9 +35,9 @@ The destination is:
 - [Root specs](spec/overview.md) currently describe implemented legacy behavior. [New-format specs](spec/v2/overview.md) contain accepted targets; [conformance](spec/v2/conformance.md) records bounded evidence. This temporary documentation split must end at cutover, not become a permanent product boundary. Target acceptance is not permission to implement the entire target.
 - [Ideas](ideas/overview.md) preserves reasoning and proposals. [Reset inventory](docs/refactor-reset.md) records the audit and decision changes. The previous full plan is preserved at `905c65a:PLAN.md`.
 
-Today the default UI/CLI still use the old model. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
+Today the default workspace/CLI still use the old model; explicit native selection connects the existing main UI to the proven new-format subset. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
 
-The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android writes remain withheld. An explicitly selected Windows create/update/single-status/eligible-status-undo/absent-destination archive/restore/recovery proof now has process evidence on short dedicated local NTFS paths; no native UI or full Windows writer acceptance is added. Native lifecycle/recovery evidence remains open for the replacement app.
+The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android new-format writes remain withheld. The explicitly selected Windows create/update/single-status/eligible-status-undo/absent-destination archive/restore/recovery proof has process evidence on short dedicated local NTFS paths; the established main UI now uses the smaller proven task subset. This is not full Windows writer/platform acceptance. Wider native lifecycle/recovery evidence remains open for the replacement app.
 
 **First defect:** `src/backend/v2QueryCache.ts` repeats a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The latest parent commit did not change this path.
 
@@ -51,7 +57,8 @@ One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host
 | Windows prerequisite | `byy` | Complete: Windows Node/SEA 156/156 plus retained capture 64/update 38; single-source inverse/recovery scope and already-applied directory reflush |
 | Windows prerequisite | `gxm` | Complete: Windows Node/SEA archive/restore 182 groups plus retained 156/64/38; owner-selected absent destinations only, existing empty directories refuse before staging |
 | 4 | `m1p` | Complete: actual Windows native basic loop, lifecycle/lost-reply replay and CLI backup/restore |
-| 5 | `hzv` | Dogfood; agree the essential keep/replace/drop workflow checklist |
+| Owner correction | `4t6` | Reconnect the established main client; experimental workbench is not the dogfood candidate |
+| 5 | `hzv` | Dogfood the restored main client; agree the essential keep/replace/drop workflow checklist |
 | 6 | `y9b` | Rehearse the one-time migration on a disposable source copy |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |

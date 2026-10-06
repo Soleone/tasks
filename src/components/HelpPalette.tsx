@@ -103,7 +103,7 @@ function entryKeywords(entry: HelpEntry): string[] {
   return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder, onPauseTask, onCopyTask, canUndoStatus, onUndoStatus }: {
+export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder, onPauseTask, onCopyTask, statusUndoOnly = false, canUndoStatus, onUndoStatus }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
@@ -120,6 +120,7 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
   onMoveUnder?: (task: TaskRecord) => void;
   onPauseTask?: (task: TaskRecord) => void;
   onCopyTask?: (task: TaskRecord) => void;
+  statusUndoOnly?: boolean;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
 }): ReactElement {
@@ -144,6 +145,8 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                 <CommandGroup heading={group.heading}>
                   {group.entries.map((entry) => {
                     const Icon = entry.icon;
+                    const label = statusUndoOnly && entry.action === "undo-status" ? "Undo last status change" : entry.label;
+                    const hint = statusUndoOnly && entry.action === "undo-status" ? "Restore the latest eligible single-task status change" : entry.hint;
                     const onSelect = entry.action === "open-settings"
                       ? onOpenSettings
                       : entry.action === "copy-task" && activeTask && onCopyTask
@@ -174,13 +177,13 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
                     return (
                       <CommandItem
                         key={entry.label}
-                        value={`${group.heading} ${entry.label}`}
+                        value={`${group.heading} ${label}`}
                         keywords={entryKeywords(entry)}
                         onSelect={onSelect}
                       >
                         <Icon aria-hidden="true" />
-                        <span className="font-medium">{entry.label}</span>
-                        {entry.hint ? <span className="text-muted-foreground">{entry.hint}</span> : null}
+                        <span className="font-medium">{label}</span>
+                        {hint ? <span className="text-muted-foreground">{hint}</span> : null}
                         {entry.keys ? (
                           <CommandShortcut keys>
                             <KbdGroup>

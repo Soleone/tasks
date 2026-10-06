@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "
 import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken, TaskRecord } from "@/backend/protocol";
+import type { TaskView } from "./taskView";
 import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
@@ -17,8 +18,8 @@ export function taskTitleDisplay(title: string): string {
   return stripClassificationTokens(title) || title;
 }
 
-export function taskRowDisplayTitle(task: TaskRecord): string {
-  return taskTitleDisplay(task.title);
+export function taskRowDisplayTitle(task: TaskView): string {
+  return task.literalTitle ?? taskTitleDisplay(task.title);
 }
 
 export function taskContextMessage(task: TaskRecord): string {

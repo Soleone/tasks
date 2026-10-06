@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
+import type { TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
 import { createTask, listCategories, listTags, updateTask, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,7 +26,7 @@ export type TaskCreateDraft = {
 };
 
 type TaskComposerProps = {
-  task?: TaskRecord;
+  task?: TaskView;
   initialTitle?: string;
   parentId?: string;
   onSaved: (result: TaskMutationResult) => void;
@@ -104,7 +105,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
-  const [title, setTitle] = useState(task?.title ?? initialTitle);
+  const [title, setTitle] = useState(task?.inputText ?? task?.title ?? initialTitle);
   const [description, setDescription] = useState(task?.descriptionMarkdown ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.descriptionMarkdown));
@@ -116,11 +117,11 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
   const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
-  const dirty = title !== (task?.title ?? "")
+  const dirty = title !== (task?.inputText ?? task?.title ?? "")
     || description !== (task?.descriptionMarkdown ?? "")
     || priority !== (task?.priority ?? 2);
-  const showContextualHelp = helpMode === "full";
-  const showPriorityHelp = helpMode === "basic";
+  const showContextualHelp = helpMode === "full" && !pending;
+  const showPriorityHelp = helpMode === "basic" && !pending;
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => titleInput.current?.focus());

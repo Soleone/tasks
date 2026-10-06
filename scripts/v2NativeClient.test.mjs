@@ -4,8 +4,8 @@ import test from "node:test";
 import { build } from "esbuild";
 import { nativePilotConfig, nativePilotSelection, resolveNativePilotSelection } from "./native-pilot-options.mjs";
 
-const bundle = await build({ stdin: { contents: `export * from './src/platform/v2NativeSelection';export * from './src/platform/v2BackendClient';export * from './src/platform/v2EditorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseV2Response} from './src/backend/v2Protocol';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_NATIVE_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2PreparedEdit, JsonLineSession, parseV2Response } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+const bundle = await build({ stdin: { contents: `export * from './src/platform/v2NativeSelection';export * from './src/platform/v2BackendClient';export * from './src/platform/v2EditorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseV2Response} from './src/backend/v2Protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseV2Shorthand} from './src/backend/v2UpdateInputs';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
+const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_NATIVE_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2PreparedEdit, JsonLineSession, parseV2Response, MainWorkspace, taskView, inlineTaskText, parseV2Shorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 const selection = { rootPath: "C:\\proof\\root", databasePath: "C:\\proof\\cache.db", profilePath: "C:\\proof\\profile" };
 const argv = ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
 const editorSelection = { ...selection, version: 2, readOnly: false, selectionToken: "native-memory-selection", writeCommands: V2_NATIVE_EDITOR_COMMANDS };
@@ -125,4 +125,67 @@ for (const filename of ["root", "C:relative", "/tmp/root", "\\\\server\\share", 
   assert.throws(() => new V2EditorClient("http://127.0.0.1", editorSelection), /browser-only/);
   const reader = new V2WorkspaceReader(selection, undefined, state.session); await assert.rejects(() => reader.workspaceInfo(), /not available on Android/);
   assert.equal(state.launches.length, 0);
+});
+
+ test("main-client presentation preserves literal text and round-trips inline classification", () => {
+  for (const title of ["Call @alice #literal", "Backslash \\ and \\@literal", "Code `@alice #literal \\`", "Unclosed ```@alice", "Email a@b.example", "Unicode Ω 😀", "Two  spaces", "Unclosed ` @alice", "Mixed `code` @literal"]) {
+    const canonical = { ...task, title, category: "work", tags: ["alpha", "todo"] };
+    const view = taskView(canonical);
+    assert.equal(view.title, title); assert.equal(view.literalTitle, title);
+    assert.deepEqual(parseV2Shorthand(inlineTaskText(canonical)), { title, category: "work", tags: ["alpha", "todo"] });
+    assert.equal(view.descriptionMarkdown, canonical.description);
+  }
+});
+
+ test("established inline save uses the new protocol directly, without a preview dialog or legacy request", async t => {
+  desktop(t);
+  const state = sessionFixture(t, request => request.command === "workspace.info" ? info : request.command === "task.get" ? { task } : { task, changed: true, operationId: "inline-save" });
+  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  await workspace.save("Keep the main UI @work #todo", "Markdown", 2, "inline-key", task.id, task.version);
+  const write = state.requests.at(-1);
+  assert.equal(write.version, 2); assert.equal(write.command, "task.update");
+  assert.deepEqual(write.args, { text: "Keep the main UI @work #todo", description: "Markdown", priority: 2, id: task.id, expectedVersion: task.version });
+  assert.equal(write.idempotencyKey, "inline-key"); assert.equal(write.dryRun, false);
+  assert.equal(state.requests.filter(request => !request.readOnly).length, 1);
+  assert.equal(workspace.getUnresolved(), null);
+});
+
+ test("main-client stale selection never replaces the expected version or sends a mutation", async t => {
+  desktop(t);
+  const state = sessionFixture(t, request => request.command === "workspace.info" ? info : { task: { ...task, version: 2 } });
+  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  await assert.rejects(() => workspace.save("Draft", "", 2, "stale-key", task.id, 1), /draft was not sent/);
+  assert.ok(state.requests.every(request => request.readOnly)); assert.equal(workspace.getUnresolved(), null);
+});
+
+ test("main-client lost reply blocks new writes and retries only the frozen request", async t => {
+  desktop(t); let lose = true;
+  const state = sessionFixture(t, (request, close) => {
+    if (request.command === "workspace.info") return info;
+    if (request.command === "task.get") return { task };
+    if (lose) { lose = false; close(); return null; }
+    return { task, changed: true, operationId: "one-effect" };
+  });
+  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const unresolved = new Promise(resolve => { const unsubscribe = workspace.subscribe(() => { if (workspace.getUnresolved()) { unsubscribe(); resolve(workspace.getUnresolved()); } }); });
+  const saving = workspace.save("Retained draft", "", 2, "original-key", task.id, task.version);
+  const retained = await unresolved;
+  await assert.rejects(() => workspace.priority(task.id, 1, 0, "replacement"), /Finish the current/);
+  const original = JSON.parse(retained.prepared.originalRequest), before = state.requests.length;
+  await retained.retry(); await saving;
+  assert.equal(state.requests.length, before + 1); assert.deepEqual(state.requests.at(-1), original);
+  assert.equal(state.launches.length, 2); assert.equal(workspace.getUnresolved(), null);
+});
+
+ test("acknowledged external reconciliation keeps main-client writes paused", async t => {
+  desktop(t);
+  const state = sessionFixture(t, (request, close) => request.command === "workspace.info" ? info : request.command === "task.get" ? { task } : (close(), null));
+  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const unresolved = new Promise(resolve => { const unsubscribe = workspace.subscribe(() => { if (workspace.getUnresolved()) { unsubscribe(); resolve(workspace.getUnresolved()); } }); });
+  const saving = workspace.save("Uncertain", "", 2, "retained-key", task.id, task.version);
+  const rejected = assert.rejects(saving, /external reconciliation/);
+  const retained = await unresolved; retained.preserveForReconciliation(); await rejected;
+  const before = state.requests.length;
+  await assert.rejects(() => workspace.save("Replacement", "", 2, "new-key"), /Writes are paused/);
+  assert.equal(state.requests.length, before);
 });

@@ -78,6 +78,7 @@ class HttpBackendTransport implements BackendTransport {
 let transport: BackendTransport | null = null;
 
 export function getBackendTransport(): BackendTransport {
+  if (import.meta.env.VITE_TASKDB_V2_NATIVE_SELECTION) throw new Error("The explicitly selected workspace cannot launch a legacy backend, including after a development reload.");
   if (!transport) {
     const kind = backendKind();
     transport = kind === "desktop"

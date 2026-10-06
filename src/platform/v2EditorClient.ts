@@ -143,9 +143,20 @@ export class V2EditorClient {
     return this.prepareTaskRequest(baseline, baseline.task ? "task.update" : "task.create", args);
   }
 
-  prepareStatus(baseline: V2EditBaseline, command: V2StatusAction): V2PreparedEdit {
+  prepareInline(baseline: V2EditBaseline, text: string, description: string, priority: V2TaskProjection["priority"], key: string): V2PreparedEdit {
+    const args: Record<string, unknown> = { text, description, priority };
+    if (baseline.task) { args.id = baseline.task.id; args.expectedVersion = baseline.task.version; }
+    return this.prepareTaskRequest(baseline, baseline.task ? "task.update" : "task.create", args, key);
+  }
+
+  preparePriority(baseline: V2EditBaseline, priority: V2TaskProjection["priority"], key: string): V2PreparedEdit {
+    if (!baseline.task) throw new Error("Select an existing task to change its priority.");
+    return this.prepareTaskRequest(baseline, "task.update", { id: baseline.task.id, expectedVersion: baseline.task.version, priority }, key);
+  }
+
+  prepareStatus(baseline: V2EditBaseline, command: V2StatusAction, key: string = crypto.randomUUID()): V2PreparedEdit {
     if (!baseline.task || !statusActions.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
-    return this.prepareTaskRequest(baseline, command, { id: baseline.task.id, expectedVersion: baseline.task.version });
+    return this.prepareTaskRequest(baseline, command, { id: baseline.task.id, expectedVersion: baseline.task.version }, key);
   }
 
   prepareParent(baseline: V2EditBaseline, parentId: string | null): V2PreparedEdit {
@@ -163,9 +174,9 @@ export class V2EditorClient {
     return page;
   }
 
-  private prepareTaskRequest(baseline: V2EditBaseline, command: string, args: Record<string, unknown>): V2PreparedEdit {
+  private prepareTaskRequest(baseline: V2EditBaseline, command: string, args: Record<string, unknown>, key: string = crypto.randomUUID()): V2PreparedEdit {
     return new V2PreparedEdit(this.connection, this.selection, { version: 2, requestId: crypto.randomUUID(), command, args,
-      writeContext: baseline.writeContext, idempotencyKey: crypto.randomUUID(),
+      writeContext: baseline.writeContext, idempotencyKey: key,
       actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
   }
 

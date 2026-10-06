@@ -18,6 +18,25 @@ import {
 } from "../backend/protocol";
 import { getBackendTransport } from "./backendTransport";
 import type { AndroidSyncConflict } from "./androidSyncConflicts";
+import { MainWorkspace } from "./mainWorkspace";
+import { taskView } from "@/components/taskView";
+import { parseV2TaskProjection } from "../backend/v2TaskResults";
+import { builtinThemes } from "../backend/builtinThemes";
+import { GILT_THEME_NAME } from "../backend/themePalette";
+
+let mainWorkspace: MainWorkspace | null = null;
+
+export function selectMainWorkspace(workspace: MainWorkspace): void {
+  if (mainWorkspace && mainWorkspace !== workspace) throw new Error("Close the selected workspace before selecting another.");
+  mainWorkspace = workspace;
+}
+
+export function selectedMainWorkspace(): MainWorkspace | null { return mainWorkspace; }
+
+function mainWriteKey(options: CommandOptions): string {
+  if (options.readOnly || options.dryRun) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This UI action cannot execute preview-only options. Nothing was sent.");
+  return options.idempotencyKey ?? crypto.randomUUID();
+}
 
 export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number; unresolvedConflicts?: AndroidSyncConflict[] };
@@ -93,6 +112,7 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
   args: Record<string, unknown> = {},
   options: CommandOptions = {},
 ): Promise<T> {
+  if (mainWorkspace || import.meta.env.VITE_TASKDB_V2_NATIVE_SELECTION) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not available through the selected workspace. Reopen and confirm it if the development connection was reloaded.");
   const response = await getBackendTransport().request({
     version: PROTOCOL_VERSION,
     requestId: crypto.randomUUID(),
@@ -121,7 +141,7 @@ export async function listTasks(
   category?: string,
   filters: TaskListFilters = {},
 ): Promise<TaskListResult> {
-  return runBackendCommand<TaskListResult>("task.list", {
+  const args = {
     ...(status !== undefined ? { status } : {}),
     ...(unblocked ? { unblocked: true } : {}),
     ...(category !== undefined ? { category } : {}),
@@ -133,22 +153,31 @@ export async function listTasks(
     ...(filters.direction !== undefined ? { direction: filters.direction } : {}),
     ...(filters.includeAncestors ? { includeAncestors: true } : {}),
     offset,
-  });
+  };
+  if (mainWorkspace) return mainWorkspace.tasks(args);
+  return runBackendCommand<TaskListResult>("task.list", args);
 }
 
 export async function listCategories(): Promise<CategoryListResult> {
+  if (mainWorkspace) return { categories: (await mainWorkspace.categories()).map(entry => ({ ...entry, label: entry.slug })) };
   return runBackendCommand<CategoryListResult>("category.list");
 }
 
 export async function listTags(): Promise<TagListResult> {
+  if (mainWorkspace) return { tags: (await mainWorkspace.tags()).map(entry => ({ ...entry, label: entry.slug })) };
   return runBackendCommand<TagListResult>("tag.list");
 }
 
 export async function getTask(id: string): Promise<{ task: TaskRecord }> {
+  if (mainWorkspace) return { task: taskView(parseV2TaskProjection((await mainWorkspace.reader.query("task.get", { id })).task)) };
   return runBackendCommand<{ task: TaskRecord }>("task.get", { id });
 }
 
 export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string; priority?: TaskPriority }): Promise<TaskMutationResult> {
+  if (mainWorkspace) {
+    if (options.parentId) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Child capture is not yet available in the selected Windows workspace.");
+    return mainWorkspace.save(title, descriptionMarkdown, options.priority ?? 2, mainWriteKey(options));
+  }
   const { parentId, priority, ...commandOptions } = options;
   return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown, ...(parentId ? { parentId } : {}), ...(priority !== undefined ? { priority } : {}) }, commandOptions);
 }
@@ -160,6 +189,7 @@ export async function updateTask(
   expectedVersion: number,
   options: CommandOptions & { priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
+  if (mainWorkspace) return mainWorkspace.save(title, descriptionMarkdown, options.priority, mainWriteKey(options), id, expectedVersion);
   return runBackendCommand<TaskMutationResult>(
     "task.update",
     { id, title, descriptionMarkdown, expectedVersion, ...(options.priority !== undefined ? { priority: options.priority } : {}) },
@@ -167,7 +197,13 @@ export async function updateTask(
   );
 }
 
+export async function updateTaskPriority(task: TaskRecord, priority: TaskPriority, options: CommandOptions): Promise<TaskMutationResult> {
+  if (mainWorkspace) return mainWorkspace.priority(task.id, task.version, priority, mainWriteKey(options));
+  return updateTask(task.id, task.title, task.descriptionMarkdown, task.version, { ...options, priority });
+}
+
 export async function deleteTask(id: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  if (mainWorkspace) return mainWorkspace.status("task.delete", id, expectedVersion, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult>("task.delete", { id, expectedVersion }, options);
 }
 
@@ -181,6 +217,7 @@ export async function transitionTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
+  if (mainWorkspace) return mainWorkspace.status(command, id, expectedVersion, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult>(command, { id, expectedVersion }, options);
 }
 
@@ -196,6 +233,7 @@ export async function undoStatusChange(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult & { undoneSeq?: number }> {
+  if (mainWorkspace) return mainWorkspace.status("task.status.undo", id, expectedVersion, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult & { undoneSeq?: number }>("task.status.undo", { id, expectedVersion }, options);
 }
 
@@ -235,6 +273,7 @@ export async function listActivity(taskId?: string): Promise<ActivityListResult>
 }
 
 export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {
+  if (mainWorkspace) return mainWorkspace.info();
   return runBackendCommand<WorkspaceInfoResult>("workspace.info");
 }
 
@@ -248,6 +287,7 @@ export async function prepareReceiveWorkspace(): Promise<ReceiveWorkspaceResult>
 }
 
 export async function receiveWorkspaceStatus(): Promise<ReceiveWorkspaceResult> {
+  if (mainWorkspace) return { waiting: false };
   return runBackendCommand<ReceiveWorkspaceResult>("workspace.receive.status");
 }
 
@@ -256,13 +296,25 @@ export async function abortReceiveWorkspace(): Promise<ReceiveWorkspaceResult> {
 }
 
 export async function listThemes(): Promise<ThemeListResult> {
+  if (mainWorkspace) {
+    const themes = builtinThemes();
+    const stored = localStorage.getItem("tasks.selectedTheme");
+    return { themes, selected: themes.some(theme => theme.name === stored) ? stored! : GILT_THEME_NAME };
+  }
   return runBackendCommand<ThemeListResult>("theme.list");
 }
 
 export async function setTheme(name: string): Promise<ThemeSetResult> {
+  if (mainWorkspace) {
+    const theme = builtinThemes().find(theme => theme.name === name);
+    if (!theme) throw new BackendCommandError("THEME_NOT_FOUND", "Choose an available built-in theme.");
+    localStorage.setItem("tasks.selectedTheme", name);
+    return { theme, selected: name };
+  }
   return runBackendCommand<ThemeSetResult>("theme.set", { name });
 }
 
 export async function closeBackendSession(): Promise<void> {
+  if (mainWorkspace) { await mainWorkspace.reader.close(); return; }
   await getBackendTransport().close();
 }

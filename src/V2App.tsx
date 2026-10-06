@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { APP_NAME } from "./backend/branding";
+import App from "./App";
+import { MainWorkspace } from "./platform/mainWorkspace";
+import { selectMainWorkspace } from "./platform/backendClient";
 import { V2ReaderView } from "./components/V2ReaderView";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
@@ -17,6 +20,7 @@ export default function V2App(): ReactElement {
   const [editor, setEditor] = useState<V2EditorClient | undefined>(undefined);
   const editing = import.meta.env.VITE_TASKDB_V2_EDIT === "1";
   const [reader, setReader] = useState<V2WorkspaceReader | null>(null);
+  const [workspace, setWorkspace] = useState<MainWorkspace | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -70,7 +74,11 @@ export default function V2App(): ReactElement {
           return Command.sidecar("binaries/tasks-backend", v2NativeSidecarArgs(selected));
         }, parseV2Response);
         const selectedEditor = new V2EditorClient(session, devSelection);
-        setReader(new V2WorkspaceReader(selected, undefined, session));
+        const selectedReader = new V2WorkspaceReader(selected, undefined, session);
+        const selectedWorkspace = new MainWorkspace(selectedReader, selectedEditor);
+        selectMainWorkspace(selectedWorkspace);
+        setWorkspace(selectedWorkspace);
+        setReader(selectedReader);
         setEditor(selectedEditor);
       } else {
         const selectedEditor = devSelection.readOnly === false ? new V2EditorClient(v2DevBackendUrl(), devSelection) : undefined;
@@ -82,19 +90,20 @@ export default function V2App(): ReactElement {
     }
   }
 
+  if (reader && workspace) return <App workspace={workspace} />;
   if (reader) return <V2ReaderView reader={reader} editor={editor} onLeave={() => { setReader(null); setEditor(undefined); }} />;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <header><h1 className="font-heading text-xl font-semibold">{APP_NAME}: select a v2 folder</h1></header>
-      <p className="text-sm text-muted-foreground">This opt-in reader is separate from your v1 app. Confirm the selected folder and local cache before browsing. It never upgrades, initializes, repairs, or changes sharing. {editing ? native ? "Capture, content editing and single-task status changes/undo are enabled. Parent changes and all other app writes remain unavailable." : "Capture, content editing and single-task status changes are explicitly enabled, including latest local status undo and parent changes; all other writes remain unavailable." : "This mode is read-only."}</p>
+      <header><h1 className="font-heading text-xl font-semibold">{APP_NAME}: select a folder</h1></header>
+      {native ? <p className="text-sm text-muted-foreground">Confirm this disposable workspace before opening Tasks. Your personal tasks will not be selected.</p> : <p className="text-sm text-muted-foreground">This opt-in reader is separate from your v1 app. Confirm the selected folder and local cache before browsing. It never upgrades, initializes, repairs, or changes sharing. {editing ? native ? "Capture, content editing and single-task status changes/undo are enabled. Parent changes and all other app writes remain unavailable." : "Capture, content editing and single-task status changes are explicitly enabled, including latest local status undo and parent changes; all other writes remain unavailable." : "This mode is read-only."}</p>}
       {kind !== "browser" && !native ? (
         <Alert><AlertTitle>The native v2 reader is unavailable</AlertTitle><AlertDescription>Use the explicitly selected browser reader for this milestone. Android and desktop sidecar launch remain withheld; the v1 sidecar and directory selection have not been used.</AlertDescription></Alert>
       ) : (
         <form onSubmit={confirm} className="flex flex-col gap-4">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="v2-root">Schema-2 task folder</FieldLabel>
+              <FieldLabel htmlFor="v2-root">{native ? "Task folder" : "Schema-2 task folder"}</FieldLabel>
               <Input id="v2-root" value={devSelection?.rootPath ?? ""} readOnly required autoComplete="off" placeholder="Absolute path to the selected folder" />
             </Field>
             <Field>
@@ -106,13 +115,13 @@ export default function V2App(): ReactElement {
               <Input id="v2-profile" value={devSelection?.readOnly === false ? devSelection.profilePath : ""} readOnly required autoComplete="off" />
             </Field>}
           </FieldGroup>
-          <p className="text-sm text-muted-foreground">After migration, select its verified v2 output with a separate v2 cache. Do not reuse v1 authority. Rollback uses the preserved v1 folder with the v1 app; later v2 edits remain separate.</p>
-          {devSelection?.readOnly === false && <p className="break-words text-sm text-muted-foreground">Retained local profile: {devSelection.profilePath}. Keep this profile, root and cache during pending or uncertain work.</p>}
-          <div><Button ref={confirmRef} type="submit" disabled={!devSelection}>{editing ? "Enable editing and status changes in this folder" : "Browse this v2 folder"}</Button></div>
+          {!native && <p className="text-sm text-muted-foreground">After migration, select its verified v2 output with a separate v2 cache. Do not reuse v1 authority. Rollback uses the preserved v1 folder with the v1 app; later v2 edits remain separate.</p>}
+          {!native && devSelection?.readOnly === false && <p className="break-words text-sm text-muted-foreground">Retained local profile: {devSelection.profilePath}. Keep this profile, root and cache during pending or uncertain work.</p>}
+          <div><Button ref={confirmRef} type="submit" disabled={!devSelection}>{native ? "Open Tasks" : editing ? "Enable editing and status changes in this folder" : "Browse this v2 folder"}</Button></div>
         </form>
       )}
       {error && <Alert variant="destructive"><AlertTitle>V2 selection is unavailable</AlertTitle><AlertDescription>{error}</AlertDescription><Button ref={retryRef} variant="outline" className="mt-3" onClick={() => setAttempt(value => value + 1)}>Retry selection</Button></Alert>}
-      <p className="text-sm text-muted-foreground">{editing ? native ? "Disposable native pilot: capture, content and single-task status changes/undo. Keep the original request before reload or close; retry state is memory-only." : "Bounded editing milestone: previews, literal capture, content, single-task status changes/undo and parent changes. Retry state lives only in this page, not a saved payload log." : "Read-only milestone: capture and editing are unavailable."} Grouped undo, batches, file-deletion undo, ordering, migration, rollback and recovery controls are not connected. No selection is saved across reloads.</p>
+      {!native && <p className="text-sm text-muted-foreground">{editing ? native ? "Disposable native pilot: capture, content and single-task status changes/undo. Keep the original request before reload or close; retry state is memory-only." : "Bounded editing milestone: previews, literal capture, content, single-task status changes/undo and parent changes. Retry state lives only in this page, not a saved payload log." : "Read-only milestone: capture and editing are unavailable."} Grouped undo, batches, file-deletion undo, ordering, migration, rollback and recovery controls are not connected. No selection is saved across reloads.</p>}
     </main>
   );
 }

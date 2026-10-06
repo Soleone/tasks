@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from "rea
 import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { AppIcon } from "@/components/AppIcon";
+import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
+import type { MainWorkspace } from "@/platform/mainWorkspace";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
+import { parseV2Shorthand } from "@/backend/v2UpdateInputs";
+import type { TaskView } from "@/components/taskView";
 import { compareTasksForViewSort, presetStatuses, sortSummary, taskMatchesViewFilters, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
@@ -26,7 +30,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, type ReceiveWorkspaceResult, type TaskListResult, type TaskMutationResult } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, undoStatusChange, selectMainWorkspace, type ReceiveWorkspaceResult, type TaskListResult, type TaskMutationResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
@@ -134,6 +138,7 @@ function readHelpMode(): KeyboardHelpMode {
 
 type OperationUndoEntry = {
   operationId: string;
+  expectedVersion?: number;
   key: string;
   affectedTaskIds: string[];
   createdTaskIds: string[];
@@ -165,7 +170,9 @@ const TOAST_DURATION_MS = 3000;
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
 // task editor or list.
-export default function App(): ReactElement {
+export default function App({ workspace }: { workspace?: MainWorkspace } = {}): ReactElement {
+  // Rebind after development module reloads before the list's query effects run.
+  useEffect(() => { if (workspace) selectMainWorkspace(workspace); }, [workspace, selectMainWorkspace]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [optimisticCreate, setOptimisticCreate] = useState<TaskRecord | null>(null);
   const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
@@ -235,10 +242,11 @@ export default function App(): ReactElement {
   }
 
   useEffect(() => {
-    void setGlobalShortcut(globalShortcut, null).catch(() => undefined);
+    if (!workspace) void setGlobalShortcut(globalShortcut, null).catch(() => undefined);
   }, []);
 
   async function changeGlobalShortcut(value: string): Promise<void> {
+    if (workspace) throw new Error("Global shortcuts are not yet enabled for this selected Windows workspace.");
     const next = value.trim();
     if (!isShortcutConfigured(next)) throw new Error("Use at least one modifier and a key, such as Ctrl+Alt+Space.");
     await setGlobalShortcut(next, globalShortcutRef.current);
@@ -439,6 +447,10 @@ export default function App(): ReactElement {
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
+    if (workspace && parentId) {
+      setAnnouncement("Child capture is not yet available in this Windows workspace.");
+      return;
+    }
     if (parentId) {
       const parent = tasks.find((task) => task.id === parentId);
       if (parent?.status === "canceled") {
@@ -554,6 +566,10 @@ export default function App(): ReactElement {
   }
 
   function openPicker(mode: TaskPickerMode, subject: TaskRecord): void {
+    if (workspace) {
+      setAnnouncement("Relationship changes are not yet available in this Windows workspace.");
+      return;
+    }
     // From the palette, inherit its return target like settings does so the
     // picker's close restores focus past the unmounted palette search field.
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
@@ -868,9 +884,14 @@ export default function App(): ReactElement {
       const after = currentById.get(taskId);
       return before !== undefined && after !== undefined && before.status !== after.status;
     });
+    if (workspace && (!statusLike || affectedTaskIds.length !== 1)) {
+      retireStatusUndo();
+      return;
+    }
     const titleTask = current.find((task) => affectedTaskIds.includes(task.id)) ?? previous.find((task) => affectedTaskIds.includes(task.id));
     const entry: OperationUndoEntry = {
       operationId,
+      ...(workspace ? { expectedVersion: current[0].version } : {}),
       key: crypto.randomUUID(),
       affectedTaskIds,
       createdTaskIds: options.createdTaskIds ?? [],
@@ -903,7 +924,9 @@ export default function App(): ReactElement {
     const entry = statusUndoRef.current;
     if (!entry) return;
     try {
-      const result = await undoOperation(entry.operationId, { idempotencyKey: entry.key });
+      const result = workspace
+        ? { tasks: [(await undoStatusChange(entry.affectedTaskIds[0], entry.expectedVersion!, { idempotencyKey: entry.key })).task], deletedTaskIds: [] }
+        : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
       const restored = result.tasks;
       if (cancelExitTimer.current !== null) {
         window.clearTimeout(cancelExitTimer.current);
@@ -950,11 +973,16 @@ export default function App(): ReactElement {
   }, [newTaskId]);
 
   function showOptimisticCreate(draft: TaskCreateDraft): void {
-    const classification = classifyTaskText(draft.title);
+    const literal = workspace ? parseV2Shorthand(draft.title) : null;
+    const classification = literal ? {
+      category: literal.category === null ? null : { slug: literal.category, label: literal.category },
+      tags: literal.tags.map(slug => ({ slug, label: slug })),
+    } : classifyTaskText(draft.title);
     const now = new Date().toISOString();
-    const task: TaskRecord = {
+    const task: TaskView = {
       id: `pending-${crypto.randomUUID()}`,
-      title: draft.title,
+      title: literal?.title ?? draft.title,
+      ...(literal ? { literalTitle: literal.title, inputText: draft.title } : {}),
       descriptionMarkdown: draft.descriptionMarkdown,
       status: "open",
       priority: draft.priority,
@@ -1219,6 +1247,7 @@ export default function App(): ReactElement {
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
+      {workspace && <WorkspaceRequestRecovery workspace={workspace} />}
       {receiveState?.waiting ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
         <section aria-labelledby="receive-title" className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg">
           <h1 id="receive-title" className="text-lg font-semibold">Waiting for workspace</h1>
@@ -1392,6 +1421,7 @@ export default function App(): ReactElement {
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
+        statusUndoOnly={workspace !== undefined}
         canUndoStatus={statusUndo !== null}
         onUndoStatus={() => {
           setHelpOpen(false);

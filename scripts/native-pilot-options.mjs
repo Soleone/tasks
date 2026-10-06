@@ -49,7 +49,7 @@ export function nativePilotConfig(selection, webviewDirectory) {
   if (!mainWindow) throw new Error("The native pilot requires the existing main window.");
   const args = v2NativeSidecarArgs(selection).map((value, index) => [2, 4, 7].includes(index)
     ? { validator: `\\A${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\z` } : value);
-  return { build: { devUrl: "http://127.0.0.1:5178", beforeDevCommand: "pnpm exec vite --host 127.0.0.1 --port 5178 --strictPort" }, app: { windows: [{ ...mainWindow, title: "Tasks: disposable native pilot", dataDirectory: webviewDirectory }], security: { capabilities: [{ identifier: "windows-task-pilot", description: "Explicit disposable Windows task selection only", local: true,
+  return { build: { devUrl: "http://127.0.0.1:5178", beforeDevCommand: "pnpm exec vite --host 127.0.0.1 --port 5178 --strictPort" }, app: { windows: [{ ...mainWindow, dataDirectory: webviewDirectory }], security: { capabilities: [{ identifier: "windows-task-pilot", description: "Explicit disposable Windows task selection only", local: true,
     platforms: ["windows"], windows: ["main"], permissions: ["core:default", "shell:allow-stdin-write", "shell:allow-kill",
       { identifier: "shell:allow-spawn", allow: [{ name: "binaries/tasks-backend", sidecar: true, args }] }] }] } } };
 }

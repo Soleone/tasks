@@ -50,7 +50,7 @@ Capture, status changes, editing, relationships, ordering, undo, purge, doctor, 
 
 ## Disposable Windows native pilot
 
-On the declared Windows/NTFS host, run `pnpm dev:native --v2-root ROOT --database CACHE --local-profile PROFILE` with three explicit disposable paths, then confirm them in the actual window. This temporarily enables capture, content editing, single-task status/eligible undo, search and external CLI refresh through one embedded SEA session. It does not change the default app or select personal tasks.
+On the declared Windows/NTFS host, run `node .\scripts\dev-native.mjs --v2-root ROOT --database CACHE --local-profile PROFILE` with three explicit disposable paths, then confirm them in the actual window. This now opens the **existing main Tasks client**, not the experimental reader/editor workbench: the original task list, compact toolbar, inline capture/editing, themes and keyboard/mouse flows. It uses the selected new-format workspace through one embedded SEA session, with direct save/status actions and retained exact-request retry. Relationships, reordering, batch/general undo and other unproven native writes remain withheld; no legacy fallback is used. See [restored-client evidence](docs/restored-main-client.md). It does not change the default app or select personal tasks.
 
 [Runnable PowerShell setup, native evidence, retry/reload limits and backup/restore walkthrough](docs/windows-native-pilot.md). `pnpm dev:tauri` is still v1, not this pilot. Owner dogfood and single-codebase cutover remain open.
 

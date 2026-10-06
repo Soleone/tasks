@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
-import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTask, type TaskMutationResult } from "@/platform/backendClient";
+import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTaskPriority, selectedMainWorkspace, type TaskMutationResult } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
@@ -70,9 +70,9 @@ function FilterSummaryAction({ filter, label, onClear, className, children }: {
   );
 }
 
-export async function copyTaskText(task: TaskRecord): Promise<void> {
+export async function copyTaskText(task: TaskRecord & { literalTitle?: string }): Promise<void> {
   const text = [task.title, task.descriptionMarkdown]
-    .map(stripClassificationTokens)
+    .map(value => task.literalTitle === undefined ? stripClassificationTokens(value) : value)
     .filter(Boolean)
     .join(" ");
   await navigator.clipboard.writeText(text);
@@ -1054,6 +1054,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
+    if (selectedMainWorkspace()) return "Reordering is not yet available in this Windows workspace.";
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";
@@ -1422,7 +1423,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     priorityReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
     try {
-      const result = await updateTask(task.id, task.title, task.descriptionMarkdown, task.version, { priority, idempotencyKey: receipt.key });
+      const result = await updateTaskPriority(task, priority, { idempotencyKey: receipt.key });
       priorityReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
       if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);

@@ -2,6 +2,10 @@
 
 This is actual Windows 11 / WebView2 evidence for the bounded replacement loop, not release or owner dogfood acceptance. It reuses the existing reader/editor UI and the existing embedded Node SEA. Default `pnpm dev:tauri` still starts v1. The temporary launcher/config and versioned application routing must be removed in `dvs`.
 
+## Current client: the established Tasks UI
+
+The owner rejected the engineering workbench as a replacement interface. The native launcher now opens the existing `App`, `TaskList` and inline `TaskComposer` after path confirmation, with the original compact toolbar, themes, help/settings and keyboard/mouse flows. It talks directly to the selected new-format workspace, never to a legacy fallback. Save and status shortcuts execute directly; a separate preview/apply dialog is no longer mandatory in this client. The original request remains frozen after any executing failure. See [restored-client evidence and remaining limits](restored-main-client.md). The walkthrough below is historical `m1p` workbench evidence, not the current client design.
+
 ## Quickstart: Windows PowerShell
 
 Use an isolated Windows checkout with the [native prerequisites](development.md#selected-windows-native-route-dh1-2026-10-04). Never use personal data for this pilot.
@@ -15,10 +19,10 @@ New-Item -ItemType Directory (Join-Path $pilot 'p') | Out-Null
 $root = Join-Path $pilot 'r'
 $cache = Join-Path $pilot 'c.db'
 $profile = Join-Path $pilot 'p'
-pnpm dev:native --v2-root $root --database $cache --local-profile $profile
+node .\scripts\dev-native.mjs --v2-root $root --database $cache --local-profile $profile
 ```
 
-Only these six launcher arguments, in this order, are accepted. Root and profile directories and the cache parent must already exist. The launcher resolves physical paths, refuses overlapping scopes, requires fixed local NTFS, rejects device/UNC/relative/ambiguous paths, and checks complete SQLite cache and lock-journal paths against the short-path proof boundary. It does not shorten paths or discover another root.
+Use the direct Node command on Windows: this route is verified from the owner's actual source copy. The earlier package-script invocation failed path validation; its exact argument-handling cause is not established. A source copy without `.git` is supported; sidecar freshness checks actual source/build-input timestamps. Only these six launcher arguments, in this order, are accepted. Root and profile directories and the cache parent must already exist. The launcher resolves physical paths, refuses overlapping scopes, requires fixed local NTFS, rejects device/UNC/relative/ambiguous paths, and checks complete SQLite cache and lock-journal paths against the short-path proof boundary. It does not shorten paths or discover another root.
 
 The window shows all three resolved paths. Confirm them explicitly before any sidecar or backend query. The frontend uses the dedicated `127.0.0.1:5178` development origin with strict-port refusal, not an HTTP backend. Each launch has isolated disposable WebView storage. `.tmp` and `src-tauri` are excluded from frontend watching because Windows executable file locks can otherwise crash Vite.
 
