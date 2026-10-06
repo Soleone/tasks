@@ -30,7 +30,7 @@ The owner rejects the experimental reader/editor workbench as a replacement clie
 
 ### Owner sequencing correction: testing later (2026-10-06)
 
-The owner wants more outstanding work completed before manual testing. The bounded inherited accessibility fix `26a` is complete. Next rehearse the existing converter on disposable fixtures under `y9b`, before returning to owner dogfood `hzv`. These are independent of owner usability approval; the old `hzv` dependencies were sequencing choices, not technical requirements. Rehearsal must report the actual supported converter host/profile and any Windows limitation, not silently enable withheld native migration commands.
+The owner wants more outstanding work completed before manual testing. The bounded inherited accessibility fix `26a` and disposable converter rehearsal `y9b` are complete. [Rehearsal and runbook](docs/migration-rehearsal.md) verify preservation, fresh authority and interrupted recovery on WSL2 Linux Node, not native Windows migration. No withheld commands were enabled. The next gate is owner dogfood `hzv`, still deferred with zero owner sessions; no further implementation is authorized merely to fill that wait. These pre-test tasks were independent of owner usability approval; the old `hzv` dependencies were sequencing choices, not technical requirements.
 
 The established UI and workflows remain the baseline. Native gaps such as relationships, ordering and broader undo need individually bounded support/integration tasks, not a client rebuild or blanket Windows port. Owner testing is deferred, not passed or waived. Personal-data reading/conversion and final default cutover remain gated; `dvs` still requires owner-reviewed essentials and a verified rehearsal.
 
@@ -49,7 +49,7 @@ The refactor mostly added a parallel implementation. Do not revert the useful wo
 
 ## Work order
 
-One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. `7hr` then passed 64 capture and 38 retained update scene groups in the one private Windows task-proof profile. `byy` then passed 156 status/eligible single-status undo groups plus the retained 64 capture/38 update groups, with full regression and self-review. `gxm` then passed 182 absence-only archive/restore Windows Node/SEA groups plus retained status 156/capture 64/update 38, with full regression and self-review. `m1p` then proved the bounded loop in actual Windows/WebView2 through one SEA session, including original-request lost-reply replay, external CLI refresh, native close/relaunch and separate-root backup/restore. [Native evidence and runnable instructions](docs/windows-native-pilot.md). `4t6` subsequently restored the established main client. With owner testing now deferred, `26a` has corrected the inherited list semantics. Next is disposable migration rehearsal `y9b`, then owner dogfood `hzv`, not broad Windows porting. The owner chose Windows-first because rebooting into Omarchy is impractical.
+One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. `7hr` then passed 64 capture and 38 retained update scene groups in the one private Windows task-proof profile. `byy` then passed 156 status/eligible single-status undo groups plus the retained 64 capture/38 update groups, with full regression and self-review. `gxm` then passed 182 absence-only archive/restore Windows Node/SEA groups plus retained status 156/capture 64/update 38, with full regression and self-review. `m1p` then proved the bounded loop in actual Windows/WebView2 through one SEA session, including original-request lost-reply replay, external CLI refresh, native close/relaunch and separate-root backup/restore. [Native evidence and runnable instructions](docs/windows-native-pilot.md). `4t6` subsequently restored the established main client. With owner testing deferred, `26a` corrected the inherited list semantics and `y9b` completed the [disposable migration rehearsal](docs/migration-rehearsal.md). The next gate is actual owner dogfood `hzv`, not broad Windows porting or default cutover. The owner chose Windows-first because rebooting into Omarchy is impractical.
 
 Completed milestone descriptions below retain their original scope and evidence dates. In particular, the `m1p` workbench's clean native accessibility audit does not apply to the restored main list; `26a` tracks its inherited findings. The table is the current execution sequence.
 
@@ -67,8 +67,8 @@ Completed milestone descriptions below retain their original scope and evidence 
 | 4 | `m1p` | Complete: actual Windows native basic loop, lifecycle/lost-reply replay and CLI backup/restore |
 | Owner correction | `4t6` | Complete: established main client reconnected; workbench is not the dogfood candidate |
 | 5 | `26a` | Complete: valid row/filtered-summary semantics, unchanged design/focus; browser regression and bounded native axe pass |
-| 6 | `y9b` | Rehearse the one-time migration on disposable fixtures; no personal source access |
-| Owner gate | `hzv` | Deferred until the pre-test work above; test the restored client and review native essentials |
+| 6 | `y9b` | Complete: disposable Linux migration/replay/fresh-authority rehearsal, retained interruption/refusal tests and isolated-dependency runbook; no personal source access |
+| Owner gate | `hzv` | Pre-test work complete; still deferred, zero owner sessions; test the restored client and review native essentials |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |
 
@@ -128,6 +128,8 @@ The owner has deferred testing. Complete the independently useful accessibility 
 - Exit: an owner-reviewed usability report and essential-workflow checklist, including agreement that the client retains the app's elegant, minimal character. Do not expand the model or add speculative frameworks.
 
 ### Pre-test migration rehearsal (`y9b`)
+
+**Complete:** [rehearsal, limits, dependency inventory and short runbook](docs/migration-rehearsal.md). Existing converter/publication unchanged; eight-task full-field/nested-order process rehearsal plus 221 focused passing checks, retained real interruption/refusal tests, and source/bundled CLI runbook smoke. Full regression: 1,666 passed/two known skips; types/lint pass. WSL2 Linux Node only; Windows/Android migration remains withheld. No personal source accessed, no owner session counted, no default switched.
 
 This disposable rehearsal now precedes `hzv`. It verifies conversion fidelity and interruption handling independently of the later owner workflow review. It does not authorize personal source access, a native migration capability expansion or a default switch.
 
