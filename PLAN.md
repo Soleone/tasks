@@ -28,6 +28,12 @@ The owner rejects the experimental reader/editor workbench as a replacement clie
 
 `4t6` reconnects the established client to the explicitly selected native workspace, with actual Windows inline capture/edit/priority/status/undo, external-refresh/stale-draft and immutable lost-reply retry evidence. The owner's baseline-matching `D:\src\wsl\tasks` source copy is updated and running the restored main client against the owner's declared disposable root. [Implementation, evidence and limits](docs/restored-main-client.md). Unsupported native writers remain withheld without legacy fallback. Owner dogfood `hzv` can now use this client, not the workbench; zero owner sessions have been counted. Migration/cutover still wait for owner-reviewed use and essentials. Inherited main-list accessibility findings remain explicit publication cleanup, not a claimed clean native audit. Do not construe engineering automation as owner approval.
 
+### Owner sequencing correction: testing later (2026-10-06)
+
+The owner wants more outstanding work completed before manual testing. Complete the bounded inherited accessibility fix `26a`, then rehearse the existing converter on disposable fixtures under `y9b`, before returning to owner dogfood `hzv`. These are independent of owner usability approval; the old `hzv` dependencies were sequencing choices, not technical requirements. Rehearsal must report the actual supported converter host/profile and any Windows limitation, not silently enable withheld native migration commands.
+
+The established UI and workflows remain the baseline. Native gaps such as relationships, ordering and broader undo need individually bounded support/integration tasks, not a client rebuild or blanket Windows port. Owner testing is deferred, not passed or waived. Personal-data reading/conversion and final default cutover remain gated; `dvs` still requires owner-reviewed essentials and a verified rehearsal.
+
 ## Authority and present state
 
 - **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
@@ -39,11 +45,13 @@ Today the default workspace/CLI still use the old model; explicit native selecti
 
 The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android new-format writes remain withheld. The explicitly selected Windows create/update/single-status/eligible-status-undo/absent-destination archive/restore/recovery proof has process evidence on short dedicated local NTFS paths; the established main UI now uses the smaller proven task subset. This is not full Windows writer/platform acceptance. Wider native lifecycle/recovery evidence remains open for the replacement app.
 
-**First defect:** `src/backend/v2QueryCache.ts` repeats a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The latest parent commit did not change this path.
+**Initial defect, now fixed by `fwk`:** `src/backend/v2QueryCache.ts` repeated a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Historical disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The fixed-size signature implementation and its regression evidence are complete, not outstanding work.
 
 ## Work order
 
-One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. `7hr` then passed 64 capture and 38 retained update scene groups in the one private Windows task-proof profile. `byy` then passed 156 status/eligible single-status undo groups plus the retained 64 capture/38 update groups, with full regression and self-review. `gxm` then passed 182 absence-only archive/restore Windows Node/SEA groups plus retained status 156/capture 64/update 38, with full regression and self-review. `m1p` then proved the bounded loop in actual Windows/WebView2 through one SEA session, including original-request lost-reply replay, external CLI refresh, native close/relaunch and separate-root backup/restore. [Native evidence and runnable instructions](docs/windows-native-pilot.md). Next is owner dogfood `hzv`, not broad Windows porting. The owner chose Windows-first because rebooting into Omarchy is impractical.
+One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. `7hr` then passed 64 capture and 38 retained update scene groups in the one private Windows task-proof profile. `byy` then passed 156 status/eligible single-status undo groups plus the retained 64 capture/38 update groups, with full regression and self-review. `gxm` then passed 182 absence-only archive/restore Windows Node/SEA groups plus retained status 156/capture 64/update 38, with full regression and self-review. `m1p` then proved the bounded loop in actual Windows/WebView2 through one SEA session, including original-request lost-reply replay, external CLI refresh, native close/relaunch and separate-root backup/restore. [Native evidence and runnable instructions](docs/windows-native-pilot.md). `4t6` subsequently restored the established main client. With owner testing now deferred, next is bounded accessibility fix `26a`, then disposable migration rehearsal `y9b`, then owner dogfood `hzv`, not broad Windows porting. The owner chose Windows-first because rebooting into Omarchy is impractical.
+
+Completed milestone descriptions below retain their original scope and evidence dates. In particular, the `m1p` workbench's clean native accessibility audit does not apply to the restored main list; `26a` tracks its inherited findings. The table is the current execution sequence.
 
 **Owner override (2026-10-04): run the task → validate/self-review → quick commit → next ready task loop without routine supervision, including continuation after auto-compaction.** This replaces the per-task owner review pauses below, not bounded scope, safety, tests, native acceptance or human/personal-data approval gates. Do not auto-switch providers when usage is exhausted. Use fresh quota/reset evidence and a verified session-only wake if available; no closed-process resumption guarantee. Durable loop state is under `$DATA/handoffs/2026-10-04-tasks-autonomous-loop.md`.
 
@@ -57,9 +65,10 @@ One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host
 | Windows prerequisite | `byy` | Complete: Windows Node/SEA 156/156 plus retained capture 64/update 38; single-source inverse/recovery scope and already-applied directory reflush |
 | Windows prerequisite | `gxm` | Complete: Windows Node/SEA archive/restore 182 groups plus retained 156/64/38; owner-selected absent destinations only, existing empty directories refuse before staging |
 | 4 | `m1p` | Complete: actual Windows native basic loop, lifecycle/lost-reply replay and CLI backup/restore |
-| Owner correction | `4t6` | Reconnect the established main client; experimental workbench is not the dogfood candidate |
-| 5 | `hzv` | Dogfood the restored main client; agree the essential keep/replace/drop workflow checklist |
-| 6 | `y9b` | Rehearse the one-time migration on a disposable source copy |
+| Owner correction | `4t6` | Complete: established main client reconnected; workbench is not the dogfood candidate |
+| 5 | `26a` | Correct inherited list ARIA semantics without changing the design or focus contract |
+| 6 | `y9b` | Rehearse the one-time migration on disposable fixtures; no personal source access |
+| Owner gate | `hzv` | Deferred until the pre-test work above; test the restored client and review native essentials |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |
 
@@ -107,16 +116,20 @@ Keep the useful browser work, but add no browser mutations to fill a native bloc
 - Exit: actual native evidence and runnable instructions on the declared host/profile. Browser/WSL process tests cannot close this gate; full legacy feature parity is not required.
 - Completed: [native walkthrough/evidence](docs/windows-native-pilot.md). One explicit Windows/local/main capability, exact selected argv, shared SEA session, full regression **1,657 passed/two known skips**, 31 native tests on both hosts, actual 1100×760 / 720×500 native window checks, zero native axe/design findings. Byte-identical accepted writer bundle; original fixture bytes/history/authority preserved. Memory-only UI request/reload limitations and preview/refusal friction are explicit. No personal selection, migration, signing or release acceptance. Owner `hzv` is still required.
 
-### 5. Dogfood and choose what survives (`hzv`)
+### Owner testing gate (`hzv`, after `26a` and `y9b`)
+
+The owner has deferred testing. Complete the independently useful accessibility fix and disposable conversion rehearsal first. Do not count automation as owner sessions or proceed to default cutover while this gate is open.
 
 - Before owner testing, ensure the client is elegant, minimal and calm. Remove developer-facing home-screen clutter, preserve the established visual identity and check the normal, empty, editor and error states. A passing technical or accessibility check alone does not establish this quality gate. Keep cleanup bounded; do not redesign the app or rebuild feature parity without approval.
 - Use realistic disposable tasks in at least three short native sessions across two days. The owner actually captures, edits, completes, undoes, searches and reopens the app.
 - Record defects, unnecessary clicks, technical language, focus and retry/reload friction. Fix only scoped defects in this loop.
 - Produce a short **keep / replace / intentionally drop** checklist for daily use: keyboard capture/editing, classification, priorities, filters, search, relationships, manual order, undo and backup/restore. A missing essential capability becomes a named bounded prerequisite to `dvs`; do not automatically rebuild the whole old feature set.
-- Decide which existing UI pieces to adapt and which prototypes to delete. The owner must agree deliberate workflow losses before cutover.
+- The owner already selected the established main UI. Identify backend support/integration gaps and superseded engineering prototypes; do not ask the owner to rebuild or renegotiate the client. The owner must agree any deliberate workflow losses before cutover.
 - Exit: an owner-reviewed usability report and essential-workflow checklist, including agreement that the client retains the app's elegant, minimal character. Do not expand the model or add speculative frameworks.
 
-### 6. Rehearse the one-time migration (`y9b`)
+### Pre-test migration rehearsal (`y9b`)
+
+This disposable rehearsal now precedes `hzv`. It verifies conversion fidelity and interruption handling independently of the later owner workflow review. It does not authorize personal source access, a native migration capability expansion or a default switch.
 
 The owner is the only existing user. This is a bounded conversion job, not a general rollout/version-compatibility program.
 
@@ -145,7 +158,8 @@ This is a functional consolidation, not a cosmetic prefix-removal project.
 
 | Work | Disposition |
 | --- | --- |
-| Missing agreed daily-use capabilities | Name and approve individually after `hzv`; block `dvs` if essential |
+| Missing daily-use capabilities | Existing UI/workflows remain the baseline; scope native support/integration individually, use `hzv` to confirm essentials and block `dvs` if unresolved |
+| Inherited list accessibility (`26a`) | Complete before deferred owner testing; preserve visual identity and keyboard/focus behavior |
 | Broad Windows writes (`82r`) / Android SAF port (`erd`) | Held for explicit platform scope; use the same model/rules, not another versioned engine |
 | Remaining corpus (`23b`) | Audit applicability to declared support, not implement unrelated features to reach 112/112 |
 | Wider native/provider matrix (`gex`) | Validate the replacement app for selected release claims; do not keep a legacy-native gate |
