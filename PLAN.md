@@ -52,6 +52,10 @@ Owner continuation approved only the next documentation/integrity scope. [Curren
 
 Owner continuation approved truthful guidance only. The selected workspace now withholds the unsupported receive action/confirmation and explains the limitation inside the existing Settings Data section. Default desktop receive and Android folder selection remain unchanged; backend prepare/abort still refuse without fallback and status remains not waiting. [Scoped support/evidence](docs/support.md#scoped-settings-receive-evidence-8v8) records real-render fixtures, focus/callback/refusal checks, responsive renders, full legacy UI regression, 1,662 tests/two existing skips and types/lint. Inherited tab/destructive-button contrast defects reproduce on the unchanged baseline and are reported separately, not fixed or declared accessible. No receive implementation, native capability, personal data, owner sessions or cutover changed. Stop for review before choosing the next bounded scope.
 
+### Approved Settings contrast correction (`asy`, 2026-10-07)
+
+Owner continuation scoped the inherited Settings control contrast defects. Two wrapper text-token changes preserve surfaces, palette data, layout, focus and actions; headed Chromium checks now require zero axe findings with no inherited exceptions. Light inactive tabs measure 5.02:1; Gilt destructive buttons measure 10.27:1 idle and 8.87:1 on actual hover. Types/lint, 1,662 regressions/two existing skips and the full legacy UI suite pass. [Scoped evidence and native limitation](docs/support.md#scoped-settings-contrast-evidence-asy). **The owner will test Windows later:** finish this browser-validated correction without counting the attempted native inspection as passed. The owned Windows proof launch compiled and created a window, but no WebView child/CDP endpoint was observed before confirmation/cache creation. Only the owned process tree was stopped; five canonical files remain exact and three scratch source snapshots are restored. Neither the owner's Windows copy nor personal data was updated. Native startup/acceptance, owner sessions, capability expansion and cutover remain separately gated.
+
 ## Authority and present state
 
 - **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
@@ -90,7 +94,8 @@ Completed milestone descriptions below retain their original scope and evidence 
 | Approved cleanup | `wf3` | Complete: obsolete copy stage and two suites removed; unique checks retained on the public copy path, no writer/capability changes |
 | Approved documentation | `pa1` | Complete: current support index, truthful target/native/CLI status, retained corpus integrity; no runtime changes |
 | Approved Settings correction | `8v8` | Complete: selected receive affordance/confirmation withheld with truthful guidance; default desktop/Android branches and fail-closed routing retained |
-| Next: review checkpoint | Remaining `q6z` proposals and inherited Settings contrast findings | Choose a separately bounded scope; no automatic theme changes, writer expansion, owner testing or cutover |
+| Approved contrast correction | `asy` | Complete on scoped browser evidence: readable Settings text, unchanged surfaces/actions/focus, strict axe checks; owner deferred Windows testing, native inspection unpassed |
+| Next: review checkpoint | Remaining `q6z` proposals | Choose a separately bounded scope; no automatic theme changes, writer expansion, owner testing or cutover |
 | Owner gate | `hzv` | After inventory review; still deferred, zero owner sessions; test the restored client and review native essentials |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |

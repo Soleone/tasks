@@ -8,27 +8,26 @@ import { setTimeout as delay } from "node:timers/promises";
 import { build } from "esbuild";
 
 // Real Settings and Base UI rendering; only workspace/runtime boundaries are
-// fixtures. No backend, personal workspace or native window is opened.
+// fixtures. Headed Chromium exercises real hover media. No backend, personal
+// workspace or Tasks native window is opened.
 const project = path.resolve(import.meta.dirname, "..");
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-settings-ui-"));
 const session = `tasks-settings-ui-${process.pid}`;
 let web, logs = "";
-function browser(...args) { return execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8", timeout: 35_000 }); }
+function browser(...args) { return execFileSync("agent-browser", ["--session", session, "--headed", ...args], { encoding: "utf8", timeout: 35_000 }); }
 function evaluate(source) { const result = JSON.parse(browser("--json", "eval", source)); assert.equal(result.success, true, result.error); return result.data.result; }
 function check(source) { assert.equal(evaluate(source), true, source); }
 function wait(source) { browser("wait", "--fn", source); }
 function click(role, name) { browser("find", "role", role, "click", "--name", name, "--exact"); }
-function auditDialog(inheritedContrastLabels = []) {
+function auditDialog() {
   const result = JSON.parse(browser("--json", "a11y", "--selector", "[role=dialog]"));
   assert.equal(result.success, true, result.error);
-  for (const violation of result.data.violations) {
-    assert.equal(violation.id, "color-contrast");
-    for (const node of violation.nodes) {
-      const label = evaluate(`document.querySelector(${JSON.stringify(node.target[0])})?.textContent`);
-      assert.ok(inheritedContrastLabels.includes(label), JSON.stringify(node));
-      console.log("Inherited contrast finding:", label, node.failureSummary);
-    }
-  }
+  assert.deepEqual(result.data.violations, []);
+}
+function checkControlContrast(selector) {
+  const paint = evaluate(`window.controlContrast(${JSON.stringify(selector)})`);
+  assert.ok(paint.ratio >= 4.5, JSON.stringify(paint));
+  console.log("Control contrast:", JSON.stringify(paint));
 }
 function openData() {
   browser("snapshot", "-i");
@@ -66,6 +65,31 @@ try {
       import {SettingsDialog} from './src/components/SettingsDialog';
       import {applyTheme} from './src/theme';
       import {builtinThemes} from './src/backend/builtinThemes';
+      import {contrastRatio} from './src/backend/themePalette';
+      // Resolve actual CSS colors through canvas, then composite ancestor fills.
+      // Disabled opacity is exempt; measurements below use enabled controls.
+      window.controlContrast = selector => {
+        const control = document.querySelector(selector);
+        const context = document.createElement('canvas').getContext('2d');
+        function rgba(color) {
+          context.clearRect(0, 0, 1, 1);
+          context.fillStyle = color;
+          context.fillRect(0, 0, 1, 1);
+          return [...context.getImageData(0, 0, 1, 1).data];
+        }
+        function composite(background, color) {
+          const alpha = color[3] / 255;
+          return background.map((channel, index) => Math.round(channel * (1 - alpha) + color[index] * alpha));
+        }
+        function hex(rgb) { return '#' + rgb.map(channel => channel.toString(16).padStart(2, '0')).join(''); }
+        const ancestors = [];
+        for (let element = control; element; element = element.parentElement) ancestors.unshift(element);
+        let background = [255, 255, 255];
+        for (const element of ancestors) background = composite(background, rgba(getComputedStyle(element).backgroundColor));
+        const foreground = hex(composite(background, rgba(getComputedStyle(control).color)));
+        const surface = hex(background);
+        return {label: control.textContent.trim(), foreground, surface, ratio: contrastRatio(foreground, surface)};
+      };
       window.calls = [];
       const themes = builtinThemes();
       const theme = themes.find(theme => theme.name === (new URLSearchParams(location.search).get('theme') ?? 'gilt'));
@@ -109,6 +133,7 @@ try {
 
   browser("set", "viewport", "1100", "760");
   browser("open", `${url}?workspace=selected`); openData();
+  check('matchMedia("(hover: hover)").matches');
   check(`${syncSection}.textContent.includes("Receiving a workspace from another device is not yet available here.")`);
   check(`${syncSection}.querySelector("button") === null`);
   check(`${syncSection}.querySelector("[role=alert]") === null`);
@@ -136,11 +161,19 @@ try {
   browser("set", "viewport", "1100", "760");
   browser("open", `${url}?workspace=selected&theme=catppuccin-latte`); openData();
   check(`${syncSection}.textContent.includes("Receiving a workspace from another device is not yet available here.") && ${syncSection}.querySelector("button") === null`);
-  // Baseline-confirmed tab contrast is reported, not silently discarded.
-  auditDialog(["General", "Shortcuts"]);
-  const syncAudit = JSON.parse(browser("--json", "a11y", "--selector", "section[aria-labelledby=settings-sync]"));
-  assert.equal(syncAudit.success, true, syncAudit.error);
-  assert.deepEqual(syncAudit.data.violations, []);
+  auditDialog();
+  const inactiveTab = '[role=tab][aria-selected=false]';
+  checkControlContrast(inactiveTab);
+  browser("hover", inactiveTab);
+  wait(`document.querySelector(${JSON.stringify(inactiveTab)}).matches(":hover") && getComputedStyle(document.querySelector(${JSON.stringify(inactiveTab)})).color === getComputedStyle(document.querySelector('[role=tab][aria-selected=true]')).color`);
+  checkControlContrast(inactiveTab);
+  auditDialog();
+  browser("press", "ArrowLeft"); wait('document.activeElement?.textContent === "Shortcuts"');
+  check('document.activeElement.matches(":focus-visible") && getComputedStyle(document.activeElement).boxShadow !== "none"');
+  checkControlContrast('[role=tab][aria-selected=true]');
+  auditDialog();
+  browser("press", "ArrowRight"); wait('document.activeElement?.textContent === "Data"');
+  browser("hover", "[data-slot=dialog-title]");
   browser("screenshot", path.join(scratch, "selected-light.png"));
   browser("open", url); openData();
   check(`${syncSection}.textContent.includes("Move an existing workspace to this device through Syncthing.")`);
@@ -148,8 +181,25 @@ try {
   browser("press", "Enter"); wait('document.body.textContent.includes("Replace this device’s workspace?")');
   check(`${syncSection}.textContent.includes("backed up") && ${syncSection}.textContent.includes("emptied")`);
   assert.deepEqual(evaluate("window.calls"), ["workspace.info"]);
-  // These untouched legacy buttons also fail contrast on the baseline.
-  auditDialog(["Back up and continue", "Permanently delete canceled tasks"]);
+  auditDialog();
+  const backupButton = 'section[aria-labelledby=settings-sync] [data-slot=alert-action] button:last-child';
+  const cleanupButton = 'section[aria-labelledby=settings-cleanup] button';
+  for (const selector of [backupButton, cleanupButton]) {
+    checkControlContrast(selector);
+    const restingSurface = evaluate(`window.controlContrast(${JSON.stringify(selector)}).surface`);
+    browser("hover", selector);
+    wait(`document.querySelector(${JSON.stringify(selector)}).matches(":hover") && window.controlContrast(${JSON.stringify(selector)}).surface !== ${JSON.stringify(restingSurface)} && document.querySelector(${JSON.stringify(selector)}).getAnimations().length === 0`);
+    checkControlContrast(selector);
+    auditDialog();
+  }
+  browser("focus", '[role=tab][aria-selected=true]');
+  browser("press", "Tab"); wait('document.activeElement?.textContent === "Cancel"');
+  browser("press", "Tab"); wait('document.activeElement?.textContent === "Back up and continue"');
+  check('document.activeElement.matches(":focus-visible") && getComputedStyle(document.activeElement).boxShadow !== "none"');
+  checkControlContrast(backupButton);
+  auditDialog();
+  browser("screenshot", path.join(scratch, "default-confirmation.png"));
+  assert.deepEqual(evaluate("window.calls"), ["workspace.info"]);
   click("button", "Cancel"); wait('!document.body.textContent.includes("Replace this device’s workspace?")');
   assert.deepEqual(evaluate("window.calls"), ["workspace.info"]);
   click("button", "Sync with another device…");
@@ -172,7 +222,10 @@ try {
   console.log("Settings browser checks passed: selected receive withheld before confirmation/callback; disabled export and Data Tab loop; Escape/final focus/reopen; desktop/minimum/mobile/reflow and axe; default desktop confirmation/cancel/reset/callback; Android choose/change/forget unchanged. Fixtures only, not native or receive-backend acceptance.");
   console.log(`Screenshots: ${scratch}`);
 } catch (error) {
-  try { console.error(browser("snapshot")); console.error(browser("errors")); } catch { /* Preserve the original failure. */ }
+  try {
+    console.error(browser("snapshot")); console.error(browser("errors"));
+    console.error(evaluate(`({pointer: matchMedia('(hover: hover)').matches, hovered: [...document.querySelectorAll('[role=tab]:hover')].map(tab => tab.textContent), tabs: [...document.querySelectorAll('[role=tab]')].map(tab => ({label: tab.textContent, color: getComputedStyle(tab).color}))})`));
+  } catch { /* Preserve the original failure. */ }
   console.error(logs); throw error;
 } finally {
   try { browser("close"); } catch { /* Browser may not have started. */ }
