@@ -1,8 +1,8 @@
 # Development and validation
 
-This describes development, packaging, and validation for the current implementation. The [system specification](../spec/overview.md) records implemented behavior only; aspirational work is separated under [ideas](../ideas/overview.md). A limited multi-source controller is available to the Node CLI and JSON-lines sidecar behind an explicit local registry. The first-party UI and Android remain single-workspace.
+This describes development, packaging and validation. Start with [current support](support.md) for actual entrypoints, platforms and client limits. [Root specs](../spec/overview.md) describe legacy defaults; [replacement contracts](../spec/v2/overview.md) have bounded implementation, not full native acceptance. Ideas remain proposals. The old multi-source controller is Node-only and off the release path; the first-party UI and Android remain single-workspace.
 
-Tasks has two useful development paths:
+Legacy defaults have two development paths; the explicitly selected Windows replacement route is separate:
 
 - `pnpm dev:web` runs Vite and a local HTTP bridge for fast UI iteration.
 - `pnpm dev:tauri` runs the native Tauri shell and its sidecar on Windows and Linux. On Linux, the Tauri entry point applies the WebKitGTK Wayland workaround before initializing the webview.
@@ -11,7 +11,7 @@ The web bridge is local iteration tooling. It uses the same typed commands and S
 
 ## Technical reference
 
-The repository has one shared application path:
+The legacy-default Node path is shown below. Selected replacement clients use `v2Gateway.ts` instead of `executeCommand`; this temporary dual dispatch is still present, not completed consolidation. Each path shares its concrete TypeScript command/storage rules with its own clients. The clean cut must leave one application path.
 
 ```text
 React UI
@@ -32,7 +32,7 @@ Adding `--v2-edit` explicitly enables the Linux-only [literal editor](../README.
 
 Vite pre-optimizes the lazy editor's checkbox dependency so opening it cannot trigger a late-optimization page reload. HMR/source edits, frontend restarts, browser crashes and reloads are still not durable retry storage; preserve unresolved requests and do not use HMR during them.
 
-`JsonLineSession` shares process framing/correlation/timeouts; `BackendSession` retains its v1 parser and unchanged `--stdio` launch. The v2 reader's selected Node process factory is exercised by tests, not exposed as a native capability. The initial reader milestone withheld native v2 launch because the shell plugin chooses the first matching binary permission. The subsequent [disposable Windows native pilot](windows-native-pilot.md) selects one explicit inline capability and shared session, rather than adding another same-name scope. Android v2 UI remains withheld. Default Tauri permissions and native Rust code are unchanged.
+`JsonLineSession` shares process framing/correlation/timeouts; `BackendSession` retains its legacy parser and unchanged `--stdio` launch. The initial reader milestone withheld native launch because the shell plugin chooses the first matching binary permission. The subsequent [Windows native route](windows-native-pilot.md) selects one explicit inline capability and shared SEA session, rather than adding another same-name scope. It now runs the original `App`/list/inline composer through `MainWorkspace`, not the browser workbench, with direct actions and protected exact-request retry. [Restored-client evidence](restored-main-client.md). Android replacement integration remains absent; default Tauri permissions and native Rust code are unchanged.
 
 Keep the boundaries concrete:
 
@@ -42,7 +42,7 @@ Keep the boundaries concrete:
 
 Desktop read-only task commands live in `taskQueries.ts`; `taskRecords.ts` owns SQLite row materialization shared by reads and mutations, and `taskArguments.ts` holds shared argument checks. These dependencies flow one way into task command execution. Keep `canonicalWorkspace.ts` together for now: scan/apply candidate logic is also used by rebuild and pending-write recovery, so separating it would first require a shared canonical-record/apply layer. Avoid splitting either module by line count alone.
 
-The canonical JSON files are the inspectable source of current task state; SQLite is a local, rebuildable cache. See [Canonical workspace files](canonical-workspace.md) for the file layout, import/rebuild behavior, archives, and conflict resolution. Sync only that canonical root; never sync the database or its WAL files. See [Syncthing setup](syncthing.md) for multi-device setup.
+Canonical JSON is the inspectable task state; SQLite also retains local receipts/history/undo authority. Rebuild means re-observing canonical data with retained authority, not deleting the cache or moving it and promising old retries. See [Canonical workspace files](canonical-workspace.md) for the file layout, import/rebuild behavior, archives, and conflict resolution. Sync only that canonical root; never sync the database or its WAL files. See [Syncthing setup](syncthing.md) for multi-device setup.
 
 ### Command and reliability rules
 
@@ -304,7 +304,7 @@ Validation: backend/web types and lint pass; `pnpm test` has **1,602 passed, two
 
 ## Selected Windows native route (`dh1`, 2026-10-04)
 
-**Decision complete; native launch not implemented.** After the owner reproduced `fcf` and requested continuation, review selected the existing Windows SEA with **one inline Windows-only capability in an explicitly supplied pilot config overlay**. No new file is added under `src-tauri/capabilities/`, no duplicate same-name spawn scope, second engine/binary, arbitrary shell or v1/HTTP fallback. This task changed documentation and SQ gates only, not native code, permissions, frontend or backend.
+**Historical decision checkpoint: native launch was not implemented here.** The later `m1p` and restored `4t6` route are runnable; use [current support](support.md) rather than the then-current “next” instructions below. After the owner reproduced `fcf` and requested continuation, review selected the existing Windows SEA with **one inline Windows-only capability in an explicitly supplied pilot config overlay**. No new file is added under `src-tauri/capabilities/`, no duplicate same-name spawn scope, second engine/binary, arbitrary shell or v1/HTTP fallback. This task changed documentation and SQ gates only, not native code, permissions, frontend or backend.
 
 ### Reviewed host and owner reproduction
 
@@ -340,7 +340,7 @@ Installed shell **2.3.6** still selects the **first same-name scope**, replaces 
 - **Retry:** keep correlation/120-second timeout/child cleanup, but never mistake restarting the child for replay. Retain the original context/key/version/actor/payload/flags after uncertain execution, explicitly recover through the same paths/profile, then replay the original request. Capture/status/undo/copy families need their own reviewed ownership guards. Memory-only request loss on window reload/close remains an acceptance issue, not fixed by this decision.
 - **Removal:** `dvs` removes the temporary overlay/launcher, proof flag and versioned routing rather than leaving another app. Preserve selected root/cache/profile and pending journals/history across that change; do not solve naming or disk growth by deleting authority. The installed product must have one default backend path and no system-Node dependency.
 
-`pnpm dev:tauri` still starts v1, **not** this replacement pilot. There is no new native command to run yet. The native acceptance steps above remain mandatory when `m1p` implements the route. Types/lint/full regression are recorded for this documentation checkpoint; no new native process or UI acceptance is implied. Stop for review before `mg8` or any capability proof.
+At this documentation checkpoint there was no native command yet; its types/lint/regression did not establish native execution. The later `m1p` route and `4t6` restoration are recorded below and in [current support](support.md). `pnpm dev:tauri` still starts legacy, not the replacement pilot. Historical prerequisites/stop points are not today's task queue; [PLAN](../PLAN.md) owns further scope.
 
 ## Typed update request (`mg8`, 2026-10-04)
 
@@ -354,7 +354,7 @@ The owner's current autonomous loop replaces routine task-end pauses with valida
 
 [Runnable setup, native walkthrough and limits](windows-native-pilot.md), [machine-readable evidence](windows-native-pilot.json): actual Windows 11/WebView2, one existing SEA shared by reader/editor, explicit physically resolved root/cache/profile and one Windows/local/main inline capability. Capture/content/status/eligible undo, keyboard/mouse/focus, external CLI refresh without restart, native close/relaunch, committed lost-reply exact replay and separate-root CLI archive/restore passed on synthetic data. Native minimum-size window and scrollable editor passed; native axe/design had no findings. Full regression **1,657 passed/two known skips**, types/lint and 31 native tests on both hosts. The writer bundle is byte-identical to `gxm` below.
 
-On Windows, run `node .\scripts\dev-native.mjs --v2-root ROOT --database CACHE --local-profile PROFILE`, not `pnpm dev:tauri` or the bare pnpm native script. The later [`3rp` argv proof](windows-launch-argv.md) explains pnpm 11.22.0 separator doubling and verifies exact direct/exec/per-invocation-emulator preparation; `node scripts/check-native-launch-argv.mjs` reproduces the bounded Windows check without launching the app. The old `dh1` text above is a historical prerequisite/decision record, not the current launch status. The pilot is temporary: `dvs` must remove it during single-codebase cutover. Memory-only UI requests are not restored after reload/close; explicit CLI recovery remains outside the app. No owner dogfood, personal selection, migration or release acceptance is implied. Next is owner `hzv` across at least three short native sessions/two days.
+On Windows, run `node .\scripts\dev-native.mjs --v2-root ROOT --database CACHE --local-profile PROFILE`, not `pnpm dev:tauri` or the bare pnpm native script. The later [`3rp` argv proof](windows-launch-argv.md) explains pnpm 11.22.0 separator doubling and verifies exact direct/exec/per-invocation-emulator preparation; `node scripts/check-native-launch-argv.mjs` reproduces the bounded Windows check without launching the app. The old `dh1` text above is a historical prerequisite/decision record, not the current launch status. The pilot is temporary: `dvs` must remove it during single-codebase cutover. Memory-only UI requests are not restored after reload/close; explicit CLI recovery remains outside the app. No owner dogfood, personal selection or release acceptance is implied. The later [Linux migration rehearsal](migration-rehearsal.md) is separate, not Windows conversion. Owner `hzv` requires at least three short native sessions/two days and remains deferred; choose agent work only from the bounded scopes in [PLAN](../PLAN.md).
 
 ## Windows absent-destination archive/restore proof (`gxm`)
 

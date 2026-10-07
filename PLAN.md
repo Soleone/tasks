@@ -44,11 +44,15 @@ The destination remains one elegant application, with no production `v2` identit
 
 Owner continuation approved the inventory's recommended first cleanup only. `wf3` removes the unused copy-stage helper and its two test-only callers (330 lines), retaining shared public writer/journal code and historical artifact manifests. Unique byte/destination/source/pending/in-flight/prefix checks now run through public archive/restore and recovery. Public copy/recovery: 69 passed; full regression: 1,662 passed/two existing skips (18 obsolete tests removed, seven public tests added); types/lint and backend bundles pass. No writer logic, native capability, personal data, stored recovery evidence or default route changed. Review the remaining bounded proposals before choosing more work; no broad consolidation or owner-testing acceptance is implied.
 
+### Approved support reconciliation (`pa1`, 2026-10-07)
+
+Owner continuation approved only the next documentation/integrity scope. [Current support](docs/support.md) now distinguishes legacy defaults, the broad Linux backend, the actual Windows main-client/profile subset, friendly-CLI withholding and Linux-only conversion proof. Contract headers acknowledge bounded implementation instead of claiming nothing is implemented; the integrity test retains case IDs/anchors/goldens and requires the support link. Dated evidence stays historical. Four integrity checks, disposable rejection probes, full regression (1,662 passed/two existing skips), types/lint and link checks pass. No runtime, capabilities, UI or acceptance gates changed. The next recommended bounded proposal is truthful selected-workspace Settings receive guidance, not broader writer support or cutover.
+
 ## Authority and present state
 
 - **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
 - [Guidelines](GUIDELINES.md) owns project principles. [Usage and interaction](docs/usage-guide.md) records today's keyboard-first UI and experimental subsets. Preserve useful interactions; record deliberate changes rather than silently dropping them.
-- [Root specs](spec/overview.md) currently describe implemented legacy behavior. [New-format specs](spec/v2/overview.md) contain accepted targets; [conformance](spec/v2/conformance.md) records bounded evidence. This temporary documentation split must end at cutover, not become a permanent product boundary. Target acceptance is not permission to implement the entire target.
+- [Current support](docs/support.md) is the live code/evidence index. [Root specs](spec/overview.md) describe legacy defaults; [replacement contracts](spec/v2/overview.md) are accepted targets with bounded implementation and [conformance evidence](spec/v2/conformance.md). This temporary spec split ends at approved cutover, not by claiming all targets shipped. Target acceptance is not permission to implement the entire target.
 - [Ideas](ideas/overview.md) preserves reasoning and proposals. [Reset inventory](docs/refactor-reset.md) records the audit and decision changes. The previous full plan is preserved at `905c65a:PLAN.md`.
 
 Today the default workspace/CLI still use the old model; explicit native selection connects the existing main UI to the proven new-format subset. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
@@ -80,7 +84,8 @@ Completed milestone descriptions below retain their original scope and evidence 
 | 6 | `y9b` | Complete: disposable Linux migration/replay/fresh-authority rehearsal, retained interruption/refusal tests and isolated-dependency runbook; no personal source access |
 | Inventory | `q6z` | Complete: [capabilities/parity, pruning, migration, operational transition, naming and spec/ideas map](docs/refactor-inventory.md); documentation only |
 | Approved cleanup | `wf3` | Complete: obsolete copy stage and two suites removed; unique checks retained on the public copy path, no writer/capability changes |
-| Next: review checkpoint | Remaining `q6z` proposals | Choose the next bounded scope; no automatic implementation, blanket cleanup or writer expansion |
+| Approved documentation | `pa1` | Complete: current support index, truthful target/native/CLI status, retained corpus integrity; no runtime changes |
+| Next: review checkpoint | Remaining `q6z` proposals | Recommended: truthful selected Settings receive guidance; approve a bounded scope, not blanket cleanup or writer expansion |
 | Owner gate | `hzv` | After inventory review; still deferred, zero owner sessions; test the restored client and review native essentials |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |

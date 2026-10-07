@@ -1,6 +1,6 @@
 # V2 protocol, queries and CLI
 
-**Status: accepted target, not implemented.** [Overview](overview.md). Model owns values; mutations owns effects; storage/migration owns recovery. Only one selected root, no source registry/ref routing.
+**Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md). Model owns values; mutations owns effects; storage/migration owns recovery. Only one selected root, no source registry/ref routing.
 
 ## Envelope
 

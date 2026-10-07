@@ -1,6 +1,6 @@
 # V2 model
 
-**Status: accepted target, not implemented.** [Overview](overview.md) defines acceptance and owners. Storage owns names/identity; protocol owns inputs; mutations owns effects; migration owns conversion.
+**Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md) defines acceptance and owners. Storage owns names/identity; protocol owns inputs; mutations owns effects; migration owns conversion.
 
 ## Fields
 

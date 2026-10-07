@@ -1,6 +1,6 @@
 # V2 mutations
 
-**Status: accepted target, not implemented.** [Overview](overview.md). Inputs/results/authority are in protocol; storage owns journals, purge and doctor; ordering owns allocation.
+**Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md). Inputs/results/authority are in protocol; storage owns journals, purge and doctor; ordering owns allocation.
 
 ## States and relationships
 

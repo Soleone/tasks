@@ -1,14 +1,14 @@
 # TaskDB specification
 
-The root pages in this folder describe behavior implemented in this repository today: the v1 task model, storage, protocol, queries, mutations, CLI, sources, and first-party UI. They are the current-state reference. Aspirational proposals belong in [`ideas/`](../ideas/), not here.
+The root pages describe the **legacy defaults**: task model, storage, protocol, queries, mutations, CLI, sources and established UI. They are not the only implemented behavior. [Current support](../docs/support.md) distinguishes those defaults from the broad Linux replacement backend and bounded Windows native main client. Aspirational proposals belong in [`ideas/`](../ideas/), not here.
 
-For spec-driven work, first resolve a proposal in `ideas/`, then add the accepted next-version contract under `spec/v2/` **before implementing it**. Mark each such page `accepted target, not implemented` until its black-box fixtures and platform evidence pass; do not fold target behavior into the root v1 pages or imply that acceptance means it ships. Record version negotiation, compatibility and failure behavior as well as the success case. The [current plan](../PLAN.md) lists the promotion gates. The [ideas overview](../ideas/overview.md) maps proposal topics to the corresponding current contracts; create only the v2 spec pages needed for an accepted change.
+Resolve consequential behavior decisions and record accepted contracts **before implementing them**. Keep target requirements, supported commands/client integration and actual platform evidence separate; acceptance alone does not mean shipping, but incomplete platform acceptance does not mean no implementation exists. Record failure/retry behavior as well as success. The [current plan](../PLAN.md) owns promotion and cutover gates.
 
-The accepted next-version contract is now under [spec/v2/](v2/overview.md), with a [declarative corpus and evidence matrix](v2/conformance.md). Those pages are **accepted target, not implemented**; root v1 semantics and current version table below are unchanged.
+[Replacement contracts](v2/overview.md) have **bounded implementation** and a [declarative corpus/evidence record](v2/conformance.md), not full native acceptance. This temporary spec split ends at approved single-application cutover. Root legacy semantics and the legacy-default version table below are unchanged; no live root is implicitly upgraded.
 
 This is a specification of Tasks, not a claim that the format is a universal standard. Independent writer/readers and conformance are required before claiming interoperability. Version and platform limits are stated where they matter. Automated evidence is mapped in [Conformance](conformance.md).
 
-## System at a glance
+## Legacy-default system at a glance
 
 ```text
 First-party UI ── typed bridge ── Tauri sidecar ──┐
@@ -26,7 +26,7 @@ The first-party UI, CLI, JSON-lines sidecar, and development bridge share the No
 
 The Node command path normally opens one TaskDB v1 workspace. An opt-in `TASKS_SOURCE_REGISTRY_PATH` enables a limited controller for multiple TaskDB v1 roots in the Node CLI and JSON-lines backend. It does not enable multi-source UI or Android behavior. See [Sources](sources.md).
 
-## Current format versions
+## Legacy-default format versions
 
 | Area | Current version | Meaning |
 | --- | --- | --- |

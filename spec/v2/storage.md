@@ -1,6 +1,6 @@
 # V2 storage and recovery
 
-**Status: accepted target, not implemented.** [Overview](overview.md). This page owns collection/files, observation, journals, destructive recovery and doctor. Model/protocol/migration have separate owners.
+**Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md). This page owns collection/files, observation, journals, destructive recovery and doctor. Model/protocol/migration have separate owners.
 
 ## Root
 

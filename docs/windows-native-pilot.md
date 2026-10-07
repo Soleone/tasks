@@ -1,6 +1,6 @@
 # Disposable Windows native task pilot (`m1p`)
 
-This is actual Windows 11 / WebView2 evidence for the bounded replacement loop, not release or owner dogfood acceptance. It reuses the existing reader/editor UI and the existing embedded Node SEA. Default `pnpm dev:tauri` still starts v1. The temporary launcher/config and versioned application routing must be removed in `dvs`.
+This is actual Windows 11 / WebView2 evidence for the bounded replacement loop, not release or owner dogfood acceptance. The original `m1p` observations below used the reader/editor workbench; subsequent `4t6` restores the established main UI through the same selected SEA route. [Current support](support.md) separates client exposure from backend proof. Default `pnpm dev:tauri` still starts legacy. The temporary launcher/config and versioned application routing must be removed in `dvs`.
 
 ## Current client: the established Tasks UI
 

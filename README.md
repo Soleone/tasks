@@ -2,7 +2,9 @@
 
 A local-first, keyboard-first task app for people and their existing agents. Tasks uses a TypeScript command path, a Tauri desktop shell, a standalone JSON-lines CLI, and a canonical JSON workspace with a rebuildable SQLite cache.
 
-**Status:** M0 is complete; M1 native acceptance remains open even though the app already implements capture, state changes, priorities, filters and search, shallow relationships, manual ordering, activity and idempotent agent writes, themes, export/restore, and canonical-workspace sync. Windows 11 packaging and desktop/WSL bridge checks pass; Omarchy/Linux desktop validation is later work. The [current plan](PLAN.md) targets one publishable codebase: fix cache growth, prove and dogfood the native workflow, rehearse a one-time migration, then remove the legacy runtime and versioned production code paths. The current v1 defaults and opt-in modes below are temporary implementation state, not a permanent compatibility promise. See [the reset inventory](docs/refactor-reset.md). [V2 contracts](spec/v2/overview.md) are accepted targets with declarative fixtures, not shipped behavior or a public standard; the opt-in multi-source controller is a Node-only prototype, not the next release path.
+**Status:** M0 is complete; replacement native/owner acceptance and release remain open. [Current support and evidence](docs/support.md) distinguishes the legacy defaults, broad Linux replacement backend and bounded Windows native main client. Cache growth is fixed, the technical native loop/restored UI and disposable Linux migration rehearsal are complete, but Windows child/relationship/order/batch/general-undo integration and other essentials remain unresolved. Automation is not owner dogfood or full native parity.
+
+The [current plan](PLAN.md) targets one publishable application, isolated one-time conversion and removal of legacy/runtime-version dispatch. The defaults and opt-in modes below are temporary implementation state, not permanent coexistence. [Replacement contracts](spec/v2/overview.md) have bounded implementation and declarative fixtures, not full supported-surface/native acceptance or a public-standard claim. The opt-in multi-source controller remains a Node-only prototype, not the release direction.
 
 ## Start here
 
@@ -22,7 +24,7 @@ For the native shell, use `pnpm dev:tauri` on Windows 11 or Omarchy. On Linux, t
 
 Current task state lives in ordinary JSON files under `sync/`; SQLite is a local query cache and stores activity, receipts, and indexes. Sync only the canonical JSON root. Never sync `tasks.db`, its `-wal`/`-shm` files, or `.tasks-local/`.
 
-If another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. Tasks backs up and empties the local workspace, locks the UI, and waits for the existing workspace. Follow [the Syncthing setup](docs/syncthing.md) for the complete procedure.
+For the **legacy default**, if another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. That flow backs up and empties the local workspace, locks the UI, and waits for the existing workspace; follow [the Syncthing setup](docs/syncthing.md). It is not supported on the selected Windows replacement route, even though Settings still renders its confirmation. See [current receive/migration limits](docs/support.md#main-client-gaps-that-remain).
 
 ## Opt-in v2 browser reader
 
@@ -84,7 +86,7 @@ The bridge still refuses status batches, grouped/operation/deletion undo, depend
 
 ## Opt-in v2 human CLI
 
-The default app and `tasks-cli` **without `--v2-root` remain v1**. The friendly Node CLI now has an explicitly selected v2 mode over the same protocol gateway. Linux writes only; use disposable copies and pause other writers/sharing before destructive work. It requires both a root and a separate cache, with no v1 environment or registry fallback.
+The default app and `tasks-cli` **without `--v2-root` remain v1**. The friendly Node CLI now has an explicitly selected v2 mode over the same protocol gateway. Linux writes only: this friendly entry point does not select the Windows task-proof profile. The separate Windows proofs use the raw backend JSON-lines route, not friendly writes. Use disposable copies and pause other writers/sharing before destructive work. It requires both a root and a separate cache, with no v1 environment or registry fallback.
 
 This example needs `jq`. It adds a literal title with explicit classification, replays the exact capture once, clears classification/notes, and previews shorthand capture:
 
@@ -455,8 +457,9 @@ This changes only the root/client selected for that invocation, not the default 
 
 ## Documentation
 
-- [Current system specification](spec/overview.md): the implemented v1 task model, storage, protocol, queries, mutations, CLI, sources, and UI behavior.
-- [V2 accepted target](spec/v2/overview.md): versioned single-root contracts and expected conformance cases, with a bounded opt-in Node task/control subset; the complete target is not implemented.
+- [Current support and evidence](docs/support.md): actual entrypoints, platform/client boundaries, remaining gaps and acceptance limits.
+- [Legacy-default specification](spec/overview.md): task model, storage, protocol, queries, mutations, CLI, sources and UI baseline.
+- [Replacement contracts](spec/v2/overview.md): single-root requirements with bounded Linux/backend and Windows/native implementation; not blanket target support.
 - [Development and validation](docs/development.md): architecture, developer workflows, packaging, scratch data, and platform checks.
 - [Ideas and proposals](ideas/overview.md): aspirational designs and the earlier TaskDB 2.0 roadmap.
 - [Keyboard and UI guide](docs/usage-guide.md): home-screen focus, mouse paths, shortcuts, filters, sorting, and agent-facing UI contract.

@@ -1,6 +1,6 @@
 # Usage and interaction guide
 
-This is the user-facing guide to the current first-party UI. The concise interaction contract lives in the [UI specification](../spec/ui/overview.md), with detailed home-list and capture/edit behavior in adjacent spec files.
+This is the user-facing guide to the established first-party UI. The concise interaction contract lives in the [UI specification](../spec/ui/overview.md), with detailed home-list and capture/edit behavior in adjacent spec files. [Current support](support.md) distinguishes the legacy defaults from the selected replacement client; the established design remains the baseline, but not every workflow is connected there.
 
 Tasks is a keyboard-first, not keyboard-only, app. The saved-task list is the home screen and the primary place to begin work. Every action must also have a mouse-accessible path in the UI, such as a button, menu item, inline control, or compact icon toolbar with an accessible label and tooltip. Mouse controls remain secondary, but they must be complete when a pointer is easier or keyboard access is unavailable.
 
@@ -133,7 +133,7 @@ The default app and the interaction contract above remain v1. The [explicit brow
 - A restarted/replaced dev bridge refuses the retained page's selection token. Reload and confirm the displayed selection rather than silently reconnecting to another root or default v1.
 - No capture, edit, status, relationship, order, undo, purge, doctor, initialization, migration, rollback or recovery controls are provided. Supported CLI controls remain separate. This browser mode does not launch the separate [Windows native pilot](windows-native-pilot.md); Android v2 UI remains withheld and no v1 sidecar fallback occurs.
 
-`node scripts/check-v2-ui.mjs` exercises disposable browser/process scenes, including actual CLI edits and explicit pending recovery, with a separately preserved v1 UI return. It does not execute an app migration/adoption/rollback flow or establish native/provider acceptance. `m1p` remains open for those controls and original-authority mutation/retry handling.
+`node scripts/check-v2-ui.mjs` exercises disposable browser/process scenes, including actual CLI edits and explicit pending recovery, with a separately preserved v1 UI return. It does not execute an app migration/adoption/rollback flow or establish native/provider acceptance. The later bounded native `m1p` loop is complete and `4t6` restores the established main client; neither enables those controls in this query-only browser mode nor closes owner/cutover gates.
 
 ## Experimental v2 content editor
 

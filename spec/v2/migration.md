@@ -1,6 +1,6 @@
 # V1 to v2 migration
 
-**Status: accepted target, not implemented.** [Overview](overview.md). No live conversion, default upgrade or personal-data use is authorized by spec acceptance. A converter must pass these fixtures and fault/recovery proof on disposable roots first. A bounded Linux Node control now has [disposable command/recovery and explicit root/client rollback evidence](conformance.md#guarded-v1-migration-and-explicit-rollback); the full native/provider/rollout target remains unaccepted.
+**Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md). No live conversion, default upgrade or personal-data use is authorized by spec acceptance. A converter must pass these fixtures and fault/recovery proof on disposable roots first. A bounded Linux Node control now has [disposable command/recovery and explicit root/client rollback evidence](conformance.md#guarded-v1-migration-and-explicit-rollback); the full native/provider/rollout target remains unaccepted.
 
 ## Source
 

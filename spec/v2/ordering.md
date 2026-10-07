@@ -1,6 +1,6 @@
 # V2 ordering
 
-**Status: accepted target, not implemented.** [Overview](overview.md). This page owns interoperable keys/placement, not cache authority or distributed transactions.
+**Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md). This page owns interoperable keys/placement, not cache authority or distributed transactions.
 
 ## Keys
 

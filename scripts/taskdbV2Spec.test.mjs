@@ -69,10 +69,13 @@ test("v2 target corpus integrity: case shapes, profiles, rule anchors and error 
   for (const id of ids) assertAcyclicCaseReferences(id, dependencies);
 });
 
-test("v2 target corpus integrity: every named normative case exists and status remains unimplemented", () => {
+test("v2 target corpus integrity: named cases exist and target status links bounded implementation support", () => {
   const ids = new Set(corpus.cases.map((entry) => entry.id));
+  assert.ok(existsSync(path.resolve(specDirectory, "../../docs/support.md")), "current support index exists");
   for (const [file, source] of specs) {
-    assert.ok(source.includes("Status: accepted target, not implemented"), file);
+    assert.match(source, /^\*\*Status: accepted target; bounded implementation\.\*\*/m, file);
+    assert.ok(source.includes("[Current support](../../docs/support.md)"), file);
+    assert.equal(source.includes("Status: accepted target, not implemented"), false, file);
     const namedCases = source.match(/(?:Normative cases:|Cases) ([\s\S]*?)(?:\n| are normative)/);
     if (!namedCases) continue;
     for (const match of namedCases[1].matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`/g)) {
