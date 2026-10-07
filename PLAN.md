@@ -1,239 +1,130 @@
-# Tasks: clean-cut delivery plan
+# Tasks: one-application roadmap
 
-**Reset: 2026-10-04. Baseline: `905c65a`.** Keep the useful new model, canonical files and recovery tests. Fix the measured defect, prove daily use, then replace the old application rather than maintain a parallel successor.
+**Current roadmap: 2026-10-07.** Continues the 2026-10-04 clean-cut decision, not a new architecture. This file is the single source of direction, work order and acceptance gates. The previous detailed milestone diary is preserved at `86e3c1b:PLAN.md`; the original reset baseline remains `905c65a`.
 
 ## Direction and destination
 
-Tasks is a local-first, keyboard-first task app for one person working alongside external agents:
+Tasks is a local-first, keyboard-first app for one person working alongside external agents:
 
 > capture quickly → clarify → choose work → complete it → understand what changed
 
-**The owner wants one elegant, publishable codebase, not permanent v1/v2 coexistence.** There are no external installations requiring a long compatibility window. The owner's existing tasks need a verified one-time conversion, not a permanent legacy runtime or strangler framework.
+Deliver **one elegant application**, not permanent v1/v2 coexistence:
 
-The destination is:
+- One task model and command path shared by UI, CLI and agents, with concrete TypeScript, Node, SQLite and native boundaries. Tauri 2/React plus bundled Node remain the desktop direction; license stays MIT.
+- Preserve `App`, `TaskList`, `TaskComposer`, pickers, compact toolbar, themes, help/settings and established keyboard/mouse/focus behavior. The engineering workbench is not the daily client. No frontend rewrite.
+- One default runtime with responsibility-based production names, no legacy fallback or product-version routing. Keep meaningful persisted schema/protocol versions.
+- One current specification at cutover, plus a small isolated one-time converter and preserved backups. No compatibility facade, dual-write engine, strangler framework, generic writer engine, plugin/adapter system or public-standard requirement.
 
-- One task model and application command path shared by UI, CLI and agents.
-- One default app, with concrete Node, SQLite and native boundaries. Reuse useful existing UI instead of maintaining a second product workbench.
-- Responsibility-based module names, without `v2` prefixes or legacy/new routing. Format/protocol version numbers remain where they describe data; they do not justify two application architectures.
-- One current specification for supported behavior, with future ideas and historical evidence clearly separate.
-- A small, isolated migration tool plus preserved backups. Old binaries can be retrieved from Git if needed; they do not have to ship inside the replacement app.
-
-**Every client must remain elegant, minimal and calm, including experimental readers, native pilots and manual-test builds.** A technically working client is not enough. Preserve the previous app's restrained visual identity and keyboard-first interaction quality; reuse its useful UI rather than expose a developer workbench. The task list is the main surface, not a place for implementation/version labels, raw paths, permanent capability disclaimers or unsolicited instructions. Put secondary details in help, settings or progressive disclosure. Show necessary selection confirmation and actionable safety/error guidance at the point of use; never hide a real risk merely to look cleaner. Visual and interaction quality are acceptance requirements before owner dogfood, not polish deferred until cutover.
-
-**Generic means reusable by clients, not configurable for every task system.** No new adapter framework, plugin model, metadata bag, compatibility facade or public-standard claim is needed. Publishing the app does not require proving an independently implemented public standard.
-
-### Owner correction: preserve the main client (2026-10-06)
-
-The owner rejects the experimental reader/editor workbench as a replacement client and refuses dogfood of it. **Reuse `src/App.tsx`, `TaskList`, `TaskComposer`, the compact toolbar, themes, help/settings and their established interaction design. Adapt the concrete data/command integration to the new model; do not recreate the UI or ask the owner to rebuild it.** A backend replacement does not authorize a frontend rewrite. The experimental workbench is engineering evidence only, not the daily-use candidate.
-
-`4t6` reconnects the established client to the explicitly selected native workspace, with actual Windows inline capture/edit/priority/status/undo, external-refresh/stale-draft and immutable lost-reply retry evidence. The owner's baseline-matching `D:\src\wsl\tasks` source copy is updated and running the restored main client against the owner's declared disposable root. [Implementation, evidence and limits](docs/restored-main-client.md). Unsupported native writers remain withheld without legacy fallback. Owner dogfood `hzv` can now use this client, not the workbench; zero owner sessions have been counted. Migration/cutover still wait for owner-reviewed use and essentials. `26a` now corrects the inherited row semantics and filtered-summary separator; native collapsed/expanded/filtered/context/minimum-window checks have zero axe findings. This bounded evidence does not replace owner review or blanket assistive-technology acceptance. Do not construe engineering automation as owner approval.
-
-### Owner sequencing correction: testing later (2026-10-06)
-
-The owner wants more outstanding work completed before manual testing. The bounded inherited accessibility fix `26a` and disposable converter rehearsal `y9b` are complete. [Rehearsal and runbook](docs/migration-rehearsal.md) verify preservation, fresh authority and interrupted recovery on WSL2 Linux Node, not native Windows migration. No withheld commands were enabled. The next gate is owner dogfood `hzv`, still deferred with zero owner sessions; no further implementation is authorized merely to fill that wait. These pre-test tasks were independent of owner usability approval; the old `hzv` dependencies were sequencing choices, not technical requirements.
-
-The established UI and workflows remain the baseline. Native gaps such as relationships, ordering and broader undo need individually bounded support/integration tasks, not a client rebuild or blanket Windows port. Owner testing is deferred, not passed or waived. Personal-data reading/conversion and final default cutover remain gated; `dvs` still requires owner-reviewed essentials and a verified rehearsal.
-
-### Owner sequencing correction: inventory before consolidation (2026-10-07)
-
-The owner wants to understand the 50-commit refactor before further cleanup or testing. **`q6z` is complete: [refactor inventory and consolidation map](docs/refactor-inventory.md). The next step is review of its bounded proposals, not automatic implementation or owner testing.** The audit needed no manual owner sessions and changed documentation only; it does not authorize runtime deletion, mass renaming, withheld writers, personal-data access or a default switch.
-
-The destination remains one elegant application, with no production `v2` identity or legacy runtime outside isolated one-time conversion. Do not assume full workflow parity: compare the established baseline with actual replacement backend, main-client and platform support. Use the inventory to propose bounded pruning, integration, migration and documentation tasks. Approve their scope before implementation; do not create a speculative second cleanup roadmap. Owner dogfood and personal-data approval remain required where already specified.
-
-### Approved bounded cleanup (`wf3`, 2026-10-07)
-
-Owner continuation approved the inventory's recommended first cleanup only. `wf3` removes the unused copy-stage helper and its two test-only callers (330 lines), retaining shared public writer/journal code and historical artifact manifests. Unique byte/destination/source/pending/in-flight/prefix checks now run through public archive/restore and recovery. Public copy/recovery: 69 passed; full regression: 1,662 passed/two existing skips (18 obsolete tests removed, seven public tests added); types/lint and backend bundles pass. No writer logic, native capability, personal data, stored recovery evidence or default route changed. Review the remaining bounded proposals before choosing more work; no broad consolidation or owner-testing acceptance is implied.
-
-### Approved support reconciliation (`pa1`, 2026-10-07)
-
-Owner continuation approved only the next documentation/integrity scope. [Current support](docs/support.md) now distinguishes legacy defaults, the broad Linux backend, the actual Windows main-client/profile subset, friendly-CLI withholding and Linux-only conversion proof. Contract headers acknowledge bounded implementation instead of claiming nothing is implemented; the integrity test retains case IDs/anchors/goldens and requires the support link. Dated evidence stays historical. Four integrity checks, disposable rejection probes, full regression (1,662 passed/two existing skips), types/lint and link checks pass. No runtime, capabilities, UI or acceptance gates changed. The next recommended bounded proposal is truthful selected-workspace Settings receive guidance, not broader writer support or cutover.
-
-### Approved Settings receive correction (`8v8`, 2026-10-07)
-
-Owner continuation approved truthful guidance only. The selected workspace now withholds the unsupported receive action/confirmation and explains the limitation inside the existing Settings Data section. Default desktop receive and Android folder selection remain unchanged; backend prepare/abort still refuse without fallback and status remains not waiting. [Scoped support/evidence](docs/support.md#scoped-settings-receive-evidence-8v8) records real-render fixtures, focus/callback/refusal checks, responsive renders, full legacy UI regression, 1,662 tests/two existing skips and types/lint. Inherited tab/destructive-button contrast defects reproduce on the unchanged baseline and are reported separately, not fixed or declared accessible. No receive implementation, native capability, personal data, owner sessions or cutover changed. Stop for review before choosing the next bounded scope.
-
-### Approved Settings contrast correction (`asy`, 2026-10-07)
-
-Owner continuation scoped the inherited Settings control contrast defects. Two wrapper text-token changes preserve surfaces, palette data, layout, focus and actions; headed Chromium checks now require zero axe findings with no inherited exceptions. Light inactive tabs measure 5.02:1; Gilt destructive buttons measure 10.27:1 idle and 8.87:1 on actual hover. Types/lint, 1,662 regressions/two existing skips and the full legacy UI suite pass. [Scoped evidence and native limitation](docs/support.md#scoped-settings-contrast-evidence-asy). **The owner will test Windows later:** finish this browser-validated correction without counting the attempted native inspection as passed. The owned Windows proof launch compiled and created a window, but no WebView child/CDP endpoint was observed before confirmation/cache creation. Only the owned process tree was stopped; five canonical files remain exact and three scratch source snapshots are restored. Neither the owner's Windows copy nor personal data was updated. Native startup/acceptance, owner sessions, capability expansion and cutover remain separately gated.
-
-### Owner Windows host correction (`100`, deferred, 2026-10-07)
-
-The owner authorized `win-sync` and the normal `D:\src\wsl\tasks` source copy for native diagnosis. Guarded source-only sync preserves local data/authority, dependencies, native artifacts and unknown files; 406 tracked sources match `0b18727`, and Windows types/lint plus six routing/integrity checks pass. The accepted writer bundle remains byte-identical. **Native initialization is still blocked:** both WSL-interoperated and Windows-desktop-shell launches stop before an observed main Tasks WebView; only helper/hotkey/IME windows are observed, with no browser/CDP endpoint, selection or cache. Startup logging produced no browser log. A process-local older-runtime-folder probe loaded both installed runtime DLLs, so it did not isolate a version cause. An owner-approved metadata-only wait trace queried seven own threads without privilege changes: the earliest/startup thread is blocked, but WCT exposes only single-node chains with no cycle or wait owner, so it does not identify the blocking call. All owned trees/helpers are stopped; each five-file fixture is exact and cache absent. **Owner decision: pause automated Windows control; do not continue startup diagnosis merely to unblock agent inspection.** Keep `100` pending/deferred with its evidence, not completed or automatically actionable. Browser/shared-UI and backend tests can support separately scoped work, but the full legacy browser suite and selected component fixtures do not establish replacement native parity. Later native checks must cover a basic manual Windows launch first, then selected sidecar/permissions, close/relaunch, persistence and original-request/recovery behavior for the supported route. Linux may simplify host/process access but does not automatically prove Windows support or native automation. No personal data, system/permission changes, owner sessions or native acceptance; the owner's code copy is now synced, unlike the earlier `asy` checkpoint.
+Every client must remain minimal, calm and visually coherent. Keep the task list primary; disclose secondary technical details in settings/help or at the point of need. Necessary confirmations and actionable safety warnings stay visible. Technical tests alone do not establish usability or authorize workflow losses.
 
 ## Authority and present state
 
-- **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
-- [Guidelines](GUIDELINES.md) owns project principles. [Usage and interaction](docs/usage-guide.md) records today's keyboard-first UI and experimental subsets. Preserve useful interactions; record deliberate changes rather than silently dropping them.
-- [Current support](docs/support.md) is the live code/evidence index. [Root specs](spec/overview.md) describe legacy defaults; [replacement contracts](spec/v2/overview.md) are accepted targets with bounded implementation and [conformance evidence](spec/v2/conformance.md). This temporary spec split ends at approved cutover, not by claiming all targets shipped. Target acceptance is not permission to implement the entire target.
-- [Ideas](ideas/overview.md) preserves reasoning and proposals. [Reset inventory](docs/refactor-reset.md) records the audit and decision changes. The previous full plan is preserved at `905c65a:PLAN.md`.
+**Read this plan first, not the latest handoff or the highest-priority ready SQ item.**
 
-Today the default workspace/CLI still use the old model; explicit native selection connects the existing main UI to the proven new-format subset. The opt-in Linux backend implements a broad new-format task/control subset; its browser workbench supports reading, content, statuses, latest-status undo and parent changes. These are useful implementation assets, not shipped native acceptance. The reset baseline passed types/lint, 1,591 regression checks with two skips and Chromium/axe editor checks. Recorded original corpus coverage is 101/112, not 1,591 cases.
+| Record | Purpose |
+| --- | --- |
+| `PLAN.md` | The only roadmap: next action, later sequence, approval and stop/go gates |
+| SQ | Execution status/evidence for individually scoped tasks; not another roadmap |
+| [Current support](docs/support.md) | What actually runs, exposed commands, platform/client limits |
+| [Guidelines](GUIDELINES.md), [usage guide](docs/usage-guide.md) | Product principles and established interaction contract |
+| [Refactor inventory](docs/refactor-inventory.md) | Audited assets, gaps, deletion candidates and spec/ideas dispositions; supporting evidence, not permission to execute every proposal |
+| [Root specs](spec/overview.md), [replacement targets](spec/v2/overview.md) | Temporary implemented-legacy/accepted-target split, reconciled at cutover |
+| Dated reports, handoffs and [ideas](ideas/overview.md) | Historical evidence or rationale, never competing current execution instructions |
 
-The refactor mostly added a parallel implementation. Do not revert the useful work, but do not extend that delivery pattern. Default Windows/Android new-format writes remain withheld. The explicitly selected Windows create/update/single-status/eligible-status-undo/absent-destination archive/restore/recovery proof has process evidence on short dedicated local NTFS paths; the established main UI now uses the smaller proven task subset. This is not full Windows writer/platform acceptance. Wider native lifecycle/recovery evidence remains open for the replacement app.
+Current facts:
 
-**Initial defect, now fixed by `fwk`:** `src/backend/v2QueryCache.ts` repeated a complete sibling-ID sequence inside every task fingerprint, producing quadratic storage/work. Historical disposable WSL2 probes showed 15.7 MiB for 1,000 flat tasks and 361.5 MiB for 5,000; unchanged 5,000-task info calls took about 1.7–2.0 seconds. The fixed-size signature implementation and its regression evidence are complete, not outstanding work.
+- Unflagged app/backend/CLI still use the legacy model. The opt-in Linux backend implements the broader replacement command subset.
+- Explicit Windows selection connects the established main UI to the smaller proven SEA profile. Child/relationship/order/batch/general-undo and some control actions remain withheld. Friendly Windows CLI writes and durable final-route preferences are unproved. See the support index, not historical milestone wording.
+- Native technical proofs exist, but the latest owned Windows launches stopped before an observed main Tasks WebView. **Automated Windows diagnosis `100` is owner-deferred**, not passed or executable merely because SQ lists it ready. The source copy on D: was synced to `0b18727`; later documentation did not deploy new code.
+- Disposable migration/recovery/fresh-authority rehearsal is complete on Linux/WSL2 only. Personal data, Windows/Android conversion and actual selection remain unapproved.
+- Owner dogfood `hzv` is deferred: **zero owner sessions**. Default cutover `dvs` and publication `xz2` remain gated.
+
+Completed work is not the queue: cache fix `fwk`; bounded Windows process/native proofs and update trace (`fcf`, `dh1`, `mg8`, `7hr`, `byy`, `gxm`, `m1p`); original-client restoration `4t6`; list accessibility `26a`; migration rehearsal `y9b`; unattended QA/argv checks `3et`/`3rp`; inventory `q6z`; copy-stage pruning `wf3`; support reconciliation `pa1`; selected receive guidance `8v8`; contrast fix `asy`; candidate invariant audit `8x1`. Historical commits/counts/limits remain in their reports and SQ records.
+
+Latest audit validation at `86e3c1b`: types/lint pass, **1,662 regressions passed/two existing skips**, 313 focused checks passed/one optional transport skip. Recorded original corpus execution remains **101/112**, not the regression count or an instruction to implement every remaining target.
 
 ## Work order
 
-One bounded task at a time. `fwk`, the bounded Windows proof `fcf`, and the host/profile/launch decision `dh1` are complete. The owner reproduced all 38 Windows Node/SEA scenes on D: and authorized the decision checkpoint. The [native-route decision](docs/development.md#selected-windows-native-route-dh1-2026-10-04) is recorded. `mg8` completed the [typed update-request trace](docs/update-request-trace.md), full regression and 38 Windows Node/SEA scene groups. `7hr` then passed 64 capture and 38 retained update scene groups in the one private Windows task-proof profile. `byy` then passed 156 status/eligible single-status undo groups plus the retained 64 capture/38 update groups, with full regression and self-review. `gxm` then passed 182 absence-only archive/restore Windows Node/SEA groups plus retained status 156/capture 64/update 38, with full regression and self-review. `m1p` then proved the bounded loop in actual Windows/WebView2 through one SEA session, including original-request lost-reply replay, external CLI refresh, native close/relaunch and separate-root backup/restore. [Native evidence and runnable instructions](docs/windows-native-pilot.md). `4t6` subsequently restored the established main client. With owner testing deferred, `26a` corrected the inherited list semantics and `y9b` completed the [disposable migration rehearsal](docs/migration-rehearsal.md). Refactor inventory `q6z` is complete; review its bounded follow-up proposals before choosing further implementation. Actual owner dogfood `hzv` remains the next human acceptance gate, not broad Windows porting or default cutover. The owner chose Windows-first because rebooting into Omarchy is impractical.
+The destination is approved. **Listing later work does not approve its implementation.** Execute one bounded task, validate, commit and stop at its checkpoint. The old autonomous next-ready-task loop is not the current execution policy.
 
-Completed milestone descriptions below retain their original scope and evidence dates. In particular, the `m1p` workbench's clean native accessibility audit does not apply to the restored main list; `26a` tracks its inherited findings. The table is the current execution sequence.
-
-**Owner override (2026-10-04): run the task → validate/self-review → quick commit → next ready task loop without routine supervision, including continuation after auto-compaction.** This replaces the per-task owner review pauses below, not bounded scope, safety, tests, native acceptance or human/personal-data approval gates. Do not auto-switch providers when usage is exhausted. Use fresh quota/reset evidence and a verified session-only wake if available; no closed-process resumption guarantee. Durable loop state is under `$DATA/handoffs/2026-10-04-tasks-autonomous-loop.md`.
-
-| Order | SQ task | Outcome |
+| Order | Work | Exit / gate |
 | --- | --- | --- |
-| 1 | `fwk` | Remove quadratic fingerprints without adding a cache framework |
-| Prerequisite | `fcf` | Complete: actual Windows Node/SEA content-update/recovery proof; review checkpoint |
-| 2 | `dh1` | Complete: Windows content-only profile, one inline pilot capability and existing SEA; launch remains unimplemented |
-| 3 | `mg8` | Complete: typed single-file update path/results, readable trace, retained receipt validation; Windows 38/38 |
-| Windows prerequisite | `7hr` | Complete: Windows Node/SEA capture 64/64 plus update 38/38; short-path profile, already-linked directory reflush |
-| Windows prerequisite | `byy` | Complete: Windows Node/SEA 156/156 plus retained capture 64/update 38; single-source inverse/recovery scope and already-applied directory reflush |
-| Windows prerequisite | `gxm` | Complete: Windows Node/SEA archive/restore 182 groups plus retained 156/64/38; owner-selected absent destinations only, existing empty directories refuse before staging |
-| 4 | `m1p` | Complete: actual Windows native basic loop, lifecycle/lost-reply replay and CLI backup/restore |
-| Owner correction | `4t6` | Complete: established main client reconnected; workbench is not the dogfood candidate |
-| 5 | `26a` | Complete: valid row/filtered-summary semantics, unchanged design/focus; browser regression and bounded native axe pass |
-| 6 | `y9b` | Complete: disposable Linux migration/replay/fresh-authority rehearsal, retained interruption/refusal tests and isolated-dependency runbook; no personal source access |
-| Inventory | `q6z` | Complete: [capabilities/parity, pruning, migration, operational transition, naming and spec/ideas map](docs/refactor-inventory.md); documentation only |
-| Approved cleanup | `wf3` | Complete: obsolete copy stage and two suites removed; unique checks retained on the public copy path, no writer/capability changes |
-| Approved documentation | `pa1` | Complete: current support index, truthful target/native/CLI status, retained corpus integrity; no runtime changes |
-| Approved Settings correction | `8v8` | Complete: selected receive affordance/confirmation withheld with truthful guidance; default desktop/Android branches and fail-closed routing retained |
-| Approved contrast correction | `asy` | Complete on scoped browser evidence: readable Settings text, unchanged surfaces/actions/focus, strict axe checks; owner deferred Windows testing, native inspection unpassed |
-| Deferred: automated Windows control | `100` | Source sync/checks and diagnostic evidence retained; owner paused further startup investigation, native launch/acceptance unpassed |
-| Next: review checkpoint | Remaining `q6z` proposals | Choose a separately bounded scope; no automatic theme changes, writer expansion, owner testing or cutover |
-| Owner gate | `hzv` | After inventory review; still deferred, zero owner sessions; test the restored client and review native essentials |
-| 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
-| Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |
+| **1. Next** | Retain missing production ordering coverage, as specified below | Test-only diff, independent expectations, focused/full tests and types/lint; stop before pruning |
+| 2 | Retire redundant local candidate tests | First retain remaining unique fault-position/property checks and design/limitation evidence from `8x1`; remove only proven redundant suites/dead helpers. Keep transport dependencies. Separately approve this scope |
+| 3 | Agree the remaining daily-use and release scope | Use the existing workflow inventory, not another open-ended audit. Owner confirms essentials, deliberate losses, release platforms and conversion host. Existing UI/workflows remain the baseline |
+| 4 | Close only agreed workflow/native-route gaps | Approve/prove one concrete family at a time; reuse existing UI/backend. Do not enable unproved Windows writers. Native acceptance waits for the separately resumed checks below |
+| 5 | Owner acceptance and migration readiness | `hzv`: actual owner sessions/checklist. Retain `y9b` rehearsal; choose its proved Linux route or approve a native converter proof. Personal access/conversion/selection needs explicit separate permission |
+| 6 | Make the clean cut (`dvs`) | Agreed essentials, owner acceptance, verified rehearsal and required native evidence precede one default app/runtime/spec. Preserve data and local recovery authority |
+| 7 | Publication review (`xz2`) | Review the consolidated default route against the explicitly chosen release platforms; record remaining blockers, no blanket release claim |
 
-### Completed inventory scope (`q6z`)
+Stages 1–2 are finite preparation, not an invitation to keep finding cleanup projects while acceptance waits. Stages 3–5 may feed back a named prerequisite, but must not expand into full target implementation or recreate a second client. Stop for an unresolved owner/platform decision instead.
 
-[Report and bounded proposals](docs/refactor-inventory.md). The audit pins the original 50-commit range, separates backend implementation from native-client gaps, and identifies the unused stage-only copy helper as the first independent pruning candidate. Types/lint and full regression pass (1,673 passed/two skips); no runtime, capabilities or personal data changed. Stop for review before creating or executing follow-up tasks. Owner testing remains deferred and counted at zero sessions.
+## Next action: production ordering coverage
 
-Original scope: inventory code, tests, contracts and recorded evidence. Pin the reviewed commit range; commit count and line count are context, not quality or parity measures.
+**Proposed execution scope; this roadmap update does not start it.** An explicit instruction to execute this next action authorizes only this test-only step. Create/reuse one scoped SQ execution task at that point, not a backlog for the entire table.
 
-- Summarize the refactor's high-level capabilities and intentional model/behavior changes.
-- Build a workflow matrix: established behavior → replacement backend support → main-client integration → actual platform evidence → gaps or deliberate differences. Include capture/editing, classification, priorities, filters/search, relationships/child capture, manual order, batches, broader undo, backup/restore, recovery, preferences/global focus and any retained sharing/source behavior. Never infer native parity from Linux or legacy browser tests.
-- Map production entrypoints and dependencies to one default application. Identify concrete keep / simplify / replace / delete candidates, their callers and which safety tests must survive. Preserve useful established UI; apply delete → simplify → rename before extracting abstractions.
-- Identify the minimum isolated legacy reader/converter and remaining migration proof. Include separate-root backups, fresh authority, refusal/recovery and the Linux-only conversion boundary. Do not inspect personal tasks.
-- Account for canonical root, cache/profile, settings, pending journals, receipts/history and original-request authority during consolidation. A cosmetic rename must not lose recovery evidence.
-- Audit missing/stale specs and propose one current contract structure. Distinguish supported behavior, accepted but unsupported targets and historical evidence; extracting behavior from code is not automatic approval of bugs or undocumented semantic changes.
-- Give every `ideas/` page a retain / promote / delete disposition. Preserve still-needed decisions in current specs or a concise rationale before deleting duplicate/superseded proposals; Git retains historical material.
-- Exit with a concise ordered set of bounded follow-up task proposals and explicit unresolved owner/host decisions. Stop for review; create implementation tasks only from reviewed scopes. No runtime changes, module renames, deletion, capability expansion or cutover in this task.
+Retain the findings from completed audit `8x1` in the existing production reader/ordering suites:
 
-### 1. Fix the measured cache defect (`fwk`)
+1. Three missing literal allocations: `(a0,a0V,1) → [a0G]`, `(Zz,a0,1) → [ZzV]`, `(null,null,4) → [a0,a1,a2,a3]`. Exercise the production allocation path; no new public generation command.
+2. Prefix/case comparison vector: `[Zz,a0,a0V,a0Z,a0a]`, plus the retained exact-ID tie-break. Use literal expected order, not a production comparator to construct the oracle.
+3. The **419 mixed-tie placements**: lengths 2 through 6, keys from `[a0,a0,a1,a1,a1,a2]`, every nonempty selected subset in current order and every insertion position after removal. Translate to public anchors/end placement. Compute intended IDs independently by selected/remaining splicing. Assert the variant count; do not use either planner's `finalIds` as the expected result.
 
-- Compute one fixed-size signature per complete sibling scope, combined with each task's exact-byte hash. No watcher, second projection store or new performance framework.
-- Preserve formatting-change detection, scope invalidation, unchanged-key selected moves, deletion/reappearance, retained context, receipts and rebuild semantics.
-- Handle existing schema-5 cache observations explicitly. Prefer the smallest safe transition; do not build a general compatibility layer or discard history/recovery evidence to hide the defect.
-- Add structural growth assertions and disposable flat/nested 1k/5k measurements. Record cache size and unchanged info/get/update cost; avoid timing-only regression assertions.
-- Exit: focused authority/recovery checks, full tests, types/lint and a short reviewed diff. No canonical format change.
+Production's existing 424 five-task all-tied/all-distinct variants are a different family, not a replacement for these 419 combinations. Keep the existing cases and hand-authored expectations/golden data. Use only the 13 accepted canonical fields; the candidate's permissive `extra` field is not a target.
 
-### 2. Establish a real native path (`dh1`)
+Likely owners: `src/backend/v2CanonicalReader.test.ts` and `src/backend/v2OrderWriter.test.ts`; inspect `src/backend/v2TaskModel.ts`, `src/backend/v2TaskOrdering.ts` and the ordering corpus first. Keep corpus IDs/accounting intact; supplemental focused vectors need not create new normative cases.
 
-A read-only feasibility decision, not a platform-port umbrella.
+**Excluded:** runtime changes; deletion of any candidate/helper/transport file; capability or browser expansion; Windows launch/runtime/thread probes; personal data; mass renaming; migration or default cutover.
 
-- Identify an actual capable host, native shell/webview, bundled runtime and supported writer profile. Prefer the existing Linux writer for a technical pilot if a capable host exists; Windows 11 remains the primary product target.
-- **Owner decision (2026-10-04): Windows-first.** `fcf` is the separately bounded prerequisite: inspect actual Windows filesystem/durability APIs, then prove one existing-task `task.update`, no-op, restart, interrupted publication and original-request retry/recovery on disposable NTFS data with explicit cache/APPDATA. Use actual Windows Node and its SEA binary, not Linux processes against mounted Windows files. Stop on an unsupported durability/contract/tooling boundary; do not merely remove Linux-only gates or introduce another engine. This first proof does not enable capture, status/undo, backup/restore or other unproven Windows controls. Approve the smallest further prerequisite only after its review. The broad `82r` task remains held.
-- Inspect the same-binary Tauri permission first-match problem. Prefer one unambiguous fixed backend entrypoint; if a distinct temporary pilot route is necessary, record its removal in `dvs`. No arbitrary shell interface or silent legacy fallback.
-- Record allowed commands, root/cache/profile selection, process/retry behavior, filesystem assumptions and native acceptance steps in [development](docs/development.md).
-- Decision recorded: local Windows 11/WebView2, actual Windows Node/SEA on local NTFS, and one Windows-only inline capability in an explicitly selected pilot config outside `capabilities/`. Only the content-update/recovery subset has process acceptance. Default capabilities, native launcher and UI remain unchanged; do not run `pnpm dev:tauri` as the replacement pilot. The pending `7hr` → `byy` → `gxm` proofs gate `m1p`; naming these scopes does not authorize execution during `dh1`.
-- Exit: a feasible reviewed host/profile/route or an exact blocker. **If no capable host exists, stop and ask.** More browser features are not a substitute.
+**Exit:** focused reader/order/integrity checks, `pnpm check`, `pnpm lint`, `pnpm test`, clean-code self-review and a scoped commit. Record real counts/skips and stop. No native acceptance is required or claimed for this test-only step.
 
-### 3. Make one request understandable (`mg8`)
+Detailed comparison, available locally as supporting evidence, not a second plan:
+`$DATA/plans/2026-10-07-tasks-candidate-fixture-retirement-review.md`.
+SQ `sq show 8x1` also records it. If the external artifact is unavailable, this next-action scope is self-contained; inspect the cited source/tests rather than inventing missing findings.
 
-**Start with `task.update`, not an API redesign.** Trace client preparation → decoding → domain effect → publication → receipt → retry/recovery.
+### Candidate retirement checkpoint
 
-- Review deletion/simplification opportunities in that neighborhood before extracting anything. `v2CopyStage.ts` was deferred at this milestone; the separately approved `wf3` cleanup later removes it.
-- Keep unknown JSON at decoding; give this command concrete decoded inputs/results so invalid internal calls fail compilation. Extend typing only to directly required query/envelope plumbing.
-- Make touched update/recovery transitions readable. Explain non-obvious publication, receipt and retirement invariants, not obvious assignments.
-- Do not introduce repository/service interfaces, a generic writer engine or a new folder architecture. Creation, replacement and deletion have different safety guarantees. Repetition is preferable to hiding those differences; extract only after three real equivalent call sites justify it.
-- Private client/protocol plumbing may change with its callers and tests in the same diff. No legacy aliases are required. Canonical behavior and exact-request retry safety stay intact unless an explicit contract decision changes them.
-- Preserve crash coverage, including source-transform fault harnesses affected by readability changes.
-- Exit: one human-readable traced request and reviewed diff, not a fully redesigned backend. Broader command typing and doctor/purge/order cleanup need real demand.
-- Completed: [request trace and evidence](docs/update-request-trace.md). Types/lint pass; 1,621 passed/two known skips; actual Windows Node/SEA 38/38, source-transform fault coverage intact. Invalid receipt shape preserves bytes/history/pending evidence and retry authority. No new capabilities or native launch.
+Before stage 2, use the complete `8x1` comparison to preserve remaining pre-intent selected/boundary/partial-JSON/UTF-8 faults, shrinking-gap/compact-key properties, useful grammar literals and the concurrency/entropy/final-read race rationale. These are not all covered at identical positions by existing production tests.
 
-### 4. Prove a native vertical slice (`m1p`)
+The two local candidate suites total 376 lines/26 tests. The optional Syncthing probe still uses the candidate planner and transitive batch recovery/UTF-8 helpers: **do not delete all four files or the fractional-indexing runtime dependency.** Preserve independent expected fixtures and operation-family recovery tests. A transport rewrite/retirement requires its own scope. Treat the final-read/rename race as a documented best-effort limit, never a lossless-CAS guarantee or a required overwrite behavior.
 
-Keep the useful browser work, but add no browser mutations to fill a native blocker.
+## Owner and native gates
 
-- Adapt useful existing UI through the shared application path. Add only the launch/client changes needed for capture, content editing, single-task status/latest-status undo, search and CLI-visible refresh.
-- Require explicit disposable root/cache/profile selection and truthful capability limits; no legacy fallback. This pilot is a temporary validation step, not a permanent second application. `7hr` found Windows SQLite lock-journal long-path refusal: validate supported complete lock-journal/cache/profile lengths before dispatch, or separately prove longer paths; never silently shorten an uncertain selection.
-- Exercise keyboard/mouse/focus, external CLI edits without restart, relaunch persistence and a declared interrupted-write/lost-reply recovery scene with original-request replay.
-- Prove separate-root backup/restore through existing CLI controls; no new migration/control UI is required.
-- Record preview/apply friction, definite refusals versus uncertain writes and memory-only retry loss on reload. Safety rules can be changed deliberately, not bypassed for a demo.
-- Exit: actual native evidence and runnable instructions on the declared host/profile. Browser/WSL process tests cannot close this gate; full legacy feature parity is not required.
-- Completed: [native walkthrough/evidence](docs/windows-native-pilot.md). One explicit Windows/local/main capability, exact selected argv, shared SEA session, full regression **1,657 passed/two known skips**, 31 native tests on both hosts, actual 1100×760 / 720×500 native window checks, zero native axe/design findings. Byte-identical accepted writer bundle; original fixture bytes/history/authority preserved. Memory-only UI request/reload limitations and preview/refusal friction are explicit. No personal selection, migration, signing or release acceptance. Owner `hzv` is still required.
+Before closing gaps, agree a short **keep / replace / intentionally drop** checklist for capture/editing, classification/priorities, filters/search, child/parent/dependency work, manual order, undo/batches, backup/restore, global focus, preferences/themes and sharing/export. The [inventory](docs/refactor-inventory.md#3-workflow-parity-what-is-actually-available) and [unattended QA](docs/unattended-qa.md) already identify the gaps; do not repeat discovery or ask the owner to rebuild the chosen interface.
 
-### Owner testing gate (`hzv`, after `q6z` review, `26a` and `y9b`)
+- Windows 11 remains the primary target. Confirm any additional release platforms; Windows-first does not authorize shipping a separate legacy Android product. Broad Windows `82r`, Android `erd`, wider matrix `gex` and independent interoperability `zaq` are not automatic work.
+- Browser/shared-UI and backend tests may support appropriate approved tasks. Legacy browser regressions do not prove replacement native parity. Linux process management does not prove Windows readiness.
+- **Keep `100` paused.** Later native work begins with a basic manual Windows launch, then the supported sidecar/permission route, close/relaunch, persistence and original-request/recovery checks. Further automated startup investigation needs separate bounded owner approval. Never attach to/stop existing owner sessions, inspect personal windows/data, change security/permissions or install/repair runtimes without permission.
+- Missing native essentials get individually approved support/integration tasks, such as parent move/remove, child capture, reorder or a particular inverse family. No blanket platform port, silent fallback or browser mutations to bypass a native blocker.
+- `hzv` requires at least three short actual owner sessions across two days on realistic disposable data, using the restored main client. Capture/edit/complete/undo/search/refresh/reopen, keyboard/mouse/focus/retry friction and elegance must be owner-reviewed. Automation counts as zero sessions; scoped defect fixes do not waive the gate.
+- `y9b` already proves disposable frozen-source/backup/full-field/order/restart/recovery/fresh-authority conversion on Linux/WSL2. Reuse its [runbook](docs/migration-rehearsal.md), do not build a wizard or redo the rehearsal without a reason. Choose the proved host or separately prove Windows conversion. Personal source reading, conversion and selection are separate permissions, not consequences of this roadmap.
 
-The owner has deferred testing; the independent accessibility fix and disposable conversion rehearsal are complete. **Owner clarification: productive agent-run testing need not wait for owner participation.** `3et` completed a bounded [unattended QA pass and factual native workflow inventory](docs/unattended-qa.md), including a reproduced/fixed UI-test startup socket defect, explicit runner isolation, real Chromium/SEA checks and stronger native refusal assertions. `3rp` then completed the [actual Windows launch-argument proof](docs/windows-launch-argv.md): pnpm 11.22.0 corrupts separators, while direct Node / pnpm exec / a per-invocation emulator preserve exact paths in 15 preparation/refusal scenes. Strict path admission, launcher and capabilities are unchanged; no app/window was launched. Supported disposable regression, demonstrated narrow defect fixes and evidence preparation can proceed without calling them owner sessions. Missing native writers still require individually bounded scope/proof; this is not blanket feature-parity or cutover authorization. Do not count automation as owner sessions or proceed to default cutover while this gate is open.
+## Clean-cut and publication exits
 
-- Before owner testing, ensure the client is elegant, minimal and calm. Remove developer-facing home-screen clutter, preserve the established visual identity and check the normal, empty, editor and error states. A passing technical or accessibility check alone does not establish this quality gate. Keep cleanup bounded; do not redesign the app or rebuild feature parity without approval.
-- Use realistic disposable tasks in at least three short native sessions across two days. The owner actually captures, edits, completes, undoes, searches and reopens the app.
-- Record defects, unnecessary clicks, technical language, focus and retry/reload friction. Fix only scoped defects in this loop.
-- Produce a short **keep / replace / intentionally drop** checklist for daily use: keyboard capture/editing, classification, priorities, filters, search, relationships, manual order, undo and backup/restore. A missing essential capability becomes a named bounded prerequisite to `dvs`; do not automatically rebuild the whole old feature set.
-- The owner already selected the established main UI. Identify backend support/integration gaps and superseded engineering prototypes; do not ask the owner to rebuild or renegotiate the client. The owner must agree any deliberate workflow losses before cutover.
-- Exit: an owner-reviewed usability report and essential-workflow checklist, including agreement that the client retains the app's elegant, minimal character. Do not expand the model or add speculative frameworks.
+`dvs` is functional consolidation after the gates above, not a cosmetic prefix-removal project:
 
-### Pre-test migration rehearsal (`y9b`)
+1. Make the new model/command path the sole default across the agreed UI/CLI/native platforms. Remove legacy dispatch/fallback flags and temporary pilot/workbench product routes together.
+2. Reuse established UI and satisfy the agreed essentials. Delete obsolete runtime/prototypes/tests only after caller and invariant checks; do not discard useful recovery or client/retry evidence to reduce line count.
+3. Rename surviving production code by responsibility and update imports, entrypoints/scripts/tests together. No versioned runtime hidden behind aliases. Meaningful stored format/wire versions remain.
+4. Isolate the minimum legacy reader/converter without importing/initializing the legacy engine during normal startup. Keep original roots, independent backups and historical binaries recoverable; no perpetual coexistence or reverse-conversion promise.
+5. Reconcile the temporary specs into one current contract, and retire/reconcile superseded ideas by the inventory's dispositions. Preserve dated evidence with its original counts/limits, not rewritten final-app claims.
+6. Explicitly handle final root/cache/profile/preferences selection. Never strand pending work or discard receipts/history/original-request authority for a rename. Prove the default UI/CLI/native restart/recovery route on disposable data.
 
-**Complete:** [rehearsal, limits, dependency inventory and short runbook](docs/migration-rehearsal.md). Existing converter/publication unchanged; eight-task full-field/nested-order process rehearsal plus 221 focused passing checks, retained real interruption/refusal tests, and source/bundled CLI runbook smoke. Full regression: 1,666 passed/two known skips; types/lint pass. WSL2 Linux Node only; Windows/Android migration remains withheld. No personal source accessed, no owner session counted, no default switched.
-
-This disposable rehearsal now precedes `hzv`. It verifies conversion fidelity and interruption handling independently of the later owner workflow review. It does not authorize personal source access, a native migration capability expansion or a default switch.
-
-The owner is the only existing user. This is a bounded conversion job, not a general rollout/version-compatibility program.
-
-- Inspect the existing converter first. Reuse its verified mapping and publication path; remove unnecessary orchestration only where it does not weaken preservation or interruption safety.
-- Plan for one frozen legacy snapshot, an independent backup and a separate destination. Test disposable fixtures first; use a copy of personal tasks only after explicit approval to read that data. Never modify the original source.
-- Verify task IDs/counts, Markdown, statuses, priorities, classification, timestamp instants, graph edges and full sibling order. Report actual refusal cases rather than guessing around unsupported records.
-- Verify the converted root opens with fresh authority and that an interrupted attempt is recognizable and recoverable. Do not transfer old cache/receipt authority.
-- Keep instructions short: back up, pause writers/sharing, convert, inspect, explicitly switch. Returning to the preserved snapshot loses later new-format edits; keep both roots rather than promise reverse conversion.
-- Exit: verified disposable rehearsal, minimum isolated converter dependencies and a short one-user runbook. **Actual personal conversion and selection still require explicit owner approval.** No migration wizard, dual-write engine or perpetual old-client support.
-
-### 7. Make the clean cut (`dvs`)
-
-This is a functional consolidation, not a cosmetic prefix-removal project. Use the reviewed `q6z` inventory and approved follow-up outcomes to define deletions, naming, migration isolation and spec promotion; the inventory does not waive owner workflow acceptance or unsupported-platform boundaries.
-
-- Make the new model/application path the sole default for UI and CLI. Remove old dispatch/fallback modes, opt-in version flags and temporary pilot routes rather than keeping compatibility aliases.
-- Reuse the reviewed UI pieces and satisfy the essential-workflow checklist. Delete superseded runtime, unused prototypes and their obsolete tests after checking callers. Do not remove current safety tests merely to lower line count.
-- Rename surviving production modules, types and commands/scripts by responsibility without `v2` code names. Update imports, entrypoints and tests together; no facade wrappers pointing to a still-parallel implementation.
-- Keep only the minimum legacy-reading code needed by the isolated one-time migration tool. Default app startup must not import or initialize a legacy engine. Old application source and binaries remain recoverable through Git/artifacts, not shipped forever.
-- Reconcile documentation into one current model/API/storage/UI contract. Keep schema/protocol numbers and historical fixture names where meaningful, not two competing current specs. Do not bulk-rewrite historical evidence as if it had tested the final app.
-- Account for changed cache/profile locations and authority bindings. Never strand pending journals or discard needed receipts/backups for a rename; document an explicit safe transition rather than silently switching locations.
-- Exit: one default UI/CLI/native launch path, responsibility-based production names, isolated migration tooling, no legacy application fallback, and disposable workflow/restart/recovery proof. Release only platforms actually validated.
-
-## Publication gate and deferred work
-
-`xz2` reviews the consolidated application, essential workflow, migration rehearsal and native evidence. It records one explicit next release scope or blockers, not an unbounded “finish the target” instruction. A Linux pilot alone does not establish Windows readiness; Windows 11 remains the primary target. New platform or missing-essential work gets a bounded task before implementation.
-
-| Work | Disposition |
-| --- | --- |
-| Missing daily-use capabilities | Existing UI/workflows remain the baseline; scope native support/integration individually, use `hzv` to confirm essentials and block `dvs` if unresolved |
-| Inherited list accessibility (`26a`) | Completed with original visual/keyboard behavior and bounded native evidence; no owner session counted |
-| Broad Windows writes (`82r`) / Android SAF port (`erd`) | Held for explicit platform scope; use the same model/rules, not another versioned engine |
-| Remaining corpus (`23b`) | Audit applicability to declared support, not implement unrelated features to reach 112/112 |
-| Wider native/provider matrix (`gex`) | Validate the replacement app for selected release claims; do not keep a legacy-native gate |
-| Independent interoperability (`zaq`) | Needed only for a public-standard claim, not app publication |
-| More advanced browser/control features, multi-source/adapters | Off the critical path; retain only if the real product needs them |
-| Hosted sync, collaboration, recurrence, reminders, calendars, built-in AI, plugins, MCP | Deferred pending actual use evidence |
-
-The old legacy-only native task `69t` is superseded, not passed. Its still-relevant lifecycle/restore/focus obligations move to `m1p` and replacement-app release validation (`gex`). Closed implementation/evidence tasks remain historical records; do not reopen them to rewrite history.
+`xz2` then reviews publication scope, actual declared-platform evidence and remaining packaging/signing/release blockers. A technical test count, unsupported target MUST, Linux pilot or dependency completion is not release acceptance. Personal migration is not implicitly authorized by either task.
 
 ## Safety and working protocol
 
-- No need for compatibility with unknown external installations. Cleanly change private APIs with their clients and tests. Consequential model/format changes still need an explicit spec decision.
-- Compatibility with old code is optional; preserving the owner's data is not. Use separate-root migration and independent backups, no implicit live upgrade or personal-root inference.
-- Canonical JSON owns task state. SQLite also retains local receipts/history; deleting it is not a supported rebuild. Preserve active recovery evidence and original-request retry safety.
-- TypeScript owns domain rules; Tauri 2/React and bundled Node remain the desktop direction. Keep native/storage details at concrete boundaries. License stays MIT.
-- Keep accepted literal-title/classification, sparse order, timestamp/status rules unless a deliberate decision changes them. Do not silently alter inherited readiness behavior such as done dependencies still blocking.
+- Canonical JSON owns task state; SQLite also owns local receipts/history/undo authority. It is not wholly disposable. Preserve original root/cache/profile bindings, pending journals, raw recovery copies and immutable retry envelopes. Canonical backup alone does not preserve old retry authority.
+- Keep accepted literal title/classification, sparse order, timestamp/status rules and inherited done-dependency blocking unless a deliberate contract decision changes them. Distinct creation/replacement/deletion/copy/inverse safety families are not interchangeable generic writers.
+- Use separate-root migration and independent backups. No personal-root inference, implicit live upgrade, original-source mutation or permission inferred from a handoff.
+- Check `git status`, this plan, current user scope and relevant `sq show ID` before work. SQ readiness only describes dependencies; it does not approve owner gates or deferred `100`.
+- Mark one SQ task in progress. Keep metadata under `pi_tasks`; use disposable data and one writer per cwd. Delegation needs explicit authorization.
+- Apply clean-code and its review checklist; run types/lint/full regressions and relevant scoped checks. Record failures/skips and actual platform limits. Update the completed task, current next action and support index only where behavior changed, not every historical report.
+- Commit validated scoped repository changes and **stop at the approved task's checkpoint**. Do not select another task or restart Windows diagnosis automatically. Preserve evidence/diff and report any unresolved host, contract, tooling or permission blocker.
 
-For each task:
+## Next-session instruction
 
-1. Read this plan, `sq show ID`, relevant specs and neighboring code. Start from `sq list --ready`; user instructions override queue priority.
-2. Mark only that task in progress. Use disposable data and one writer per working directory.
-3. Apply clean-code in order: delete → simplify → rename → extract → pattern. Keep one explainable outcome; run the review checklist, types/lint/full tests and relevant process/UI checks.
-4. Report the exercised command/client flow, changed lines, failures/skips/native limits and next small step. Update task evidence, not every historical milestone paragraph.
-5. Self-review each task, quick commit validated scoped changes and continue while the owner's autonomous loop is active. **Stop or pause for a real blocker**, including missing native guarantees, failing checks, personal-data permission or required owner participation; do not fill the gap with features or declare that gate passed. Preserve in-progress state/diff and a durable handoff at quota/compaction boundaries.
-6. SQ is shared local metadata under `.sift/`, outside Git. Keep pi-task fields under `pi_tasks` and dependencies consistent with this plan.
+Give the agent **this file**, not a bundle of competing plans. When ready to authorize stage 1, use:
 
-Commands and native setup are in [README](README.md) and [development](docs/development.md). This planning change authorizes the destination and scope, not implemented platform support, personal migration or a release claim.
+> Read AGENTS.md and PLAN.md. Execute only “Next action: production ordering coverage.” Create or reuse its scoped SQ task, validate and commit the test-only change, then stop for review. No candidate deletion, Windows investigation, capability expansion, personal data or cutover. Treat audit reports as supporting evidence and ignore older next-task/autonomous-loop instructions.
+
+Until that execution request, the next action is proposed, not started. [README](README.md) and [development](docs/development.md) own commands and host setup; this roadmap does not authorize platform expansion or personal selection.
