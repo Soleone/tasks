@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
 import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
-import { readV2CanonicalRoot, readV2RootDescriptor } from "./v2CanonicalReader.js";
+import { inspectV2CanonicalRoot, readV2CanonicalRoot, readV2RootDescriptor } from "./v2CanonicalReader.js";
 import { executeV2Line } from "./v2Gateway.js";
 import { pendingV2Path, v2LocalDomain } from "./v2LocalDomain.js";
 import type { V2Response } from "./v2Protocol.js";
@@ -65,6 +65,11 @@ for (const command of ["archive", "restore"]) for (const cut of cuts) {
     const source = command === "restore" ? path.join(workspace.directory, "external-source") : undefined;
     if (source) cpSync(golden, source, { recursive: true });
     const { request, pending, intent } = crash(workspace, cut, source);
+    if (cut.startsWith("prefix-")) {
+      assert.equal(existsSync(workspace.destination), false);
+      assert.equal(inspectV2CanonicalRoot(intent.stageDirectory).state, cut === "prefix-5" ? "ready" : "incomplete");
+      assert.equal(existsSync(path.join(v2LocalDomain(readV2RootDescriptor(workspace.root)), `copy-${intent.operationId}.verified.json`)), false);
+    }
     const info = success(send(workspace, { command: "workspace.info" }));
     assert.equal(info.result.state, "recovery_pending");
     assert.equal(info.result.pendingOperationId, intent.operationId);
@@ -125,6 +130,48 @@ for (const fault of ["source-edit", "source-arrival", "stage-edit", "stage-missi
     if (fault === "stage-partial") assert.equal(readFileSync(stageFile, "utf8"), "{");
     if (fault === "stage-missing") assert.equal(existsSync(stageFile), false);
     if (fault === "stage-arrival") assert.equal(readFileSync(path.join(intent.stageDirectory, "foreign"), "utf8"), "keep");
+  });
+}
+
+for (const fault of ["source-edit", "source-arrival", "destination-arrival", "stage-extra", "stage-partial"]) {
+  test(`v2 copy refuses in-flight ${fault} without publishing or completing the request`, { skip: process.platform !== "linux" }, t => {
+    const workspace = setup(t);
+    const before = readV2CanonicalRoot(workspace.root).files;
+    const info = success(send(workspace, { command: "workspace.info" }));
+    const request = { version: 2, command: "workspace.archive", writeContext: info.writeContext, idempotencyKey: "in-flight-copy", args: { destinationDirectory: workspace.destination } };
+    const loader = path.join(workspace.directory, "copy-in-flight-loader.mjs");
+    // Exercise the live command's guards, not just divergence discovered during a later resume.
+    writeFileSync(loader, `import {registerHooks} from 'node:module';
+registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;
+let source=result.source.toString();const fault=${JSON.stringify(fault)};
+function replace(needle,value){if(source.split(needle).length!==2)throw Error('fault must be unique');source=source.replace(needle,value);}
+if((fault==='source-edit'||fault==='source-arrival')&&url.endsWith('/v2CopyWriter.js')){
+ source='import {writeFileSync as faultWrite,readFileSync as faultRead} from "node:fs";\\n'+source;
+ const file='path.join(source.rootPath,"tasks",${JSON.stringify(`${id}.json`)})';
+ const mutation=fault==='source-edit'?'faultWrite('+file+',JSON.stringify({...JSON.parse(faultRead('+file+',"utf8")),title:"External edit"}));':'faultWrite(path.join(source.rootPath,"tasks","arrived.json"),JSON.stringify({...JSON.parse(faultRead('+file+',"utf8")),id:"arrived"}));';
+ const needle='persistV2Pending(root, intent);';replace(needle,needle+mutation);
+}
+if(['destination-arrival','stage-extra','stage-partial'].includes(fault)&&url.endsWith('/v2CopyJournal.js')){
+ source='import {writeFileSync as faultWrite,mkdirSync as faultMkdir} from "node:fs";\\n'+source;
+ const mutation=fault==='destination-arrival'?'faultMkdir(intent.destination.directory);faultWrite(path.join(intent.destination.directory,"keep"),"External destination");':fault==='stage-extra'?'faultWrite(path.join(intent.stageDirectory,"cache.db"),"foreign state");':'faultWrite(path.join(intent.stageDirectory,"tasks",${JSON.stringify(`${id}.json`)}),"{");';
+ const needle='verifyCopyStage(source, intent.stageDirectory);';replace(needle,mutation+needle);
+}
+return {...result,source};}});`);
+    const child = run(workspace, request, loader);
+    assert.equal(child.status, 0, child.stderr);
+    fail(JSON.parse(child.stdout), "RECOVERY_CONFLICT");
+    const pending = pendingV2Path(readV2RootDescriptor(workspace.root));
+    const intent = JSON.parse(readFileSync(pending, "utf8"));
+    assert.equal(success(send(workspace, { command: "workspace.info" })).result.state, "recovery_pending");
+    fail(send(workspace, request), "RECOVERY_PENDING");
+    if (fault === "source-edit") assert.equal(JSON.parse(readFileSync(path.join(workspace.root, "tasks", `${id}.json`), "utf8")).title, "External edit");
+    else if (fault === "source-arrival") assert.equal(JSON.parse(readFileSync(path.join(workspace.root, "tasks", "arrived.json"), "utf8")).id, "arrived");
+    else assert.deepEqual(readV2CanonicalRoot(workspace.root).files, before);
+    assert.equal(existsSync(intent.stageDirectory), !fault.startsWith("source-"));
+    assert.equal(existsSync(workspace.destination), fault === "destination-arrival");
+    if (fault === "destination-arrival") assert.equal(readFileSync(path.join(workspace.destination, "keep"), "utf8"), "External destination");
+    if (fault === "stage-extra") assert.equal(readFileSync(path.join(intent.stageDirectory, "cache.db"), "utf8"), "foreign state");
+    if (fault === "stage-partial") assert.equal(readFileSync(path.join(intent.stageDirectory, "tasks", `${id}.json`), "utf8"), "{");
   });
 }
 

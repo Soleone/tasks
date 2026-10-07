@@ -40,6 +40,10 @@ The owner wants to understand the 50-commit refactor before further cleanup or t
 
 The destination remains one elegant application, with no production `v2` identity or legacy runtime outside isolated one-time conversion. Do not assume full workflow parity: compare the established baseline with actual replacement backend, main-client and platform support. Use the inventory to propose bounded pruning, integration, migration and documentation tasks. Approve their scope before implementation; do not create a speculative second cleanup roadmap. Owner dogfood and personal-data approval remain required where already specified.
 
+### Approved bounded cleanup (`wf3`, 2026-10-07)
+
+Owner continuation approved the inventory's recommended first cleanup only. `wf3` removes the unused copy-stage helper and its two test-only callers (330 lines), retaining shared public writer/journal code and historical artifact manifests. Unique byte/destination/source/pending/in-flight/prefix checks now run through public archive/restore and recovery. Public copy/recovery: 69 passed; full regression: 1,662 passed/two existing skips (18 obsolete tests removed, seven public tests added); types/lint and backend bundles pass. No writer logic, native capability, personal data, stored recovery evidence or default route changed. Review the remaining bounded proposals before choosing more work; no broad consolidation or owner-testing acceptance is implied.
+
 ## Authority and present state
 
 - **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
@@ -75,7 +79,8 @@ Completed milestone descriptions below retain their original scope and evidence 
 | 5 | `26a` | Complete: valid row/filtered-summary semantics, unchanged design/focus; browser regression and bounded native axe pass |
 | 6 | `y9b` | Complete: disposable Linux migration/replay/fresh-authority rehearsal, retained interruption/refusal tests and isolated-dependency runbook; no personal source access |
 | Inventory | `q6z` | Complete: [capabilities/parity, pruning, migration, operational transition, naming and spec/ideas map](docs/refactor-inventory.md); documentation only |
-| Next: review checkpoint | Proposed after `q6z` | Choose concrete follow-up scopes from the inventory; no automatic implementation, blanket cleanup or writer expansion |
+| Approved cleanup | `wf3` | Complete: obsolete copy stage and two suites removed; unique checks retained on the public copy path, no writer/capability changes |
+| Next: review checkpoint | Remaining `q6z` proposals | Choose the next bounded scope; no automatic implementation, blanket cleanup or writer expansion |
 | Owner gate | `hzv` | After inventory review; still deferred, zero owner sessions; test the restored client and review native essentials |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |
@@ -118,7 +123,7 @@ A read-only feasibility decision, not a platform-port umbrella.
 
 **Start with `task.update`, not an API redesign.** Trace client preparation → decoding → domain effect → publication → receipt → retry/recovery.
 
-- Review deletion/simplification opportunities in that neighborhood before extracting anything. `v2CopyStage.ts` is a known superseded candidate, but it belongs in the later cutover unless actually needed here.
+- Review deletion/simplification opportunities in that neighborhood before extracting anything. `v2CopyStage.ts` was deferred at this milestone; the separately approved `wf3` cleanup later removes it.
 - Keep unknown JSON at decoding; give this command concrete decoded inputs/results so invalid internal calls fail compilation. Extend typing only to directly required query/envelope plumbing.
 - Make touched update/recovery transitions readable. Explain non-obvious publication, receipt and retirement invariants, not obvious assignments.
 - Do not introduce repository/service interfaces, a generic writer engine or a new folder architecture. Creation, replacement and deletion have different safety guarantees. Repetition is preferable to hiding those differences; extract only after three real equivalent call sites justify it.
