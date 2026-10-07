@@ -83,6 +83,27 @@ for (const [index, vector] of vectors.action.vectors.entries()) {
   });
 }
 
+const supplementalAllocations = [
+  { lower: "a0", upper: "a0V", count: 1, keys: ["a0G"] },
+  { lower: "Zz", upper: "a0", count: 1, keys: ["ZzV"] },
+  { lower: null, upper: null, count: 4, keys: ["a0", "a1", "a2", "a3"] },
+];
+for (const vector of supplementalAllocations) {
+  test(`public supplemental allocation (${vector.lower},${vector.upper},${vector.count}) preserves literal keys`, linuxOnly, (t) => {
+    const selected = Array.from({ length: vector.count }, (_, index) => `s${index}`);
+    const records: Record<string, Partial<V2CanonicalTask>> = Object.fromEntries(selected.map((id, index) => [id, { orderKey: `a${index + 2}` }]));
+    if (vector.lower !== null) records.lower = { orderKey: vector.lower };
+    if (vector.upper !== null) records.upper = { orderKey: vector.upper };
+    const w = materialize(t, records);
+    const command = vector.upper === null ? "task.order.normalize" : "task.reorder";
+    const req = request(w, command, { tasks: selected.map(id => ({ id })), ...(command === "task.order.normalize" ? { parentId: null } : { placement: { beforeId: "upper" } }) });
+    const result = success(send(w, req)).result;
+    assert.equal(result.changed, true);
+    assert.deepEqual((result.tasks as Projection[]).map(task => task.orderKey), vector.keys);
+    assert.deepEqual(list(w).filter(task => selected.includes(task.id)).map(task => task.orderKey), vector.keys);
+  });
+}
+
 for (const id of ["key-invalid", "key-limit", "key-too-long", "key-byte-order"]) {
   test(`public reader materializes ordering ${id}`, linuxOnly, (t) => {
     const entry = corpus.cases.find((entry: { id: string }) => entry.id === id);
@@ -116,6 +137,32 @@ test("all five-task selections/anchors preserve intended selected order and comp
     }
   }
   assert.equal(checked, 424);
+});
+
+test("all 419 mixed-tie selections/positions preserve independently spliced ID order", linuxOnly, (t) => {
+  const keys = ["a0", "a0", "a1", "a1", "a1", "a2"];
+  let checked = 0;
+  for (let length = 2; length <= 6; length++) {
+    const ids = Array.from({ length }, (_, index) => `task-${index}`);
+    for (let mask = 1; mask < 2 ** length; mask++) {
+      const selected = ids.filter((_, index) => mask & (1 << index));
+      const remaining = ids.filter(id => !selected.includes(id));
+      for (let insertAt = 0; insertAt <= remaining.length; insertAt++) {
+        const expected = [...remaining];
+        expected.splice(insertAt, 0, ...selected);
+        const placement = insertAt === 0 ? { first: true } : insertAt === remaining.length ? { last: true } : { beforeId: remaining[insertAt] };
+        const w = materialize(t, Object.fromEntries(ids.map((id, index) => [id, { orderKey: keys[index] }])));
+        assert.deepEqual(list(w).map(task => task.id), ids);
+        const req = request(w, "task.reorder", { tasks: selected.map(id => ({ id })), placement });
+        const result = success(send(w, req)).result;
+        const variant = `length=${length}, mask=${mask}, insertAt=${insertAt}`;
+        assert.deepEqual(list(w).map(task => task.id), expected, variant);
+        assert.equal(result.changed, expected.join() !== ids.join(), variant);
+        checked++;
+      }
+    }
+  }
+  assert.equal(checked, 419);
 });
 
 test("ordering subtree keeps descendants/outside raw bytes and projects blockers outside the affected scope", linuxOnly, (t) => {

@@ -88,6 +88,15 @@ test("Node v2 reader validates key vectors and exact ID byte ordering", () => {
   assert.deepEqual(tasks.sort(compareV2Tasks).map(task => task.id), ["A", "Z", "a", "z"]);
 });
 
+test("Node v2 reader orders prefix/case keys by literal ASCII bytes", (t) => {
+  const root = scratchRoot(t);
+  const records = { a: "a0a", d: "a0V", z: "Zz", c: "a0Z", e: "a0" };
+  for (const [id, orderKey] of Object.entries(records)) {
+    writeFileSync(path.join(root, "tasks", `${id}.json`), JSON.stringify({ ...corpus.taskTemplate, id, orderKey }));
+  }
+  assert.deepEqual(readV2CanonicalRoot(root).tasks.map(task => task.orderKey), ["Zz", "a0", "a0V", "a0Z", "a0a"]);
+});
+
 test("v2 strict JSON catches escaped duplicate names, BOM, nested aliases and non-finite values without task-text diagnostics", () => {
   for (const text of ['{"title":"secret","\\u0074itle":"other"}', '\uFEFF{"schemaVersion":2}', '{"outer":{"key":1,"key":2}}', '{"number":1e999}', '{"text":"\\udc00"}']) {
     assert.throws(() => parseV2CanonicalJson(Buffer.from(text)), (error) => error instanceof CommandError && error.code === "INVALID_CANONICAL" && !error.message.includes("secret"));
