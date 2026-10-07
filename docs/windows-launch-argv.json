@@ -1,0 +1,605 @@
+{
+  "task": "3rp",
+  "host": {
+    "platform": "win32",
+    "release": "10.0.26300",
+    "nodeVersion": "v24.19.0",
+    "pnpmVersion": "11.22.0"
+  },
+  "scope": "actual Windows launch preparation stopped before ensure-sidecar/build/overlay/application/query; no native UI acceptance",
+  "productionSources": [
+    {
+      "path": "scripts\\dev-native.mjs",
+      "sha256": "33502ca801b4f8ab852cef42c1c0a14817e458167f04f0b7cd3f32f8bbe4253b"
+    },
+    {
+      "path": "scripts\\native-pilot-options.mjs",
+      "sha256": "47340c253403737eb8e5130af26bdcf8eb0609f5025f548dcae0ab6d57c2626a"
+    },
+    {
+      "path": "src\\platform\\v2NativeSelection.ts",
+      "sha256": "e60dfff679cab6de7cdc993bd7815de1df26a81bbe279aea4d59d57dd0ad3256"
+    }
+  ],
+  "decision": "Prefer direct Node. pnpm exec node or per-invocation --config.shell-emulator=true preserve exact argv; bare pnpm dev:native corrupts separators on this host. No path repair, dependency/config/capability change.",
+  "actualLauncherScenes": [
+    {
+      "name": "plain-direct",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\r",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\c.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\p"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\r",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\c.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\p"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\r\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\c\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\p\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plain-exec",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\r",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\c.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\p"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\r",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\c.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\p"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\r\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\c\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\p\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plain-emulator",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\r",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\c.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\p"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\r",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\c.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\p"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\r\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\c\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\p\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "plain-bare-package",
+      "exitCode": 1,
+      "prepared": false,
+      "error": "Error: Native selection requires explicit canonical local drive-letter paths, not UNC, relative or control-containing paths."
+    },
+    {
+      "name": "plain-package-separator",
+      "exitCode": 1,
+      "prepared": false,
+      "error": "Error: Supply exactly --v2-root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection."
+    },
+    {
+      "name": "spaces-direct",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root space",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache space.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile space"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root space",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache space.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile space"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\root space\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\cache space\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\profile space\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "spaces-exec",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root space",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache space.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile space"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root space",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache space.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile space"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\root space\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\cache space\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\profile space\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "spaces-emulator",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root space",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache space.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile space"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root space",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache space.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile space"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\root space\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\cache space\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\profile space\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "spaces-bare-package",
+      "exitCode": 1,
+      "prepared": false,
+      "error": "Error: Native selection requires explicit canonical local drive-letter paths, not UNC, relative or control-containing paths."
+    },
+    {
+      "name": "spaces-package-separator",
+      "exitCode": 1,
+      "prepared": false,
+      "error": "Error: Supply exactly --v2-root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection."
+    },
+    {
+      "name": "unicode-symbols-direct",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root Ω & (test)",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache Ω ^ !.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile Ω (test)"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root Ω & (test)",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache Ω ^ !.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile Ω (test)"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\root Ω & \\(test\\)\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\cache Ω \\^ !\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\profile Ω \\(test\\)\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unicode-symbols-exec",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root Ω & (test)",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache Ω ^ !.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile Ω (test)"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root Ω & (test)",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache Ω ^ !.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile Ω (test)"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\root Ω & \\(test\\)\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\cache Ω \\^ !\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\profile Ω \\(test\\)\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unicode-symbols-emulator",
+      "exitCode": 0,
+      "prepared": true,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root Ω & (test)",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache Ω ^ !.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile Ω (test)"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\root Ω & (test)",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\cache Ω ^ !.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-BJXzE8\\profile Ω (test)"
+      },
+      "sidecarScope": {
+        "name": "binaries/tasks-backend",
+        "sidecar": true,
+        "args": [
+          "--stdio",
+          "--v2-root",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\root Ω & \\(test\\)\\z"
+          },
+          "--database",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\cache Ω \\^ !\\.db\\z"
+          },
+          "--windows-task-proof",
+          "--local-profile",
+          {
+            "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-BJXzE8\\\\profile Ω \\(test\\)\\z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unicode-symbols-bare-package",
+      "exitCode": 1,
+      "prepared": false,
+      "error": "Error: Native selection requires explicit canonical local drive-letter paths, not UNC, relative or control-containing paths."
+    },
+    {
+      "name": "unicode-symbols-package-separator",
+      "exitCode": 1,
+      "prepared": false,
+      "error": "Error: Supply exactly --v2-root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection."
+    }
+  ],
+  "initialObservedArgv": [
+    {
+      "name": "plain-direct",
+      "exitCode": 0,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\r",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\c.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\p"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\r",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\c.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\p"
+      },
+      "args": [
+        "--stdio",
+        "--v2-root",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\r\\z"
+        },
+        "--database",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\c\\.db\\z"
+        },
+        "--windows-task-proof",
+        "--local-profile",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\p\\z"
+        }
+      ],
+      "cacheExists": false,
+      "profileEntries": []
+    },
+    {
+      "name": "plain-package",
+      "exitCode": 1,
+      "argv": [
+        "--v2-root",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\r",
+        "--database",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\c.db",
+        "--local-profile",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\p"
+      ],
+      "error": "Native selection requires explicit canonical local drive-letter paths, not UNC, relative or control-containing paths."
+    },
+    {
+      "name": "plain-package-separator",
+      "exitCode": 1,
+      "argv": [
+        "--",
+        "--v2-root",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\r",
+        "--database",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\c.db",
+        "--local-profile",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\p"
+      ],
+      "error": "Supply exactly --v2-root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection."
+    },
+    {
+      "name": "plain-exec",
+      "exitCode": 0,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\r",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\c.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\p"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\r",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\c.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\p"
+      },
+      "args": [
+        "--stdio",
+        "--v2-root",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\r\\z"
+        },
+        "--database",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\c\\.db\\z"
+        },
+        "--windows-task-proof",
+        "--local-profile",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\p\\z"
+        }
+      ],
+      "cacheExists": false,
+      "profileEntries": []
+    },
+    {
+      "name": "spaces-direct",
+      "exitCode": 0,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\root space Omega",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\cache space.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\profile space"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\root space Omega",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\cache space.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\profile space"
+      },
+      "args": [
+        "--stdio",
+        "--v2-root",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\root space Omega\\z"
+        },
+        "--database",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\cache space\\.db\\z"
+        },
+        "--windows-task-proof",
+        "--local-profile",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\profile space\\z"
+        }
+      ],
+      "cacheExists": false,
+      "profileEntries": []
+    },
+    {
+      "name": "spaces-package",
+      "exitCode": 1,
+      "argv": [
+        "--v2-root",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\root space Omega",
+        "--database",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\cache space.db",
+        "--local-profile",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\profile space"
+      ],
+      "error": "Native selection requires explicit canonical local drive-letter paths, not UNC, relative or control-containing paths."
+    },
+    {
+      "name": "spaces-package-separator",
+      "exitCode": 1,
+      "argv": [
+        "--",
+        "--v2-root",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\root space Omega",
+        "--database",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\cache space.db",
+        "--local-profile",
+        "C:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\profile space"
+      ],
+      "error": "Supply exactly --v2-root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection."
+    },
+    {
+      "name": "spaces-exec",
+      "exitCode": 0,
+      "argv": [
+        "--v2-root",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\root space Omega",
+        "--database",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\cache space.db",
+        "--local-profile",
+        "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\profile space"
+      ],
+      "selection": {
+        "rootPath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\root space Omega",
+        "databasePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\cache space.db",
+        "profilePath": "C:\\Users\\soleone\\AppData\\Local\\Temp\\Tasks-argv-3558cb25\\profile space"
+      },
+      "args": [
+        "--stdio",
+        "--v2-root",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\root space Omega\\z"
+        },
+        "--database",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\cache space\\.db\\z"
+        },
+        "--windows-task-proof",
+        "--local-profile",
+        {
+          "validator": "\\AC:\\\\Users\\\\soleone\\\\AppData\\\\Local\\\\Temp\\\\Tasks-argv-3558cb25\\\\profile space\\z"
+        }
+      ],
+      "cacheExists": false,
+      "profileEntries": []
+    }
+  ],
+  "artifact": {
+    "path": "/mnt/c/Users/soleone/AppData/Local/Temp/Tasks-argv-BJXzE8/argv-report.json",
+    "sha256": "6ad9539a049fc9be0324234915c995b1a468a6c48b87042131dc8faa01d08e07"
+  }
+}

@@ -46,7 +46,17 @@ function sessionFixture(t, respond) {
   for (const candidate of [null, [], {}, { ...selection, extra: true }]) assert.throws(() => parseV2NativeSelection(candidate));
   for (const flags of [[], argv, ["--v2-root", selection.rootPath, "--local-profile", selection.profilePath, "--database", selection.databasePath], ["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath, "--config", "other"]]) assert.throws(() => nativePilotSelection(flags));
 });
-for (const filename of ["root", "C:relative", "/tmp/root", "\\\\server\\share", "\\\\?\\C:\\root", "C:/root", "C:\\root/other", "C:\\root\n", "C:\\root\r", "C:\\root\u0000", "C:\\root\\..\\other", "C:\\root\\.", "C:\\root\\", "C:\\root ", "C:\\root.", "C:\\root:stream", "C:\\root?", "C:\\root|other", "C:\\CON", "C:\\nul.db", "C:\\COM1", "C:\\LPT².txt", "C:\\CONOUT$"]) {
+test("native launcher refuses package-runner separator corruption rather than repairing selected paths", () => {
+  const flags = ["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath];
+  for (const index of [1, 3, 5]) {
+    const doubled = [...flags];
+    doubled[index] = doubled[index].replaceAll("\\", "\\\\");
+    assert.throws(() => nativePilotSelection(doubled), /explicit canonical local drive-letter paths/);
+  }
+  assert.throws(() => nativePilotSelection(["--", ...flags]), /Supply exactly/);
+  assert.deepEqual(nativePilotSelection(flags), selection);
+});
+for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other", "/tmp/root", "\\\\server\\share", "\\\\?\\C:\\root", "C:/root", "C:\\root/other", "C:\\root\n", "C:\\root\r", "C:\\root\u0000", "C:\\root\\..\\other", "C:\\root\\.", "C:\\root\\", "C:\\root ", "C:\\root.", "C:\\root:stream", "C:\\root?", "C:\\root|other", "C:\\CON", "C:\\nul.db", "C:\\COM1", "C:\\LPT².txt", "C:\\CONOUT$"]) {
   test(`native path admission refuses ${JSON.stringify(filename)} before any launch`, () => {
     for (const field of Object.keys(selection)) assert.throws(() => v2NativeSidecarArgs({ ...selection, [field]: filename }));
   });
