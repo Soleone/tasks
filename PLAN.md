@@ -48,6 +48,10 @@ Owner continuation approved the inventory's recommended first cleanup only. `wf3
 
 Owner continuation approved only the next documentation/integrity scope. [Current support](docs/support.md) now distinguishes legacy defaults, the broad Linux backend, the actual Windows main-client/profile subset, friendly-CLI withholding and Linux-only conversion proof. Contract headers acknowledge bounded implementation instead of claiming nothing is implemented; the integrity test retains case IDs/anchors/goldens and requires the support link. Dated evidence stays historical. Four integrity checks, disposable rejection probes, full regression (1,662 passed/two existing skips), types/lint and link checks pass. No runtime, capabilities, UI or acceptance gates changed. The next recommended bounded proposal is truthful selected-workspace Settings receive guidance, not broader writer support or cutover.
 
+### Approved Settings receive correction (`8v8`, 2026-10-07)
+
+Owner continuation approved truthful guidance only. The selected workspace now withholds the unsupported receive action/confirmation and explains the limitation inside the existing Settings Data section. Default desktop receive and Android folder selection remain unchanged; backend prepare/abort still refuse without fallback and status remains not waiting. [Scoped support/evidence](docs/support.md#scoped-settings-receive-evidence-8v8) records real-render fixtures, focus/callback/refusal checks, responsive renders, full legacy UI regression, 1,662 tests/two existing skips and types/lint. Inherited tab/destructive-button contrast defects reproduce on the unchanged baseline and are reported separately, not fixed or declared accessible. No receive implementation, native capability, personal data, owner sessions or cutover changed. Stop for review before choosing the next bounded scope.
+
 ## Authority and present state
 
 - **This file owns direction, order and stop/go gates.** SQ tracks execution, not another roadmap. Current owner instructions override older handoffs and completed-task descriptions.
@@ -85,7 +89,8 @@ Completed milestone descriptions below retain their original scope and evidence 
 | Inventory | `q6z` | Complete: [capabilities/parity, pruning, migration, operational transition, naming and spec/ideas map](docs/refactor-inventory.md); documentation only |
 | Approved cleanup | `wf3` | Complete: obsolete copy stage and two suites removed; unique checks retained on the public copy path, no writer/capability changes |
 | Approved documentation | `pa1` | Complete: current support index, truthful target/native/CLI status, retained corpus integrity; no runtime changes |
-| Next: review checkpoint | Remaining `q6z` proposals | Recommended: truthful selected Settings receive guidance; approve a bounded scope, not blanket cleanup or writer expansion |
+| Approved Settings correction | `8v8` | Complete: selected receive affordance/confirmation withheld with truthful guidance; default desktop/Android branches and fail-closed routing retained |
+| Next: review checkpoint | Remaining `q6z` proposals and inherited Settings contrast findings | Choose a separately bounded scope; no automatic theme changes, writer expansion, owner testing or cutover |
 | Owner gate | `hzv` | After inventory review; still deferred, zero owner sessions; test the restored client and review native essentials |
 | 7 | `dvs` | Make the new path the sole default; remove legacy runtime and versioned code names |
 | Gate | `xz2` | Review publication readiness and explicitly choose any remaining release scope |

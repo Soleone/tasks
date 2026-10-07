@@ -41,6 +41,7 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   for (const [action, args] of withheldActions) {
     await assert.rejects(() => client[action](...args), /selected workspace/, `${action} must not use the legacy transport`);
   }
+  assert.deepEqual(await client.receiveWorkspaceStatus(), { waiting: false });
   assert.deepEqual(calls, []);
   await client.createTask("Inline @work", "Notes", { priority: 1, idempotencyKey: "capture-key" });
   await client.updateTask("id", "Inline @work", "Notes", 3, { idempotencyKey: "edit-key" });

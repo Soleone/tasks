@@ -391,9 +391,9 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
               <section aria-labelledby="settings-sync" className="flex flex-col gap-3 rounded-lg border p-4 md:col-span-2">
               <div className="flex flex-col gap-1">
                 <h2 id="settings-sync" className="text-sm font-medium">Workspace sync</h2>
-                <p className="text-sm text-muted-foreground">Move an existing workspace to this device through Syncthing.</p>
+                <p className="text-sm text-muted-foreground">{selectedWorkspace ? "Receiving a workspace from another device is not yet available here." : "Move an existing workspace to this device through Syncthing."}</p>
               </div>
-              {isAndroid ? <>
+              {selectedWorkspace ? null : isAndroid ? <>
                 <p className="text-sm text-muted-foreground">Choose the user-visible folder that Syncthing will share. Tasks imports canonical JSON on startup and when it returns to the foreground. If this device already has local tasks, export a portable copy to keep them safe. Android cannot replace those tasks with an existing workspace yet.</p>
                 {syncFolder ? <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Selected Android folder</p>

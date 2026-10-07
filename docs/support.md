@@ -1,6 +1,6 @@
 # Current support and evidence
 
-**Checked 2026-10-07, `pa1`, on code baseline `2eefcff`.** This is the current support index, not a release declaration or permission to enable commands. [PLAN.md](../PLAN.md) owns scope and acceptance. [The inventory](refactor-inventory.md) maps workflow gaps and consolidation proposals.
+**Checked 2026-10-07: support audit `pa1` on `2eefcff`; Settings receive correction `8v8` on `3e12326`.** This is the current support index, not a release declaration or permission to enable commands. [PLAN.md](../PLAN.md) owns scope and acceptance. [The inventory](refactor-inventory.md) maps workflow gaps and consolidation proposals.
 
 ## What runs today
 
@@ -37,12 +37,20 @@ Backend admission, client exposure and actual host proof are separate. [Action w
 | Child capture, parent/dependency editing | Refused/unavailable; existing links may be displayed. Original UI assets and broader Linux implementation are retained. |
 | Manual reorder, status batches, grouped/general operation undo | Refused/unavailable. Ctrl+Z restores only eligible latest single-task status, not capture/content/order/relationship changes. |
 | Activity and app export/purge/doctor/recovery | Not connected as main-client actions. Backend activity and proved copy/recovery controls remain available separately through the selected JSON-lines backend. |
-| Receive/sharing setup | Legacy receive prepare/abort refuse; status reports not waiting. Settings still renders the inherited confirmation, which cannot fulfill its backup/empty-folder promise on this route. This is a documented UI gap, not supported receive behavior. |
+| Receive/sharing setup | Legacy receive prepare/abort refuse; status reports not waiting. Settings withholds receive actions and confirmation, explaining the limitation in Data → Workspace sync. No backup/empty-folder promise or receive capability is offered on the selected route. |
 | Global window-focus shortcut | Not registered on the selected route; permission/native focus proof remains required. |
 | Themes and preferences | Built-in palettes and local WebView preferences exist; custom filesystem themes are not supplied. The disposable launcher uses new WebView storage each launch, so durable preferences on the final route are unproved. |
 | Uncertain request or unsaved draft after reload/close | Memory-only state can be lost. Retry preserves the exact original envelope while retained; neither process restart nor reload authorizes automatic replay, new authority or guessed recovery. |
 
 The existing home/keyboard/mouse design remains the baseline. Unsupported operations are not permission to redesign it or silently drop workflows. Agree deliberate losses and prove each required native family before cutover.
+
+## Scoped Settings receive evidence (`8v8`)
+
+[Settings](../src/components/SettingsDialog.tsx) retains its layout and default desktop/Android branches. Only the selected workspace's unsupported receive affordance and confirmation are withheld. [Routing checks](../scripts/mainClientRouting.test.mjs) retain prepare/abort refusal and now assert not-waiting status without selected command calls.
+
+Run `node scripts/check-settings-ui.mjs` for the [real-render fixture](../scripts/check-settings-ui.mjs). Actual Settings/Base UI components and production CSS use disposable workspace/runtime stubs, not a backend or native window. Checks cover selected guidance/no receive controls or callback, disabled export/Tab loop, Escape/final focus/reopen, default desktop confirmation/cancel/reset/callback, and Android choose/change/forget. Selected Gilt renders at 1100×760, 720×500, 390×844 and 550×380 have zero axe findings and no horizontal overflow; the last size is a reflow check, not an actual browser-zoom proof. The changed sync section also has zero findings in Catppuccin Latte. Types/lint, 1,662 regressions/two existing skips and the full legacy Chromium UI suite pass; the mechanical UI detector reports no findings.
+
+**Inherited findings remain:** Catppuccin Latte's inactive Settings tabs measure 2.61:1 contrast; the default desktop Gilt confirmation/cleanup destructive buttons measure 3.7:1. Re-rendering unchanged `3e12326` Settings with identical CSS reproduces both. The fixture reports these exact locations and rejects other findings; it does not declare the whole Settings surface accessible. Theme fixes need a separate bounded scope. No new Windows WebView2/Android device proof, owner sessions, receive implementation, capabilities, personal selection or cutover is implied.
 
 ## Migration, authority and acceptance
 
