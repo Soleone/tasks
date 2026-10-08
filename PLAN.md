@@ -1,6 +1,6 @@
 # Tasks: one-application roadmap
 
-**Current roadmap: 2026-10-07.** Continues the 2026-10-04 clean-cut decision, not a new architecture. This file is the single source of direction, work order and acceptance gates. The previous detailed milestone diary is preserved at `86e3c1b:PLAN.md`; the original reset baseline remains `905c65a`.
+**Current roadmap: 2026-10-08.** Continues the 2026-10-04 clean-cut decision, not a new architecture. This file is the single source of direction, work order and acceptance gates. The previous detailed milestone diary is preserved at `86e3c1b:PLAN.md`; the original reset baseline remains `905c65a`.
 
 ## Direction and destination
 
@@ -49,7 +49,7 @@ The destination is approved. **Listing later work does not approve its implement
 
 | Order | Work | Exit / gate |
 | --- | --- | --- |
-| **1. Next** | Retain missing production ordering coverage, as specified below | Test-only diff, independent expectations, focused/full tests and types/lint; stop before pruning |
+| **1. Implemented** | Production ordering coverage retained in `55f330a` | Test-only additions; see completion reference below. No native acceptance implied |
 | 2 | Retire redundant local candidate tests | First retain remaining unique fault-position/property checks and design/limitation evidence from `8x1`; remove only proven redundant suites/dead helpers. Keep transport dependencies. Separately approve this scope |
 | 3 | Agree the remaining daily-use and release scope | Use the existing workflow inventory, not another open-ended audit. Owner confirms essentials, deliberate losses, release platforms and conversion host. Existing UI/workflows remain the baseline |
 | 4 | Close only agreed workflow/native-route gaps | Approve/prove one concrete family at a time; reuse existing UI/backend. Do not enable unproved Windows writers. Native acceptance waits for the separately resumed checks below |
@@ -59,27 +59,13 @@ The destination is approved. **Listing later work does not approve its implement
 
 Stages 1–2 are finite preparation, not an invitation to keep finding cleanup projects while acceptance waits. Stages 3–5 may feed back a named prerequisite, but must not expand into full target implementation or recreate a second client. Stop for an unresolved owner/platform decision instead.
 
-## Next action: production ordering coverage
+## Implemented: production ordering coverage
 
-**Proposed execution scope; this roadmap update does not start it.** An explicit instruction to execute this next action authorizes only this test-only step. Create/reuse one scoped SQ execution task at that point, not a backlog for the entire table.
+Commit `55f330a` retained three literal public-command allocations and **419 mixed-tie placements** with independently spliced expectations in `src/backend/v2OrderWriter.test.ts`, plus literal prefix/case ordering in `src/backend/v2CanonicalReader.test.ts`. The existing 424 tied/distinct variants and exact-ID tie-break remain. Keep independent expectations, canonical-field constraints and corpus accounting intact.
 
-Retain the findings from completed audit `8x1` in the existing production reader/ordering suites:
+This is an implementation reference, not a claim that validation was rerun or native acceptance obtained. Stage 2 still requires separate scope approval; no candidate/helper/transport deletion is authorized by this completion marker.
 
-1. Three missing literal allocations: `(a0,a0V,1) → [a0G]`, `(Zz,a0,1) → [ZzV]`, `(null,null,4) → [a0,a1,a2,a3]`. Exercise the production allocation path; no new public generation command.
-2. Prefix/case comparison vector: `[Zz,a0,a0V,a0Z,a0a]`, plus the retained exact-ID tie-break. Use literal expected order, not a production comparator to construct the oracle.
-3. The **419 mixed-tie placements**: lengths 2 through 6, keys from `[a0,a0,a1,a1,a1,a2]`, every nonempty selected subset in current order and every insertion position after removal. Translate to public anchors/end placement. Compute intended IDs independently by selected/remaining splicing. Assert the variant count; do not use either planner's `finalIds` as the expected result.
-
-Production's existing 424 five-task all-tied/all-distinct variants are a different family, not a replacement for these 419 combinations. Keep the existing cases and hand-authored expectations/golden data. Use only the 13 accepted canonical fields; the candidate's permissive `extra` field is not a target.
-
-Likely owners: `src/backend/v2CanonicalReader.test.ts` and `src/backend/v2OrderWriter.test.ts`; inspect `src/backend/v2TaskModel.ts`, `src/backend/v2TaskOrdering.ts` and the ordering corpus first. Keep corpus IDs/accounting intact; supplemental focused vectors need not create new normative cases.
-
-**Excluded:** runtime changes; deletion of any candidate/helper/transport file; capability or browser expansion; Windows launch/runtime/thread probes; personal data; mass renaming; migration or default cutover.
-
-**Exit:** focused reader/order/integrity checks, `pnpm check`, `pnpm lint`, `pnpm test`, clean-code self-review and a scoped commit. Record real counts/skips and stop. No native acceptance is required or claimed for this test-only step.
-
-Detailed comparison, available locally as supporting evidence, not a second plan:
-`$DATA/plans/2026-10-07-tasks-candidate-fixture-retirement-review.md`.
-SQ `sq show 8x1` also records it. If the external artifact is unavailable, this next-action scope is self-contained; inspect the cited source/tests rather than inventing missing findings.
+Supporting comparison for the candidate-retirement checkpoint: `$DATA/plans/2026-10-07-tasks-candidate-fixture-retirement-review.md` and SQ `sq show 8x1`. If unavailable, stop before retirement rather than inventing its remaining findings.
 
 ### Candidate retirement checkpoint
 
@@ -121,10 +107,8 @@ Before closing gaps, agree a short **keep / replace / intentionally drop** check
 - Apply clean-code and its review checklist; run types/lint/full regressions and relevant scoped checks. Record failures/skips and actual platform limits. Update the completed task, current next action and support index only where behavior changed, not every historical report.
 - Commit validated scoped repository changes and **stop at the approved task's checkpoint**. Do not select another task or restart Windows diagnosis automatically. Preserve evidence/diff and report any unresolved host, contract, tooling or permission blocker.
 
-## Next-session instruction
+## Next-session boundary
 
-Give the agent **this file**, not a bundle of competing plans. When ready to authorize stage 1, use:
+Read this file and AGENTS.md. Production ordering coverage is already implemented; do not repeat stage 1. Stage 2 candidate retirement awaits separate scope approval and the checkpoint above. No later work, Windows investigation, capability expansion, personal data or cutover is authorized by this roadmap update. Ignore older autonomous-loop instructions.
 
-> Read AGENTS.md and PLAN.md. Execute only “Next action: production ordering coverage.” Create or reuse its scoped SQ task, validate and commit the test-only change, then stop for review. No candidate deletion, Windows investigation, capability expansion, personal data or cutover. Treat audit reports as supporting evidence and ignore older next-task/autonomous-loop instructions.
-
-Until that execution request, the next action is proposed, not started. [README](README.md) and [development](docs/development.md) own commands and host setup; this roadmap does not authorize platform expansion or personal selection.
+[README](README.md) and [development](docs/development.md) own commands and host setup; this roadmap does not authorize platform expansion or personal selection.
