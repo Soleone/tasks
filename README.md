@@ -24,7 +24,7 @@ For the native shell, use `pnpm dev:tauri` on Windows 11 or Omarchy. On Linux, t
 
 Current task state lives in ordinary JSON files under `sync/`; SQLite is a local query cache and stores activity, receipts, and indexes. Sync only the canonical JSON root. Never sync `tasks.db`, its `-wal`/`-shm` files, or `.tasks-local/`.
 
-For the **legacy default**, if another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. That flow backs up and empties the local workspace, locks the UI, and waits for the existing workspace; follow [the Syncthing setup](docs/syncthing.md). It is not supported on the selected Windows replacement route, even though Settings still renders its confirmation. See [current receive/migration limits](docs/support.md#main-client-gaps-that-remain).
+For the **legacy default**, if another device already has task history, use **Settings → Sync with another device…** on the new device before adding its folder to Syncthing. That flow backs up and empties the local workspace, locks the UI, and waits for the existing workspace; follow [the Syncthing setup](docs/syncthing.md). It is not supported on the selected Windows replacement route. See [current receive/migration limits](docs/support.md#main-client-gaps-that-remain).
 
 ## Opt-in v2 browser reader
 
