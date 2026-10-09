@@ -112,7 +112,6 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
   }, [activeId]);
 
   const active = page?.tasks.find(task => task.id === activeId);
-  const parentEditing = editor?.selection.writeCommands.includes("task.move") === true;
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -124,7 +123,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
         <div className="mt-3 flex flex-col gap-2">
         <p className="break-words"><span className="font-medium text-foreground">Folder:</span> {reader.selection.rootPath}</p>
         <p className="break-words"><span className="font-medium text-foreground">Local cache:</span> {reader.selection.databasePath}</p>
-        <p className="mt-2">{editor ? parentEditing ? "Capture, content, status/undo and parent-change previews enabled. Grouped undo, batches, dependency editing, ordering, migration and recovery remain unavailable." : "Capture, content and single-task status/undo previews enabled. Parent editing and other app writes remain unavailable; use explicit CLI recovery for pending work." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
+        <p className="mt-2">{editor ? "Capture, content, status/undo and parent-change previews enabled. Grouped undo, batches, dependency editing, ordering, migration and recovery remain unavailable." : "Read-only. App capture, editing, ordering, migration and recovery are unavailable."} Refreshes never execute recovery or switch folders.</p>
         {editor && <p className="break-words">Retained profile: {editor.selection.profilePath}. No retry payload is saved across reloads.</p>}
         </div>
       </details>
@@ -145,7 +144,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
       <div className="flex flex-wrap items-center gap-3">
         <Button ref={retryRef} variant="outline" onClick={() => setRefresh(value => value + 1)}>{error || workspace?.state !== "ready" ? "Retry" : "Refresh"}</Button>
         <Button variant="outline" disabled={!active} onClick={() => { if (active) setDetails(active); }}>Show details</Button>
-        {editor && <><Button variant="outline" disabled={workspace?.state !== "ready" || !!error} onClick={() => setEditing({})}>New task</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id }); }}>Edit content</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, mode: "status" }); }}>Change status</Button>{parentEditing && <Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, mode: "parent" }); }}>Change parent</Button>}</>}
+        {editor && <><Button variant="outline" disabled={workspace?.state !== "ready" || !!error} onClick={() => setEditing({})}>New task</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id }); }}>Edit content</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, mode: "status" }); }}>Change status</Button><Button variant="outline" disabled={!active || !!error} onClick={() => { if (active) setEditing({ id: active.id, mode: "parent" }); }}>Change parent</Button></>}
         {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
         {page && <p role="status" className="text-sm text-muted-foreground">{page.total} matching {page.total === 1 ? "task" : "tasks"}, manual order</p>}
       </div>
@@ -159,7 +158,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
         else if (event.key === "Enter" && active) { event.preventDefault(); if (editor) setEditing({ id: active.id }); else setDetails(active); }
         else if (event.key === "c" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && workspace?.state === "ready" && !error) { event.preventDefault(); setEditing({}); }
         else if (event.key === "t" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && active && !error) { event.preventDefault(); setEditing({ id: active.id, mode: "status" }); }
-        else if (event.key === "m" && !event.ctrlKey && !event.metaKey && !event.altKey && parentEditing && active && !error) { event.preventDefault(); setEditing({ id: active.id, mode: "parent" }); }
+        else if (event.key === "m" && !event.ctrlKey && !event.metaKey && !event.altKey && editor && active && !error) { event.preventDefault(); setEditing({ id: active.id, mode: "parent" }); }
       }}>
         {page?.contextTasks.map(task => <Item key={task.id} state="context"><p className="min-w-0 break-words text-sm">Ancestor: {task.title}</p></Item>)}
         {page?.tasks.map(task => (
@@ -174,7 +173,7 @@ export function V2ReaderView({ reader, editor, onLeave }: { reader: V2WorkspaceR
       {page && (page.total > page.limit || offset > 0) && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - page.limit))}>Previous page</Button><Button variant="outline" disabled={offset + page.limit >= page.total} onClick={() => setOffset(value => value + page.limit)}>Next page</Button><span className="text-sm text-muted-foreground">{Math.min(offset + 1, page.total)}–{Math.min(offset + page.limit, page.total)} of {page.total}</span></div>}
       <details className="text-sm text-muted-foreground">
         <summary className="cursor-pointer">Keyboard help</summary>
-        <p className="mt-3">Arrow keys or J/K move through tasks. {editor ? parentEditing ? "C opens capture; Enter edits content; T opens status actions; M opens parent selection. Preview before applying. Escape cancels only unsent drafts." : "C opens capture; Enter edits content; T opens status actions. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
+        <p className="mt-3">Arrow keys or J/K move through tasks. {editor ? "C opens capture; Enter edits content; T opens status actions; M opens parent selection. Preview before applying. Escape cancels only unsent drafts." : "Enter shows details; Escape closes them."} These controls are also available by mouse. Titles and descriptions remain literal.</p>
       </details>
       {editor && editing && <Suspense fallback={<p role="status">Loading task editor...</p>}><V2TaskEditor editor={editor} taskId={editing.id} mode={editing.mode} returnFocus={() => listRef.current ?? undefined} onClose={() => setEditing(null)} onComplete={result => { setEditing(null); setActiveId(result.task.id); setRefresh(value => value + 1); setNotice(result.changed ? "Original request completed. Refreshing current tasks." : "No change; original request completed."); }} /></Suspense>}
       <Dialog open={details !== null} onOpenChange={open => { if (!open) setDetails(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto" finalFocus={() => listRef.current ?? undefined}>{details && <TaskDetails task={details} />}</DialogContent></Dialog>

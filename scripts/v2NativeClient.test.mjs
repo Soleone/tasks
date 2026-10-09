@@ -94,7 +94,6 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
   desktop(t);
   const state = sessionFixture(t, request => request.command === "workspace.info" ? info : request.command === "task.get" ? { task } : { task: { ...task, title: request.args.title }, changed: true, operationId: "native-operation" });
   const reader = new V2WorkspaceReader(selection, undefined, state.session), editor = new V2EditorClient(state.session, editorSelection);
-  assert.equal(editor.isNative, true);
   await reader.workspaceInfo(); const baseline = await editor.begin(task.id);
   const prepared = editor.prepare(baseline, { ...task, title: "Native content" }); const original = prepared.originalRequest;
   await prepared.execute(); await prepared.execute(); assert.equal(prepared.originalRequest, original);

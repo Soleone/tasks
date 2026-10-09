@@ -114,8 +114,6 @@ export class V2EditorClient {
     this.selection = Object.freeze({ ...selection, writeCommands: Object.freeze([...selection.writeCommands]) });
   }
 
-  get isNative(): boolean { return this.connection instanceof JsonLineSession; }
-
   async begin(taskId?: string, mode: V2EditorMode = "content"): Promise<V2EditBaseline> {
     if (mode !== "content" && taskId === undefined) throw new Error("Select an existing task for this operation; no query was sent.");
     if (mode === "parent" && !this.selection.writeCommands.includes("task.move")) throw new V2EditorError("UNSUPPORTED_COMMAND", "Parent editing is unavailable in this native profile; no query was sent.");
