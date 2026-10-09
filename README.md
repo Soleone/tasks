@@ -416,7 +416,7 @@ Expect four tasks and five planned files. IDs, notes, relationships, complete si
 
 ### Migrate a disposable v1 copy, then choose a version explicitly
 
-See the [verified one-user rehearsal/runbook](docs/migration-rehearsal.md) for preservation checks, recovery refusals and the cutover dependency inventory. Windows native migration remains withheld; personal conversion/selection still requires explicit approval.
+See the [verified one-user rehearsal/runbook](docs/migration-rehearsal.md) for preservation checks and recovery refusals. Windows native migration remains withheld; personal conversion/selection still requires explicit approval.
 
 Linux only. Pause all v1 writers and sharing yourself, and use a disconnected destination. The new lock does **not** stop legacy writers or Syncthing. This example uses only committed synthetic fixtures and needs `jq`:
 

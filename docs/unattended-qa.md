@@ -27,28 +27,6 @@ Both test runners also now explicitly select scratch canonical roots, blank sour
 
 Changed code is limited to `scripts/check-ui.mjs`, `scripts/check-sidecar.mjs`, their new harness regression tests and expanded native routing assertions. No product UI, command model, writer, launcher permission or dependency changed.
 
-## Native workflow inventory for the later owner review
-
-This is a **factual draft**, not the owner's keep/replace/drop decision. Established UI/workflows remain the baseline. Actual Windows evidence is recorded in [restored-main-client](restored-main-client.md) and [native pilot](windows-native-pilot.md); this pass did not rerun native scenes. The concrete boundaries are [backendClient](../src/platform/backendClient.ts), [MainWorkspace](../src/platform/mainWorkspace.ts) and [native selection](../src/platform/v2NativeSelection.ts).
-
-| Workflow | Explicitly selected Windows main client today | Remaining decision/work |
-| --- | --- | --- |
-| Capture/edit Markdown | Original C/Enter/inline form, keyboard/mouse; root capture and content edits use the proven path | Review daily usability. Unsaved drafts are memory-only |
-| Classification and priority | Existing shorthand/pickers and P0–P4; literal content round-trips; priority-only change does not rewrite title | No label dictionaries ported. Review whether existing behavior suffices |
-| Filters/search/details | Existing compact toolbar, category/tag/status/priority/unblocked/search, details toggle and date/priority/manual reading | Browser regression passes; earlier native focus/search evidence remains bounded |
-| Relationships | Existing canonical links are displayed; parent/dependency mutation and child capture are withheld | If essential, approve one bounded writer proof/integration task. Do not rebuild the UI or drop relationships by inference |
-| Manual sibling order | Persisted order can be read; reorder controls report native unavailability | If essential, approve a bounded Windows ordering proof/integration task |
-| Group operations | Multi-selection UI is retained; batch status/undo/reorder writes are withheld | Decide required group workflows; no silent per-task loop substituted for atomic batches |
-| Undo | Eligible latest local single-status inverse only; general capture/content/relationship/order undo is unavailable | Review which broader inverses are essential; no history inferred from canonical files |
-| Backup/restore | Proven explicit CLI archive/restore to absent destinations; Settings export is unavailable on this selected path | Decide whether CLI-only is adequate for the release. Keep independent backups |
-| Recovery and uncertain writes | Immutable original-request retry dialog; explicit CLI recovery/reconciliation; writes pause after preservation acknowledgment | Requests are memory-only across reload/close. No automatic recovery or durable draft guarantee |
-| Help/themes/settings | Established components and built-in themes retained | Disposable launcher isolates WebView storage per cold launch; do not infer durable cross-launch preferences from legacy browser persistence |
-| Global focus shortcut | Native selected path withholds registration | Decide whether this established shortcut is essential; separate capability evidence is needed |
-| Activity/purge/share setup | Some backend activity is proven, but these main-client actions remain unavailable | Not automatically release requirements. No sharing/provider claim or purge/receive port |
-| Migration | Verified separate-root Linux converter/runbook; no native migration capability | Personal reading/conversion/selection needs approval; Windows conversion needs its own bounded proof if required |
-
-The largest potential daily-use gaps are **relationships, manual-order changes and broader undo**. They can be investigated and validated by agents in separately bounded tasks; owner participation is needed to agree essentials and any deliberate workflow loss, not to execute every regression check. None was implemented by this QA task.
-
 ## What can proceed without owner participation
 
 - Run supported disposable browser/backend/SEA regressions and inspect failures.

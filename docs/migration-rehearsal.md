@@ -81,18 +81,3 @@ Changed/missing source, stage, archive, progress or publication bindings refuse 
 
 4. **Explicitly switch only after review.** Conversion never changes app selection or sharing. A real native/client switch remains gated on owner review, essentials and supported capability evidence; the commands above inspect only this scratch folder.
 5. **Keep both roots.** Returning to the preserved v1 snapshot restores pre-conversion state and loses access to later v2 edits in that client. Retain those edits in the separate v2 root. There is no reverse conversion, dual writing or automatic rollback. Do not resume sharing until the chosen supported client/root is explicitly agreed.
-
-## Minimum isolated dependencies for cutover
-
-No converter extraction is needed during rehearsal. The current source/conversion modules already avoid initializing the legacy engine:
-
-| Responsibility | Keep at `dvs` |
-| --- | --- |
-| Strict legacy reading | `v2MigrationSource.ts`: descriptor/task/order shapes, required fields, legacy hashes, graph/full-order inventory and lossless time validation |
-| Literal mapping | `v2V1Conversion.ts`: legacy `taskText.ts` token recognition, target validation and pinned `fractional-indexing` allocation |
-| Hash verification | `requestHash.ts`'s `contentHash` plus `canonicalJson.ts`; no legacy command execution is required |
-| Safe publication/recovery | `v2MigrationWriter.ts` / `v2MigrationJournal.ts`, reusing the current copy journal/files/writer, local-domain durability, cache authority/receipts and pending recovery |
-| Legacy types only | Imports from `canonicalWorkspace.ts` and `protocol.ts` are type-only in source/conversion/hash modules; retain only needed shapes inside isolated migration code when deleting the old runtime |
-| Separate entry point | Give the one-time converter an explicit entry point at cutover. Current `cli.ts` still statically imports the legacy runtime for today's default app; do not retain that default dispatch/fallback as a migration facade |
-
-Do **not** retain the legacy database/schema, command dispatch, watcher, UI workbench, source registry, old receipt/history authority, reverse converter or dual-write orchestration for conversion. Old binaries/source remain retrievable from Git. Backup preservation and the current publication/recovery invariants stay required when removing obsolete dependencies. This inventory is a cutover boundary, not authorization to rename/delete the production runtime now.
