@@ -52,7 +52,7 @@ function waitFor(script) { browser("wait", "--fn", script); }
 function check(script) { assert.equal(evaluate(script), true, script); }
 function auditTaskList() {
   check('[...document.querySelectorAll("[role=option]")].every(row => !row.hasAttribute("aria-expanded") && !row.querySelector("button, a[href], input, select, textarea, [role=button]"))');
-  check('[...document.querySelectorAll("[role=option][data-expanded]")].every(row => document.getElementById(row.getAttribute("aria-describedby"))?.hidden === true && document.getElementById(row.getAttribute("aria-describedby"))?.textContent === `Children ${row.dataset.expanded === "true" ? "expanded" : "collapsed"}.`)');
+  check('[...document.querySelectorAll("[role=option]")].every(row => { const description = document.getElementById(row.getAttribute("aria-describedby")); return !row.hasAttribute("aria-describedby") || (description?.hidden === true && ["Children expanded.", "Children collapsed."].includes(description.textContent)); })');
   const audit = JSON.parse(browser("--json", "a11y", "--selector", "#task-list"));
   assert.equal(audit.success, true);
   assert.equal(audit.data.violations.length, 0, JSON.stringify(audit.data));
@@ -62,6 +62,15 @@ function toastWithText(message) {
   return `[...document.querySelectorAll("[data-sonner-toast]")].find((toast) => toast.textContent.includes(${JSON.stringify(message)}))`;
 }
 function hasToastWithText(message) { return `Boolean(${toastWithText(message)})`; }
+function expandedTaskOptionExpression(title, selector = "[role=option]") {
+  return `[...document.querySelectorAll(${JSON.stringify(selector)})].find((row) => row.textContent.includes(${JSON.stringify(title)}) && document.getElementById(row.getAttribute("aria-describedby"))?.textContent === "Children expanded.")`;
+}
+function summaryBaseExpression() {
+  return 'document.querySelector("[data-filter-summary] [data-slot=breadcrumb-list] > [data-slot=breadcrumb-item]")?.textContent.trim()';
+}
+function summaryFilterExpression(filter) {
+  return `document.querySelector('[data-filter-summary] [data-filter-remove=${JSON.stringify(filter)}]')?.textContent.trim()`;
+}
 function focus(selector) {
   const expression = `(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!element) return false; element.focus(); return document.activeElement === element; })()`;
   let lastError;
@@ -274,7 +283,7 @@ try {
   focus("[role=listbox]");
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true"');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · launch"');
+  check(`${summaryBaseExpression()} === "1 active task" && ${summaryFilterExpression("category")} === "launch"`);
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"');
   check('document.querySelectorAll("[role=option] [data-slot=badge]").length === 2');
@@ -964,7 +973,7 @@ try {
   })()`);
   browser("press", "ArrowRight");
   waitFor('document.querySelectorAll("[role=option]").length === 7 && document.querySelectorAll("[data-depth=\\"1\\"]").length === 2');
-  check('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Release parent")');
+  check(`Boolean(${expandedTaskOptionExpression("Release parent")})`);
   auditTaskList();
   check('document.querySelector("[data-depth=\\"1\\"] .pl-6") !== null');
   browser("press", "ArrowDown");
@@ -1065,7 +1074,7 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1 && document.activeElement.matches("[role=listbox]")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · roadmap"');
+  check(`${summaryBaseExpression()} === "1 active task"`);
   check('document.querySelector("[data-filter-summary] [data-filter-category]")?.textContent === "roadmap"');
   check('document.querySelector("[role=option]").textContent.includes("Roadmap task")');
   check('document.querySelector("[data-filter=task-category]").getAttribute("aria-label").includes("roadmap")');
@@ -1103,7 +1112,7 @@ try {
   check('document.querySelector("[role=option]").textContent.includes("Launch follow-up")');
   browser("press", "f");
   browser("press", "4");
-  waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0 && document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · launch · P4"');
+  waitFor(`document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0 && ${summaryBaseExpression()} === "0 active tasks" && ${summaryFilterExpression("category")} === "launch" && ${summaryFilterExpression("priority")} === "P4"`);
   browser("click", '[data-filter-remove="priority"]');
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
   browser("click", '[data-filter-remove="category"]');
@@ -1117,7 +1126,7 @@ try {
   browser("press", "f");
   browser("press", "0");
   waitFor('document.querySelector("[data-filter=task-priority]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 0');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · P0"');
+  check(`${summaryBaseExpression()} === "0 active tasks" && ${summaryFilterExpression("priority")} === "P0"`);
   waitFor('document.activeElement.matches("[role=listbox]") && document.querySelector("[data-empty-state=filtered]") !== null');
   check('document.body.textContent.includes("No tasks match the current filters")');
   check('document.querySelector("[data-empty-state=filtered] button").tabIndex === -1');
@@ -1204,7 +1213,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("product"))');
   browser("press", "Space");
   waitFor('document.querySelectorAll(\'[role=listbox][aria-label^="Tasks"] [role=option]\').length === 1');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · #planning #product"');
+  check(`${summaryBaseExpression()} === "1 active task" && ${summaryFilterExpression("tags")} === "#planning #product"`);
   check('document.querySelector(\'[role=listbox][aria-label^="Tasks"] [role=option]\').textContent.includes("Tag cockpit")');
   // Enter closes the picker without changing the current multi-selection.
   browser("press", "Enter");
@@ -1228,7 +1237,7 @@ try {
   waitFor('[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("planning"))');
   browser("press", "Enter");
   waitFor('!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")');
-  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${planningCount} active task${planningCount === 1 ? "" : "s"} · #planning"`);
+  waitFor(`${summaryBaseExpression()} === "${planningCount} active task${planningCount === 1 ? "" : "s"}" && ${summaryFilterExpression("tags")} === "#planning"`);
   browser("click", '[data-filter-remove="tags"]');
   waitFor('document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
   // # opens the tag picker directly with its search field ready for typing.
@@ -1252,7 +1261,7 @@ try {
   check('document.querySelector(\'input[name="search"]\').value === "accessibility"');
   browser("press", "Enter");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "true" && document.querySelectorAll("[role=option]").length === 1');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task · “accessibility”"');
+  check(`${summaryBaseExpression()} === "1 active task" && ${summaryFilterExpression("search")} === "“accessibility”"`);
   check('document.querySelector("[data-filter=task-search]").getAttribute("aria-label").includes("accessibility")');
   browser("click", '[data-filter-remove="search"]');
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
@@ -1264,7 +1273,7 @@ try {
   check('document.querySelector(\'input[name="search"]\').value === "zzz-no-such-task"');
   browser("press", "Enter");
   waitFor('document.body.textContent.includes("No tasks match the current filters")');
-  check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks · “zzz-no-such-task”"');
+  check(`${summaryBaseExpression()} === "0 active tasks" && ${summaryFilterExpression("search")} === "“zzz-no-such-task”"`);
   browser("find", "role", "button", "click", "--name", "Clear filters");
   waitFor('document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 12');
   check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
@@ -1383,7 +1392,7 @@ try {
     document.querySelector('[role=listbox]')?.focus();
     return true;
   })()`);
-  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Detach parent")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Detach parent")})`);
   browser("press", "ArrowDown");
   waitFor('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === "task-option-' + detachChild.id + '"');
   browser("press", "m");
@@ -1568,13 +1577,13 @@ try {
     return true;
   })()`);
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Completed context parent")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Completed context parent")})`);
   auditTaskList();
   const contextParentIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
   browser("press", "Space");
-  waitFor('document.querySelector("[role=option][data-expanded=true] [data-status=in_progress]") !== null');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Completed context parent")}?.querySelector("[data-status=in_progress]"))`);
   browser("press", "Space");
-  waitFor('document.querySelector("[role=option][data-context-parent][data-expanded=true]")?.textContent.includes("Completed context parent")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Completed context parent", "[role=option][data-context-parent]")})`);
   const contextVisibleCount = evaluate('document.querySelectorAll("[role=option]:not([data-context-parent])").length');
   const contextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))');
   check(`${contextAfterIndex} === ${contextParentIndex}`);
@@ -1603,11 +1612,11 @@ try {
     return true;
   })()`);
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Canceled context parent updated")})`);
   const canceledParentIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Canceled context parent updated"))');
 
   browser("press", "Delete");
-  waitFor('document.querySelector("[role=option][data-context-parent][data-expanded=true]")?.textContent.includes("Canceled context parent updated")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Canceled context parent updated", "[role=option][data-context-parent]")})`);
   auditTaskList();
   const canceledContextAfterIndex = evaluate('[...document.querySelectorAll("[role=listbox] > [role=option]")].findIndex((item) => item.textContent.includes("Canceled context parent updated"))');
 
@@ -1788,7 +1797,7 @@ try {
   browser("press", "m");
   waitFor('document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true"');
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Manual parent")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Manual parent")})`);
   browser("press", "Control+ArrowDown");
   waitFor('[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual child"))');
   const parentRowIndex = evaluate('[...document.querySelectorAll("[role=option]")].findIndex((item) => item.textContent.includes("Manual parent"))');
@@ -1830,7 +1839,7 @@ try {
     browser("press", "ArrowDown");
   }
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=option][data-expanded=true]")?.textContent.includes("Manual move target")');
+  waitFor(`Boolean(${expandedTaskOptionExpression("Manual move target")})`);
   for (let step = 0; step < 12; step++) {
     if (String(evaluate('document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent ?? ""')).includes("Manual move subject")) break;
     browser("press", "ArrowDown");

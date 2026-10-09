@@ -262,7 +262,6 @@ const TaskOption = memo(function TaskOption({
       role="option"
       aria-selected={selected}
       aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
-      data-expanded={row.hasChildren ? expanded : undefined}
       aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
       tabIndex={-1}
       data-active={active || undefined}

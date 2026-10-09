@@ -80,8 +80,6 @@ function BreadcrumbSeparator({ children, className, ...props }: ComponentProps<"
       {...props}
     >
       {children ?? <ChevronRight aria-hidden="true" />}
-      {/* Keep DOM text summaries stable while the separator stays decorative. */}
-      <span className="sr-only">{" · "}</span>
     </li>
   );
 }
