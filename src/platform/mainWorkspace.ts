@@ -55,6 +55,10 @@ export class MainWorkspace {
     return classificationEntries(result.tags);
   }
 
+  async revision() {
+    return (await this.ready()).workspaceRevision;
+  }
+
   async info() {
     const workspace = await this.ready();
     const all = await this.reader.tasks({ limit: 1 });

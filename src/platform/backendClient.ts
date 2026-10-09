@@ -277,6 +277,12 @@ export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {
   return runBackendCommand<WorkspaceInfoResult>("workspace.info");
 }
 
+export async function getWorkspaceRevision(): Promise<number> {
+  if (mainWorkspace) return mainWorkspace.revision();
+  const info = await runBackendCommand<{ workspaceRevision: number }>("workspace.info");
+  return info.workspaceRevision;
+}
+
 /** Writes a portable JSON copy beside the database and reports where it landed. */
 export async function exportTasks(): Promise<TasksExportResult> {
   return runBackendCommand<TasksExportResult>("workspace.exportTasks");

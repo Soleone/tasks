@@ -30,7 +30,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceInfo, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, undoStatusChange, selectMainWorkspace, type ReceiveWorkspaceResult, type TaskListResult, type TaskMutationResult } from "@/platform/backendClient";
+import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceRevision, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, undoStatusChange, selectMainWorkspace, type ReceiveWorkspaceResult, type TaskListResult, type TaskMutationResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
@@ -369,10 +369,10 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       if (disposed || checking || document.visibilityState === "hidden") return;
       checking = true;
       try {
-        const info = await getWorkspaceInfo();
+        const revision = await getWorkspaceRevision();
         if (disposed) return;
         const previousRevision = workspaceRevisionRef.current;
-        if (previousRevision !== null && info.workspaceRevision !== previousRevision) {
+        if (previousRevision !== null && revision !== previousRevision) {
           taskListRef.current?.startIdentityPreservingRefresh();
           try {
             await refreshTasks();
@@ -380,7 +380,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
             finishIdentityPreservingRefresh();
           }
         } else if (previousRevision === null) {
-          workspaceRevisionRef.current = info.workspaceRevision;
+          workspaceRevisionRef.current = revision;
         }
       } catch {
         // Focus and explicit refresh still surface backend failures.

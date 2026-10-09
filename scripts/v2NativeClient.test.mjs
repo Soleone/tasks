@@ -160,6 +160,17 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
   assert.equal(workspace.getUnresolved(), null);
 });
 
+ test("main-client revision reads readiness once without listing tasks", async t => {
+  desktop(t);
+  const state = sessionFixture(t, request => {
+    assert.equal(request.command, "workspace.info");
+    return info;
+  });
+  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  assert.equal(await workspace.revision(), info.workspaceRevision);
+  assert.deepEqual(state.requests.map(request => request.command), ["workspace.info"]);
+});
+
  test("main-client stale selection never replaces the expected version or sends a mutation", async t => {
   desktop(t);
   const state = sessionFixture(t, request => request.command === "workspace.info" ? info : { task: { ...task, version: 2 } });

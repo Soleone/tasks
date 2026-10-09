@@ -16,6 +16,8 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
     async save(...args) { calls.push(["save", ...args]); return {}; },
     async priority(...args) { calls.push(["priority", ...args]); return {}; },
     async status(...args) { calls.push(["status", ...args]); return {}; },
+    async revision() { calls.push(["revision"]); return 7; },
+    async info() { calls.push(["info"]); return { databasePath: "C:\\workspace", taskCount: 4, canceledTaskCount: 2, workspaceRevision: 7 }; },
   };
   client.selectMainWorkspace(workspace);
   for (const options of [{ dryRun: true }, { readOnly: true }]) {
@@ -48,11 +50,15 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   await client.updateTaskPriority({ id: "id", version: 3 }, 0, { idempotencyKey: "priority-key" });
   await client.transitionTask("task.start", "id", 3, { idempotencyKey: "status-key" });
   await client.undoStatusChange("id", 4, { idempotencyKey: "undo-key" });
+  assert.equal(await client.getWorkspaceRevision(), 7);
+  assert.deepEqual(await client.getWorkspaceInfo(), { databasePath: "C:\\workspace", taskCount: 4, canceledTaskCount: 2, workspaceRevision: 7 });
   assert.deepEqual(calls, [
     ["save", "Inline @work", "Notes", 1, "capture-key"],
     ["save", "Inline @work", "Notes", undefined, "edit-key", "id", 3],
     ["priority", "id", 3, 0, "priority-key"],
     ["status", "task.start", "id", 3, "status-key"],
     ["status", "task.status.undo", "id", 4, "undo-key"],
+    ["revision"],
+    ["info"],
   ]);
 });
