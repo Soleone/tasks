@@ -2,15 +2,15 @@ import { isV2Record, type V2Request, type V2Response } from "../backend/v2Protoc
 import type { V2TaskProjection } from "../backend/v2Queries";
 import { V2_STATUS_COMMANDS } from "../backend/v2TaskStatus";
 import { parseV2TaskEditResult, parseV2TaskProjection, type V2TaskExecutionResult, type V2TaskPreviewResult } from "../backend/v2TaskResults";
-import { parseV2TaskPage, parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
+import { parseV2WorkspaceInfo, postV2DevRequest, validateV2Selection, type V2DevConnection } from "./v2BackendClient";
 import { runtimeKind } from "./runtime";
 import { JsonLineSession } from "./backendSession";
 import { validateV2NativeSelection, V2_NATIVE_COMMANDS } from "./v2NativeSelection";
 
 const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
 export const V2_NATIVE_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
-const editorCommands = [...V2_NATIVE_EDITOR_COMMANDS, "task.move"];
-export type V2EditorMode = "content" | "status" | "parent";
+const V2_BROWSER_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS] as const;
+export type V2EditorMode = "content" | "status";
 export type V2StatusAction = typeof statusActions[number];
 
 export type V2EditorSelection = V2DevConnection & { readOnly: false; profilePath: string; writeCommands: readonly string[] };
@@ -23,7 +23,7 @@ export class V2EditorError extends Error {
 }
 
 function validateEditorSelection(value: unknown, native = false): asserts value is V2EditorSelection {
-  const allowed = native ? V2_NATIVE_EDITOR_COMMANDS : editorCommands;
+  const allowed = native ? V2_NATIVE_EDITOR_COMMANDS : V2_BROWSER_EDITOR_COMMANDS;
   if (!isV2Record(value) || value.version !== 2 || value.readOnly !== false
     || typeof value.rootPath !== "string" || typeof value.databasePath !== "string" || typeof value.profilePath !== "string"
     || typeof value.selectionToken !== "string" || !value.selectionToken
@@ -115,12 +115,13 @@ export class V2EditorClient {
   }
 
   async begin(taskId?: string, mode: V2EditorMode = "content"): Promise<V2EditBaseline> {
-    if (mode !== "content" && taskId === undefined) throw new Error("Select an existing task for this operation; no query was sent.");
-    if (mode === "parent" && !this.selection.writeCommands.includes("task.move")) throw new V2EditorError("UNSUPPORTED_COMMAND", "Parent editing is unavailable in this native profile; no query was sent.");
+    if (mode !== "content" && mode !== "status") throw new Error("Unsupported editor mode; no query was sent.");
+    if (mode === "status" && taskId === undefined) throw new Error("Select an existing task for this operation; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
     if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) throw new V2EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
-    const commands = mode === "status" ? statusActions : [mode === "parent" ? "task.move" : taskId === undefined ? "task.create" : "task.update"];
+    const availableStatusCommands = this.connection instanceof JsonLineSession ? statusActions : V2_STATUS_COMMANDS;
+    const commands = mode === "status" ? availableStatusCommands : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
@@ -155,21 +156,6 @@ export class V2EditorClient {
   prepareStatus(baseline: V2EditBaseline, command: V2StatusAction, key: string = crypto.randomUUID()): V2PreparedEdit {
     if (!baseline.task || !statusActions.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
     return this.prepareTaskRequest(baseline, command, { id: baseline.task.id, expectedVersion: baseline.task.version }, key);
-  }
-
-  prepareParent(baseline: V2EditBaseline, parentId: string | null): V2PreparedEdit {
-    if (!baseline.task || (parentId !== null && (typeof parentId !== "string" || !/^[A-Za-z0-9_-]+$/.test(parentId)))) throw new Error("An existing task and safe parent ID or explicit root are required.");
-    return this.prepareTaskRequest(baseline, "task.move", { id: baseline.task.id, expectedVersion: baseline.task.version, parentId });
-  }
-
-  async parentCandidates(baseline: V2EditBaseline, search = "", offset = 0) {
-    if (!this.selection.writeCommands.includes("task.move")) throw new V2EditorError("UNSUPPORTED_COMMAND", "Parent editing is unavailable in this native profile; no query was sent.");
-    if (!baseline.task || typeof search !== "string" || !Number.isSafeInteger(offset) || offset < 0) throw new Error("An existing task and valid parent search/page are required; no query was sent.");
-    const response = await this.query("task.list", { ...(search.trim() ? { search } : {}), offset, limit: 50, sort: "manual", includeAncestors: false, status: ["open", "in_progress", "paused", "done"] });
-    if (response.writeContext !== baseline.writeContext) throw new V2EditorError("STALE_WRITE_CONTEXT", "Context changed during parent search; original authority was not refreshed.");
-    const page = parseV2TaskPage({ ...response.result, contextTasks: response.result.contextTasks === undefined ? [] : response.result.contextTasks });
-    if (page.offset !== offset || page.limit !== 50 || page.tasks.some(task => task.status === "canceled")) throw new Error("v2 backend returned invalid parent candidates; no fallback.");
-    return page;
   }
 
   private prepareTaskRequest(baseline: V2EditBaseline, command: string, args: Record<string, unknown>, key: string = crypto.randomUUID()): V2PreparedEdit {

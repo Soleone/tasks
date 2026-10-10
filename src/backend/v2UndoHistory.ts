@@ -46,7 +46,6 @@ export function selectV2UndoHistory(database: DatabaseSync, context: string, inp
       if (!row) return unavailable();
       const source = { id: row.id, command: row.command, before: parseV2CanonicalJson(Buffer.from(row.before_record)), after: parseV2CanonicalJson(Buffer.from(row.after_record)) };
       const ids = input.kind === "status" ? [input.tasks[index].id] : historyAffected(source);
-      if (input.kind === "status" && [source.before, source.after].some(record => !historyTasks(record).some(task => task.id === ids[0]))) unavailable();
       if (ids.length === 0 || ids.some(id => database.prepare("SELECT 1 FROM v2_undo_claims WHERE operation_id = ? AND task_id = ?").get(source.id, id))) unavailable();
       if (source.command === "task.create") {
         const created = historyTasks(source.after)[0];

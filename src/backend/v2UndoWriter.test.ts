@@ -88,6 +88,27 @@ for (const [suffix, states] of Object.entries(allowed)) for (const status of sta
   });
 }
 
+for (const corruption of ["invalid-preimage", "invalid-postimage", "missing-preimage"]) {
+  test(`selected status undo ${corruption} remains unavailable without effects`, linux, t => {
+    const w = materialize(t);
+    ok(send(w, prepared(w, "task.complete", { id: "a" })));
+    const request = prepared(w, "task.status.undo", { id: "a" });
+    const db = new DatabaseSync(w.cache);
+    try {
+      const history = db.prepare("SELECT before_record, after_record FROM v2_operations").get() as { before_record: string; after_record: string };
+      if (corruption === "invalid-preimage") {
+        const before = JSON.parse(history.before_record); delete before.status;
+        db.prepare("UPDATE v2_operations SET before_record = ?").run(JSON.stringify(before));
+      } else {
+        db.prepare(`UPDATE v2_operations SET ${corruption === "missing-preimage" ? "before_record" : "after_record"} = ?`).run(corruption === "missing-preimage" ? JSON.stringify({ tasks: [] }) : "{}");
+      }
+    } finally { db.close(); }
+    const before = raw(w), state = counts(w);
+    fail(send(w, request), "UNDO_UNAVAILABLE");
+    assert.deepEqual(raw(w), before); assert.deepEqual(counts(w), state);
+  });
+}
+
 test("batch transition and per-task status undo claims retain partial group eligibility without replaying others", linux, t => {
   const w = materialize(t, { a: {}, b: { orderKey: "a1" }, c: { status: "done", closedAt: "2026-09-08T14:00:00.000Z", orderKey: "a2" } });
   const cBefore = get(w, "c"), bytes = raw(w);

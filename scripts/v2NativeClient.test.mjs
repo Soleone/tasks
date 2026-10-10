@@ -100,11 +100,9 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
   assert.equal(state.launches.length, 1); assert.deepEqual(state.launches[0], argv); assert.deepEqual(state.requests.at(-1), state.requests.at(-2));
   await reader.close(); assert.equal(state.kills(), 1);
 });
- test("native unsupported parent/grouped controls refuse before queries or preparation", async t => {
+ test("native unsupported relationship/grouped controls refuse before queries or preparation", async t => {
   desktop(t); const state = sessionFixture(t, () => { throw new Error("No request expected"); });
-  const editor = new V2EditorClient(state.session, editorSelection);
-  await assert.rejects(() => editor.begin(task.id, "parent"), /no query was sent/);
-  await assert.rejects(() => editor.parentCandidates({ writeContext: "native-context", task }), /no query was sent/);
+  assert.equal(V2_NATIVE_EDITOR_COMMANDS.includes("task.move"), false);
   for (const command of ["task.move", "task.transitionMany", "operation.undo", "workspace.recovery.resume"]) assert.throws(() => new V2PreparedEdit(state.session, editorSelection, { version: 2, command, requestId: "r", writeContext: "native-context", idempotencyKey: "k", actor: { kind: "human", label: "native" }, readOnly: false, dryRun: false, args: { id: task.id, expectedVersion: 1 } }));
   assert.equal(state.requests.length, 0); assert.equal(state.launches.length, 0);
 });

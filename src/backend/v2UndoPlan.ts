@@ -64,6 +64,13 @@ function historyScopes(value: unknown): HistoryScope[] {
 export function historyAffected(source: V2HistorySource): string[] {
   return [...new Set([...historyTasks(source.before), ...historyTasks(source.after)].map(task => task.id))];
 }
+function planHistoryTasks(value: unknown, statusOnly: boolean): V2CanonicalTask[] {
+  try { return historyTasks(value); }
+  catch (error) {
+    if (statusOnly && error instanceof CommandError) unavailable(true);
+    throw error;
+  }
+}
 function prospectiveGraph(tasks: V2CanonicalTask[]): void {
   const ids = new Set(tasks.map(task => task.id));
   if (tasks.some(task => (task.parentId !== null && !ids.has(task.parentId)) || task.dependencyIds.some(id => !ids.has(id)))) unavailable();
@@ -105,7 +112,7 @@ export function planV2Undo(input: V2UndoInput, tasks: V2CanonicalTask[], at: str
     if (input.kind === "status" && sources.length !== input.tasks.length) unavailable(true);
     for (const [index, source] of sources.entries()) {
       const statusOnly = input.kind === "status";
-      const before = historyTasks(source.before), after = historyTasks(source.after);
+      const before = planHistoryTasks(source.before, statusOnly), after = planHistoryTasks(source.after, statusOnly);
       if (!["task.transitionMany", "task.reorder", "task.order.normalize"].includes(source.command) && (before.length > 1 || after.length !== 1)) unavailable(statusOnly);
       const ids = statusOnly ? [input.tasks[index].id] : historyAffected(source);
       if (statusOnly && !statusCommands.includes(source.command) && source.command !== "task.transitionMany") unavailable(true);
@@ -114,7 +121,7 @@ export function planV2Undo(input: V2UndoInput, tasks: V2CanonicalTask[], at: str
         const old = before.find(task => task.id === id), post = after.find(task => task.id === id), current = next.get(id);
         if (!current || !post || current.createdAt !== post.createdAt) unavailable(statusOnly);
         if (!old) {
-          if (source.command !== "task.create" || canonicalJson(current) !== canonicalJson(post)) unavailable();
+          if (source.command !== "task.create" || canonicalJson(current) !== canonicalJson(post)) unavailable(statusOnly);
           if (tasks.some(task => task.id !== id && (task.parentId === id || task.dependencyIds.includes(id)))) unavailable();
           next.delete(id);
         } else if (statusOnly) {

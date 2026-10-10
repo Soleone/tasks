@@ -24,7 +24,7 @@ Deliberate v1 differences: literal `title` plus explicit category/tags and optio
 
 Status/readiness remain unchanged, including done dependencies counting as blockers until canceled/unlinked. There is no new closure sort, source registry, adapter, combined-source UI or automatic semantic sync repair in this target. The unflagged UI remains [legacy](../ui/overview.md). Explicit Windows native selection now connects the **established main client** to the bounded task-proof profile: root capture/content/classification/priority, six single-task statuses, eligible latest-status undo, queries/search and external refresh. [Restored-client evidence and gaps](../../docs/restored-main-client.md). Child/relationship/order/batch/general-undo writers, app recovery/migration and Android replacement integration remain unavailable there; native launch itself is no longer withheld.
 
-The separate Linux browser reader/editor is engineering evidence, not the daily-use candidate. It supports reading plus explicit capture/content/status/eligible-status-undo/parent preview/apply with fixed memory-held retries, but not dependency/order/batch/control UI. The [support index](../../docs/support.md) distinguishes backend admission, client exposure and actual platform proof.
+The separate Linux browser reader/editor is engineering evidence, not the daily-use candidate. It supports reading plus explicit capture/content/status/eligible-status-undo preview/apply with fixed memory-held retries, but exposes no relationship, order, batch or control UI. The [support index](../../docs/support.md) distinguishes backend admission, client exposure and actual platform proof.
 
 ## Delivery gate
 
