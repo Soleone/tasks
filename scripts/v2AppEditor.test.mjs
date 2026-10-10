@@ -451,7 +451,7 @@ function manualLine(selected, envelope) {
 }
 
 for (const { command, removeParent = false } of [...["task.create", "task.update", ...statusActions, "task.move"].map(command => ({ command })), { command: "task.move", removeParent: true }]) {
-  for (const cut of ["intent", "published", "beforeCommit", "afterCommit", "lostReply"]) {
+  for (const cut of command === "task.create" ? ["stage-written", "published", "beforeCommit", "afterCommit", "lostReply"] : ["intent", "published", "beforeCommit", "afterCommit", "lostReply"]) {
     test(`actual editor HTTP ${command}${removeParent ? " removal" : ""} crash at ${cut} preserves original request for explicit recovery/manual replay`, async t => {
       const selected = workspace(t);
       const originalTask = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${closedId}.json`), "utf8"));
@@ -468,10 +468,13 @@ for (const { command, removeParent = false } of [...["task.create", "task.update
       const loader = path.join(selected.directory, "cut.mjs");
       writeFileSync(loader, `import { registerHooks } from 'node:module'; import fs from 'node:fs'; import { DatabaseSync } from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pendingPath)}, command=${JSON.stringify(command)};
-if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec; DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&fs.existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL'); const result=exec.call(this,sql); if(sql==='COMMIT'&&fs.existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL'); return result;};}
+if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec; DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL'); const result=exec.call(this,sql); if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL'); return result;};}
 registerHooks({load(url,context,next){const result=next(url,context); if(!result.source)return result; let source=String(result.source); function replace(marker){if(source.split(marker).length!==2)throw Error('fault marker not unique: '+marker); source=source.replace(marker,marker+'\\nprocess.kill(process.pid,"SIGKILL");');}
 if(cut==='intent'&&url.endsWith('/v2LocalDomain.js'))replace('renameSync(temporary, pending);');
-if(cut==='published'&&command==='task.create'&&url.endsWith('/v2CreateJournal.js'))replace('linkSync(stage, targetPath(intent));');
+if(command==='task.create'&&url.endsWith('/v2CreateWriter.js')){
+ const marker='writeV2DurableFile(stage, bytes);';if(source.split(marker).length!==2)throw Error('unique stage marker required');source=source.replace(marker,marker+'globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
+ if(cut==='published')replace('renameSync(stage, target);');
+}
 if(cut==='published'&&command!=='task.create'&&command!=='task.status.undo'&&url.endsWith('/v2UpdateJournal.js'))replace('renameSync(temporary, target);');
 if(cut==='published'&&command==='task.status.undo'&&url.endsWith('/v2BatchJournal.js'))replace('renameSync(temporary, target);');
 if(cut==='lostReply'&&url.endsWith('/devServer.js')){const marker='const result = executeDevV2Command(body, selection, request.headers["x-taskdb-selection"]);';if(source.split(marker).length!==2)throw Error('HTTP fault marker missing');source=source.replace(marker,marker+'\\nif(JSON.parse(body).command===command&&!JSON.parse(body).dryRun&&!JSON.parse(body).readOnly)process.kill(process.pid,"SIGKILL");'.replace('===command','==='+JSON.stringify(command)));}
@@ -503,8 +506,12 @@ return {...result,source};}});\n`);
       if (statusActions.includes(command)) { assert.equal(replay.result.task.updatedAt, originalTask.updatedAt); assert.equal(replay.result.task.createdAt, originalTask.createdAt); }
       if (command === "task.status.undo") { assert.equal(replay.result.task.status, originalTask.status); assert.equal(replay.result.task.closedAt, originalTask.closedAt); }
       if (command === "task.move") { assert.equal(replay.result.task.parentId, removeParent ? null : "c8d4206d-c25a-4317-baa4-a2c5443060e9"); assert.equal(replay.result.task.closedAt, originalTask.closedAt); assert.equal(replay.result.task.createdAt, originalTask.createdAt); }
-      assert.equal(readdirSync(path.join(selected.root, "tasks")).length, command === "task.create" ? 5 : 4);
-      assert.deepEqual(counts(selected.cache), { receipts: (cut === "lostReply" ? 1 : 2) + (command === "task.status.undo" ? 1 : 0), operations: command === "task.status.undo" ? 2 : 1 });
+      const names = readdirSync(path.join(selected.root, "tasks"));
+      if (command === "task.create") {
+        assert.equal(names.filter(name => name.endsWith(".json")).length, ["published", "beforeCommit"].includes(cut) ? 6 : 5);
+        assert.equal(names.filter(name => name.startsWith(".syncthing.taskdb-create-")).length, cut === "stage-written" ? 1 : 0);
+      } else assert.equal(names.length, 4);
+      assert.deepEqual(counts(selected.cache), { receipts: (command === "task.create" || cut === "lostReply" ? 1 : 2) + (command === "task.status.undo" ? 1 : 0), operations: command === "task.status.undo" ? 2 : 1 });
       const canonical = bytes(selected.root);
       assert.deepEqual(manualLine(selected, originalRequest).result, replay.result); assert.deepEqual(bytes(selected.root), canonical);
       assert.equal(existsSync(pendingPath), false);

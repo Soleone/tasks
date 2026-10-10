@@ -225,7 +225,7 @@ test("capture first placement includes hidden/canceled equal-key siblings withou
   assert.deepEqual(manual.map(task => task.id), [(result.task as V2CanonicalTask).id, "a", "b"]);
 });
 
-test("capture rejects forbidden fields/text boundaries and key exhaustion before intent or canonical effects", linuxOnly, (t) => {
+test("capture rejects forbidden fields/text boundaries and key exhaustion before staging or canonical effects", linuxOnly, (t) => {
   const workspace = materialize(t);
   const request = prepared(workspace, "task.create");
   const before = canonicalBytes(workspace);

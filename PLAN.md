@@ -43,6 +43,12 @@ Completed work is not the queue: cache fix `fwk`; bounded Windows process/native
 
 Latest audit validation at `86e3c1b`: types/lint pass, **1,662 regressions passed/two existing skips**, 313 focused checks passed/one optional transport skip. Recorded original corpus execution remains **101/112**, not the regression count or an instruction to implement every remaining target.
 
+## Owner-approved desktop capture simplification
+
+Separate from the frozen candidate/prune queue: Node V2 `task.create` now uses one initial snapshot, a hidden sibling stage and native rename, with selected parent/destination and physical-binding rechecks only. New creates emit no pending/progress evidence; orphan stages are never adopted. The owner accepts canonical publication before SQLite receipt/history commit and possible duplicate creation on retry. Committed receipts still replay; explicit old pending-create recovery remains intact. See the [design and future local-SAF decision](ideas/task-create-simplification.md).
+
+Android V2 writes remain gated pending end-to-end native integration; arbitrary SAF/cloud providers are not in scope. Historical Windows journaled-process evidence does not accept this new route: the updated [Windows harness/report boundary](docs/windows-create-proof.md#simplified-route-proof-pending) awaits actual Windows Node/SEA execution. Linux/WSL2 checks do not close that gate or resume deferred Windows diagnosis. Stop after this scoped implementation checkpoint; no prune-queue or later work is authorized.
+
 ## Work order
 
 The destination is approved. **Listing later work does not approve its implementation.** Execute one bounded task, validate, commit and stop at its checkpoint. The old autonomous next-ready-task loop is not the current execution policy.

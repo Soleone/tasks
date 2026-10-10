@@ -1,6 +1,14 @@
 # Windows capture proof (`7hr`, 2026-10-04)
 
-## Current scope and quickstart
+## Simplified-route proof pending
+
+The Node desktop create route now stages a hidden sibling and publishes by native rename, without new pending-create journals/progress. See [the approved design](../ideas/task-create-simplification.md) for selected guards, orphan handling and the accepted publish-before-SQLite duplicate window. Existing old intents still have explicit recovery under the original journal contract.
+
+`node scripts/check-windows-create.mjs` now measures the simplified route: pre-publication orphan, publish/before-commit duplicates, committed receipt replay, selected parent/destination guards, unrelated changes and flush refusal. Run `pnpm build:backend:bundle` first, then the checker with actual Windows Node in a disposable fixed local NTFS checkout. Its new results must be recorded separately, never overwrite the dated JSON report below. Native rename is not a no-clobber CAS.
+
+**No simplified-route Windows acceptance yet:** implementation/validation ran on Linux/WSL2 (`process.platform === "linux"`), not actual Windows Node. Syntax/source-transform checks are not Windows Node/SEA execution. Android V2 writes remain withheld. Current command admission is indexed in [support](support.md); the old five-query/two-writer profile below describes its original checkpoint only.
+
+## Historical scope and invocation (2026-10-04)
 
 One explicit Windows profile now permits five queries, `activity.list`, `task.create`, `task.update` and matching explicit recovery. Default Windows writes, statuses/undo, relationships/order/batches and workspace controls remain withheld. Native launch/permissions/UI are unchanged.
 
@@ -23,7 +31,7 @@ The **single private profile flag** is now `--windows-task-proof`, replacing `--
 
 There is still no replacement `pnpm dev:tauri` launch. The prospective inline capability must use this new fixed flag, not add a second same-name scope or default/mobile grants. Creation and content share the existing gateway/runtime; no second engine or arbitrary shell route was added.
 
-## Publication and recovery
+## Historical journaled publication and recovery
 
 The existing Linux creation implementation was reused, not ported by bypassing ownership:
 
@@ -36,9 +44,9 @@ The existing Linux creation implementation was reused, not ported by bypassing o
 
 Windows recovery now admits only a `taskdb.pending-create` with original `task.create`, or a `taskdb.pending-update` with original `task.update`, including historical-acknowledgment retirement. Every other pending family/command remains unavailable. No broad `82r` gate was removed.
 
-## Actual evidence
+## Historical actual evidence
 
-[Structured report](windows-create-proof.json) records the exact executed bundle, host, artifact hashes and all scenes. Current bundle SHA-256: `f0bdd8638c12aa45ece62e2d11a9fc40acc87aeb0e962af10d181a825187ddae`. It was copied byte-for-byte to the existing isolated C: proof checkout; that checkout's older source files were not claimed as current provenance. Owner D: source and personal data were untouched.
+[Structured report](windows-create-proof.json) records the exact executed bundle, host, artifact hashes and all scenes. Executed bundle SHA-256: `f0bdd8638c12aa45ece62e2d11a9fc40acc87aeb0e962af10d181a825187ddae`. It was copied byte-for-byte to the existing isolated C: proof checkout; that checkout's older source files were not claimed as current provenance. Owner D: source and personal data were untouched.
 
 - Windows 11 **10.0.26200**, x64, Windows Node **24.19.0**, libuv **1.52.1**, fixed local **NTFS**. **64 creation scene groups** across Windows Node/SEA plus **38 retained update groups**, all passed.
 - Actual capture termination: intent, stage write/binding, publication-start, link, verification, before/after SQLite commit, stage/evidence retirement, unpublished progress and lost reply. Recoverable scenes produce fixed bytes/UUID/time/key and one history/original receipt plus a separate recovery receipt. Started absence and unpublished progress refuse instead of guessing.

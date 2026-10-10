@@ -8,7 +8,6 @@ import { createV2CopyTestWorkspace as setup } from "./v2CopyTestWorkspace.js";
 import type { V2CopyTestWorkspace as Workspace } from "./v2CopyTestWorkspace.js";
 import { readV2RootDescriptor } from "./v2CanonicalReader.js";
 import { pendingV2Path } from "./v2LocalDomain.js";
-import type { V2CreateIntent } from "./v2CreateJournal.js";
 
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const linux = { skip: process.platform !== "linux" };
@@ -41,7 +40,7 @@ function loaderFor(workspace: Workspace, cut: string): string {
   const loader = path.join(workspace.directory, `${cut}-loader.mjs`), pending = pendingV2Path(readV2RootDescriptor(workspace.root));
   writeFileSync(loader, `import {registerHooks,syncBuiltinESMExports} from 'node:module';import fs from 'node:fs';import {DatabaseSync} from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pending)}, cache=${JSON.stringify(workspace.cache)}, task=${JSON.stringify(path.join(workspace.root, "tasks", `${parent}.json`))};
-if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&fs.existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&fs.existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
+if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
 if(['metadata-failure','metadata-short','metadata-zero'].includes(cut)){const write=fs.writeSync;fs.writeSync=function(fd,buffer,offset,length){if(fd===2&&Buffer.isBuffer(buffer)&&buffer.toString().startsWith('tasks-cli retry: ')){if(cut==='metadata-failure')throw Object.assign(Error('private failing sink'),{code:'EIO'});if(cut==='metadata-zero')return 0;return write.call(this,fd,buffer,offset,Math.min(length,7));}return write.call(this,fd,buffer,offset,length);};syncBuiltinESMExports();}
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();function replace(needle,value){if(source.split(needle).length!==2)throw Error('cut must be unique: '+needle);source=source.replace(needle,value);}
 if(url.endsWith('/v2HumanCli.js')){
@@ -51,14 +50,16 @@ if(url.endsWith('/v2HumanCli.js')){
  if(cut==='version-race')replace('reportRetry(invocation, request);','reportRetry(invocation, request);const changed=JSON.parse(fs.readFileSync(task,"utf8"));changed.title="External newer content";fs.writeFileSync(task,JSON.stringify(changed));');
  if(['context-race','version-race'].includes(cut))source='import fs from "node:fs";const cache='+JSON.stringify(cache)+',task='+JSON.stringify(task)+';'+source;
 }
-if(cut==='intent'&&url.endsWith('/v2CreateWriter.js'))replace('persistV2Pending(root, intent);','persistV2Pending(root, intent);process.kill(process.pid,"SIGKILL");');
-if(cut==='published'&&url.endsWith('/v2CreateJournal.js'))replace('linkSync(stage, targetPath(intent));','linkSync(stage, targetPath(intent));process.kill(process.pid,"SIGKILL");');
+if(url.endsWith('/v2CreateWriter.js')){
+ replace('writeV2DurableFile(stage, bytes);','writeV2DurableFile(stage, bytes);globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
+ if(cut==='published')replace('renameSync(stage, target);','renameSync(stage, target);process.kill(process.pid,"SIGKILL");');
+}
 return {...result,source};}});`);
   return loader;
 }
 
-for (const cut of ["prepared", "intent", "published", "beforeCommit", "afterCommit", "lostReply"]) {
-  test(`actual human CLI SIGKILL at ${cut} retains original request and never refreshes or duplicates it`, linux, t => {
+for (const cut of ["prepared", "stage-written", "published", "beforeCommit", "afterCommit", "lostReply"]) {
+  test(`actual human CLI SIGKILL at ${cut} retains original request, replays committed receipts and accepts pre-receipt duplicates`, linux, t => {
     const workspace = setup(t), before = raw(workspace), result = run(workspace, original, loaderFor(workspace, cut));
     assert.equal(result.signal, "SIGKILL", result.stderr);assert.equal(result.stdout, "");
     const retry = retained(result), recorded = metadata(result);
@@ -66,28 +67,18 @@ for (const cut of ["prepared", "intent", "published", "beforeCommit", "afterComm
     assert.equal(result.stderr.includes("Private capture"), false);assert.equal(result.stderr.includes("Private **Markdown**"), false);
     const pending = pendingV2Path(readV2RootDescriptor(workspace.root));
     if (cut === "prepared") assert.deepEqual(raw(workspace), before);
-    const intent = existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as V2CreateIntent : undefined;
-    if (intent) {
-      assert.equal(intent.request.writeContext, recorded.writeContext);assert.equal(intent.request.idempotencyKey, recorded.idempotencyKey);
-      assert.deepEqual(intent.request.args, { title: "Private capture @literal", description: "Private **Markdown**", category: "WORK", tags: ["TODO"] });
-      assert.deepEqual(intent.request.actor, { kind: "human", label: "operator" });
-    }
+    assert.equal(existsSync(pending), false);
     const beforeRetry = raw(workspace), replay = run(workspace, [...original, ...retry]);
-    if (["intent", "published", "beforeCommit"].includes(cut)) {
-      fail(replay, "RECOVERY_PENDING");assert.deepEqual(raw(workspace), beforeRetry);
-      assert.equal(JSON.parse(readFileSync(pending, "utf8")).operationId, intent!.operationId);
-    } else assert.equal(replay.status, 0, replay.stderr);
-    if (intent) {
-      const info = ok(run(workspace, ["info", "--json"]));assert.equal(info.state, "recovery_pending");assert.equal(info.pendingOperationId, intent.operationId);
-      const resumed = ok(run(workspace, ["recover", intent.operationId, "--json"]));
-      assert.equal(resumed.outcome, "complete");assert.equal(resumed.originalResult.task.id, intent.taskId);
-      assert.equal(resumed.originalResult.task.createdAt, intent.at);
-      assert.equal(existsSync(pending), false);
+    const retried = ok(replay);
+    if (["afterCommit", "lostReply"].includes(cut)) assert.deepEqual(raw(workspace), beforeRetry);
+    if (cut === "stage-written") {
+      const orphan = beforeRetry.find(([name]) => name.startsWith(".syncthing.taskdb-create-"))!;
+      assert.equal(readFileSync(path.join(workspace.root, "tasks", orphan[0])).toString("base64"), orphan[1]);
     }
     const final = ok(run(workspace, [...original, ...retry]));
     assert.equal(final.task.title, "Private capture @literal");assert.equal(final.task.description, "Private **Markdown**");
-    if (intent) { assert.equal(final.task.id, intent.taskId);assert.equal(final.operationId, intent.operationId);assert.equal(final.task.createdAt, intent.at); }
-    assert.equal(ok(run(workspace, ["list", "--json"])).total, 5);
+    assert.deepEqual(final, retried);
+    assert.equal(ok(run(workspace, ["list", "--json"])).total, ["published", "beforeCommit"].includes(cut) ? 6 : 5);
     const activity = ok(run(workspace, ["activity", "--json"])).activity;
     assert.equal(activity.length, 1);assert.equal(activity[0].operationId, final.operationId);assert.equal(activity[0].actor.label, "operator");
     for (const [name, bytes] of before) assert.equal(readFileSync(path.join(workspace.root, "tasks", name)).toString("base64"), bytes);
@@ -118,8 +109,8 @@ test("human initial preparation keeps its observed task version if a concurrent 
 
 for (const change of ["profile", "root", "cache", "cache-copy", "payload", "actor", "flags", "placement"]) {
   test(`prepared CLI hash refuses a changed ${change} before any retry dispatch`, linux, t => {
-    const workspace = setup(t), killed = run(workspace, original, loaderFor(workspace, "intent"));assert.equal(killed.signal, "SIGKILL", killed.stderr);
-    const pending = pendingV2Path(readV2RootDescriptor(workspace.root)), before = raw(workspace), pendingBytes = readFileSync(pending), changed = { ...workspace };
+    const workspace = setup(t), killed = run(workspace, original, loaderFor(workspace, "stage-written"));assert.equal(killed.signal, "SIGKILL", killed.stderr);
+    const pending = pendingV2Path(readV2RootDescriptor(workspace.root)), before = raw(workspace), changed = { ...workspace };
     let argv = [...original, ...retained(killed)], profile = process.env.XDG_DATA_HOME;
     if (change === "profile") profile = path.join(workspace.directory, "different-profile");
     if (change === "root") { changed.root = path.join(workspace.directory, "copied-root");cpSync(workspace.root, changed.root, { recursive: true }); }
@@ -129,20 +120,22 @@ for (const change of ["profile", "root", "cache", "cache-copy", "payload", "acto
     if (change === "flags") argv.push("--dry-run");
     if (change === "placement") argv.push("--parent", parent);
     fail(run(changed, argv, undefined, profile), "IDEMPOTENCY_KEY_REUSED");
-    assert.deepEqual(raw(workspace), before);assert.deepEqual(readFileSync(pending), pendingBytes);
+    assert.deepEqual(raw(workspace), before);assert.equal(existsSync(pending), false);
     if (change === "profile") assert.equal(existsSync(path.join(profile!, "tasks")), false);
     if (change === "cache") assert.equal(existsSync(changed.cache), false);
   });
 }
 
-test("human original-location cache loss requires explicit fresh recovery, never renewed original retry authority", linux, t => {
-  const workspace = setup(t), killed = run(workspace, original, loaderFor(workspace, "intent"));assert.equal(killed.signal, "SIGKILL", killed.stderr);
-  const pending = pendingV2Path(readV2RootDescriptor(workspace.root)), intent = JSON.parse(readFileSync(pending, "utf8")) as V2CreateIntent, before = raw(workspace);
+test("human cache loss after unreceipted publication refuses old authority without adopting or recovering the task", linux, t => {
+  const workspace = setup(t), killed = run(workspace, original, loaderFor(workspace, "published"));assert.equal(killed.signal, "SIGKILL", killed.stderr);
+  const pending = pendingV2Path(readV2RootDescriptor(workspace.root)), before = raw(workspace);
+  assert.equal(existsSync(pending), false);
   rmSync(workspace.cache);
   fail(run(workspace, [...original, ...retained(killed)]), "STALE_WRITE_CONTEXT");assert.deepEqual(raw(workspace), before);
-  const fresh = ok(run(workspace, ["info", "--json"]));assert.notEqual(fresh.writeContext, metadata(killed).writeContext);assert.equal(fresh.pendingOperationId, intent.operationId);
-  const resumed = ok(run(workspace, ["recover", intent.operationId, "--json"]));assert.equal(resumed.originalResult.task.id, intent.taskId);
+  const fresh = ok(run(workspace, ["info", "--json"]));assert.notEqual(fresh.writeContext, metadata(killed).writeContext);assert.equal(fresh.pendingOperationId, null);
+  fail(run(workspace, ["recover", "unknown-create", "--json"]), "OPERATION_UNAVAILABLE");
   fail(run(workspace, [...original, ...retained(killed)]), "STALE_WRITE_CONTEXT");assert.equal(ok(run(workspace, ["list", "--json"])).total, 5);
+  assert.deepEqual(ok(run(workspace, ["activity", "--json"])).activity, []);
 });
 
 for (const cut of ["prepared", "beforeCommit", "afterCommit", "lostReply"]) {

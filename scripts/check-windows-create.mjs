@@ -1,8 +1,8 @@
-// Disposable local-NTFS capture proof through the shared gateway, Windows Node and existing SEA route.
+// Current unjournaled capture proof. The 2026-10-04 journaled report is historical, not a pass for this route.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
@@ -20,7 +20,7 @@ const scratch = mkdtempSync(path.join(checkout, ".tmp/windows-create-"));
 const golden = path.join(checkout, "scripts/fixtures/taskdb-v2/root");
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const cuts = ["intent", "stage-written", "stage-bound", "publication-started", "published", "verified", "beforeCommit", "afterCommit", "retiring-stage", "retiring-evidence", "progress-preparing", "lostReply", "flushRefusal", "lateCollision"];
+const cuts = ["stage-written", "published", "beforeCommit", "afterCommit", "flushRefusal", "destination", "parentChange", "unrelatedChange"];
 const passed = [], artifacts = [];
 let completedProof = false, workspaceIndex = 0;
 
@@ -40,7 +40,7 @@ function run(runner, w, request, cut, proof = true) {
     input: JSON.stringify({ version: 2, requestId: "capture-proof", ...request }) + "\n", encoding: "utf8", timeout: 20_000,
     env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, TEMP: process.env.TEMP, TMP: process.env.TMP,
       APPDATA: path.join(w.directory, "default-profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "v1-trap.db"),
-      TASKS_SYNC_ROOT: path.join(w.directory, "v1-root-trap"), TASKS_TEST_PENDING: w.pending },
+      TASKS_SYNC_ROOT: path.join(w.directory, "v1-root-trap") },
   });
 }
 function send(runner, w, request, proof = true, cut) {
@@ -67,25 +67,9 @@ function counts(w) {
   try { return ["v2_receipts", "v2_operations"].map(table => db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n); }
   finally { db.close(); }
 }
-function paths(w, intent) { return { target: path.join(w.root, "tasks", `${intent.taskId}.json`), stage: path.join(w.root, "tasks", `.syncthing.taskdb-create-${intent.operationId}.tmp`), progress: path.join(w.domain, `create-${intent.operationId}.progress.json`) }; }
-function interrupted(runner, w, cut) {
-  const request = prepared(runner, w), child = run(runner, w, request, cut);
-  assert.equal(child.error, undefined); assert.notEqual(child.status, 0, `${cut}: ${child.stdout} ${child.stderr}`);
-  assert.match(child.stderr, new RegExp(`TASKS_TEST_CUT:${cut}`), `${cut}: ${child.stderr}`);
-  assert.equal(existsSync(w.pending), cut !== "lostReply");
-  const intent = cut === "lostReply" ? null : JSON.parse(readFileSync(w.pending, "utf8"));
-  return { request, intent, ...(intent ? paths(w, intent) : {}) };
-}
-function recovery(runner, w, intent, key = "resume-capture") {
-  return { command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: ok(send(runner, w, { command: "workspace.info" })).writeContext,
-    idempotencyKey: key, actor: { kind: "human", label: "Windows capture recovery" }, readOnly: false, dryRun: false };
-}
 function faultBundle(cut) {
-  const name = ["beforeCommit", "afterCommit"].includes(cut) ? "withV2CacheTransaction"
-    : ["stage-bound", "publication-started", "verified", "progress-preparing"].includes(cut) ? "saveProgress"
-    : ["intent", "lostReply"].includes(cut) ? "executeV2Create"
-    : ["retiring-stage", "retiring-evidence"].includes(cut) ? "retireV2Create" : "applyV2CreateJournal";
-  const moduleName = name === "withV2CacheTransaction" ? "v2QueryCache" : name === "executeV2Create" ? "v2CreateWriter" : "v2CreateJournal";
+  const name = ["beforeCommit", "afterCommit"].includes(cut) ? "withV2CacheTransaction" : "executeV2Create";
+  const moduleName = name === "withV2CacheTransaction" ? "v2QueryCache" : "v2CreateWriter";
   const matches = [];
   let marker = -1;
   while ((marker = source.indexOf(`// src/backend/${moduleName}.ts\n`, marker + 1)) >= 0) {
@@ -100,23 +84,21 @@ function faultBundle(cut) {
   const end = nextFunction >= 0 ? Math.min(nextFunction, moduleEnd) : moduleEnd;
   const section = source.slice(start, end);
   let needle;
-  if (cut === "intent") needle = "persistV2Pending(root, intent);";
-  else if (cut === "lostReply") needle = "if (completed) retireV2Create(completed);";
-  else if (cut === "stage-written") needle = 'writeV2DurableFile(stage, Buffer.from(intent.nextBytes, "base64"));';
-  else if (["stage-bound", "publication-started", "verified"].includes(cut)) needle = "syncV2Directory(v2LocalDomain(intent.root));";
-  else if (cut === "progress-preparing") needle = section.match(/\(0, import_node_fs\d+\.renameSync\)\(`\$\{file\}\.preparing`, file\);/)[0];
-  else if (["published", "lateCollision"].includes(cut)) needle = section.match(/\(0, import_node_fs\d+\.linkSync\)\(stage, targetPath\(intent\)\);/)[0];
-  else if (cut === "retiring-stage") needle = section.match(/\(0, import_node_fs\d+\.unlinkSync\)\(stage\);/)[0];
-  else if (cut === "retiring-evidence") needle = section.match(/\(0, import_node_fs\d+\.unlinkSync\)\(progressPath\d*\(intent\)\);/)[0];
-  else if (cut === "flushRefusal") needle = section.match(/syncV2Directory\(import_node_path\d+\.default\.dirname\(stage\)\);\n\s*const snapshot = guardCreate\(intent, progress\);/)[0];
+  if (cut === "stage-written") needle = "writeV2DurableFile(stage, bytes);";
+  else if (cut === "published") needle = section.match(/\(0, import_node_fs\d+\.renameSync\)\(stage, target\);/)[0];
+  else if (cut === "flushRefusal") needle = "syncV2Directory(taskDirectory);";
+  else if (["destination", "parentChange", "unrelatedChange"].includes(cut)) needle = section.match(/guardCreateDestination\d*\(snapshot, taskDirectoryIdentity, taskId\d*, task.parentId\);/)[0];
   else needle = 'database.exec("COMMIT");';
   assert.equal(section.split(needle).length, 2, `unique ${cut} cut required`);
-  const stop = `if(require("node:fs").existsSync(process.env.TASKS_TEST_PENDING)${cut === "lostReply" ? "===false" : ""}){require("node:fs").writeSync(2,"TASKS_TEST_CUT:${cut}\\n");process.kill(process.pid,"SIGKILL");}`;
-  let replacement = ["beforeCommit", "progress-preparing"].includes(cut) ? stop + needle : needle + stop;
-  if (["stage-bound", "publication-started", "verified"].includes(cut)) replacement = needle + `if(++__captureRecords===${["stage-bound", "publication-started", "verified"].indexOf(cut) + 1}){${stop}}`;
+  const stop = `require("node:fs").writeSync(2,"TASKS_TEST_CUT:${cut}\\n");process.kill(process.pid,"SIGKILL");`;
+  let replacement = cut === "beforeCommit" ? stop + needle : needle + stop;
   if (cut === "flushRefusal") replacement = 'throw Object.assign(new Error("test-only capture directory flush refusal"),{code:"EPERM"});' + needle;
-  if (cut === "lateCollision") replacement = 'require("node:fs").writeFileSync(targetPath(intent),"preserve late collision");' + needle;
-  return source.slice(0, start) + (["stage-bound", "publication-started", "verified"].includes(cut) ? "let __captureRecords=0;\n" : "") + section.replace(needle, replacement) + source.slice(end);
+  if (cut === "destination") replacement = 'require("node:fs").writeFileSync(target,"preserve arriving destination");' + needle;
+  if (["parentChange", "unrelatedChange"].includes(cut)) {
+    const fileId = cut === "parentChange" ? id : "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed";
+    replacement = `require("node:fs").appendFileSync(require("node:path").join(taskDirectory,"${fileId}.json")," ");` + needle;
+  }
+  return source.slice(0, start) + section.replace(needle, replacement) + source.slice(end);
 }
 async function sea(name, input) {
   const main = path.join(scratch, `${name}.cjs`), blob = path.join(scratch, `${name}.blob`), config = path.join(scratch, `${name}.json`), exe = path.join(scratch, `${name}.exe`);
@@ -168,91 +150,55 @@ try {
     assert.deepEqual(ok(send(runner, w, request)).result, committed.result); assert.equal(existsSync(path.join(w.root, "tasks", `${task.id}.json`)), false);
     passed.push(`${prefix}: explicit allowlist/default refusal, preview/invalid input, UUID/time/defaults/classification, unchanged files, restart/identity, historical absence without resurrection`);
 
-    for (const cut of cuts.filter(value => !["flushRefusal", "lateCollision"].includes(value))) {
-      console.error(`Checking ${prefix} capture cut ${cut}`);
-      const selected = workspace(`${prefix}-${cut}`), baseline = raw(selected), interruptedState = interrupted(runner, selected, cut);
-      const { request: original, intent } = interruptedState;
-      if (cut === "lostReply") {
-        const replay = ok(send(runner, selected, original)); assert.match(replay.result.task.id, uuid); assert.deepEqual(counts(selected), [1, 1]);
-        assert.equal(raw(selected).length, baseline.length + 1);
-      } else if (["publication-started", "progress-preparing"].includes(cut)) {
-        const pendingBytes = readFileSync(selected.pending), targetBefore = existsSync(interruptedState.target) ? readFileSync(interruptedState.target) : null;
-        fail(send(runner, selected, recovery(runner, selected, intent)), "RECOVERY_CONFLICT");
-        assert.deepEqual(readFileSync(selected.pending), pendingBytes);
-        assert.deepEqual(existsSync(interruptedState.target) ? readFileSync(interruptedState.target) : null, targetBefore); assert.deepEqual(counts(selected), [0, 0]);
-      } else {
-        assert.equal(ok(send(runner, selected, { command: "workspace.info" })).result.state, "recovery_pending");
-        fail(send(runner, selected, { command: "task.list" }), "RECOVERY_PENDING");
-        const retry = send(runner, selected, original);
-        if (["afterCommit", "retiring-stage", "retiring-evidence"].includes(cut)) ok(retry); else fail(retry, "RECOVERY_PENDING");
-        const resumed = ok(send(runner, selected, recovery(runner, selected, intent)));
-        const replay = ok(send(runner, selected, original)); assert.deepEqual(replay.result, resumed.result.originalResult);
-        assert.equal(replay.result.task.id, intent.taskId); assert.equal(replay.result.task.createdAt, intent.at); assert.equal(replay.result.task.updatedAt, intent.at);
-        assert.equal(replay.result.operationId, intent.operationId); assert.equal(readFileSync(interruptedState.target).toString("base64"), intent.nextBytes);
-        assert.deepEqual(raw(selected).filter(([name]) => name !== `tasks/${intent.taskId}.json`), baseline);
-        assert.equal(existsSync(selected.pending), false); assert.deepEqual(counts(selected), [2, 1]);
+    for (const cut of ["stage-written", "published", "beforeCommit", "afterCommit"]) {
+      console.error(`Checking ${prefix} unjournaled capture cut ${cut}`);
+      const selected = workspace(`${prefix}-${cut}`), original = prepared(runner, selected), baseline = raw(selected);
+      const child = run(runner, selected, original, cut);
+      assert.equal(child.error, undefined); assert.notEqual(child.status, 0);
+      assert.match(child.stderr, new RegExp(`TASKS_TEST_CUT:${cut}`));
+      assert.equal(existsSync(selected.pending), false);
+      assert.equal(readdirSync(selected.domain).some(name => name.startsWith("create-")), false);
+      const extras = readdirSync(path.join(selected.root, "tasks")).filter(name => !baseline.some(([file]) => file === `tasks/${name}`));
+      assert.equal(extras.length, 1);
+      const interruptedPath = path.join(selected.root, "tasks", extras[0]), interruptedBytes = readFileSync(interruptedPath);
+      assert.equal(extras[0].startsWith(".syncthing."), cut === "stage-written");
+      assert.deepEqual(counts(selected), cut === "afterCommit" ? [1, 1] : [0, 0]);
+      assert.equal(ok(send(runner, selected, { command: "workspace.info" })).result.state, "ready");
+      fail(send(runner, selected, { command: "workspace.recovery.resume", args: { operationId: "unknown-create" }, writeContext: original.writeContext, idempotencyKey: "cannot-adopt" }), "OPERATION_UNAVAILABLE");
+      const retry = ok(send(runner, selected, original));
+      if (cut === "afterCommit") assert.equal(`${retry.result.task.id}.json`, extras[0]);
+      else assert.notEqual(`${retry.result.task.id}.json`, extras[0]);
+      assert.deepEqual(readFileSync(interruptedPath), interruptedBytes);
+      assert.equal(raw(selected).length, baseline.length + (["published", "beforeCommit"].includes(cut) ? 2 : 1));
+      assert.deepEqual(counts(selected), [1, 1]);
+      assert.deepEqual(ok(send(runner, selected, original)).result, retry.result);
+      passed.push(`${prefix}: unjournaled termination ${cut}, orphan preservation or accepted pre-receipt duplicate; committed receipt replays`);
+    }
+    for (const cut of ["destination", "parentChange", "unrelatedChange", "flushRefusal"]) {
+      const selected = workspace(`${prefix}-${cut}`), original = prepared(runner, selected), baseline = raw(selected);
+      original.args.parentId = id;
+      const response = send(runner, selected, original, true, cut);
+      if (cut === "unrelatedChange") ok(response);
+      else fail(response, cut === "destination" ? "STALE_SCOPE" : cut === "parentChange" ? "STALE_FILE" : "INVALID_STORAGE");
+      assert.equal(existsSync(selected.pending), false);
+      if (["destination", "parentChange"].includes(cut)) {
+        assert.deepEqual(counts(selected), [0, 0]);
+        assert.equal(readdirSync(path.join(selected.root, "tasks")).filter(name => name.startsWith(".syncthing.taskdb-create-")).length, 1);
       }
-      passed.push(`${prefix}: actual termination ${cut}, fixed original authority or preserved uncertain absence`);
+      if (cut === "destination") {
+        const added = raw(selected).filter(([file]) => !baseline.some(([name]) => name === file));
+        assert.equal(added.length, 1); assert.equal(Buffer.from(added[0][1], "base64").toString(), "preserve arriving destination");
+      }
+      if (cut === "flushRefusal") {
+        assert.deepEqual(counts(selected), [0, 0]); assert.equal(raw(selected).length, baseline.length + 1);
+        ok(send(runner, selected, original)); assert.equal(raw(selected).length, baseline.length + 2); assert.deepEqual(counts(selected), [1, 1]);
+      }
+      passed.push(`${prefix}: selected ${cut}, no new pending/progress evidence`);
     }
-
-    const unflushed = workspace(`${prefix}-flush-refusal`), flushState = interrupted(runner, unflushed, "published");
-    const resume = recovery(runner, unflushed, flushState.intent), pendingBytes = readFileSync(unflushed.pending), progressBytes = readFileSync(flushState.progress), targetBytes = readFileSync(flushState.target);
-    fail(send(runner, unflushed, resume, true, "flushRefusal"), "RECOVERY_CONFLICT");
-    assert.deepEqual(readFileSync(unflushed.pending), pendingBytes); assert.deepEqual(readFileSync(flushState.progress), progressBytes); assert.deepEqual(readFileSync(flushState.target), targetBytes);
-    assert.deepEqual(counts(unflushed), [0, 0]); ok(send(runner, unflushed, resume)); ok(send(runner, unflushed, flushState.request)); assert.deepEqual(counts(unflushed), [2, 1]);
-    passed.push(`${prefix}: already-linked publication requires directory flush before history/receipts/retirement`);
-
-    for (const fault of ["formatting", "arrival", "target-arrival", "target-same-bytes", "target-missing", "target-replaced", "target-divergent", "stage-missing", "stage-replaced", "stage-partial", "progress-missing", "progress-partial", "task-directory", "other-cache", "copied-cache"]) {
-      const selected = workspace(`${prefix}-refuse-${fault}`);
-      const state = interrupted(runner, selected, ["target-missing", "target-replaced", "target-divergent"].includes(fault) ? "published" : "stage-bound");
-      if (fault === "formatting") writeFileSync(path.join(selected.root, "tasks", `${id}.json`), " " + readFileSync(path.join(selected.root, "tasks", `${id}.json`), "utf8"));
-      if (fault === "arrival") writeFileSync(path.join(selected.root, "tasks/late.json"), "preserve arrival");
-      if (fault === "target-arrival") writeFileSync(state.target, "preserve colliding target");
-      if (fault === "target-same-bytes") writeFileSync(state.target, Buffer.from(state.intent.nextBytes, "base64"));
-      if (fault === "target-missing") rmSync(state.target);
-      if (fault === "target-replaced") { renameSync(state.target, path.join(selected.directory, "kept-target")); writeFileSync(state.target, Buffer.from(state.intent.nextBytes, "base64")); }
-      if (fault === "target-divergent") writeFileSync(state.target, JSON.stringify({ ...JSON.parse(readFileSync(state.target)), title: "preserve changed title" }));
-      if (fault === "stage-missing") rmSync(state.stage);
-      if (fault === "stage-replaced") { renameSync(state.stage, path.join(selected.directory, "kept-stage")); writeFileSync(state.stage, Buffer.from(state.intent.nextBytes, "base64")); }
-      if (fault === "stage-partial") writeFileSync(state.stage, "{");
-      if (fault === "progress-missing") rmSync(state.progress);
-      if (fault === "progress-partial") writeFileSync(state.progress, "{");
-      if (fault === "task-directory") { renameSync(path.join(selected.root, "tasks"), path.join(selected.directory, "kept-tasks")); cpSync(path.join(selected.directory, "kept-tasks"), path.join(selected.root, "tasks"), { recursive: true }); }
-      const chosen = ["other-cache", "copied-cache"].includes(fault) ? { ...selected, cache: path.join(selected.directory, "other.db") } : selected;
-      if (fault === "copied-cache") cpSync(selected.cache, chosen.cache);
-      const retained = readFileSync(selected.pending), targetBefore = existsSync(state.target) ? readFileSync(state.target) : null;
-      fail(send(runner, chosen, recovery(runner, chosen, state.intent)), "RECOVERY_CONFLICT");
-      assert.deepEqual(readFileSync(selected.pending), retained); assert.deepEqual(existsSync(state.target) ? readFileSync(state.target) : null, targetBefore);
-      assert.deepEqual(counts(selected), [0, 0]); passed.push(`${prefix}: preserves evidence on ${fault}`);
-    }
-    const race = workspace(`${prefix}-late-collision`), raceRequest = prepared(runner, race);
-    fail(send(runner, race, raceRequest, true, "lateCollision"), "RECOVERY_CONFLICT");
-    const raceIntent = JSON.parse(readFileSync(race.pending)); assert.equal(readFileSync(paths(race, raceIntent).target, "utf8"), "preserve late collision");
-    fail(send(runner, race, recovery(runner, race, raceIntent)), "RECOVERY_CONFLICT"); assert.deepEqual(counts(race), [0, 0]);
-    passed.push(`${prefix}: no-clobber target arriving after final guard is never overwritten`);
-    const recoveryLost = workspace(`${prefix}-recovery-lost`), recoveryState = interrupted(runner, recoveryLost, "published");
-    const originalResume = recovery(runner, recoveryLost, recoveryState.intent, "original-resume-lost");
-    const recoveryChild = run(runner, recoveryLost, originalResume, "afterCommit");
-    assert.notEqual(recoveryChild.status, 0); assert.match(recoveryChild.stderr, /TASKS_TEST_CUT:afterCommit/);
-    const keptProgress = readFileSync(recoveryState.progress), retainedTarget = readFileSync(recoveryState.target);
-    writeFileSync(recoveryState.progress, "{");
-    const historicalResume = ok(send(runner, recoveryLost, originalResume));
-    assert.equal(historicalResume.result.outcome, "complete"); assert.equal(existsSync(recoveryLost.pending), true);
-    assert.deepEqual(readFileSync(recoveryState.target), retainedTarget); assert.equal(readFileSync(recoveryState.progress, "utf8"), "{");
-    writeFileSync(recoveryState.progress, keptProgress);
-    assert.deepEqual(ok(send(runner, recoveryLost, originalResume)).result, historicalResume.result);
-    assert.equal(existsSync(recoveryLost.pending), false); assert.deepEqual(counts(recoveryLost), [2, 1]);
-    assert.deepEqual(ok(send(runner, recoveryLost, recoveryState.request)).result, historicalResume.result.originalResult);
-    passed.push(`${prefix}: recovery lost reply replays its own receipt; corrupt cleanup evidence stays pending without resurrection`);
-    const lost = workspace(`${prefix}-cache-loss`), lostState = interrupted(runner, lost, "published"); rmSync(lost.cache);
-    const fresh = ok(send(runner, lost, { command: "workspace.info" })); assert.notEqual(fresh.writeContext, lostState.request.writeContext);
-    fail(send(runner, lost, lostState.request), "STALE_WRITE_CONTEXT"); ok(send(runner, lost, recovery(runner, lost, lostState.intent)));
-    fail(send(runner, lost, lostState.request), "STALE_WRITE_CONTEXT"); assert.equal(readFileSync(lostState.target).toString("base64"), lostState.intent.nextBytes); assert.deepEqual(counts(lost), [1, 1]);
-    passed.push(`${prefix}: original-location cache loss permits explicit fixed recovery, never old-context replay`);
   }
   console.log(JSON.stringify({ runtime: { platform: process.platform, os: os.release(), arch: process.arch, node: process.version, libuv: process.versions.uv, volume }, checkout,
     sourceBundle: { path: bundle, sha256: createHash("sha256").update(source).digest("hex"), bytes: Buffer.byteLength(source) }, artifacts, passed, count: passed.length,
-    limitations: "Capture/update explicit profile on one fixed local NTFS host. No native UI, status/undo/control port, power-loss, hostile reparse race, network/provider or release acceptance.", scratchWillBeRemoved: true }, null, 2));
+    implementation: "unjournaled same-directory native rename; this run does not remeasure the old pending-create journal", limitations: "One fixed local NTFS host only. Rename is not a no-clobber CAS; final-check races, power-loss, hostile reparse races, native UI, network/provider and release acceptance are not proved.", scratchWillBeRemoved: true }, null, 2));
   completedProof = true;
 } finally {
   if (completedProof) rmSync(scratch, { recursive: true, force: true });

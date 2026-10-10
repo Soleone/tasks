@@ -33,6 +33,8 @@ These decisions are now promoted to [versioned accepted targets and declarative 
 
 ## Current proposals
 
+- [Task creation simplification](task-create-simplification.md): approved Node desktop route, accepted pre-receipt duplicate window, retained old-intent recovery and gated future local-SAF decision.
+
 - [TaskDB v2 data model](task-model-v2.md): candidate manifest and task fields.
 - [TaskDB v2 domain behavior](task-behavior-v2.md): lifecycle and timestamp rules.
 - [TaskDB v2 command boundary](protocol-v2.md): literal-title/shorthand inputs, API/CLI negotiation, local versions/context, cache-only retries, and explicit recovery/repair controls.
