@@ -503,7 +503,7 @@ try {
     "--database",
     path.join(scratch, "tasks.db"),
     "--json",
-  ], { cwd: root, encoding: "utf8" }));
+  ], { cwd: root, env: testEnvironment, encoding: "utf8" }));
   assert.equal(externalEdit.task.title, "Agent updated title");
   evaluate('window.dispatchEvent(new Event("focus")); true');
   browser("press", "Control+Enter");
