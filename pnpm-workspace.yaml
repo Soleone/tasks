@@ -1,3 +1,5 @@
+# Preserve Windows path arguments when invoking package scripts.
+shellEmulator: true
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:

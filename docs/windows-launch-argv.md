@@ -4,27 +4,28 @@
 
 The recorded package-script failure is reproduced on **actual Windows 10.0.26300, Node v24.19.0, pnpm 11.22.0**. The bare `pnpm dev:native` script-runner boundary doubles every Windows backslash before Node receives the six arguments. The launcher correctly refuses the resulting empty path components. Adding `--` also forwards an unwanted seventh argument; it is not a fix.
 
-**Prefer direct Node**, which bypasses this package-runner boundary:
+**Use the package script:**
 
 ```powershell
-node .\scripts\dev-native.mjs --v2-root $root --database $cache --local-profile $profile
+pnpm dev:native --v2-root $root --database $cache --local-profile $profile
 ```
 
-These alternatives also preserved exact arguments in the preparation proof:
+The project now enables `shellEmulator: true` in `pnpm-workspace.yaml`, so pnpm preserves Windows path arguments without an invocation flag. This setting applies to this project's package scripts, not global pnpm configuration. Direct Node and alternative pnpm recipes are no longer supported launch guidance. No dependency, native capability or launcher path guard changes. Do not strip/deduplicate backslashes, accept forward slashes, ignore a leading `--`, or otherwise repair the selection in the launcher. Original path identity and strict refusal stay required.
 
-```powershell
-pnpm exec node .\scripts\dev-native.mjs --v2-root $root --database $cache --local-profile $profile
-pnpm --config.shell-emulator=true dev:native --v2-root $root --database $cache --local-profile $profile
-```
+The original `3rp` failure and counts below describe the **unconfigured historical runner**, not the current configured package script.
 
-The emulator flag applies to **that invocation only**. No global/project shell setting, package manager version, dependency or native capability changed. Do not strip/deduplicate backslashes, accept forward slashes, ignore a leading `--`, or otherwise repair the selection in the launcher. Original path identity and strict refusal stay required. The bare package-script route remains a known package-runner limitation on this declared host; this task fixes the invocation guidance, not pnpm itself.
+## Current configured-script validation (2026-10-11)
 
-## Actual evidence
+`pnpm test:native:argv` passed **six preparation/refusal scenes** on actual Windows 10.0.26300, Node v24.19.0 and pnpm 11.22.0: exact configured-package arguments/paths/capability for plain, spaced and Unicode/shell-significant paths, plus refusal of a forwarded `--` in each scene. The disposable checkout copied the current source, package script and workspace configuration. No app, sidecar, query or personal workspace was opened. The first fixture attempt omitted imported backend source files and failed before preparation; copying those sources resolved that fixture omission.
+
+Evidence: `C:\Users\soleone\AppData\Local\Temp\Tasks-argv-qNya43\argv-report.json`; log `/tmp/tasks-pnpm-windows-check.log`. The source-copy native launch and broader Windows acceptance gates remain unchanged.
+
+## Historical `3rp` evidence
 
 [Machine-readable scene/argv/source evidence](windows-launch-argv.json) records:
 
 - A minimal package with the same `dev:native` script first observed the exact incoming argv using the production parser/resolver: direct Node and `pnpm exec node` preserve it; bare package invocation doubles separators; adding `--` forwards it literally. Both plain and spaced paths were exercised. Cache remained absent and selected profiles empty.
-- The reproducible [Windows checker](../scripts/check-native-launch-argv.mjs) then exercised the **actual production `dev-native.mjs` entry point** in **15 scenes**: plain paths, spaces, and Unicode/shell-significant characters, each through direct Node, pnpm exec, explicit emulator, bare script and script separator.
+- The original [Windows checker](../scripts/check-native-launch-argv.mjs) then exercised the **actual production `dev-native.mjs` entry point** in **15 scenes**: plain paths, spaces, and Unicode/shell-significant characters, each through direct Node, pnpm exec, explicit emulator, bare script and script separator.
 - **Nine successful preparations** preserve all six argv positions and exact physically resolved root/cache/profile. They construct the unchanged Windows/local/main capability in memory, including all eight sidecar positions and exact escaped absolute-anchor path validators. **Six expected refusals** stop malformed script-runner input; no fallback or repair occurs.
 - A test-only module loader stops at the unique `ensure:sidecar` boundary, **after real NTFS/path/scope admission but before build, persisted overlay, Tauri, sidecar or any query**. Selected roots/profiles remain empty and caches absent. It adds no production flag or fault hook.
 - Launcher, parser/resolver and frontend selection source hashes match this repository and the owned Windows proof checkout byte-for-byte. The owner's D: source copy/native session was not opened, changed or stopped.
@@ -36,8 +37,10 @@ This is **Windows launch-preparation/argv evidence**, not a new GUI launch, writ
 On a disposable actual Windows checkout with dependencies installed:
 
 ```powershell
-node .\scripts\check-native-launch-argv.mjs
+pnpm test:native:argv
 ```
+
+The current checker copies the project's native script and workspace configuration into a disposable package and exercises six scenes: configured `pnpm dev:native` success and `--` refusal for plain, spaced, and Unicode/shell-significant paths. It no longer repeats alternative invocation recipes. The linked `3rp` JSON remains unchanged historical evidence; a current run retains its own report including package/config source hashes.
 
 The checker creates fresh Windows temp directories and retains its report for inspection. It never starts Tauri/SEA or reads task data. Do not run it through WSL Node against mounted Windows files. An exit code alone is not proof: accepted scenes require the structured preparation marker and exact argv/selection/scope checks.
 

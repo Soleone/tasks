@@ -49,6 +49,10 @@ Separate from the frozen candidate/prune queue: Node V2 `task.create` now uses o
 
 Android V2 writes remain gated pending end-to-end native integration; arbitrary SAF/cloud providers are not in scope. Historical Windows journaled-process evidence does not accept this new route: the updated [Windows harness/report boundary](docs/windows-create-proof.md#simplified-route-proof-pending) awaits actual Windows Node/SEA execution. Linux/WSL2 checks do not close that gate or resume deferred Windows diagnosis. Stop after this scoped implementation checkpoint; no prune-queue or later work is authorized.
 
+## Owner-approved pnpm launch simplification
+
+The native launch entry point is `pnpm dev:native`, with project `shellEmulator: true` preserving Windows path arguments. Alternative launch recipes/checker routes were removed; strict path and separator refusals remain. `pnpm test:native:argv` passed six actual-Windows launch-preparation/refusal scenes on disposable paths; see [argv evidence](docs/windows-launch-argv.md). This is not a new app launch, owner session, native acceptance or resumption of `100`. Stop at this scoped checkpoint; the frozen retrospective queue remains separate.
+
 ## Work order
 
 The destination is approved. **Listing later work does not approve its implementation.** Execute one bounded task, validate, commit and stop at its checkpoint. The old autonomous next-ready-task loop is not the current execution policy.

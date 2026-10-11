@@ -12,12 +12,17 @@ const scratch = mkdtempSync(path.join(os.tmpdir(), "Tasks-argv-"));
 const launcher = path.join(root, "scripts/dev-native.mjs");
 const options = path.join(root, "scripts/native-pilot-options.mjs");
 const selectionSource = path.join(root, "src/platform/v2NativeSelection.ts");
+const packagePath = path.join(root, "package.json");
+const workspacePath = path.join(root, "pnpm-workspace.yaml");
 const launcherUrl = pathToFileURL(launcher).href;
 const preflight = 'execFileSync("pnpm", ["ensure:sidecar"], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });';
 const launcherSource = readFileSync(launcher, "utf8");
 assert.equal(launcherSource.split(preflight).length, 2, "the stop-before-launch boundary must remain unique");
 mkdirSync(path.join(scratch, "scripts"));
-writeFileSync(path.join(scratch, "package.json"), JSON.stringify({ name: "tasks-native-argv-proof", private: true, type: "module", scripts: { "dev:native": "node --import ./stop-before-launch.mjs scripts/dev-native.mjs" } }));
+const nativeScript = JSON.parse(readFileSync(packagePath, "utf8")).scripts["dev:native"];
+assert.equal(nativeScript, "node scripts/dev-native.mjs");
+writeFileSync(path.join(scratch, "package.json"), JSON.stringify({ name: "tasks-native-argv-proof", private: true, type: "module", scripts: { "dev:native": nativeScript.replace("node ", "node --import ./stop-before-launch.mjs ") } }));
+writeFileSync(path.join(scratch, "pnpm-workspace.yaml"), readFileSync(workspacePath, "utf8"));
 writeFileSync(path.join(scratch, "scripts/dev-native.mjs"), `import ${JSON.stringify(launcherUrl)};\n`);
 // The real launcher parses/resolves first. This test-only loader stops before build, overlay or app launch.
 writeFileSync(path.join(scratch, "stop-before-launch.mjs"), `
@@ -70,7 +75,6 @@ function verifyPrepared(row, expected) {
   assert.deepEqual(readdirSync(selected.profilePath), []);
 }
 
-const direct = args => ["--import", pathToFileURL(path.join(scratch, "stop-before-launch.mjs")).href, path.join(scratch, "scripts/dev-native.mjs"), ...args];
 try {
   for (const [name, rootName, cacheName, profileName] of [
     ["plain", "r", "c.db", "p"],
@@ -80,15 +84,7 @@ try {
     const selectedRoot = path.join(scratch, rootName), profile = path.join(scratch, profileName);
     mkdirSync(selectedRoot); mkdirSync(profile);
     const argv = ["--v2-root", selectedRoot, "--database", path.join(scratch, cacheName), "--local-profile", profile];
-    verifyPrepared(invoke(`${name}-direct`, process.execPath, direct(argv)), argv);
-    verifyPrepared(invoke(`${name}-exec`, "pnpm", ["exec", "node", ...direct(argv)]), argv);
-    verifyPrepared(invoke(`${name}-emulator`, "pnpm", ["--config.shell-emulator=true", "dev:native", ...argv]), argv);
-    const bare = invoke(`${name}-bare-package`, "pnpm", ["dev:native", ...argv]);
-    if (bare.observation) verifyPrepared(bare, argv);
-    else {
-      assert.notEqual(bare.exitCode, 0);
-      assert.match(bare.errorOutput, /Native selection requires explicit canonical local drive-letter paths/);
-    }
+    verifyPrepared(invoke(`${name}-package`, "pnpm", ["dev:native", ...argv]), argv);
     const separator = invoke(`${name}-package-separator`, "pnpm", ["dev:native", "--", ...argv]);
     assert.notEqual(separator.exitCode, 0);
     assert.equal(separator.observation, null);
@@ -99,7 +95,7 @@ try {
   }
   const versions = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "pnpm --version"], { cwd: scratch, env: environment, encoding: "utf8", timeout: 30_000 });
   assert.equal(versions.status, 0, versions.stderr);
-  const report = { platform: process.platform, release: os.release(), nodeVersion: process.version, pnpmVersion: versions.stdout.trim(), scratch, scope: "actual Windows launch preparation stopped before ensure-sidecar/build/overlay/application/query; no native UI acceptance", sources: [launcher, options, selectionSource].map(file => ({ path: path.relative(root, file), sha256: createHash("sha256").update(readFileSync(file)).digest("hex") })), observations: rows };
+  const report = { platform: process.platform, release: os.release(), nodeVersion: process.version, pnpmVersion: versions.stdout.trim(), scratch, scope: "actual Windows launch preparation stopped before ensure-sidecar/build/overlay/application/query; no native UI acceptance", sources: [launcher, options, selectionSource, packagePath, workspacePath].map(file => ({ path: path.relative(root, file), sha256: createHash("sha256").update(readFileSync(file)).digest("hex") })), observations: rows };
   const reportPath = path.join(scratch, "argv-report.json");
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`PASS: ${rows.length} actual Windows argv preparation/refusal scenes. Evidence retained: ${reportPath}`);
