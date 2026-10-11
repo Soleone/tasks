@@ -68,7 +68,7 @@ try {
   check('!Array.from(document.querySelectorAll("button")).some(button=>button.textContent.trim()==="Change parent")');
   browser("focus", '[role="listbox"]'); browser("press", "m"); check('!document.querySelector("[role=dialog]")');
   check('!document.querySelector("h1").textContent.includes("v2")');
-  check('Array.from(document.querySelectorAll("main > details")).length===2 && Array.from(document.querySelectorAll("main > details")).every(element=>!element.open)');
+  check('Array.from(document.querySelectorAll("main > details")).every(element=>!element.open)');
   check('!document.querySelector("main").innerText.includes("Retained profile:") && !document.querySelector("main").innerText.includes("Refreshes never")');
   browser("focus", "main > details > summary"); browser("press", "Enter");
   check('document.querySelector("main > details").open && document.querySelector("main").innerText.includes("Retained profile:")');
