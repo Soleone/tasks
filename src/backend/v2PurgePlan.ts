@@ -22,6 +22,5 @@ export function planV2Purge(tasks: readonly V2CanonicalTask[]): string[] {
     for (const id of task.dependencyIds) if (removed.has(id)) references.push({ taskId: task.id, targetId: id, field: "dependencyIds" });
   }
   if (references.length) throw new V2PurgeReferencedError(references);
-  validateV2Graph(tasks.filter(task => !removed.has(task.id)));
   return purgedIds;
 }
