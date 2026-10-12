@@ -122,9 +122,6 @@ function guardDoctor(intent: V2DoctorIntent, progress: Progress, startingPublica
   if (canonicalJson(actual.taskEntries.filter(name => !allowedPrivate.includes(name))) !== canonicalJson([...expectedNames].sort()) || canonicalJson(actual.files) !== canonicalJson([...expected.values()].sort((a, b) => a.relativePath === "workspace.json" ? -1 : b.relativePath === "workspace.json" ? 1 : a.relativePath < b.relativePath ? -1 : 1))) conflict();
   return actual;
 }
-export function guardV2DoctorJournal(intent: V2DoctorIntent): void {
-  try { guardDoctor(intent, readProgress(intent)); } catch { return conflict(); }
-}
 function verifyOutputs(intent: V2DoctorIntent): V2CanonicalSnapshot {
   const snapshot = readV2CanonicalRoot(intent.root.rootPath);
   for (const write of intent.writes) if (!readV2RegularFile(path.join(intent.root.rootPath, "tasks", `${write.taskId}.json`)).equals(Buffer.from(write.nextBytes, "base64"))) conflict();
