@@ -129,7 +129,6 @@ export function applyV2BatchJournal(intent: V2BatchIntent): V2CanonicalSnapshot 
     const actual = verified.files.find(actual => actual.relativePath === `tasks/${file.taskId}.json`);
     if (file.nextBytes === null ? actual !== undefined : actual?.sha256 !== exactV2Hash(Buffer.from(file.nextBytes, "base64"))) conflict();
   }
-  validateV2Graph(verified.tasks);
   return verified;
 }
 
