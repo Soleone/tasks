@@ -43,7 +43,7 @@ export function matchesV2RelationshipEffect(before: V2CanonicalTask, next: V2Can
 
 export function applyV2Relationship(task: V2CanonicalTask, input: V2RelationshipInput, tasks: V2CanonicalTask[], at: string): { task: V2CanonicalTask; changed: boolean } {
   const patch = relationshipPatch(task, input);
-  if (!patch) { validateV2Graph(tasks); return { task, changed: false }; }
+  if (!patch) return { task, changed: false };
   const targetId = input.kind === "parent" ? input.parentId : input.kind === "add" ? input.dependsOnId : null;
   if (targetId !== null) {
     const target = tasks.find(task => task.id === targetId);
