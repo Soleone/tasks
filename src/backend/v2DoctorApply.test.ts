@@ -6,13 +6,16 @@ import test from "node:test";
 import { createDoctorWorkspace as setup, doctorCorpus as corpus, doctorFail as fail, doctorLinux as linux, doctorOk as ok, doctorRaw as raw, planDoctor, sendDoctor as send } from "./v2DoctorTestWorkspace.js";
 import type { V2CanonicalTask } from "./v2TaskModel.js";
 const task = (w: ReturnType<typeof setup>, id: string) => JSON.parse(readFileSync(path.join(w.root, "tasks", `${id}.json`), "utf8")) as V2CanonicalTask;
+function planCount(w: ReturnType<typeof setup>) { const db = new DatabaseSync(w.cache);try { return db.prepare("SELECT count(*) AS n FROM v2_doctor_plans").get()!.n; } finally { db.close(); } }
 for (const id of ["doctor-replay", "doctor-stale", "doctor-cache-loss", "doctor-late-link"]) test(`confirmed apply executes independent original corpus ${id}`, linux, t => {
   const entry = corpus.cases.find((entry: { id: string }) => entry.id === id), w = setup(t, { a: {} }, { a: entry.given.conflict.alternate }), before = raw(w), { plan, request } = planDoctor(w);
   if (id === "doctor-stale") {
     writeFileSync(path.join(w.root, "tasks/a.json"), JSON.stringify({ ...task(w, "a"), ...entry.action.steps[1].externalPatch.a }));const changed = raw(w);fail(send(w, request), entry.expect.error);assert.deepEqual(raw(w), changed);assert.equal(task(w, "a").description, "Later edit");assert.equal(existsSync(path.join(w.root, "tasks", `${plan.clones[0].taskId}.json`)), false);return;
   }
   if (id === "doctor-cache-loss") { rmSync(w.cache);const changed = raw(w);fail(send(w, request), entry.expect.error);assert.deepEqual(raw(w), changed);assert.equal(raw(w).filter(([name]) => !name.includes("sync-conflict")).length, entry.expect.taskCount);return; }
-  const result = ok(send(w, request)), archive = JSON.parse(readFileSync(result.result.recoveryLocation as string, "utf8"));
+  assert.equal(planCount(w), 1);
+  const result = ok(send(w, request));assert.equal(planCount(w), 0);
+  const archive = JSON.parse(readFileSync(result.result.recoveryLocation as string, "utf8"));
   assert.equal(archive.format, "taskdb.doctor-recovery");assert.deepEqual(archive.plan.source.files.filter((file: { relativePath: string }) => file.relativePath.startsWith("tasks/")).map((file: { relativePath: string; beforeBytes: string }) => [path.basename(file.relativePath), file.beforeBytes]), before);
   assert.equal(task(w, plan.clones[0].taskId).title, entry.given.conflict.alternate.title);assert.equal(raw(w).length, 2);
   if (id === "doctor-replay") { assert.deepEqual(ok(send(w, request)).result, result.result);assert.equal(raw(w).length, entry.expect.taskCount);fail(send(w, { ...request, idempotencyKey: "second-confirmation" }), "STALE_REPAIR_PLAN"); }
@@ -60,7 +63,7 @@ test("historical apply replay precedes lost archive/invalid live graph, while ch
   const w = setup(t), { request } = planDoctor(w), result = ok(send(w, request));rmSync(result.result.recoveryLocation as string);writeFileSync(path.join(w.root, "tasks/a.json"), "{");assert.deepEqual(ok(send(w, request)).result, result.result);
   for (const patch of [{ actor: { kind: "human", label: "different" } }, { dryRun: true }, { args: { planId: "other" } }]) fail(send(w, { ...request, ...patch }), "IDEMPOTENCY_KEY_REUSED");
 });
-test("retained rebuild/restart preserves applied plan and late-link history; copied cache cannot adopt it", linux, t => {
+test("retained rebuild/restart preserves the applied receipt and late-link history; copied cache cannot adopt it", linux, t => {
   const w = setup(t), { request } = planDoctor(w), result = ok(send(w, request));ok(send(w, { command: "workspace.rebuild", writeContext: result.writeContext, idempotencyKey: "rebuild" }));assert.deepEqual(ok(send(w, request)).result, result.result);writeFileSync(path.join(w.root, "tasks/child.json"), JSON.stringify({ ...corpus.taskTemplate, id: "child", dependencyIds: ["a"] }));assert.equal((ok(send(w, { command: "workspace.doctor.inspect" })).result.unreviewedIncomingLinks as object[]).length, 1);
   const copied = `${w.cache}.copy`;cpSync(w.cache, copied);renameSync(w.cache, `${w.cache}.old`);cpSync(copied, w.cache);fail(send(w, request), "STALE_WRITE_CONTEXT");assert.deepEqual(ok(send(w, { command: "workspace.doctor.inspect" })).result.unreviewedIncomingLinks, []);
 });

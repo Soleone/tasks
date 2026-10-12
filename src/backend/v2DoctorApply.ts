@@ -30,6 +30,7 @@ export function commitV2Doctor(database: DatabaseSync, intent: V2DoctorIntent): 
   const member = database.prepare("INSERT INTO v2_operation_members VALUES (?, ?)");for (const id of repairedIds) member.run(intent.operationId, id);
   const result = { planId: intent.plan.planId, operationId: intent.operationId, repairedIds, removedConflictPaths: intent.plan.removedConflictPaths, recoveryLocation: v2DoctorRecoveryLocation(intent.plan), recoveryReady: true, changed: true };
   if (authority.writeContext === intent.request.writeContext) storeV2Receipt(database, intent.request, result);
+  database.prepare("DELETE FROM v2_doctor_plans WHERE id = ? AND context = ?").run(intent.plan.planId, authority.writeContext);
   return result;
 }
 export function executeV2DoctorApply(request: V2Request, rootPath: string, cachePath: string) {
