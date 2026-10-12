@@ -2,13 +2,12 @@ import { existsSync, renameSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { readV2RegularFile } from "./v2CanonicalReader.js";
-import { parseV2CanonicalJson } from "./v2CanonicalJson.js";
 import type { V2CanonicalSnapshot } from "./v2CanonicalReader.js";
 import type { CopyFile, V2CopyIntent } from "./v2CopyJournal.js";
 import { syncV2Directory, v2LocalDomain, writeV2DurableFile } from "./v2LocalDomain.js";
 import { isV2Record } from "./v2Protocol.js";
 import type { V2RootBinding } from "./v2QueryCache.js";
-import { compareV2Tasks, validateV2Task } from "./v2TaskModel.js";
+import { compareV2Tasks } from "./v2TaskModel.js";
 import { exactV2Hash } from "./v2UpdateJournal.js";
 import { planV1ToV2Conversion } from "./v2V1Conversion.js";
 
@@ -45,7 +44,7 @@ export function guardV2MigrationSource(intent: V2CopyIntent): V2CanonicalSnapsho
       || JSON.stringify(current.source.files) !== JSON.stringify(expected.files.map(({ relativePath, sha256 }) => ({ relativePath, sha256 })))) invalidEvidence();
     const planned = new Map(current.files.map(file => [file.relativePath, exactV2Hash(file.bytes)]));
     if (planned.size !== intent.files.length || intent.files.some(file => planned.get(file.relativePath) !== file.sha256)) invalidEvidence();
-    const tasks = intent.files.filter(file => file.relativePath.startsWith("tasks/")).map(file => validateV2Task(parseV2CanonicalJson(Buffer.from(file.bytes, "base64")), path.basename(file.relativePath, ".json")));
+    const tasks = [...current.tasks];
     tasks.sort((left, right) => left.parentId === right.parentId ? compareV2Tasks(left, right) : (left.parentId ?? "") < (right.parentId ?? "") ? -1 : 1);
     return { ...intent.root, tasks, files: intent.files.map(({ relativePath, sha256 }) => ({ relativePath, sha256 })), conflictFiles: [] };
   } catch {
