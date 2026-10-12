@@ -99,7 +99,7 @@ function guardCreate(intent: V2CreateIntent, progress: CreateProgress, startingP
   if (canonicalJson(expected) !== canonicalJson(parseV2CanonicalJson(Buffer.from(intent.nextBytes, "base64")))) conflict();
   const stage = stagePath(intent);
   if (lstatSync(stage, { throwIfNoEntry: false })) {
-    if ((progress.stageIdentity !== null && fileIdentity(stage) !== progress.stageIdentity) || !readV2RegularFile(stage).equals(Buffer.from(intent.nextBytes, "base64"))) conflict();
+    if (progress.stageIdentity === null || fileIdentity(stage) !== progress.stageIdentity || !readV2RegularFile(stage).equals(Buffer.from(intent.nextBytes, "base64"))) conflict();
   } else if (progress.stageIdentity !== null) conflict();
   guardCopySource(snapshot);
   return snapshot;
@@ -115,10 +115,10 @@ export function applyV2CreateJournal(intent: V2CreateIntent): V2CanonicalSnapsho
     guardCreate(intent, progress);
     const stage = stagePath(intent);
     if (progress.stageIdentity === null) {
-      if (!lstatSync(stage, { throwIfNoEntry: false })) writeV2DurableFile(stage, Buffer.from(intent.nextBytes, "base64"));
+      writeV2DurableFile(stage, Buffer.from(intent.nextBytes, "base64"));
+      progress.stageIdentity = fileIdentity(stage);
       syncV2Directory(path.dirname(stage));
       guardCreate(intent, progress);
-      progress.stageIdentity = fileIdentity(stage);
       saveProgress(intent, progress);
     }
     guardCreate(intent, progress);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, linkSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -79,7 +79,7 @@ return {...result,source};}});`);
   return { request, pending, intent, progress, stage, target: path.join(root.rootPath, "tasks", `${intent.taskId}.json`) };
 }
 
-for (const cut of ["intent", "stage-written", "stage-bound", "published", "verified", "beforeCommit", "afterCommit", "retiring-stage", "retiring-evidence"]) {
+for (const cut of ["intent", "stage-bound", "published", "verified", "beforeCommit", "afterCommit", "retiring-stage", "retiring-evidence"]) {
   test(`legacy capture recovery CLI SIGKILL at ${cut} resumes one fixed UUID/time/key/result`, linuxOnly, (t) => {
     const workspace = setup(t);
     const before = readdirSync(path.join(workspace.root, "tasks")).sort().map(name => [name, readFileSync(path.join(workspace.root, "tasks", name)).toString("base64")]);
@@ -140,6 +140,37 @@ return {...result,source:source.replace(needle,'throw Object.assign(new Error("t
   assert.equal(existsSync(pending), false);
   assert.deepEqual(readFileSync(target), targetBytes);
 });
+
+for (const replacement of ["original", "same-byte-file", "external-hard-link"]) {
+  test(`legacy capture refuses unbound stage ${replacement} without adopting or retiring evidence`, linuxOnly, t => {
+    const workspace = setup(t);
+    const { pending, intent, progress, stage, target } = crashLegacyCreate(workspace, "stage-written");
+    const stageBytes = readFileSync(stage);
+    const external = path.join(workspace.directory, "external-stage");
+    if (replacement !== "original") {
+      renameSync(stage, path.join(workspace.directory, "kept-stage"));
+      if (replacement === "same-byte-file") writeFileSync(stage, stageBytes);
+      else { writeFileSync(external, stageBytes); linkSync(external, stage); }
+    }
+    const pendingBytes = readFileSync(pending), progressBytes = readFileSync(progress);
+    assert.equal(JSON.parse(progressBytes.toString()).stageIdentity, null);
+    const tasks = path.join(workspace.root, "tasks");
+    const before = readdirSync(tasks).sort().map(name => [name, readFileSync(path.join(tasks, name)).toString("base64")]);
+    fail(recover(workspace, intent.operationId), "RECOVERY_CONFLICT");
+    assert.deepEqual(readFileSync(pending), pendingBytes);
+    assert.deepEqual(readFileSync(progress), progressBytes);
+    assert.deepEqual(readFileSync(stage), stageBytes);
+    assert.deepEqual(readdirSync(tasks).sort().map(name => [name, readFileSync(path.join(tasks, name)).toString("base64")]), before);
+    assert.equal(existsSync(target), false);
+    if (replacement !== "original") assert.deepEqual(readFileSync(path.join(workspace.directory, "kept-stage")), stageBytes);
+    if (replacement === "external-hard-link") assert.deepEqual(readFileSync(external), stageBytes);
+    const database = new DatabaseSync(workspace.cache);
+    try {
+      assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0);
+      assert.equal(database.prepare("SELECT count(*) AS n FROM v2_operations").get()!.n, 0);
+    } finally { database.close(); }
+  });
+}
 
 for (const cut of ["publication-started", "progress-preparing"]) {
   test(`legacy capture ${cut} preserves uncertain absence/evidence instead of recreating or adopting`, linuxOnly, (t) => {

@@ -10,7 +10,7 @@ New calls write no pending-create intent/progress and bind no stage identity. In
 
 Unrelated external edits/arrivals after the initial observation do not abort capture. Parent/destination rechecks are best effort, not distributed locking or a no-clobber CAS. Native rename can overwrite a destination arriving after the final check on some platforms. Concurrent sibling arrivals may change first-position ordering. No hostile filesystem race or power-loss guarantee is added.
 
-Pre-existing `taskdb.pending-create` evidence retains its original full-guard, hard-link/stage-identity/progress recovery contract. New creates refuse pending work; only explicit recovery can complete/retire old intents. Missing/divergent old evidence remains for inspection, never reinterpreted as an orphan. Other mutation journals are unchanged.
+Pre-existing `taskdb.pending-create` evidence retains full-guard, hard-link/stage-identity/progress recovery. Owner-approved F10 narrows this legacy path: an already-present stage with no durably bound identity is preserved and refused, even if its bytes match. A stage-write-before-binding crash therefore requires manual inspection, not automatic adoption. New creates refuse pending work; only explicit recovery can complete/retire old intents. Missing/divergent old evidence remains for inspection, never reinterpreted as an orphan. Other mutation journals are unchanged.
 
 ## Future Android decision (not implementation permission)
 
