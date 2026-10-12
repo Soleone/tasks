@@ -16,7 +16,7 @@ import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clo
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
-import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage, taskTitleDisplay } from "@/components/TaskRow";
+import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage, taskRowDisplayTitle } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
@@ -252,7 +252,7 @@ const TaskOption = memo(function TaskOption({
   const { task } = row;
   const blockedByLabels = task.blockedByIds.map((id) => {
     const blocker = taskById.get(id);
-    return blocker ? taskTitleDisplay(blocker.title) : null;
+    return blocker ? taskRowDisplayTitle(blocker) : null;
   }).filter((label): label is string => label !== null);
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
@@ -262,7 +262,7 @@ const TaskOption = memo(function TaskOption({
       role="option"
       aria-selected={selected}
       aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
-      aria-label={row.contextOnly ? `${taskTitleDisplay(task.title)}, ${taskContextMessage(task)}` : undefined}
+      aria-label={row.contextOnly ? `${taskRowDisplayTitle(task)}, ${taskContextMessage(task)}` : undefined}
       tabIndex={-1}
       data-active={active || undefined}
       data-selected={selected || undefined}
@@ -381,7 +381,7 @@ function InlineTaskComposer({ composer, onClose, onSaved, onCreatePending, onCre
   return (
     <Item
       role="group"
-      aria-label={task ? `Editing ${taskTitleDisplay(task.title)}` : "New task inline"}
+      aria-label={task ? `Editing ${taskRowDisplayTitle(task)}` : "New task inline"}
       data-inline-task-editor
       state="selected"
       size="sm"
@@ -1233,7 +1233,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (activeRow.task.category) {
         selectCategory(activeRow.task.category, activeRow.contextOnly ? undefined : activeRow.task.id);
       } else {
-        onAnnounce(`${taskTitleDisplay(activeRow.task.title)} has no category to filter.`);
+        onAnnounce(`${taskRowDisplayTitle(activeRow.task)} has no category to filter.`);
       }
       return;
     }
@@ -1431,7 +1431,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       onTaskUpdated(result.task);
       if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
       const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
-      onAnnounce(`${taskTitleDisplay(task.title)}: priority ${label}`);
+      onAnnounce(`${taskRowDisplayTitle(task)}: priority ${label}`);
     } catch (caught) {
       onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
         ? `${task.title} changed elsewhere. Refresh and try again.`
@@ -1934,7 +1934,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const editingTaskVisible = composer?.mode === "edit" && visibleRows.some((row) => row.task.id === composer.task.id);
   const editingActiveTask = composer?.mode === "edit" && composer.task.id === activeTask?.id;
   const listSelectionLabel = composer?.mode === "edit" && editingTaskVisible
-    ? `editing ${taskTitleDisplay(composer.task.title)}`
+    ? `editing ${taskRowDisplayTitle(composer.task)}`
     : selectionLabel;
 
   useEffect(() => {
