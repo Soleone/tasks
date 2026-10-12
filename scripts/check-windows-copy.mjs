@@ -211,14 +211,14 @@ function cutScenes(runner, prefix, command) {
   }
 }
 function faultScenes(runner, prefix, command) {
-  const faults = ["source-edit", "source-arrival", "source-binding", "stage-edit", "stage-missing", "stage-partial", "stage-arrival", "stage-binding", "stage-directory-loss", "destination-arrival", "published-edit", "published-missing", "published-binding", "published-tasks-binding", "progress-loss", "progress-partial", "verified-loss", "reservation-loss", "other-cache", "copied-cache"];
+  const faults = ["source-edit", "source-arrival", "source-binding", "stage-missing", "stage-partial", "stage-arrival", "stage-binding", "stage-directory-loss", "destination-arrival", "published-edit", "published-missing", "published-binding", "published-tasks-binding", "progress-loss", "progress-partial", "verified-loss", "reservation-loss", "other-cache", "copied-cache"];
   for (const fault of faults.filter(fault => command === "workspace.restore" || fault !== "source-binding")) {
     const w = workspace(`${prefix}-${fault}`, command), state = interrupted(runner, w, command, fault.startsWith("published-") || ["verified-loss", "reservation-loss", "other-cache", "copied-cache"].includes(fault) ? "published" : "prefix-2");
     const file = path.join(w.source, "tasks", `${id}.json`), stageFile = path.join(state.intent.stageDirectory, state.intent.files.find(file => file.relativePath !== "workspace.json").relativePath);
     if (fault === "source-edit") writeFileSync(file, " " + readFileSync(file, "utf8"));
     if (fault === "source-arrival") writeFileSync(path.join(w.source, "tasks", "late.json"), "preserve arrival");
     if (fault === "source-binding") { renameSync(w.source, `${w.source}-kept`); cpSync(`${w.source}-kept`, w.source, { recursive: true }); }
-    if (fault === "stage-edit" || fault === "stage-partial") writeFileSync(stageFile, "{");
+    if (fault === "stage-partial") writeFileSync(stageFile, "{");
     if (fault === "stage-missing") rmSync(stageFile);
     if (fault === "stage-arrival") writeFileSync(path.join(state.intent.stageDirectory, "foreign"), "preserve arrival");
     if (fault === "stage-binding") { renameSync(state.intent.stageDirectory, `${state.intent.stageDirectory}-kept`); cpSync(`${state.intent.stageDirectory}-kept`, state.intent.stageDirectory, { recursive: true }); }
