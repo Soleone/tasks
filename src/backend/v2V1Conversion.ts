@@ -2,7 +2,7 @@ import { generateNKeysBetween } from "fractional-indexing";
 import type { CanonicalTaskFile } from "./canonicalWorkspace.js";
 import { classificationTokenRanges, classifyTaskText, TaskTextError } from "./taskText.js";
 import { invalidV1Source, normalizeV1MigrationTimestamp, readV1MigrationSnapshot, type V1MigrationSnapshot } from "./v2MigrationSource.js";
-import { compareV2Tasks, validateV2Graph, validateV2Task, type V2CanonicalTask } from "./v2TaskModel.js";
+import { compareV2Tasks, validateV2Task, type V2CanonicalTask } from "./v2TaskModel.js";
 
 export type V1ConversionPlan = {
   source: V1MigrationSnapshot;
@@ -52,7 +52,6 @@ export function planV1ToV2Conversion(sourceDirectory: string): V1ConversionPlan 
     for (const [index, id] of order.taskIds.entries()) orderKeys.set(id, keys[index]);
   }
   const tasks = source.tasks.map((task) => convertV1Task(task, orderKeys.get(task.id)!));
-  validateV2Graph(tasks);
   const byScope = new Map<string | null, V2CanonicalTask[]>();
   for (const task of tasks) {
     if (!byScope.has(task.parentId)) byScope.set(task.parentId, []);
