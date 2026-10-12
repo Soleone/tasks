@@ -47,8 +47,8 @@ export function executeV2Copy(request: V2Request, rootPath: string, cachePath: s
         for (const binding of [root, sourceRoot]) {
           localPathOutsideV2Root(cachePath, binding.rootPath);
           localPathOutsideV2Root(v2LocalDomain(root), binding.rootPath);
-          localPathOutsideV2Root(v2LocalDomain(sourceRoot), destination.directory);
         }
+        localPathOutsideV2Root(v2LocalDomain(sourceRoot), destination.directory);
         localPathOutsideV2Root(cachePath, destination.directory);
         localPathOutsideV2Root(v2LocalDomain(root), destination.directory);
         if (request.readOnly || request.dryRun) return { writeContext: authority.writeContext, result: { destinationDirectory: destination.directory, taskCount: source.tasks.length, changed: true, readOnly: request.readOnly, dryRun: request.dryRun } };
