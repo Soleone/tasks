@@ -81,11 +81,21 @@ test("Node v2 reader preserves golden data/bytes and refuses v1 without writing"
   writeFileSync(path.join(root, "workspace.json"), manifest);
 });
 
-test("Node v2 reader validates key vectors and exact ID byte ordering", () => {
+test("Node v2 reader validates key vectors, ID byte ordering, and exact string alphabets", () => {
   for (const key of ["a0", "Zz", "a0V", "b00", `A${"0".repeat(26)}1`, `a0${"0".repeat(253)}1`]) assert.equal(isV2OrderKey(key), true);
   for (const key of ["", "a", "b0", "a_", "a0é", "a0V0", `A${"0".repeat(26)}`, `a0${"0".repeat(253)}1V`]) assert.equal(isV2OrderKey(key), false);
   const tasks = ["a", "Z", "A", "z"].map(id => validateV2Task({ ...corpus.taskTemplate, id }, id));
   assert.deepEqual(tasks.sort(compareV2Tasks).map(task => task.id), ["A", "Z", "a", "z"]);
+
+  for (const suffix of ["\n", "\r", "\u2028", "\u2029"]) {
+    assert.equal(isV2OrderKey(`a0${suffix}`), false);
+    assert.throws(() => validateV2Task({ ...corpus.taskTemplate, id: `a${suffix}` }, `a${suffix}`), { code: "INVALID_CANONICAL" });
+    assert.throws(() => validateV2Task({ ...corpus.taskTemplate, parentId: `a${suffix}` }, "a"), { code: "INVALID_CANONICAL" });
+    assert.throws(() => validateV2Task({ ...corpus.taskTemplate, dependencyIds: [`a${suffix}`] }, "a"), { code: "INVALID_CANONICAL" });
+    assert.throws(() => validateV2Task({ ...corpus.taskTemplate, category: `work${suffix}` }, "a"), { code: "INVALID_CANONICAL" });
+    assert.throws(() => validateV2Task({ ...corpus.taskTemplate, tags: [`todo${suffix}`] }, "a"), { code: "INVALID_CANONICAL" });
+    assert.throws(() => validateV2Task({ ...corpus.taskTemplate, orderKey: `a0${suffix}` }, "a"), { code: "INVALID_CANONICAL" });
+  }
 });
 
 test("Node v2 reader orders prefix/case keys by literal ASCII bytes", (t) => {

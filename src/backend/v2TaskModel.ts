@@ -32,6 +32,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function matchesEntireString(value: string, pattern: RegExp): boolean {
+  return pattern.exec(value)?.[0] === value;
+}
+
 export function isV2Timestamp(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
   const date = new Date(value);
@@ -40,14 +44,14 @@ export function isV2Timestamp(value: unknown): value is string {
 
 function isSortedStrings(value: unknown, pattern: RegExp): value is string[] {
   if (!Array.isArray(value)) return false;
-  return value.every((entry, index) => typeof entry === "string" && pattern.test(entry) && (index === 0 || value[index - 1] < entry));
+  return value.every((entry, index) => typeof entry === "string" && matchesEntireString(entry, pattern) && (index === 0 || value[index - 1] < entry));
 }
 
 export function isV2OrderKey(value: unknown): value is string {
   if (typeof value !== "string" || value.length < 2 || value.length > 256) return false;
   const head = value.charCodeAt(0);
   if (!((head >= 65 && head <= 90) || (head >= 97 && head <= 122))) return false;
-  if (!digits.test(value.slice(1))) return false;
+  if (!matchesEntireString(value.slice(1), digits)) return false;
   const integerLength = head <= 90 ? 92 - head : head - 95;
   if (value.length < integerLength || value === `A${"0".repeat(26)}`) return false;
   return value.length === integerLength || !value.endsWith("0");
@@ -61,14 +65,14 @@ export function validateV2Manifest(value: unknown): void {
 
 export function validateV2Task(value: unknown, filenameId: string): V2CanonicalTask {
   if (!isRecord(value) || Object.keys(value).length !== fields.length || fields.some((field) => !Object.hasOwn(value, field))) invalidTask("fields");
-  if (typeof value.id !== "string" || !safeId.test(value.id) || value.id !== filenameId) invalidTask("id/filename");
+  if (typeof value.id !== "string" || !matchesEntireString(value.id, safeId) || value.id !== filenameId) invalidTask("id/filename");
   if (typeof value.title !== "string" || value.title.length === 0 || value.title.length > 1000 || value.title.trim() !== value.title || unpairedSurrogate.test(value.title)) invalidTask("title");
   if (typeof value.description !== "string" || value.description.length > 10000 || unpairedSurrogate.test(value.description)) invalidTask("description");
   if (typeof value.status !== "string" || !statuses.has(value.status)) invalidTask("status");
   if (typeof value.priority !== "number" || !Number.isInteger(value.priority) || value.priority < 0 || value.priority > 4) invalidTask("priority");
-  if (value.category !== null && (typeof value.category !== "string" || !slug.test(value.category))) invalidTask("category");
+  if (value.category !== null && (typeof value.category !== "string" || !matchesEntireString(value.category, slug))) invalidTask("category");
   if (!isSortedStrings(value.tags, slug)) invalidTask("tags");
-  if (value.parentId !== null && (typeof value.parentId !== "string" || !safeId.test(value.parentId))) invalidTask("parentId");
+  if (value.parentId !== null && (typeof value.parentId !== "string" || !matchesEntireString(value.parentId, safeId))) invalidTask("parentId");
   if (!isSortedStrings(value.dependencyIds, safeId)) invalidTask("dependencyIds");
   if (!isV2OrderKey(value.orderKey)) invalidTask("orderKey");
   if (!isV2Timestamp(value.createdAt) || !isV2Timestamp(value.updatedAt)) invalidTask("timestamps");
