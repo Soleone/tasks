@@ -123,7 +123,7 @@ test("v2 query filters preserve graph context, AND tags, ASCII search and full m
   assert.equal(result(query(current, "task.list", { categoryIsNull: true })).total, 1);
   assert.deepEqual(result(query(current, "category.list")).categories, [{ slug: "work", taskCount: 2 }]);
   assert.deepEqual(result(query(current, "tag.list")).tags, [{ slug: "alpha", taskCount: 3 }, { slug: "beta", taskCount: 2 }]);
-  for (const args of [{ sourceKey: "old" }, { category: { kind: "all" } }, { category: "work", categoryIsNull: true }, { tags: [] }, { search: " " }, { limit: 1.5 }, { direction: "sideways" }]) {
+  for (const args of [{ sourceKey: "old" }, { category: { kind: "all" } }, { category: "work", categoryIsNull: true }, { tags: [] }, { search: " " }, { limit: 1.5 }, { direction: "sideways" }, { sort: null }, { direction: null }]) {
     const response = query(current, "task.list", args);
     assert.equal(response.ok, false);
     if (!response.ok) assert.equal(response.error.code, "INVALID_ARGUMENT");

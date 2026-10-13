@@ -79,9 +79,9 @@ function listV2Tasks(tasks: V2TaskProjection[], args: Record<string, unknown>, r
     if (/[\uD800-\uDBFF]$/.test(search)) search = search.slice(0, -1);
     search = asciiLower(search);
   }
-  const sort = args.sort ?? "created";
+  const sort = args.sort === undefined ? "created" : args.sort;
   if (!["created", "updated", "priority", "manual"].includes(sort as string)) invalidFilter("sort");
-  const direction = args.direction ?? (sort === "priority" ? "asc" : "desc");
+  const direction = args.direction === undefined ? (sort === "priority" ? "asc" : "desc") : args.direction;
   if (direction !== "asc" && direction !== "desc") invalidFilter("direction");
   const limit = Math.min(100, Math.max(1, queryInteger(args.limit, 50)));
   const offset = Math.max(0, queryInteger(args.offset, 0));
