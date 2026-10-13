@@ -104,9 +104,9 @@ A copy of the canonical root made outside the share before the plain-delete test
 
 A separate disposable check made the current Node `tasks-cli list --json` reject a simplified v2 manifest (`{"schemaVersion":2}`) with `INVALID_CANONICAL` (exit 1), leaving canonical file hashes unchanged. This checks current v1 Node refusal only, not Android or the migration procedure.
 
-## Gate before promotion to `spec/v2/`
+## Historical promotion gate (completed 2026-10-01)
 
-Promote these selected manifest/ID/doctor/observation/purge/migration rules together with reconciled model/command contracts. First write black-box fixtures for disjoint union, identical and divergent IDs, edit-versus-delete, referenced purges, partial imports, stale/cache-lost doctor plans, late links, source/target conversion failures, and interrupted conversion. The transport probe above informs these fixtures, but it is not application conformance. Only then promote an **accepted target** contract to `spec/v2/`, before writing production v2 code.
+This section records the gate that preceded promotion on 2026-10-01. It required promoting the selected manifest/ID/doctor/observation/purge/migration rules together with reconciled model/command contracts; writing black-box fixtures for disjoint union, identical and divergent IDs, edit-versus-delete, referenced purges, partial imports, stale/cache-lost doctor plans, late links, source/target conversion failures, and interrupted conversion; and treating the transport probe above as informative, not application conformance. That promotion gate is complete: the accepted target is recorded in the [v2 overview](../spec/v2/overview.md), with materialized fixtures in [v2 conformance](../spec/v2/conformance.md). Production implementation and conformance remain incomplete, as listed below.
 
 ## Conformance after promotion, before claiming v2 ships
 
@@ -115,4 +115,4 @@ Promote these selected manifest/ID/doctor/observation/purge/migration rules toge
 3. Delete a canceled leaf through the app; verify propagation without cache resurrection. Reject referenced/bulk purges without partial writes. Repeat with an interrupted scan, missing manifest, offline peer, and app-level restore from a recovery copy.
 4. Crash conversion at each staging step; validate that v1 remains usable. Reject mixed/unsupported roots on Node and Android, round-trip the v1 fixture through a v2 stage, and prove rollback and relationship/order preservation.
 
-Remaining promotion/implementation obligations: turn these choices into accepted target specs and fixtures; prove nominated-device doctor/link repair and conflict-copy cleanup, incomplete-scan/SAF and partial-file refusal, retained recovery copies, cache-lost context handling, complete field migration and rollback on real writers. Until those cases are exercised, automatic union is transport evidence, not an application safety or interoperability claim.
+Remaining implementation/conformance obligations: prove nominated-device doctor/link repair and conflict-copy cleanup, incomplete-scan/SAF and partial-file refusal, retained recovery copies, cache-lost context handling, complete field migration and rollback on real writers. Until those cases are exercised, automatic union is transport evidence, not an application safety or interoperability claim.

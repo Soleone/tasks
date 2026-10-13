@@ -81,4 +81,4 @@ Let creation be A, content edit B, completion C, reopen D, and undo E, each a di
 | undo a relationship after a remote change would cause a cycle | Reject the entire undo before writes |
 | task depends on a done task | Still blocked under the unchanged v1 readiness rule |
 
-These examples are target design, not tests of shipped v2. `spec/v2/` must turn them into normative conformance cases; real Node/Android timestamp, receipt and undo behavior remains implementation work.
+These examples are target design, not tests of shipped v2. They are covered by the accepted [v2 mutations spec](../spec/v2/mutations.md) and [materialized conformance corpus](../spec/v2/conformance.md). Real Node/Android timestamp, receipt and undo behavior remains implementation work.

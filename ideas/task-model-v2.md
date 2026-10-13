@@ -91,4 +91,4 @@ If removing metadata leaves a token-only title empty, a timestamp is invalid, an
 | Legacy done at time C, updated at the same closure time | Preserve C in both mapped fields; do not fabricate a previous edit timestamp. |
 | Unknown `sync` or other unrecognized field in a schema-2 task | Reject as invalid canonical data; do not rewrite or import a partial projection. |
 
-Before promotion, give these mappings normative fixtures alongside shorthand, Unicode/length, timestamp, graph, and ordering failures. Full migration/rollback, root negotiation, and platform conformance remain separate gates; the existing sibling-sequence model is not full conversion evidence.
+Promotion and target-fixture work is complete: the accepted model and normative cases are in the [v2 model spec](../spec/v2/model.md) and [v2 conformance corpus](../spec/v2/conformance.md). Full migration/rollback, root negotiation, and platform conformance remain separate gates; the existing sibling-sequence model is not full conversion evidence.
