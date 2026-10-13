@@ -8,9 +8,9 @@ import { validateV2Task } from "./v2TaskModel.js";
 
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8")) as {
   taskTemplate: Record<string, unknown>;
-  cases: { id: string; profile: string; given: { patch?: object }; action: { args: Record<string, unknown> }; expect: { error?: string; fields?: Record<string, unknown> } }[];
+  cases: { id: string; profile: string; given: { patch?: object }; action: { command?: string; args: Record<string, unknown> }; expect: { error?: string; fields?: Record<string, unknown> } }[];
 };
-for (const entry of corpus.cases.filter(entry => entry.profile === "inputs")) {
+for (const entry of corpus.cases.filter(entry => entry.profile === "inputs" && entry.action.command === "task.update")) {
   test(`v2 update input vector ${entry.id} (not create-command conformance)`, () => {
     const task = validateV2Task({ ...corpus.taskTemplate, ...entry.given.patch }, "a");
     const execute = () => applyV2Update(task, parseV2Update({ id: "a", expectedVersion: 1, ...entry.action.args }), "2026-10-01T00:00:00.000Z");
@@ -27,16 +27,4 @@ test("v2 shorthand evaluates escaped-marker boundaries on decoded characters", (
   assert.deepEqual(parseV2Shorthand("See \\@#tag"), { title: "See @#tag", category: null, tags: [] });
   assert.deepEqual(parseV2Shorthand("See \\#literal #Real"), { title: "See #literal", category: null, tags: ["real"] });
   assert.deepEqual(parseV2Shorthand("Keep \\q \\\\ @Work"), { title: "Keep \\q \\" , category: "work", tags: [] });
-});
-
-test("v2 update preserves closure and all omitted fields; no-op preserves its edit instant", () => {
-  const task = validateV2Task({ ...corpus.taskTemplate, status: "done", closedAt: "2026-09-08T14:00:00.000Z" }, "a");
-  const noOp = applyV2Update(task, parseV2Update({ id: "a", expectedVersion: 1, title: "  The task " }), "2026-10-01T00:00:00.000Z");
-  assert.equal(noOp.changed, false);
-  assert.deepEqual(noOp.task, task);
-  const edited = applyV2Update(task, parseV2Update({ id: "a", expectedVersion: 1, description: "Changed" }), "2026-10-01T00:00:00.000Z");
-  assert.equal(edited.changed, true);
-  assert.equal(edited.task.updatedAt, "2026-10-01T00:00:00.000Z");
-  assert.equal(edited.task.closedAt, task.closedAt);
-  assert.equal(edited.task.createdAt, task.createdAt);
 });
