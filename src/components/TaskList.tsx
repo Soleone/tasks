@@ -1350,7 +1350,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       }
       onAnnounce(`${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`);
     } catch (caught) {
-      if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && caught.code === "STALE_TASK_VERSION") {
         batchTransitionReceiptRef.current = null;
         onAnnounce("A selected task changed elsewhere. Refresh and try again.");
         void onRefresh(0);
@@ -1501,7 +1501,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       else result.tasks.forEach((task) => onCanceled(task));
       onAnnounce(`Canceled ${result.tasks.length} tasks`);
     } catch (caught) {
-      if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && caught.code === "STALE_TASK_VERSION") {
         batchTransitionReceiptRef.current = null;
         onAnnounce("A selected task changed elsewhere. Refresh and try again.");
         void onRefresh(0);

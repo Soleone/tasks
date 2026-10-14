@@ -23,7 +23,7 @@ const withheldActions = [
   ["abortReceiveWorkspace", []],
 ];
 
-const linuxConnectedActions = new Set(["undoOperation", "moveTask", "reorderTasks", "addDependency", "removeDependency"]);
+const linuxConnectedActions = new Set(["transitionTasks", "undoOperation", "moveTask", "reorderTasks", "addDependency", "removeDependency"]);
 const linuxWithheldActions = withheldActions.filter(([action]) => !linuxConnectedActions.has(action));
 
 test("selected native launch can never use the legacy transport, even before registration or after reload", async () => {
@@ -157,8 +157,10 @@ test("main UI over the Linux HTTP bridge persists direct actions and refuses wit
   assert.deepEqual([reordered.changed, reordered.tasks.map(task => task.id)], [true, [unlinked.task.id]]);
   const undoneOrder = await httpClient.undoOperation(reordered.operationId, {});
   assert.deepEqual([undoneOrder.changed, undoneOrder.undoneOperationId, undoneOrder.deletedTaskIds, undoneOrder.tasks.map(task => task.id)], [true, reordered.operationId, [], [unlinked.task.id]]);
+  const batch = await httpClient.transitionTasks([{ id: openId, expectedVersion: (await httpClient.getTask(openId)).task.version, command: "task.start" }, { id: unlinked.task.id, expectedVersion: undoneOrder.tasks[0].version, command: "task.complete" }], {});
+  assert.deepEqual([batch.changed, typeof batch.operationId, batch.tasks.map(task => task.status)], [true, "string", ["in_progress", "done"]]);
   assert.deepEqual(calls.filter(call => call.readOnly === false && call.dryRun === false).map(call => call.command),
-    ["task.create", "task.complete", "task.status.undo", "task.create", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "operation.undo"]);
+    ["task.create", "task.complete", "task.status.undo", "task.create", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "operation.undo", "task.transitionMany"]);
   assert.ok(calls.every(call => call.version === 2));
 });
 
@@ -403,4 +405,85 @@ test("own undo history keeps the newest entries up to its bound and tolerates un
   const unusable = new httpClient.V2UndoHistory("scope", { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } });
   unusable.push(undoEntry("memory-only", "task"));
   assert.equal(unusable.latest()?.operationId, "memory-only", "unusable storage keeps this session's history in memory");
+});
+
+test("Linux route applies all-or-refuse status batches and refuses an invalid batch before sending", async t => {
+  const { root, calls, workspace } = await selectedHttpWorkspace(t);
+  const bytes = id => readFileSync(path.join(root, "tasks", `${id}.json`), "utf8");
+  const executing = () => calls.filter(call => call.readOnly === false && call.dryRun === false).map(call => call.command);
+  const version = async id => (await workspace.reader.query("task.get", { id })).task.version;
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed", doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
+  assert.equal(workspace.supportsStatusBatch, true);
+
+  // The gateway validates the whole batch; one ineligible item refuses every item, with no executing request.
+  const original = [openId, pausedId, doneId].map(bytes);
+  const start = { id: openId, expectedVersion: await version(openId), command: "task.start" };
+  const pausedVersion = await version(pausedId), doneVersion = await version(doneId);
+  await assert.rejects(() => workspace.transitionMany([start, { id: doneId, expectedVersion: doneVersion, command: "task.pause" }], "invalid-key"), /INVALID_TRANSITION/);
+  await assert.rejects(() => workspace.transitionMany([start, { id: pausedId, expectedVersion: pausedVersion + 1, command: "task.complete" }], "stale-key"), /STALE_TASK_VERSION/);
+  await assert.rejects(() => workspace.transitionMany([start, { id: "missing", expectedVersion: 1, command: "task.complete" }], "missing-key"), /TASK_NOT_FOUND/);
+  assert.deepEqual(executing(), [], "refused batches send no executing request");
+  assert.deepEqual([openId, pausedId, doneId].map(bytes), original, "refused batches have no partial effects");
+  assert.equal(workspace.getUnresolved(), null);
+
+  const completed = await workspace.transitionMany([{ id: pausedId, expectedVersion: pausedVersion, command: "task.complete" }, { ...start, command: "task.complete" }], "complete-key");
+  assert.deepEqual([completed.changed, typeof completed.operationId, completed.tasks.map(task => [task.id, task.status])], [true, "string", [[pausedId, "done"], [openId, "done"]]]);
+  assert.deepEqual([pausedId, openId].map(id => JSON.parse(bytes(id)).status), ["done", "done"]);
+  const noop = await workspace.transitionMany(completed.tasks.map(task => ({ id: task.id, expectedVersion: task.version, command: "task.complete" })), "noop-key");
+  assert.deepEqual([noop.changed, noop.operationId], [false, undefined]);
+  assert.deepEqual(executing(), ["task.transitionMany", "task.transitionMany"]);
+});
+
+test("a lost status-batch reply retries the same envelope or stays preserved for manual reconciliation", async t => {
+  const { calls, workspace, loseNextReply } = await selectedHttpWorkspace(t);
+  const version = async id => (await workspace.reader.query("task.get", { id })).task.version;
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed";
+  const batches = () => calls.filter(call => call.command === "task.transitionMany" && call.dryRun === false);
+  const unresolved = () => new Promise(resolve => { const stop = workspace.subscribe(() => { stop(); resolve(workspace.getUnresolved()); }); });
+
+  loseNextReply();
+  const starting = workspace.transitionMany([{ id: openId, expectedVersion: await version(openId), command: "task.start" }, { id: pausedId, expectedVersion: await version(pausedId), command: "task.start" }], "lost-batch-key");
+  const locked = await unresolved();
+  assert.match(locked.error, /Failed to fetch/);
+  await assert.rejects(() => workspace.transitionMany([{ id: openId, expectedVersion: 1, command: "task.pause" }], "replacement-key"), /WRITE_IN_PROGRESS/);
+  await locked.retry();
+  assert.deepEqual((await starting).tasks.map(task => task.status), ["in_progress", "in_progress"]);
+  assert.equal(batches().length, 2);
+  assert.deepEqual(batches()[1], batches()[0]);
+
+  loseNextReply();
+  const pausing = workspace.transitionMany((await starting).tasks.map(task => ({ id: task.id, expectedVersion: task.version, command: "task.pause" })), "reconcile-key");
+  (await unresolved()).preserveForReconciliation();
+  await assert.rejects(() => pausing, /MANUAL_RECONCILIATION/);
+  const sent = calls.length;
+  await assert.rejects(() => workspace.transitionMany([{ id: openId, expectedVersion: 1, command: "task.complete" }], "after-key"), /MANUAL_RECONCILIATION/);
+  assert.equal(calls.length, sent, "writes stay paused without any request until reconciliation");
+});
+
+test("one recorded status batch is undone as a whole through operation.undo after reopening", async t => {
+  const { root, calls, restart } = await selectedHttpWorkspace(t);
+  const storage = memoryStorage();
+  let workspace = await restart(storage);
+  const stored = id => JSON.parse(readFileSync(path.join(root, "tasks", `${id}.json`), "utf8"));
+  const executing = () => calls.filter(call => call.readOnly === false && call.dryRun === false).map(call => call.command);
+  const version = async id => (await workspace.reader.query("task.get", { id })).task.version;
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed", doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
+  const ids = [openId, pausedId, doneId], original = ids.map(stored);
+
+  const batch = await workspace.transitionMany([{ id: openId, expectedVersion: await version(openId), command: "task.complete" },
+    { id: pausedId, expectedVersion: await version(pausedId), command: "task.cancel" }, { id: doneId, expectedVersion: await version(doneId), command: "task.reopen" }], "batch-key");
+  (await workspace.undoHistory()).push({ ...undoEntry(batch.operationId, "task"), affectedTaskIds: ids, statusLike: true });
+  assert.deepEqual(ids.map(id => stored(id).status), ["done", "canceled", "open"]);
+
+  workspace = await restart(storage);
+  const history = await workspace.undoHistory();
+  const entry = history.latest();
+  assert.equal(entry.operationId, batch.operationId);
+  const undone = await workspace.undo(entry.operationId, entry.key);
+  history.remove(entry.operationId);
+  assert.deepEqual(undone.tasks.map(task => task.id).sort(), [...ids].sort());
+  assert.deepEqual(ids.map(id => [stored(id).status, stored(id).closedAt]), original.map(task => [task.status, task.closedAt]), "one undo restores every status and exact closure");
+  assert.deepEqual(executing(), ["task.transitionMany", "operation.undo"]);
+  assert.equal(history.latest(), null);
+  await assert.rejects(() => workspace.undo(batch.operationId, "again-key"), /OPERATION_UNAVAILABLE/, "no undo-of-undo or repeated undo");
 });

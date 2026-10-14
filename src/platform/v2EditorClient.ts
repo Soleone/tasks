@@ -12,9 +12,9 @@ const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
 const relationshipActions = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
 /** The proven Windows native editor list; native relationship writers remain withheld. */
 export const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
-/** The Linux dev route adds parent moves, dependency edits, child capture, manual reorder and operation undo through the same gateway. */
-export const V2_LINUX_EDITOR_COMMANDS = [...V2_EDITOR_COMMANDS, ...relationshipActions, "task.reorder", "operation.undo"] as const;
-export type V2EditorMode = "content" | "status" | "relationship" | "order" | "operation";
+/** The Linux dev route adds parent moves, dependency edits, child capture, manual reorder, operation undo and status batches through the same gateway. */
+export const V2_LINUX_EDITOR_COMMANDS = [...V2_EDITOR_COMMANDS, ...relationshipActions, "task.reorder", "operation.undo", "task.transitionMany"] as const;
+export type V2EditorMode = "content" | "status" | "relationship" | "order" | "operation" | "batch";
 export type V2StatusAction = typeof statusActions[number];
 export type V2RelationshipAction = typeof relationshipActions[number];
 
@@ -56,15 +56,17 @@ export async function readV2EditorSelection(url: string): Promise<V2EditorSelect
   return value;
 }
 
-function orderResult(value: Record<string, unknown>, request: V2Request): V2OrderResult {
+/** Manual reorder and status batches return the selected tasks in request order. */
+function groupResult(value: Record<string, unknown>, request: V2Request, preview: boolean): V2OrderResult {
   const ids = (request.args.tasks as { id: string }[]).map(task => task.id);
-  if (!Array.isArray(value.tasks) || typeof value.changed !== "boolean" || value.readOnly !== undefined || value.dryRun !== undefined
-    || (value.changed ? typeof value.operationId !== "string" || !value.operationId : value.operationId !== undefined)) {
-    throw new Error("v2 editor returned an invalid ordering result; retain the original request.");
+  if (!Array.isArray(value.tasks) || typeof value.changed !== "boolean"
+    || (preview ? value.dryRun !== true || value.readOnly !== false || value.operationId !== undefined
+      : value.readOnly !== undefined || value.dryRun !== undefined || (value.changed ? typeof value.operationId !== "string" || !value.operationId : value.operationId !== undefined))) {
+    throw new Error("v2 editor returned an invalid group result; retain the original request.");
   }
   const tasks = value.tasks.map(parseV2TaskProjection);
   if (tasks.length !== ids.length || tasks.some((task, index) => task.id !== ids[index])) throw new Error("v2 editor returned other tasks; retain the original request.");
-  return { tasks, changed: value.changed, ...(value.changed ? { operationId: value.operationId as string } : {}) };
+  return { tasks, changed: value.changed, ...(!preview && value.changed ? { operationId: value.operationId as string } : {}) };
 }
 
 function undoResult(value: Record<string, unknown>, preview: boolean): V2UndoResult {
@@ -91,12 +93,12 @@ function hasExpectedVersions(request: V2Request): boolean {
   const positive = (value: unknown) => Number.isSafeInteger(value) && (value as number) >= 1;
   if (request.command === "task.create") return true;
   if (request.command === "operation.undo") return typeof request.args.operationId === "string" && request.args.operationId !== "";
-  if (request.command !== "task.reorder") return positive(request.args.expectedVersion);
+  if (request.command !== "task.reorder" && request.command !== "task.transitionMany") return positive(request.args.expectedVersion);
   return Array.isArray(request.args.tasks) && request.args.tasks.length > 0
     && request.args.tasks.every(task => isV2Record(task) && typeof task.id === "string" && positive(task.expectedVersion));
 }
 
-/** `R` is the decoded result: one task for edits, the selected group for manual reorder or operation undo. */
+/** `R` is the decoded result: one task for edits, the selected group for manual reorder, status batches or operation undo. */
 export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
   private readonly serialized: string;
   private readonly selection: V2EditorSelection;
@@ -143,7 +145,7 @@ export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
       if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID; retain the original request.");
       if (!response.ok) throw new V2AnsweredRefusal(response.error.code, response.error.message);
       if (response.writeContext !== request.writeContext) throw new Error("v2 editor returned different authority; retain the original request.");
-      if (request.command === "task.reorder") return orderResult(response.result, request) as R;
+      if (request.command === "task.reorder" || request.command === "task.transitionMany") return groupResult(response.result, request, preview) as R;
       if (request.command === "operation.undo") return undoResult(response.result, preview) as R;
       const result = editorResult(response.result, preview);
       if (request.command !== "task.create" && result.task.id !== request.args.id) throw new Error("v2 editor returned another task; retain the original request.");
@@ -162,13 +164,14 @@ export class V2EditorClient {
   }
 
   async begin(taskId?: string, mode: V2EditorMode = "content"): Promise<V2EditBaseline> {
-    if (mode !== "content" && mode !== "status" && mode !== "relationship" && mode !== "order" && mode !== "operation") throw new Error("Unsupported editor mode; no query was sent.");
-    if (mode === "operation" ? taskId !== undefined : mode !== "content" && taskId === undefined) throw new Error(mode === "operation" ? "Operation undo has no task baseline; no query was sent." : "Select an existing task for this operation; no query was sent.");
+    if (mode !== "content" && mode !== "status" && mode !== "relationship" && mode !== "order" && mode !== "operation" && mode !== "batch") throw new Error("Unsupported editor mode; no query was sent.");
+    const grouped = mode === "operation" || mode === "batch";
+    if (grouped ? taskId !== undefined : mode !== "content" && taskId === undefined) throw new Error(grouped ? "Operation undo and status batches have no single task baseline; no query was sent." : "Select an existing task for this operation; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
     if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) throw new V2EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
     const commands = mode === "status" ? statusActions : mode === "relationship" ? relationshipActions : mode === "order" ? ["task.reorder"]
-      : mode === "operation" ? ["operation.undo"] : [taskId === undefined ? "task.create" : "task.update"];
+      : mode === "operation" ? ["operation.undo"] : mode === "batch" ? ["task.transitionMany"] : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
@@ -224,6 +227,12 @@ export class V2EditorClient {
       throw new Error("The selected tasks must start with the prepared task.");
     }
     return this.prepareTaskRequest(baseline, "task.reorder", { tasks: tasks.map(({ id, expectedVersion }) => ({ id, expectedVersion })), placement: { ...placement } }, key);
+  }
+
+  /** One all-or-refuse status batch; the gateway owns transition eligibility and full-batch validation. */
+  prepareTransitionMany(baseline: V2EditBaseline, tasks: readonly { id: string; expectedVersion: number; command: string }[], key: string): V2PreparedEdit<V2OrderResult> {
+    if (baseline.task || tasks.length === 0) throw new Error("A nonempty status batch without a single task baseline is required.");
+    return this.prepareTaskRequest(baseline, "task.transitionMany", { tasks: tasks.map(({ id, expectedVersion, command }) => ({ id, expectedVersion, command })) }, key);
   }
 
   /** Undo of one recorded local operation; the gateway owns history eligibility and conflict checks. */

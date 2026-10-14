@@ -226,6 +226,10 @@ export async function transitionTasks(
   tasks: TaskTransitionItem[],
   options: CommandOptions,
 ): Promise<TaskTransitionManyResult> {
+  if (mainWorkspace) {
+    if (!mainWorkspace.supportsStatusBatch) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Changing several tasks at once is not yet available in this selected workspace.");
+    return mainWorkspace.transitionMany(tasks, mainWriteKey(options));
+  }
   return runBackendCommand<TaskTransitionManyResult>("task.transitionMany", { tasks }, options);
 }
 

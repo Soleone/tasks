@@ -1,5 +1,5 @@
 import { taskView } from "@/components/taskView";
-import type { TaskPriority, TaskReorderPlacement, TaskReorderTask } from "@/backend/protocol";
+import type { TaskPriority, TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
 import { parseV2TaskProjection } from "@/backend/v2TaskResults";
 import { compareV2Tasks } from "@/backend/v2TaskModel";
 import { V2WorkspaceReader } from "./v2BackendClient";
@@ -50,6 +50,8 @@ export class MainWorkspace {
   get supportsOrdering(): boolean { return this.editor.selection.writeCommands.includes("task.reorder"); }
   /** Only the Linux route advertises general operation undo; the native route keeps single-task status undo. */
   get supportsOperationUndo(): boolean { return this.editor.selection.writeCommands.includes("operation.undo"); }
+  /** Only the Linux route advertises status batches. */
+  get supportsStatusBatch(): boolean { return this.editor.selection.writeCommands.includes("task.transitionMany"); }
   hasWriteInProgress = (): boolean => this.writing;
 
   async tasks(args: Record<string, unknown>) {
@@ -105,6 +107,16 @@ export class MainWorkspace {
       const baseline = await this.baseline(tasks[0]?.id, tasks[0]?.expectedVersion, "order");
       await this.assertReorderScope(tasks, placement);
       return this.editor.prepareReorder(baseline, tasks, placement, key);
+    });
+    return { ...result, tasks: result.tasks.map(taskView) };
+  }
+
+  /** All-or-refuse status batch; like undo, the gateway's non-consuming preview refuses an invalid batch before the locked request is sent. */
+  async transitionMany(tasks: readonly TaskTransitionItem[], key: string) {
+    const result = await this.run(async () => {
+      const prepared = this.editor.prepareTransitionMany(await this.editor.begin(undefined, "batch"), tasks, key);
+      await prepared.preview();
+      return prepared;
     });
     return { ...result, tasks: result.tasks.map(taskView) };
   }

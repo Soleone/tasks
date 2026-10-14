@@ -29,8 +29,8 @@ export type DevServerOptions = {
 };
 
 // Same ordered list as the Linux main-client editor: the native list plus parent/dependency edits,
-// manual reorder and operation undo. Eligibility stays with the gateway.
-const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", ...V2_RELATIONSHIP_COMMANDS, "task.reorder", "operation.undo"];
+// manual reorder, operation undo and status batches. Eligibility stays with the gateway.
+const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", ...V2_RELATIONSHIP_COMMANDS, "task.reorder", "operation.undo", "task.transitionMany"];
 type V2DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: boolean; profilePath?: string; writeCommands?: string[] };
 
 export type DevServer = {
@@ -193,7 +193,7 @@ function executeDevV2Command(body: Buffer, selection: V2DevSelection, token: str
     }
     if (!(V2_QUERY_COMMANDS as readonly string[]).includes(request.command)
       && (selection.readOnly || !V2_EDITOR_COMMANDS.includes(request.command))) {
-      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder and eligible operation undo; order normalization, batch and other controls remain unavailable" } };
+      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo and status batches; order normalization, batch status undo and other controls remain unavailable" } };
     }
     return executeV2Line(body, selection.rootPath, selection.databasePath);
   } catch {
