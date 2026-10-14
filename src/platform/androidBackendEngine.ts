@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import {
   PROTOCOL_VERSION,
   ProtocolError,
@@ -194,7 +195,7 @@ async function readReceipt(request: ProtocolRequest, hash: string): Promise<Prot
 }
 
 function transactionId(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 async function writeReceipt(
@@ -243,8 +244,8 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
   if (replay?.ok) return replay.result;
 
   const now = new Date().toISOString();
-  const id = crypto.randomUUID();
-  const operationId = crypto.randomUUID();
+  const id = randomUUID();
+  const operationId = randomUUID();
   const transaction = transactionId();
   const version = current.taskVersionOffset + 1;
   if (!Number.isSafeInteger(version)) throw new AndroidEngineError("INVALID_STORAGE", "Android task version is out of range");
@@ -271,7 +272,7 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
       const result = await androidStorage({
         operation: "ensureCategory",
         transactionId: transaction,
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         slug: classification.category.slug,
         label: classification.category.label,
         now,
@@ -283,7 +284,7 @@ async function createTask(request: ProtocolRequest): Promise<Record<string, unkn
       const result = await androidStorage({
         operation: "ensureTag",
         transactionId: transaction,
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         slug: tag.slug,
         label: tag.label,
         now,
@@ -378,13 +379,13 @@ async function persistTaskUpdate(before: TaskRecord, after: TaskRecord, request:
   let categoryId: string | null = null;
   if (after.category) {
     const saved = await androidStorage({ operation: "ensureCategory", transactionId: transaction,
-      id: crypto.randomUUID(), slug: after.category.slug, label: after.category.label, now });
+      id: randomUUID(), slug: after.category.slug, label: after.category.label, now });
     categoryId = requiredText(recordValue(saved, "id"), "category id");
   }
   const tagIds: string[] = [];
   for (const tag of after.tags) {
     const saved = await androidStorage({ operation: "ensureTag", transactionId: transaction,
-      id: crypto.randomUUID(), slug: tag.slug, label: tag.label, now });
+      id: randomUUID(), slug: tag.slug, label: tag.label, now });
     tagIds.push(requiredText(recordValue(saved, "id"), "tag id"));
   }
   const task: AndroidTaskInput = {
@@ -416,7 +417,7 @@ async function saveTaskMutation(
   if (request.dryRun || request.readOnly) {
     return { task: after, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
   }
-  const operationId = changed ? crypto.randomUUID() : undefined;
+  const operationId = changed ? randomUUID() : undefined;
   const result = { task: after, changed, ...(operationId ? { operationId } : {}) };
   const transaction = transactionId();
   let committed = false;
@@ -602,7 +603,7 @@ async function reorderTasks(request: ProtocolRequest): Promise<Record<string, un
     return { tasks: before, changed, dryRun: true, readOnly: Boolean(request.readOnly) };
   }
   const tasks = changed ? before.map((task) => ({ ...task, version: task.version + 1 })) : before;
-  const operationId = changed ? crypto.randomUUID() : undefined;
+  const operationId = changed ? randomUUID() : undefined;
   const result = { tasks, changed, ...(operationId ? { operationId } : {}) };
   const now = new Date().toISOString();
   const transaction = transactionId();
@@ -674,7 +675,7 @@ async function purgeCanceledTasks(request: ProtocolRequest): Promise<Record<stri
       version: task.version + 1,
       updatedAt: now,
     }));
-  const operationId = crypto.randomUUID();
+  const operationId = randomUUID();
   const result = { deletedCount: canceled.length, deletedTaskIds: canceled.map((task) => task.id), operationId };
   const transaction = transactionId();
   let committed = false;
@@ -718,7 +719,7 @@ async function transitionMany(request: ProtocolRequest): Promise<Record<string, 
     ...(request.dryRun || request.readOnly ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),
   };
   if (request.dryRun || request.readOnly) return result;
-  const operationId = changed.length > 0 ? crypto.randomUUID() : undefined;
+  const operationId = changed.length > 0 ? randomUUID() : undefined;
   const saved = { ...result, ...(operationId ? { operationId } : {}) };
   const transaction = transactionId();
   let committed = false;
@@ -766,7 +767,7 @@ async function undoCreatedTask(
       || current.tasks.some((task) => task.parentId === created.id || task.dependencyIds.includes(created.id))) {
     throw new AndroidUndoError("OPERATION_CONFLICT", `task ${created.id} changed or gained relationships since creation`);
   }
-  const operationId = crypto.randomUUID();
+  const operationId = randomUUID();
   const result = {
     operationId, undoneOperationId: stored.id, tasks: [], deletedTaskIds: [created.id], changed: true,
     ...(request.dryRun || request.readOnly ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),
@@ -811,7 +812,7 @@ async function undoOperation(request: ProtocolRequest): Promise<Record<string, u
     if (!expectedTaskIds) throw new AndroidUndoError("OPERATION_CONFLICT", "saved sibling order scopes do not match");
     return { ...order, expectedTaskIds };
   });
-  const operationId = crypto.randomUUID();
+  const operationId = randomUUID();
   const result = {
     operationId, undoneOperationId, tasks: plans.map((plan) => plan.restored), changed: true,
     ...(request.dryRun || request.readOnly ? { dryRun: true, readOnly: Boolean(request.readOnly) } : {}),

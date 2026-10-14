@@ -1,3 +1,4 @@
+import { randomUUID } from "./lib/randomUUID";
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { APP_NAME } from "./backend/branding";
 import App from "./App";
@@ -44,7 +45,7 @@ export default function V2App(): ReactElement {
       try {
         if (!native || !editing) throw new Error("This explicit native pilot requires Windows desktop; no HTTP or v1 fallback was launched.");
         const selection = parseV2NativeSelection(JSON.parse(nativeSelection) as unknown);
-        setDevSelection({ ...selection, version: 2, readOnly: false, selectionToken: crypto.randomUUID(), writeCommands: V2_EDITOR_COMMANDS });
+        setDevSelection({ ...selection, version: 2, readOnly: false, selectionToken: randomUUID(), writeCommands: V2_EDITOR_COMMANDS });
       } catch (reason) { setError(reason instanceof Error ? reason.message : "Invalid native selection; no backend was launched."); }
       return;
     }

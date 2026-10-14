@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import { useRef, useState, type ReactElement } from "react";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import type { V2CopyResult } from "@/platform/v2EditorClient";
@@ -26,7 +27,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
     setFailure(null);
     setResult(null);
     try {
-      setResult(await workspace.copyWorkspace(choice.destination, crypto.randomUUID(), choice.source));
+      setResult(await workspace.copyWorkspace(choice.destination, randomUUID(), choice.source));
       setMode(null);
       setConfirmation(null);
     } catch (error) {

@@ -1,3 +1,4 @@
+import { randomUUID } from "./lib/randomUUID";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2, type LucideIcon } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
@@ -773,7 +774,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const blockerTitle = blocker ? taskTitleDisplay(blocker.title) : "blocker";
     setPicker(null);
     try {
-      const result = await removeDependency(current.id, blockerId, current.version, { idempotencyKey: crypto.randomUUID() });
+      const result = await removeDependency(current.id, blockerId, current.version, { idempotencyKey: randomUUID() });
       updateVisibleTask(result.task);
       if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
       setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
@@ -792,7 +793,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const subjectTitle = taskTitleDisplay(current.title);
     setPicker(null);
     try {
-      const result = await moveTask(current.id, null, current.version, { idempotencyKey: crypto.randomUUID() });
+      const result = await moveTask(current.id, null, current.version, { idempotencyKey: randomUUID() });
       const refreshManualOrder = result.changed !== false && sortFieldRef.current === "manual";
       if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
@@ -814,8 +815,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     setPicker(null);
     try {
       const result = mode === "blocker"
-        ? await addDependency(current.id, target.id, current.version, { idempotencyKey: crypto.randomUUID() })
-        : await moveTask(current.id, target.id, current.version, { idempotencyKey: crypto.randomUUID() });
+        ? await addDependency(current.id, target.id, current.version, { idempotencyKey: randomUUID() })
+        : await moveTask(current.id, target.id, current.version, { idempotencyKey: randomUUID() });
       const refreshManualOrder = mode === "move" && result.changed !== false && sortFieldRef.current === "manual";
       if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
@@ -844,8 +845,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     }
     try {
       const result = current.status === "paused"
-        ? await transitionTask("task.start", current.id, current.version, { idempotencyKey: crypto.randomUUID() })
-        : await transitionTask("task.pause", current.id, current.version, { idempotencyKey: crypto.randomUUID() });
+        ? await transitionTask("task.start", current.id, current.version, { idempotencyKey: randomUUID() })
+        : await transitionTask("task.pause", current.id, current.version, { idempotencyKey: randomUUID() });
       updateVisibleTask(result.task);
       if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
       if (result.changed !== false) handleStatusChanged(current, result.task, wasActive);
@@ -887,7 +888,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const entry: OperationUndoEntry = {
       operationId,
       ...(workspace && !workspace.supportsOperationUndo && singleStatus ? { expectedVersion: current[0].version } : {}),
-      key: crypto.randomUUID(),
+      key: randomUUID(),
       affectedTaskIds,
       createdTaskIds: options.createdTaskIds ?? [],
       title: titleTask?.title ?? "task",
@@ -1003,7 +1004,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     } : classifyTaskText(draft.title);
     const now = new Date().toISOString();
     const task: TaskView = {
-      id: `pending-${crypto.randomUUID()}`,
+      id: `pending-${randomUUID()}`,
       title: literal?.title ?? draft.title,
       ...(literal ? { literalTitle: literal.title, inputText: draft.title } : {}),
       descriptionMarkdown: draft.descriptionMarkdown,
@@ -1239,7 +1240,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   }, [receiveState?.waiting]);
 
   async function purgeCanceledTasks(): Promise<number> {
-    const result = await purgeCanceledTasksCommand({ idempotencyKey: crypto.randomUUID() });
+    const result = await purgeCanceledTasksCommand({ idempotencyKey: randomUUID() });
     statusUndoRef.current = null;
     setStatusUndo(null);
     if (cancelExitTimer.current !== null) {

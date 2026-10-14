@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import {
   Fragment,
   forwardRef,
@@ -1164,7 +1165,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const signature = JSON.stringify({ tasks: commandTasks, placement });
       const receipt = reorderReceipt.current?.signature === signature
         ? reorderReceipt.current
-        : { signature, key: crypto.randomUUID() };
+        : { signature, key: randomUUID() };
       reorderReceipt.current = receipt;
       currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, true));
       try {
@@ -1290,7 +1291,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const signature = JSON.stringify(items);
     const existing = batchTransitionReceiptRef.current;
     if (existing?.signature === signature) return existing;
-    const receipt = { signature, key: crypto.randomUUID() };
+    const receipt = { signature, key: randomUUID() };
     batchTransitionReceiptRef.current = receipt;
     return receipt;
   }
@@ -1300,7 +1301,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const previousReceipt = statusReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version && previousReceipt.target === transition.next
       ? previousReceipt
-      : { version: task.version, target: transition.next, key: crypto.randomUUID() };
+      : { version: task.version, target: transition.next, key: randomUUID() };
     statusReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
     const wasActive = activeTask?.id === task.id;
@@ -1424,7 +1425,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const previousReceipt = priorityReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version
       ? previousReceipt
-      : { version: task.version, key: crypto.randomUUID() };
+      : { version: task.version, key: randomUUID() };
     priorityReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
     try {
@@ -1448,7 +1449,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     const previousReceipt = deleteReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version
       ? previousReceipt
-      : { version: task.version, key: crypto.randomUUID() };
+      : { version: task.version, key: randomUUID() };
     deleteReceipts.current.set(task.id, receipt);
     deletePending.current.add(task.id);
     try {

@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import type { Command } from "@tauri-apps/plugin-shell";
 import { isV2Record, parseV2Response, V2_QUERY_COMMANDS, type V2Request, type V2Response } from "../backend/v2Protocol";
 import { parseV2TaskProjection } from "../backend/v2TaskResults";
@@ -129,7 +130,7 @@ export class V2WorkspaceReader {
     if (!(V2_QUERY_COMMANDS as readonly string[]).includes(command)) throw new Error("v2 app reader has no mutation capability");
     if (runtimeKind() === "android") throw new Error("The v2 app reader is not available on Android.");
     const request: V2ClientRequest = {
-      version: 2, requestId: crypto.randomUUID(), command, args,
+      version: 2, requestId: randomUUID(), command, args,
       actor: { kind: "human", label: "Tasks v2 reader" }, readOnly: true, dryRun: false,
     };
     const response = this.dev

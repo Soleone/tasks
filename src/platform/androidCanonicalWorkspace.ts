@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import { canonicalJson } from "../backend/canonicalJson";
 import { classifyTaskText, TaskTextError, type TaskClassification } from "../backend/taskText";
 import type { TaskPriority, TaskRecord, TaskStatus } from "../backend/protocol";
@@ -432,7 +433,7 @@ function androidDeviceId(): string {
   try {
     const stored = localStorage.getItem(key);
     if (stored) return stored;
-    const created = `android-${crypto.randomUUID()}`;
+    const created = `android-${randomUUID()}`;
     localStorage.setItem(key, created);
     return created;
   } catch {

@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
 import type { TaskView } from "./taskView";
@@ -294,7 +295,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     // A lost reply must be retried with the same receipt, not a second write.
     const payload = JSON.stringify([title, description, priority, task?.id ?? "new", parentId ?? null]);
     if (receipt.current?.payload !== payload) {
-      receipt.current = { payload, key: crypto.randomUUID() };
+      receipt.current = { payload, key: randomUUID() };
     }
     const options = { idempotencyKey: receipt.current.key };
     try {

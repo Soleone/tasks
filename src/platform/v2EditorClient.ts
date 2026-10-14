@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import type { TaskReorderPlacement } from "../backend/protocol";
 import { isV2Record, type V2Request, type V2Response } from "../backend/v2Protocol";
 import type { V2TaskProjection } from "../backend/v2Queries";
@@ -154,7 +155,7 @@ export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
     if (!preview) this.attempted = true;
     try {
       const request = JSON.parse(this.serialized) as V2Request & { requestId: string };
-      if (preview) { delete request.idempotencyKey; request.dryRun = true; request.requestId = crypto.randomUUID(); }
+      if (preview) { delete request.idempotencyKey; request.dryRun = true; request.requestId = randomUUID(); }
       const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postV2DevRequest(this.connection, this.selection, request);
       if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID; retain the original request.");
       if (!response.ok) throw new V2AnsweredRefusal(response.error.code, response.error.message);
@@ -222,7 +223,7 @@ export class V2EditorClient {
     return this.prepareTaskRequest(baseline, "task.update", { id: baseline.task.id, expectedVersion: baseline.task.version, priority }, key);
   }
 
-  prepareStatus(baseline: V2EditBaseline, command: V2StatusAction, key: string = crypto.randomUUID()): V2PreparedEdit {
+  prepareStatus(baseline: V2EditBaseline, command: V2StatusAction, key: string = randomUUID()): V2PreparedEdit {
     if (!baseline.task || !statusActions.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
     return this.prepareTaskRequest(baseline, command, { id: baseline.task.id, expectedVersion: baseline.task.version }, key);
   }
@@ -262,14 +263,14 @@ export class V2EditorClient {
       { destinationDirectory, ...(sourceDirectory !== undefined ? { sourceDirectory } : {}) }, key);
   }
 
-  private prepareTaskRequest<R extends V2GroupResult = V2EditResult>(baseline: V2EditBaseline, command: string, args: Record<string, unknown>, key: string = crypto.randomUUID()): V2PreparedEdit<R> {
-    return new V2PreparedEdit<R>(this.connection, this.selection, { version: 2, requestId: crypto.randomUUID(), command, args,
+  private prepareTaskRequest<R extends V2GroupResult = V2EditResult>(baseline: V2EditBaseline, command: string, args: Record<string, unknown>, key: string = randomUUID()): V2PreparedEdit<R> {
+    return new V2PreparedEdit<R>(this.connection, this.selection, { version: 2, requestId: randomUUID(), command, args,
       writeContext: baseline.writeContext, idempotencyKey: key,
       actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
   }
 
   private async query(command: string, args: Record<string, unknown>) {
-    const request = { version: 2 as const, requestId: crypto.randomUUID(), command, args,
+    const request = { version: 2 as const, requestId: randomUUID(), command, args,
       actor: { kind: "human" as const, label: "Tasks v2 editor" }, readOnly: true, dryRun: false };
     const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postV2DevRequest(this.connection, this.selection, request);
     if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID.");

@@ -1,3 +1,4 @@
+import { randomUUID } from "../lib/randomUUID";
 import {
   PROTOCOL_VERSION,
   parseTaskCommandResult,
@@ -38,7 +39,7 @@ function relationshipWorkspace(): MainWorkspace | null {
 
 function mainWriteKey(options: CommandOptions): string {
   if (options.readOnly || options.dryRun) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This UI action cannot execute preview-only options. Nothing was sent.");
-  return options.idempotencyKey ?? crypto.randomUUID();
+  return options.idempotencyKey ?? randomUUID();
 }
 
 export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number; unresolvedConflicts?: AndroidSyncConflict[] };
@@ -118,7 +119,7 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
   if (isSelectedWorkspaceLaunch()) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not available through the selected workspace. Reopen and confirm it if the development connection was reloaded.");
   const response = await getBackendTransport().request({
     version: PROTOCOL_VERSION,
-    requestId: crypto.randomUUID(),
+    requestId: randomUUID(),
     command,
     args,
     actor: { kind: "human", label: "desktop" },
