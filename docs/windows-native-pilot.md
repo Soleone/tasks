@@ -64,7 +64,7 @@ Harness corrections are not product passes: an early CLI source-binary execution
 
 ## Limits and friction
 
-- Every mutation requires preview then apply. Slugs are separate fields, not shorthand. Details display raw Markdown. These are deliberate pilot affordances to review in `hzv`, not approved final daily-use choices.
+- Historical workbench walkthrough: Every mutation requires preview then apply. Slugs are separate fields, not shorthand. Details display raw Markdown. These are deliberate pilot affordances to review in `hzv`, not approved final daily-use choices.
 - The selected main client now shows validated, correlated `INVALID_REQUEST`, `UNSUPPORTED_VERSION` and `UNKNOWN_COMMAND` replies as ordinary inline errors, clears the request and leaves writes enabled **only if no earlier attempt was uncertain**. These gateway checks precede writer dispatch. Its composer rejects an empty literal shorthand title (including `#tag`-only capture/edit) and competing categories before sending. Every other executing failure retains the original request. In particular, `INVALID_ARGUMENT` follows SQLite admission and can also occur after create staging; `UNSUPPORTED_COMMAND` has writer-budget sites, and `INVALID_STORAGE` can follow publication. None is allowlisted. A later pre-effect refusal cannot clear earlier uncertainty. Do not renew key/context/version/payload/actor/flags from current task data to make a retry succeed. This scoped policy has client/component evidence only, not new Windows/native validation; `100` stays paused.
 - Prepared requests and drafts are **memory-only**. Reload, native close, crash or dev reload can lose them. `beforeunload` is best-effort, not durable/native-close protection. Preserve the full envelope and root/cache/profile before manual reconciliation. Cold relaunch does not recover a lost UI request automatically.
 - Pending work requires explicit CLI `workspace.recovery.resume`; the app does not expose recovery controls or automatically execute them. This cut proved committed lost reply, not every native pending-intent scene.
@@ -76,4 +76,4 @@ Harness corrections are not product passes: an early CLI source-binary execution
 
 Final checks: `pnpm check`, `pnpm lint`, `pnpm test` (**1,657 passed / two known skips / zero failures**, 1,659 total), backend bundle and actual Windows native launch; 31 focused native tests passed on both hosts. Existing browser client behavior remains covered by regression, not expanded browser mutation work.
 
-Next is **owner `hzv`**: at least three short realistic disposable native sessions across two days, then an agreed keep/replace/drop workflow checklist. Automated native interaction is not that human acceptance.
+Owner dogfood `hzv` and later sequencing are governed by [PLAN](../PLAN.md). Automated native interaction is not that human acceptance.

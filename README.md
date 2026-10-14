@@ -1,6 +1,6 @@
 # Tasks
 
-A local-first, keyboard-first task app for people and their existing agents. Tasks uses a TypeScript command path, a Tauri desktop shell, a standalone JSON-lines CLI, and a canonical JSON workspace with a rebuildable SQLite cache.
+A local-first, keyboard-first task app for people and their existing agents. Tasks uses a TypeScript command path, a Tauri desktop shell, a standalone JSON-lines CLI, and a canonical JSON workspace with a local SQLite cache that also keeps receipts and history.
 
 **Status:** M0 is complete; replacement native/owner acceptance and release remain open. [Current support and evidence](docs/support.md) distinguishes the legacy defaults, broad Linux replacement backend and bounded Windows native main client. Cache growth is fixed, the technical native loop/restored UI and disposable Linux migration rehearsal are complete, but Windows child/relationship/order/batch/general-undo integration and other essentials remain unresolved. Automation is not owner dogfood or full native parity.
 
@@ -52,7 +52,7 @@ Capture, status changes, editing, relationships, ordering, undo, purge, doctor, 
 
 ## Disposable Windows native pilot
 
-On the declared Windows/NTFS host, run `node .\scripts\dev-native.mjs --v2-root ROOT --database CACHE --local-profile PROFILE` with three explicit disposable paths, then confirm them in the actual window. This now opens the **existing main Tasks client**, not the experimental reader/editor workbench: the original task list, compact toolbar, inline capture/editing, themes and keyboard/mouse flows. It uses the selected new-format workspace through one embedded SEA session, with direct save/status actions and retained exact-request retry. Relationships, reordering, batch/general undo and other unproven native writes remain withheld; no legacy fallback is used. See [restored-client evidence](docs/restored-main-client.md). It does not change the default app or select personal tasks.
+On the declared Windows/NTFS host, run `pnpm dev:native --v2-root ROOT --database CACHE --local-profile PROFILE` with three explicit disposable paths, then confirm them in the actual window. This now opens the **existing main Tasks client**, not the experimental reader/editor workbench: the original task list, compact toolbar, inline capture/editing, themes and keyboard/mouse flows. It uses the selected new-format workspace through one embedded SEA session, with direct save/status actions and retained exact-request retry. Relationships, reordering, batch/general undo and other unproven native writes remain withheld; no legacy fallback is used. See [restored-client evidence](docs/restored-main-client.md). It does not change the default app or select personal tasks.
 
 [Runnable PowerShell setup, native evidence, retry/reload limits and backup/restore walkthrough](docs/windows-native-pilot.md). `pnpm dev:tauri` is still v1, not this pilot. Owner dogfood and single-codebase cutover remain open.
 
