@@ -1,6 +1,6 @@
 # Tasks: one-application roadmap
 
-**Current roadmap: 2026-10-08.** Continues the 2026-10-04 clean-cut decision, not a new architecture. This file is the single source of direction, work order and acceptance gates. The previous detailed milestone diary is preserved at `86e3c1b:PLAN.md`; the original reset baseline remains `905c65a`.
+**Current roadmap: 2026-10-14** (daily-use scope agreed; Linux backend + `pnpm dev:web` focus). Continues the 2026-10-04 clean-cut decision, not a new architecture. This file is the single source of direction, work order and acceptance gates. The previous detailed milestone diary is preserved at `86e3c1b:PLAN.md`; the original reset baseline remains `905c65a`.
 
 ## Direction and destination
 
@@ -38,10 +38,36 @@ Current facts:
 - Native technical proofs exist, but the latest owned Windows launches stopped before an observed main Tasks WebView. **Automated Windows diagnosis `100` is owner-deferred**, not passed or executable merely because SQ lists it ready. The source copy on D: was synced to `0b18727`; later documentation did not deploy new code.
 - Disposable migration/recovery/fresh-authority rehearsal is complete on Linux/WSL2 only. Personal data, Windows/Android conversion and actual selection remain unapproved.
 - Owner dogfood `hzv` is deferred: **zero owner sessions**. Default cutover `dvs` and publication `xz2` remain gated.
+- `pnpm dev:web` ([launcher](scripts/dev-web.mjs), [options](scripts/dev-web-options.mjs)) builds the backend, starts the dev HTTP bridge plus Vite. Unflagged it renders the established `App` on the **legacy** model. With `--v2-root`/`--database` (and `--v2-edit`) [`V2App`](src/V2App.tsx) opens the engineering workbench (`V2ReaderView`/`V2TaskEditor`), not the established `App`; only the Windows native route wraps `App` in [`MainWorkspace`](src/platform/mainWorkspace.ts). The bridge editor allowlist is create/update and six statuses ([dev server](src/backend/devServer.ts)).
+- Android schema-2 read-only inspection stopped as an evidenced no-op on tooling/provider blockers (no commit; worker record outside the repository).
 
 Completed work is not the queue: cache fix `fwk`; bounded Windows process/native proofs and update trace (`fcf`, `dh1`, `mg8`, `7hr`, `byy`, `gxm`, `m1p`); original-client restoration `4t6`; list accessibility `26a`; migration rehearsal `y9b`; unattended QA/argv checks `3et`/`3rp`; inventory `q6z`; copy-stage pruning `wf3`; support reconciliation `pa1`; selected receive guidance `8v8`; contrast fix `asy`; candidate invariant audit `8x1`. Historical commits/counts/limits remain in their reports and SQ records.
 
 Latest audit validation at `86e3c1b`: types/lint pass, **1,662 regressions passed/two existing skips**, 313 focused checks passed/one optional transport skip. Recorded original corpus execution remains **101/112**, not the regression count or an instruction to implement every remaining target.
+
+## Agreed daily-use scope and Linux/web focus (2026-10-14)
+
+The owner agreed each item individually. This is **scope approval**: the replacement engine must keep these workflows in the established UI. It is not implementation, native acceptance, owner dogfood, cutover or release approval.
+
+| Keep in the new engine | Recorded detail |
+| --- | --- |
+| Capture/edit/complete/delete and their keyboard shortcuts | Current [usage guide](docs/usage-guide.md) contract |
+| Classifications and priorities | Accepted literal/slug model; old case-label dictionary stays deliberately dropped |
+| Filters and search | Current toolbar/search behavior |
+| Parent/child tasks and dependency blocking | Current rules; done dependencies still block, canceled do not |
+| Manual ordering | Persistent across reopen |
+| Bulk actions | Preserve all-or-refuse batch semantics; no per-task fallback loop |
+| Undo | About the last **50** actions, retained across close/reopen **on the same client**. Client-local durable history is sufficient; shared/cross-client undo is not required and may be unavailable after another client changes data. Reuse existing receipt/history/inverse machinery; a command pattern is a suggestion, not a mandated rewrite. Conflict/recovery safeguards stay |
+| Backup and restore | Covers the existing backup/import/export overlap. **No new sharing feature** |
+| Global focus shortcut | Native desktop only; cannot be accepted in a browser |
+| Settings, themes and preferences | Saved across restarts |
+
+No deliberate workflow losses were agreed. Platform and host decisions:
+
+- **Current execution focus:** Linux Node backend driven through the existing `pnpm dev:web` frontend, reusing `App` and its components. No standalone browser storage engine, no second client and no new workbench features; the browser only calls the selected Linux backend gateway. This supersedes Windows-first as the *execution priority*, not any platform validation claim.
+- **Windows** remains the first release platform. Launch/integration checks are **deferred to the owner's Windows machine**; `100` stays paused. Linux/browser evidence never closes a Windows gate.
+- **Android** is maintained and will be migrated to the new format, not dropped. Work is deferred on tooling/provider blockers and does not block a Windows release.
+- **Conversion host:** the rehearsed Linux/WSL2 route (`y9b`) initially; no Windows converter proof is a prerequisite. Reading, converting or selecting personal data still needs separate explicit permission.
 
 ## Owner-approved desktop capture simplification
 
@@ -61,15 +87,33 @@ The destination is approved. **Listing later work does not approve its implement
 | --- | --- | --- |
 | **1. Implemented** | Production ordering coverage retained in `55f330a` | Test-only additions; see completion reference below. No native acceptance implied |
 | 2 | Retire redundant local candidate tests | First retain remaining unique fault-position/property checks and design/limitation evidence from `8x1`; remove only proven redundant suites/dead helpers. Keep transport dependencies. Separately approve this scope |
-| 3 | Agree the remaining daily-use and release scope | Use the existing workflow inventory, not another open-ended audit. Owner confirms essentials, deliberate losses, release platforms and conversion host. Existing UI/workflows remain the baseline |
-| 4 | Close only agreed workflow/native-route gaps | Entry: a basic manual Windows launch reaches the main Tasks WebView (see Owner and native gates). Approve/prove one concrete family at a time; reuse existing UI/backend. Proof depth for each family is set when that family is approved; the recovery-proof text in `spec/v2/conformance.md` governs conformance claims, not per-family integration gates. Do not enable unproved Windows writers. Native acceptance waits for the separately resumed checks below |
-| 5 | Owner acceptance and migration readiness | Entry: a basic manual Windows launch reaches the main Tasks WebView (see Owner and native gates). `hzv`: actual owner sessions/checklist. Retain `y9b` rehearsal; choose its proved Linux route or approve a native converter proof. Personal access/conversion/selection needs explicit separate permission |
+| **3. Agreed 2026-10-14** | Daily-use and release scope | Recorded above. Scope approval only |
+| 4 | Close agreed workflow gaps, **Linux backend + `pnpm dev:web` first** | One bounded slice at a time, starting with the [next slice](#next-bounded-slice-established-client-on-the-linux-backend); reuse existing UI/backend. Proof depth is set per slice; the recovery-proof text in `spec/v2/conformance.md` governs conformance claims, not per-slice integration gates. Linux/web slices need no Windows launch. **Windows integration** of each family still starts with a basic manual Windows launch reaching the main Tasks WebView on the owner's machine; do not enable unproved Windows writers. Native acceptance waits for the deferred checks below |
+| 5 | Owner acceptance and migration readiness | Entry: a basic manual Windows launch reaches the main Tasks WebView (see Owner and native gates). `hzv`: actual owner sessions/checklist. Conversion uses the proved Linux/WSL2 `y9b` route. Personal access/conversion/selection needs explicit separate permission |
 | 6 | Make the clean cut (`dvs`) | Agreed essentials, owner acceptance, verified rehearsal and required native evidence precede one default app/runtime/spec. Preserve data and local recovery authority |
 | 7 | Publication review (`xz2`) | Review the consolidated default route against the explicitly chosen release platforms; record remaining blockers, no blanket release claim |
 
 Stages 1–2 are finite preparation, not an invitation to keep finding cleanup projects while acceptance waits. Stages 3–5 may feed back a named prerequisite, but must not expand into full target implementation or recreate a second client. Stop for an unresolved owner/platform decision instead.
 
-Stage 3 does not depend on stage 2 and may be agreed at any time.
+Stage 2 remains separately gated. The owner-approved bounded spec-authoritative test cleanup (`dbc47ca`) corrected one misleading candidate test; it did not retire the candidate suites.
+
+## Next bounded slice: established client on the Linux backend
+
+**Recommended next task, not implemented by the scope update.** Every agreed workflow needs the established `App` running on the replacement engine before it can be closed on Linux/web. Today the browser selection reaches only the workbench, so no agreed workflow can be exercised in the real UI. The slice routes an explicit `pnpm dev:web --v2-root R --database C --v2-edit` selection to `App` via `MainWorkspace`, exactly as the Windows route does, and exposes no new workflow family.
+
+Reuse: `V2App` confirmation screen, `MainWorkspace`, `V2WorkspaceReader`/`V2EditorClient` HTTP connections, `selectMainWorkspace` and the withheld-action wrappers in `backendClient`, the dev bridge allowlist/selection token, and the main client's retry dialog. Bring the bridge's editor command list in line with the native editor list (add eligible single-task `task.status.undo`) so the established Ctrl+Z works; add nothing else.
+
+Acceptance checks, on disposable data:
+
+1. Unflagged `pnpm dev:web` still renders the legacy `App` unchanged. The read-only `--v2-root` reader is untouched or explicitly retired in this slice; decide one, not both.
+2. With `--v2-edit`, confirmation shows root/cache/profile before any query, then the established `App` renders with the [home focus contract](docs/usage-guide.md#home-screen-contract) (list or empty shell focused, never New task).
+3. C/Enter capture and inline edit, shorthand classification round-trip, 0–4 priority, Space/Shift+Space/P/Delete statuses and Ctrl+Z eligible status undo persist through the Linux backend and are present after reload and re-confirmation (selection is not saved).
+4. Filters, search and an external `tasks-cli --v2-root … --database …` edit refresh the visible list without stealing focus or draft content.
+5. Child capture, parent/dependency, reorder, batch and general undo are still refused visibly by the existing wrappers, with no legacy transport fallback (extend `scripts/mainClientRouting.test.mjs` for the HTTP connection).
+6. A lost bridge reply locks the original request in the existing retry dialog; Retry same request reuses its envelope.
+7. `pnpm check`, `pnpm lint` and focused routing/editor tests pass; a disposable Chromium walk of items 2–6 is recorded or its tooling blocker is stated. No native, Windows or Android claim.
+
+Stop at that checkpoint. Afterwards, each agreed family is a separate slice through the same route, reusing the Linux backend that already implements it: child capture with parent/dependency edits, manual reorder, general undo with ~50 durable same-client entries, bulk status, backup/restore from Settings, then preferences persistence. Global focus waits for a native desktop slice.
 
 ## Implemented: production ordering coverage
 
@@ -87,9 +131,10 @@ The two local candidate suites total 376 lines/26 tests. The optional Syncthing 
 
 ## Owner and native gates
 
-Before closing gaps, agree a short **keep / replace / intentionally drop** checklist for capture/editing, classification/priorities, filters/search, child/parent/dependency work, manual order, undo/batches, backup/restore, global focus, preferences/themes and sharing/export. The [inventory](docs/refactor-inventory.md#3-workflow-parity-what-is-actually-available) and [unattended QA](docs/unattended-qa.md) already identify the gaps; do not repeat discovery or ask the owner to rebuild the chosen interface.
+The keep/replace/drop checklist is [agreed](#agreed-daily-use-scope-and-linuxweb-focus-2026-10-14): keep every listed workflow, no new sharing feature. The [inventory](docs/refactor-inventory.md#3-workflow-parity-what-is-actually-available) and [unattended QA](docs/unattended-qa.md) already identify the gaps; do not repeat discovery or ask the owner to rebuild the chosen interface.
 
-- Windows 11 remains the primary target. Confirm any additional release platforms; Windows-first does not authorize shipping a separate legacy Android product. Broad Windows `82r`, Android `erd`, wider matrix `gex` and independent interoperability `zaq` are not automatic work.
+- Windows 11 remains the first release platform; its launch/integration checks are deferred to the owner's machine. Android is maintained and its migration deferred on tooling; this does not authorize shipping a separate legacy Android product. Broad Windows `82r`, Android `erd`, wider matrix `gex` and independent interoperability `zaq` are not automatic work.
+- Deferred platform checks, still required before native acceptance: manual Windows launch to the main WebView, sidecar/permission route, close/relaunch, durable preferences, global focus shortcut, original-request/recovery on Windows; Windows simplified-create Node/SEA proof; Android schema-2 read/write/migration on the standard picker. Linux desktop (Tauri) acceptance is likewise not established by browser checks.
 - Browser/shared-UI and backend tests may support appropriate approved tasks. Legacy browser regressions do not prove replacement native parity. Linux process management does not prove Windows readiness.
 - **Keep `100` paused.** Later native work begins with a basic manual Windows launch, then the supported sidecar/permission route, close/relaunch, persistence and original-request/recovery checks. Further automated startup investigation needs separate bounded owner approval. Never attach to/stop existing owner sessions, inspect personal windows/data, change security/permissions or install/repair runtimes without permission.
 - Missing native essentials get individually approved support/integration tasks, such as parent move/remove, child capture, reorder or a particular inverse family. No blanket platform port, silent fallback or browser mutations to bypass a native blocker.
@@ -121,6 +166,6 @@ Before closing gaps, agree a short **keep / replace / intentionally drop** check
 
 ## Next-session boundary
 
-Read this file and AGENTS.md. Production ordering coverage is already implemented; do not repeat stage 1. Stage 2 candidate retirement awaits separate scope approval and the checkpoint above. No later work, Windows investigation, capability expansion, personal data or cutover is authorized by this roadmap update. Ignore older autonomous-loop instructions.
+Read this file and AGENTS.md. Stage 1 is implemented and stage 3 is agreed. **Next action:** the [established-client Linux slice](#next-bounded-slice-established-client-on-the-linux-backend), once queued; stop at its checkpoint. Stage 2 candidate retirement awaits separate scope approval. No Windows/Android work, personal data, cutover or release is authorized by this roadmap update. Ignore older autonomous-loop instructions.
 
 [README](README.md) and [development](docs/development.md) own commands and host setup; this roadmap does not authorize platform expansion or personal selection.
