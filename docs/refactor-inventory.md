@@ -115,8 +115,9 @@ Default backend/CLI → commands → legacy workspace/database/task engine
 Explicit Windows selection → V2App confirmation → original App + MainWorkspace
                          → reader/editor → one JsonLineSession → gateway
 
-Explicit Linux browser mode → V2App → V2ReaderView / V2TaskEditor
-                            → dev HTTP allowlist → same gateway
+Explicit Linux browser --v2-edit → V2App confirmation → original App + MainWorkspace
+                                → dev HTTP allowlist → same gateway
+Explicit Linux browser read-only → V2App → V2ReaderView → dev HTTP queries
 Explicit Linux CLI → friendly protocol-2 preparation → same gateway
 ```
 
@@ -151,7 +152,7 @@ Production naming can become `CanonicalTask`, `TaskEditRequest`, `WorkspaceReade
 | Candidate | Finding / concrete callers | Proposed disposition and gate |
 | --- | --- | --- |
 | `v2CopyStage.ts` and its two tests | `rg` finds only `v2CopyStage.test.ts` / `v2CopyStageFaults.test.ts` callers. Public gateway uses `v2CopyWriter` / `v2CopyJournal` instead. **330 lines** total | **First independent deletion candidate.** Compare byte/conflict/destination/pending/fault invariants with `v2CopyWriter.test.ts` and `v2CopyRecovery.test.ts`; retain any unique assertion there. Update live README/spec links; historical hash manifests are evidence, not callers. Do not remove shared `v2CopyFiles` |
-| `V2ReaderView`, `V2TaskEditor` | Workbench only; original Windows client bypasses them. **346 component lines**, but browser route/tests still call them | Retire shipped workbench at cutover. Keep/rehome useful client/retry tests against the original UI before deleting their runners; do not delete shared reader/editor clients or native confirmation with them |
+| `V2ReaderView` (`V2TaskEditor` retired) | The established-client Linux slice routed `--v2-edit` to `App` and removed `V2TaskEditor` plus its Chromium runner; client/bridge retry coverage moved to `mainClientRouting.test.mjs`. The read-only reader remains for query-only inspection | Retire the remaining reader at cutover. Keep/rehome useful client/retry tests against the original UI before deleting their runners; do not delete shared reader/editor clients or native confirmation with them |
 | `sourceController.ts`, `sourceRegistry.ts` | Old `commands.ts`/`cli.ts` route into them; replacement gateway does not | Remove with legacy routing at cutover. Retire `--source-key`, registry environment dispatch, `spec/sources.md` and superseded proposal links together. No replacement adapters |
 | Legacy engine (`commands`, `tasks`, `database`, `canonicalWorkspace`, `workspace`, `receiveWorkspace` and neighbors) | Still owns default desktop/CLI/web and supports old tests; some shapes/hash/text helpers are used by conversion/current UI | Not safe to delete now. Replace entrypoints, move needed current types/conversion helpers, satisfy agreed essentials, then remove old runtime and obsolete tests in a verified cut |
 | Candidate model and candidate/rekey tests | Only three test suites import `scripts/fixtures/taskdb-v2-candidate.mjs`; transport depends on it. Real ordering/recovery suites now exist | Compare unique vectors/race demonstrations before retirement. Prefer retained independent expected data and a production transport test if sharing is in scope; neither duplicate code nor total test count alone proves deletion safe |

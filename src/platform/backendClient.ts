@@ -14,7 +14,7 @@ import {
   type TaskTransitionItem,
   type ThemeRecord,
 } from "../backend/protocol";
-import { getBackendTransport } from "./backendTransport";
+import { getBackendTransport, isSelectedWorkspaceLaunch } from "./backendTransport";
 import type { AndroidSyncConflict } from "./androidSyncConflicts";
 import { MainWorkspace } from "./mainWorkspace";
 import { taskView } from "@/components/taskView";
@@ -110,7 +110,7 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
   options: CommandOptions = {},
 ): Promise<T> {
   if (mainWorkspace) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not yet available in the selected workspace.");
-  if (import.meta.env.VITE_TASKDB_V2_NATIVE_SELECTION) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not available through the selected workspace. Reopen and confirm it if the development connection was reloaded.");
+  if (isSelectedWorkspaceLaunch()) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not available through the selected workspace. Reopen and confirm it if the development connection was reloaded.");
   const response = await getBackendTransport().request({
     version: PROTOCOL_VERSION,
     requestId: crypto.randomUUID(),
@@ -168,7 +168,7 @@ export async function getTask(id: string): Promise<{ task: TaskRecord }> {
 
 export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string; priority?: TaskPriority }): Promise<TaskMutationResult> {
   if (mainWorkspace) {
-    if (options.parentId) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Child capture is not yet available in the selected Windows workspace.");
+    if (options.parentId) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Child capture is not yet available in the selected workspace.");
     return mainWorkspace.save(title, descriptionMarkdown, options.priority ?? 2, mainWriteKey(options));
   }
   const { parentId, priority, ...commandOptions } = options;

@@ -351,7 +351,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
           <TabsContent value="shortcuts" tabIndex={-1}>
             {selectedWorkspace ? <section aria-labelledby="settings-shortcut" className="flex flex-col gap-2 rounded-lg border p-4">
               <h2 id="settings-shortcut" className="text-sm font-medium">Global shortcut</h2>
-              <p className="text-sm text-muted-foreground">Global window focus is not yet enabled for this Windows workspace. In-app keyboard shortcuts remain available.</p>
+              <p className="text-sm text-muted-foreground">Global window focus is not yet enabled for this selected workspace. In-app keyboard shortcuts remain available.</p>
             </section> : isAndroid ? <section aria-labelledby="settings-shortcut" className="flex flex-col gap-2 rounded-lg border p-4">
               <h2 id="settings-shortcut" className="text-sm font-medium">Shortcuts on Android</h2>
               <p className="text-sm text-muted-foreground">With a hardware keyboard, use the in-app task shortcuts. Android does not support the desktop global window-focus shortcut; open Tasks from the launcher instead.</p>
@@ -436,7 +436,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                   disabled={pending || selectedWorkspace !== null}
                   onClick={() => void exportNow()}
                 >{pending ? "Exporting…" : "Export tasks as JSON"}</Button>
-                <p className="text-sm text-muted-foreground">{selectedWorkspace ? "Backup and restore currently use explicit CLI controls for this Windows workspace." : isAndroid ? "Choose where to save a portable JSON document. It can be opened by another app." : "Writes a readable copy into the exports folder beside the database, for another app to import."}</p>
+                <p className="text-sm text-muted-foreground">{selectedWorkspace ? "Backup and restore currently use explicit CLI controls for this selected workspace." : isAndroid ? "Choose where to save a portable JSON document. It can be opened by another app." : "Writes a readable copy into the exports folder beside the database, for another app to import."}</p>
               </div>
             </section>
 
@@ -452,7 +452,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                 onClick={() => void purgeCanceledNow()}
               >{purgingPending ? "Deleting canceled tasks…" : "Permanently delete canceled tasks"}</Button>
               <p className="text-sm text-muted-foreground">
-                {selectedWorkspace ? "Permanent deletion is not yet available in this Windows workspace." : isAndroid ? "Permanent deletion is not available on Android yet; canceled tasks remain in the shared workspace." : canceledTaskCount === null
+                {selectedWorkspace ? "Permanent deletion is not yet available in this selected workspace." : isAndroid ? "Permanent deletion is not available on Android yet; canceled tasks remain in the shared workspace." : canceledTaskCount === null
                   ? "Reading canceled tasks…"
                   : canceledTaskCount === 0
                     ? "There are no canceled tasks to delete."

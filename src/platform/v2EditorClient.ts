@@ -8,8 +8,7 @@ import { JsonLineSession } from "./backendSession";
 import { validateV2NativeSelection, V2_NATIVE_COMMANDS } from "./v2NativeSelection";
 
 const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
-export const V2_NATIVE_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
-const V2_BROWSER_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS] as const;
+export const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
 export type V2EditorMode = "content" | "status";
 export type V2StatusAction = typeof statusActions[number];
 
@@ -26,12 +25,11 @@ export class V2EditorError extends Error {
 export class V2AnsweredRefusal extends V2EditorError {}
 
 function validateEditorSelection(value: unknown, native = false): asserts value is V2EditorSelection {
-  const allowed = native ? V2_NATIVE_EDITOR_COMMANDS : V2_BROWSER_EDITOR_COMMANDS;
   if (!isV2Record(value) || value.version !== 2 || value.readOnly !== false
     || typeof value.rootPath !== "string" || typeof value.databasePath !== "string" || typeof value.profilePath !== "string"
     || typeof value.selectionToken !== "string" || !value.selectionToken
-    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== allowed.length
-    || value.writeCommands.some((command, index) => command !== allowed[index])) {
+    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== V2_EDITOR_COMMANDS.length
+    || value.writeCommands.some((command, index) => command !== V2_EDITOR_COMMANDS[index])) {
     throw new Error("This editor requires an explicitly enabled --v2-edit backend. No read-only or v1 fallback.");
   }
   validateV2Selection(value as V2EditorSelection);
@@ -123,8 +121,7 @@ export class V2EditorClient {
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
     if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) throw new V2EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
-    const availableStatusCommands = this.connection instanceof JsonLineSession ? statusActions : V2_STATUS_COMMANDS;
-    const commands = mode === "status" ? availableStatusCommands : [taskId === undefined ? "task.create" : "task.update"];
+    const commands = mode === "status" ? statusActions : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });

@@ -1058,7 +1058,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
-    if (selectedMainWorkspace()) return "Reordering is not yet available in this Windows workspace.";
+    if (selectedMainWorkspace()) return "Reordering is not yet available in this selected workspace.";
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";

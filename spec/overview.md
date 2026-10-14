@@ -41,12 +41,13 @@ flowchart LR
   UI["main.tsx: App (default)"] --> BC["platform/backendClient + backendTransport"]
   BC --> LEG["commands → tasks / canonicalWorkspace / database (legacy)"]
   BC --> AND["androidBackendEngine + android_backend.rs (legacy)"]
-  SEL["main.tsx: V2App (explicit opt-in)"] --> MW["Windows: mainWorkspace reuses App"]
-  MW --> SESSION["platform/backendSession: shared SEA session"]
+  SEL["main.tsx: V2App (explicit opt-in)"] --> MW["mainWorkspace reuses App"]
+  MW -->|Windows native| SESSION["platform/backendSession: shared SEA session"]
   SESSION --> ENTRY["cli.ts --stdio --v2-root"]
   ENTRY --> GW["v2Gateway: executeV2Line"]
-  SEL --> WB["Browser workbench: V2ReaderView / V2TaskEditor"]
-  WB --> DEV["devServer: query / bounded edit allowlist"]
+  MW -->|Linux dev:web --v2-edit| DEV["devServer: query / bounded edit allowlist"]
+  SEL --> RD["Read-only browser reader: V2ReaderView"]
+  RD --> DEV
   DEV --> GW
   CLI["tasks-cli"] -->|default| LEG
   CLI -->|explicit --v2-root| HUMAN["v2HumanCli"]

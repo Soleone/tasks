@@ -72,7 +72,7 @@ test("editor/read-only handshakes cannot silently cross modes; health creates no
   const selected = workspace(t), original = bytes(selected.root);
   const writable = await server(t, selected);
   assert.equal(writable.handshake.readOnly, false);
-  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update", ...statusCommands]);
+  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update", ...statusCommands, "task.status.undo"]);
   assert.equal(existsSync(selected.cache), false); assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
   await assert.rejects(readV2DevSelection(writable.dev.url), /No v1 fallback/);
   const readonly = await server(t, selected, false);
@@ -91,12 +91,12 @@ test("editor health requires the exact connected-command whitelist, not comma co
   const selected = workspace(t), { dev } = await server(t, selected);
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
-  const allowed = ["task.create", "task.update", ...statusCommands];
+  const allowed = ["task.create", "task.update", ...statusCommands, "task.status.undo"];
   for (writeCommands of [["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "operation.undo"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
-for (const command of ["task.status.undo", "task.status.undoMany", "task.transitionMany", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
+for (const command of ["task.status.undoMany", "task.transitionMany", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async t => {
     const selected = workspace(t), original = bytes(selected.root);
     const { dev, handshake } = await server(t, selected);
@@ -516,16 +516,27 @@ return {...result,source};}});\n`);
   }
 }
 
-test("browser status editor requires only six status commands and cannot prepare status undo", async t => {
+test("browser status undo requires the advertised command before querying the selected task", async t => {
   const selected = workspace(t), { editor } = await server(t, selected);
   const calls = traceFetch(t, async response => {
     const body = await response.json();
     if (body.result?.commands) body.result.commands = body.result.commands.filter(command => command !== "task.status.undo");
     return new Response(JSON.stringify(body));
   });
-  assert.deepEqual(editor.selection.writeCommands, ["task.create", "task.update", ...statusCommands]);
-  const baseline = await editor.begin(closedId, "status");
-  assert.equal(baseline.task.id, closedId);
-  assert.deepEqual(calls.map(call => call.command), ["workspace.info", "task.get"]);
-  assert.throws(() => editor.prepareStatus(baseline, "task.status.undo"), /Original executing/);
+  assert.deepEqual(editor.selection.writeCommands, ["task.create", "task.update", ...statusCommands, "task.status.undo"]);
+  await assert.rejects(editor.begin(closedId, "status"), /UNSUPPORTED_COMMAND/);
+  assert.deepEqual(calls.map(call => call.command), ["workspace.info"]);
+});
+
+test("browser status undo restores the latest eligible status once and refuses without history", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected), openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
+  const unavailable = editor.prepareStatus(await editor.begin(openId, "status"), "task.status.undo");
+  await assert.rejects(unavailable.execute(), /UNDO_UNAVAILABLE/);
+  const completed = await editor.prepareStatus(await editor.begin(openId, "status"), "task.complete").execute();
+  assert.equal(completed.task.status, "done");
+  const undo = editor.prepareStatus(await editor.begin(openId, "status"), "task.status.undo");
+  const undone = await undo.execute();
+  assert.equal(undone.task.status, "open"); assert.equal(undone.task.closedAt, null);
+  assert.deepEqual(await undo.execute(), undone);
+  await assert.rejects(editor.prepareStatus(await editor.begin(openId, "status"), "task.status.undo").execute(), /UNDO_UNAVAILABLE/);
 });

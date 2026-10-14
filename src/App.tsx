@@ -247,7 +247,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   }, []);
 
   async function changeGlobalShortcut(value: string): Promise<void> {
-    if (workspace) throw new Error("Global shortcuts are not yet enabled for this selected Windows workspace.");
+    if (workspace) throw new Error("Global shortcuts are not yet enabled for this selected workspace.");
     const next = value.trim();
     if (!isShortcutConfigured(next)) throw new Error("Use at least one modifier and a key, such as Ctrl+Alt+Space.");
     await setGlobalShortcut(next, globalShortcutRef.current);
@@ -449,7 +449,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
     if (workspace && parentId) {
-      setAnnouncement("Child capture is not yet available in this Windows workspace.");
+      setAnnouncement("Child capture is not yet available in this selected workspace.");
       return;
     }
     if (parentId) {
@@ -568,7 +568,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
 
   function openPicker(mode: TaskPickerMode, subject: TaskRecord): void {
     if (workspace) {
-      setAnnouncement("Relationship changes are not yet available in this Windows workspace.");
+      setAnnouncement("Relationship changes are not yet available in this selected workspace.");
       return;
     }
     // From the palette, inherit its return target like settings does so the
