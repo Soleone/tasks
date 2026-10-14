@@ -205,17 +205,18 @@ test("v2 rekey: recovery stops on an edited, deleted, or newly arrived sibling w
   }
 });
 
-test("v2 rekey: journals survive local cache loss; different-content retry cannot replace intent", (t) => {
+test("v2 rekey: a competing reorder cannot replace persisted intent or change canonical bytes", (t) => {
   const { taskDirectory, journalPath } = scratchBatch(t);
+  const observed = observeCandidateScope(taskDirectory, null);
   const plan = candidateReorderPlan(tiedTasks(), ["move"], 2);
-  stageCandidateBatch(journalPath, observeCandidateScope(taskDirectory, null), plan.writes);
-  const cachePath = path.join(path.dirname(journalPath), "local-cache.json");
-  writeFileSync(cachePath, "{}");
-  rmSync(cachePath);
-  const recovered = JSON.parse(readFileSync(journalPath, "utf8"));
-  assert.throws(() => stageCandidateBatch(journalPath, observeCandidateScope(taskDirectory, null), []), /EEXIST/);
-  applyCandidateBatch(recovered);
-  assert.deepEqual(readScopeTasks(taskDirectory).map((task) => task.id), plan.finalIds);
+  stageCandidateBatch(journalPath, observed, plan.writes);
+  const pendingBytes = readFileSync(journalPath, "utf8");
+  const competingPlan = candidateReorderPlan(tiedTasks(), ["move"], 0);
+  assert.throws(() => stageCandidateBatch(journalPath, observed, competingPlan.writes), /EEXIST/);
+  assert.equal(readFileSync(journalPath, "utf8"), pendingBytes);
+  assert.deepEqual(observeCandidateScope(taskDirectory, null), observed);
+  applyCandidateBatch(JSON.parse(readFileSync(journalPath, "utf8")));
+  assert.deepEqual(readScopeTasks(taskDirectory).map((task) => task.id), ["lower", "a", "move", "b", "upper", "tail"]);
 });
 
 test("v2 rekey: existing v1 fixture sibling order maps to valid sparse keys with unchanged records", () => {
