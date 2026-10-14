@@ -52,7 +52,7 @@ Fix the representation with a once-per-scope fixed-size signature while preservi
 
 ### Product behavior
 
-The experimental editor requires preview/apply even for normal status changes, displays authority/protocol terminology, and locks after every executing error. A definite stale-version refusal uses the same externally reconciled request flow as an uncertain lost reply. Browser retry state is memory-only. These constraints are documented and tested; tests do not establish that the workflow is pleasant or complete for daily use.
+The experimental editor requires preview/apply even for normal status changes, displays authority/protocol terminology, and locks after every executing error. A definite stale-version refusal uses the same externally reconciled request flow as an uncertain lost reply. Browser retry state is memory-only. The selected main client now exempts only validated, correlated pre-effect gateway refusals (`INVALID_REQUEST`, `UNSUPPORTED_VERSION`, `UNKNOWN_COMMAND`) without prior attempt uncertainty, and rejects empty literal shorthand titles/competing categories locally; writer-admission errors such as stale version or `INVALID_ARGUMENT` remain protected. This does not change the experimental workbench policy or establish native acceptance. These constraints are documented and tested; tests do not establish that the workflow is pleasant or complete for daily use.
 
 The reset asks for native use evidence and an explicit review of these interactions. It does not silently loosen the accepted retry/recovery contract or require another generic UI rewrite.
 

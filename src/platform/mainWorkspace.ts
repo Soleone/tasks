@@ -1,7 +1,10 @@
 import { taskView } from "@/components/taskView";
 import type { TaskPriority } from "@/backend/protocol";
 import { V2WorkspaceReader } from "./v2BackendClient";
-import { V2EditorClient, V2EditorError, type V2EditResult, type V2PreparedEdit, type V2StatusAction } from "./v2EditorClient";
+import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditResult, type V2PreparedEdit, type V2StatusAction } from "./v2EditorClient";
+
+// Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
+const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);
 
 function classificationEntries(value: unknown): { slug: string; taskCount: number }[] {
   if (!Array.isArray(value)) throw new Error("The workspace returned invalid classification entries.");
@@ -107,6 +110,7 @@ export class MainWorkspace {
       const prepared = await prepare();
       const result = await new Promise<V2EditResult>((resolve, reject) => {
         let inFlight = false;
+        let uncertainAttempt = false;
         const retry = async (): Promise<void> => {
           if (inFlight) return;
           inFlight = true;
@@ -115,6 +119,13 @@ export class MainWorkspace {
             this.publishUnresolved(null);
             resolve(result);
           } catch (error) {
+            if (!uncertainAttempt && error instanceof V2AnsweredRefusal && PRE_EFFECT_REFUSALS.has(error.code)) {
+              this.publishUnresolved(null);
+              reject(error);
+              return;
+            }
+            // A later refusal cannot prove that an earlier attempt had no effect.
+            uncertainAttempt = true;
             this.publishUnresolved({ prepared, error: error instanceof Error ? error.message : String(error), retry,
               preserveForReconciliation: () => {
                 this.reconciliationRequired = true;

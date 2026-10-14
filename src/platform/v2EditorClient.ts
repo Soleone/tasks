@@ -22,6 +22,9 @@ export class V2EditorError extends Error {
   constructor(readonly code: string, message: string) { super(`${code}: ${message}`); }
 }
 
+/** A validated, correlated backend refusal, not a local or transport failure. */
+export class V2AnsweredRefusal extends V2EditorError {}
+
 function validateEditorSelection(value: unknown, native = false): asserts value is V2EditorSelection {
   const allowed = native ? V2_NATIVE_EDITOR_COMMANDS : V2_BROWSER_EDITOR_COMMANDS;
   if (!isV2Record(value) || value.version !== 2 || value.readOnly !== false
@@ -96,7 +99,7 @@ export class V2PreparedEdit {
       if (preview) { delete request.idempotencyKey; request.dryRun = true; request.requestId = crypto.randomUUID(); }
       const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postV2DevRequest(this.connection, this.selection, request);
       if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID; retain the original request.");
-      if (!response.ok) throw new V2EditorError(response.error.code, response.error.message);
+      if (!response.ok) throw new V2AnsweredRefusal(response.error.code, response.error.message);
       if (response.writeContext !== request.writeContext) throw new Error("v2 editor returned different authority; retain the original request.");
       const result = editorResult(response.result, preview);
       if (request.command !== "task.create" && result.task.id !== request.args.id) throw new Error("v2 editor returned another task; retain the original request.");

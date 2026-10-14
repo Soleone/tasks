@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent,
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
 import type { TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { createTask, listCategories, listTags, updateTask, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
+import { parseV2Shorthand } from "@/backend/v2UpdateInputs";
+import { createTask, listCategories, listTags, updateTask, selectedMainWorkspace, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -297,6 +298,11 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     }
     const options = { idempotencyKey: receipt.current.key };
     try {
+      if (selectedMainWorkspace() && !parseV2Shorthand(title).title) {
+        setTitleError(true);
+        titleInput.current?.focus();
+        return;
+      }
       if (!task) {
         onCreatePending({
           title: title.trim(),

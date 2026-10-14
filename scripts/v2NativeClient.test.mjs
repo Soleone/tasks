@@ -5,7 +5,7 @@ import { build } from "esbuild";
 import { nativePilotConfig, nativePilotSelection, resolveNativePilotSelection } from "./native-pilot-options.mjs";
 
 const bundle = await build({ stdin: { contents: `export * from './src/platform/v2NativeSelection';export * from './src/platform/v2BackendClient';export * from './src/platform/v2EditorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseV2Response} from './src/backend/v2Protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseV2Shorthand} from './src/backend/v2UpdateInputs';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_NATIVE_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2PreparedEdit, JsonLineSession, parseV2Response, MainWorkspace, taskView, inlineTaskText, parseV2Shorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_NATIVE_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2EditorError, V2PreparedEdit, JsonLineSession, parseV2Response, MainWorkspace, taskView, inlineTaskText, parseV2Shorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 const selection = { rootPath: "C:\\proof\\root", databasePath: "C:\\proof\\cache.db", profilePath: "C:\\proof\\profile" };
 const argv = ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
 const editorSelection = { ...selection, version: 2, readOnly: false, selectionToken: "native-memory-selection", writeCommands: V2_NATIVE_EDITOR_COMMANDS };
@@ -30,7 +30,7 @@ function sessionFixture(t, respond) {
     let stdout, close;
     return { stdout: { on(_event, callback) { stdout = callback; } }, on(event, callback) { if (event === "close") close = callback; },
       async spawn() { return {
-        async write(line) { const request = JSON.parse(line); requests.push(request); const result = respond(request, () => close({ code: 1, signal: null })); if (result) stdout(JSON.stringify({ version: 2, requestId: request.requestId, ok: true, writeContext: "native-context", result }) + "\n"); },
+        async write(line) { const request = JSON.parse(line); requests.push(request); const result = respond(request, () => close({ code: 1, signal: null })); if (result) stdout(JSON.stringify(result.version === 2 ? result : { version: 2, requestId: request.requestId, ok: true, writeContext: "native-context", result }) + "\n"); },
         async kill() { kills++; },
       }; },
     };
@@ -194,6 +194,120 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
   assert.equal(state.requests.length, before + 1); assert.deepEqual(state.requests.at(-1), original);
   assert.equal(state.launches.length, 2); assert.equal(workspace.getUnresolved(), null);
 });
+
+function answeredRefusal(request, code) {
+  return { version: 2, requestId: request.requestId, ok: false, error: { code, message: "fixture refusal" } };
+}
+
+function nextUnresolved(workspace) {
+  return new Promise(resolve => {
+    const unsubscribe = workspace.subscribe(() => {
+      if (workspace.getUnresolved()) { unsubscribe(); resolve(workspace.getUnresolved()); }
+    });
+  });
+}
+
+for (const code of ["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]) {
+  test(`main-client correlated pre-effect ${code} rejects inline and leaves writes enabled`, { timeout: 5000 }, async t => {
+    desktop(t); let refuse = true;
+    const state = sessionFixture(t, request => {
+      if (request.command === "workspace.info") return info;
+      if (request.command === "task.get") return { task };
+      if (refuse) { refuse = false; return answeredRefusal(request, code); }
+      return { task, changed: true, operationId: "next-write" };
+    });
+    const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+    await assert.rejects(workspace.save("Refused", "", 2, "refused-key", task.id, 1), { code });
+    assert.equal(workspace.getUnresolved(), null);
+    assert.equal(workspace.hasWriteInProgress(), false);
+    assert.equal(state.requests.filter(request => !request.readOnly).length, 1);
+    await workspace.save("Corrected", "", 2, "next-key", task.id, 1);
+    assert.equal(state.requests.at(-1).idempotencyKey, "next-key");
+  });
+}
+
+for (const code of ["INVALID_STORAGE", "INVALID_ARGUMENT", "MULTIPLE_CATEGORIES", "UNSUPPORTED_COMMAND", "RECOVERY_CONFLICT", "INTERNAL_ERROR", "FUTURE_ERROR"]) {
+  test(`main-client answered ${code} remains uncertain even after a pre-effect retry refusal`, { timeout: 5000 }, async t => {
+    desktop(t); let attempts = 0;
+    const state = sessionFixture(t, request => {
+      if (request.command === "workspace.info") return info;
+      return answeredRefusal(request, ++attempts === 1 ? code : "INVALID_REQUEST");
+    });
+    const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+    const unresolved = nextUnresolved(workspace);
+    const saving = workspace.save("Uncertain create", "", 2, "original-key");
+    let settled = false;
+    void saving.then(() => { settled = true; }, () => { settled = true; });
+    const rejected = assert.rejects(saving, /external reconciliation/);
+    const retained = await unresolved;
+    const original = JSON.parse(retained.prepared.originalRequest), metadata = retained.prepared.retryMetadata;
+    assert.equal(original.command, "task.create");
+    assert.equal(workspace.hasWriteInProgress(), true);
+    await assert.rejects(workspace.save("Replacement", "", 2, "replacement-key"), { code: "WRITE_IN_PROGRESS" });
+    const before = state.requests.length;
+    await retained.retry();
+    assert.equal(settled, false);
+    assert.equal(state.requests.length, before + 1);
+    assert.deepEqual(state.requests.at(-1), original);
+    assert.equal(workspace.getUnresolved().prepared.originalRequest, retained.prepared.originalRequest);
+    assert.equal(workspace.getUnresolved().prepared.retryMetadata, metadata);
+    assert.match(metadata, /original-key/);
+    workspace.getUnresolved().preserveForReconciliation();
+    await rejected;
+    await assert.rejects(workspace.save("Replacement", "", 2, "new-key"), { code: "MANUAL_RECONCILIATION" });
+  });
+}
+
+test("main-client answered storage refusal retries the frozen create and accepts retained success", { timeout: 5000 }, async t => {
+  desktop(t); let applied = false;
+  const state = sessionFixture(t, request => {
+    if (request.command === "workspace.info") return info;
+    if (!applied) { applied = true; return answeredRefusal(request, "INVALID_STORAGE"); }
+    // Model a committed receipt replay, not a guarantee every create failure has a receipt.
+    return { task, changed: true, operationId: "retained-create" };
+  });
+  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const unresolved = nextUnresolved(workspace);
+  const saving = workspace.save("Possibly published", "", 2, "original-key");
+  const retained = await unresolved, before = state.requests.length;
+  await retained.retry();
+  assert.equal((await saving).operationId, "retained-create");
+  assert.equal(state.requests.length, before + 1);
+  assert.deepEqual(state.requests.at(-1), JSON.parse(retained.prepared.originalRequest));
+  assert.equal(workspace.getUnresolved(), null);
+  assert.equal(workspace.hasWriteInProgress(), false);
+});
+
+for (const fault of ["local-error", "wrong-correlation", "malformed-response"]) {
+  test(`main-client does not trust ${fault} as a pre-effect answer`, { timeout: 5000 }, async t => {
+    desktop(t);
+    const state = sessionFixture(t, request => {
+      if (request.command === "workspace.info") return info;
+      if (request.command === "task.get") return { task };
+      const response = answeredRefusal(request, "INVALID_REQUEST");
+      if (fault === "wrong-correlation") response.requestId = "another-request";
+      if (fault === "malformed-response") response.error.message = 42;
+      return response;
+    });
+    const editor = new V2EditorClient(state.session, editorSelection);
+    if (fault === "local-error") {
+      const prepare = editor.prepareInline.bind(editor);
+      editor.prepareInline = (...args) => {
+        const prepared = prepare(...args);
+        prepared.execute = async () => { throw new V2EditorError("INVALID_REQUEST", "local failure, not an answer"); };
+        return prepared;
+      };
+    }
+    const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), editor);
+    const unresolved = nextUnresolved(workspace);
+    const saving = workspace.save("Uncertain", "", 2, "original-key", task.id, 1);
+    const rejected = assert.rejects(saving, /external reconciliation/);
+    const retained = await unresolved;
+    await assert.rejects(workspace.save("Replacement", "", 2, "replacement-key"), { code: "WRITE_IN_PROGRESS" });
+    retained.preserveForReconciliation();
+    await rejected;
+  });
+}
 
  test("acknowledged external reconciliation keeps main-client writes paused", async t => {
   desktop(t);
