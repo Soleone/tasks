@@ -90,7 +90,7 @@ export type TaskTransitionManyResult = {
 };
 export type TaskStatusUndoManyResult = TaskTransitionManyResult;
 export type OperationUndoResult = {
-  operationId: string;
+  operationId?: string;
   undoneOperationId: string;
   tasks: TaskRecord[];
   deletedTaskIds?: string[];
@@ -246,6 +246,11 @@ export async function undoStatusChanges(
 }
 
 export async function undoOperation(operationId: string, options: CommandOptions): Promise<OperationUndoResult> {
+  if (mainWorkspace) {
+    if (!mainWorkspace.supportsOperationUndo) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Undo is limited to status changes in this selected workspace.");
+    const { removedIds, ...result } = await mainWorkspace.undo(operationId, mainWriteKey(options));
+    return { ...result, undoneOperationId: operationId, deletedTaskIds: removedIds };
+  }
   return runBackendCommand<OperationUndoResult>("operation.undo", { operationId }, options);
 }
 

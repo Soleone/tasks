@@ -16,7 +16,7 @@ const { readV2DevSelection } = await import(`data:text/javascript;base64,${Buffe
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const statusCommands = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"];
-const linuxEditorCommands = ["task.create", "task.update", ...statusCommands, "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder"];
+const linuxEditorCommands = ["task.create", "task.update", ...statusCommands, "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "operation.undo"];
 const statusSources = { "task.start": "done", "task.pause": "in_progress", "task.complete": "paused", "task.reopen": "done", "task.cancel": "paused", "task.delete": "done" };
 
 function workspace(t) {
@@ -92,12 +92,12 @@ test("editor health requires the exact connected-command whitelist, not comma co
   const selected = workspace(t), { dev } = await server(t, selected);
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
-  const allowed = linuxEditorCommands, native = allowed.slice(0, -4);
-  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "operation.undo"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
+  const allowed = linuxEditorCommands, native = allowed.slice(0, -5);
+  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
-for (const command of ["task.status.undoMany", "task.transitionMany", "task.order.normalize", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
+for (const command of ["task.status.undoMany", "task.transitionMany", "task.order.normalize", "task.purgeCanceled", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async t => {
     const selected = workspace(t), original = bytes(selected.root);
     const { dev, handshake } = await server(t, selected);

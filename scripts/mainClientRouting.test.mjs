@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -23,7 +23,7 @@ const withheldActions = [
   ["abortReceiveWorkspace", []],
 ];
 
-const linuxConnectedActions = new Set(["moveTask", "reorderTasks", "addDependency", "removeDependency"]);
+const linuxConnectedActions = new Set(["undoOperation", "moveTask", "reorderTasks", "addDependency", "removeDependency"]);
 const linuxWithheldActions = withheldActions.filter(([action]) => !linuxConnectedActions.has(action));
 
 test("selected native launch can never use the legacy transport, even before registration or after reload", async () => {
@@ -93,7 +93,7 @@ async function selectedHttpWorkspace(t) {
     const request = args[1]?.body ? JSON.parse(args[1].body) : null;
     if (request) calls.push(request);
     const response = await originalFetch(...args);
-    if (request?.readOnly === false && loseNextWriteReply) { loseNextWriteReply = false; throw new TypeError("Failed to fetch"); }
+    if (request?.readOnly === false && request.dryRun === false && loseNextWriteReply) { loseNextWriteReply = false; throw new TypeError("Failed to fetch"); }
     return response;
   };
   t.after(async () => {
@@ -148,8 +148,10 @@ test("main UI over the Linux HTTP bridge persists direct actions and refuses wit
   assert.deepEqual([top.task.parentId, linked.task.blockedByIds, unlinked.task.dependencyIds], [null, [openId], []]);
   const reordered = await httpClient.reorderTasks([{ id: unlinked.task.id, expectedVersion: unlinked.task.version }], { last: true }, {});
   assert.deepEqual([reordered.changed, reordered.tasks.map(task => task.id)], [true, [unlinked.task.id]]);
-  assert.deepEqual(calls.filter(call => call.readOnly === false).map(call => call.command),
-    ["task.create", "task.complete", "task.status.undo", "task.create", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder"]);
+  const undoneOrder = await httpClient.undoOperation(reordered.operationId, {});
+  assert.deepEqual([undoneOrder.changed, undoneOrder.undoneOperationId, undoneOrder.deletedTaskIds, undoneOrder.tasks.map(task => task.id)], [true, reordered.operationId, [], [unlinked.task.id]]);
+  assert.deepEqual(calls.filter(call => call.readOnly === false && call.dryRun === false).map(call => call.command),
+    ["task.create", "task.complete", "task.status.undo", "task.create", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "operation.undo"]);
   assert.ok(calls.every(call => call.version === 2));
 });
 
@@ -220,6 +222,47 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
   assert.deepEqual(await topLevel(reopened), [openId, pausedId, doneId], "manual order persists after reopening with a fresh cache");
 });
 
+test("Linux route undoes the latest content, capture, relationship and reorder operations through operation.undo", async t => {
+  const { root, calls, workspace } = await selectedHttpWorkspace(t);
+  const stored = id => JSON.parse(readFileSync(path.join(root, "tasks", `${id}.json`), "utf8"));
+  const exists = id => existsSync(path.join(root, "tasks", `${id}.json`));
+  const writes = () => calls.filter(call => call.readOnly === false && call.dryRun === false).map(call => call.command);
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed";
+  const topLevel = async () => (await workspace.tasks({ sort: "manual", limit: 100 })).tasks.filter(task => task.parentId === null).map(task => task.id);
+  assert.equal(workspace.supportsOperationUndo, true);
+
+  const version = async id => (await workspace.reader.query("task.get", { id })).task.version;
+  const original = stored(openId);
+  const edited = await workspace.save("Renamed", "", undefined, "edit-key", openId, await version(openId));
+  const restored = await workspace.undo(edited.operationId, "undo-edit-key");
+  assert.deepEqual([restored.changed, typeof restored.operationId, restored.tasks.map(task => task.title), stored(openId).title], [true, "string", [original.title], original.title]);
+
+  const created = await workspace.createChild(openId, "Draft", "", 2, "child-key");
+  const removed = await workspace.undo(created.operationId, "undo-child-key");
+  assert.deepEqual([removed.tasks, removed.removedIds, exists(created.task.id)], [[], [created.task.id], false], "creation undo removes the unchanged capture");
+
+  const moved = await workspace.relationship("task.move", openId, await version(openId), pausedId, "move-key");
+  await workspace.undo(moved.operationId, "undo-move-key");
+  assert.equal(stored(openId).parentId, null);
+
+  const before = await topLevel();
+  const reordered = await workspace.reorder([{ id: openId, expectedVersion: await version(openId) }], { first: true }, "order-key");
+  assert.notDeepEqual(await topLevel(), before);
+  await workspace.undo(reordered.operationId, "undo-order-key");
+  assert.deepEqual(await topLevel(), before, "reorder undo restores the recorded sibling order");
+  assert.deepEqual(writes(), ["task.update", "operation.undo", "task.create", "operation.undo", "task.move", "operation.undo", "task.reorder", "operation.undo"]);
+
+  // The gateway's preview refuses consumed or superseded history before the locked request is sent.
+  const sent = writes().length;
+  await assert.rejects(() => workspace.undo(reordered.operationId, "consumed-key"), /OPERATION_UNAVAILABLE/);
+  const first = await workspace.save("First", "", undefined, "first-key", openId, await version(openId));
+  await workspace.save("Second", "", undefined, "second-key", openId, first.task.version);
+  await assert.rejects(() => workspace.undo(first.operationId, "superseded-key"), /OPERATION_UNAVAILABLE/);
+  assert.deepEqual(writes().slice(sent), ["task.update", "task.update"], "ineligible undo sends no executing request");
+  assert.equal(stored(openId).title, "Second");
+  assert.equal(workspace.getUnresolved(), null);
+});
+
 test("a lost bridge reply locks the original request and Retry same request reuses its envelope", async t => {
   const { calls, workspace, loseNextReply } = await selectedHttpWorkspace(t);
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
@@ -257,4 +300,14 @@ test("a lost bridge reply locks the original request and Retry same request reus
   const orders = calls.filter(call => call.command === "task.reorder");
   assert.equal(orders.length, 2);
   assert.deepEqual(orders[1], orders[0]);
+
+  loseNextReply();
+  const undoing = workspace.undo((await reordering).operationId, "lost-undo-key");
+  await new Promise(resolve => { const stop = workspace.subscribe(() => { stop(); resolve(); }); });
+  await assert.rejects(() => workspace.undo("other-operation", "replacement-undo-key"), /WRITE_IN_PROGRESS/);
+  await workspace.getUnresolved().retry();
+  assert.equal((await undoing).changed, true);
+  const undos = calls.filter(call => call.command === "operation.undo" && call.dryRun === false);
+  assert.equal(undos.length, 2);
+  assert.deepEqual(undos[1], undos[0]);
 });

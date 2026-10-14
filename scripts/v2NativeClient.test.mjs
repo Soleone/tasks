@@ -105,7 +105,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
   assert.equal(V2_EDITOR_COMMANDS.includes("task.move"), false);
   assert.throws(() => new V2EditorClient(state.session, { ...editorSelection, writeCommands: V2_LINUX_EDITOR_COMMANDS }), /explicitly enabled/);
   const native = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
-  assert.deepEqual([native.supportsRelationships, native.supportsOrdering, V2_EDITOR_COMMANDS.includes("task.reorder")], [false, false, false]);
+  assert.deepEqual([native.supportsRelationships, native.supportsOrdering, native.supportsOperationUndo, V2_EDITOR_COMMANDS.includes("task.reorder")], [false, false, false, false]);
   for (const command of ["task.move", "task.transitionMany", "operation.undo", "workspace.recovery.resume"]) assert.throws(() => new V2PreparedEdit(state.session, editorSelection, { version: 2, command, requestId: "r", writeContext: "native-context", idempotencyKey: "k", actor: { kind: "human", label: "native" }, readOnly: false, dryRun: false, args: { id: task.id, expectedVersion: 1 } }));
   assert.equal(state.requests.length, 0); assert.equal(state.launches.length, 0);
 });

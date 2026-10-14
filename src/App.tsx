@@ -885,14 +885,16 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       const after = currentById.get(taskId);
       return before !== undefined && after !== undefined && before.status !== after.status;
     });
-    if (workspace && (!statusLike || affectedTaskIds.length !== 1)) {
+    // A selected workspace keeps single-task status undo; only the Linux route also undoes other operations.
+    const singleStatus = statusLike && affectedTaskIds.length === 1;
+    if (workspace && !singleStatus && (statusLike || !workspace.supportsOperationUndo)) {
       retireStatusUndo();
       return;
     }
     const titleTask = current.find((task) => affectedTaskIds.includes(task.id)) ?? previous.find((task) => affectedTaskIds.includes(task.id));
     const entry: OperationUndoEntry = {
       operationId,
-      ...(workspace ? { expectedVersion: current[0].version } : {}),
+      ...(workspace && singleStatus ? { expectedVersion: current[0].version } : {}),
       key: crypto.randomUUID(),
       affectedTaskIds,
       createdTaskIds: options.createdTaskIds ?? [],
@@ -925,7 +927,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const entry = statusUndoRef.current;
     if (!entry) return;
     try {
-      const result = workspace
+      const result = entry.expectedVersion !== undefined
         ? { tasks: [(await undoStatusChange(entry.affectedTaskIds[0], entry.expectedVersion!, { idempotencyKey: entry.key })).task], deletedTaskIds: [] }
         : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
       const restored = result.tasks;
@@ -952,7 +954,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       showToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
-      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND")) {
+      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND"
+        || (caught instanceof V2EditorError && (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))) {
         retireStatusUndo();
         setExitingTaskIds(new Set());
         setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
@@ -1422,7 +1425,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
-        statusUndoOnly={workspace !== undefined}
+        statusUndoOnly={workspace !== undefined && !workspace.supportsOperationUndo}
         canUndoStatus={statusUndo !== null}
         onUndoStatus={() => {
           setHelpOpen(false);
