@@ -1058,7 +1058,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
-    if (selectedMainWorkspace()) return "Reordering is not yet available in this selected workspace.";
+    const selected = selectedMainWorkspace();
+    if (selected && !selected.supportsOrdering) return "Reordering is not yet available in this selected workspace.";
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";
@@ -1183,11 +1184,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         onAnnounce(switchedToManual ? `Switched to manual order. ${move}` : move);
         list.current?.focus();
       } catch (caught) {
-        if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+        if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && caught.code === "STALE_TASK_VERSION") {
           reorderReceipt.current = null;
           onAnnounce("A selected task changed elsewhere. Refresh and try again.");
           void onRefresh(0);
-        } else if (caught instanceof BackendCommandError) {
+        } else if (caught instanceof BackendCommandError || caught instanceof V2EditorError) {
           reorderReceipt.current = null;
           onAnnounce(caught.message);
         } else {

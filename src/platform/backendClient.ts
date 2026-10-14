@@ -260,6 +260,10 @@ export async function reorderTasks(
   placement: TaskReorderPlacement,
   options: CommandOptions,
 ): Promise<TaskReorderResult> {
+  if (mainWorkspace) {
+    if (!mainWorkspace.supportsOrdering) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Reordering is not yet available in this selected workspace.");
+    return mainWorkspace.reorder(tasks, placement, mainWriteKey(options));
+  }
   return runBackendCommand<TaskReorderResult>("task.reorder", { tasks, placement }, options);
 }
 

@@ -28,9 +28,9 @@ export type DevServerOptions = {
   v2Edit?: boolean;
 };
 
-// Same ordered list as the Linux main-client editor: the native list plus parent/dependency edits.
-// Eligibility stays with the gateway.
-const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", ...V2_RELATIONSHIP_COMMANDS];
+// Same ordered list as the Linux main-client editor: the native list plus parent/dependency edits and
+// manual reorder. Eligibility stays with the gateway.
+const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", ...V2_RELATIONSHIP_COMMANDS, "task.reorder"];
 type V2DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: boolean; profilePath?: string; writeCommands?: string[] };
 
 export type DevServer = {
@@ -193,7 +193,7 @@ function executeDevV2Command(body: Buffer, selection: V2DevSelection, token: str
     }
     if (!(V2_QUERY_COMMANDS as readonly string[]).includes(request.command)
       && (selection.readOnly || !V2_EDITOR_COMMANDS.includes(request.command))) {
-      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture, content updates, single-task status changes, eligible status undo and parent/dependency edits; ordering, batch, general undo and other controls remain unavailable" } };
+      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits and manual reorder; order normalization, batch, general undo and other controls remain unavailable" } };
     }
     return executeV2Line(body, selection.rootPath, selection.databasePath);
   } catch {

@@ -1,8 +1,9 @@
 import { taskView } from "@/components/taskView";
-import type { TaskPriority } from "@/backend/protocol";
+import type { TaskPriority, TaskReorderPlacement, TaskReorderTask } from "@/backend/protocol";
 import { parseV2TaskProjection } from "@/backend/v2TaskResults";
+import { compareV2Tasks } from "@/backend/v2TaskModel";
 import { V2WorkspaceReader } from "./v2BackendClient";
-import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditorMode, type V2EditResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction } from "./v2EditorClient";
+import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction } from "./v2EditorClient";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
 const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);
@@ -17,7 +18,7 @@ function classificationEntries(value: unknown): { slug: string; taskCount: numbe
 }
 
 export type UnresolvedTaskRequest = {
-  prepared: V2PreparedEdit;
+  prepared: V2PreparedEdit<V2EditResult | V2OrderResult>;
   error: string;
   retry: () => Promise<void>;
   preserveForReconciliation: () => void;
@@ -43,6 +44,8 @@ export class MainWorkspace {
   getUnresolved = (): UnresolvedTaskRequest | null => this.unresolved;
   /** Only the Linux route advertises parent/dependency writers; the native route withholds them. */
   get supportsRelationships(): boolean { return this.editor.selection.writeCommands.includes("task.move"); }
+  /** Only the Linux route advertises manual reorder. */
+  get supportsOrdering(): boolean { return this.editor.selection.writeCommands.includes("task.reorder"); }
   hasWriteInProgress = (): boolean => this.writing;
 
   async tasks(args: Record<string, unknown>) {
@@ -92,6 +95,16 @@ export class MainWorkspace {
     });
   }
 
+  /** Selected siblings in current order; the gateway resolves placement against the complete scope. */
+  async reorder(tasks: readonly TaskReorderTask[], placement: TaskReorderPlacement, key: string) {
+    const result = await this.run(async () => {
+      const baseline = await this.baseline(tasks[0]?.id, tasks[0]?.expectedVersion, "order");
+      await this.assertReorderScope(tasks, placement);
+      return this.editor.prepareReorder(baseline, tasks, placement, key);
+    });
+    return { ...result, tasks: result.tasks.map(taskView) };
+  }
+
   async priority(id: string, version: number, priority: TaskPriority, key: string) {
     return this.write(async () => this.editor.preparePriority(await this.baseline(id, version), priority, key));
   }
@@ -128,18 +141,38 @@ export class MainWorkspace {
     }
   }
 
+  // Like relationship edits, reachable ordering refusals are checked before sending so they cannot lock the request.
+  private async assertReorderScope(tasks: readonly TaskReorderTask[], placement: TaskReorderPlacement): Promise<void> {
+    const changed = () => new V2EditorError("STALE_TASK_VERSION", "A selected task changed elsewhere. Nothing was sent; refresh and try again.");
+    const current = async (id: string) => parseV2TaskProjection((await this.reader.query("task.get", { id })).task);
+    const selected = await Promise.all(tasks.map(task => current(task.id)));
+    if (selected.some((task, index) => task.version !== tasks[index].expectedVersion)) throw changed();
+    const parentId = selected[0].parentId;
+    if (new Set(tasks.map(task => task.id)).size !== tasks.length || selected.some(task => task.parentId !== parentId)
+      || selected.some((task, index) => index > 0 && compareV2Tasks(selected[index - 1], task) >= 0)) throw changed();
+    const anchorId = "beforeId" in placement ? placement.beforeId : "afterId" in placement ? placement.afterId : null;
+    if (anchorId !== null && (tasks.some(task => task.id === anchorId) || (await current(anchorId)).parentId !== parentId)) {
+      throw new V2EditorError("STALE_TASK_VERSION", "The move target changed elsewhere. Nothing was sent; refresh and try again.");
+    }
+  }
+
   private publishUnresolved(request: UnresolvedTaskRequest | null): void {
     this.unresolved = request;
     for (const listener of this.listeners) listener();
   }
 
   private async write(prepare: () => Promise<V2PreparedEdit>) {
+    const result = await this.run(prepare);
+    return { ...result, task: taskView(result.task) };
+  }
+
+  private async run<R extends V2EditResult | V2OrderResult>(prepare: () => Promise<V2PreparedEdit<R>>): Promise<R> {
     if (this.reconciliationRequired) throw new V2EditorError("MANUAL_RECONCILIATION", "Writes are paused until you reconcile the preserved request and reopen this workspace.");
     if (this.writing) throw new V2EditorError("WRITE_IN_PROGRESS", "Finish the current task change before starting another.");
     this.writing = true;
     try {
       const prepared = await prepare();
-      const result = await new Promise<V2EditResult>((resolve, reject) => {
+      return await new Promise<R>((resolve, reject) => {
         let inFlight = false;
         let uncertainAttempt = false;
         const retry = async (): Promise<void> => {
@@ -167,7 +200,6 @@ export class MainWorkspace {
         };
         void retry();
       });
-      return { ...result, task: taskView(result.task) };
     } finally { this.writing = false; }
   }
 }
