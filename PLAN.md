@@ -121,7 +121,9 @@ The list distinguishes evidence, platform integration and consolidation; it is n
 
 **Separate optional preparation:** stage 2 candidate-test retirement still needs scope approval and the retained `8x1` comparison. It is not a demonstrated functional blocker or a reason to delay acceptance with open-ended cleanup. No other inventory proposal is automatically queued.
 
-**Checkpoint / next decision:** the authorized reconciliation stops with this documentation commit. Recommended next is item 1, a bounded case-level Linux/web evidence pass, if the owner wants stronger interaction evidence while native work stays deferred. If the owner considers the high-level smoke sufficient for the web checkpoint, record that decision and wait for the manual Windows gate instead; do not invent another feature task or resume native diagnosis.
+**Bounded pre-native follow-up:** the owner's subsequent resourceful Linux/web readiness pass reran types/build/lint and 201 focused bridge/client/function checks successfully. A task-local Playwright/Chromium attempt stopped before page launch on missing `libglib-2.0.so.0`; no system libraries were provisioned, no preview data changed and no case-level browser/native acceptance was added. See [evidence and handoff](docs/support.md#bounded-pre-native-follow-up-2026-10-14). The implementation queue remains closed; this is not approval to resume native diagnosis or cutover.
+
+**Checkpoint / next decision:** reconciliation and the bounded pre-native follow-up are complete. Recommended next is item 1, a bounded case-level Linux/web evidence pass, if the owner wants stronger interaction evidence while native work stays deferred. If the owner considers the high-level smoke sufficient for the web checkpoint, record that decision and wait for the manual Windows gate instead; do not invent another feature task or resume native diagnosis.
 
 ## Implemented slice: established client on the Linux backend
 
