@@ -1203,8 +1203,9 @@ function applyCandidates(
   }
 
   let pendingTasks = candidates.filter((candidate) => candidate.kind === "task" && !candidate.conflict);
+  const rounds = pendingTasks.length;
   const fallbackParents = new Set<ParentId>();
-  for (let attempt = 0; attempt <= pendingTasks.length && pendingTasks.length > 0; attempt += 1) {
+  for (let attempt = 0; attempt < rounds && pendingTasks.length > 0; attempt += 1) {
     const deferred: FileCandidate[] = [];
     let appliedThisRound = 0;
     for (const candidate of pendingTasks) {

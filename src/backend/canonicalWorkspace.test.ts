@@ -324,6 +324,34 @@ test("a deleted cache rebuilds from canonical files and invalidates old versions
   }
 });
 
+test("a fresh cache imports a reverse-ordered three-task dependency chain", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-canonical-dependency-rebuild-"));
+  const databasePath = path.join(directory, "tasks.db");
+  try {
+    const seed = task(executeCommand(request("task.create", { title: "Seed" }, "dependency-rebuild-seed"), databasePath));
+    const root = canonicalRootPath(databasePath);
+    const seedPath = path.join(root, "tasks", `${seed.id}.json`);
+    const template = readJson<CanonicalTask>(seedPath);
+    unlinkSync(seedPath);
+    // Files are read alphabetically: a waits for b, b waits for c.
+    for (const [id, dependencyIds] of [["a", ["b"]], ["b", ["c"]], ["c", []]] as const) {
+      const record = { ...template, id, title: id, dependencyIds: [...dependencyIds] };
+      record.sync = { ...template.sync, contentHash: contentHash(hashable(record)) };
+      writeJson(path.join(root, "tasks", `${id}.json`), record);
+    }
+    const orderPath = path.join(root, "order", "root.json");
+    const order = readJson<CanonicalOrder>(orderPath);
+    writeJson(orderPath, withNextSync({ ...order, taskIds: ["a", "b", "c"] }));
+    removeDatabaseFiles(databasePath);
+
+    const rebuilt = executeCommand(request("task.list", { sort: "manual" }), databasePath).tasks as TaskRecord[];
+    assert.deepEqual(rebuilt.map((item) => item.id), ["a", "b", "c"]);
+    assert.deepEqual(rebuilt.map((item) => item.dependencyIds), [["b"], ["c"], []]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("explicit rebuild advances the cache generation and invalidates local versions", () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-canonical-explicit-rebuild-"));
   const databasePath = path.join(directory, "tasks.db");
