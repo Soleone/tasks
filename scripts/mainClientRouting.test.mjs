@@ -122,6 +122,70 @@ async function selectedHttpWorkspace(t) {
   return { directory, root, calls, workspace: await confirm(), confirm, reopen, restart, loseNextReply: () => { loseNextWriteReply = true; } };
 }
 
+test("selected Linux themes survive bridge restart without task writes, selection storage or undo changes", async t => {
+  const { root, calls, confirm, restart, loseNextReply } = await selectedHttpWorkspace(t);
+  const preferenceClient = await import(`data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}#preferences`);
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const values = new Map();
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+  t.after(() => {
+    if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
+    else delete globalThis.localStorage;
+  });
+  const workspace = await confirm(storage);
+  preferenceClient.selectMainWorkspace(workspace);
+  const edit = await preferenceClient.createTask("Preference isolation", "", {});
+  const originalBytes = readdirSync(path.join(root, "tasks")).map(name => [name, readFileSync(path.join(root, "tasks", name))]);
+  const history = await workspace.undoHistory();
+  history.push(undoEntry(edit.operationId, "Preference isolation"));
+  const historyBefore = history.latest();
+  const storedHistoryBefore = storage.getItem("tasks.v2UndoHistory");
+  calls.length = 0;
+  const initial = await preferenceClient.listThemes();
+  const chosen = initial.themes.find(theme => theme.name !== initial.selected);
+  assert.ok(chosen);
+  assert.deepEqual(await preferenceClient.setTheme(chosen.name), { theme: chosen, selected: chosen.name });
+  assert.equal((await preferenceClient.listThemes()).selected, chosen.name);
+  await assert.rejects(() => preferenceClient.setTheme("missing-theme"), error => error.code === "THEME_NOT_FOUND");
+  assert.deepEqual(calls, []);
+  assert.deepEqual([...values.keys()].sort(), ["tasks.selectedTheme", "tasks.v2UndoHistory"]);
+  assert.equal(storage.getItem("tasks.v2UndoHistory"), storedHistoryBefore);
+  assert.deepEqual(history.latest(), historyBefore);
+
+  const reopened = await restart(storage);
+  const restartedClient = await import(`data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}#preferences-restart`);
+  await assert.rejects(() => restartedClient.listTasks(), /selected workspace.*Reopen and confirm/);
+  restartedClient.selectMainWorkspace(reopened);
+  assert.equal((await restartedClient.listThemes()).selected, chosen.name);
+  assert.deepEqual((await reopened.undoHistory()).latest(), historyBefore);
+  for (const [name, bytes] of originalBytes) assert.deepEqual(readFileSync(path.join(root, "tasks", name)), bytes);
+  assert.ok(calls.every(call => call.readOnly === true));
+  storage.setItem("tasks.selectedTheme", "retired-theme");
+  assert.equal((await restartedClient.listThemes()).selected, initial.selected);
+
+  calls.length = 0;
+  loseNextReply();
+  const pending = restartedClient.createTask("Uncertain capture", "", { idempotencyKey: "preference-retry" });
+  await new Promise(resolve => { const stop = reopened.subscribe(() => { stop(); resolve(); }); });
+  const unresolved = reopened.getUnresolved();
+  const originalRequest = unresolved.prepared.originalRequest;
+  const originalCalls = calls.length;
+  await restartedClient.setTheme(chosen.name);
+  assert.equal(calls.length, originalCalls);
+  assert.equal(reopened.getUnresolved(), unresolved);
+  assert.equal(unresolved.prepared.originalRequest, originalRequest);
+  assert.equal(storage.getItem("tasks.v2UndoHistory"), storedHistoryBefore);
+  await unresolved.retry();
+  await pending;
+  const writes = calls.filter(call => call.readOnly === false);
+  assert.equal(writes.length, 2);
+  assert.deepEqual(writes[1], writes[0]);
+});
+
 test("selected dev:web launch refuses the legacy transport before confirmation", async () => {
   assert.throws(() => httpClient.getBackendTransport(), /cannot launch a legacy backend/);
   await assert.rejects(() => httpClient.listTasks(), /selected workspace.*Reopen and confirm/);
