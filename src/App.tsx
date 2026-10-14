@@ -448,7 +448,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
-    if (workspace && parentId) {
+    if (workspace && parentId && !workspace.supportsRelationships) {
       setAnnouncement("Child capture is not yet available in this selected workspace.");
       return;
     }
@@ -567,7 +567,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   }
 
   function openPicker(mode: TaskPickerMode, subject: TaskRecord): void {
-    if (workspace) {
+    if (workspace && !workspace.supportsRelationships) {
       setAnnouncement("Relationship changes are not yet available in this selected workspace.");
       return;
     }

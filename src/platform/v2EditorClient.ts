@@ -8,9 +8,14 @@ import { JsonLineSession } from "./backendSession";
 import { validateV2NativeSelection, V2_NATIVE_COMMANDS } from "./v2NativeSelection";
 
 const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
+const relationshipActions = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
+/** The proven Windows native editor list; native relationship writers remain withheld. */
 export const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
-export type V2EditorMode = "content" | "status";
+/** The Linux dev route adds parent moves, dependency edits and child capture through the same gateway. */
+export const V2_LINUX_EDITOR_COMMANDS = [...V2_EDITOR_COMMANDS, ...relationshipActions] as const;
+export type V2EditorMode = "content" | "status" | "relationship";
 export type V2StatusAction = typeof statusActions[number];
+export type V2RelationshipAction = typeof relationshipActions[number];
 
 export type V2EditorSelection = V2DevConnection & { readOnly: false; profilePath: string; writeCommands: readonly string[] };
 export type V2EditBaseline = { writeContext: string; task: V2TaskProjection | null };
@@ -25,11 +30,12 @@ export class V2EditorError extends Error {
 export class V2AnsweredRefusal extends V2EditorError {}
 
 function validateEditorSelection(value: unknown, native = false): asserts value is V2EditorSelection {
+  const commands: readonly string[] = native ? V2_EDITOR_COMMANDS : V2_LINUX_EDITOR_COMMANDS;
   if (!isV2Record(value) || value.version !== 2 || value.readOnly !== false
     || typeof value.rootPath !== "string" || typeof value.databasePath !== "string" || typeof value.profilePath !== "string"
     || typeof value.selectionToken !== "string" || !value.selectionToken
-    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== V2_EDITOR_COMMANDS.length
-    || value.writeCommands.some((command, index) => command !== V2_EDITOR_COMMANDS[index])) {
+    || !Array.isArray(value.writeCommands) || value.writeCommands.length !== commands.length
+    || value.writeCommands.some((command, index) => command !== commands[index])) {
     throw new Error("This editor requires an explicitly enabled --v2-edit backend. No read-only or v1 fallback.");
   }
   validateV2Selection(value as V2EditorSelection);
@@ -116,12 +122,12 @@ export class V2EditorClient {
   }
 
   async begin(taskId?: string, mode: V2EditorMode = "content"): Promise<V2EditBaseline> {
-    if (mode !== "content" && mode !== "status") throw new Error("Unsupported editor mode; no query was sent.");
-    if (mode === "status" && taskId === undefined) throw new Error("Select an existing task for this operation; no query was sent.");
+    if (mode !== "content" && mode !== "status" && mode !== "relationship") throw new Error("Unsupported editor mode; no query was sent.");
+    if (mode !== "content" && taskId === undefined) throw new Error("Select an existing task for this operation; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
     if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) throw new V2EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
-    const commands = mode === "status" ? statusActions : [taskId === undefined ? "task.create" : "task.update"];
+    const commands = mode === "status" ? statusActions : mode === "relationship" ? relationshipActions : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
@@ -142,9 +148,13 @@ export class V2EditorClient {
     return this.prepareTaskRequest(baseline, baseline.task ? "task.update" : "task.create", args);
   }
 
-  prepareInline(baseline: V2EditBaseline, text: string, description: string, priority: V2TaskProjection["priority"], key: string): V2PreparedEdit {
+  prepareInline(baseline: V2EditBaseline, text: string, description: string, priority: V2TaskProjection["priority"], key: string, parentId?: string): V2PreparedEdit {
     const args: Record<string, unknown> = { text, description, priority };
     if (baseline.task) { args.id = baseline.task.id; args.expectedVersion = baseline.task.version; }
+    if (parentId !== undefined) {
+      if (baseline.task) throw new Error("A parent can only be chosen when capturing a new task; use move for existing tasks.");
+      args.parentId = parentId;
+    }
     return this.prepareTaskRequest(baseline, baseline.task ? "task.update" : "task.create", args, key);
   }
 
@@ -156,6 +166,15 @@ export class V2EditorClient {
   prepareStatus(baseline: V2EditBaseline, command: V2StatusAction, key: string = crypto.randomUUID()): V2PreparedEdit {
     if (!baseline.task || !statusActions.some(allowed => allowed === command)) throw new Error("An existing task and supported status command are required.");
     return this.prepareTaskRequest(baseline, command, { id: baseline.task.id, expectedVersion: baseline.task.version }, key);
+  }
+
+  /** `target` is the new parent (null for top level) for moves, or the dependency for add/remove. */
+  prepareRelationship(baseline: V2EditBaseline, command: V2RelationshipAction, target: string | null, key: string): V2PreparedEdit {
+    if (!baseline.task || !relationshipActions.some(allowed => allowed === command) || (target === null && command !== "task.move")) {
+      throw new Error("An existing task and supported relationship command are required.");
+    }
+    const relation = command === "task.move" ? { parentId: target } : { dependsOnId: target };
+    return this.prepareTaskRequest(baseline, command, { id: baseline.task.id, expectedVersion: baseline.task.version, ...relation }, key);
   }
 
   private prepareTaskRequest(baseline: V2EditBaseline, command: string, args: Record<string, unknown>, key: string = crypto.randomUUID()): V2PreparedEdit {

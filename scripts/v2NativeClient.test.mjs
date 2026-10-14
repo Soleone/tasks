@@ -5,7 +5,7 @@ import { build } from "esbuild";
 import { nativePilotConfig, nativePilotSelection, resolveNativePilotSelection } from "./native-pilot-options.mjs";
 
 const bundle = await build({ stdin: { contents: `export * from './src/platform/v2NativeSelection';export * from './src/platform/v2BackendClient';export * from './src/platform/v2EditorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseV2Response} from './src/backend/v2Protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseV2Shorthand} from './src/backend/v2UpdateInputs';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2EditorError, V2PreparedEdit, JsonLineSession, parseV2Response, MainWorkspace, taskView, inlineTaskText, parseV2Shorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_EDITOR_COMMANDS, V2_LINUX_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2EditorError, V2PreparedEdit, JsonLineSession, parseV2Response, MainWorkspace, taskView, inlineTaskText, parseV2Shorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 const selection = { rootPath: "C:\\proof\\root", databasePath: "C:\\proof\\cache.db", profilePath: "C:\\proof\\profile" };
 const argv = ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
 const editorSelection = { ...selection, version: 2, readOnly: false, selectionToken: "native-memory-selection", writeCommands: V2_EDITOR_COMMANDS };
@@ -103,6 +103,8 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
  test("native unsupported relationship/grouped controls refuse before queries or preparation", async t => {
   desktop(t); const state = sessionFixture(t, () => { throw new Error("No request expected"); });
   assert.equal(V2_EDITOR_COMMANDS.includes("task.move"), false);
+  assert.throws(() => new V2EditorClient(state.session, { ...editorSelection, writeCommands: V2_LINUX_EDITOR_COMMANDS }), /explicitly enabled/);
+  assert.equal(new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection)).supportsRelationships, false);
   for (const command of ["task.move", "task.transitionMany", "operation.undo", "workspace.recovery.resume"]) assert.throws(() => new V2PreparedEdit(state.session, editorSelection, { version: 2, command, requestId: "r", writeContext: "native-context", idempotencyKey: "k", actor: { kind: "human", label: "native" }, readOnly: false, dryRun: false, args: { id: task.id, expectedVersion: 1 } }));
   assert.equal(state.requests.length, 0); assert.equal(state.launches.length, 0);
 });

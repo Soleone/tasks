@@ -31,6 +31,11 @@ export function selectMainWorkspace(workspace: MainWorkspace): void {
 
 export function selectedMainWorkspace(): MainWorkspace | null { return mainWorkspace; }
 
+function relationshipWorkspace(): MainWorkspace | null {
+  if (mainWorkspace && !mainWorkspace.supportsRelationships) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Relationship changes are not yet available in this selected workspace.");
+  return mainWorkspace;
+}
+
 function mainWriteKey(options: CommandOptions): string {
   if (options.readOnly || options.dryRun) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This UI action cannot execute preview-only options. Nothing was sent.");
   return options.idempotencyKey ?? crypto.randomUUID();
@@ -168,7 +173,10 @@ export async function getTask(id: string): Promise<{ task: TaskRecord }> {
 
 export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string; priority?: TaskPriority }): Promise<TaskMutationResult> {
   if (mainWorkspace) {
-    if (options.parentId) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Child capture is not yet available in the selected workspace.");
+    if (options.parentId) {
+      if (!mainWorkspace.supportsRelationships) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Child capture is not yet available in the selected workspace.");
+      return mainWorkspace.createChild(options.parentId, title, descriptionMarkdown, options.priority ?? 2, mainWriteKey(options));
+    }
     return mainWorkspace.save(title, descriptionMarkdown, options.priority ?? 2, mainWriteKey(options));
   }
   const { parentId, priority, ...commandOptions } = options;
@@ -242,6 +250,8 @@ export async function undoOperation(operationId: string, options: CommandOptions
 }
 
 export async function moveTask(id: string, parentId: string | null, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  const workspace = relationshipWorkspace();
+  if (workspace) return workspace.relationship("task.move", id, expectedVersion, parentId, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult>("task.move", { id, parentId, expectedVersion }, options);
 }
 
@@ -254,10 +264,14 @@ export async function reorderTasks(
 }
 
 export async function addDependency(id: string, dependsOnId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  const workspace = relationshipWorkspace();
+  if (workspace) return workspace.relationship("task.dependency.add", id, expectedVersion, dependsOnId, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult>("task.dependency.add", { id, dependsOnId, expectedVersion }, options);
 }
 
 export async function removeDependency(id: string, dependsOnId: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
+  const workspace = relationshipWorkspace();
+  if (workspace) return workspace.relationship("task.dependency.remove", id, expectedVersion, dependsOnId, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult>("task.dependency.remove", { id, dependsOnId, expectedVersion }, options);
 }
 

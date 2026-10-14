@@ -23,6 +23,9 @@ const withheldActions = [
   ["abortReceiveWorkspace", []],
 ];
 
+const relationshipActions = new Set(["moveTask", "addDependency", "removeDependency"]);
+const linuxWithheldActions = withheldActions.filter(([action]) => !relationshipActions.has(action));
+
 test("selected native launch can never use the legacy transport, even before registration or after reload", async () => {
   assert.throws(() => client.getBackendTransport(), /cannot launch a legacy backend/);
   await assert.rejects(() => client.runBackendCommand("task.list"), /selected workspace.*Reopen and confirm/);
@@ -113,8 +116,8 @@ test("main UI over the Linux HTTP bridge persists direct actions and refuses wit
   const { root, calls, workspace } = await selectedHttpWorkspace(t);
   httpClient.selectMainWorkspace(workspace);
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
-  await assert.rejects(() => httpClient.createTask("Child", "", { parentId: openId }), /Child capture/);
-  for (const [action, args] of withheldActions) {
+  assert.equal(workspace.supportsRelationships, true);
+  for (const [action, args] of linuxWithheldActions) {
     await assert.rejects(() => httpClient[action](...args), /selected workspace/, `${action} must not reach the bridge`);
   }
   assert.deepEqual(calls, []);
@@ -129,8 +132,48 @@ test("main UI over the Linux HTTP bridge persists direct actions and refuses wit
   const undone = await httpClient.undoStatusChange(openId, completed.task.version, {});
   assert.equal(undone.task.status, "open");
   assert.equal(JSON.parse(readFileSync(path.join(root, "tasks", `${openId}.json`), "utf8")).status, "open");
-  assert.deepEqual(calls.filter(call => call.readOnly === false).map(call => call.command), ["task.create", "task.complete", "task.status.undo"]);
+  const child = await httpClient.createTask("Child", "", { parentId: openId });
+  assert.equal(child.task.parentId, openId);
+  const top = await httpClient.moveTask(child.task.id, null, child.task.version, {});
+  const linked = await httpClient.addDependency(top.task.id, openId, top.task.version, {});
+  const unlinked = await httpClient.removeDependency(linked.task.id, openId, linked.task.version, {});
+  assert.deepEqual([top.task.parentId, linked.task.blockedByIds, unlinked.task.dependencyIds], [null, [openId], []]);
+  assert.deepEqual(calls.filter(call => call.readOnly === false).map(call => call.command),
+    ["task.create", "task.complete", "task.status.undo", "task.create", "task.move", "task.dependency.add", "task.dependency.remove"]);
   assert.ok(calls.every(call => call.version === 2));
+});
+
+test("Linux route persists child capture, parent moves and dependency edits with current blocking rules", async t => {
+  const { root, calls, workspace } = await selectedHttpWorkspace(t);
+  const stored = id => JSON.parse(readFileSync(path.join(root, "tasks", `${id}.json`), "utf8"));
+  const writes = () => calls.filter(call => call.readOnly === false).map(call => call.command);
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", childId = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
+  const pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed", doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
+
+  const child = (await workspace.createChild(openId, "Draft brief #home", "", 1, "child-key")).task;
+  assert.deepEqual([child.parentId, stored(child.id).parentId, stored(child.id).tags], [openId, openId, ["home"]]);
+  const moved = (await workspace.relationship("task.move", child.id, child.version, null, "move-key")).task;
+  assert.equal(stored(child.id).parentId, null);
+
+  const blockedByDone = (await workspace.relationship("task.dependency.add", moved.id, moved.version, doneId, "done-key")).task;
+  assert.deepEqual(blockedByDone.blockedByIds, [doneId], "a done dependency still blocks");
+  const blockedByBoth = (await workspace.relationship("task.dependency.add", moved.id, blockedByDone.version, pausedId, "paused-key")).task;
+  const paused = (await workspace.reader.query("task.get", { id: pausedId })).task;
+  await workspace.status("task.cancel", pausedId, paused.version, "cancel-key");
+  const afterCancel = (await workspace.reader.query("task.get", { id: moved.id })).task;
+  assert.deepEqual([afterCancel.dependencyIds, afterCancel.blockedByIds], [[pausedId, doneId].sort(), [doneId]], "a canceled dependency does not block");
+  const unblocked = (await workspace.relationship("task.dependency.remove", moved.id, blockedByBoth.version, doneId, "remove-key")).task;
+  assert.deepEqual([stored(moved.id).dependencyIds, unblocked.blockedByIds], [[pausedId], []]);
+  assert.deepEqual(writes(), ["task.create", "task.move", "task.dependency.add", "task.dependency.add", "task.cancel", "task.dependency.remove"]);
+
+  const sent = writes().length;
+  const parent = (await workspace.reader.query("task.get", { id: openId })).task;
+  await assert.rejects(() => workspace.relationship("task.move", openId, parent.version, childId, "cycle-key"), /PARENT_CYCLE/);
+  await assert.rejects(() => workspace.relationship("task.dependency.add", openId, parent.version, childId, "dependency-cycle-key"), /DEPENDENCY_CYCLE/);
+  await assert.rejects(() => workspace.relationship("task.dependency.add", openId, parent.version, pausedId, "canceled-key"), /INVALID_DEPENDENCY/);
+  await assert.rejects(() => workspace.relationship("task.move", moved.id, moved.version, openId, "stale-key"), /STALE_TASK_VERSION/);
+  assert.equal(writes().length, sent, "refused relationship edits send no write");
+  assert.equal(workspace.getUnresolved(), null);
 });
 
 test("a lost bridge reply locks the original request and Retry same request reuses its envelope", async t => {
@@ -150,4 +193,13 @@ test("a lost bridge reply locks the original request and Retry same request reus
   const writes = calls.filter(call => call.readOnly === false);
   assert.equal(writes.length, 2);
   assert.deepEqual(writes[1], writes[0]);
+
+  loseNextReply();
+  const linking = workspace.relationship("task.dependency.add", openId, result.task.version, "f3e5499b-402e-4d7d-8b61-eefc4409ca32", "lost-link-key");
+  await new Promise(resolve => { const stop = workspace.subscribe(() => { stop(); resolve(); }); });
+  await workspace.getUnresolved().retry();
+  assert.deepEqual((await linking).task.blockedByIds, ["f3e5499b-402e-4d7d-8b61-eefc4409ca32"]);
+  const links = calls.filter(call => call.command === "task.dependency.add");
+  assert.equal(links.length, 2);
+  assert.deepEqual(links[1], links[0]);
 });

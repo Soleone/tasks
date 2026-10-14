@@ -16,6 +16,7 @@ const { readV2DevSelection } = await import(`data:text/javascript;base64,${Buffe
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const statusCommands = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"];
+const linuxEditorCommands = ["task.create", "task.update", ...statusCommands, "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove"];
 const statusSources = { "task.start": "done", "task.pause": "in_progress", "task.complete": "paused", "task.reopen": "done", "task.cancel": "paused", "task.delete": "done" };
 
 function workspace(t) {
@@ -72,7 +73,7 @@ test("editor/read-only handshakes cannot silently cross modes; health creates no
   const selected = workspace(t), original = bytes(selected.root);
   const writable = await server(t, selected);
   assert.equal(writable.handshake.readOnly, false);
-  assert.deepEqual(writable.handshake.writeCommands, ["task.create", "task.update", ...statusCommands, "task.status.undo"]);
+  assert.deepEqual(writable.handshake.writeCommands, linuxEditorCommands);
   assert.equal(existsSync(selected.cache), false); assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
   await assert.rejects(readV2DevSelection(writable.dev.url), /No v1 fallback/);
   const readonly = await server(t, selected, false);
@@ -91,12 +92,12 @@ test("editor health requires the exact connected-command whitelist, not comma co
   const selected = workspace(t), { dev } = await server(t, selected);
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
-  const allowed = ["task.create", "task.update", ...statusCommands, "task.status.undo"];
-  for (writeCommands of [["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "operation.undo"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
+  const allowed = linuxEditorCommands, native = allowed.slice(0, -3);
+  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "operation.undo"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
-for (const command of ["task.status.undoMany", "task.transitionMany", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
+for (const command of ["task.status.undoMany", "task.transitionMany", "task.reorder", "task.purgeCanceled", "operation.undo", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async t => {
     const selected = workspace(t), original = bytes(selected.root);
     const { dev, handshake } = await server(t, selected);
@@ -523,7 +524,7 @@ test("browser status undo requires the advertised command before querying the se
     if (body.result?.commands) body.result.commands = body.result.commands.filter(command => command !== "task.status.undo");
     return new Response(JSON.stringify(body));
   });
-  assert.deepEqual(editor.selection.writeCommands, ["task.create", "task.update", ...statusCommands, "task.status.undo"]);
+  assert.deepEqual(editor.selection.writeCommands, linuxEditorCommands);
   await assert.rejects(editor.begin(closedId, "status"), /UNSUPPORTED_COMMAND/);
   assert.deepEqual(calls.map(call => call.command), ["workspace.info"]);
 });

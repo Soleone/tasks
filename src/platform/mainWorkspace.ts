@@ -1,7 +1,8 @@
 import { taskView } from "@/components/taskView";
 import type { TaskPriority } from "@/backend/protocol";
+import { parseV2TaskProjection } from "@/backend/v2TaskResults";
 import { V2WorkspaceReader } from "./v2BackendClient";
-import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditResult, type V2PreparedEdit, type V2StatusAction } from "./v2EditorClient";
+import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditorMode, type V2EditResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction } from "./v2EditorClient";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
 const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);
@@ -40,6 +41,8 @@ export class MainWorkspace {
     return () => { this.listeners.delete(listener); };
   };
   getUnresolved = (): UnresolvedTaskRequest | null => this.unresolved;
+  /** Only the Linux route advertises parent/dependency writers; the native route withholds them. */
+  get supportsRelationships(): boolean { return this.editor.selection.writeCommands.includes("task.move"); }
   hasWriteInProgress = (): boolean => this.writing;
 
   async tasks(args: Record<string, unknown>) {
@@ -77,6 +80,18 @@ export class MainWorkspace {
     });
   }
 
+  async createChild(parentId: string, text: string, description: string, priority: TaskPriority, key: string) {
+    return this.write(async () => this.editor.prepareInline(await this.baseline(), text, description, priority, key, parentId));
+  }
+
+  async relationship(command: V2RelationshipAction, id: string, version: number, target: string | null, key: string) {
+    return this.write(async () => {
+      const baseline = await this.baseline(id, version, "relationship");
+      if (target !== null && command !== "task.dependency.remove") await this.assertRelationshipTarget(command, id, target);
+      return this.editor.prepareRelationship(baseline, command, target, key);
+    });
+  }
+
   async priority(id: string, version: number, priority: TaskPriority, key: string) {
     return this.write(async () => this.editor.preparePriority(await this.baseline(id, version), priority, key));
   }
@@ -91,10 +106,26 @@ export class MainWorkspace {
     return workspace;
   }
 
-  private async baseline(id?: string, version?: number, mode: "content" | "status" = "content") {
+  private async baseline(id?: string, version?: number, mode: V2EditorMode = "content") {
     const baseline = await this.editor.begin(id, mode);
     if (id !== undefined && baseline.task?.version !== version) throw new V2EditorError("STALE_TASK_VERSION", "This task changed elsewhere. Your draft was not sent; reopen it before saving.");
     return baseline;
+  }
+
+  // Writer refusals keep the original request like an uncertain reply, so reachable graph mistakes are refused before sending.
+  private async assertRelationshipTarget(command: V2RelationshipAction, id: string, targetId: string): Promise<void> {
+    const move = command === "task.move";
+    const seen = new Set<string>();
+    const pending = [targetId];
+    while (pending.length > 0) {
+      const current = pending.pop()!;
+      if (current === id) throw new V2EditorError(move ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE", move ? "A task cannot move under itself or one of its subtasks. Nothing was sent." : "This dependency would create a cycle. Nothing was sent.");
+      if (seen.has(current)) continue;
+      seen.add(current);
+      const task = parseV2TaskProjection((await this.reader.query("task.get", { id: current })).task);
+      if (current === targetId && task.status === "canceled") throw new V2EditorError(move ? "INVALID_PARENT" : "INVALID_DEPENDENCY", "Reopen the canceled task before linking to it. Nothing was sent.");
+      pending.push(...(move ? (task.parentId === null ? [] : [task.parentId]) : task.dependencyIds));
+    }
   }
 
   private publishUnresolved(request: UnresolvedTaskRequest | null): void {
