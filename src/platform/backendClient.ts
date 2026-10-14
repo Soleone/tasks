@@ -1,11 +1,9 @@
 import {
   PROTOCOL_VERSION,
-  parseRuntimeProbeResult,
   parseTaskCommandResult,
   type ActivityRecord,
   type ProtocolRequest,
   type CategoryRecord,
-  type RuntimeProbeResult,
   type TagRecord,
   type TaskListSort,
   type TaskPriority,
@@ -38,7 +36,6 @@ function mainWriteKey(options: CommandOptions): string {
   return options.idempotencyKey ?? crypto.randomUUID();
 }
 
-export type ProbeResult = RuntimeProbeResult;
 export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number; unresolvedConflicts?: AndroidSyncConflict[] };
 export type TaskListFilters = {
   priority?: TaskPriority;
@@ -112,7 +109,8 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
   args: Record<string, unknown> = {},
   options: CommandOptions = {},
 ): Promise<T> {
-  if (mainWorkspace || import.meta.env.VITE_TASKDB_V2_NATIVE_SELECTION) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not available through the selected workspace. Reopen and confirm it if the development connection was reloaded.");
+  if (mainWorkspace) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not yet available in the selected workspace.");
+  if (import.meta.env.VITE_TASKDB_V2_NATIVE_SELECTION) throw new BackendCommandError("UNSUPPORTED_COMMAND", "This action is not available through the selected workspace. Reopen and confirm it if the development connection was reloaded.");
   const response = await getBackendTransport().request({
     version: PROTOCOL_VERSION,
     requestId: crypto.randomUUID(),
@@ -127,11 +125,6 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
   }
 
   return parseTaskCommandResult(command, response.result) as T;
-}
-
-export async function runRuntimeProbe(): Promise<ProbeResult> {
-  const result = await runBackendCommand<Record<string, unknown>>("runtime.probe");
-  return parseRuntimeProbeResult(result);
 }
 
 export async function listTasks(

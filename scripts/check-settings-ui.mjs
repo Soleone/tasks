@@ -34,13 +34,13 @@ function openData() {
   wait('document.activeElement?.textContent === "General"');
   browser("press", "ArrowRight"); browser("press", "ArrowRight");
   wait('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
-  wait('document.body.textContent.includes("SQLite workspace")');
+  wait('document.body.textContent.includes(new URLSearchParams(location.search).get("workspace") === "selected" ? "Local cache" : "SQLite workspace")');
   browser("snapshot", "-i");
 }
 const syncSection = 'document.querySelector("section[aria-labelledby=settings-sync]")';
 const fixtures = {
   "@/platform/backendClient": `
-    export function selectedMainWorkspace() { return new URLSearchParams(location.search).get('workspace') === 'selected' ? {} : null; }
+    export function selectedMainWorkspace() { return new URLSearchParams(location.search).get('workspace') === 'selected' ? { reader: { selection: { rootPath: '/disposable/tasks' } } } : null; }
     export async function getWorkspaceInfo() { window.calls.push('workspace.info'); return { databasePath: '/disposable/settings.db', canceledTaskCount: 2 }; }
     export async function exportTasks() { window.calls.push('export'); throw Error('No export transport in this fixture'); }
   `,
@@ -134,6 +134,8 @@ try {
   browser("set", "viewport", "1100", "760");
   browser("open", `${url}?workspace=selected`); openData();
   check('matchMedia("(hover: hover)").matches');
+  check('document.querySelector("section[aria-labelledby=settings-data]").textContent.includes("Task folder/disposable/tasksLocal cache/disposable/settings.db")');
+  check('!document.querySelector("section[aria-labelledby=settings-data]").textContent.includes("SQLite workspace")');
   check(`${syncSection}.textContent.includes("Receiving a workspace from another device is not yet available here.")`);
   check(`${syncSection}.querySelector("button") === null`);
   check(`${syncSection}.querySelector("[role=alert]") === null`);
@@ -176,6 +178,8 @@ try {
   browser("hover", "[data-slot=dialog-title]");
   browser("screenshot", path.join(scratch, "selected-light.png"));
   browser("open", url); openData();
+  check('document.querySelector("section[aria-labelledby=settings-data]").textContent.includes("SQLite workspace/disposable/settings.db")');
+  check('!document.querySelector("section[aria-labelledby=settings-data]").textContent.includes("Task folder")');
   check(`${syncSection}.textContent.includes("Move an existing workspace to this device through Syncthing.")`);
   browser("press", "Tab"); wait('document.activeElement?.textContent === "Sync with another device…"');
   browser("press", "Enter"); wait('document.body.textContent.includes("Replace this device’s workspace?")');
@@ -211,6 +215,8 @@ try {
   assert.deepEqual(evaluate("window.calls"), ["workspace.info", "workspace.info", "receive"]);
 
   browser("open", `${url}?runtime=android`); openData();
+  check('document.querySelector("section[aria-labelledby=settings-data]").textContent.includes("SQLite workspaceStored privately on this device")');
+  check('!document.querySelector("section[aria-labelledby=settings-data]").textContent.includes("Task folder")');
   check(`${syncSection}.textContent.includes("Android cannot replace those tasks with an existing workspace yet.")`);
   check(`!${syncSection}.textContent.includes("Back up and continue") && !${syncSection}.textContent.includes("Sync with another device…")`);
   click("button", "Choose Android sync folder…"); wait('document.body.textContent.includes("Selected Android folder")');
@@ -219,7 +225,7 @@ try {
   assert.deepEqual(evaluate("window.calls"), ["workspace.info", "android.pick", "workspace.info", "android.pick", "workspace.info", "android.clear"]);
   auditDialog();
   assert.equal(browser("errors").trim(), "");
-  console.log("Settings browser checks passed: selected receive withheld before confirmation/callback; disabled export and Data Tab loop; Escape/final focus/reopen; desktop/minimum/mobile/reflow and axe; default desktop confirmation/cancel/reset/callback; Android choose/change/forget unchanged. Fixtures only, not native or receive-backend acceptance.");
+  console.log("Settings browser checks passed: selected task-folder/local-cache labels; unchanged desktop/Android storage labels; selected receive withheld before confirmation/callback; disabled export and Data Tab loop; Escape/final focus/reopen; desktop/minimum/mobile/reflow and axe; default desktop confirmation/cancel/reset/callback; Android choose/change/forget unchanged. Fixtures only, not native or receive-backend acceptance.");
   console.log(`Screenshots: ${scratch}`);
 } catch (error) {
   try {

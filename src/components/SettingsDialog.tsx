@@ -420,7 +420,11 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
               </div>
               {databasePath
                 ? <div className="flex flex-col gap-1 rounded-md border bg-muted/20 p-3">
-                    <p className="text-xs font-medium text-muted-foreground">SQLite workspace</p>
+                    {selectedWorkspace ? <>
+                      <p className="text-xs font-medium text-muted-foreground">Task folder</p>
+                      <p className="wrap-anywhere font-mono text-xs text-muted-foreground">{selectedWorkspace.reader.selection.rootPath}</p>
+                    </> : null}
+                    <p className="text-xs font-medium text-muted-foreground">{selectedWorkspace ? "Local cache" : "SQLite workspace"}</p>
                     <p className="wrap-anywhere font-mono text-xs text-muted-foreground">{isAndroid ? "Stored privately on this device" : databasePath}</p>
                   </div>
                 : <p className="text-sm text-muted-foreground">Reading the workspace…</p>}

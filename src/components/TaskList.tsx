@@ -33,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTaskPriority, selectedMainWorkspace, type TaskMutationResult } from "@/platform/backendClient";
+import { V2EditorError } from "@/platform/v2EditorClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
@@ -1461,7 +1462,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       setSelection([], null);
       onCanceled(result.task);
     } catch (caught) {
-      if (caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION") {
+      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && caught.code === "STALE_TASK_VERSION") {
         onAnnounce(`${task.title} changed elsewhere. Refresh and try again.`);
         void onRefresh();
       } else {

@@ -7,7 +7,7 @@ const client = await import(`data:text/javascript;base64,${Buffer.from(compiled.
 
 test("selected native launch can never use the legacy transport, even before registration or after reload", async () => {
   assert.throws(() => client.getBackendTransport(), /cannot launch a legacy backend/);
-  await assert.rejects(() => client.runBackendCommand("task.list"), /selected workspace/);
+  await assert.rejects(() => client.runBackendCommand("task.list"), /selected workspace.*Reopen and confirm/);
 });
 
 test("main UI calls concrete selected actions; preview flags and unproven operations never fall through", async () => {
@@ -20,6 +20,12 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
     async info() { calls.push(["info"]); return { databasePath: "C:\\workspace", taskCount: 4, canceledTaskCount: 2, workspaceRevision: 7 }; },
   };
   client.selectMainWorkspace(workspace);
+  await assert.rejects(() => client.runBackendCommand("task.list"), error => {
+    assert.equal(error.code, "UNSUPPORTED_COMMAND");
+    assert.equal(error.message, "This action is not yet available in the selected workspace.");
+    assert.ok(!error.message.includes("Reopen and confirm"));
+    return true;
+  });
   for (const options of [{ dryRun: true }, { readOnly: true }]) {
     await assert.rejects(() => client.createTask("Preview", "", options), /Nothing was sent/);
     await assert.rejects(() => client.updateTask("id", "Preview", "", 1, options), /Nothing was sent/);

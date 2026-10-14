@@ -4,6 +4,7 @@ import { toast as sonnerToast } from "sonner";
 import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
+import { V2EditorError } from "@/platform/v2EditorClient";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
 import { parseV2Shorthand } from "@/backend/v2UpdateInputs";
@@ -951,7 +952,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       showToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
-      if (caught instanceof BackendCommandError && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND")) {
+      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND")) {
         retireStatusUndo();
         setExitingTaskIds(new Set());
         setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
