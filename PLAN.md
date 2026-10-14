@@ -29,7 +29,7 @@ Every client must remain minimal, calm and visually coherent. Keep the task list
 | [Guidelines](GUIDELINES.md), [usage guide](docs/usage-guide.md) | Product principles and established interaction contract |
 | [Refactor inventory](docs/refactor-inventory.md) | Audited assets, gaps, deletion candidates and spec/ideas dispositions; supporting evidence, not permission to execute every proposal |
 | [Root specs](spec/overview.md), [replacement targets](spec/v2/overview.md) | Temporary implemented-legacy/accepted-target split, reconciled at cutover |
-| Dated reports, handoffs and [ideas](ideas/overview.md) | Historical evidence or rationale, never competing current execution instructions |
+| Dated reports and handoffs | Historical evidence, never competing current execution instructions |
 
 Current facts:
 
@@ -45,7 +45,7 @@ Latest audit validation at `86e3c1b`: types/lint pass, **1,662 regressions passe
 
 ## Owner-approved desktop capture simplification
 
-Separate from the frozen candidate/prune queue: Node V2 `task.create` now uses one initial snapshot, a hidden sibling stage and native rename, with selected parent/destination and physical-binding rechecks only. New creates emit no pending/progress evidence; orphan stages are never adopted. The owner accepts canonical publication before SQLite receipt/history commit and possible duplicate creation on retry. Committed receipts still replay; explicit old pending-create recovery remains available. Owner-approved F10 now refuses and preserves an already-present stage without a durably bound identity, so a legacy stage-write-before-binding crash requires manual inspection instead of adoption. See the [design and future local-SAF decision](ideas/task-create-simplification.md).
+Separate from the frozen candidate/prune queue: Node V2 `task.create` now uses one initial snapshot, a hidden sibling stage and native rename, with selected parent/destination and physical-binding rechecks only. New creates emit no pending/progress evidence; orphan stages are never adopted. The owner accepts canonical publication before SQLite receipt/history commit and possible duplicate creation on retry. Committed receipts still replay; explicit old pending-create recovery remains available. Owner-approved F10 now refuses and preserves an already-present stage without a durably bound identity, so a legacy stage-write-before-binding crash requires manual inspection instead of adoption. See the [accepted design](spec/v2/storage.md#task-creation); the future local-SAF decision remains gated below.
 
 Android V2 writes remain gated pending end-to-end native integration; arbitrary SAF/cloud providers are not in scope. Historical Windows journaled-process evidence does not accept this new route: the updated [Windows harness/report boundary](docs/windows-create-proof.md#simplified-route-proof-pending) awaits actual Windows Node/SEA execution. Linux/WSL2 checks do not close that gate or resume deferred Windows diagnosis. Stop after this scoped implementation checkpoint; no prune-queue or later work is authorized.
 
@@ -104,7 +104,7 @@ Before closing gaps, agree a short **keep / replace / intentionally drop** check
 2. Reuse established UI and satisfy the agreed essentials. Delete obsolete runtime/prototypes/tests only after caller and invariant checks; do not discard useful recovery or client/retry evidence to reduce line count.
 3. Rename surviving production code by responsibility and update imports, entrypoints/scripts/tests together. No versioned runtime hidden behind aliases. Meaningful stored format/wire versions remain.
 4. Isolate the minimum legacy reader/converter without importing/initializing the legacy engine during normal startup. Keep original roots, independent backups and historical binaries recoverable; no perpetual coexistence or reverse-conversion promise.
-5. Reconcile the temporary specs into one current contract, and retire/reconcile superseded ideas by the inventory's dispositions. Preserve dated evidence with its original counts/limits, not rewritten final-app claims.
+5. Reconcile the temporary specs into one current contract. Owner-approved SP-1/SP-2 moved accepted rationale into spec and retired the nine obsolete ideas pages into Git history before cutover; physical `spec/v2/` promotion still waits for `dvs`. Preserve dated evidence with its original counts/limits, not rewritten final-app claims.
 6. Explicitly handle final root/cache/profile/preferences selection. Never strand pending work or discard receipts/history/original-request authority for a rename. Prove the default UI/CLI/native restart/recovery route on disposable data.
 
 `xz2` then reviews publication scope, actual declared-platform evidence and remaining packaging/signing/release blockers. A technical test count, unsupported target MUST, Linux pilot or dependency completion is not release acceptance. Personal migration is not implicitly authorized by either task.

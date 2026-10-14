@@ -322,7 +322,7 @@ On Windows, run `pnpm dev:native --v2-root ROOT --database CACHE --local-profile
 
 ## Windows capture proof (`7hr`, 2026-10-04)
 
-**Historical journaled-process evidence only.** The simplified native-rename create route has not passed Windows acceptance. The current `scripts/check-windows-create.mjs` targets that route and awaits actual Windows Node/SEA execution; see [current boundary](windows-create-proof.md#simplified-route-proof-pending) and [design](../ideas/task-create-simplification.md). The original report/counts below are unchanged evidence for the older implementation.
+**Historical journaled-process evidence only.** The simplified native-rename create route has not passed Windows acceptance. The current `scripts/check-windows-create.mjs` targets that route and awaits actual Windows Node/SEA execution; see [current boundary](windows-create-proof.md#simplified-route-proof-pending) and [design](../spec/v2/storage.md#task-creation). The original report/counts below are unchanged evidence for the older implementation.
 
 [Capture evidence and instructions](windows-create-proof.md), [structured report](windows-create-proof.json): actual Windows Node/SEA pass **64 capture groups** plus **38 retained update groups**, full regression **1,622 passed/two known skips**, types/lint pass. The shared creation journal now reflushes an already-linked task directory before history/receipt/progress completion. No-clobber, fixed UUID/time/key, exact stage/target ownership, started absence, progress loss/divergence, late collision, historical replay, explicit recovery's own lost reply and cache-loss authority are exercised. No generic engine, native implementation or other Windows commands were added.
 

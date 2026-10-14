@@ -452,10 +452,9 @@ This changes only the root/client selected for that invocation, not the default 
 ## Documentation
 
 - [Current support and evidence](docs/support.md): actual entrypoints, platform/client boundaries, remaining gaps and acceptance limits.
-- [Legacy-default specification](spec/overview.md): task model, storage, protocol, queries, mutations, CLI, sources and UI baseline.
+- [Specification front door](spec/overview.md): contract status, authority, architecture, accepted rationale, legacy defaults and retained UI baseline.
 - [Replacement contracts](spec/v2/overview.md): single-root requirements with bounded Linux/backend and Windows/native implementation; not blanket target support.
 - [Development and validation](docs/development.md): architecture, developer workflows, packaging, scratch data, and platform checks.
-- [Ideas and proposals](ideas/overview.md): aspirational designs and the earlier TaskDB 2.0 roadmap.
 - [Keyboard and UI guide](docs/usage-guide.md): home-screen focus, mouse paths, shortcuts, filters, sorting, and agent-facing UI contract.
 - [Canonical workspace](docs/canonical-workspace.md): JSON layout, cache rebuilds, archives, backups, and explicit conflict resolution.
 - [Syncthing setup](docs/syncthing.md): safe initial seeding, folder modes, versioning, and recovery rules.

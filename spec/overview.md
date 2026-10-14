@@ -2,7 +2,7 @@
 
 This is the single front door for Tasks contracts, rationale and evidence. [PLAN](../PLAN.md) alone owns direction, work order and stop/go gates; accepted behavior is not permission to implement the whole target or select personal data. Physical `spec/v2/` promotion waits for approved `dvs` cutover.
 
-Proposal reasoning is not authoritative; accepted rationale lives in each page's Rationale section. `ideas/` is pending retirement.
+Proposal reasoning is not authoritative; accepted rationale lives in each page's Rationale section.
 
 ## Status and precedence
 

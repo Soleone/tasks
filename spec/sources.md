@@ -43,4 +43,4 @@ Parent, dependency, and manual-order relationships stay within one source. Cross
 | Tauri desktop UI | Single-workspace behavior only. |
 | Android | Separate single-workspace engine; no registry support. |
 
-The existing [multi-source v0 contract](../ideas/multi-source-v0-contract.md) preserves the broader design proposal. Only behavior implemented and exercised here is part of this current-state spec.
+The broader multi-source v0 contract is a retired proposal (see git history at `fab9256:ideas/multi-source-v0-contract.md`). Only behavior implemented and exercised here is part of this current-state spec.

@@ -69,4 +69,4 @@ version, createdAt, updatedAt, completedAt, canceledAt
 - `version` is a local optimistic-write token. It is not written to the canonical file and may change after rebuild or restore.
 - In the opt-in Node source-registry path, a projection may also contain `ref: {sourceKey, taskId}`. This is controller metadata, not part of the v1 canonical record. See [Sources](sources.md).
 
-The readable `workspace.exportTasks` output is a separate export shape, documented in [Storage](storage.md). The proposed next-version model is tracked in [Ideas](../ideas/task-model-v2.md); it is not current v1 behavior.
+The readable `workspace.exportTasks` output is a separate export shape, documented in [Storage](storage.md). The [accepted replacement model](v2/model.md) is not current legacy-default behavior.
