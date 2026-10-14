@@ -62,12 +62,14 @@ The destination is approved. **Listing later work does not approve its implement
 | **1. Implemented** | Production ordering coverage retained in `55f330a` | Test-only additions; see completion reference below. No native acceptance implied |
 | 2 | Retire redundant local candidate tests | First retain remaining unique fault-position/property checks and design/limitation evidence from `8x1`; remove only proven redundant suites/dead helpers. Keep transport dependencies. Separately approve this scope |
 | 3 | Agree the remaining daily-use and release scope | Use the existing workflow inventory, not another open-ended audit. Owner confirms essentials, deliberate losses, release platforms and conversion host. Existing UI/workflows remain the baseline |
-| 4 | Close only agreed workflow/native-route gaps | Approve/prove one concrete family at a time; reuse existing UI/backend. Do not enable unproved Windows writers. Native acceptance waits for the separately resumed checks below |
-| 5 | Owner acceptance and migration readiness | `hzv`: actual owner sessions/checklist. Retain `y9b` rehearsal; choose its proved Linux route or approve a native converter proof. Personal access/conversion/selection needs explicit separate permission |
+| 4 | Close only agreed workflow/native-route gaps | Entry: a basic manual Windows launch reaches the main Tasks WebView (see Owner and native gates). Approve/prove one concrete family at a time; reuse existing UI/backend. Proof depth for each family is set when that family is approved; the recovery-proof text in `spec/v2/conformance.md` governs conformance claims, not per-family integration gates. Do not enable unproved Windows writers. Native acceptance waits for the separately resumed checks below |
+| 5 | Owner acceptance and migration readiness | Entry: a basic manual Windows launch reaches the main Tasks WebView (see Owner and native gates). `hzv`: actual owner sessions/checklist. Retain `y9b` rehearsal; choose its proved Linux route or approve a native converter proof. Personal access/conversion/selection needs explicit separate permission |
 | 6 | Make the clean cut (`dvs`) | Agreed essentials, owner acceptance, verified rehearsal and required native evidence precede one default app/runtime/spec. Preserve data and local recovery authority |
 | 7 | Publication review (`xz2`) | Review the consolidated default route against the explicitly chosen release platforms; record remaining blockers, no blanket release claim |
 
 Stages 1–2 are finite preparation, not an invitation to keep finding cleanup projects while acceptance waits. Stages 3–5 may feed back a named prerequisite, but must not expand into full target implementation or recreate a second client. Stop for an unresolved owner/platform decision instead.
+
+Stage 3 does not depend on stage 2 and may be agreed at any time.
 
 ## Implemented: production ordering coverage
 
@@ -114,7 +116,7 @@ Before closing gaps, agree a short **keep / replace / intentionally drop** check
 - Use separate-root migration and independent backups. No personal-root inference, implicit live upgrade, original-source mutation or permission inferred from a handoff.
 - Check `git status`, this plan, current user scope and relevant `sq show ID` before work. SQ readiness only describes dependencies; it does not approve owner gates or deferred `100`.
 - Mark one SQ task in progress. Keep metadata under `pi_tasks`; use disposable data and one writer per cwd. Delegation needs explicit authorization.
-- Apply clean-code and its review checklist; run types/lint/full regressions and relevant scoped checks. Record failures/skips and actual platform limits. Update the completed task, current next action and support index only where behavior changed, not every historical report.
+- Apply clean-code and its review checklist; run lint and proportionate checks for the approved scope. Set per-family proof depth when approving that family, not exhaustive proof by default; required native-platform checks and native launch gates remain in force. Record failures/skips and actual platform limits. Update the completed task, current next action and support index only where behavior changed, not every historical report.
 - Commit validated scoped repository changes and **stop at the approved task's checkpoint**. Do not select another task or restart Windows diagnosis automatically. Preserve evidence/diff and report any unresolved host, contract, tooling or permission blocker.
 
 ## Next-session boundary
