@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Field, FieldLabel } from "./ui/field";
 import { Textarea } from "./ui/textarea";
 
-/** Appears only when a sent task change has no verified success reply. */
+/** Appears only when a sent workspace request has no verified success reply. */
 export function WorkspaceRequestRecovery({ workspace }: { workspace: MainWorkspace }): ReactElement | null {
   const request = useSyncExternalStore(workspace.subscribe, workspace.getUnresolved);
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export function WorkspaceRequestRecovery({ workspace }: { workspace: MainWorkspa
   return <Dialog open disablePointerDismissal onOpenChange={() => undefined}>
     <DialogContent showCloseButton={false} initialFocus={retryRef} className="overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>Task change needs attention</DialogTitle>
+        <DialogTitle>Workspace request needs attention</DialogTitle>
         <DialogDescription>Your original request is retained. Do not submit a replacement or close the app until you have preserved it.</DialogDescription>
       </DialogHeader>
       <Alert><AlertDescription>{request.error}</AlertDescription></Alert>

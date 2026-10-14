@@ -3,7 +3,7 @@ import type { TaskPriority, TaskReorderPlacement, TaskReorderTask, TaskTransitio
 import { parseV2TaskProjection } from "@/backend/v2TaskResults";
 import { compareV2Tasks } from "@/backend/v2TaskModel";
 import { V2WorkspaceReader } from "./v2BackendClient";
-import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction, type V2UndoResult } from "./v2EditorClient";
+import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2CopyResult, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction, type V2UndoResult } from "./v2EditorClient";
 import { browserUndoStorage, V2UndoHistory, type V2UndoStorage } from "./v2UndoHistory";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
@@ -19,7 +19,7 @@ function classificationEntries(value: unknown): { slug: string; taskCount: numbe
 }
 
 export type UnresolvedTaskRequest = {
-  prepared: V2PreparedEdit<V2EditResult | V2OrderResult | V2UndoResult>;
+  prepared: V2PreparedEdit<V2EditResult | V2OrderResult | V2UndoResult | V2CopyResult>;
   error: string;
   retry: () => Promise<void>;
   preserveForReconciliation: () => void;
@@ -52,7 +52,18 @@ export class MainWorkspace {
   get supportsOperationUndo(): boolean { return this.editor.selection.writeCommands.includes("operation.undo"); }
   /** Only the Linux route advertises status batches. */
   get supportsStatusBatch(): boolean { return this.editor.selection.writeCommands.includes("task.transitionMany"); }
+  get supportsBackupRestore(): boolean { return this.editor.selection.writeCommands.includes("workspace.archive") && this.editor.selection.writeCommands.includes("workspace.restore"); }
   hasWriteInProgress = (): boolean => this.writing;
+
+  /** Copies never change selection or enter task undo history. The gateway validates paths and the complete source. */
+  async copyWorkspace(destinationDirectory: string, key: string, sourceDirectory?: string): Promise<V2CopyResult> {
+    if (!this.supportsBackupRestore) throw new V2EditorError("UNSUPPORTED_COMMAND", "Backup and restore are not available in this selected workspace.");
+    return this.run(async () => {
+      const prepared = this.editor.prepareCopy(await this.editor.begin(undefined, "copy"), destinationDirectory, key, sourceDirectory);
+      await prepared.preview();
+      return prepared;
+    });
+  }
 
   async tasks(args: Record<string, unknown>) {
     await this.ready();
@@ -204,7 +215,7 @@ export class MainWorkspace {
     return { ...result, task: taskView(result.task) };
   }
 
-  private async run<R extends V2EditResult | V2OrderResult | V2UndoResult>(prepare: () => Promise<V2PreparedEdit<R>>): Promise<R> {
+  private async run<R extends V2EditResult | V2OrderResult | V2UndoResult | V2CopyResult>(prepare: () => Promise<V2PreparedEdit<R>>): Promise<R> {
     if (this.reconciliationRequired) throw new V2EditorError("MANUAL_RECONCILIATION", "Writes are paused until you reconcile the preserved request and reopen this workspace.");
     if (this.writing) throw new V2EditorError("WRITE_IN_PROGRESS", "Finish the current task change before starting another.");
     this.writing = true;

@@ -16,7 +16,7 @@ const { readV2DevSelection } = await import(`data:text/javascript;base64,${Buffe
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const statusCommands = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"];
-const linuxEditorCommands = ["task.create", "task.update", ...statusCommands, "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "operation.undo", "task.transitionMany"];
+const linuxEditorCommands = ["task.create", "task.update", ...statusCommands, "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove", "task.reorder", "operation.undo", "task.transitionMany", "workspace.archive", "workspace.restore"];
 const statusSources = { "task.start": "done", "task.pause": "in_progress", "task.complete": "paused", "task.reopen": "done", "task.cancel": "paused", "task.delete": "done" };
 
 function workspace(t) {
@@ -93,7 +93,7 @@ test("editor health requires the exact connected-command whitelist, not comma co
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
   const allowed = linuxEditorCommands, native = allowed.slice(0, -6);
-  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
+  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -2), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
@@ -540,4 +540,29 @@ test("browser status undo restores the latest eligible status once and refuses w
   assert.equal(undone.task.status, "open"); assert.equal(undone.task.closedAt, null);
   assert.deepEqual(await undo.execute(), undone);
   await assert.rejects(editor.prepareStatus(await editor.begin(openId, "status"), "task.status.undo").execute(), /UNDO_UNAVAILABLE/);
+});
+
+test("workspace copy decoder refuses malformed success and preview flags; request remains frozen", async t => {
+  const selected = workspace(t), { editor } = await server(t, selected);
+  let patch = {};
+  traceFetch(t, async (response, request) => {
+    const body = await response.json();
+    if (request?.command === "workspace.archive" && body.ok) Object.assign(body.result, patch);
+    return new Response(JSON.stringify(body));
+  });
+  const prepared = editor.prepareCopy(await editor.begin(undefined, "copy"), path.join(selected.directory, "archive"), "copy-decode");
+  const original = prepared.originalRequest;
+  for (patch of [{ dryRun: false }, { readOnly: true }, { operationId: "invented" }, { taskCount: -1 }, { destinationDirectory: "" }]) {
+    await assert.rejects(prepared.preview(), /invalid copy result/);
+    assert.equal(existsSync(path.join(selected.directory, "archive")), false);
+  }
+  patch = {};
+  assert.equal((await prepared.preview()).taskCount, 4);
+  for (patch of [{ dryRun: true }, { readOnly: false }, { operationId: "" }, { taskCount: 1.5 }, { changed: false }, { destinationDirectory: null }]) {
+    await assert.rejects(prepared.execute(), /invalid copy result/);
+    assert.equal(prepared.originalRequest, original);
+  }
+  patch = {};
+  assert.equal((await prepared.execute()).taskCount, 4, "the original receipt remains replayable");
+  assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 0 });
 });

@@ -30,7 +30,7 @@ export type DevServerOptions = {
 
 // Same ordered list as the Linux main-client editor: the native list plus parent/dependency edits,
 // manual reorder, operation undo and status batches. Eligibility stays with the gateway.
-const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", ...V2_RELATIONSHIP_COMMANDS, "task.reorder", "operation.undo", "task.transitionMany"];
+const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...V2_STATUS_COMMANDS, "task.status.undo", ...V2_RELATIONSHIP_COMMANDS, "task.reorder", "operation.undo", "task.transitionMany", "workspace.archive", "workspace.restore"];
 type V2DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: boolean; profilePath?: string; writeCommands?: string[] };
 
 export type DevServer = {

@@ -12,9 +12,9 @@ const statusActions = [...V2_STATUS_COMMANDS, "task.status.undo"] as const;
 const relationshipActions = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
 /** The proven Windows native editor list; native relationship writers remain withheld. */
 export const V2_EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
-/** The Linux dev route adds parent moves, dependency edits, child capture, manual reorder, operation undo and status batches through the same gateway. */
-export const V2_LINUX_EDITOR_COMMANDS = [...V2_EDITOR_COMMANDS, ...relationshipActions, "task.reorder", "operation.undo", "task.transitionMany"] as const;
-export type V2EditorMode = "content" | "status" | "relationship" | "order" | "operation" | "batch";
+/** Linux-only workflow commands through the selected gateway; the Windows list above stays bounded. */
+export const V2_LINUX_EDITOR_COMMANDS = [...V2_EDITOR_COMMANDS, ...relationshipActions, "task.reorder", "operation.undo", "task.transitionMany", "workspace.archive", "workspace.restore"] as const;
+export type V2EditorMode = "content" | "status" | "relationship" | "order" | "operation" | "batch" | "copy";
 export type V2StatusAction = typeof statusActions[number];
 export type V2RelationshipAction = typeof relationshipActions[number];
 
@@ -24,7 +24,8 @@ export type V2LiteralContent = Pick<V2TaskProjection, "title" | "description" | 
 export type V2EditResult = V2TaskExecutionResult | Pick<V2TaskPreviewResult, "task" | "changed">;
 export type V2OrderResult = { tasks: V2TaskProjection[]; changed: boolean; operationId?: string };
 export type V2UndoResult = V2OrderResult & { removedIds: string[] };
-type V2GroupResult = V2EditResult | V2OrderResult | V2UndoResult;
+export type V2CopyResult = { destinationDirectory: string; taskCount: number; changed: boolean; operationId?: string };
+type V2GroupResult = V2EditResult | V2OrderResult | V2UndoResult | V2CopyResult;
 
 export class V2EditorError extends Error {
   constructor(readonly code: string, message: string) { super(`${code}: ${message}`); }
@@ -89,16 +90,29 @@ function editorResult(result: Record<string, unknown>, preview: boolean): V2Edit
   return { task: decoded.task, changed: decoded.changed };
 }
 
+function copyResult(value: Record<string, unknown>, preview: boolean): V2CopyResult {
+  if (typeof value.destinationDirectory !== "string" || !value.destinationDirectory
+    || !Number.isSafeInteger(value.taskCount) || (value.taskCount as number) < 0 || value.changed !== true
+    || (preview ? value.dryRun !== true || value.readOnly !== false || value.operationId !== undefined
+      : value.readOnly !== undefined || value.dryRun !== undefined || typeof value.operationId !== "string" || !value.operationId)) {
+    throw new Error("v2 editor returned an invalid copy result; retain the original request.");
+  }
+  return { destinationDirectory: value.destinationDirectory, taskCount: value.taskCount as number, changed: true,
+    ...(!preview ? { operationId: value.operationId as string } : {}) };
+}
+
 function hasExpectedVersions(request: V2Request): boolean {
   const positive = (value: unknown) => Number.isSafeInteger(value) && (value as number) >= 1;
   if (request.command === "task.create") return true;
+  if (request.command === "workspace.archive" || request.command === "workspace.restore") return typeof request.args.destinationDirectory === "string" && request.args.destinationDirectory.trim() !== ""
+    && (request.command !== "workspace.restore" || typeof request.args.sourceDirectory === "string" && request.args.sourceDirectory.trim() !== "");
   if (request.command === "operation.undo") return typeof request.args.operationId === "string" && request.args.operationId !== "";
   if (request.command !== "task.reorder" && request.command !== "task.transitionMany") return positive(request.args.expectedVersion);
   return Array.isArray(request.args.tasks) && request.args.tasks.length > 0
     && request.args.tasks.every(task => isV2Record(task) && typeof task.id === "string" && positive(task.expectedVersion));
 }
 
-/** `R` is the decoded result: one task for edits, the selected group for manual reorder, status batches or operation undo. */
+/** Keeps the original executing envelope immutable across previews and retries. */
 export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
   private readonly serialized: string;
   private readonly selection: V2EditorSelection;
@@ -110,7 +124,7 @@ export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
     if (!selection.writeCommands.includes(request.command) || !request.writeContext || !request.idempotencyKey
       || typeof request.requestId !== "string" || !request.requestId
       || request.readOnly !== false || request.dryRun !== false || !hasExpectedVersions(request)) {
-      throw new Error("Original executing context/key/correlation and positive existing-task version are required.");
+      throw new Error("Original executing context/key/correlation and valid operation inputs are required.");
     }
     this.serialized = JSON.stringify(request);
     this.selection = Object.freeze({ ...selection, writeCommands: Object.freeze([...selection.writeCommands]) });
@@ -122,7 +136,7 @@ export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
     const { command, writeContext, idempotencyKey, actor, readOnly, dryRun, args } = JSON.parse(this.serialized) as V2Request;
     return JSON.stringify({ command, rootPath: this.selection.rootPath, databasePath: this.selection.databasePath,
       profilePath: this.selection.profilePath, writeContext, idempotencyKey, expectedVersion: args.expectedVersion,
-      tasks: args.tasks, operationId: args.operationId, actor, readOnly, dryRun });
+      tasks: args.tasks, operationId: args.operationId, sourceDirectory: args.sourceDirectory, destinationDirectory: args.destinationDirectory, actor, readOnly, dryRun });
   }
 
   async preview(): Promise<R> {
@@ -147,6 +161,7 @@ export class V2PreparedEdit<R extends V2GroupResult = V2EditResult> {
       if (response.writeContext !== request.writeContext) throw new Error("v2 editor returned different authority; retain the original request.");
       if (request.command === "task.reorder" || request.command === "task.transitionMany") return groupResult(response.result, request, preview) as R;
       if (request.command === "operation.undo") return undoResult(response.result, preview) as R;
+      if (request.command === "workspace.archive" || request.command === "workspace.restore") return copyResult(response.result, preview) as R;
       const result = editorResult(response.result, preview);
       if (request.command !== "task.create" && result.task.id !== request.args.id) throw new Error("v2 editor returned another task; retain the original request.");
       return result as R;
@@ -164,14 +179,14 @@ export class V2EditorClient {
   }
 
   async begin(taskId?: string, mode: V2EditorMode = "content"): Promise<V2EditBaseline> {
-    if (mode !== "content" && mode !== "status" && mode !== "relationship" && mode !== "order" && mode !== "operation" && mode !== "batch") throw new Error("Unsupported editor mode; no query was sent.");
-    const grouped = mode === "operation" || mode === "batch";
-    if (grouped ? taskId !== undefined : mode !== "content" && taskId === undefined) throw new Error(grouped ? "Operation undo and status batches have no single task baseline; no query was sent." : "Select an existing task for this operation; no query was sent.");
+    if (mode !== "content" && mode !== "status" && mode !== "relationship" && mode !== "order" && mode !== "operation" && mode !== "batch" && mode !== "copy") throw new Error("Unsupported editor mode; no query was sent.");
+    const grouped = mode === "operation" || mode === "batch" || mode === "copy";
+    if (grouped ? taskId !== undefined : mode !== "content" && taskId === undefined) throw new Error(grouped ? "This workspace operation has no single task baseline; no query was sent." : "Select an existing task for this operation; no query was sent.");
     const info = await this.query("workspace.info", {});
     const workspace = parseV2WorkspaceInfo(info.result);
     if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(V2_NATIVE_COMMANDS)) throw new V2EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
     const commands = mode === "status" ? statusActions : mode === "relationship" ? relationshipActions : mode === "order" ? ["task.reorder"]
-      : mode === "operation" ? ["operation.undo"] : mode === "batch" ? ["task.transitionMany"] : [taskId === undefined ? "task.create" : "task.update"];
+      : mode === "operation" ? ["operation.undo"] : mode === "batch" ? ["task.transitionMany"] : mode === "copy" ? ["workspace.archive", "workspace.restore"] : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new V2EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
     if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
@@ -239,6 +254,12 @@ export class V2EditorClient {
   prepareOperationUndo(baseline: V2EditBaseline, operationId: string, key: string): V2PreparedEdit<V2UndoResult> {
     if (baseline.task || !operationId) throw new Error("An operation ID without a task baseline is required.");
     return this.prepareTaskRequest(baseline, "operation.undo", { operationId }, key);
+  }
+
+  prepareCopy(baseline: V2EditBaseline, destinationDirectory: string, key: string, sourceDirectory?: string): V2PreparedEdit<V2CopyResult> {
+    if (baseline.task) throw new Error("Workspace copies have no task baseline.");
+    return this.prepareTaskRequest(baseline, sourceDirectory === undefined ? "workspace.archive" : "workspace.restore",
+      { destinationDirectory, ...(sourceDirectory !== undefined ? { sourceDirectory } : {}) }, key);
   }
 
   private prepareTaskRequest<R extends V2GroupResult = V2EditResult>(baseline: V2EditBaseline, command: string, args: Record<string, unknown>, key: string = crypto.randomUUID()): V2PreparedEdit<R> {

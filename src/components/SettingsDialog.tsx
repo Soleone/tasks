@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
+import { WorkspaceBackup } from "./WorkspaceBackup";
 
 type Failure = { title: string; detail: string };
 
@@ -416,7 +417,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
             <section aria-labelledby="settings-data" className="flex flex-col gap-4 rounded-lg border p-4">
               <div className="flex flex-col gap-1">
                 <h2 id="settings-data" className="text-sm font-medium">Local</h2>
-                <p className="text-sm text-muted-foreground">Inspect the local workspace or create a portable export.</p>
+                <p className="text-sm text-muted-foreground">{selectedWorkspace ? "Inspect the selected task folder and local cache." : "Inspect the local workspace or create a portable export."}</p>
               </div>
               {databasePath
                 ? <div className="flex flex-col gap-1 rounded-md border bg-muted/20 p-3">
@@ -428,7 +429,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                     <p className="wrap-anywhere font-mono text-xs text-muted-foreground">{isAndroid ? "Stored privately on this device" : databasePath}</p>
                   </div>
                 : <p className="text-sm text-muted-foreground">Reading the workspace…</p>}
-              <div className="flex flex-col gap-2">
+              {selectedWorkspace?.supportsBackupRestore ? null : <div className="flex flex-col gap-2">
                 <Button
                   variant="outline"
                   className="w-fit"
@@ -437,7 +438,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                   onClick={() => void exportNow()}
                 >{pending ? "Exporting…" : "Export tasks as JSON"}</Button>
                 <p className="text-sm text-muted-foreground">{selectedWorkspace ? "Backup and restore currently use explicit CLI controls for this selected workspace." : isAndroid ? "Choose where to save a portable JSON document. It can be opened by another app." : "Writes a readable copy into the exports folder beside the database, for another app to import."}</p>
-              </div>
+              </div>}
             </section>
 
             <section aria-labelledby="settings-cleanup" className="flex flex-col gap-4 rounded-lg border p-4">
@@ -459,6 +460,7 @@ export function SettingsDialog({ open, onOpenChange, finalFocus, onPrepareReceiv
                     : `${canceledTaskCount} canceled ${canceledTaskCount === 1 ? "task" : "tasks"} will be permanently deleted.`}
               </p>
               </section>
+            {open && selectedWorkspace?.supportsBackupRestore ? <WorkspaceBackup workspace={selectedWorkspace} /> : null}
             </div>
           </TabsContent>
         </Tabs>
