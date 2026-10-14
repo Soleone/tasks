@@ -4,6 +4,7 @@ import { parseV2TaskProjection } from "@/backend/v2TaskResults";
 import { compareV2Tasks } from "@/backend/v2TaskModel";
 import { V2WorkspaceReader } from "./v2BackendClient";
 import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction, type V2UndoResult } from "./v2EditorClient";
+import { browserUndoStorage, V2UndoHistory, type V2UndoStorage } from "./v2UndoHistory";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
 const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);
@@ -30,8 +31,9 @@ export class MainWorkspace {
   private reconciliationRequired = false;
   private unresolved: UnresolvedTaskRequest | null = null;
   private listeners = new Set<() => void>();
+  private history: Promise<V2UndoHistory> | null = null;
 
-  constructor(readonly reader: V2WorkspaceReader, readonly editor: V2EditorClient) {
+  constructor(readonly reader: V2WorkspaceReader, readonly editor: V2EditorClient, private readonly undoStorage: V2UndoStorage | null = browserUndoStorage()) {
     if (reader.selection.rootPath !== editor.selection.rootPath || reader.selection.databasePath !== editor.selection.databasePath) {
       throw new Error("The list and editor must share the same explicitly selected workspace.");
     }
@@ -105,6 +107,18 @@ export class MainWorkspace {
       return this.editor.prepareReorder(baseline, tasks, placement, key);
     });
     return { ...result, tasks: result.tasks.map(taskView) };
+  }
+
+  /** This client's own undo history for the confirmed root/cache/profile and current write context; Linux route only. */
+  undoHistory(): Promise<V2UndoHistory> {
+    if (!this.supportsOperationUndo) return Promise.reject(new V2EditorError("UNSUPPORTED_COMMAND", "Undo is limited to status changes in this selected workspace."));
+    if (!this.history) {
+      const { rootPath, databasePath, profilePath } = this.editor.selection;
+      this.history = this.editor.begin(undefined, "operation")
+        .then(baseline => new V2UndoHistory(JSON.stringify([rootPath, databasePath, profilePath, baseline.writeContext]), this.undoStorage));
+      this.history.catch(() => { this.history = null; });
+    }
+    return this.history;
   }
 
   /** The gateway's own non-consuming preview refuses ineligible history before the locked request is sent. */

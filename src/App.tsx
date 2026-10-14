@@ -5,6 +5,7 @@ import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { V2EditorError } from "@/platform/v2EditorClient";
+import type { V2UndoEntry } from "@/platform/v2UndoHistory";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
 import { parseV2Shorthand } from "@/backend/v2UpdateInputs";
@@ -137,16 +138,7 @@ function readHelpMode(): KeyboardHelpMode {
   return "full";
 }
 
-type OperationUndoEntry = {
-  operationId: string;
-  expectedVersion?: number;
-  key: string;
-  affectedTaskIds: string[];
-  createdTaskIds: string[];
-  title: string;
-  statusLike: boolean;
-  wasActiveTaskId: string | null;
-};
+type OperationUndoEntry = V2UndoEntry & { expectedVersion?: number };
 
 type ToastDisplayOptions = {
   icon?: LucideIcon;
@@ -885,16 +877,16 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       const after = currentById.get(taskId);
       return before !== undefined && after !== undefined && before.status !== after.status;
     });
-    // A selected workspace keeps single-task status undo; only the Linux route also undoes other operations.
+    // The native route keeps single-task status undo; the Linux route records every own operation for operation.undo.
     const singleStatus = statusLike && affectedTaskIds.length === 1;
-    if (workspace && !singleStatus && (statusLike || !workspace.supportsOperationUndo)) {
+    if (workspace && !workspace.supportsOperationUndo && !singleStatus) {
       retireStatusUndo();
       return;
     }
     const titleTask = current.find((task) => affectedTaskIds.includes(task.id)) ?? previous.find((task) => affectedTaskIds.includes(task.id));
     const entry: OperationUndoEntry = {
       operationId,
-      ...(workspace && singleStatus ? { expectedVersion: current[0].version } : {}),
+      ...(workspace && !workspace.supportsOperationUndo && singleStatus ? { expectedVersion: current[0].version } : {}),
       key: crypto.randomUUID(),
       affectedTaskIds,
       createdTaskIds: options.createdTaskIds ?? [],
@@ -905,13 +897,32 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         return activeTaskId !== null && affectedTaskIds.includes(activeTaskId) ? activeTaskId : null;
       })(),
     };
+    showUndo(entry);
+    if (!workspace?.supportsOperationUndo) return;
+    // Re-show after pushing, so a history load that resolves late cannot replace this newer entry.
+    void workspace.undoHistory().then((history) => {
+      history.push(entry);
+      showUndo(history.latest());
+    }, () => undefined);
+  }
+
+  function showUndo(entry: OperationUndoEntry | null): void {
     statusUndoRef.current = entry;
     setStatusUndo(entry);
   }
 
   function retireStatusUndo(): void {
-    statusUndoRef.current = null;
-    setStatusUndo(null);
+    showUndo(null);
+  }
+
+  // On the Linux route, an undone or gateway-refused entry leaves this client's next older entry.
+  function retireUndo(entry: OperationUndoEntry): void {
+    retireStatusUndo();
+    if (!workspace?.supportsOperationUndo) return;
+    void workspace.undoHistory().then((history) => {
+      history.remove(entry.operationId);
+      showUndo(history.latest());
+    }, () => undefined);
   }
 
   function showToast(message: string, options: ToastDisplayOptions = {}): void {
@@ -941,7 +952,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       if (entry.wasActiveTaskId && restored.some((task) => task.id === entry.wasActiveTaskId)) {
         requestActiveTask(entry.wasActiveTaskId);
       }
-      retireStatusUndo();
+      retireUndo(entry);
       const label = restored.length === 1 ? taskStatusMeta[restored[0].status]?.label ?? restored[0].status : null;
       const message = entry.createdTaskIds.length > 0
         ? `Removed: ${entry.title}`
@@ -956,7 +967,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     } catch (caught) {
       if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND"
         || (caught instanceof V2EditorError && (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))) {
-        retireStatusUndo();
+        retireUndo(entry);
         setExitingTaskIds(new Set());
         setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
         void refreshTasks();
@@ -969,6 +980,14 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   useEffect(() => {
     statusUndoRef.current = statusUndo;
   }, [statusUndo]);
+
+  // After confirmation, the Linux route reloads this client's retained history for the same root/cache/profile.
+  useEffect(() => {
+    if (!workspace?.supportsOperationUndo) return;
+    let cancelled = false;
+    void workspace.undoHistory().then((history) => { if (!cancelled) showUndo(history.latest()); }, () => undefined);
+    return () => { cancelled = true; };
+  }, [workspace]);
 
   useEffect(() => {
     if (newTaskId === null) return;

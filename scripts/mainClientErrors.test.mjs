@@ -31,7 +31,7 @@ for (const ErrorClass of [BackendCommandError, V2EditorError]) {
       const events = [];
       const bindings = {
         BackendCommandError, V2EditorError, entry: { title: "Task" },
-        retireStatusUndo: () => events.push("retire"),
+        retireUndo: () => events.push("retire"),
         setExitingTaskIds: ids => events.push([...ids]),
         setAnnouncement: text => events.push(text),
         refreshTasks: () => events.push("refresh"),
@@ -56,7 +56,7 @@ for (const error of [new V2EditorError("INVALID_STORAGE", "Preserve request"), n
     const events = [];
     const bindings = {
       BackendCommandError, V2EditorError, entry: { title: "Task" }, task: { title: "Task" },
-      retireStatusUndo: () => events.push("retire"), setExitingTaskIds: () => events.push("exit"),
+      retireUndo: () => events.push("retire"), setExitingTaskIds: () => events.push("exit"),
       setAnnouncement: text => events.push(text), refreshTasks: () => events.push("refresh"),
       onAnnounce: text => events.push(text), onRefresh: () => events.push("refresh"),
     };

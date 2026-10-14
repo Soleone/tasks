@@ -76,7 +76,7 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   ]);
 });
 
-const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {V2WorkspaceReader} from './src/platform/v2BackendClient'; export {readV2EditorSelection, V2EditorClient} from './src/platform/v2EditorClient';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
+const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {V2WorkspaceReader} from './src/platform/v2BackendClient'; export {readV2EditorSelection, V2EditorClient} from './src/platform/v2EditorClient'; export {V2UndoHistory, V2_UNDO_HISTORY_LIMIT} from './src/platform/v2UndoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
 const httpClient = await import(`data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}`);
 const { startDevServer } = await import("../dist/backend/devServer.js");
 
@@ -102,9 +102,9 @@ async function selectedHttpWorkspace(t) {
     if (originalXdg === undefined) delete process.env.XDG_DATA_HOME; else process.env.XDG_DATA_HOME = originalXdg;
     rmSync(directory, { recursive: true, force: true });
   });
-  const confirm = async () => {
+  const confirm = async storage => {
     const selection = await httpClient.readV2EditorSelection(dev.url);
-    return new httpClient.MainWorkspace(new httpClient.V2WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.V2EditorClient(dev.url, selection));
+    return new httpClient.MainWorkspace(new httpClient.V2WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.V2EditorClient(dev.url, selection), storage);
   };
   // Restart the bridge on the same root with a fresh cache and reconfirm, as after closing and reopening.
   const reopen = async () => {
@@ -112,7 +112,14 @@ async function selectedHttpWorkspace(t) {
     dev = await startDevServer({ port: 0, v2Root: root, databasePath: path.join(directory, "reopened-cache.db"), v2Edit: true });
     return confirm();
   };
-  return { root, calls, workspace: await confirm(), reopen, loseNextReply: () => { loseNextWriteReply = true; } };
+  // Restart the bridge on the same root and cache, optionally under another profile, as after closing and reopening.
+  const restart = async (storage, profile = "profile") => {
+    await new Promise(resolve => dev.server.close(resolve));
+    process.env.XDG_DATA_HOME = path.join(directory, profile);
+    dev = await startDevServer({ port: 0, v2Root: root, databasePath: path.join(directory, "cache.db"), v2Edit: true });
+    return confirm(storage);
+  };
+  return { directory, root, calls, workspace: await confirm(), confirm, reopen, restart, loseNextReply: () => { loseNextWriteReply = true; } };
 }
 
 test("selected dev:web launch refuses the legacy transport before confirmation", async () => {
@@ -310,4 +317,90 @@ test("a lost bridge reply locks the original request and Retry same request reus
   const undos = calls.filter(call => call.command === "operation.undo" && call.dryRun === false);
   assert.equal(undos.length, 2);
   assert.deepEqual(undos[1], undos[0]);
+});
+
+function memoryStorage() {
+  const items = new Map();
+  return { getItem: key => items.get(key) ?? null, setItem: (key, value) => { items.set(key, String(value)); } };
+}
+const undoEntry = (operationId, title) => ({ operationId, key: crypto.randomUUID(), affectedTaskIds: [], createdTaskIds: [], title, statusLike: false, wasActiveTaskId: null });
+
+test("Linux route keeps a bounded own undo history across reopen and walks it back through the gateway", async t => {
+  const { directory, root, calls, confirm, reopen, restart } = await selectedHttpWorkspace(t);
+  const storage = memoryStorage();
+  let workspace = await restart(storage);
+  const stored = id => JSON.parse(readFileSync(path.join(root, "tasks", `${id}.json`), "utf8"));
+  const executing = () => calls.filter(call => call.readOnly === false && call.dryRun === false).map(call => call.command);
+  const version = async id => (await workspace.reader.query("task.get", { id })).task.version;
+  const topLevel = async () => (await workspace.tasks({ sort: "manual", limit: 100 })).tasks.filter(task => task.parentId === null).map(task => task.id);
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9", pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed";
+  // App's Ctrl+Z: the newest own entry, the gateway preview/execute path, then the next older entry.
+  const undoLatest = async () => {
+    const history = await workspace.undoHistory();
+    const entry = history.latest();
+    try { return await workspace.undo(entry.operationId, entry.key); }
+    catch (error) { if (!/OPERATION_UNAVAILABLE/.test(error.message)) throw error; return error; }
+    finally { history.remove(entry.operationId); }
+  };
+  const record = async operationId => (await workspace.undoHistory()).push(undoEntry(operationId, "task"));
+
+  const original = stored(openId), order = await topLevel();
+  assert.equal((await workspace.undoHistory()).latest(), null);
+  await record((await workspace.save("Renamed", "", undefined, "edit-key", openId, await version(openId))).operationId);
+  await record((await workspace.status("task.complete", openId, await version(openId), "complete-key")).operationId);
+  await record((await workspace.reorder([{ id: openId, expectedVersion: await version(openId) }], { first: true }, "order-key")).operationId);
+  await record((await workspace.save("Paused renamed", "", undefined, "paused-key", pausedId, await version(pausedId))).operationId);
+  // Another writer on the same cache supersedes the newest own entry; that edit is not this client's history.
+  await workspace.save("Elsewhere", "", undefined, "foreign-key", pausedId, await version(pausedId));
+  assert.notDeepEqual(await topLevel(), order);
+
+  // Reopening the same root/cache/profile restores the list; the gateway refuses the superseded entry before sending.
+  workspace = await restart(storage);
+  const sent = executing().length;
+  assert.match((await undoLatest()).message, /OPERATION_UNAVAILABLE/);
+  assert.equal(executing().length, sent, "the refused entry sends no executing request");
+  assert.equal(stored(pausedId).title, "Elsewhere");
+  await undoLatest();
+  assert.deepEqual(await topLevel(), order, "repeated undo restores the recorded order");
+  await undoLatest();
+  assert.deepEqual([stored(openId).status, stored(openId).closedAt], [original.status, original.closedAt], "status history walks back through operation.undo");
+  workspace = await restart(storage);
+  await undoLatest();
+  assert.equal(stored(openId).title, original.title);
+  assert.equal((await workspace.undoHistory()).latest(), null);
+  assert.deepEqual(executing().slice(sent), ["operation.undo", "operation.undo", "operation.undo"]);
+
+  // Entries are scoped to the confirmed root, cache, profile and write context.
+  await record((await workspace.save("Scoped", "", undefined, "scoped-key", openId, await version(openId))).operationId);
+  workspace = await restart(storage, "other-profile");
+  assert.equal((await workspace.undoHistory()).latest(), null, "another profile sees no entries");
+  workspace = await restart(storage);
+  assert.notEqual((await workspace.undoHistory()).latest(), null);
+  workspace = await reopen();
+  workspace = await confirm(storage);
+  assert.equal((await workspace.undoHistory()).latest(), null, "a different cache sees no entries");
+  const otherRoot = path.join(directory, "other-root");
+  cpSync("scripts/fixtures/taskdb-v2/root", otherRoot, { recursive: true });
+  const other = await startDevServer({ port: 0, v2Root: otherRoot, databasePath: path.join(directory, "other-cache.db"), v2Edit: true });
+  t.after(() => new Promise(resolve => other.server.close(resolve)));
+  const selection = await httpClient.readV2EditorSelection(other.url);
+  const otherWorkspace = new httpClient.MainWorkspace(new httpClient.V2WorkspaceReader(selection, { url: other.url, selection }), new httpClient.V2EditorClient(other.url, selection), storage);
+  assert.equal((await otherWorkspace.undoHistory()).latest(), null, "another root sees no entries");
+});
+
+test("own undo history keeps the newest entries up to its bound and tolerates unusable storage", () => {
+  const storage = memoryStorage();
+  const history = new httpClient.V2UndoHistory("scope", storage);
+  for (let index = 0; index < httpClient.V2_UNDO_HISTORY_LIMIT + 5; index += 1) history.push(undoEntry(`operation-${index}`, "task"));
+  const reloaded = new httpClient.V2UndoHistory("scope", storage);
+  const walked = [];
+  for (let entry = reloaded.latest(); entry; entry = reloaded.latest()) { walked.push(entry.operationId); reloaded.remove(entry.operationId); }
+  assert.equal(walked.length, httpClient.V2_UNDO_HISTORY_LIMIT);
+  assert.deepEqual([walked[0], walked.at(-1)], [`operation-${httpClient.V2_UNDO_HISTORY_LIMIT + 4}`, "operation-5"]);
+
+  storage.setItem("tasks.v2UndoHistory", "{not json");
+  assert.equal(new httpClient.V2UndoHistory("scope", storage).latest(), null);
+  const unusable = new httpClient.V2UndoHistory("scope", { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } });
+  unusable.push(undoEntry("memory-only", "task"));
+  assert.equal(unusable.latest()?.operationId, "memory-only", "unusable storage keeps this session's history in memory");
 });
