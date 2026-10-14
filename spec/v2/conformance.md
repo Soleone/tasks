@@ -126,9 +126,16 @@ Rebuild validates a complete schema-2 tree under the same-profile writer lock, t
 
 Limits remain explicit: WSL2 Linux Node v22.22.3 process interruption is not hardware power-loss, Windows/Android/provider, case-insensitive filename-provider, distributed snapshot/CAS, malicious-filesystem sandbox or large-collection proof. Sharing/foreign writers are not controlled. Root/profile/evidence loss can require manual reconciliation. Default v1 app/CLI, selection and personal data remain unchanged. Fully materialized corpus is **101 cases**, not the full 112-case contract.
 
+### Historical evidence: candidate model and Syncthing transport (2026-09-30/10-01)
+
+The [candidate](../../scripts/taskdbV2Candidates.test.mjs) and [rekey](../../scripts/taskdbV2Rekey.test.mjs) probes were isolated model assertions, not production/process-kill, fsync, SQLite-receipt or provider conformance. The [transport probe](../../scripts/taskdbV2Transport.test.mjs) used two isolated Syncthing v1.29.5 peers on disposable loopback roots; its seven observed outcomes were:
+1. Distinct-ID offline captures converged with equal keys and no conflict; 2. distinct-task same-gap moves survived with equal keys, not both adjacency intentions; 3. same-task competing edits preserved canonical plus conflict bytes; 4. restart retained those two versions without duplication/repair.
+5. Formatting-only edits failed exact-byte stale guards; 6. an edit after final check/before rename was overwritten, demonstrating the best-effort race limit; 7. overlapping tied-run repairs propagated canonical/conflict key versions, retained five canonical IDs and survived restart without byte loss.
+Opt-in rerun: `TASKDB_V2_SYNCTHING_BIN=/absolute/path/to/syncthing node --test scripts/taskdbV2Transport.test.mjs` (independently obtained v1.29.5 binary). These historical WSL2 observations are not native Windows, Android SAF, cross-version or independent-client acceptance; no rerun is implied here.
+
 ### Recoverable capture and status
 
-Historical: describes the pre-simplification journaled create route; current creation is in [storage](storage.md#root). The simplified route has Linux tests; its Windows Node/SEA proof is pending.
+Historical: describes the pre-simplification journaled create route; current creation is in [storage](storage.md#task-creation). The simplified route has Linux tests; its Windows Node/SEA proof is pending.
 
 Linux-only `task.create` and `task.start/pause/complete/reopen/cancel/delete` now use the opt-in gateway and existing physical-root lock/cache/context/receipt/recovery boundaries. Default v1 clients/selection remain unchanged. Creation accepts only the declared literal/shorthand/content/parent inputs, uses open/P2 defaults, a UUIDv4 and one operation time, and prepends with pinned fractional indexing in the complete exact-parent scope, including hidden/canceled/tied siblings. The parent must exist and not be canceled. Status implements the accepted 30-transition matrix: delete cancels even done; cancel refuses done. Same-state requests store only a receipt. Status-only effects preserve edit time/order/links, use the fixed closure instant, clear closure on active states and never cascade.
 

@@ -1,5 +1,7 @@
 # Task model
 
+**Legacy default (implemented; removed at `dvs`).** Replacement authority: [V2 model](v2/model.md).
+
 This document describes the current TaskDB v1 canonical task record and the richer record returned by the command API. They are different shapes.
 
 ## Canonical task file

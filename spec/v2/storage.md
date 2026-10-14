@@ -15,9 +15,21 @@ Only explicit `workspace.init` on an empty selected existing directory may creat
 
 Local SQLite/WAL/history/receipts/journals/recovery copies MUST live outside the synced tree. Syncthing markers/versioning/ignore files and preserved conflict copies are transport artifacts, not additional canonical task authorities. Task entries MUST be regular documents inside the bound tree. Refuse symlink/reparse escapes, unexpected subdirectories or foreign provider handles before reading their content; a selected root itself may be resolved explicitly to its authorized physical directory. Unrecognized task JSON names or invalid/partial files MUST be reported/preserved; do not build a partial writable projection by ignoring them. Conflicts at the descriptor with incompatible schemas require inspection/restore of a verified root, not arbitrary new-manifest repair.
 
-Under the [owner-approved desktop capture simplification](../../PLAN.md#owner-approved-desktop-capture-simplification), new creates take one initial snapshot, write a hidden sibling stage and publish by native rename, with no new pending/progress evidence. Orphan stages are never adopted. Publication may precede the SQLite receipt/history commit, and a same-request retry can duplicate creation; the owner accepts this window. Committed receipts replay. Old pending-create intents retain explicit recovery from the [historical capture journal](conformance.md#recoverable-capture-and-status), but an already-present stage without a durably bound identity is refused and preserved (F10), not adopted even when its bytes match. See the [desktop capture publication boundary](../../docs/support.md#desktop-capture-publication-boundary).
+New task creation follows the [owner-approved route](#task-creation), not the journaled replacement path below. See the [desktop capture publication boundary](../../docs/support.md#desktop-capture-publication-boundary) for evidence limits.
 
 The [bounded Linux lifecycle implementation](conformance.md#explicit-initialization-and-retained-cache-rebuild) now exercises explicit init, no-clobber descriptor publication and guarded recovery on disposable filesystem roots. Unbound directory creation/unpublished progress requires preserved inspection; this does not establish the complete storage/native/provider profile.
+
+## Task creation
+
+**Implemented desktop route; accepted owner decision.** [PLAN](../../PLAN.md#owner-approved-desktop-capture-simplification) records the Node `task.create` simplification; Linux tests do not establish simplified-route Windows Node/SEA acceptance, and Android writes remain gated.
+
+Take one initial canonical snapshot for graph/input validation, first-position allocation and local authority. Preserve UUID/time/defaults, non-consuming previews and successful history. Write and flush one hidden `.syncthing.taskdb-create-<operationId>.tmp` sibling in `tasks/`; recheck only the selected parent's exact bytes (if any), destination names and physical root/task-directory binding, then native rename and directory flush. The published task extends the initial snapshot for the SQLite transaction; no repeated full-root observations surround publication.
+
+New creates emit no pending-create intent/progress or bound stage identity. Interrupted stages are orphans: never adopt, resume or silently remove them. Publication may precede SQLite receipt/history commit; the owner accepts duplicate creation on a same-request retry in that window. Committed receipts replay the original result even if its task has disappeared, never resurrecting it. Preserve the original request and inspect uncertain outcomes before choosing a retry.
+
+Unrelated edits/arrivals after the snapshot do not abort capture. Parent/destination checks are best effort, not distributed locking or no-clobber CAS: native rename can overwrite a late destination on some platforms, and sibling arrivals can change first-position ordering. No hostile-filesystem or power-loss guarantee is added.
+
+Old pending-create intents retain explicit full-guard, hard-link/stage-identity/progress recovery from the [historical capture journal](conformance.md#recoverable-capture-and-status). F10 refuses and preserves an already-present stage without a durably bound identity, even if its bytes match; stage-write-before-binding requires manual inspection. New creates refuse pending work. Missing/divergent old evidence remains for inspection, not orphan reinterpretation; other journals are unchanged.
 
 ## Identity
 
@@ -33,7 +45,7 @@ Cooperating same-device writers MUST share the lock/journal domain for the selec
 
 ## Journal
 
-Except new task creation (see Root above), before the first file change persist one immutable, non-synced pending intent: root binding, affected scopes/membership/byte guards, request/actor identity, fixed intended IDs/keys/times, old and next bytes, intended absence for deletion and progress/outcome evidence. Implementations may compact guards; they cannot discard the information needed for safe replay.
+Except new task creation (see [Task creation](#task-creation)), before the first file change persist one immutable, non-synced pending intent: root binding, affected scopes/membership/byte guards, request/actor identity, fixed intended IDs/keys/times, old and next bytes, intended absence for deletion and progress/outcome evidence. Implementations may compact guards; they cannot discard the information needed for safe replay.
 
 Validate all effects before writes, then verify scope/baselines before every replacement/deletion. Persist recovery/archive copies before destructive changes. Verify final bytes/graph before committing local receipt/activity/versions and emitting success. No distributed atomicity is promised; receivers may temporarily report an incomplete graph.
 
@@ -74,5 +86,49 @@ Nominate one repair device. Complete the known sync, pause participating sharing
 Local repair history can flag later, previously unreviewed references to a split ID. Preserve/report these links; never silently redirect. Other devices or lost local history cannot infer historical ambiguity from the minimal graph. Independently repaired/reintroduced versions need explicit review. Doctor is not generic undo or an unrestricted merge editor; use reviewed restore/reconcile from its recovery copy or a new verified root.
 
 The [bounded Linux doctor controls](conformance.md#doctor-inspection-and-retained-planning) now inspect raw candidate versions and retain reviewed `keep-both`/reported-dangling-only `repair-links` plans in local SQLite. Paths/IDs/exact bytes bind references; incoming split links, including copied versions, require explicit choices. Plans fix clone UUIDs, source keys or explicit new-parent keys, complete raw inode/tree guards and a valid prospective graph, with no canonical writes, archives, cleanup or actor activity. Preview IDs are hypothetical. The reported recovery location is a future destination with `recoveryReady:false`, not verified recovery data. [Guarded Linux application/recovery](conformance.md#guarded-doctor-application-and-recovery) now confirms retained plan IDs, strictly reproduces source/outputs from raw originals, independently archives request/plan/bytes before initialized progress and pending publication, binds each clone/replacement to a retained staged inode, and verifies the complete final graph before selected conflict retirement. Conflict absence requires its exact original inode/bytes in a private quarantine, never a pre-deletion marker. Fresh recovery cannot re-create an absent started clone, missing evidence or unexplained disappearance. One SQLite group/receipt retains split-link review history; later unreviewed incoming links are reported without redirect. Schema remains 5; no separate success ledger. Private evidence retires only after SQLite success; lost cache after committed partial retirement can require manual reconciliation. Stage hard links share their published file's inode, so external stage edits may also damage that output and are preserved as divergence, not overwritten. These are bounded local process guarantees, not complete provider/distributed repair acceptance. Invalid canonical records/selected alternates, unsafe entries, descriptor conflicts and orphan versions are inspectable but not repairable in this slice. Same-cache schema-5 upgrade/rebuild retains authority, receipts/history/claims and plans; copied/lost cache invalidates old planning authority. Use a nominated quiesced device before any eventual apply; these Linux process checks are not native/provider or cross-device coordination acceptance.
+
+## Guarded write path
+
+**Implemented example: changed `task.update` with retained local authority.** Receipt replay, preview and no-op branch before publication; other families retain their own safety contracts.
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant G as v2Gateway
+  participant U as v2UpdateWriter
+  participant Q as v2QueryCache + v2Receipts
+  participant J as v2LocalDomain + v2UpdateJournal
+  participant FS as Canonical root
+  C->>G: Immutable context/key/payload/version request
+  G->>U: Dispatch decoded edit
+  U->>J: Acquire physical-root writer lock
+  U->>Q: Check context and receipt identity
+  alt Receipt exists
+    Q-->>U: Historical result
+    U-->>C: Replay without canonical write
+  else Changed executing edit
+    U->>FS: Observe complete graph and exact bytes
+    U->>Q: Validate current task authority
+    U->>J: Persist fixed pending intent and guards
+    U->>FS: Guarded stage / rename / verify
+    U->>Q: Commit receipt + history transaction
+    U->>J: Retire intent after COMMIT
+    U-->>C: Verified result
+  end
+```
+
+Lost replies retain the exact request; `workspace.recovery.resume` is explicit, never automatic.
+
+- Create protects selected parent/destination/binding with the distinct accepted duplicate window above, not a new journal.
+- Content/status/relationships protect fixed preimage/next bytes and the complete prospective graph.
+- Ordering/normalization protect full sibling membership, selected placement and incidental key changes.
+- Undo/status batches protect recorded history/postconditions, unrelated fields and graph validity; creation removal is archived destructive work.
+- Purge protects surviving references and archived originals with bound deletion evidence.
+- Doctor protects reviewed version/link choices, fixed clone identities and raw conflict recovery copies.
+- Init/rebuild protect explicit empty-root initialization and retained local authority; archive/restore/migration protect disjoint staged destinations, unchanged sources and verified completion.
+
+## Rationale
+
+The selected directory is the collection, avoiding a shared collection-ID authority separate from the files. A nominated repair device coordinates cooperating users because file transport cannot provide a distributed repair lock; inspection and backups remain necessary.
 
 Normative cases: `root-empty`, `root-missing-manifest`, `root-mixed`, `root-unsupported`, `root-alias`, `root-escape`, `join-disjoint`, `join-identical`, `join-conflict`, `edit-delete`, `purge-referenced`, `purge-closed-subgraph`, `scan-partial`, `recover-prefix`, `recover-divergence`, `doctor-ambiguous`, `doctor-replay`, `doctor-stale`, `doctor-cache-loss`, `doctor-late-link`, `doctor-cleanup`, `preview-pending`, `archive-restore`, `destination-overlap`.

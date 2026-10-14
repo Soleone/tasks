@@ -47,4 +47,8 @@ IDs are case-sensitive and collection-local. Parent and dependency graphs separa
 
 Partial transport/missing graph data is a reported incomplete observation, not authorization to rewrite/repair. Doctor MAY plan explicit link repair under [storage](storage.md#doctor). Check the complete prospective graph before any ordinary batch/undo/repair write.
 
+## Rationale
+
+The 2026-10-01 literal-title decision keeps task text such as `Call @alice` unchanged; classification is an explicit field or separate shorthand input, not an import-time interpretation. Slugs need no canonical display-label dictionary: local presentation cannot change portable classification/filter semantics.
+
 Normative cases: `record-literal`, `record-unknown`, `record-missing`, `record-terminal`, `record-invalid-date`, `record-clock-backward`, `record-utf8`, `record-surrogate`, `record-duplicate`, `title-limit`, `title-over-limit`, `graph-missing`, `graph-parent-cycle`, `graph-dependency-cycle`, in the [corpus](../../scripts/fixtures/taskdb-v2/README.md).

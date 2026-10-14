@@ -118,4 +118,8 @@ Before executing, stderr completes one synchronous task-payload-free retry repor
 | RECOVERY_PENDING / RECOVERY_CONFLICT | Retained unfinished intent / unsafe replay |
 | MIGRATION_INVALID_SOURCE / MIGRATION_CONFLICT / DESTINATION_NOT_EMPTY | Invalid source / changed conversion guard / occupied output |
 
+## Rationale
+
+Cache-local receipts keep synced JSON minimal without a separate completed-operation ledger. Cache loss is an accepted edge case requiring fresh authority and manual reconciliation, not a supported old-request replay guarantee. Context protects local token identity; it is not cross-device compare-and-swap or distributed exactly-once authority.
+
 Normative cases: `literal-create`, `literal-update`, `classification-clear`, `text-replace`, `text-mixed`, `text-empty`, `text-escape`, `text-code`, `text-boundary`, `text-gaps`, `text-multiple`, `tags-normalize`, `old-alias`, `protocol-version`, `protocol-schema`, `protocol-duplicate`, `protocol-nonfinite`, `context-required`, `context-loss`, `context-root-switch`, `receipt-replay`, `receipt-changed`, `receipt-actor`, `receipt-rebuild`, `noop-receipt`, `capability-refusal`, `query-literal`, `query-readiness`, `cli-literal`, `cli-text`, `cli-key-context`, `archive-restore`, `restore-cache-authority`, `destination-overlap`.

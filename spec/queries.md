@@ -1,5 +1,7 @@
 # Queries
 
+**Legacy default (implemented; removed at `dvs`).** Sections linked from [V2 protocol](v2/protocol.md#queries-and-cli) are inherited by the replacement until consolidation.
+
 This is the current query catalog for the Node command path. Each command returns a JSON object; the JSON-lines envelope is described in [Protocol](protocol.md).
 
 | Command | Main arguments | Result / behavior |

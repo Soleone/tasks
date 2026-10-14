@@ -1,5 +1,7 @@
 # Storage and architecture
 
+**Legacy default (implemented; removed at `dvs`).** Replacement authority: [V2 storage](v2/storage.md).
+
 ## Authorities and execution path
 
 For the Node desktop, CLI, sidecar, and web-development path, canonical JSON files hold current task state. SQLite is a local rebuildable cache. The common path is:

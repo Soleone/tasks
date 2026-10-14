@@ -57,4 +57,8 @@ Record one grouped local operation with actor, time, operation/request identity 
 
 The [bounded Linux purge slice](conformance.md#verified-canceled-task-purge) now consumes prior retained undo involving removed tasks, historical incoming links or complete recorded scopes, so reappearing bytes cannot regain that authority. Unrelated eligible inverses remain available; empty purge preserves all undo. Purge itself remains outside generic `operation.undo`; its raw recovery copy is for explicit reviewed reconciliation/restore, not automatic reversal.
 
+## Rationale
+
+Done dependencies deliberately still block, preserving readiness behavior during format migration rather than silently changing it; a different readiness rule needs a separate accepted behavior change and fixtures. `updatedAt` denotes the last non-lifecycle edit, keeping content/edit time distinct from closure and local operation time.
+
 Normative cases: `status-matrix`, `time-complete`, `time-noop`, `time-edit-closed`, `time-status-undo`, `time-parent`, `time-reorder`, `undo-cycle`, `undo-unrelated-edit`, `undo-order-arrival`, `undo-missing-history`, `reorder-selected-unchanged`, `noop-receipt`. Production v1 tests do not prove these new timestamp/effect rules.

@@ -1,5 +1,7 @@
 # Sources and source-scoped references
 
+**Legacy default (implemented; removed at `dvs`).** No replacement source-registry contract; see the [front door](overview.md).
+
 This document records the source behavior currently implemented by the Node backend. It is an opt-in extension to the single-workspace path, not a replacement for canonical v1 task files.
 
 ## Default mode

@@ -1,5 +1,7 @@
 # Command protocol
 
+**Legacy default (implemented; removed at `dvs`).** Replacement authority: [V2 protocol](v2/protocol.md).
+
 ## Shared path
 
 The desktop UI reaches the Node backend through the Tauri sidecar. `tasks-cli` converts shell arguments into the same `executeCommand` path. The development HTTP bridge is local-only and also calls that path. Android has its own command engine and does not execute this Node protocol implementation.

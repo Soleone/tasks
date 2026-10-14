@@ -1,5 +1,7 @@
 # Mutations and workspace operations
 
+**Legacy default (implemented; removed at `dvs`).** Replacement authority: [V2 mutations](v2/mutations.md).
+
 This is the current write catalog for the Node command path. Task writes preserve canonical JSON, local cache, version, activity, and receipt rules described in [Protocol](protocol.md) and [Storage](storage.md).
 
 ## Task mutations

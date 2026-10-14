@@ -38,4 +38,8 @@ The [bounded Linux relationship slice](conformance.md#guarded-parent-and-depende
 
 `task.order.normalize` explicitly supplies parent ID and the full versioned sibling list in current order (empty allowed). Generate `generateNKeysBetween(null,null,count)` in that order. It preserves sequence and all non-order fields, with one grouped maintenance event/undo/journal. All keys already matching is a no-op; identical sequence alone is not. This is not an automatic overflow fallback and cannot silently repair malformed canonical records. Preview/execution guards must include arrivals, outside changes and exact bytes.
 
+## Rationale
+
+Per-task sparse keys avoid the shared order-file hotspot for independent captures; they do not preserve every concurrent placement intention. Explicit tied-run repair handles actual ties with the pinned algorithm and bounded routine writes, rather than a linked list, event log or sequence CRDT. Historical entropy rationale: naïve suffixing can escape a prefix upper bound (`a0` plus `f...` sorts after `a0V`); sophisticated unique-key schemes were not disproved, but entropy allocation was deferred unless measured repair/conflict frequency warrants reconsideration, not accepted as a key rule.
+
 Normative cases: `key-vectors`, `key-invalid`, `key-limit`, `key-overflow`, `key-byte-order`, `reorder-tied`, `reorder-selected-unchanged`, `reorder-noop`, `reorder-hidden`, `normalize`, `normalize-noop`, `scope-arrival`, `scope-formatting`, `scope-delete`, `recover-prefix`, `recover-divergence`. Existing [model probes](../../scripts/taskdbV2Rekey.test.mjs) inform these vectors but do not establish production conformance.

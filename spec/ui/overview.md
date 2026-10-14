@@ -12,6 +12,6 @@ This describes the current Tasks desktop/web interface. It is a product behavior
 
 ## Current UI boundary
 
-The first-party UI uses the ordinary single-workspace command path. It does not yet carry source refs through selection and writes, so the opt-in Node source registry is not supported in normal UI use. The source-registry implementation is documented in [Sources](../sources.md).
+Legacy-only source-registry boundary: the default first-party UI uses the single-workspace command path and does not carry source refs through selection/writes; the opt-in Node registry is not supported there. [Sources](../sources.md) describes that legacy implementation. The retained main-client interaction contract also applies to the explicitly selected replacement route, whose available subset is recorded in [current support](../../docs/support.md).
 
 For list navigation and filters see [Home list](home-list.md). For capture and editing see [Capture and edit](capture-edit.md). The usage guide includes the complete current shortcut table and testing guidance.

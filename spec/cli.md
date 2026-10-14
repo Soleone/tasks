@@ -1,5 +1,7 @@
 # Command-line interface
 
+**Legacy default (implemented; removed at `dvs`).** Sections linked from [V2 protocol](v2/protocol.md#queries-and-cli) are inherited by the replacement until consolidation.
+
 `tasks-cli` is the friendly shell interface for the shared Node command path. It translates verbs and flags to protocol commands; it does not define a second task model or write the database directly. Raw protocol envelopes are documented in [Protocol](protocol.md).
 
 ## Commands

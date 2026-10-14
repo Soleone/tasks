@@ -1,5 +1,7 @@
 # Conformance and evidence
 
+**Legacy default evidence (removed at `dvs`).** Replacement evidence is separate: [V2 conformance](v2/conformance.md).
+
 This file maps **legacy-default** behavior to automated checks. [Current support](../docs/support.md) separately records the replacement backend/native-client subset. A passing legacy browser or Linux test is not evidence of replacement Windows, Omarchy or Android acceptance.
 
 | Area | Evidence |
