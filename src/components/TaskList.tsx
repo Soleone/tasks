@@ -2,7 +2,6 @@ import { randomUUID } from "../lib/randomUUID";
 import {
   Fragment,
   forwardRef,
-  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -13,16 +12,17 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
-import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage } from "@/components/TaskRow";
+import { InlineTaskComposer, OptimisticTaskOption, TaskOption, type TaskOptionClick } from "./TaskListRows";
+import { forwardStatusTransition, reverseStatusTransition, type StatusCommand, type StatusTransition } from "./taskStatusCycle";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
-import { TaskComposer, type ComposerState, type TaskCreateDraft } from "@/components/TaskComposer";
+import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import { placementForMove, placementTargetId, selectableSiblingRows, selectedRowsForReorder, selectionMembershipMatches, type TaskMoveDirection, type TaskMovePlacement } from "@/components/taskReordering";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -41,8 +41,6 @@ import { EditorError } from "@/platform/editorClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
-type StatusCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen";
-type StatusTransition = { next: TaskStatus; command: StatusCommand };
 type ToolbarMode = "filter" | "sort";
 type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
 type FilterSummaryPart = {
@@ -83,24 +81,6 @@ export async function copyTaskText(task: TaskView): Promise<void> {
   await navigator.clipboard.writeText(text);
 }
 
-
-// Paused is a separate pause/resume state, but both Space directions keep it
-// reachable: forward completes it, while reverse returns it to in progress.
-const forwardStatusTransition: Record<TaskStatus, StatusTransition> = {
-  open: { next: "in_progress", command: "task.start" },
-  in_progress: { next: "done", command: "task.complete" },
-  paused: { next: "done", command: "task.complete" },
-  done: { next: "open", command: "task.reopen" },
-  canceled: { next: "open", command: "task.reopen" },
-};
-
-const reverseStatusTransition: Record<TaskStatus, StatusTransition> = {
-  open: { next: "done", command: "task.complete" },
-  in_progress: { next: "open", command: "task.reopen" },
-  paused: { next: "in_progress", command: "task.start" },
-  done: { next: "in_progress", command: "task.start" },
-  canceled: { next: "open", command: "task.reopen" },
-};
 
 const EXACT_STATUS_BY_KEY = new Map(EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]));
 
@@ -215,116 +195,6 @@ export type ActiveTaskRequest = {
   preserveTaskOnRefresh: boolean;
 };
 
-type TaskOptionClick = (row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>) => void;
-
-type TaskOptionProps = {
-  row: VisibleTaskRow;
-  index: number;
-  active: boolean;
-  selected: boolean;
-  expanded: boolean;
-  pending: boolean;
-  feedbackVersion?: number;
-  newTaskId?: string | null;
-  exitingTaskIds: ReadonlySet<string>;
-  showDetails: boolean;
-  hiddenCategorySlug: string | null;
-  taskById: ReadonlyMap<string, TaskView>;
-  onClick: TaskOptionClick;
-  onToggleStatus: (task: TaskView) => void;
-  onToggleExpanded: (row: VisibleTaskRow) => void;
-  onSelectCategory: (category: ClassificationToken) => void;
-};
-
-const TaskOption = memo(function TaskOption({
-  row,
-  index,
-  active,
-  selected,
-  expanded,
-  pending,
-  feedbackVersion,
-  newTaskId,
-  exitingTaskIds,
-  showDetails,
-  hiddenCategorySlug,
-  taskById,
-  onClick,
-  onToggleStatus,
-  onToggleExpanded,
-  onSelectCategory,
-}: TaskOptionProps): ReactElement {
-  const { task } = row;
-  const blockedByLabels = task.blockedByIds.map((id) => {
-    const blocker = taskById.get(id);
-    return blocker ? blocker.title : null;
-  }).filter((label): label is string => label !== null);
-  const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
-
-  return (
-    <Item
-      id={`task-option-${task.id}`}
-      role="option"
-      aria-selected={selected}
-      aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
-      aria-label={row.contextOnly ? `${task.title}, ${taskContextMessage(task)}` : undefined}
-      tabIndex={-1}
-      data-active={active || undefined}
-      data-selected={selected || undefined}
-      data-context-parent={row.contextOnly || undefined}
-      data-depth={row.depth}
-      data-new-task={task.id === newTaskId || undefined}
-      data-canceled-task={exitingTaskIds.has(task.id) || undefined}
-      size="sm"
-      variant={active && !selected ? "outline" : "default"}
-      state={selected
-        ? "selected"
-        : active
-          ? "active"
-          : row.contextOnly ? "context" : undefined}
-      onClick={(event) => onClick(row, index, event)}
-    >
-      <TaskRow
-        task={task}
-        variant="full"
-        indented={row.depth === 1}
-        blockedByLabels={blockedByLabels}
-        showDetails={showDetails}
-        contextOnly={row.contextOnly}
-        hiddenCategorySlug={hiddenCategorySlug}
-        onSelectCategory={onSelectCategory}
-        statusSlot={
-          <TaskStatusToggle
-            task={task}
-            pending={pending}
-            feedbackVersion={feedbackVersion}
-            nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
-            previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
-            onToggle={onToggleStatus}
-          />
-        }
-      />
-      {row.hasChildren ? (
-        <span id={`task-children-${task.id}`} hidden>Children {expanded ? "expanded" : "collapsed"}.</span>
-      ) : null}
-      {row.hasChildren ? (
-        <span
-          role="img"
-          aria-label={expanded ? "Collapse children" : "Expand children"}
-          className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
-          onMouseDown={preventFocusSteal}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleExpanded(row);
-          }}
-        >
-          <DisclosureIcon aria-hidden="true" className="size-4" />
-        </span>
-      ) : null}
-    </Item>
-  );
-});
-
 type HomeShortcutActions = {
   hasActiveFilters: boolean;
   activeTask: TaskView | undefined;
@@ -368,45 +238,6 @@ type HomeShortcutActions = {
 };
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
-
-function InlineTaskComposer({ composer, onClose, onSaved, onCreatePending, onCreateFailed, helpMode, onDisableHelp, inList = false }: {
-  composer: ComposerState;
-  onClose: () => void;
-  onSaved: (result: TaskMutationResult) => void;
-  onCreatePending: (draft: TaskCreateDraft) => void;
-  onCreateFailed: () => void;
-  helpMode: KeyboardHelpMode;
-  onDisableHelp: () => void;
-  inList?: boolean;
-}): ReactElement {
-  const task = composer.mode === "edit" ? composer.task : undefined;
-  const parentId = composer.mode === "create" ? composer.parentId : undefined;
-  const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
-
-  return (
-    <Item
-      role="group"
-      aria-label={task ? `Editing ${task.title}` : "New task inline"}
-      data-inline-task-editor
-      state="selected"
-      size="sm"
-      className={inList ? "w-full shrink-0" : "w-full max-h-[50vh] overflow-y-auto"}
-    >
-      <TaskComposer
-        key={task ? task.id : `create-${parentId ?? "root"}`}
-        task={task}
-        parentId={parentId}
-        initialTitle={initialTitle}
-        onSaved={onSaved}
-        onCreatePending={onCreatePending}
-        onCreateFailed={onCreateFailed}
-        onCancel={onClose}
-        helpMode={helpMode}
-        onDisableHelp={onDisableHelp}
-      />
-    </Item>
-  );
-}
 
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
   tasks,
@@ -2497,25 +2328,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           }}
         >
           {optimisticTask ? (
-            <Item
-              id={`pending-task-option-${optimisticTask.id}`}
-              role="option"
-              aria-selected={false}
-              aria-disabled="true"
-              aria-busy="true"
-              tabIndex={-1}
-              data-optimistic-task
-              size="sm"
-            >
-              <TaskRow
-                task={optimisticTask}
-                variant="full"
-                indented={optimisticTask.parentId !== null}
-                showDetails={showDetails}
-                hiddenCategorySlug={categoryFilter?.slug ?? null}
-                statusSlot={<TaskStatusDisplay task={optimisticTask} />}
-              />
-            </Item>
+            <OptimisticTaskOption
+              task={optimisticTask}
+              showDetails={showDetails}
+              hiddenCategorySlug={categoryFilter?.slug ?? null}
+            />
           ) : null}
           {visibleRows.map((row, index) => composer?.mode === "edit" && row.task.id === composer.task.id ? (
             <InlineTaskComposer

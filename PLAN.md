@@ -37,7 +37,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Next step
 
-Cleanup stage 4 (approved 2026-10-15): the UI model-types move is complete and validated. Next checkpoint: split `TaskList.tsx` and `App.tsx` by responsibility with no behavior change, using existing tests and adding coverage only for concrete risks. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
+Cleanup stage 4 (approved 2026-10-15): the UI model-types move and first row-rendering extraction are complete and validated. `TaskListRows.tsx` owns saved, optimistic and inline editor row presentation; `TaskList.tsx` still owns list state and actions. Next checkpoint: extract the list toolbar, then keyboard/selection and `App.tsx` workspace actions, with no behavior change. Use existing tests and add coverage only for concrete risks. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
 
 ## Gates
 
