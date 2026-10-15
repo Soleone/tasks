@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const fixtureDirectory = fileURLToPath(new URL("./fixtures/taskdb-v2/", import.meta.url));
-const specDirectory = fileURLToPath(new URL("../spec/v2/", import.meta.url));
+const specDirectory = fileURLToPath(new URL("../spec/", import.meta.url));
 const v1Directory = fileURLToPath(new URL("./fixtures/taskdb-v1/sync/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtureDirectory, "cases.json"), "utf8"));
-const specFiles = ["overview.md", "model.md", "protocol.md", "mutations.md", "ordering.md", "storage.md", "migration.md", "conformance.md"];
+const specFiles = ["backend/data.md", "backend/commands.md", "backend/rules.md", "backend/safety.md", "ecosystem/cli.md", "ecosystem/sharing.md", "ecosystem/backup.md", "ecosystem/migration.md"];
 const specs = new Map(specFiles.map((name) => [name, readFileSync(path.join(specDirectory, name), "utf8")]));
 const taskFields = ["id", "title", "description", "status", "priority", "category", "tags", "parentId", "dependencyIds", "orderKey", "createdAt", "updatedAt", "closedAt"].sort();
 const statuses = ["open", "in_progress", "paused", "done", "canceled"];
@@ -44,7 +44,7 @@ test("v2 target corpus integrity: case shapes, profiles, rule anchors and error 
   const ids = corpus.cases.map((entry) => entry.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.deepEqual([...new Set(corpus.cases.map((entry) => entry.profile))].sort(), ["cli", "inputs", "migration", "model", "mutations", "ordering", "protocol", "storage"]);
-  const protocolErrors = specs.get("protocol.md").split("## Error codes")[1].split("Normative cases:")[0];
+  const protocolErrors = specs.get("backend/commands.md").split("## Errors")[1];
   for (const entry of corpus.cases) {
     assert.match(entry.id, /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/, entry.id);
     assert.deepEqual(Object.keys(entry).sort(), ["action", "expect", "given", "id", "profile", "rule"]);
@@ -57,7 +57,7 @@ test("v2 target corpus integrity: case shapes, profiles, rule anchors and error 
     assert.ok(Object.keys(entry.expect).length > 0, entry.id);
     const [file, anchor] = entry.rule.split("#");
     assert.ok(specs.has(file), `${entry.id}: ${file}`);
-    const headings = [...specs.get(file).matchAll(/^## (.+)$/gm)].map((match) => headingAnchor(match[1]));
+    const headings = [...specs.get(file).matchAll(/^#{1,2} (.+)$/gm)].map((match) => headingAnchor(match[1]));
     assert.ok(headings.includes(anchor), `${entry.id}: ${entry.rule}`);
     if (entry.expect.error) assert.ok(protocolErrors.includes(entry.expect.error), `${entry.id}: unknown error`);
     for (const reference of referencedCases(entry)) {
@@ -67,21 +67,6 @@ test("v2 target corpus integrity: case shapes, profiles, rule anchors and error 
   }
   const dependencies = new Map(corpus.cases.map((entry) => [entry.id, referencedCases(entry)]));
   for (const id of ids) assertAcyclicCaseReferences(id, dependencies);
-});
-
-test("v2 target corpus integrity: named cases exist and target status links bounded implementation support", () => {
-  const ids = new Set(corpus.cases.map((entry) => entry.id));
-  assert.ok(existsSync(path.resolve(specDirectory, "../../docs/support.md")), "current support index exists");
-  for (const [file, source] of specs) {
-    assert.match(source, /^\*\*Status: accepted target; bounded implementation\.\*\*/m, file);
-    assert.ok(source.includes("[Current support](../../docs/support.md)"), file);
-    assert.equal(source.includes("Status: accepted target, not implemented"), false, file);
-    const namedCases = source.match(/(?:Normative cases:|Cases) ([\s\S]*?)(?:\n| are normative)/);
-    if (!namedCases) continue;
-    for (const match of namedCases[1].matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`/g)) {
-      assert.ok(ids.has(match[1]), `${file}: missing ${match[1]}`);
-    }
-  }
 });
 
 test("v2 golden fixture integrity: exact fields, literal data, local-state exclusion and graph", () => {

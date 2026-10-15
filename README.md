@@ -36,11 +36,11 @@ Open Vite's URL and confirm the displayed root/cache/profile before querying. Re
 - Settings offers separately confirmed canonical backup/restore to new destinations. Copies neither switch selection nor transfer receipts/history/undo authority.
 - Built-in themes and view preferences persist in the same browser origin/profile. Global focus is native-only; unsupported actions are refused, not sent to the legacy engine.
 
-Filters/search and external CLI changes refresh the list. Follow [the interaction guide](docs/usage-guide.md#linux-main-client-on-the-new-engine) for focus, picker and undo details. This is a development bridge to the Linux backend, not a browser storage engine or native acceptance.
+Filters/search and external CLI changes refresh the list. Follow [the interaction guide](spec/client/README.md) for focus, picker and undo details. This is a development bridge to the Linux backend, not a browser storage engine or native acceptance.
 
 ## Opt-in v2 browser reader
 
-Omit `--v2-edit` from the command above for query-only inspection. Confirm the paths, navigate with arrows/J/K, and open literal details with Enter or Show details. Search is applied explicitly. Pending/invalid evidence blocks normal rows; the reader does not repair it. Reload and reconfirm after a bridge restart. See [reader behavior](docs/usage-guide.md#experimental-v2-browser-reader).
+Omit `--v2-edit` from the command above for query-only inspection. Confirm the paths, navigate with arrows/J/K, and open literal details with Enter or Show details. Search is applied explicitly. Pending/invalid evidence blocks normal rows; the reader does not repair it. Reload and reconfirm after a bridge restart. See [reader behavior](docs/evidence/conformance-history.md#explicit-read-only-app-reader).
 
 ## Opt-in v2 human CLI
 
@@ -52,11 +52,11 @@ XDG_DATA_HOME="$scratch/profile" node dist/backend/tasks-cli.js \
   --v2-root "$scratch/root" --database "$scratch/cache.db" list --sort manual
 ```
 
-Run the same entrypoint with `--help` for verbs and arguments; [the CLI contract](spec/v2/protocol.md#queries-and-cli) defines input/output and retry behavior. Friendly writes are Linux-only: this entrypoint does not select the Windows proof profile. Omitting `--v2-root` still selects legacy behavior.
+Run the same entrypoint with `--help` for verbs and arguments; [the CLI contract](spec/ecosystem/cli.md) defines input/output and retry behavior. Friendly writes are Linux-only: this entrypoint does not select the Windows proof profile. Omitting `--v2-root` still selects legacy behavior.
 
 For new operations the CLI can prepare context/version and a key. Before an executing write it prints `tasks-cli retry: {...}` metadata to stderr. Save it privately with the exact original arguments. An uncertain retry must retain context, key, expected version, actor, flags, payload and root/cache/profile; the reported request hash detects changed arguments before dispatch. Do not refresh authority and guess a replacement request. Previews consume no effects or key.
 
-Ordering, batch and doctor controls use [JSON-lines protocol commands](spec/v2/protocol.md), not invented friendly verbs. For example, on the disposable root:
+Ordering, batch and doctor controls use [JSON-lines protocol commands](spec/backend/commands.md), not invented friendly verbs. For example, on the disposable root:
 
 ```bash
 printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
@@ -86,11 +86,11 @@ Use the [isolated migration runbook](docs/migration-rehearsal.md) to preview and
 
 - [Current support](docs/support.md): live routes, platform limits and acceptance blockers.
 - [Development](docs/development.md): scratch setup, validation, native tooling and signing.
-- [Usage guide](docs/usage-guide.md): keyboard/mouse/focus contract and route-specific behavior.
+- [Client spec](spec/client/README.md): keymap, focus and every UI behavior.
 - [Themes](docs/themes.md): built-in palettes and persistence.
 - [Migration](docs/migration-rehearsal.md): isolated one-time conversion and retained authority.
 - [Evidence index](docs/evidence/README.md): dated reports and original machine-readable artifacts, not another roadmap.
-- [Specification front door](spec/overview.md): temporary legacy-default/accepted-replacement contract split, reconciled at cutover.
+- [Specification](spec/README.md): how the app works, in three layers (backend, ecosystem, client).
 - [Plan](PLAN.md), [guidelines](GUIDELINES.md) and [agent instructions](AGENTS.md): direction, principles and working rules.
 
 ## License

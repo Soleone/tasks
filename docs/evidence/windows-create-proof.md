@@ -2,7 +2,7 @@
 
 ## Simplified-route proof pending
 
-The Node desktop create route now stages a hidden sibling and publishes by native rename, without new pending-create journals/progress. See [the approved design](../../spec/v2/storage.md#task-creation) for selected guards, orphan handling and the accepted publish-before-SQLite duplicate window. Existing old intents still have explicit recovery under the original journal contract.
+The Node desktop create route now stages a hidden sibling and publishes by native rename, without new pending-create journals/progress. See [the approved design](../../spec/backend/safety.md#creating-a-task) for selected guards, orphan handling and the accepted publish-before-SQLite duplicate window. Existing old intents still have explicit recovery under the original journal contract.
 
 `node scripts/check-windows-create.mjs` now measures the simplified route: pre-publication orphan, publish/before-commit duplicates, committed receipt replay, selected parent/destination guards, unrelated changes and flush refusal. Run `pnpm build:backend:bundle` first, then the checker with actual Windows Node in a disposable fixed local NTFS checkout. Its new results must be recorded separately, never overwrite the dated JSON report below. Native rename is not a no-clobber CAS.
 

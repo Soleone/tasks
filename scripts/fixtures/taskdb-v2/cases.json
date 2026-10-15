@@ -21,7 +21,7 @@
     {
       "id": "record-literal",
       "profile": "model",
-      "rule": "model.md#fields",
+      "rule": "backend/data.md#task-fields",
       "given": {
         "patch": {
           "title": "Call @alice"
@@ -41,7 +41,7 @@
     {
       "id": "record-unknown",
       "profile": "model",
-      "rule": "model.md#fields",
+      "rule": "backend/data.md#task-fields",
       "given": {
         "patch": {
           "sync": {
@@ -60,7 +60,7 @@
     {
       "id": "record-missing",
       "profile": "model",
-      "rule": "model.md#fields",
+      "rule": "backend/data.md#task-fields",
       "given": {
         "remove": [
           "category"
@@ -77,7 +77,7 @@
     {
       "id": "record-terminal",
       "profile": "model",
-      "rule": "model.md#fields",
+      "rule": "backend/data.md#task-fields",
       "given": {
         "patch": {
           "status": "done",
@@ -95,7 +95,7 @@
     {
       "id": "record-invalid-date",
       "profile": "model",
-      "rule": "model.md#timestamps",
+      "rule": "backend/data.md#values",
       "given": {
         "patch": {
           "createdAt": "2026-02-30T12:00:00.000Z"
@@ -111,7 +111,7 @@
     {
       "id": "record-clock-backward",
       "profile": "model",
-      "rule": "model.md#timestamps",
+      "rule": "backend/data.md#values",
       "given": {
         "patch": {
           "createdAt": "2026-09-08T14:00:00.000Z",
@@ -131,7 +131,7 @@
     {
       "id": "record-utf8",
       "profile": "model",
-      "rule": "model.md#text",
+      "rule": "backend/data.md#values",
       "given": {
         "rawFieldHex": {
           "title": "22ff22"
@@ -148,7 +148,7 @@
     {
       "id": "record-surrogate",
       "profile": "model",
-      "rule": "model.md#text",
+      "rule": "backend/data.md#values",
       "given": {
         "rawField": {
           "title": "\"\\ud800\""
@@ -165,7 +165,7 @@
     {
       "id": "record-duplicate",
       "profile": "model",
-      "rule": "model.md#text",
+      "rule": "backend/data.md#values",
       "given": {
         "duplicateField": {
           "field": "title",
@@ -186,7 +186,7 @@
     {
       "id": "title-limit",
       "profile": "model",
-      "rule": "model.md#text",
+      "rule": "backend/data.md#values",
       "given": {
         "patch": {
           "title": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
@@ -203,7 +203,7 @@
     {
       "id": "title-over-limit",
       "profile": "model",
-      "rule": "model.md#text",
+      "rule": "backend/data.md#values",
       "given": {
         "patch": {
           "title": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
@@ -219,7 +219,7 @@
     {
       "id": "graph-missing",
       "profile": "model",
-      "rule": "model.md#graph",
+      "rule": "backend/data.md#values",
       "given": {
         "patch": {
           "parentId": "missing"
@@ -236,7 +236,7 @@
     {
       "id": "graph-parent-cycle",
       "profile": "model",
-      "rule": "model.md#graph",
+      "rule": "backend/data.md#values",
       "given": {
         "records": {
           "a": {
@@ -257,7 +257,7 @@
     {
       "id": "graph-dependency-cycle",
       "profile": "model",
-      "rule": "model.md#graph",
+      "rule": "backend/data.md#values",
       "given": {
         "records": {
           "a": {
@@ -282,7 +282,7 @@
     {
       "id": "literal-create",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -302,7 +302,7 @@
     {
       "id": "literal-update",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {
         "patch": {
           "category": "work",
@@ -332,7 +332,7 @@
     {
       "id": "classification-clear",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {
         "patch": {
           "category": "work",
@@ -361,7 +361,7 @@
     {
       "id": "text-replace",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {
         "patch": {
           "category": "work",
@@ -389,7 +389,7 @@
     {
       "id": "text-mixed",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -406,7 +406,7 @@
     {
       "id": "text-empty",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -422,7 +422,7 @@
     {
       "id": "text-escape",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -441,7 +441,7 @@
     {
       "id": "text-code",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -460,7 +460,7 @@
     {
       "id": "text-boundary",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -481,7 +481,7 @@
     {
       "id": "text-gaps",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -500,7 +500,7 @@
     {
       "id": "text-multiple",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -516,7 +516,7 @@
     {
       "id": "tags-normalize",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -543,7 +543,7 @@
     {
       "id": "old-alias",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.update",
@@ -561,7 +561,7 @@
     {
       "id": "status-matrix",
       "profile": "mutations",
-      "rule": "mutations.md#states-and-relationships",
+      "rule": "backend/rules.md#status",
       "given": {},
       "action": {
         "kind": "matrix",
@@ -636,7 +636,7 @@
     {
       "id": "time-complete",
       "profile": "mutations",
-      "rule": "mutations.md#time",
+      "rule": "backend/rules.md#time",
       "given": {
         "patch": {
           "updatedAt": "2026-09-08T13:00:00.000Z"
@@ -664,7 +664,7 @@
     {
       "id": "time-noop",
       "profile": "mutations",
-      "rule": "mutations.md#time",
+      "rule": "backend/rules.md#time",
       "given": {
         "patch": {
           "status": "done",
@@ -694,7 +694,7 @@
     {
       "id": "time-edit-closed",
       "profile": "mutations",
-      "rule": "mutations.md#time",
+      "rule": "backend/rules.md#time",
       "given": {
         "patch": {
           "status": "done",
@@ -721,7 +721,7 @@
     {
       "id": "time-status-undo",
       "profile": "mutations",
-      "rule": "mutations.md#undo",
+      "rule": "backend/rules.md#undo",
       "given": {
         "patch": {
           "status": "done",
@@ -755,7 +755,7 @@
     {
       "id": "time-parent",
       "profile": "mutations",
-      "rule": "mutations.md#time",
+      "rule": "backend/rules.md#time",
       "given": {
         "records": {
           "a": {},
@@ -784,7 +784,7 @@
     {
       "id": "time-reorder",
       "profile": "mutations",
-      "rule": "mutations.md#time",
+      "rule": "backend/rules.md#time",
       "given": {
         "records": {
           "a": {
@@ -826,7 +826,7 @@
     {
       "id": "undo-cycle",
       "profile": "mutations",
-      "rule": "mutations.md#undo",
+      "rule": "backend/rules.md#undo",
       "given": {
         "records": {
           "a": {
@@ -865,7 +865,7 @@
     {
       "id": "undo-unrelated-edit",
       "profile": "mutations",
-      "rule": "mutations.md#undo",
+      "rule": "backend/rules.md#undo",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -900,7 +900,7 @@
     {
       "id": "undo-order-arrival",
       "profile": "mutations",
-      "rule": "mutations.md#undo",
+      "rule": "backend/rules.md#undo",
       "given": {
         "records": {
           "a": {},
@@ -943,7 +943,7 @@
     {
       "id": "undo-missing-history",
       "profile": "mutations",
-      "rule": "mutations.md#undo",
+      "rule": "backend/rules.md#undo",
       "given": {
         "patch": {
           "status": "done",
@@ -966,7 +966,7 @@
     {
       "id": "protocol-version",
       "profile": "protocol",
-      "rule": "protocol.md#envelope",
+      "rule": "backend/commands.md#envelope",
       "given": {},
       "action": {
         "envelope": {
@@ -983,7 +983,7 @@
     {
       "id": "protocol-schema",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {
         "manifest": {
           "schemaVersion": 1,
@@ -1006,7 +1006,7 @@
     {
       "id": "protocol-duplicate",
       "profile": "protocol",
-      "rule": "protocol.md#envelope",
+      "rule": "backend/commands.md#envelope",
       "given": {},
       "action": {
         "rawEnvelope": "{\"version\":2,\"command\":\"task.list\",\"command\":\"task.get\",\"args\":{}}"
@@ -1019,7 +1019,7 @@
     {
       "id": "protocol-nonfinite",
       "profile": "protocol",
-      "rule": "protocol.md#envelope",
+      "rule": "backend/commands.md#envelope",
       "given": {},
       "action": {
         "rawEnvelope": "{\"version\":2,\"command\":\"task.create\",\"args\":{\"title\":\"New\",\"parentId\":1e999}}"
@@ -1032,7 +1032,7 @@
     {
       "id": "context-required",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "command": "task.create",
@@ -1049,7 +1049,7 @@
     {
       "id": "context-loss",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1077,7 +1077,7 @@
     {
       "id": "context-root-switch",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1103,7 +1103,7 @@
     {
       "id": "receipt-replay",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1128,7 +1128,7 @@
     {
       "id": "receipt-changed",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1154,7 +1154,7 @@
     {
       "id": "receipt-actor",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1185,7 +1185,7 @@
     {
       "id": "receipt-rebuild",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1214,7 +1214,7 @@
     {
       "id": "noop-receipt",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {},
       "action": {
         "kind": "sequence",
@@ -1241,7 +1241,7 @@
     {
       "id": "capability-refusal",
       "profile": "protocol",
-      "rule": "protocol.md#commands",
+      "rule": "backend/commands.md#queries",
       "given": {
         "unsupportedCommands": [
           "workspace.doctor.apply"
@@ -1261,7 +1261,7 @@
     {
       "id": "query-literal",
       "profile": "protocol",
-      "rule": "protocol.md#queries-and-cli",
+      "rule": "backend/commands.md#queries",
       "given": {
         "patch": {
           "title": "Call @alice",
@@ -1280,7 +1280,7 @@
     {
       "id": "query-readiness",
       "profile": "protocol",
-      "rule": "protocol.md#queries-and-cli",
+      "rule": "backend/commands.md#queries",
       "given": {
         "records": {
           "a": {
@@ -1320,7 +1320,7 @@
     {
       "id": "key-vectors",
       "profile": "ordering",
-      "rule": "ordering.md#keys",
+      "rule": "backend/rules.md#order",
       "given": {},
       "action": {
         "kind": "allocation-vectors",
@@ -1386,7 +1386,7 @@
     {
       "id": "key-invalid",
       "profile": "ordering",
-      "rule": "ordering.md#keys",
+      "rule": "backend/rules.md#order",
       "given": {
         "invalidKeys": [
           "",
@@ -1409,7 +1409,7 @@
     {
       "id": "key-limit",
       "profile": "ordering",
-      "rule": "ordering.md#keys",
+      "rule": "backend/rules.md#order",
       "given": {
         "patch": {
           "orderKey": "a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
@@ -1426,7 +1426,7 @@
     {
       "id": "key-overflow",
       "profile": "ordering",
-      "rule": "ordering.md#keys",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "lower": {
@@ -1462,7 +1462,7 @@
     {
       "id": "key-byte-order",
       "profile": "ordering",
-      "rule": "ordering.md#keys",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "a": {
@@ -1498,7 +1498,7 @@
     {
       "id": "reorder-tied",
       "profile": "ordering",
-      "rule": "ordering.md#placement",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "lower": {
@@ -1562,7 +1562,7 @@
     {
       "id": "reorder-selected-unchanged",
       "profile": "ordering",
-      "rule": "ordering.md#placement",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "a": {
@@ -1615,7 +1615,7 @@
     {
       "id": "reorder-noop",
       "profile": "ordering",
-      "rule": "ordering.md#placement",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "a": {
@@ -1652,7 +1652,7 @@
     {
       "id": "reorder-hidden",
       "profile": "ordering",
-      "rule": "ordering.md#placement",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "a": {
@@ -1701,7 +1701,7 @@
     {
       "id": "normalize",
       "profile": "ordering",
-      "rule": "ordering.md#normalization",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "a": {
@@ -1744,7 +1744,7 @@
     {
       "id": "normalize-noop",
       "profile": "ordering",
-      "rule": "ordering.md#normalization",
+      "rule": "backend/rules.md#order",
       "given": {
         "records": {
           "a": {
@@ -1780,7 +1780,7 @@
     {
       "id": "scope-arrival",
       "profile": "storage",
-      "rule": "storage.md#observation",
+      "rule": "backend/safety.md#observing-the-folder",
       "given": {
         "records": {
           "a": {},
@@ -1809,7 +1809,7 @@
     {
       "id": "scope-formatting",
       "profile": "storage",
-      "rule": "storage.md#observation",
+      "rule": "backend/safety.md#observing-the-folder",
       "given": {},
       "action": {
         "kind": "guard-fault",
@@ -1826,7 +1826,7 @@
     {
       "id": "scope-delete",
       "profile": "storage",
-      "rule": "storage.md#journal",
+      "rule": "backend/safety.md#unfinished-work",
       "given": {
         "records": {
           "a": {},
@@ -1853,7 +1853,7 @@
     {
       "id": "recover-prefix",
       "profile": "storage",
-      "rule": "storage.md#journal",
+      "rule": "backend/safety.md#unfinished-work",
       "given": {
         "fixtureCase": "reorder-tied"
       },
@@ -1872,7 +1872,7 @@
     {
       "id": "recover-divergence",
       "profile": "storage",
-      "rule": "storage.md#journal",
+      "rule": "backend/safety.md#unfinished-work",
       "given": {
         "fixtureCase": "reorder-tied"
       },
@@ -1906,7 +1906,7 @@
     {
       "id": "root-empty",
       "profile": "storage",
-      "rule": "storage.md#root",
+      "rule": "backend/data.md#workspace-file",
       "given": {
         "records": {},
         "manifest": null
@@ -1923,7 +1923,7 @@
     {
       "id": "root-missing-manifest",
       "profile": "storage",
-      "rule": "storage.md#root",
+      "rule": "backend/data.md#workspace-file",
       "given": {
         "manifest": null
       },
@@ -1939,7 +1939,7 @@
     {
       "id": "root-mixed",
       "profile": "storage",
-      "rule": "storage.md#root",
+      "rule": "backend/data.md#workspace-file",
       "given": {
         "legacyOrderFile": true
       },
@@ -1954,7 +1954,7 @@
     {
       "id": "root-unsupported",
       "profile": "storage",
-      "rule": "storage.md#root",
+      "rule": "backend/data.md#workspace-file",
       "given": {
         "manifest": {
           "schemaVersion": 3
@@ -1971,7 +1971,7 @@
     {
       "id": "root-alias",
       "profile": "storage",
-      "rule": "storage.md#identity",
+      "rule": "backend/data.md#task-fields",
       "given": {
         "records": {
           "a": {},
@@ -1992,7 +1992,7 @@
     {
       "id": "join-disjoint",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "peers": [
           {
@@ -2026,7 +2026,7 @@
     {
       "id": "join-identical",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "peers": [
           {
@@ -2058,7 +2058,7 @@
     {
       "id": "join-conflict",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "conflict": {
           "id": "a",
@@ -2083,7 +2083,7 @@
     {
       "id": "edit-delete",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "records": {},
         "conflict": {
@@ -2108,7 +2108,7 @@
     {
       "id": "purge-referenced",
       "profile": "storage",
-      "rule": "storage.md#purge",
+      "rule": "backend/rules.md#purge",
       "given": {
         "records": {
           "a": {
@@ -2141,7 +2141,7 @@
     {
       "id": "purge-closed-subgraph",
       "profile": "storage",
-      "rule": "storage.md#purge",
+      "rule": "backend/rules.md#purge",
       "given": {
         "records": {
           "a": {
@@ -2174,7 +2174,7 @@
     {
       "id": "scan-partial",
       "profile": "storage",
-      "rule": "storage.md#observation",
+      "rule": "backend/safety.md#observing-the-folder",
       "given": {
         "provider": {
           "enumerationComplete": false
@@ -2195,7 +2195,7 @@
     {
       "id": "doctor-ambiguous",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "records": {
           "a": {},
@@ -2234,7 +2234,7 @@
     {
       "id": "doctor-replay",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "conflict": {
           "id": "a",
@@ -2269,7 +2269,7 @@
     {
       "id": "doctor-stale",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "conflict": {
           "id": "a",
@@ -2305,7 +2305,7 @@
     {
       "id": "doctor-cache-loss",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "conflict": {
           "id": "a",
@@ -2339,7 +2339,7 @@
     {
       "id": "doctor-late-link",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "conflict": {
           "id": "a",
@@ -2380,7 +2380,7 @@
     {
       "id": "doctor-cleanup",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "conflict": {
           "id": "a",
@@ -2403,7 +2403,7 @@
     {
       "id": "preview-pending",
       "profile": "storage",
-      "rule": "storage.md#journal",
+      "rule": "backend/safety.md#unfinished-work",
       "given": {
         "fixtureCase": "recover-prefix"
       },
@@ -2423,7 +2423,7 @@
     {
       "id": "migrate-golden",
       "profile": "migration",
-      "rule": "migration.md#mapping",
+      "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync"
       },
@@ -2443,7 +2443,7 @@
     {
       "id": "migrate-title-only-tokens",
       "profile": "migration",
-      "rule": "migration.md#mapping",
+      "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "patchV1": {
@@ -2466,7 +2466,7 @@
     {
       "id": "migrate-legacy-escape",
       "profile": "migration",
-      "rule": "migration.md#mapping",
+      "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "patchV1": {
@@ -2491,7 +2491,7 @@
     {
       "id": "migrate-offset",
       "profile": "migration",
-      "rule": "migration.md#mapping",
+      "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "patchV1": {
@@ -2515,7 +2515,7 @@
     {
       "id": "migrate-invalid-time",
       "profile": "migration",
-      "rule": "migration.md#mapping",
+      "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "patchV1": {
@@ -2537,7 +2537,7 @@
     {
       "id": "migrate-order-missing",
       "profile": "migration",
-      "rule": "migration.md#source",
+      "rule": "ecosystem/migration.md#before",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "removeV1": "order/root.json"
@@ -2556,7 +2556,7 @@
     {
       "id": "migrate-unknown-field",
       "profile": "migration",
-      "rule": "migration.md#source",
+      "rule": "ecosystem/migration.md#before",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "patchV1": {
@@ -2578,7 +2578,7 @@
     {
       "id": "migrate-interrupted",
       "profile": "migration",
-      "rule": "migration.md#stage",
+      "rule": "ecosystem/migration.md#running-it",
       "given": {
         "sourceRoot": "../taskdb-v1/sync"
       },
@@ -2596,7 +2596,7 @@
     {
       "id": "migrate-source-change",
       "profile": "migration",
-      "rule": "migration.md#stage",
+      "rule": "ecosystem/migration.md#running-it",
       "given": {
         "sourceRoot": "../taskdb-v1/sync"
       },
@@ -2623,7 +2623,7 @@
     {
       "id": "migrate-destination",
       "profile": "migration",
-      "rule": "migration.md#stage",
+      "rule": "ecosystem/migration.md#running-it",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "destinationNonempty": true
@@ -2643,7 +2643,7 @@
     {
       "id": "rollback",
       "profile": "migration",
-      "rule": "migration.md#rollback",
+      "rule": "ecosystem/migration.md#after",
       "given": {
         "sourceRoot": "../taskdb-v1/sync"
       },
@@ -2674,7 +2674,7 @@
     {
       "id": "cli-literal",
       "profile": "cli",
-      "rule": "protocol.md#queries-and-cli",
+      "rule": "ecosystem/cli.md#verbs",
       "given": {},
       "action": {
         "argv": [
@@ -2708,7 +2708,7 @@
     {
       "id": "cli-text",
       "profile": "cli",
-      "rule": "protocol.md#queries-and-cli",
+      "rule": "ecosystem/cli.md#verbs",
       "given": {},
       "action": {
         "argv": [
@@ -2733,7 +2733,7 @@
     {
       "id": "cli-key-context",
       "profile": "cli",
-      "rule": "protocol.md#queries-and-cli",
+      "rule": "ecosystem/cli.md#retries",
       "given": {},
       "action": {
         "argv": [
@@ -2752,7 +2752,7 @@
     {
       "id": "archive-restore",
       "profile": "storage",
-      "rule": "protocol.md#commands",
+      "rule": "ecosystem/backup.md#backup-and-restore",
       "given": {
         "goldenRoot": "root"
       },
@@ -2780,7 +2780,7 @@
     {
       "id": "record-tags-unsorted",
       "profile": "model",
-      "rule": "model.md#classification",
+      "rule": "backend/data.md#values",
       "given": {
         "patch": {
           "tags": [
@@ -2800,7 +2800,7 @@
     {
       "id": "text-fence",
       "profile": "inputs",
-      "rule": "protocol.md#inputs",
+      "rule": "backend/commands.md#text-input",
       "given": {},
       "action": {
         "command": "task.create",
@@ -2819,7 +2819,7 @@
     {
       "id": "key-too-long",
       "profile": "ordering",
-      "rule": "ordering.md#keys",
+      "rule": "backend/rules.md#order",
       "given": {
         "fixtureCase": "key-limit",
         "appendKey": "V"
@@ -2835,7 +2835,7 @@
     {
       "id": "key-required",
       "profile": "protocol",
-      "rule": "protocol.md#envelope",
+      "rule": "backend/commands.md#envelope",
       "given": {},
       "action": {
         "command": "task.create",
@@ -2852,7 +2852,7 @@
     {
       "id": "doctor-dangling",
       "profile": "storage",
-      "rule": "storage.md#doctor",
+      "rule": "ecosystem/sharing.md#doctor",
       "given": {
         "patch": {
           "parentId": "missing",
@@ -2897,7 +2897,7 @@
     {
       "id": "migrate-markdown",
       "profile": "migration",
-      "rule": "migration.md#mapping",
+      "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
         "patchV1": {
@@ -2925,7 +2925,7 @@
     {
       "id": "root-escape",
       "profile": "storage",
-      "rule": "storage.md#root",
+      "rule": "backend/data.md#workspace-file",
       "given": {
         "symlink": {
           "path": "tasks/a.json",
@@ -2944,7 +2944,7 @@
     {
       "id": "destination-overlap",
       "profile": "storage",
-      "rule": "protocol.md#commands",
+      "rule": "ecosystem/backup.md#backup-and-restore",
       "given": {},
       "action": {
         "command": "workspace.archive",
@@ -2961,7 +2961,7 @@
     {
       "id": "restore-cache-authority",
       "profile": "protocol",
-      "rule": "protocol.md#authority",
+      "rule": "backend/commands.md#write-authority",
       "given": {
         "goldenRoot": "root"
       },

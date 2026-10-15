@@ -1,9 +1,9 @@
 # Accepted-target v2 fixtures
 
-**These are declarative expectations, not v2 implementation output.** Default Node/Android surfaces still implement v1; an explicit opt-in Node task/control subset has bounded execution evidence under the [evidence matrix](../../../spec/v2/conformance.md), not the entire corpus. `scripts/taskdbV2Spec.test.mjs` checks this corpus's integrity and golden data only; it does not run a v2 command engine or prove recovery/migration.
+**These are declarative expectations, not v2 implementation output.** Default Node/Android surfaces still implement v1; an explicit opt-in Node task/control subset has bounded execution evidence under the [evidence matrix](../../../docs/evidence/conformance-history.md), not the entire corpus. `scripts/taskdbV2Spec.test.mjs` checks this corpus's integrity and golden data only; it does not run a v2 command engine or prove recovery/migration.
 
 - `root/` is the hand-authored full-field golden target for the existing [v1 canonical fixture](../taskdb-v1/README.md). Its descriptor and four task files are complete schema-2 records. Never sync/mutate the committed fixture directly; copy to disposable roots.
-- `cases.json` has fixtureVersion 1, status accepted-target, a complete taskTemplate, and named cases `{id,profile,rule,given,action,expect}`. Rule anchors resolve under [spec/v2/](../../../spec/v2/overview.md). Profiles are model, inputs, mutations, protocol, ordering, storage, migration and cli. They group tests, not runtime capabilities.
+- `cases.json` has fixtureVersion 1, status accepted-target, a complete taskTemplate, and named cases `{id,profile,rule,given,action,expect}`. Rule anchors point at sections of the [spec](../../../spec/README.md). Profiles are model, inputs, mutations, protocol, ordering, storage, migration and cli. They group tests, not runtime capabilities.
 
 ## Materialization
 
@@ -33,4 +33,4 @@ Current Linux fully materialized execution is 101 corpus cases: 15 model, 14 inp
 
 [Lifecycle command tests](../../../src/backend/v2LifecycleWriter.test.ts) materialize `root-empty` with exact independent descriptor bytes and `receipt-rebuild` with retained context/receipts/history plus reissued task versions. `preserveSQLite:true` describes the test adapter retaining its cache; it is not an allowed public `workspace.rebuild` argument. [Lifecycle CLI/fault tests](../../../src/backend/v2LifecycleRecovery.test.ts) check actual process-interruption/publication/recovery and cache-only transaction cuts. Provider aliases/incomplete-enumeration flags still require capable providers; Linux symlink/filename tests do not execute case-insensitive `root-alias` or unsupported-create `scan-partial`.
 
-Before claiming conformance, execute the applicable cases through an actual separately tested reader/writer, including malformed bytes, subprocess interruption, SQLite commit/reply cut points, conflict cleanup, stage/rollback and real providers. [Conformance](../../../spec/v2/conformance.md) owns the support/evidence matrix. No such implementation is included in this corpus.
+Before claiming conformance, execute the applicable cases through an actual separately tested reader/writer, including malformed bytes, subprocess interruption, SQLite commit/reply cut points, conflict cleanup, stage/rollback and real providers. [Conformance](../../../docs/evidence/conformance-history.md) owns the support/evidence matrix. No such implementation is included in this corpus.

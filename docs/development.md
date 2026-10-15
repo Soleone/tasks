@@ -1,6 +1,6 @@
 # Development and validation
 
-[PLAN.md](../PLAN.md) owns work order and gates. [Current support](support.md) owns the live client/platform matrix; [the usage guide](usage-guide.md) owns keyboard, mouse and focus behavior. This guide covers development, not release acceptance.
+[PLAN.md](../PLAN.md) owns work order and gates. [Current support](support.md) owns the live client/platform matrix; [the client spec](../spec/client/README.md) owns keyboard, mouse and focus behavior. This guide covers development, not release acceptance.
 
 ## Architecture
 
@@ -77,6 +77,15 @@ Unflagged launches otherwise use application defaults and may access personal da
 `pnpm build` builds the backend before Vite clears `dist/`; rebuild the backend before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.
 
 Vite pre-optimizes the checkbox dependency to avoid a late dependency reload dropping in-memory requests. HMR, source edits, browser/native close and crashes can still lose drafts and uncertain requests. Do not reload during unresolved work.
+
+## UI work
+
+- Start UI checks from the task list. Wait for initial focus: `[role="listbox"]` with tasks, `[aria-label="Saved tasks"]` when empty. Never assume the New task button or an editor has focus.
+- Drive the keyboard path first, then check the mouse path. A shortcut-only feature is incomplete.
+- Buttons are mouse fallbacks with `tabIndex=-1`; clicking them must not take focus (mousedown default prevented). Don't add `autoFocus` to fix initial focus; it belongs in the list lifecycle after the first query renders.
+- `src/components/TaskList.tsx` owns list focus, toolbar modes and home shortcuts. `src/navigation.ts` owns list entry and focus-steal prevention. The focus stack owns dialog return targets.
+- Add every new keyboard action to `src/components/HelpPalette.tsx` and to the [client spec](../spec/client/README.md), with a rule slug a test can cite.
+- Refreshes come from the shared workspace revision and must keep focus and unsaved editor text.
 
 ## Windows native development
 

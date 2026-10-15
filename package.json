@@ -26,7 +26,7 @@
     "test:native:argv": "node scripts/check-native-launch-argv.mjs",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",
-    "lint": "oxlint && node scripts/check-naming.mjs",
+    "lint": "oxlint && node scripts/check-naming.mjs && node scripts/check-spec-rules.mjs",
     "check": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.web.json --noEmit"
   },
   "dependencies": {

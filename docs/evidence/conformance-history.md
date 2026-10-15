@@ -1,4 +1,6 @@
-# V2 conformance and support
+# Conformance history
+
+> Frozen 2026-10-14. This was `spec/v2/conformance.md`, the per-family evidence ledger, kept with its original counts and limits. Links to sibling `spec/v2/*.md` pages refer to the pre-consolidation spec in git history. The current spec is [spec/README.md](../../spec/README.md).
 
 **Status: accepted target; bounded implementation.** [Current support](../../docs/support.md). [Overview](overview.md). The [declarative corpus](../../scripts/fixtures/taskdb-v2/README.md) is normative expected input/outcome data, not a v2 reference implementation. Its format is independent of schema/protocol 2.
 

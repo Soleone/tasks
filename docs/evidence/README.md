@@ -1,6 +1,6 @@
 # Implementation evidence
 
-Dated reports support specific implementation and platform claims. They are not current setup instructions, another task queue or permission to resume deferred work. [Current support](../support.md) owns live capabilities and blockers; [PLAN](../../PLAN.md) owns gates. Use [development](../development.md) and [usage](../usage-guide.md) for current guidance.
+Dated reports support specific implementation and platform claims. They are not current setup instructions, another task queue or permission to resume deferred work. [Current support](../support.md) owns live capabilities and blockers; [PLAN](../../PLAN.md) owns gates. Use [development](../development.md) and the [spec](../../spec/README.md) for current guidance.
 
 ## Reports
 
