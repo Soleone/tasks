@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent,
   type ReactElement,
 } from "react";
 import type { ClassificationToken } from "@/backend/taskText";
@@ -16,13 +15,15 @@ import type { TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
-import { InlineTaskComposer, OptimisticTaskOption, TaskOption, type TaskOptionClick } from "./TaskListRows";
+import { InlineTaskComposer, OptimisticTaskOption, TaskOption } from "./TaskListRows";
+import { useTaskListKeyboard } from "./useTaskListKeyboard";
+import { useTaskListSelection, type ActiveTaskRequest } from "./useTaskListSelection";
 import { forwardStatusTransition, reverseStatusTransition, type StatusCommand, type StatusTransition } from "./taskStatusCycle";
 import { TaskListToolbar } from "./TaskListToolbar";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
-import { placementForMove, placementTargetId, selectableSiblingRows, selectedRowsForReorder, selectionMembershipMatches, type TaskMoveDirection, type TaskMovePlacement } from "@/components/taskReordering";
+import { placementForMove, placementTargetId, selectedRowsForReorder, selectionMembershipMatches, type TaskMoveDirection, type TaskMovePlacement } from "@/components/taskReordering";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -42,28 +43,6 @@ export async function copyTaskText(task: TaskView): Promise<void> {
   await navigator.clipboard.writeText(text);
 }
 
-
-const EXACT_STATUS_BY_KEY = new Map(EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]));
-
-// Home shortcuts work anywhere on the home surface, not only when the listbox
-// is focused. Typing targets, the inline editor, and open dialogs always win.
-function isHomeTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.closest('[role="dialog"], [role="menu"], [data-slot="command"]')) return true;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
-    || target.isContentEditable
-    || target.getAttribute("role") === "combobox"
-    || target.hasAttribute("cmdk-input");
-}
-
-// Space and Enter keep their native meaning on real buttons (Retry, Load
-// more, Clear filters). Backup buttons are tabIndex -1 and mouse-only, so
-// list commands win there.
-function isNativeButtonAction(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.closest('button:not([tabindex="-1"]), a[href], input, textarea, select') !== null;
-}
 
 export type TaskListHandle = {
   startIdentityPreservingRefresh: () => void;
@@ -150,54 +129,6 @@ type DeleteReceipt = {
   key: string;
 };
 
-export type ActiveTaskRequest = {
-  key: number;
-  taskId: string | null;
-  preserveTaskOnRefresh: boolean;
-};
-
-type HomeShortcutActions = {
-  hasActiveFilters: boolean;
-  activeTask: TaskView | undefined;
-  visibleRowCount: number;
-  canUndoStatus: boolean;
-  undoStatus: () => void;
-  deleteActiveTask: () => Promise<void>;
-  deleteSelectedTasks: () => Promise<void>;
-  returnToList: () => void;
-  clearAllFilters: () => void;
-  startFilterMode: () => void;
-  startSortMode: () => void;
-  applyExactStatus: (status: TaskStatus) => void;
-  applySortField: (field: SortField) => void;
-  reverseSort: () => void;
-  toggleDetailsView: () => void;
-  setPriority: (task: TaskView, priority: TaskPriority) => Promise<void>;
-  announce: (message: string) => void;
-  openSearch: () => void;
-  createTask: (parentId?: string) => void;
-  toggleStatusPreset: () => void;
-  applyPriorityFilter: (priority: TaskPriority) => void;
-  toggleUnblockedFilter: () => void;
-  openCategoryPicker: () => void;
-  openTagPicker: () => void;
-  addBlocker: (task: TaskView) => void;
-  moveUnder: (task: TaskView) => void;
-  toggleStatus: (task: TaskView) => Promise<void>;
-  toggleSelectedStatus: () => Promise<void>;
-  reverseStatus: (task: TaskView) => Promise<void>;
-  reverseSelectedStatus: () => Promise<void>;
-  pauseTask: (task: TaskView) => Promise<void>;
-  pauseSelectedTasks: () => Promise<void>;
-  moveActive: (next: number | "next" | "previous", extend?: boolean) => void;
-  selectBoundary: (end: "start" | "end") => void;
-  reorderSelection: (direction: TaskMoveDirection) => Promise<void>;
-  clearSelection: () => boolean;
-  handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
-  editTask: (task: TaskView) => void;
-  copyTask: (task: TaskView) => Promise<void>;
-};
-
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
 export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
@@ -281,9 +212,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const priorityReceipts = useRef(new Map<string, { version: number; key: string }>());
   const mutationPending = useRef(new Set<string>());
   const toolbarModeRef = useRef<ToolbarMode | null>(null);
-  const homeShortcutActions = useRef<HomeShortcutActions | null>(null);
   const [listFocused, setListFocused] = useState(false);
-  const [activeTaskIndex, setActiveTaskIndexState] = useState(0);
   const composerOpenRef = useRef(composer !== null);
   const previousComposerOpenRef = useRef(composer !== null);
   composerOpenRef.current = composer !== null;
@@ -295,48 +224,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [moveControlsOpen, setMoveControlsOpen] = useState(false);
-  const visibleRowsRef = useRef<VisibleTaskRow[]>([]);
-  const selectedIdsRef = useRef<Set<string>>(new Set());
-  const previousFilterIdentityRef = useRef<string | null>(null);
-  const selectionClearedRef = useRef(false);
-  const selectionAnchorRef = useRef<string | null>(null);
-  const pendingActiveIdRef = useRef<string | null>(null);
-  const pendingActiveViewRef = useRef<string | null>(null);
-  const restoreActiveIdRef = useRef<string | null>(null);
-  const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
-  const identityRefreshPendingRef = useRef(false);
-  const activeTaskIndexRef = useRef(0);
-  const activeTaskRequestKeyRef = useRef(activeTaskRequest.key);
-  const activeTaskRequestTasksRef = useRef<TaskView[] | null>(null);
-  const preserveActiveTaskOnRefreshRef = useRef(false);
-  const activeTaskIdRef = useRef<string | null>(null);
-  const activeTaskRef = useRef<TaskView | undefined>(undefined);
-  const lastSelectedNewTaskIdRef = useRef<string | null>(null);
-  const activeScrollFrameRef = useRef<number | null>(null);
-  const activeScrollTargetRef = useRef<string | null>(null);
-  const optionClickRef = useRef<TaskOptionClick>(() => undefined);
   const optionToggleStatusRef = useRef<(task: TaskView) => void>(() => undefined);
   const optionToggleExpandedRef = useRef<(row: VisibleTaskRow) => void>(() => undefined);
   const optionSelectCategoryRef = useRef<(category: ClassificationToken) => void>(() => undefined);
   const reorderPending = useRef(false);
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
-
-  function setActiveTaskIndex(nextIndex: number): void {
-    activeTaskIdRef.current = visibleRowsRef.current[nextIndex]?.task.id ?? null;
-    activeTaskIndexRef.current = nextIndex;
-    setActiveTaskIndexState(nextIndex);
-  }
-
-  function clearActiveTaskSelection(): void {
-    pendingActiveIdRef.current = null;
-    pendingActiveViewRef.current = null;
-    restoreActiveIdRef.current = null;
-    restoreSelectionIdsRef.current = null;
-    setActiveTaskIndex(-1);
-    setSelection([], null);
-  }
 
   const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
   const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
@@ -353,154 +246,41 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   ].join("|");
   const viewIdentity = [filterIdentity, sortField, sortDirection].join("|");
   const hasMore = tasks.length < total;
-  // The active row is list state, not focus state, so it survives toolbar
-  // clicks and empty-area focus loss. Focus stays a screen-reader concern.
-  const clampedActiveIndex = visibleRows.length ? Math.min(activeTaskIndex, visibleRows.length - 1) : 0;
-  const pendingActiveIndex = pendingActiveIdRef.current === null || pendingActiveViewRef.current !== viewIdentity
-    ? -1
-    : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
-  // Hierarchy moves change row positions; follow the active task by identity.
-  const identityActiveIndex = activeTaskIdRef.current === null
-    ? -1
-    : visibleRows.findIndex((row) => row.task.id === activeTaskIdRef.current);
-  const activeIndex = pendingActiveIndex >= 0
-    ? pendingActiveIndex
-    : identityActiveIndex >= 0 ? identityActiveIndex : clampedActiveIndex;
-  const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
-  const activeTask = activeRow?.task;
-  visibleRowsRef.current = visibleRows;
-  selectedIdsRef.current = selectedIds;
-  activeTaskIndexRef.current = activeIndex;
-  activeTaskIdRef.current = activeTask?.id ?? null;
-  activeTaskRef.current = activeTask;
+  const {
+    activeIndex,
+    activeRow,
+    activeTask,
+    selectedIds,
+    visibleRowsRef,
+    selectedIdsRef,
+    setActiveTaskIndex,
+    setSelection,
+    selectOnly,
+    moveActive,
+    selectBoundary,
+    clearSelection,
+    handleOptionClick,
+    restoreSelectionAfterMove,
+    handle: selectionHandle,
+  } = useTaskListSelection({
+    tasks,
+    visibleRows,
+    filterIdentity,
+    viewIdentity,
+    newTaskId,
+    activeTaskRequest,
+    composerOpen: composer !== null,
+    onAnnounce,
+    onEdit,
+  });
 
-  useImperativeHandle(ref, () => ({
-    startIdentityPreservingRefresh: () => {
-      identityRefreshPendingRef.current = true;
-      restoreActiveIdRef.current = activeTaskIdRef.current;
-      restoreSelectionIdsRef.current = new Set(selectedIdsRef.current);
-    },
-    finishIdentityPreservingRefresh: () => {
-      identityRefreshPendingRef.current = false;
-      restoreActiveIdRef.current = null;
-      restoreSelectionIdsRef.current = null;
-    },
-    clearActiveTaskSelection,
-    getActiveTask: () => activeTaskRef.current,
-  }), []);
-
-  useEffect(() => {
-    const pendingActiveId = pendingActiveIdRef.current;
-    if (pendingActiveId !== null && pendingActiveViewRef.current !== viewIdentity) {
-      pendingActiveIdRef.current = null;
-      pendingActiveViewRef.current = null;
-    } else if (pendingActiveId !== null) {
-      const pendingIndex = visibleRows.findIndex((row) => row.task.id === pendingActiveId);
-      if (pendingIndex < 0) {
-        pendingActiveIdRef.current = null;
-        pendingActiveViewRef.current = null;
-      } else if (activeTaskIndex !== pendingIndex) setActiveTaskIndex(pendingIndex);
-      else {
-        pendingActiveIdRef.current = null;
-        pendingActiveViewRef.current = null;
-      }
-    }
-    if (activeIndex !== activeTaskIndex) setActiveTaskIndex(activeIndex);
-
-    const selectableIds = new Set(visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id));
-    const restoredActiveId = restoreActiveIdRef.current;
-    if (restoredActiveId !== null) {
-      const restoredIndex = visibleRows.findIndex((row) => row.task.id === restoredActiveId);
-      if (restoredIndex >= 0) {
-        setActiveTaskIndex(restoredIndex);
-      } else if (visibleRows.length > 0) {
-        setActiveTaskIndex(Math.min(activeTaskIndex, visibleRows.length - 1));
-        onAnnounce("The moved task is outside the loaded page.");
-      }
-      if (!identityRefreshPendingRef.current) restoreActiveIdRef.current = null;
-    }
-
-    const filterChanged = previousFilterIdentityRef.current !== null
-      && previousFilterIdentityRef.current !== filterIdentity;
-    previousFilterIdentityRef.current = filterIdentity;
-    const requestedSelection = filterChanged
-      ? new Set<string>()
-      : restoreSelectionIdsRef.current ?? selectedIdsRef.current;
-    // Apply the new-task selection once. The highlight id remains set briefly,
-    // but it must not restore the selection after the user starts another create.
-    if (newTaskId == null) lastSelectedNewTaskIdRef.current = null;
-    const createdTaskId = newTaskId != null
-      && newTaskId !== lastSelectedNewTaskIdRef.current
-      && selectableIds.has(newTaskId)
-      ? newTaskId
-      : null;
-    if (createdTaskId !== null) lastSelectedNewTaskIdRef.current = createdTaskId;
-    const nextSelection = createdTaskId !== null
-      ? new Set<string>([createdTaskId])
-      : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
-    if (createdTaskId !== null) {
-      const createdTaskIndex = visibleRows.findIndex((row) => row.task.id === createdTaskId);
-      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex) setActiveTaskIndex(createdTaskIndex);
-    }
-    const visibleActive = visibleRows[activeIndex];
-    if (nextSelection.size === 0 && visibleActive && !visibleActive.contextOnly && !selectionClearedRef.current) nextSelection.add(visibleActive.task.id);
-    const changed = nextSelection.size !== selectedIdsRef.current.size
-      || [...nextSelection].some((id) => !selectedIdsRef.current.has(id));
-    if (changed) setSelectedIds(nextSelection);
-    selectedIdsRef.current = nextSelection;
-    if (createdTaskId !== null) {
-      selectionClearedRef.current = false;
-      selectionAnchorRef.current = createdTaskId;
-    } else if (filterChanged || selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
-      selectionAnchorRef.current = [...nextSelection][0] ?? null;
-    }
-    if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
-  }, [activeIndex, activeTaskIndex, filterIdentity, newTaskId, onAnnounce, selectedIds, viewIdentity, visibleRows]);
-
-  // Right-arrow category filtering keeps the task id through the async list
-  // refresh; other active-task requests apply once to the current rows.
-  useEffect(() => {
-    const requestChanged = activeTaskRequestKeyRef.current !== activeTaskRequest.key;
-    if (requestChanged) {
-      activeTaskRequestKeyRef.current = activeTaskRequest.key;
-      activeTaskRequestTasksRef.current = tasks;
-      preserveActiveTaskOnRefreshRef.current = activeTaskRequest.preserveTaskOnRefresh;
-      pendingActiveIdRef.current = null;
-      pendingActiveViewRef.current = null;
-    }
-
-    if (activeTaskRequest.taskId !== null) {
-      const taskDataChanged = activeTaskRequestTasksRef.current !== null
-        && activeTaskRequestTasksRef.current !== tasks;
-      const refreshApplied = preserveActiveTaskOnRefreshRef.current && taskDataChanged;
-      if (requestChanged || refreshApplied) {
-        const requestedIndex = visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId);
-        if (requestedIndex >= 0) setActiveTaskIndex(requestedIndex);
-        else setActiveTaskIndex(0);
-      }
-      if (refreshApplied) {
-        activeTaskRequestTasksRef.current = null;
-        preserveActiveTaskOnRefreshRef.current = false;
-      }
-      return;
-    }
-    if (requestChanged) setActiveTaskIndex(0);
-  }, [activeTaskRequest.key, activeTaskRequest.preserveTaskOnRefresh, activeTaskRequest.taskId, tasks, visibleRows]);
-
-  useEffect(() => () => {
-    if (activeScrollFrameRef.current !== null) cancelAnimationFrame(activeScrollFrameRef.current);
-  }, []);
+  useImperativeHandle(ref, () => selectionHandle, []);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
   useEffect(() => nav.register("list", {
     focusLast: () => (loadMore.current ?? list.current ?? retry.current ?? section.current)?.focus(),
   }), [nav]);
-
-  useEffect(() => {
-    const nextIndex = Math.min(activeTaskIndex, Math.max(visibleRows.length - 1, 0));
-    if (nextIndex !== activeTaskIndex) setActiveTaskIndex(nextIndex);
-  }, [activeTaskIndex, visibleRows.length]);
 
   useEffect(() => {
     const wasOpen = previousComposerOpenRef.current;
@@ -719,130 +499,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onAnnounce(`Showing ${label} tasks`);
   }
 
-  function setSelection(ids: Iterable<string>, anchorId: string | null): void {
-    const next = new Set(ids);
-    selectedIdsRef.current = next;
-    selectionClearedRef.current = next.size === 0;
-    selectionAnchorRef.current = anchorId;
-    setSelectedIds(next);
-  }
-
-  function selectOnly(row: VisibleTaskRow): void {
-    if (row.contextOnly) {
-      setSelection([], null);
-      return;
-    }
-    setSelection([row.task.id], row.task.id);
-  }
-
-  function selectRangeTo(row: VisibleTaskRow): void {
-    if (row.contextOnly) {
-      onAnnounce("Context-only ancestors cannot be selected.");
-      return;
-    }
-    const scope = selectableSiblingRows(row, visibleRowsRef.current);
-    const anchorId = selectionAnchorRef.current;
-    const anchorIndex = anchorId === null ? -1 : scope.findIndex((candidate) => candidate.task.id === anchorId);
-    const targetIndex = scope.findIndex((candidate) => candidate.task.id === row.task.id);
-    if (anchorId === null || targetIndex < 0) {
-      selectOnly(row);
-      return;
-    }
-    if (anchorIndex < 0) {
-      selectOnly(row);
-      onAnnounce("Selection is limited to one visible sibling scope.");
-      return;
-    }
-    const start = Math.min(anchorIndex, targetIndex);
-    const end = Math.max(anchorIndex, targetIndex);
-    const count = end - start + 1;
-    setSelection(scope.slice(start, end + 1).map((candidate) => candidate.task.id), anchorId);
-    onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
-  }
-
-  function scheduleActiveScroll(taskId: string): void {
-    activeScrollTargetRef.current = taskId;
-    if (activeScrollFrameRef.current !== null) return;
-    activeScrollFrameRef.current = requestAnimationFrame(() => {
-      activeScrollFrameRef.current = null;
-      const targetId = activeScrollTargetRef.current;
-      if (targetId !== null) document.getElementById(`task-option-${targetId}`)?.scrollIntoView({ block: "nearest" });
-    });
-  }
-
-  function moveActive(next: number | "next" | "previous", extend = false): void {
-    if (visibleRows.length === 0) return;
-    const currentIndex = activeTaskIndexRef.current;
-    if (currentIndex < 0) {
-      const firstIndex = visibleRows.findIndex((row) => !row.contextOnly);
-      if (firstIndex < 0) return;
-      const firstTask = visibleRows[firstIndex];
-      pendingActiveIdRef.current = firstTask.task.id;
-      pendingActiveViewRef.current = viewIdentity;
-      setActiveTaskIndex(firstIndex);
-      selectOnly(firstTask);
-      scheduleActiveScroll(firstTask.task.id);
-      return;
-    }
-    const requestedIndex = typeof next === "number"
-      ? next
-      : currentIndex + (next === "next" ? 1 : -1);
-    if (extend) {
-      const current = visibleRows[currentIndex];
-      if (!current || current.contextOnly) {
-        onAnnounce("Selection is limited to visible sibling tasks.");
-        return;
-      }
-      const scope = selectableSiblingRows(current, visibleRowsRef.current);
-      const currentScopeIndex = scope.findIndex((candidate) => candidate.task.id === current.task.id);
-      const step = requestedIndex > currentIndex ? 1 : -1;
-      const target = scope[currentScopeIndex + step];
-      if (!target) {
-        onAnnounce(step > 0 ? "Selection is at the last sibling." : "Selection is at the first sibling.");
-        return;
-      }
-      const targetIndex = visibleRows.findIndex((candidate) => candidate.task.id === target.task.id);
-      if (targetIndex < 0) return;
-      pendingActiveIdRef.current = target.task.id;
-      pendingActiveViewRef.current = viewIdentity;
-      setActiveTaskIndex(targetIndex);
-      selectRangeTo(target);
-      scheduleActiveScroll(target.task.id);
-      return;
-    }
-
-    const wrapped = (requestedIndex + visibleRows.length) % visibleRows.length;
-    const target = visibleRows[wrapped];
-    pendingActiveIdRef.current = target.task.id;
-    pendingActiveViewRef.current = viewIdentity;
-    setActiveTaskIndex(wrapped);
-    selectOnly(target);
-    scheduleActiveScroll(target.task.id);
-  }
-
-  function selectBoundary(end: "start" | "end"): void {
-    const current = visibleRows[activeTaskIndexRef.current];
-    if (!current || current.contextOnly) {
-      onAnnounce("Selection is limited to visible sibling tasks.");
-      return;
-    }
-    const scope = selectableSiblingRows(current, visibleRowsRef.current);
-    const target = end === "start" ? scope[0] : scope[scope.length - 1];
-    if (!target) return;
-    pendingActiveIdRef.current = target.task.id;
-    pendingActiveViewRef.current = viewIdentity;
-    setActiveTaskIndex(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
-    selectRangeTo(target);
-    scheduleActiveScroll(target.task.id);
-  }
-
-  function clearSelection(): boolean {
-    if (selectedIdsRef.current.size < 2) return false;
-    setSelection([], null);
-    onAnnounce("Selection cleared");
-    return true;
-  }
-
   async function copyActiveTask(task: TaskView): Promise<void> {
     try {
       await copyTaskText(task);
@@ -972,8 +628,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           return;
         }
         if (result.operationId) onOperation?.(result.operationId, currentSelected.map((row) => row.task), result.tasks);
-        restoreActiveIdRef.current = sourceRow.task.id;
-        restoreSelectionIdsRef.current = new Set(selectedIdSnapshot);
+        restoreSelectionAfterMove(sourceRow.task.id, selectedIdSnapshot);
         await onRefresh(0);
         await waitForListRender();
         const move = `${currentSelected.length} task${currentSelected.length === 1 ? "" : "s"} moved ${direction === "start" ? "to the beginning" : direction === "end" ? "to the end" : direction}.`;
@@ -1270,11 +925,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  async function deleteActiveTask(): Promise<void> {
-    if (!activeTask) return;
-    await deleteTaskRecord(activeTask);
-  }
-
   async function deleteSelectedTasks(): Promise<void> {
     const selected = selectedTasksForAction().filter((task) => !deletePending.current.has(task.id));
     if (selected.length === 0) return;
@@ -1310,45 +960,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  optionClickRef.current = (row, index, event) => {
-    if (composerOpenRef.current) return;
-    const { task } = row;
-    pendingActiveIdRef.current = null;
-    pendingActiveViewRef.current = null;
-    if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
-      onAnnounce("Context-only ancestors cannot be selected.");
-      return;
-    }
-    if (event.shiftKey) {
-      setActiveTaskIndex(index);
-      selectRangeTo(row);
-      return;
-    }
-    if (event.ctrlKey || event.metaKey) {
-      setActiveTaskIndex(index);
-      const scope = selectableSiblingRows(row, visibleRowsRef.current);
-      const sameScope = scope.length > 0 && [...selectedIdsRef.current].every((id) => scope.some((candidate) => candidate.task.id === id));
-      if (!sameScope) {
-        selectOnly(row);
-        return;
-      }
-      const next = new Set(selectedIdsRef.current);
-      if (next.has(task.id)) next.delete(task.id);
-      else next.add(task.id);
-      setSelection(next, task.id);
-      onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
-      return;
-    }
-    setActiveTaskIndex(index);
-    selectOnly(row);
-    onEdit(task);
-  };
   optionToggleStatusRef.current = (task) => { void toggleStatus(task); };
   optionToggleExpandedRef.current = toggleExpanded;
   optionSelectCategoryRef.current = selectCategory;
-  const handleOptionClick = useCallback((row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>): void => {
-    optionClickRef.current(row, index, event);
-  }, []);
   const handleOptionToggleStatus = useCallback((task: TaskView): void => {
     optionToggleStatusRef.current(task);
   }, []);
@@ -1359,13 +973,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     optionSelectCategoryRef.current(category);
   }, []);
 
-  homeShortcutActions.current = {
+  useTaskListKeyboard({
     hasActiveFilters,
     activeTask,
     visibleRowCount: visibleRows.length,
     canUndoStatus: Boolean(canUndoStatus),
     undoStatus: () => onUndoStatus?.(),
-    deleteActiveTask,
     deleteSelectedTasks,
     returnToList,
     clearAllFilters: onClearAllFilters,
@@ -1376,7 +989,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     reverseSort,
     toggleDetailsView: onToggleDetails,
     setPriority: setTaskPriority,
-    announce: onAnnounce,
     openSearch,
     createTask: onCreate,
     toggleStatusPreset,
@@ -1386,11 +998,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     openTagPicker,
     addBlocker: onAddBlocker,
     moveUnder: onMoveUnder,
-    toggleStatus,
     toggleSelectedStatus,
-    reverseStatus,
     reverseSelectedStatus,
-    pauseTask,
     pauseSelectedTasks,
     moveActive,
     selectBoundary,
@@ -1399,276 +1008,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     handleHorizontalNavigation,
     editTask: onEdit,
     copyTask: copyActiveTask,
-  };
-
-  // Keep one window listener so state changes cannot leave a gap between
-  // removing an old listener and installing its replacement. The ref is
-  // updated during render, so the listener always invokes current actions.
-  useEffect(() => {
-    function onWindowKeyDown(event: KeyboardEvent): void {
-      const actions = homeShortcutActions.current;
-      if (!actions) return;
-      if (event.key === "Tab") {
-        if (event.ctrlKey || event.metaKey || event.altKey) return;
-        if (toolbarModeRef.current !== null || event.target === list.current || event.target === section.current) event.preventDefault();
-        return;
-      }
-      if (document.querySelector('[role="dialog"]') || composerOpenRef.current) return;
-      if (isHomeTypingTarget(event.target)) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (toolbarModeRef.current !== null) {
-          actions.returnToList();
-          return;
-        }
-        if (actions.clearSelection()) return;
-        if (actions.hasActiveFilters) actions.clearAllFilters();
-        return;
-      }
-      if (toolbarModeRef.current !== null && event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
-        // Let the app-level theme shortcut continue, but make its modal return
-        // target the task list rather than this temporary toolbar surface.
-        actions.returnToList();
-        return;
-      }
-      if (toolbarModeRef.current !== null && (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
-        // The help palette is another app-level shortcut with a modal return
-        // target. Clear the toolbar first for the same reason as themes.
-        actions.returnToList();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
-        if (toolbarModeRef.current !== null) return;
-        if (event.repeat || event.isComposing || event.keyCode === 229 || event.shiftKey) return;
-        if (!actions.canUndoStatus) return;
-        event.preventDefault();
-        actions.undoStatus();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "c") {
-        if (event.repeat || event.isComposing || event.keyCode === 229) return;
-        event.preventDefault();
-        if (actions.activeTask) void actions.copyTask(actions.activeTask);
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
-        const moveDirection = event.key === "ArrowUp"
-          ? "up"
-          : event.key === "ArrowDown"
-            ? "down"
-            : event.key === "Home"
-              ? "start"
-              : event.key === "End"
-                ? "end"
-                : null;
-        if (moveDirection !== null) {
-          if (event.repeat || event.isComposing || event.keyCode === 229) return;
-          event.preventDefault();
-          void actions.reorderSelection(moveDirection);
-          return;
-        }
-      }
-      if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        if (event.key === "ArrowUp") {
-          event.preventDefault();
-          actions.moveActive("previous", true);
-          return;
-        }
-        if (event.key === "ArrowDown") {
-          event.preventDefault();
-          actions.moveActive("next", true);
-          return;
-        }
-        if (event.key === "Home") {
-          event.preventDefault();
-          actions.selectBoundary("start");
-          return;
-        }
-        if (event.key === "End") {
-          event.preventDefault();
-          actions.selectBoundary("end");
-          return;
-        }
-      }
-      if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
-
-      // A toolbar mode owns the keyboard until an option is chosen or Escape
-      // returns focus to the task list. It has no timeout or fall-through to
-      // unrelated home shortcuts.
-      const activeToolbarMode = toolbarModeRef.current;
-      if (activeToolbarMode === "filter") {
-        if (event.repeat) {
-          event.preventDefault();
-          return;
-        }
-        const key = event.key.toLowerCase();
-        if (key === "f" && !event.shiftKey) {
-          event.preventDefault();
-          actions.returnToList();
-          return;
-        }
-        if (key === "s" && !event.shiftKey) {
-          event.preventDefault();
-          actions.toggleStatusPreset();
-          return;
-        }
-        if (!event.shiftKey) {
-          const exact = EXACT_STATUS_BY_KEY.get(key);
-          if (exact) {
-            event.preventDefault();
-            actions.applyExactStatus(exact);
-            return;
-          }
-        }
-        if (key >= "0" && key <= "4" && !event.shiftKey) {
-          event.preventDefault();
-          actions.applyPriorityFilter(Number(key) as TaskPriority);
-          return;
-        }
-        if (key === "c" && !event.shiftKey) {
-          event.preventDefault();
-          actions.openCategoryPicker();
-          return;
-        }
-        if (key === "t" && !event.shiftKey) {
-          event.preventDefault();
-          actions.openTagPicker();
-          return;
-        }
-        if (key === "u" && !event.shiftKey) {
-          event.preventDefault();
-          actions.toggleUnblockedFilter();
-          return;
-        }
-        if (key === "/" && !event.shiftKey) {
-          event.preventDefault();
-          actions.openSearch();
-          return;
-        }
-        event.preventDefault();
-        return;
-      }
-      if (activeToolbarMode === "sort") {
-        if (event.repeat) {
-          event.preventDefault();
-          return;
-        }
-        const key = event.key.toLowerCase();
-        if (key === "s" && !event.shiftKey) {
-          event.preventDefault();
-          actions.returnToList();
-          return;
-        }
-        if (key === "c" && !event.shiftKey) {
-          event.preventDefault();
-          actions.applySortField("created");
-          return;
-        }
-        if (key === "u" && !event.shiftKey) {
-          event.preventDefault();
-          actions.applySortField("updated");
-          return;
-        }
-        if (key === "m" && !event.shiftKey) {
-          event.preventDefault();
-          actions.applySortField("manual");
-          return;
-        }
-        if (key === "p" && !event.shiftKey) {
-          event.preventDefault();
-          actions.applySortField("priority");
-          return;
-        }
-        if (key === "r" && !event.shiftKey) {
-          event.preventDefault();
-          actions.reverseSort();
-          return;
-        }
-        event.preventDefault();
-        return;
-      }
-      if (event.key === "Delete") {
-        if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-        event.preventDefault();
-        void actions.deleteSelectedTasks();
-        return;
-      }
-      if (event.key === "/") {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.openSearch();
-      } else if (event.key === "@") {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.openCategoryPicker();
-      } else if (event.key === "#") {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.openTagPicker();
-      } else if (event.key.toLowerCase() === "c") {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.createTask(event.shiftKey ? actions.activeTask?.id : undefined);
-      } else if (event.key.toLowerCase() === "f" && !event.shiftKey) {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.startFilterMode();
-      } else if (event.key.toLowerCase() === "s" && !event.shiftKey) {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.startSortMode();
-      } else if (event.key.toLowerCase() === "v" && !event.shiftKey) {
-        if (event.repeat) return;
-        event.preventDefault();
-        actions.toggleDetailsView();
-      } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
-        if (event.repeat) return;
-        event.preventDefault();
-        if (actions.activeTask) void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
-      } else if (event.key.toLowerCase() === "b") {
-        if (event.repeat || event.shiftKey) return;
-        event.preventDefault();
-        if (actions.activeTask) actions.addBlocker(actions.activeTask);
-      } else if (event.key.toLowerCase() === "m") {
-        if (event.repeat || event.shiftKey) return;
-        event.preventDefault();
-        if (actions.activeTask) actions.moveUnder(actions.activeTask);
-      } else if (event.key.toLowerCase() === "p" && !event.shiftKey) {
-        if (event.repeat) return;
-        event.preventDefault();
-        void actions.pauseSelectedTasks();
-      } else if (event.key === " ") {
-        if (event.repeat || isNativeButtonAction(event.target)) return;
-        event.preventDefault();
-        if (actions.activeTask) {
-          void (event.shiftKey
-            ? actions.reverseSelectedStatus()
-            : actions.toggleSelectedStatus());
-        }
-      } else if (event.key === "ArrowDown") {
-        event.preventDefault();
-        actions.moveActive("next");
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        actions.moveActive("previous");
-      } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-        event.preventDefault();
-        actions.handleHorizontalNavigation(event.key);
-      } else if (event.key === "Home") {
-        event.preventDefault();
-        actions.moveActive(0);
-      } else if (event.key === "End") {
-        event.preventDefault();
-        actions.moveActive(actions.visibleRowCount - 1);
-      } else if (event.key === "Enter") {
-        if (isNativeButtonAction(event.target)) return;
-        event.preventDefault();
-        if (actions.activeTask) actions.editTask(actions.activeTask);
-      }
-    }
-    window.addEventListener("keydown", onWindowKeyDown, true);
-    return () => window.removeEventListener("keydown", onWindowKeyDown, true);
-  }, []);
+  }, { toolbarModeRef, composerOpenRef, list, section });
 
   const summaryTaskCount = useMemo(() => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0), [visibleRows]) + (optimisticTask ? 1 : 0);
 

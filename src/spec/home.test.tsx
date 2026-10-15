@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { activeTitle, announcements, expectActive, focusedTitleField, expectListFocused, expectRows, row, selectedTitles, taskList } from "@/testing/taskList";
@@ -70,6 +70,14 @@ describe("moving around", () => {
     await user.keyboard("{ArrowUp}");
     await expectActive("A");
     expect(selectedTitles()).toEqual(["A"]);
+    // Repeats can arrive before React commits the preceding active-row change.
+    act(() => {
+      fireEvent.keyDown(taskList(), { key: "ArrowDown" });
+      fireEvent.keyDown(taskList(), { key: "ArrowDown", repeat: true });
+      fireEvent.keyDown(taskList(), { key: "ArrowUp" });
+    });
+    await expectActive("B");
+    expect(selectedTitles()).toEqual(["B"]);
   });
 
   test("home.home-end: Home and End jump to the first and last visible task", async () => {
@@ -208,6 +216,9 @@ describe("reorder", () => {
     const expected = [before[1], before[0], before[2]];
     await waitFor(async () => expect(await manualTitles()).toEqual(expected));
     await expectRows(expected);
+    await expectActive(before[0]);
+    expect(selectedTitles()).toEqual([before[0]]);
+    await expectListFocused();
   });
 
   test("reorder.edge: Ctrl+End moves the selection to the end of its scope", async () => {
@@ -215,8 +226,15 @@ describe("reorder", () => {
     const { user } = await workspace.render();
     await user.keyboard("sm");
     const before = await manualTitles();
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    await waitFor(() => expect(selectedTitles()).toEqual(before.slice(0, 2)));
     await user.keyboard("{Control>}{End}{/Control}");
-    await waitFor(async () => expect(await manualTitles()).toEqual([before[1], before[2], before[0]]));
+    const expected = [before[2], before[0], before[1]];
+    await waitFor(async () => expect(await manualTitles()).toEqual(expected));
+    await expectRows(expected);
+    await expectActive(before[1]);
+    expect(selectedTitles()).toEqual(before.slice(0, 2));
+    await expectListFocused();
   });
 
   test("reorder.switch-sort: the first reorder in another sort switches to Manual", async () => {
