@@ -4,21 +4,17 @@ import {
   parseTaskCommandResult,
   type ActivityRecord,
   type ProtocolRequest,
-  type CategoryRecord,
-  type TagRecord,
-  type TaskListSort,
-  type TaskPriority,
   type TaskRecord,
-  type TaskReorderPlacement,
-  type TaskReorderTask,
-  type TaskStatusUndoItem,
-  type TaskTransitionItem,
-  type ThemeRecord,
 } from "../legacy/backend/protocol";
 import { getBackendTransport, isSelectedWorkspaceLaunch } from "../legacy/platform/backendTransport";
 import type { AndroidSyncConflict } from "../legacy/platform/androidSyncConflicts";
 import { MainWorkspace } from "./mainWorkspace";
-import { taskView } from "@/components/taskView";
+import { taskView, type ClassificationOption, type TaskView } from "@/components/taskView";
+import { stripClassificationTokens } from "@/backend/taskText";
+import type { TaskPriority } from "@/backend/taskModel";
+import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
+import type { SortField } from "@/components/taskFilters";
+import type { ThemeRecord } from "@/backend/themePalette";
 import { parseTaskProjection } from "../backend/taskResults";
 import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
@@ -44,19 +40,19 @@ function mainWriteKey(options: CommandOptions): string {
   return options.idempotencyKey ?? randomUUID();
 }
 
-export type TaskListResult = { tasks: TaskRecord[]; contextTasks: TaskRecord[]; total: number; limit: number; offset: number; workspaceRevision: number; unresolvedConflicts?: AndroidSyncConflict[] };
+export type TaskListResult = { tasks: TaskView[]; contextTasks: TaskView[]; total: number; limit: number; offset: number; workspaceRevision: number; unresolvedConflicts?: AndroidSyncConflict[] };
 export type TaskListFilters = {
   priority?: TaskPriority;
   tags?: string[];
   search?: string;
   category?: string;
-  sort?: TaskListSort;
+  sort?: SortField;
   direction?: "asc" | "desc";
   includeAncestors?: boolean;
 };
 
-export type CategoryListResult = { categories: CategoryRecord[] };
-export type TagListResult = { tags: TagRecord[] };
+export type CategoryListResult = { categories: ClassificationOption[] };
+export type TagListResult = { tags: ClassificationOption[] };
 export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
 export type WorkspaceInfoResult = { databasePath: string; workspaceId?: string; sourceRegistryPath?: string; primarySourceKey?: string; sourceCount?: number; taskCount: number; canceledTaskCount: number; workspaceRevision: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; displayName?: string; taskCount: number; exportedAt: string };
@@ -71,21 +67,21 @@ export type CommandOptions = {
 };
 
 export type TaskMutationResult = {
-  task: TaskRecord;
+  task: TaskView;
   operationId?: string;
   changed?: boolean;
   dryRun?: boolean;
   readOnly?: boolean;
 };
 export type TaskReorderResult = {
-  tasks: TaskRecord[];
+  tasks: TaskView[];
   operationId?: string;
   changed: boolean;
   dryRun?: boolean;
   readOnly?: boolean;
 };
 export type TaskTransitionManyResult = {
-  tasks: TaskRecord[];
+  tasks: TaskView[];
   operationId?: string;
   changed: boolean;
   dryRun?: boolean;
@@ -95,7 +91,7 @@ export type TaskStatusUndoManyResult = TaskTransitionManyResult;
 export type OperationUndoResult = {
   operationId?: string;
   undoneOperationId: string;
-  tasks: TaskRecord[];
+  tasks: TaskView[];
   deletedTaskIds?: string[];
   changed: boolean;
   dryRun?: boolean;
@@ -110,6 +106,14 @@ export class BackendCommandError extends Error {
     this.name = "BackendCommandError";
     this.code = code;
   }
+}
+
+function legacyTaskView(task: TaskRecord): TaskView {
+  const { title, descriptionMarkdown, completedAt, canceledAt, ...fields } = task;
+  return {
+    ...fields, title: stripClassificationTokens(title) || title, text: title,
+    description: descriptionMarkdown, closedAt: completedAt ?? canceledAt,
+  };
 }
 
 export async function runBackendCommand<T extends Record<string, unknown>>(
@@ -132,7 +136,13 @@ export async function runBackendCommand<T extends Record<string, unknown>>(
     throw new BackendCommandError(response.error.code, response.error.message);
   }
 
-  return parseTaskCommandResult(command, response.result) as T;
+  const result = parseTaskCommandResult(command, response.result);
+  // Only the retained legacy wire route needs field normalization; deleted at cutover.
+  if (result.task !== undefined) result.task = legacyTaskView(result.task as TaskRecord);
+  for (const field of ["tasks", "contextTasks"]) {
+    if (Array.isArray(result[field])) result[field] = result[field].map(task => legacyTaskView(task as TaskRecord));
+  }
+  return result as T;
 }
 
 export async function listTasks(
@@ -169,41 +179,41 @@ export async function listTags(): Promise<TagListResult> {
   return runBackendCommand<TagListResult>("tag.list");
 }
 
-export async function getTask(id: string): Promise<{ task: TaskRecord }> {
+export async function getTask(id: string): Promise<{ task: TaskView }> {
   if (mainWorkspace) return { task: taskView(parseTaskProjection((await mainWorkspace.reader.query("task.get", { id })).task)) };
-  return runBackendCommand<{ task: TaskRecord }>("task.get", { id });
+  return runBackendCommand<{ task: TaskView }>("task.get", { id });
 }
 
-export async function createTask(title: string, descriptionMarkdown: string, options: CommandOptions & { parentId?: string; priority?: TaskPriority }): Promise<TaskMutationResult> {
+export async function createTask(title: string, description: string, options: CommandOptions & { parentId?: string; priority?: TaskPriority }): Promise<TaskMutationResult> {
   if (mainWorkspace) {
     if (options.parentId) {
       if (!mainWorkspace.supportsRelationships) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Child capture is not yet available in the selected workspace.");
-      return mainWorkspace.createChild(options.parentId, title, descriptionMarkdown, options.priority ?? 2, mainWriteKey(options));
+      return mainWorkspace.createChild(options.parentId, title, description, options.priority ?? 2, mainWriteKey(options));
     }
-    return mainWorkspace.save(title, descriptionMarkdown, options.priority ?? 2, mainWriteKey(options));
+    return mainWorkspace.save(title, description, options.priority ?? 2, mainWriteKey(options));
   }
   const { parentId, priority, ...commandOptions } = options;
-  return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown, ...(parentId ? { parentId } : {}), ...(priority !== undefined ? { priority } : {}) }, commandOptions);
+  return runBackendCommand<TaskMutationResult>("task.create", { title, descriptionMarkdown: description, ...(parentId ? { parentId } : {}), ...(priority !== undefined ? { priority } : {}) }, commandOptions);
 }
 
 export async function updateTask(
   id: string,
   title: string,
-  descriptionMarkdown: string,
+  description: string,
   expectedVersion: number,
   options: CommandOptions & { priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
-  if (mainWorkspace) return mainWorkspace.save(title, descriptionMarkdown, options.priority, mainWriteKey(options), id, expectedVersion);
+  if (mainWorkspace) return mainWorkspace.save(title, description, options.priority, mainWriteKey(options), id, expectedVersion);
   return runBackendCommand<TaskMutationResult>(
     "task.update",
-    { id, title, descriptionMarkdown, expectedVersion, ...(options.priority !== undefined ? { priority: options.priority } : {}) },
+    { id, title, descriptionMarkdown: description, expectedVersion, ...(options.priority !== undefined ? { priority: options.priority } : {}) },
     options,
   );
 }
 
-export async function updateTaskPriority(task: TaskRecord, priority: TaskPriority, options: CommandOptions): Promise<TaskMutationResult> {
+export async function updateTaskPriority(task: TaskView, priority: TaskPriority, options: CommandOptions): Promise<TaskMutationResult> {
   if (mainWorkspace) return mainWorkspace.priority(task.id, task.version, priority, mainWriteKey(options));
-  return updateTask(task.id, task.title, task.descriptionMarkdown, task.version, { ...options, priority });
+  return updateTask(task.id, task.text ?? task.title, task.description, task.version, { ...options, priority });
 }
 
 export async function deleteTask(id: string, expectedVersion: number, options: CommandOptions): Promise<TaskMutationResult> {
@@ -246,7 +256,7 @@ export async function undoStatusChange(
 }
 
 export async function undoStatusChanges(
-  tasks: TaskStatusUndoItem[],
+  tasks: { id: string; expectedVersion: number }[],
   options: CommandOptions,
 ): Promise<TaskStatusUndoManyResult> {
   return runBackendCommand<TaskStatusUndoManyResult>("task.status.undoMany", { tasks }, options);

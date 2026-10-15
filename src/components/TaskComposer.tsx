@@ -1,7 +1,7 @@
 import { randomUUID } from "../lib/randomUUID";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
-import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/legacy/backend/protocol";
-import type { TaskView } from "./taskView";
+import type { TaskPriority } from "@/backend/taskModel";
+import { inlineTaskText, type ClassificationOption, type TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
 import { parseShorthand } from "@/backend/shorthand";
 import { createTask, listCategories, listTags, updateTask, selectedMainWorkspace, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
@@ -18,11 +18,11 @@ import { preventFocusSteal } from "@/navigation";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
-  | { mode: "edit"; task: TaskRecord };
+  | { mode: "edit"; task: TaskView };
 
 export type TaskCreateDraft = {
   title: string;
-  descriptionMarkdown: string;
+  description: string;
   priority: TaskPriority;
   parentId?: string;
 };
@@ -107,20 +107,21 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
-  const [title, setTitle] = useState(task?.inputText ?? task?.title ?? initialTitle);
-  const [description, setDescription] = useState(task?.descriptionMarkdown ?? "");
+  const initialText = task ? task.text ?? inlineTaskText(task) : "";
+  const [title, setTitle] = useState(task ? initialText : initialTitle);
+  const [description, setDescription] = useState(task?.description ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
-  const [notesOpen, setNotesOpen] = useState(Boolean(task?.descriptionMarkdown));
+  const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
-  const [tags, setTags] = useState<TagRecord[]>([]);
+  const [categories, setCategories] = useState<ClassificationOption[]>([]);
+  const [tags, setTags] = useState<ClassificationOption[]>([]);
   const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
-  const dirty = title !== (task?.inputText ?? task?.title ?? "")
-    || description !== (task?.descriptionMarkdown ?? "")
+  const dirty = title !== initialText
+    || description !== (task?.description ?? "")
     || priority !== (task?.priority ?? 2);
   const showContextualHelp = helpMode === "full" && !pending;
   const showPriorityHelp = helpMode === "basic" && !pending;
@@ -175,7 +176,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     setSuggestionIndex(0);
   }
 
-  function chooseSuggestion(item: CategoryRecord | TagRecord): void {
+  function chooseSuggestion(item: ClassificationOption): void {
     if (!suggestion) return;
     const replacement = `${suggestion.marker}${item.label} `;
     const nextTitle = `${title.slice(0, suggestion.start)}${replacement}${title.slice(suggestion.end)}`;
@@ -307,7 +308,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
       if (!task) {
         onCreatePending({
           title: title.trim(),
-          descriptionMarkdown: description,
+          description,
           priority,
           ...(parentId ? { parentId } : {}),
         });

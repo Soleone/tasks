@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { Check, Tags } from "lucide-react";
-import type { TagRecord } from "@/legacy/backend/protocol";
+import type { ClassificationOption } from "./taskView";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { listTags } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
@@ -9,12 +9,12 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
   open: boolean;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
-  selected: TagRecord[];
+  selected: ClassificationOption[];
   /** Live updates; the picker stays open for multi-select. */
-  onChange: (tags: TagRecord[]) => void;
+  onChange: (tags: ClassificationOption[]) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [tags, setTags] = useState<TagRecord[]>([]);
+  const [tags, setTags] = useState<ClassificationOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +44,7 @@ export function TagPicker({ open, onClose, finalFocus, selected, onChange }: {
   const emptyText = loading ? "Loading tags…" : error ?? "No tags yet. Add #tag to a task.";
   const selectedSlugs = new Set(selected.map((tag) => tag.slug));
 
-  function toggle(tag: TagRecord): void {
+  function toggle(tag: ClassificationOption): void {
     const exists = selectedSlugs.has(tag.slug);
     const next = exists
       ? selected.filter((entry) => entry.slug !== tag.slug)

@@ -4,7 +4,7 @@ import { exportTasks, getWorkspaceInfo, selectedMainWorkspace, type TasksExportR
 import { clearAndroidSyncFolder, getAndroidSyncFolder, pickAndroidSyncFolder, type AndroidDirectorySelection } from "@/legacy/platform/androidWorkspace";
 import { runtimeKind } from "@/platform/runtime";
 import { APP_NAME } from "@/backend/branding";
-import type { ThemeRecord } from "@/legacy/backend/protocol";
+import type { ThemeRecord } from "@/backend/themePalette";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -179,12 +179,13 @@ describe("pickers", () => {
   }
 
   test("pick.parent: M then choosing a task nests the active task under it", async () => {
-    const parent = await workspace.create("Parent");
-    const child = await workspace.create("Loose");
+    const parent = await workspace.create("Parent @literal");
+    const child = await workspace.create("Loose #literal");
     const { user } = await workspace.render();
-    await expectActive("Loose");
+    await expectActive("Loose #literal");
     await user.keyboard("m");
-    await screen.findByRole("dialog");
+    await screen.findByRole("dialog", { name: "Move Loose #literal under…" });
+    await waitFor(() => expect(options().some((option) => option.includes("Parent @literal"))).toBe(true));
     await user.keyboard("Parent{Enter}");
     await waitFor(async () => expect((await workspace.task(child.id)).parentId).toBe(parent.id));
   });

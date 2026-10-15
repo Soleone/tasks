@@ -1,19 +1,19 @@
-import type { TaskRecord } from "@/legacy/backend/protocol";
+import type { TaskView } from "./taskView";
 
 export type VisibleTaskRow = {
-  task: TaskRecord;
+  task: TaskView;
   depth: 0 | 1;
   hasChildren: boolean;
   contextOnly: boolean;
 };
 
 type TaskGroup = {
-  root: TaskRecord;
-  descendants: TaskRecord[];
+  root: TaskView;
+  descendants: TaskView[];
   rootIndex: number;
 };
 
-function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
+function rootFor(task: TaskView, byId: Map<string, TaskView>): string {
   let current = task;
   const seen = new Set<string>();
   while (current.parentId) {
@@ -26,7 +26,7 @@ function rootFor(task: TaskRecord, byId: Map<string, TaskRecord>): string {
   return current.id;
 }
 
-export function contextAncestorIds(tasks: readonly TaskRecord[], knownTasks: readonly TaskRecord[]): Set<string> {
+export function contextAncestorIds(tasks: readonly TaskView[], knownTasks: readonly TaskView[]): Set<string> {
   const byId = new Map(knownTasks.map((task) => [task.id, task]));
   const contextIds = new Set<string>();
   for (const task of tasks) {
@@ -43,7 +43,7 @@ export function contextAncestorIds(tasks: readonly TaskRecord[], knownTasks: rea
   return contextIds;
 }
 
-export function taskGroupOrder(tasks: TaskRecord[], contextTasks: TaskRecord[]): Map<string, number> {
+export function taskGroupOrder(tasks: TaskView[], contextTasks: TaskView[]): Map<string, number> {
   const byId = new Map([...contextTasks, ...tasks].map((entry) => [entry.id, entry]));
   const order = new Map<string, number>();
   for (const task of tasks) {
@@ -58,9 +58,9 @@ export function taskGroupOrder(tasks: TaskRecord[], contextTasks: TaskRecord[]):
  * stay visible as one-level descendants instead of creating an unbounded UI.
  */
 export function visibleTaskRows(
-  tasks: TaskRecord[],
+  tasks: TaskView[],
   expandedIds: ReadonlySet<string>,
-  contextTasks: TaskRecord[] = [],
+  contextTasks: TaskView[] = [],
   rootOrder: ReadonlyMap<string, number> = new Map(),
 ): VisibleTaskRow[] {
   const matchingIds = new Set(tasks.map((task) => task.id));

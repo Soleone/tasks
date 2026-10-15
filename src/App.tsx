@@ -7,10 +7,12 @@ import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery"
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { EditorError } from "@/platform/editorClient";
 import type { UndoEntry } from "@/platform/undoHistory";
-import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/legacy/backend/protocol";
-import { classifyTaskText } from "@/backend/taskText";
+import type { ClassificationToken } from "@/backend/taskText";
+import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import type { ThemeRecord } from "@/backend/themePalette";
+import { classifyTaskText, stripClassificationTokens } from "@/backend/taskText";
 import { parseShorthand } from "@/backend/shorthand";
-import type { TaskView } from "@/components/taskView";
+import type { ClassificationOption, TaskView } from "@/components/taskView";
 import { compareTasksForViewSort, presetStatuses, sortSummary, taskMatchesViewFilters, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
@@ -35,7 +37,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
 import { BackendCommandError, abortReceiveWorkspace, addDependency, closeBackendSession, getWorkspaceRevision, listTasks, listThemes, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, receiveWorkspaceStatus, removeDependency, setTheme, transitionTask, undoOperation, undoStatusChange, selectMainWorkspace, type ReceiveWorkspaceResult, type TaskListResult, type TaskMutationResult } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
-import { taskTitleDisplay } from "@/components/TaskRow";
 import { applyTheme } from "@/theme";
 import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
 import { runtimeKind } from "@/platform/runtime";
@@ -96,7 +97,7 @@ function readCategorySlug(): string | null {
   return stored !== null && stored !== "" ? stored : null;
 }
 
-function readInitialTagFilter(): TagRecord[] {
+function readInitialTagFilter(): ClassificationOption[] {
   return readSlugs(TAG_FILTER_KEY).map((slug) => ({ slug, label: slug, taskCount: 0 }));
 }
 
@@ -167,15 +168,15 @@ const TOAST_DURATION_MS = 3000;
 export default function App({ workspace }: { workspace?: MainWorkspace } = {}): ReactElement {
   // Rebind after development module reloads before the list's query effects run.
   useEffect(() => { if (workspace) selectMainWorkspace(workspace); }, [workspace, selectMainWorkspace]);
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [optimisticCreate, setOptimisticCreate] = useState<TaskRecord | null>(null);
-  const [contextTasks, setContextTasks] = useState<TaskRecord[]>([]);
+  const [tasks, setTasks] = useState<TaskView[]>([]);
+  const [optimisticCreate, setOptimisticCreate] = useState<TaskView | null>(null);
+  const [contextTasks, setContextTasks] = useState<TaskView[]>([]);
   const [contextOrder, setContextOrder] = useState<Map<string, number>>(() => new Map());
   const [total, setTotal] = useState(0);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(readPriorityFilter);
-  const [tagFilter, setTagFilter] = useState<TagRecord[]>(readInitialTagFilter);
+  const [tagFilter, setTagFilter] = useState<ClassificationOption[]>(readInitialTagFilter);
   const [searchQuery, setSearchQuery] = useState(() => readStored(SEARCH_QUERY_KEY) ?? "");
   const [showUnblocked, setShowUnblocked] = useState(() => readStored(UNBLOCKED_FILTER_KEY) === "true");
   const [showDetails, setShowDetails] = useState(readShowDetails);
@@ -202,7 +203,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
   const [globalShortcut, setGlobalShortcutValue] = useState(() => readStored(GLOBAL_SHORTCUT_KEY) ?? DEFAULT_GLOBAL_SHORTCUT);
-  const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskRecord } | null>(null);
+  const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
   const [statusUndo, setStatusUndo] = useState<OperationUndoEntry | null>(null);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(() => new Set());
@@ -448,7 +449,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     if (parentId) {
       const parent = tasks.find((task) => task.id === parentId);
       if (parent?.status === "canceled") {
-        setAnnouncement(`${taskTitleDisplay(parent.title)} is canceled. Reopen it before creating a child.`);
+        setAnnouncement(`${parent.title} is canceled. Reopen it before creating a child.`);
         return;
       }
     }
@@ -467,7 +468,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       : { mode: "create", ...(initialTitle ? { initialTitle } : {}) });
   }
 
-  function openEdit(task: TaskRecord): void {
+  function openEdit(task: TaskView): void {
     if (composerRef.current) return;
     setComposer({ mode: "edit", task });
   }
@@ -559,7 +560,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     setSettingsOpen(true);
   }
 
-  function openPicker(mode: TaskPickerMode, subject: TaskRecord): void {
+  function openPicker(mode: TaskPickerMode, subject: TaskView): void {
     if (workspace && !workspace.supportsRelationships) {
       setAnnouncement("Relationship changes are not yet available in this selected workspace.");
       return;
@@ -708,7 +709,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     requestActiveTask();
   }
 
-  function chooseTags(tags: TagRecord[]): void {
+  function chooseTags(tags: ClassificationOption[]): void {
     setTagFilter(tags);
     writeStored(TAG_FILTER_KEY, JSON.stringify(tags.map((tag) => tag.slug)));
     requestActiveTask();
@@ -770,8 +771,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const { subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
     const blocker = tasks.find((task) => task.id === blockerId);
-    const subjectTitle = taskTitleDisplay(current.title);
-    const blockerTitle = blocker ? taskTitleDisplay(blocker.title) : "blocker";
+    const subjectTitle = current.title;
+    const blockerTitle = blocker ? blocker.title : "blocker";
     setPicker(null);
     try {
       const result = await removeDependency(current.id, blockerId, current.version, { idempotencyKey: randomUUID() });
@@ -790,7 +791,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     if (!picker) return;
     const { subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
-    const subjectTitle = taskTitleDisplay(current.title);
+    const subjectTitle = current.title;
     setPicker(null);
     try {
       const result = await moveTask(current.id, null, current.version, { idempotencyKey: randomUUID() });
@@ -808,7 +809,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     }
   }
 
-  async function pickerSelected(target: TaskRecord): Promise<void> {
+  async function pickerSelected(target: TaskView): Promise<void> {
     if (!picker) return;
     const { mode, subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
@@ -822,8 +823,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       updateVisibleTask(result.task);
       if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
-      const subjectTitle = taskTitleDisplay(current.title);
-      const targetTitle = taskTitleDisplay(target.title);
+      const subjectTitle = current.title;
+      const targetTitle = target.title;
       setAnnouncement(mode === "blocker"
         ? `${subjectTitle} is now blocked by ${targetTitle}`
         : `${subjectTitle} moved under ${targetTitle}`);
@@ -835,7 +836,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     }
   }
 
-  async function pauseTaskFromPalette(task: TaskRecord): Promise<void> {
+  async function pauseTaskFromPalette(task: TaskView): Promise<void> {
     const current = tasks.find((candidate) => candidate.id === task.id) ?? task;
     const wasActive = taskListRef.current?.getActiveTask()?.id === current.id;
     setHelpOpen(false);
@@ -861,8 +862,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
 
   function recordOperationUndo(
     operationId: string | undefined,
-    previous: TaskRecord[],
-    current: TaskRecord[],
+    previous: TaskView[],
+    current: TaskView[],
     options: { createdTaskIds?: string[]; wasActiveTaskId?: string | null } = {},
   ): void {
     if (!operationId) return;
@@ -1005,9 +1006,9 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const now = new Date().toISOString();
     const task: TaskView = {
       id: `pending-${randomUUID()}`,
-      title: literal?.title ?? draft.title,
-      ...(literal ? { literalTitle: literal.title, inputText: draft.title } : {}),
-      descriptionMarkdown: draft.descriptionMarkdown,
+      title: literal?.title ?? (stripClassificationTokens(draft.title) || draft.title),
+      text: draft.title,
+      description: draft.description,
       status: "open",
       priority: draft.priority,
       category: classification.category,
@@ -1018,8 +1019,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       version: 1,
       createdAt: now,
       updatedAt: now,
-      completedAt: null,
-      canceledAt: null,
+      closedAt: null,
     };
     setOptimisticCreate(isCurrentViewMatch(task) ? task : null);
   }
@@ -1052,7 +1052,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     if (!creating) void refreshTasks();
   }
 
-  function syncContextTasks(nextTasks: TaskRecord[], candidates?: TaskRecord | readonly TaskRecord[]): void {
+  function syncContextTasks(nextTasks: TaskView[], candidates?: TaskView | readonly TaskView[]): void {
     const candidateList = candidates === undefined ? [] : Array.isArray(candidates) ? candidates : [candidates];
     setContextTasks((previous) => {
       const visibleIds = new Set(nextTasks.map((entry) => entry.id));
@@ -1085,11 +1085,11 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     syncContextTasks(nextTasks);
   }
 
-  function updateVisibleTask(task: TaskRecord): void {
+  function updateVisibleTask(task: TaskView): void {
     updateVisibleTasks([task]);
   }
 
-  function updateVisibleTasks(updatedTasks: TaskRecord[]): void {
+  function updateVisibleTasks(updatedTasks: TaskView[]): void {
     if (updatedTasks.length === 0) return;
     const updates = new Map(updatedTasks.map((task) => [task.id, task]));
     let nextTasks = tasks;
@@ -1134,7 +1134,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     if (membershipChanged && sortField === "manual") void refreshTasks(0, true);
   }
 
-  function isCurrentViewMatch(task: TaskRecord): boolean {
+  function isCurrentViewMatch(task: TaskView): boolean {
     return taskMatchesViewFilters(task, {
       exactStatus,
       statusPreset,
@@ -1146,14 +1146,14 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     });
   }
 
-  function taskIsInCurrentView(task: TaskRecord, visibleTasks: readonly TaskRecord[] = tasks): boolean {
+  function taskIsInCurrentView(task: TaskView, visibleTasks: readonly TaskView[] = tasks): boolean {
     if (isCurrentViewMatch(task)) return true;
 
     const otherVisibleTasks = visibleTasks.filter((entry) => entry.id !== task.id);
     return contextAncestorIds(otherVisibleTasks, [...otherVisibleTasks, ...contextTasks, task]).has(task.id);
   }
 
-  function visibleTasksAfterUpdate(updatedTasks: readonly TaskRecord[]): TaskRecord[] {
+  function visibleTasksAfterUpdate(updatedTasks: readonly TaskView[]): TaskView[] {
     const updates = new Map(updatedTasks.map((task) => [task.id, task]));
     const nextTasks = tasks.flatMap((existing) => {
       const updated = updates.get(existing.id);
@@ -1167,7 +1167,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     return nextTasks;
   }
 
-  function showStatusChangeToast(changedTasks: readonly TaskRecord[], movedOutOfView = false): void {
+  function showStatusChangeToast(changedTasks: readonly TaskView[], movedOutOfView = false): void {
     if (changedTasks.length === 0) return;
     const statuses = [...new Set(changedTasks.map((task) => task.status))];
     if (!movedOutOfView && statuses.length !== 1) return;
@@ -1185,14 +1185,14 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     );
   }
 
-  function handleStatusChanged(previous: TaskRecord, current: TaskRecord, _wasActive: boolean): void {
+  function handleStatusChanged(previous: TaskView, current: TaskView, _wasActive: boolean): void {
     const nextTasks = visibleTasksAfterUpdate([current]);
     const movedOutOfView = taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
     showStatusChangeToast([current], movedOutOfView);
     if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
   }
 
-  function handleStatusBatchChanged(previous: TaskRecord[], current: TaskRecord[], _wasActiveTaskId: string | null): void {
+  function handleStatusBatchChanged(previous: TaskView[], current: TaskView[], _wasActiveTaskId: string | null): void {
     const nextTasks = visibleTasksAfterUpdate(current);
     const previousById = new Map(previous.map((task) => [task.id, task]));
     const movedOutOfView = current.filter((task) => {
@@ -1208,7 +1208,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     showStatusChangeToast(current);
   }
 
-  function handleCanceledMany(previous: TaskRecord[], current: TaskRecord[]): void {
+  function handleCanceledMany(previous: TaskView[], current: TaskView[]): void {
     ++querySequence.current;
     if (cancelExitTimer.current !== null) {
       window.clearTimeout(cancelExitTimer.current);

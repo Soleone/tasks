@@ -28,6 +28,12 @@ export type ResolvedTheme = {
   warnings: string[];
 };
 
+export type ThemeRecord = ResolvedTheme & {
+  name: string;
+  label: string;
+  source: "builtin" | "workspace" | "omarchy";
+};
+
 /** The built-in theme selected when no workspace choice exists. */
 export const GILT_THEME_NAME = "gilt";
 

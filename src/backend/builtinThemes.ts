@@ -1,5 +1,4 @@
-import type { ThemeRecord } from "../legacy/backend/protocol.js";
-import { parseThemeFile } from "./themePalette.js";
+import { parseThemeFile, type ThemeRecord } from "./themePalette.js";
 
 /**
  * Built-in palettes, each an omarchy `colors.toml` body. They are embedded so

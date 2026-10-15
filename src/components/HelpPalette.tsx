@@ -25,7 +25,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import type { TaskRecord } from "@/legacy/backend/protocol";
+import type { TaskView } from "./taskView";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
@@ -109,17 +109,17 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
   onCreate: () => void;
-  onCreateChild?: (task: TaskRecord) => void;
+  onCreateChild?: (task: TaskView) => void;
   onOpenCategoryPicker: () => void;
   onOpenStatusMenu: () => void;
   onOpenPriorityMenu: () => void;
   onOpenTagPicker: () => void;
   onOpenSearch: () => void;
-  activeTask?: TaskRecord;
-  onAddBlocker?: (task: TaskRecord) => void;
-  onMoveUnder?: (task: TaskRecord) => void;
-  onPauseTask?: (task: TaskRecord) => void;
-  onCopyTask?: (task: TaskRecord) => void;
+  activeTask?: TaskView;
+  onAddBlocker?: (task: TaskView) => void;
+  onMoveUnder?: (task: TaskView) => void;
+  onPauseTask?: (task: TaskView) => void;
+  onCopyTask?: (task: TaskView) => void;
   statusUndoOnly?: boolean;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;

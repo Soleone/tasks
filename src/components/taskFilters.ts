@@ -6,7 +6,8 @@ import {
   CircleX,
   type LucideIcon,
 } from "lucide-react";
-import type { TaskPriority, TaskRecord, TaskStatus } from "@/legacy/backend/protocol";
+import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import type { TaskView } from "./taskView";
 
 type TaskStatusMeta = {
   label: string;
@@ -45,7 +46,7 @@ export type TaskViewFilters = {
 };
 
 /** Matches a task against the current UI view while optimistic changes settle. */
-export function taskMatchesViewFilters(task: TaskRecord, filters: TaskViewFilters): boolean {
+export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters): boolean {
   const statusOk = filters.exactStatus !== null
     ? task.status === filters.exactStatus
     : (filters.statusPreset === "inactive" ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
@@ -59,7 +60,7 @@ export function taskMatchesViewFilters(task: TaskRecord, filters: TaskViewFilter
   }
   if (filters.searchQuery.trim() !== "") {
     const needle = filters.searchQuery.trim().toLowerCase();
-    const haystack = `${task.title}\n${task.descriptionMarkdown}`.toLowerCase();
+    const haystack = `${task.title}\n${task.description}`.toLowerCase();
     if (!haystack.includes(needle)) return false;
   }
   return true;
@@ -106,7 +107,7 @@ export function sortSummary(field: SortField, direction: SortDirection): string 
 }
 
 /** Orders optimistic view updates until a fresh list query supplies authoritative order. */
-export function compareTasksForViewSort(a: TaskRecord, b: TaskRecord, field: SortField, direction: SortDirection): number {
+export function compareTasksForViewSort(a: TaskView, b: TaskView, field: SortField, direction: SortDirection): number {
   if (field === "manual") return 0;
   if (field === "priority") {
     const priorityDirection = direction === "desc" ? 1 : -1;

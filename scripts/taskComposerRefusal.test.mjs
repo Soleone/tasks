@@ -42,7 +42,7 @@ for (const editing of [false, true]) {
       });
       let optimistic = 0, saved = 0;
       const form = TaskComposer({ initialTitle: title,
-        task: editing ? { id: "task", title, version: 1, priority: 2, descriptionMarkdown: "" } : undefined,
+        task: editing ? { id: "task", title, text: title, version: 1, priority: 2, description: "" } : undefined,
         onCreatePending: () => { optimistic++; }, onCreateFailed: () => {}, onSaved: () => { saved++; },
         onCancel: () => {}, helpMode: "off", onDisableHelp: () => {},
       });

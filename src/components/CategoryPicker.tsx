@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { Folder } from "lucide-react";
-import type { CategoryRecord } from "@/legacy/backend/protocol";
+import type { ClassificationOption } from "./taskView";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { listCategories } from "@/platform/backendClient";
 
@@ -8,10 +8,10 @@ export function CategoryPicker({ open, onClose, finalFocus, onSelect }: {
   open: boolean;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
-  onSelect: (category: CategoryRecord) => void;
+  onSelect: (category: ClassificationOption) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [categories, setCategories] = useState<ClassificationOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

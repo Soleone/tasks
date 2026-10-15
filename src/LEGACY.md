@@ -10,7 +10,7 @@ Current code still imports legacy code in these places. Each one goes away befor
 
 | Legacy module | Imported by | Goes away with |
 | --- | --- | --- |
-| `legacy/backend/protocol` | UI components, `App.tsx`, `theme.ts`, `platform/backendClient.ts`, `platform/backendSession.ts`, `backend/builtinThemes.ts` | Stage 4: UI moves to the current model types |
+| `legacy/backend/protocol` | `platform/backendClient.ts`, `platform/backendSession.ts`, legacy branches of `backend/cli.ts`, `backend/tasks-cli.ts`, `backend/devServer.ts` | Cutover: legacy wire parsing and request/reply field normalization are deleted. UI fields already derive from the current model |
 | `legacy/backend/commands`, `canonicalWorkspace`, `sourceRegistry` | the legacy branches of `backend/cli.ts`, `backend/tasks-cli.ts`, `backend/devServer.ts` | Cutover: the `--legacy` branches are deleted |
 | `legacy/platform/backendTransport`, `androidSyncConflicts`, `androidWorkspace` | `platform/backendClient.ts`, `components/SettingsDialog.tsx` | Cutover: the legacy route and Android runtime are deleted |
 | `legacy/backend/requestHash` | migration tests (hashing schema 1 fixtures) | Cutover, or earlier by hashing with `backend/canonicalJson` |

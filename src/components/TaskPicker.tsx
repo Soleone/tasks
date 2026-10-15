@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
-import type { TaskRecord } from "@/legacy/backend/protocol";
-import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
+import type { TaskView } from "./taskView";
+import { TaskRow, TaskStatusDisplay } from "@/components/TaskRow";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { getTask, listTasks } from "@/platform/backendClient";
 
@@ -9,7 +9,7 @@ export type TaskPickerMode = "blocker" | "move";
 
 const NON_CANCELED_TASK_STATUSES = ["open", "in_progress", "paused", "done"] as const;
 
-function collectDescendantIds(candidates: TaskRecord[], rootId: string): Set<string> {
+function collectDescendantIds(candidates: TaskView[], rootId: string): Set<string> {
   const childrenByParent = new Map<string, string[]>();
   for (const task of candidates) {
     if (!task.parentId) continue;
@@ -28,7 +28,7 @@ function collectDescendantIds(candidates: TaskRecord[], rootId: string): Set<str
   return descendants;
 }
 
-function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPickerMode): TaskRecord[] {
+function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMode): TaskView[] {
   const selectable = all.filter((task) => task.status !== "canceled");
   if (mode === "blocker") {
     const blocked = new Set(subject.dependencyIds);
@@ -46,15 +46,15 @@ function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPick
 export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect, onRemoveBlocker, onRemoveParent }: {
   open: boolean;
   mode: TaskPickerMode;
-  subject: TaskRecord;
+  subject: TaskView;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
-  onSelect: (target: TaskRecord) => void;
+  onSelect: (target: TaskView) => void;
   onRemoveBlocker?: (blockerId: string) => void;
   onRemoveParent?: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [fetched, setFetched] = useState<TaskRecord[]>([]);
+  const [fetched, setFetched] = useState<TaskView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,24 +101,24 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   const duplicateTitles = useMemo(() => {
     const counts = new Map<string, number>();
     for (const task of candidates) {
-      const title = taskTitleDisplay(task.title);
+      const title = task.title;
       counts.set(title, (counts.get(title) ?? 0) + 1);
     }
     return counts;
   }, [candidates]);
 
-  const heading = mode === "blocker" ? `Blocked by: ${taskTitleDisplay(subject.title)}` : `Move ${taskTitleDisplay(subject.title)} under…`;
+  const heading = mode === "blocker" ? `Blocked by: ${subject.title}` : `Move ${subject.title} under…`;
   const groupHeading = mode === "blocker" ? "Select blocker" : "Select new parent";
   const emptyText = loading ? "Loading tasks…" : error ?? "No matching tasks.";
   const showRemoveParent = mode === "move" && subject.parentId !== null && onRemoveParent !== undefined;
   const showRemoveBlocker = mode === "blocker" && subject.dependencyIds.length > 0 && onRemoveBlocker;
   const currentParent = subject.parentId === null ? null : fetched.find((task) => task.id === subject.parentId) ?? null;
-  const currentParentTitle = currentParent ? taskTitleDisplay(currentParent.title) : null;
+  const currentParentTitle = currentParent ? currentParent.title : null;
   const blockers = useMemo(() => {
     if (!showRemoveBlocker) return [];
     return subject.dependencyIds.map((id) => {
       const blocker = fetched.find((task) => task.id === id) ?? null;
-      return { id, task: blocker, title: blocker ? taskTitleDisplay(blocker.title) : null };
+      return { id, task: blocker, title: blocker ? blocker.title : null };
     });
   }, [showRemoveBlocker, subject.dependencyIds, fetched]);
 
@@ -173,13 +173,13 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
             ) : null}
             <CommandGroup heading={groupHeading}>
               {candidates.map((task) => {
-                const displayTitle = taskTitleDisplay(task.title);
+                const displayTitle = task.title;
                 const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
                 return (
                   <CommandItem
                     key={task.id}
                     value={`${displayTitle} ${task.id}`}
-                    keywords={[task.descriptionMarkdown, task.status]}
+                    keywords={[task.description, task.status]}
                     onSelect={() => onSelect(task)}
                   >
                     <TaskRow task={task} variant={variant} statusSlot={<TaskStatusDisplay task={task} />} />

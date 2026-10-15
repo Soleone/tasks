@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
-import type { ClassificationToken, TaskRecord } from "@/legacy/backend/protocol";
+import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
 import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
-import { stripClassificationTokens } from "@/backend/taskText";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -13,22 +12,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 export type TaskRowVariant = "full" | "compact";
 
-/** Visible title without the @category/#tag tokens the backend parses. */
-export function taskTitleDisplay(title: string): string {
-  return stripClassificationTokens(title) || title;
-}
-
-export function taskRowDisplayTitle(task: TaskView): string {
-  return task.literalTitle ?? taskTitleDisplay(task.title);
-}
-
-export function taskContextMessage(task: TaskRecord): string {
+export function taskContextMessage(task: TaskView): string {
   const status = taskStatusMeta[task.status].label.toLowerCase();
   return `Still visible because children aren't ${status} yet.`;
 }
 
 /** Informational status icon. Interactive toggling stays with the list. */
-export function TaskStatusDisplay({ task }: { task: Pick<TaskRecord, "status"> }): ReactElement {
+export function TaskStatusDisplay({ task }: { task: Pick<TaskView, "status"> }): ReactElement {
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
   return (
@@ -42,7 +32,7 @@ export function TaskStatusDisplay({ task }: { task: Pick<TaskRecord, "status"> }
   );
 }
 
-export function TaskPriorityDisplay({ task }: { task: TaskRecord }): ReactElement {
+export function TaskPriorityDisplay({ task }: { task: TaskView }): ReactElement {
   const meta = priorityMeta(task.priority ?? 2);
   return (
     <Tooltip>
@@ -65,12 +55,12 @@ export function TaskPriorityDisplay({ task }: { task: TaskRecord }): ReactElemen
 const STATUS_FEEDBACK_DURATION_MS = 900;
 
 export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, previousLabel, onToggle }: {
-  task: TaskRecord;
+  task: TaskView;
   pending: boolean;
   feedbackVersion?: number;
   nextLabel: string;
   previousLabel: string;
-  onToggle: (task: TaskRecord) => void;
+  onToggle: (task: TaskView) => void;
 }): ReactElement {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const lastFeedbackVersion = useRef(feedbackVersion);
@@ -121,7 +111,7 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
   );
 }
 
-export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task: TaskRecord; hiddenCategorySlug?: string | null; onSelectCategory?: (category: ClassificationToken) => void }): ReactElement | null {
+export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task: TaskView; hiddenCategorySlug?: string | null; onSelectCategory?: (category: ClassificationToken) => void }): ReactElement | null {
   const category = task.category?.slug !== hiddenCategorySlug ? task.category ?? null : null;
   if (!category && task.tags.length === 0) {
     if (!task.category) {
@@ -174,7 +164,7 @@ export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: 
 
 /** Quiet relationship context for the full row. Never color-only. */
 export function TaskRowRelationships({ task, blockedByLabels }: {
-  task: TaskRecord;
+  task: TaskView;
   blockedByLabels?: string[];
 }): ReactElement | null {
   const blockerCount = task.blockedByIds.length;
@@ -202,7 +192,7 @@ export function TaskRowRelationships({ task, blockedByLabels }: {
 }
 
 /** Quiet created/updated line for the time footer. Updated leads when it differs. */
-export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement {
+export function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -226,7 +216,7 @@ export function TaskRowTimestamps({ task }: { task: TaskRecord }): ReactElement 
  * status slot plus title, with optional details and metadata only in full mode.
  */
 export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false, contextOnly = false, hiddenCategorySlug, onSelectCategory }: {
-  task: TaskRecord;
+  task: TaskView;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
   blockedByLabels?: string[];
@@ -244,10 +234,10 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <ItemTitle unclamped className="wrap-anywhere w-full">
-          {taskRowDisplayTitle(task)}
+          {task.title}
         </ItemTitle>
-        {variant === "full" && showDetails && task.descriptionMarkdown ? (
-          <ItemDescription data-task-description className="wrap-anywhere">{task.descriptionMarkdown}</ItemDescription>
+        {variant === "full" && showDetails && task.description ? (
+          <ItemDescription data-task-description className="wrap-anywhere">{task.description}</ItemDescription>
         ) : null}
         {variant === "full" ? <TaskRowMetadata task={task} hiddenCategorySlug={hiddenCategorySlug} onSelectCategory={onSelectCategory} /> : null}
         {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}

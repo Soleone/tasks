@@ -14,10 +14,13 @@ import {
   type ReactNode,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
-import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, TaskTransitionCommand } from "@/legacy/backend/protocol";
+import type { ClassificationToken } from "@/backend/taskText";
+import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import type { TaskTransitionCommand } from "@/backend/protocol";
+import type { ClassificationOption, TaskView } from "./taskView";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
-import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage, taskRowDisplayTitle } from "@/components/TaskRow";
+import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage } from "@/components/TaskRow";
 import { TaskListModeHelp } from "@/components/TaskListModeHelp";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
@@ -72,9 +75,9 @@ function FilterSummaryAction({ filter, label, onClear, className, children }: {
   );
 }
 
-export async function copyTaskText(task: TaskRecord & { literalTitle?: string }): Promise<void> {
-  const text = [task.title, task.descriptionMarkdown]
-    .map(value => task.literalTitle === undefined ? stripClassificationTokens(value) : value)
+export async function copyTaskText(task: TaskView): Promise<void> {
+  const text = [selectedMainWorkspace() ? task.title : task.text ?? task.title, task.description]
+    .map(value => selectedMainWorkspace() ? value : stripClassificationTokens(value))
     .filter(Boolean)
     .join(" ");
   await navigator.clipboard.writeText(text);
@@ -125,14 +128,14 @@ export type TaskListHandle = {
   startIdentityPreservingRefresh: () => void;
   finishIdentityPreservingRefresh: () => void;
   clearActiveTaskSelection: () => void;
-  getActiveTask: () => TaskRecord | undefined;
+  getActiveTask: () => TaskView | undefined;
 };
 
 type TaskListProps = {
-  tasks: TaskRecord[];
+  tasks: TaskView[];
   newTaskId?: string | null;
   exitingTaskIds: ReadonlySet<string>;
-  contextTasks: TaskRecord[];
+  contextTasks: TaskView[];
   contextOrder: ReadonlyMap<string, number>;
   total: number;
   statusPreset: StatusPreset;
@@ -159,8 +162,8 @@ type TaskListProps = {
   onCategoryFilterChange: (category: ClassificationToken | null, activeTaskId?: string) => void;
   onSelectCategory: (category: ClassificationToken, activeTaskId?: string) => void;
   onOpenCategoryPicker: () => void;
-  tagFilter: TagRecord[];
-  onTagFilterChange: (tags: TagRecord[]) => void;
+  tagFilter: ClassificationOption[];
+  onTagFilterChange: (tags: ClassificationOption[]) => void;
   onOpenTagPicker: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -173,7 +176,7 @@ type TaskListProps = {
   nav: Navigator;
   onCreate: (parentId?: string) => void;
   composer: ComposerState | null;
-  optimisticTask: TaskRecord | null;
+  optimisticTask: TaskView | null;
   onCloseComposer: () => void;
   onComposerSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
@@ -181,18 +184,18 @@ type TaskListProps = {
   onRefresh: (offset?: number) => Promise<boolean>;
   onAnnounce: (message: string) => void;
   onToast: (message: string) => void;
-  onEdit: (task: TaskRecord) => void;
-  onTaskUpdated: (task: TaskRecord) => void;
-  onTasksUpdated: (tasks: TaskRecord[]) => void;
-  onOperation?: (operationId: string, previous: TaskRecord[], current: TaskRecord[]) => void;
-  onStatusChanged?: (previous: TaskRecord, current: TaskRecord, wasActive: boolean) => void;
-  onStatusBatchChanged?: (previous: TaskRecord[], current: TaskRecord[], wasActiveTaskId: string | null) => void;
+  onEdit: (task: TaskView) => void;
+  onTaskUpdated: (task: TaskView) => void;
+  onTasksUpdated: (tasks: TaskView[]) => void;
+  onOperation?: (operationId: string, previous: TaskView[], current: TaskView[]) => void;
+  onStatusChanged?: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
+  onStatusBatchChanged?: (previous: TaskView[], current: TaskView[], wasActiveTaskId: string | null) => void;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
-  onCanceled: (task: TaskRecord) => void;
-  onCanceledMany?: (previous: TaskRecord[], current: TaskRecord[]) => void;
-  onAddBlocker: (task: TaskRecord) => void;
-  onMoveUnder: (task: TaskRecord) => void;
+  onCanceled: (task: TaskView) => void;
+  onCanceledMany?: (previous: TaskView[], current: TaskView[]) => void;
+  onAddBlocker: (task: TaskView) => void;
+  onMoveUnder: (task: TaskView) => void;
 };
 
 type StatusReceipt = {
@@ -226,9 +229,9 @@ type TaskOptionProps = {
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   hiddenCategorySlug: string | null;
-  taskById: ReadonlyMap<string, TaskRecord>;
+  taskById: ReadonlyMap<string, TaskView>;
   onClick: TaskOptionClick;
-  onToggleStatus: (task: TaskRecord) => void;
+  onToggleStatus: (task: TaskView) => void;
   onToggleExpanded: (row: VisibleTaskRow) => void;
   onSelectCategory: (category: ClassificationToken) => void;
 };
@@ -254,7 +257,7 @@ const TaskOption = memo(function TaskOption({
   const { task } = row;
   const blockedByLabels = task.blockedByIds.map((id) => {
     const blocker = taskById.get(id);
-    return blocker ? taskRowDisplayTitle(blocker) : null;
+    return blocker ? blocker.title : null;
   }).filter((label): label is string => label !== null);
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
@@ -264,7 +267,7 @@ const TaskOption = memo(function TaskOption({
       role="option"
       aria-selected={selected}
       aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
-      aria-label={row.contextOnly ? `${taskRowDisplayTitle(task)}, ${taskContextMessage(task)}` : undefined}
+      aria-label={row.contextOnly ? `${task.title}, ${taskContextMessage(task)}` : undefined}
       tabIndex={-1}
       data-active={active || undefined}
       data-selected={selected || undefined}
@@ -324,7 +327,7 @@ const TaskOption = memo(function TaskOption({
 
 type HomeShortcutActions = {
   hasActiveFilters: boolean;
-  activeTask: TaskRecord | undefined;
+  activeTask: TaskView | undefined;
   visibleRowCount: number;
   canUndoStatus: boolean;
   undoStatus: () => void;
@@ -338,7 +341,7 @@ type HomeShortcutActions = {
   applySortField: (field: SortField) => void;
   reverseSort: () => void;
   toggleDetailsView: () => void;
-  setPriority: (task: TaskRecord, priority: TaskPriority) => Promise<void>;
+  setPriority: (task: TaskView, priority: TaskPriority) => Promise<void>;
   announce: (message: string) => void;
   openSearch: () => void;
   createTask: (parentId?: string) => void;
@@ -347,21 +350,21 @@ type HomeShortcutActions = {
   toggleUnblockedFilter: () => void;
   openCategoryPicker: () => void;
   openTagPicker: () => void;
-  addBlocker: (task: TaskRecord) => void;
-  moveUnder: (task: TaskRecord) => void;
-  toggleStatus: (task: TaskRecord) => Promise<void>;
+  addBlocker: (task: TaskView) => void;
+  moveUnder: (task: TaskView) => void;
+  toggleStatus: (task: TaskView) => Promise<void>;
   toggleSelectedStatus: () => Promise<void>;
-  reverseStatus: (task: TaskRecord) => Promise<void>;
+  reverseStatus: (task: TaskView) => Promise<void>;
   reverseSelectedStatus: () => Promise<void>;
-  pauseTask: (task: TaskRecord) => Promise<void>;
+  pauseTask: (task: TaskView) => Promise<void>;
   pauseSelectedTasks: () => Promise<void>;
   moveActive: (next: number | "next" | "previous", extend?: boolean) => void;
   selectBoundary: (end: "start" | "end") => void;
   reorderSelection: (direction: TaskMoveDirection) => Promise<void>;
   clearSelection: () => boolean;
   handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
-  editTask: (task: TaskRecord) => void;
-  copyTask: (task: TaskRecord) => Promise<void>;
+  editTask: (task: TaskView) => void;
+  copyTask: (task: TaskView) => Promise<void>;
 };
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
@@ -383,7 +386,7 @@ function InlineTaskComposer({ composer, onClose, onSaved, onCreatePending, onCre
   return (
     <Item
       role="group"
-      aria-label={task ? `Editing ${taskRowDisplayTitle(task)}` : "New task inline"}
+      aria-label={task ? `Editing ${task.title}` : "New task inline"}
       data-inline-task-editor
       state="selected"
       size="sm"
@@ -514,15 +517,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const identityRefreshPendingRef = useRef(false);
   const activeTaskIndexRef = useRef(0);
   const activeTaskRequestKeyRef = useRef(activeTaskRequest.key);
-  const activeTaskRequestTasksRef = useRef<TaskRecord[] | null>(null);
+  const activeTaskRequestTasksRef = useRef<TaskView[] | null>(null);
   const preserveActiveTaskOnRefreshRef = useRef(false);
   const activeTaskIdRef = useRef<string | null>(null);
-  const activeTaskRef = useRef<TaskRecord | undefined>(undefined);
+  const activeTaskRef = useRef<TaskView | undefined>(undefined);
   const lastSelectedNewTaskIdRef = useRef<string | null>(null);
   const activeScrollFrameRef = useRef<number | null>(null);
   const activeScrollTargetRef = useRef<string | null>(null);
   const optionClickRef = useRef<TaskOptionClick>(() => undefined);
-  const optionToggleStatusRef = useRef<(task: TaskRecord) => void>(() => undefined);
+  const optionToggleStatusRef = useRef<(task: TaskView) => void>(() => undefined);
   const optionToggleExpandedRef = useRef<(row: VisibleTaskRow) => void>(() => undefined);
   const optionSelectCategoryRef = useRef<(category: ClassificationToken) => void>(() => undefined);
   const reorderPending = useRef(false);
@@ -1048,7 +1051,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     return true;
   }
 
-  async function copyActiveTask(task: TaskRecord): Promise<void> {
+  async function copyActiveTask(task: TaskView): Promise<void> {
     try {
       await copyTaskText(task);
       onAnnounce(`Copied ${task.title}`);
@@ -1236,7 +1239,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       if (activeRow.task.category) {
         selectCategory(activeRow.task.category, activeRow.contextOnly ? undefined : activeRow.task.id);
       } else {
-        onAnnounce(`${taskRowDisplayTitle(activeRow.task)} has no category to filter.`);
+        onAnnounce(`${activeRow.task.title} has no category to filter.`);
       }
       return;
     }
@@ -1254,7 +1257,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  function selectedTasksForAction(): TaskRecord[] {
+  function selectedTasksForAction(): TaskView[] {
     const selected = visibleRows
       .filter((row) => !row.contextOnly && selectedIdsRef.current.has(row.task.id))
       .map((row) => row.task);
@@ -1296,7 +1299,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     return receipt;
   }
 
-  async function changeStatus(task: TaskRecord, transition: StatusTransition): Promise<void> {
+  async function changeStatus(task: TaskView, transition: StatusTransition): Promise<void> {
     if (mutationPending.current.has(task.id)) return;
     const previousReceipt = statusReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version && previousReceipt.target === transition.next
@@ -1325,8 +1328,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   }
 
   async function transitionSelectedTasks(
-    selected: TaskRecord[],
-    commandForTask: (task: TaskRecord) => TaskTransitionCommand | null,
+    selected: TaskView[],
+    commandForTask: (task: TaskView) => TaskTransitionCommand | null,
     actionLabel: string,
   ): Promise<void> {
     const items = selected
@@ -1363,7 +1366,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  function toggleStatus(task: TaskRecord): Promise<void> {
+  function toggleStatus(task: TaskView): Promise<void> {
     return changeStatus(task, forwardStatusTransition[task.status]);
   }
 
@@ -1377,7 +1380,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     await transitionSelectedTasks(selected, (task) => forwardStatusTransition[task.status].command, "updated");
   }
 
-  function reverseStatus(task: TaskRecord): Promise<void> {
+  function reverseStatus(task: TaskView): Promise<void> {
     return changeStatus(task, reverseStatusTransition[task.status]);
   }
 
@@ -1391,7 +1394,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     await transitionSelectedTasks(selected, (task) => reverseStatusTransition[task.status].command, "updated");
   }
 
-  function pauseTask(task: TaskRecord): Promise<void> {
+  function pauseTask(task: TaskView): Promise<void> {
     if (task.status === "done" || task.status === "canceled") {
       onAnnounce(`${task.title} is ${taskStatusMeta[task.status].label.toLowerCase()}. Reopen it before pausing.`);
       return Promise.resolve();
@@ -1420,7 +1423,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     );
   }
 
-  async function setTaskPriority(task: TaskRecord, priority: TaskPriority): Promise<void> {
+  async function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
     if (task.priority === priority || mutationPending.current.has(task.id)) return;
     const previousReceipt = priorityReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version
@@ -1434,7 +1437,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       onTaskUpdated(result.task);
       if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
       const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
-      onAnnounce(`${taskRowDisplayTitle(task)}: priority ${label}`);
+      onAnnounce(`${task.title}: priority ${label}`);
     } catch (caught) {
       onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
         ? `${task.title} changed elsewhere. Refresh and try again.`
@@ -1444,7 +1447,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  async function deleteTaskRecord(task: TaskRecord): Promise<void> {
+  async function deleteTaskRecord(task: TaskView): Promise<void> {
     if (deletePending.current.has(task.id)) return;
     const previousReceipt = deleteReceipts.current.get(task.id);
     const receipt = previousReceipt?.version === task.version
@@ -1554,7 +1557,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const handleOptionClick = useCallback((row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>): void => {
     optionClickRef.current(row, index, event);
   }, []);
-  const handleOptionToggleStatus = useCallback((task: TaskRecord): void => {
+  const handleOptionToggleStatus = useCallback((task: TaskView): void => {
     optionToggleStatusRef.current(task);
   }, []);
   const handleOptionToggleExpanded = useCallback((row: VisibleTaskRow): void => {
@@ -1937,7 +1940,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const editingTaskVisible = composer?.mode === "edit" && visibleRows.some((row) => row.task.id === composer.task.id);
   const editingActiveTask = composer?.mode === "edit" && composer.task.id === activeTask?.id;
   const listSelectionLabel = composer?.mode === "edit" && editingTaskVisible
-    ? `editing ${taskRowDisplayTitle(composer.task)}`
+    ? `editing ${composer.task.title}`
     : selectionLabel;
 
   useEffect(() => {

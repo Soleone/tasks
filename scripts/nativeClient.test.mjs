@@ -141,9 +141,10 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
   for (const title of ["Call @alice #literal", "Backslash \\ and \\@literal", "Code `@alice #literal \\`", "Unclosed ```@alice", "Email a@b.example", "Unicode Ω 😀", "Two  spaces", "Unclosed ` @alice", "Mixed `code` @literal"]) {
     const canonical = { ...task, title, category: "work", tags: ["alpha", "todo"] };
     const view = taskView(canonical);
-    assert.equal(view.title, title); assert.equal(view.literalTitle, title);
-    assert.deepEqual(parseShorthand(inlineTaskText(canonical)), { title, category: "work", tags: ["alpha", "todo"] });
-    assert.equal(view.descriptionMarkdown, canonical.description);
+    assert.equal(view.title, title); assert.equal(view.text, canonical.text);
+    assert.deepEqual(parseShorthand(inlineTaskText(view)), { title, category: "work", tags: ["alpha", "todo"] });
+    assert.equal(view.description, canonical.description);
+    assert.equal(view.closedAt, canonical.closedAt);
   }
 });
 

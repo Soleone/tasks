@@ -1,6 +1,6 @@
 # Tasks: roadmap
 
-Updated 2026-10-14. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
+Updated 2026-10-15. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
 
 ## Direction
 
@@ -20,6 +20,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 - **Windows parity before cutover** (2026-10-14). Child capture, parent and blocker edits, reorder, batch status and general undo must work and be proven on Windows first. Windows 11 is the first release platform.
 - Themes (2026-10-15): ship the built-in palettes only for now; custom theme imports may come later. The candidate model and its Syncthing probe are dropped (2026-10-15).
 - Typed text is kept (2026-10-15): tasks store the shorthand as typed in `text` next to the parsed title, category and tags, so editing shows it unchanged. Changing classification any other way clears it. Schema 2 gains the field without a version bump because no real workspace uses schema 2 yet.
+- Tests stay focused (2026-10-15): protect data integrity, tricky rules, process boundaries and known bugs. Prefer representative workflows over exhaustive permutations; don't add tests just to give every spec rule a citation.
 - Desktop capture writes a temp file and renames it; a duplicate after a crash between rename and receipt is accepted. Native launch is `pnpm dev:native`.
 - Personal data: reading, converting or selecting the owner's workspace each need explicit permission at that moment.
 
@@ -28,15 +29,15 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 1. `pnpm dev:web --root PATH --database CACHE` runs the established UI on the current engine over a Linux dev bridge. Every agreed workflow except global focus works there; the owner reported high-level smoke success on disposable data (no case-level walkthrough).
 2. `tasks-cli --root PATH --database CACHE` is the friendly CLI on the current engine; JSON lines via `tasks-backend --stdio --root ...`. Neither has a default workspace.
 3. `--legacy` reaches the old app and CLI. Native desktop and Android builds still start the legacy app until cutover.
-4. Code is named by responsibility. Legacy code lives in `src/legacy/` ([src/LEGACY.md](src/LEGACY.md)), migration in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
+4. Code is named by responsibility. Legacy code lives in `src/legacy/` ([src/LEGACY.md](src/LEGACY.md)), migration in `src/migration/`. The shared UI derives task fields from the current model; legacy field names stay at the old transport boundary. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
 5. Windows native runs the established UI on a smaller proven command set: capture, edit, priority, six statuses, latest status undo. Child, relationship, order, batch and general undo are withheld there. The gap list is [spec/client/platforms.md](spec/client/platforms.md).
 6. The latest owner-machine Windows launches stopped before the main window appeared. Automated Windows diagnosis (`100`) is owner-deferred.
 7. Migration from schema 1 is rehearsed on Linux/WSL2 with disposable data ([runbook](docs/migration-rehearsal.md)). No personal data has been touched.
-8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace and cite 89 client rules (`node scripts/check-spec-rules.mjs --uncited` lists the rest).
+8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
 
 ## Next step
 
-Cleanup stage 4 (approved 2026-10-15): client rule tests are in place; next, move the UI onto the current model types and split `TaskList.tsx` and `App.tsx` by responsibility with no behavior change. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
+Cleanup stage 4 (approved 2026-10-15): the UI model-types move is complete and validated. Next checkpoint: split `TaskList.tsx` and `App.tsx` by responsibility with no behavior change, using existing tests and adding coverage only for concrete risks. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
 
 ## Gates
 
