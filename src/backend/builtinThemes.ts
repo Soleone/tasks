@@ -1,4 +1,4 @@
-import type { ThemeRecord } from "./protocol.js";
+import type { ThemeRecord } from "../legacy/backend/protocol.js";
 import { parseThemeFile } from "./themePalette.js";
 
 /**

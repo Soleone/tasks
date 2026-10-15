@@ -8,11 +8,11 @@ import { build } from "esbuild";
 import { startDevServer } from "../dist/backend/devServer.js";
 import { devWebOptions } from "./dev-web-options.mjs";
 
-const bundled = await build({ entryPoints: ["src/platform/v2BackendClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
+const bundled = await build({ entryPoints: ["src/platform/workspaceReader.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const client = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`);
 const { V2WorkspaceReader, readV2DevSelection, parseV2TaskPage, parseV2WorkspaceInfo, v2SidecarArgs } = client;
-const { parseV2TaskProjection } = await import("../dist/backend/v2TaskResults.js");
-const { parseV2Response } = await import("../dist/backend/v2Protocol.js");
+const { parseV2TaskProjection } = await import("../dist/backend/taskResults.js");
+const { parseV2Response } = await import("../dist/backend/protocol.js");
 const task = JSON.parse(readFileSync("scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", "utf8"));
 const projection = { ...task, version: 1, blockedByIds: [] };
 const request = (command = "workspace.info") => ({ version: 2, requestId: crypto.randomUUID(), command, args: {}, actor: { kind: "human", label: "reader test" }, readOnly: true, dryRun: false });
@@ -205,9 +205,9 @@ test("adoption refuses retained v1 cache authority without changing its database
   const selected = workspace(t);
   const legacy = path.join(selected.directory, "v1-source");
   cpSync("scripts/fixtures/taskdb-v1/sync", legacy, { recursive: true });
-  const { executeCommand } = await import("../dist/backend/commands.js");
-  const { parseRequest } = await import("../dist/backend/protocol.js");
-  const { withCanonicalRootPath } = await import("../dist/backend/canonicalWorkspace.js");
+  const { executeCommand } = await import("../dist/legacy/backend/commands.js");
+  const { parseRequest } = await import("../dist/legacy/backend/protocol.js");
+  const { withCanonicalRootPath } = await import("../dist/legacy/backend/canonicalWorkspace.js");
   withCanonicalRootPath(selected.databasePath, legacy, () => executeCommand(parseRequest({ version: 1, requestId: "v1-cache", command: "workspace.info" }), selected.databasePath));
   const before = readFileSync(selected.databasePath, "base64");
   const original = canonicalBytes(selected.rootPath);
@@ -234,8 +234,8 @@ test("malformed pending evidence pauses queries without automatic repair or dele
   const selected = workspace(t);
   const { reader } = await devReader(t, selected);
   await reader.workspaceInfo();
-  const { inspectV2CanonicalRoot } = await import("../dist/backend/v2CanonicalReader.js");
-  const { pendingV2Path } = await import("../dist/backend/v2LocalDomain.js");
+  const { inspectV2CanonicalRoot } = await import("../dist/backend/canonicalReader.js");
+  const { pendingV2Path } = await import("../dist/backend/localDomain.js");
   const pending = pendingV2Path(inspectV2CanonicalRoot(selected.rootPath));
   mkdirSync(path.dirname(pending), { recursive: true });
   writeFileSync(pending, "{incomplete");

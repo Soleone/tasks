@@ -11,7 +11,7 @@ import { applyStoredTheme } from "./theme";
 import { runtimeKind } from "./platform/runtime";
 import "./styles.css";
 
-const V2App = lazy(() => import("./V2App"));
+const V2App = lazy(() => import("./WorkspaceSelection"));
 
 document.title = APP_NAME;
 if (runtimeKind() === "android") document.documentElement.classList.add("android");

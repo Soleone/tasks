@@ -1,7 +1,7 @@
 import { randomUUID } from "../lib/randomUUID";
 import { useRef, useState, type ReactElement } from "react";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
-import type { V2CopyResult } from "@/platform/v2EditorClient";
+import type { V2CopyResult } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";

@@ -1,4 +1,4 @@
-import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
+import type { ThemeMode, ThemeRecord } from "@/legacy/backend/protocol";
 
 /**
  * Applies a theme by writing its palette into the slots `src/styles.css`

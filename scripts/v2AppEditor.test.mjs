@@ -9,9 +9,9 @@ import { build } from "esbuild";
 import { startDevServer } from "../dist/backend/devServer.js";
 import { devWebOptions } from "./dev-web-options.mjs";
 
-const bundle = await build({ entryPoints: ["src/platform/v2EditorClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
+const bundle = await build({ entryPoints: ["src/platform/editorClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const { V2EditorClient, V2PreparedEdit, readV2EditorSelection } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
-const readerBundle = await build({ entryPoints: ["src/platform/v2BackendClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
+const readerBundle = await build({ entryPoints: ["src/platform/workspaceReader.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const { readV2DevSelection } = await import(`data:text/javascript;base64,${Buffer.from(readerBundle.outputFiles[0].text).toString("base64")}`);
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
@@ -462,20 +462,20 @@ for (const command of ["task.create", "task.update", ...statusCommands]) {
       const selected = workspace(t);
       const originalTask = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${closedId}.json`), "utf8"));
       if (statusCommands.includes(command)) writeFileSync(path.join(selected.root, "tasks", `${closedId}.json`), JSON.stringify({ ...originalTask, status: statusSources[command], closedAt: statusSources[command] === "done" ? originalTask.closedAt : null }) + "\n");
-      const { inspectV2CanonicalRoot } = await import("../dist/backend/v2CanonicalReader.js");
-      const { pendingV2Path } = await import("../dist/backend/v2LocalDomain.js");
+      const { inspectV2CanonicalRoot } = await import("../dist/backend/canonicalReader.js");
+      const { pendingV2Path } = await import("../dist/backend/localDomain.js");
       const pendingPath = pendingV2Path(inspectV2CanonicalRoot(selected.root));
       const loader = path.join(selected.directory, "cut.mjs");
       writeFileSync(loader, `import { registerHooks } from 'node:module'; import fs from 'node:fs'; import { DatabaseSync } from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pendingPath)}, command=${JSON.stringify(command)};
 if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec; DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL'); const result=exec.call(this,sql); if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL'); return result;};}
 registerHooks({load(url,context,next){const result=next(url,context); if(!result.source)return result; let source=String(result.source); function replace(marker){if(source.split(marker).length!==2)throw Error('fault marker not unique: '+marker); source=source.replace(marker,marker+'\\nprocess.kill(process.pid,"SIGKILL");');}
-if(cut==='intent'&&url.endsWith('/v2LocalDomain.js'))replace('renameSync(temporary, pending);');
-if(command==='task.create'&&url.endsWith('/v2CreateWriter.js')){
+if(cut==='intent'&&url.endsWith('/localDomain.js'))replace('renameSync(temporary, pending);');
+if(command==='task.create'&&url.endsWith('/createWriter.js')){
  const marker='writeV2DurableFile(stage, bytes);';if(source.split(marker).length!==2)throw Error('unique stage marker required');source=source.replace(marker,marker+'globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
  if(cut==='published')replace('renameSync(stage, target);');
 }
-if(cut==='published'&&command!=='task.create'&&url.endsWith('/v2UpdateJournal.js'))replace('renameSync(temporary, target);');
+if(cut==='published'&&command!=='task.create'&&url.endsWith('/updateJournal.js'))replace('renameSync(temporary, target);');
 if(cut==='lostReply'&&url.endsWith('/devServer.js')){const marker='const result = executeDevV2Command(body, selection, request.headers["x-taskdb-selection"]);';if(source.split(marker).length!==2)throw Error('HTTP fault marker missing');source=source.replace(marker,marker+'\\nif(JSON.parse(body).command===command&&!JSON.parse(body).dryRun&&!JSON.parse(body).readOnly)process.kill(process.pid,"SIGKILL");'.replace('===command','==='+JSON.stringify(command)));}
 return {...result,source};}});\n`);
       const initial = await processDev(t, selected, loader);

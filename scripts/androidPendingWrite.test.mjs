@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filesToRecover } from "../src/platform/androidPendingWrite.ts";
+import { filesToRecover } from "../src/legacy/platform/androidPendingWrite.ts";
 
 const pending = {
   files: [

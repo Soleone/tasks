@@ -14,12 +14,12 @@ import {
   type TaskStatusUndoItem,
   type TaskTransitionItem,
   type ThemeRecord,
-} from "../backend/protocol";
-import { getBackendTransport, isSelectedWorkspaceLaunch } from "./backendTransport";
-import type { AndroidSyncConflict } from "./androidSyncConflicts";
+} from "../legacy/backend/protocol";
+import { getBackendTransport, isSelectedWorkspaceLaunch } from "../legacy/platform/backendTransport";
+import type { AndroidSyncConflict } from "../legacy/platform/androidSyncConflicts";
 import { MainWorkspace } from "./mainWorkspace";
 import { taskView } from "@/components/taskView";
-import { parseV2TaskProjection } from "../backend/v2TaskResults";
+import { parseV2TaskProjection } from "../backend/taskResults";
 import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
 

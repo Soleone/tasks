@@ -1,7 +1,7 @@
 import { useRef, type ReactElement } from "react";
 import { Check, Circle } from "lucide-react";
 import { cn } from "cn";
-import type { TaskStatus } from "@/backend/protocol";
+import type { TaskStatus } from "@/legacy/backend/protocol";
 import { EXACT_STATUS_META, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 

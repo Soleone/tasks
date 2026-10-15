@@ -3,7 +3,7 @@ import {
   parseResponse,
   type ProtocolRequest,
   type ProtocolResponse,
-} from "../backend/protocol";
+} from "../legacy/backend/protocol";
 
 type CorrelatedResponse = { requestId: string | null };
 

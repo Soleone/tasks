@@ -1,5 +1,5 @@
-import type { ClassificationToken, TaskPriority, TaskStatus } from "@/backend/protocol";
-import type { V2TaskProjection } from "@/backend/v2Queries";
+import type { ClassificationToken, TaskPriority, TaskStatus } from "@/legacy/backend/protocol";
+import type { V2TaskProjection } from "@/backend/queries";
 
 /** Presentation data for the existing list/composer, never a canonical file or protocol envelope. */
 export type TaskView = {

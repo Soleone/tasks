@@ -1,4 +1,4 @@
-import type { TaskReorderPlacement } from "@/backend/protocol";
+import type { TaskReorderPlacement } from "@/legacy/backend/protocol";
 import type { VisibleTaskRow } from "@/components/taskTree";
 
 export type TaskMoveDirection = "up" | "down" | "start" | "end";

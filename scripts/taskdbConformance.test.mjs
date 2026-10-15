@@ -16,7 +16,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import readline from "node:readline";
 import test from "node:test";
-import { contentHash } from "../dist/backend/requestHash.js";
+import { contentHash } from "../dist/legacy/backend/requestHash.js";
 
 const fixtureRoot = fileURLToPath(new URL("./fixtures/taskdb-v1/sync/", import.meta.url));
 const sidecarPath = fileURLToPath(new URL("../dist/backend/cli.js", import.meta.url));

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Palette } from "lucide-react";
-import type { ThemeMode, ThemeRecord } from "@/backend/protocol";
+import type { ThemeMode, ThemeRecord } from "@/legacy/backend/protocol";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
 
 export function modeLabel(mode: ThemeMode): string {

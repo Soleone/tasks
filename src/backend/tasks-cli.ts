@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { executeCommand } from "./commands.js";
+import { executeCommand } from "../legacy/backend/commands.js";
 import { getDatabasePath } from "./paths.js";
-import type { ProtocolRequest, TaskRecord } from "./protocol.js";
-import { hasV2HumanRoot } from "./v2HumanArgs.js";
-import { runV2HumanCli } from "./v2HumanCli.js";
+import type { ProtocolRequest, TaskRecord } from "../legacy/backend/protocol.js";
+import { hasV2HumanRoot } from "./friendlyArgs.js";
+import { runV2HumanCli } from "./friendlyCli.js";
 
 const VERSION = 1 as const;
 

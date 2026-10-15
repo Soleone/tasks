@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { build } from "esbuild";
 
-const compiled = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/platform/backendTransport';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2_NATIVE_SELECTION: "explicit-native-selection" }) } });
+const compiled = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2_NATIVE_SELECTION: "explicit-native-selection" }) } });
 const client = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 
 const withheldActions = [
@@ -76,7 +76,7 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   ]);
 });
 
-const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {V2WorkspaceReader} from './src/platform/v2BackendClient'; export {readV2EditorSelection, V2EditorClient} from './src/platform/v2EditorClient'; export {V2UndoHistory, V2_UNDO_HISTORY_LIMIT} from './src/platform/v2UndoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
+const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {V2WorkspaceReader} from './src/platform/workspaceReader'; export {readV2EditorSelection, V2EditorClient} from './src/platform/editorClient'; export {V2UndoHistory, V2_UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
 const httpClient = await import(`data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}`);
 const { startDevServer } = await import("../dist/backend/devServer.js");
 

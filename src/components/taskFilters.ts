@@ -6,7 +6,7 @@ import {
   CircleX,
   type LucideIcon,
 } from "lucide-react";
-import type { TaskPriority, TaskRecord, TaskStatus } from "@/backend/protocol";
+import type { TaskPriority, TaskRecord, TaskStatus } from "@/legacy/backend/protocol";
 
 type TaskStatusMeta = {
   label: string;

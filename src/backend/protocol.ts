@@ -1,692 +1,118 @@
-import type { ThemeMode, ThemePalette } from "./themePalette.js";
+import { CommandError } from "./errors.js";
+import { parseV2CanonicalJson } from "./strictJson.js";
 
-export type { ThemeMode, ThemePalette };
-
-export const PROTOCOL_VERSION = 1 as const;
-
-export const COMMAND_NAMES = [
-  "runtime.probe",
-  "source.list",
-  "task.create",
-  "task.list",
-  "task.reorder",
-  "task.transitionMany",
-  "task.status.undoMany",
-  "operation.undo",
-  "category.list",
-  "tag.list",
-  "task.get",
-  "task.update",
-  "task.delete",
-  "task.purgeCanceled",
-  "task.start",
-  "task.pause",
-  "task.complete",
-  "task.reopen",
-  "task.cancel",
-  "task.status.undo",
-  "task.move",
-  "task.dependency.add",
-  "task.dependency.remove",
-  "activity.list",
-  "workspace.info",
-  "workspace.backup",
-  "workspace.export",
-  "workspace.exportTasks",
-  "workspace.restore",
-  "workspace.rebuild",
-  "workspace.archive",
-  "workspace.sync",
-  "workspace.conflict.list",
-  "workspace.conflict.resolve",
-  "workspace.receive.prepare",
-  "workspace.receive.status",
-  "workspace.receive.abort",
-  "theme.list",
-  "theme.set",
-] as const;
-
-export type CommandName = (typeof COMMAND_NAMES)[number];
-export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
+export type ActorKind = "human" | "agent" | "system";
+export type Actor = { kind: ActorKind; label: string };
 export type TaskTransitionCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen" | "task.cancel" | "task.delete";
 export type TaskTransitionItem = { id: string; expectedVersion: number; command: TaskTransitionCommand };
-export type TaskStatusUndoItem = { id: string; expectedVersion: number };
-export type OperationUndoArgs = { operationId: string };
-export type TaskPriority = 0 | 1 | 2 | 3 | 4;
-export type ActorKind = "human" | "agent" | "system";
-export type TaskListSort = "created" | "updated" | "priority" | "manual";
 export type TaskReorderTask = { id: string; expectedVersion: number };
-export type TaskReorderPlacement =
-  | { beforeId: string }
-  | { afterId: string }
-  | { first: true }
-  | { last: true };
-export type TaskReorderArgs = {
-  tasks: TaskReorderTask[];
-  placement: TaskReorderPlacement;
-};
-export type ThemeSource = "builtin" | "workspace" | "omarchy";
+export type TaskReorderPlacement = { beforeId: string } | { afterId: string } | { first: true } | { last: true };
 
-/** Product-facing category entries backed by the task text's @category values. */
-export type CategoryRecord = {
-  slug: string;
-  label: string;
-  taskCount: number;
-};
+// Commands this protocol knows by name. Names not offered by the current build fail
+// UNSUPPORTED_COMMAND rather than UNKNOWN_COMMAND, including retired workspace commands.
+const KNOWN_COMMANDS = [
+  "activity.list", "category.list", "operation.undo", "runtime.probe", "source.list", "tag.list",
+  "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove",
+  "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.purgeCanceled", "task.reopen",
+  "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update",
+  "theme.list", "theme.set", "workspace.archive", "workspace.backup", "workspace.conflict.list",
+  "workspace.conflict.resolve", "workspace.doctor.apply", "workspace.doctor.inspect", "workspace.doctor.plan",
+  "workspace.export", "workspace.exportTasks", "workspace.info", "workspace.init", "workspace.migrateV1",
+  "workspace.rebuild", "workspace.receive.abort", "workspace.receive.prepare", "workspace.receive.status",
+  "workspace.recovery.resume", "workspace.restore", "workspace.sync",
+] as const;
 
-/** Product-facing tag entries backed by the task text's #tag values. */
-export type TagRecord = {
-  slug: string;
-  label: string;
-  taskCount: number;
-};
-
-export type Actor = {
-  kind: ActorKind;
-  label: string;
-};
-
-export type ProtocolRequest = {
-  version: typeof PROTOCOL_VERSION;
-  requestId: string;
-  command: CommandName;
+export type V2Request = {
+  version: 2;
+  requestId: string | null;
+  command: string;
   args: Record<string, unknown>;
   actor: Actor;
   idempotencyKey?: string;
-  readOnly?: boolean;
-  dryRun?: boolean;
+  writeContext?: string;
+  readOnly: boolean;
+  dryRun: boolean;
 };
+export type V2Response =
+  | { version: 2; requestId: string | null; ok: true; writeContext: string; result: Record<string, unknown> }
+  | { version: 2; requestId: string | null; ok: false; error: { code: string; message: string; details?: Record<string, unknown> } };
 
-export type RuntimeProbeRequest = ProtocolRequest & { command: "runtime.probe" };
-
-export type ClassificationToken = {
-  slug: string;
-  label: string;
-};
-
-export type TaskRef = { sourceKey: string; taskId: string };
-
-export type TaskRecord = {
-  /** Present in a source-registry result; absent in legacy single-workspace mode. */
-  ref?: TaskRef;
-  id: string;
-  title: string;
-  descriptionMarkdown: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  category: ClassificationToken | null;
-  tags: ClassificationToken[];
-  parentId: string | null;
-  /** Direct dependency links, including canceled targets, for editing and history. */
-  dependencyIds: string[];
-  /** Direct dependencies that currently block this task. Canceled targets are omitted. */
-  blockedByIds: string[];
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-  completedAt: string | null;
-  canceledAt: string | null;
-};
-
-/** Identifier of the portable JSON file written by `workspace.exportTasks`. */
-export const TASKS_EXPORT_FORMAT = "tasks.tasks-export" as const;
-export const TASKS_EXPORT_FORMAT_VERSION = 2 as const;
-
-/**
- * One task in the portable export. Slugs are what the user typed as
- * `@category` and `#tag`, so they travel better than display labels, and
- * internal concurrency state such as `version` is left out.
- */
-export type TaskExportRecord = {
-  id: string;
-  /** Stable zero-based order within the task's parent sibling scope. */
-  siblingOrder: number;
-  title: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  category: string | null;
-  tags: string[];
-  parentId: string | null;
-  blockedByIds: string[];
-  notesMarkdown: string;
-  createdAt: string;
-  updatedAt: string;
-  completedAt: string | null;
-  canceledAt: string | null;
-};
-
-/** The readable JSON file `workspace.exportTasks` writes beside the database. */
-export type TasksExportFile = {
-  format: typeof TASKS_EXPORT_FORMAT;
-  formatVersion: typeof TASKS_EXPORT_FORMAT_VERSION;
-  exportedAt: string;
-  taskCount: number;
-  tasks: TaskExportRecord[];
-};
-
-export type ActivityRecord = {
-  seq: number;
-  taskId: string;
-  requestId: string;
-  action: string;
-  actor: Actor;
-  createdAt: string;
-  details: Record<string, unknown>;
-};
-
-export type RuntimeProbeResult = {
-  databasePath: string;
-  nodeVersion: string;
-  sqliteVersion: string;
-  journalMode: string;
-  fts5Enabled: boolean;
-  searchMatches: number;
-  probeValue: string;
-};
-
-/** A theme the workspace can select. `system` mode follows the OS appearance. */
-export type ThemeRecord = {
-  name: string;
-  label: string;
-  mode: ThemeMode;
-  source: ThemeSource;
-  /** Resolved palette slots to colors; empty slots fall back to the stylesheet ramp. */
-  palette: ThemePalette;
-  warnings: string[];
-};
-
-export type SuccessResponse = {
-  version: typeof PROTOCOL_VERSION;
-  requestId: string;
-  ok: true;
-  result: Record<string, unknown>;
-};
-
-export type ErrorResponse = {
-  version: typeof PROTOCOL_VERSION;
-  requestId: string;
-  ok: false;
-  error: {
-    code: string;
-    message: string;
-  };
-};
-
-export type ProtocolResponse = SuccessResponse | ErrorResponse;
-
-export class ProtocolError extends Error {
-  readonly code: string;
-
-  constructor(code: string, message: string) {
-    super(message);
-    this.name = "ProtocolError";
-    this.code = code;
+export function parseV2Response(value: unknown): V2Response {
+  if (!isV2Record(value) || value.version !== 2
+    || (value.requestId !== null && typeof value.requestId !== "string")) {
+    throw new Error("backend did not return a protocol-2 response");
   }
+  const fields = value.ok === true
+    ? ["version", "requestId", "ok", "writeContext", "result"]
+    : ["version", "requestId", "ok", "error"];
+  if (Object.keys(value).some(field => !fields.includes(field))) {
+    throw new Error("backend returned unexpected protocol-2 response fields");
+  }
+  if (value.ok === true && typeof value.writeContext === "string" && value.writeContext.trim() !== "" && isV2Record(value.result)) {
+    return value as V2Response;
+  }
+  if (value.ok === false && isV2Record(value.error)
+    && typeof value.error.code === "string" && value.error.code !== ""
+    && typeof value.error.message === "string"
+    && (value.error.details === undefined || isV2Record(value.error.details))
+    && Object.keys(value.error).every(field => ["code", "message", "details"].includes(field))) {
+    return value as V2Response;
+  }
+  throw new Error("backend returned an invalid protocol-2 response");
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+export const V2_QUERY_COMMANDS = ["category.list", "tag.list", "task.get", "task.list", "workspace.info"] as const;
+const knownCommands = new Set<string>(KNOWN_COMMANDS);
+const envelopeFields = new Set(["version", "requestId", "command", "args", "actor", "idempotencyKey", "writeContext", "readOnly", "dryRun"]);
+
+export function isV2Record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function requiredString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new ProtocolError("INVALID_REQUEST", `${field} must be a non-empty string`);
-  }
-
-  return value;
+function invalidEnvelope(field: string): never {
+  throw new CommandError("INVALID_REQUEST", `invalid request ${field}`);
 }
 
-function optionalBoolean(value: unknown, field: string): boolean | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "boolean") {
-    throw new ProtocolError("INVALID_REQUEST", `${field} must be a boolean`);
-  }
-  return value;
-}
-
-function parseActor(value: unknown): Actor {
-  if (value === undefined) {
-    return { kind: "agent", label: "cli" };
-  }
-  if (!isRecord(value)) {
-    throw new ProtocolError("INVALID_REQUEST", "actor must be an object");
-  }
-
-  const kind = requiredString(value.kind, "actor.kind");
-  if (kind !== "human" && kind !== "agent" && kind !== "system") {
-    throw new ProtocolError("INVALID_REQUEST", "actor.kind must be human, agent, or system");
-  }
-
-  return { kind, label: requiredString(value.label, "actor.label") };
-}
-
-function parseTaskReorderId(value: unknown, field: string): string {
-  return requiredString(value, field);
-}
-
-export function parseTaskReorderArgs(value: unknown): TaskReorderArgs {
-  if (!isRecord(value)) {
-    throw new ProtocolError("INVALID_REQUEST", "task.reorder args must be an object");
-  }
-  if (!Array.isArray(value.tasks) || value.tasks.length === 0) {
-    throw new ProtocolError("INVALID_REQUEST", "task.reorder tasks must be a non-empty array");
-  }
-
-  const seen = new Set<string>();
-  const tasks = value.tasks.map((entry, index) => {
-    if (!isRecord(entry)) {
-      throw new ProtocolError("INVALID_REQUEST", `task.reorder tasks[${index}] must be an object`);
-    }
-    const id = parseTaskReorderId(entry.id, `task.reorder tasks[${index}].id`);
-    if (seen.has(id)) {
-      throw new ProtocolError("INVALID_REQUEST", "task.reorder tasks must not contain duplicate ids");
-    }
-    seen.add(id);
-    if (typeof entry.expectedVersion !== "number" || !Number.isInteger(entry.expectedVersion) || entry.expectedVersion < 1) {
-      throw new ProtocolError("INVALID_REQUEST", `task.reorder tasks[${index}].expectedVersion must be a positive integer`);
-    }
-    return { id, expectedVersion: entry.expectedVersion };
-  });
-
-  if (!isRecord(value.placement)) {
-    throw new ProtocolError("INVALID_REQUEST", "task.reorder placement must be an object");
-  }
-  const placementKeys = Object.keys(value.placement);
-  if (placementKeys.length !== 1 || !["beforeId", "afterId", "first", "last"].includes(placementKeys[0] ?? "")) {
-    throw new ProtocolError("INVALID_REQUEST", "task.reorder placement must specify exactly one of beforeId, afterId, first, or last");
-  }
-  const placementKey = placementKeys[0] as "beforeId" | "afterId" | "first" | "last";
-  if (placementKey === "beforeId" || placementKey === "afterId") {
-    const id = parseTaskReorderId(value.placement[placementKey], `task.reorder placement.${placementKey}`);
-    return { tasks, placement: { [placementKey]: id } as TaskReorderPlacement };
-  }
-  if (value.placement[placementKey] !== true) {
-    throw new ProtocolError("INVALID_REQUEST", `task.reorder placement.${placementKey} must be true`);
-  }
-  return { tasks, placement: { [placementKey]: true } as TaskReorderPlacement };
-}
-
-export type TaskTransitionManyArgs = { tasks: TaskTransitionItem[] };
-export type TaskStatusUndoManyArgs = { tasks: TaskStatusUndoItem[] };
-
-function parseExpectedVersion(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
-    throw new ProtocolError("INVALID_REQUEST", `${field} must be a positive integer`);
-  }
-  return value;
-}
-
-export function parseTaskTransitionManyArgs(value: unknown): TaskTransitionManyArgs {
-  if (!isRecord(value) || !Array.isArray(value.tasks) || value.tasks.length === 0) {
-    throw new ProtocolError("INVALID_REQUEST", "task.transitionMany tasks must be a non-empty array");
-  }
-  const seen = new Set<string>();
-  const tasks = value.tasks.map((entry, index) => {
-    if (!isRecord(entry)) {
-      throw new ProtocolError("INVALID_REQUEST", `task.transitionMany tasks[${index}] must be an object`);
-    }
-    const id = requiredString(entry.id, `task.transitionMany tasks[${index}].id`);
-    if (seen.has(id)) {
-      throw new ProtocolError("INVALID_REQUEST", "task.transitionMany tasks must not contain duplicate ids");
-    }
-    seen.add(id);
-    const command = entry.command;
-    if (command !== "task.start" && command !== "task.pause" && command !== "task.complete" && command !== "task.reopen" && command !== "task.cancel" && command !== "task.delete") {
-      throw new ProtocolError("INVALID_REQUEST", `task.transitionMany tasks[${index}].command is unsupported`);
-    }
-    return {
-      id,
-      expectedVersion: parseExpectedVersion(entry.expectedVersion, `task.transitionMany tasks[${index}].expectedVersion`),
-      command: command as TaskTransitionCommand,
-    };
-  });
-  return { tasks };
-}
-
-export function parseTaskStatusUndoManyArgs(value: unknown): TaskStatusUndoManyArgs {
-  if (!isRecord(value) || !Array.isArray(value.tasks) || value.tasks.length === 0) {
-    throw new ProtocolError("INVALID_REQUEST", "task.status.undoMany tasks must be a non-empty array");
-  }
-  const seen = new Set<string>();
-  const tasks = value.tasks.map((entry, index) => {
-    if (!isRecord(entry)) {
-      throw new ProtocolError("INVALID_REQUEST", `task.status.undoMany tasks[${index}] must be an object`);
-    }
-    const id = requiredString(entry.id, `task.status.undoMany tasks[${index}].id`);
-    if (seen.has(id)) {
-      throw new ProtocolError("INVALID_REQUEST", "task.status.undoMany tasks must not contain duplicate ids");
-    }
-    seen.add(id);
-    return {
-      id,
-      expectedVersion: parseExpectedVersion(entry.expectedVersion, `task.status.undoMany tasks[${index}].expectedVersion`),
-    };
-  });
-  return { tasks };
-}
-
-export function parseRequest(value: unknown): ProtocolRequest {
-  if (!isRecord(value)) {
-    throw new ProtocolError("INVALID_REQUEST", "request must be a JSON object");
-  }
-
-  if (value.version !== PROTOCOL_VERSION) {
-    throw new ProtocolError("UNSUPPORTED_VERSION", `protocol version must be ${PROTOCOL_VERSION}`);
-  }
-
-  const requestId = requiredString(value.requestId, "requestId");
-  if (requestId.length > 128) {
-    throw new ProtocolError("INVALID_REQUEST", "requestId must be 128 characters or fewer");
-  }
-
-  if (typeof value.command !== "string" || !COMMAND_NAMES.includes(value.command as CommandName)) {
-    throw new ProtocolError("UNKNOWN_COMMAND", "command is not supported");
-  }
-
-  const args = value.args === undefined ? {} : value.args;
-  if (!isRecord(args)) {
-    throw new ProtocolError("INVALID_REQUEST", "args must be a JSON object");
-  }
-
-  if (value.command === "runtime.probe" && Object.keys(args).length > 0) {
-    throw new ProtocolError("INVALID_REQUEST", "runtime.probe does not accept arguments");
-  }
-  if (value.command === "task.list" && args.sort !== undefined
-    && args.sort !== "created" && args.sort !== "updated" && args.sort !== "priority" && args.sort !== "manual") {
-    throw new ProtocolError("INVALID_REQUEST", "task.list sort must be created, updated, priority, or manual");
-  }
-  if (value.command === "task.reorder") {
-    parseTaskReorderArgs(args);
-  }
-  if (value.command === "task.transitionMany") {
-    parseTaskTransitionManyArgs(args);
-  }
-  if (value.command === "task.status.undoMany") {
-    parseTaskStatusUndoManyArgs(args);
-  }
-  if (value.command === "operation.undo") {
-    if (!isRecord(args) || typeof args.operationId !== "string" || args.operationId.trim() === "") {
-      throw new ProtocolError("INVALID_REQUEST", "operation.undo operationId must be a non-empty string");
-    }
-  }
-
-  const idempotencyKey = value.idempotencyKey === undefined ? undefined : requiredString(value.idempotencyKey, "idempotencyKey");
-  if (idempotencyKey !== undefined && idempotencyKey.length > 128) {
-    throw new ProtocolError("INVALID_REQUEST", "idempotencyKey must be 128 characters or fewer");
-  }
-
-  return {
-    version: PROTOCOL_VERSION,
-    requestId,
-    command: value.command as CommandName,
-    args,
-    actor: parseActor(value.actor),
-    idempotencyKey,
-    readOnly: optionalBoolean(value.readOnly, "readOnly"),
-    dryRun: optionalBoolean(value.dryRun, "dryRun"),
-  };
-}
-
-export function parseLine(line: string): ProtocolRequest {
+export function decodeV2Envelope(bytes: Uint8Array): unknown {
   try {
-    return parseRequest(JSON.parse(line));
-  } catch (error) {
-    if (error instanceof ProtocolError) {
-      throw error;
-    }
-
-    throw new ProtocolError("INVALID_JSON", "request must contain valid JSON");
+    return parseV2CanonicalJson(bytes);
+  } catch {
+    throw new CommandError("INVALID_REQUEST", "request must contain strict UTF-8 JSON");
   }
 }
 
-function responseString(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new ProtocolError("INVALID_RESPONSE", `${field} must be a non-empty string`);
+export function parseV2Request(value: unknown): V2Request {
+  if (!isV2Record(value)) invalidEnvelope("object");
+  if (Object.keys(value).some(field => !envelopeFields.has(field))) invalidEnvelope("fields");
+  if (value.version !== 2) throw new CommandError("UNSUPPORTED_VERSION", "protocol version must be 2");
+  if (value.requestId !== undefined && value.requestId !== null && typeof value.requestId !== "string") invalidEnvelope("requestId");
+  if (typeof value.command !== "string" || value.command === "") invalidEnvelope("command");
+  if (!knownCommands.has(value.command)) throw new CommandError("UNKNOWN_COMMAND", "command is not known");
+  const args = value.args ?? {};
+  if (value.args === null || !isV2Record(args)) invalidEnvelope("args");
+  const actor = value.actor === undefined ? { kind: "agent", label: "cli" } : value.actor;
+  if (!isV2Record(actor) || Object.keys(actor).some(field => field !== "kind" && field !== "label")
+    || !["human", "agent", "system"].includes(actor.kind as string)
+    || typeof actor.label !== "string" || actor.label.trim() === "") invalidEnvelope("actor");
+  for (const field of ["readOnly", "dryRun"]) {
+    if (value[field] !== undefined && typeof value[field] !== "boolean") invalidEnvelope(field);
   }
-
-  return value;
-}
-
-function responseNumber(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new ProtocolError("INVALID_RESPONSE", `${field} must be a finite number`);
+  for (const field of ["writeContext", "idempotencyKey"]) {
+    if (value[field] !== undefined && (typeof value[field] !== "string" || (value[field] as string).trim() === "")) invalidEnvelope(field);
   }
-
-  return value;
-}
-
-function responseBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") {
-    throw new ProtocolError("INVALID_RESPONSE", `${field} must be a boolean`);
-  }
-
-  return value;
-}
-
-export function parseResponse(value: unknown): ProtocolResponse {
-  if (!isRecord(value)) {
-    throw new ProtocolError("INVALID_RESPONSE", "response must be a JSON object");
-  }
-
-  if (value.version !== PROTOCOL_VERSION) {
-    throw new ProtocolError("UNSUPPORTED_VERSION", `protocol version must be ${PROTOCOL_VERSION}`);
-  }
-
-  const requestId = responseString(value.requestId, "requestId");
-  if (value.ok === false && isRecord(value.error)) {
-    return {
-      version: PROTOCOL_VERSION,
-      requestId,
-      ok: false,
-      error: {
-        code: responseString(value.error.code, "error.code"),
-        message: responseString(value.error.message, "error.message"),
-      },
-    };
-  }
-
-  if (value.ok === true && isRecord(value.result)) {
-    return { version: PROTOCOL_VERSION, requestId, ok: true, result: value.result };
-  }
-
-  throw new ProtocolError("INVALID_RESPONSE", "response must contain a valid result or error");
-}
-
-export function parseRuntimeProbeResult(value: unknown): RuntimeProbeResult {
-  if (!isRecord(value)) {
-    throw new ProtocolError("INVALID_RESPONSE", "runtime probe result must be an object");
-  }
-
   return {
-    databasePath: responseString(value.databasePath, "result.databasePath"),
-    nodeVersion: responseString(value.nodeVersion, "result.nodeVersion"),
-    sqliteVersion: responseString(value.sqliteVersion, "result.sqliteVersion"),
-    journalMode: responseString(value.journalMode, "result.journalMode"),
-    fts5Enabled: responseBoolean(value.fts5Enabled, "result.fts5Enabled"),
-    searchMatches: responseNumber(value.searchMatches, "result.searchMatches"),
-    probeValue: responseString(value.probeValue, "result.probeValue"),
+    version: 2,
+    requestId: value.requestId as string | null | undefined ?? null,
+    command: value.command,
+    args,
+    actor: { kind: actor.kind as Actor["kind"], label: actor.label.trim() },
+    idempotencyKey: value.idempotencyKey as string | undefined,
+    writeContext: value.writeContext as string | undefined,
+    readOnly: value.readOnly as boolean | undefined ?? false,
+    dryRun: value.dryRun as boolean | undefined ?? false,
   };
 }
 
-const TASK_RESPONSE_STATUSES: readonly TaskStatus[] = ["open", "in_progress", "paused", "done", "canceled"];
-
-function responseRecord(value: unknown, field: string): Record<string, unknown> {
-  if (!isRecord(value)) throw new ProtocolError("INVALID_RESPONSE", `${field} must be an object`);
-  return value;
-}
-
-function responseInteger(value: unknown, field: string, minimum = 0): number {
-  const number = responseNumber(value, field);
-  if (!Number.isInteger(number) || number < minimum) {
-    throw new ProtocolError("INVALID_RESPONSE", `${field} must be an integer of at least ${minimum}`);
-  }
-  return number;
-}
-
-function responseNullableString(value: unknown, field: string): string | null {
-  return value === null ? null : responseString(value, field);
-}
-
-function responseStringArray(value: unknown, field: string): string[] {
-  if (!Array.isArray(value)) throw new ProtocolError("INVALID_RESPONSE", `${field} must be an array`);
-  return value.map((entry, index) => responseString(entry, `${field}[${index}]`));
-}
-
-function responseClassificationToken(value: unknown, field: string): ClassificationToken {
-  const token = responseRecord(value, field);
-  return {
-    slug: responseString(token.slug, `${field}.slug`),
-    label: responseString(token.label, `${field}.label`),
-  };
-}
-
-function responseTaskRef(value: unknown, field: string): TaskRef {
-  const ref = responseRecord(value, field);
-  return {
-    sourceKey: responseString(ref.sourceKey, `${field}.sourceKey`),
-    taskId: responseString(ref.taskId, `${field}.taskId`),
-  };
-}
-
-function responseTaskRecord(value: unknown, field: string): TaskRecord {
-  const task = responseRecord(value, field);
-  const ref = task.ref === undefined ? undefined : responseTaskRef(task.ref, `${field}.ref`);
-  const id = responseString(task.id, `${field}.id`);
-  if (ref !== undefined && ref.taskId !== id) {
-    throw new ProtocolError("INVALID_RESPONSE", `${field}.ref.taskId must match ${field}.id`);
-  }
-  const status = responseString(task.status, `${field}.status`);
-  if (!TASK_RESPONSE_STATUSES.includes(status as TaskStatus)) {
-    throw new ProtocolError("INVALID_RESPONSE", `${field}.status is unsupported`);
-  }
-  const priority = responseInteger(task.priority, `${field}.priority`);
-  if (priority > 4) throw new ProtocolError("INVALID_RESPONSE", `${field}.priority must be between 0 and 4`);
-  const descriptionMarkdown = task.descriptionMarkdown;
-  if (typeof descriptionMarkdown !== "string") {
-    throw new ProtocolError("INVALID_RESPONSE", `${field}.descriptionMarkdown must be a string`);
-  }
-  const tags = task.tags;
-  if (!Array.isArray(tags)) throw new ProtocolError("INVALID_RESPONSE", `${field}.tags must be an array`);
-
-  return {
-    ...(ref === undefined ? {} : { ref }),
-    id,
-    title: responseString(task.title, `${field}.title`),
-    descriptionMarkdown,
-    status: status as TaskStatus,
-    priority: priority as TaskPriority,
-    category: task.category === null ? null : responseClassificationToken(task.category, `${field}.category`),
-    tags: tags.map((tag, index) => responseClassificationToken(tag, `${field}.tags[${index}]`)),
-    parentId: responseNullableString(task.parentId, `${field}.parentId`),
-    dependencyIds: responseStringArray(task.dependencyIds, `${field}.dependencyIds`),
-    blockedByIds: responseStringArray(task.blockedByIds, `${field}.blockedByIds`),
-    version: responseInteger(task.version, `${field}.version`, 1),
-    createdAt: responseString(task.createdAt, `${field}.createdAt`),
-    updatedAt: responseString(task.updatedAt, `${field}.updatedAt`),
-    completedAt: responseNullableString(task.completedAt, `${field}.completedAt`),
-    canceledAt: responseNullableString(task.canceledAt, `${field}.canceledAt`),
-  };
-}
-
-function responseTaskArray(value: unknown, field: string): TaskRecord[] {
-  if (!Array.isArray(value)) throw new ProtocolError("INVALID_RESPONSE", `${field} must be an array`);
-  return value.map((task, index) => responseTaskRecord(task, `${field}[${index}]`));
-}
-
-function validateTaskMutationMetadata(result: Record<string, unknown>, changedRequired: boolean): void {
-  if (result.operationId !== undefined) responseString(result.operationId, "result.operationId");
-  if (result.changed !== undefined || changedRequired) responseBoolean(result.changed, "result.changed");
-  if (result.dryRun !== undefined) responseBoolean(result.dryRun, "result.dryRun");
-  if (result.readOnly !== undefined) responseBoolean(result.readOnly, "result.readOnly");
-}
-
-function parseTaskListResult(value: unknown): Record<string, unknown> {
-  const result = responseRecord(value, "result");
-  const tasks = responseTaskArray(result.tasks, "result.tasks");
-  const contextTasks = responseTaskArray(result.contextTasks, "result.contextTasks");
-  responseInteger(result.total, "result.total");
-  responseInteger(result.limit, "result.limit");
-  responseInteger(result.offset, "result.offset");
-  responseInteger(result.workspaceRevision, "result.workspaceRevision");
-  if (result.unresolvedConflicts !== undefined) {
-    if (!Array.isArray(result.unresolvedConflicts)) {
-      throw new ProtocolError("INVALID_RESPONSE", "result.unresolvedConflicts must be an array");
-    }
-    result.unresolvedConflicts.forEach((conflict, index) => {
-      responseString(responseRecord(conflict, `result.unresolvedConflicts[${index}]`).sourcePath, `result.unresolvedConflicts[${index}].sourcePath`);
-    });
-  }
-  return { ...result, tasks, contextTasks };
-}
-
-function parseTaskRecordResult(value: unknown, field = "result"): Record<string, unknown> {
-  const result = responseRecord(value, field);
-  const task = responseTaskRecord(result.task, `${field}.task`);
-  validateTaskMutationMetadata(result, false);
-  if (result.undoneSeq !== undefined) responseInteger(result.undoneSeq, `${field}.undoneSeq`);
-  return { ...result, task };
-}
-
-function parseTaskArrayResult(value: unknown): Record<string, unknown> {
-  const result = responseRecord(value, "result");
-  const tasks = responseTaskArray(result.tasks, "result.tasks");
-  validateTaskMutationMetadata(result, true);
-  return { ...result, tasks };
-}
-
-function parseOperationUndoResult(value: unknown): Record<string, unknown> {
-  const result = responseRecord(value, "result");
-  responseString(result.operationId, "result.operationId");
-  responseString(result.undoneOperationId, "result.undoneOperationId");
-  if (result.deletedTaskIds !== undefined) responseStringArray(result.deletedTaskIds, "result.deletedTaskIds");
-  const tasks = responseTaskArray(result.tasks, "result.tasks");
-  validateTaskMutationMetadata(result, true);
-  return { ...result, tasks };
-}
-
-export function parseTaskCommandResult(command: CommandName, value: unknown): Record<string, unknown> {
-  if (command === "task.list") return parseTaskListResult(value);
-  if (command === "task.get" || command === "task.create" || command === "task.update" || command === "task.delete"
-    || command === "task.start" || command === "task.pause" || command === "task.complete" || command === "task.reopen"
-    || command === "task.cancel" || command === "task.status.undo" || command === "task.move"
-    || command === "task.dependency.add" || command === "task.dependency.remove") {
-    return parseTaskRecordResult(value);
-  }
-  if (command === "task.reorder" || command === "task.transitionMany" || command === "task.status.undoMany") {
-    return parseTaskArrayResult(value);
-  }
-  if (command === "operation.undo") return parseOperationUndoResult(value);
-  return responseRecord(value, "result");
-}
-
-export function successResponse(requestId: string, result: Record<string, unknown>): SuccessResponse {
-  return {
-    version: PROTOCOL_VERSION,
-    requestId,
-    ok: true,
-    result,
-  };
-}
-
-export function errorResponse(requestId: string, error: unknown): ErrorResponse {
-  if (error instanceof ProtocolError) {
-    return {
-      version: PROTOCOL_VERSION,
-      requestId,
-      ok: false,
-      error: { code: error.code, message: error.message },
-    };
-  }
-
-  const message = error instanceof Error ? error.message : "unexpected backend error";
-  const separator = message.indexOf(":");
-  const code = separator > 0 && /^[A-Z_]+$/.test(message.slice(0, separator)) ? message.slice(0, separator) : "INTERNAL_ERROR";
-  return {
-    version: PROTOCOL_VERSION,
-    requestId,
-    ok: false,
-    error: { code, message: separator > 0 ? message.slice(separator + 1).trim() : message },
-  };
+export function assertV2Args(args: Record<string, unknown>, fields: readonly string[]): void {
+  if (Object.keys(args).some(field => !fields.includes(field))) throw new CommandError("INVALID_ARGUMENT", "command has unknown arguments");
 }

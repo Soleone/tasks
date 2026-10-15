@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statfsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { syncV2Directory, withV2RootWriterLock, writeV2DurableFile } from "../dist/backend/v2LocalDomain.js";
+import { syncV2Directory, withV2RootWriterLock, writeV2DurableFile } from "../dist/backend/localDomain.js";
 
 assert.equal(process.platform, "win32", "Run with Windows Node from a Windows filesystem checkout");
 assert.match(realpathSync(import.meta.dirname), /^[A-Za-z]:\\/, "The probe must not run from a WSL/UNC checkout");

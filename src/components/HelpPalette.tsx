@@ -25,7 +25,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import type { TaskRecord } from "@/backend/protocol";
+import type { TaskRecord } from "@/legacy/backend/protocol";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 

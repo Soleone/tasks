@@ -22,7 +22,7 @@
     "dev:native": "node scripts/dev-native.mjs",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",
-    "test": "pnpm build:backend && node --test dist/backend/*.test.js scripts/*.test.mjs",
+    "test": "pnpm build:backend && node --test dist/backend/*.test.js dist/legacy/backend/*.test.js dist/migration/*.test.js scripts/*.test.mjs",
     "test:native:argv": "node scripts/check-native-launch-argv.mjs",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",

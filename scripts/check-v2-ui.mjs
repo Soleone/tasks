@@ -23,8 +23,8 @@ async function startDevServer(options) {
   const ready = await new Promise((resolve, reject) => { worker.once("message", resolve); worker.once("error", reject); });
   return { ...ready, worker, listening: true };
 }
-const { inspectV2CanonicalRoot } = await import("../dist/backend/v2CanonicalReader.js");
-const { pendingV2Path } = await import("../dist/backend/v2LocalDomain.js");
+const { inspectV2CanonicalRoot } = await import("../dist/backend/canonicalReader.js");
+const { pendingV2Path } = await import("../dist/backend/localDomain.js");
 const scratch = mkdtempSync(path.join(tmpdir(), "taskdb-v2-ui-"));
 const profile = path.join(scratch, "profile");
 const root = path.join(scratch, "root");
@@ -145,7 +145,7 @@ try {
   const recoveryTask = cli("add", "--title", "Before interrupted update").task;
   const loader = path.join(scratch, "cut.mjs");
   const marker = 'renameSync(temporary, pending);';
-  writeFileSync(loader, `import { registerHooks } from "node:module"; registerHooks({ load(url, context, next) { const result = next(url, context); if (url.endsWith("/v2LocalDomain.js")) { const source = String(result.source); const marker = ${JSON.stringify(marker)}; if (source.split(marker).length !== 2) throw new Error("fault boundary missing"); return { ...result, source: source.replace(marker, marker + '\\nprocess.kill(process.pid, "SIGKILL");') }; } return result; } });\n`);
+  writeFileSync(loader, `import { registerHooks } from "node:module"; registerHooks({ load(url, context, next) { const result = next(url, context); if (url.endsWith("/localDomain.js")) { const source = String(result.source); const marker = ${JSON.stringify(marker)}; if (source.split(marker).length !== 2) throw new Error("fault boundary missing"); return { ...result, source: source.replace(marker, marker + '\\nprocess.kill(process.pid, "SIGKILL");') }; } return result; } });\n`);
   const interrupted = spawnSync(process.execPath, ["--import", loader, "dist/backend/tasks-cli.js", "--v2-root", root, "--database", cache, "update", recoveryTask.id, "--title", "Explicit recovery becomes visible"], { encoding: "utf8", env: process.env });
   assert.equal(interrupted.signal, "SIGKILL", interrupted.stderr);
   const pendingPath = pendingV2Path(inspectV2CanonicalRoot(root));

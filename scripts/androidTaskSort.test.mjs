@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { sortAndroidTasks } from "../src/platform/androidTaskSort.ts";
+import { sortAndroidTasks } from "../src/legacy/platform/androidTaskSort.ts";
 import { classifyTaskText } from "../src/backend/taskText.ts";
 
 const tasks = [

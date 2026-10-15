@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { Check, Tags } from "lucide-react";
-import type { TagRecord } from "@/backend/protocol";
+import type { TagRecord } from "@/legacy/backend/protocol";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { listTags } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";

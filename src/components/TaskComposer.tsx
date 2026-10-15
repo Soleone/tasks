@@ -1,9 +1,9 @@
 import { randomUUID } from "../lib/randomUUID";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
-import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/backend/protocol";
+import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/legacy/backend/protocol";
 import type { TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { parseV2Shorthand } from "@/backend/v2UpdateInputs";
+import { parseV2Shorthand } from "@/backend/updateInputs";
 import { createTask, listCategories, listTags, updateTask, selectedMainWorkspace, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

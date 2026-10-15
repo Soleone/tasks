@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AndroidSiblingOrderConflict, assertAndroidSiblingOrder } from "../src/platform/androidSiblingOrder.ts";
+import { AndroidSiblingOrderConflict, assertAndroidSiblingOrder } from "../src/legacy/platform/androidSiblingOrder.ts";
 
 const initial = ["a", "b", "c", "d"];
 

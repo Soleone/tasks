@@ -4,7 +4,7 @@ import test from "node:test";
 import { build, transformSync } from "esbuild";
 
 const compiled = await build({
-  stdin: { contents: `export {BackendCommandError} from './src/platform/backendClient'; export {V2EditorError} from './src/platform/v2EditorClient';`, resolveDir: process.cwd() },
+  stdin: { contents: `export {BackendCommandError} from './src/platform/backendClient'; export {V2EditorError} from './src/platform/editorClient';`, resolveDir: process.cwd() },
   bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": "{}" },
 });
 const { BackendCommandError, V2EditorError } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);

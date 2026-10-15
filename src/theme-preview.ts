@@ -1,4 +1,4 @@
-import type { ThemeRecord } from "./backend/protocol";
+import type { ThemeRecord } from "./legacy/backend/protocol";
 import { listThemes } from "./platform/backendClient";
 import "./styles.css";
 import "./theme-preview.css";

@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { performance } from "node:perf_hooks";
-import { executeV2Line } from "../dist/backend/v2Gateway.js";
-import { readV2CanonicalRoot } from "../dist/backend/v2CanonicalReader.js";
+import { executeV2Line } from "../dist/backend/gateway.js";
+import { readV2CanonicalRoot } from "../dist/backend/canonicalReader.js";
 
 assert.equal(process.platform, "linux", "No-op update measurements require the Linux writer");
 const scratch = mkdtempSync(path.join(os.tmpdir(), "tasks-authority-measure-"));

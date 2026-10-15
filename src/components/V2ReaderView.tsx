@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { APP_NAME } from "@/backend/branding";
-import type { V2TaskProjection } from "@/backend/v2Queries";
-import type { TaskStatus } from "@/backend/protocol";
+import type { V2TaskProjection } from "@/backend/queries";
+import type { TaskStatus } from "@/legacy/backend/protocol";
 import { TaskStatusDisplay } from "./TaskRow";
 import { taskStatusMeta } from "./taskFilters";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
@@ -12,7 +12,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { Input } from "./ui/input";
 import { Item } from "./ui/item";
 import { Label } from "./ui/label";
-import { V2WorkspaceReader, type V2TaskPage, type V2WorkspaceInfo } from "@/platform/v2BackendClient";
+import { V2WorkspaceReader, type V2TaskPage, type V2WorkspaceInfo } from "@/platform/workspaceReader";
 
 function TaskDetails({ task }: { task: V2TaskProjection }): ReactElement {
   return (

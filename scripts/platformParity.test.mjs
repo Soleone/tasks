@@ -5,13 +5,13 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { build } from "esbuild";
-import { executeCommand } from "../dist/backend/commands.js";
-import { canonicalRootPath } from "../dist/backend/canonicalWorkspace.js";
+import { executeCommand } from "../dist/legacy/backend/commands.js";
+import { canonicalRootPath } from "../dist/legacy/backend/canonicalWorkspace.js";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/platform-parity.json", import.meta.url), "utf8"));
 const bundleDirectory = mkdtempSync(path.join(os.tmpdir(), "tasks-platform-parity-"));
 const bundle = await build({
-  entryPoints: ["src/platform/androidBackendEngine.ts"],
+  entryPoints: ["src/legacy/platform/androidBackendEngine.ts"],
   bundle: true,
   format: "esm",
   platform: "node",

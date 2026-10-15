@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { Folder } from "lucide-react";
-import type { CategoryRecord } from "@/backend/protocol";
+import type { CategoryRecord } from "@/legacy/backend/protocol";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { listCategories } from "@/platform/backendClient";
 

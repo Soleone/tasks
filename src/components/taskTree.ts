@@ -1,4 +1,4 @@
-import type { TaskRecord } from "@/backend/protocol";
+import type { TaskRecord } from "@/legacy/backend/protocol";
 
 export type VisibleTaskRow = {
   task: TaskRecord;

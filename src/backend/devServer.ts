@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { executeCommand } from "./commands.js";
+import { executeCommand } from "../legacy/backend/commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
-import { V2_STATUS_COMMANDS } from "./v2TaskStatus.js";
-import { errorResponse, parseRequest, successResponse } from "./protocol.js";
-import { executeV2Line } from "./v2Gateway.js";
-import { V2_RELATIONSHIP_COMMANDS } from "./v2TaskRelationships.js";
-import { decodeV2Envelope, parseV2Request, V2_QUERY_COMMANDS } from "./v2Protocol.js";
+import { V2_STATUS_COMMANDS } from "./taskStatus.js";
+import { errorResponse, parseRequest, successResponse } from "../legacy/backend/protocol.js";
+import { executeV2Line } from "./gateway.js";
+import { V2_RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
+import { decodeV2Envelope, parseV2Request, V2_QUERY_COMMANDS } from "./protocol.js";
 
 /**
  * Dev-only HTTP bridge over the same command path as the Tauri sidecar and

@@ -1,20 +1,20 @@
 import { createInterface } from "node:readline";
 import path from "node:path";
 import { realpathSync } from "node:fs";
-import { executeCommand } from "./commands.js";
-import { watchCanonicalWorkspace, withCanonicalRootPath } from "./canonicalWorkspace.js";
-import { readSourceRegistry } from "./sourceRegistry.js";
+import { executeCommand } from "../legacy/backend/commands.js";
+import { watchCanonicalWorkspace, withCanonicalRootPath } from "../legacy/backend/canonicalWorkspace.js";
+import { readSourceRegistry } from "../legacy/backend/sourceRegistry.js";
 import { getDatabasePath } from "./paths.js";
-import { executeV2Line } from "./v2Gateway.js";
-import { localPathOutsideV2Root } from "./v2QueryCache.js";
-import type { V2Response } from "./v2Protocol.js";
+import { executeV2Line } from "./gateway.js";
+import { localPathOutsideV2Root } from "./queryCache.js";
+import type { V2Response } from "./protocol.js";
 import {
   errorResponse,
   parseLine,
   parseRequest,
   successResponse,
   type ProtocolResponse,
-} from "./protocol.js";
+} from "../legacy/backend/protocol.js";
 
 function optionValue(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);

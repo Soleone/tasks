@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
 import { exportTasks, getWorkspaceInfo, selectedMainWorkspace, type TasksExportResult } from "@/platform/backendClient";
-import { clearAndroidSyncFolder, getAndroidSyncFolder, pickAndroidSyncFolder, type AndroidDirectorySelection } from "@/platform/androidWorkspace";
+import { clearAndroidSyncFolder, getAndroidSyncFolder, pickAndroidSyncFolder, type AndroidDirectorySelection } from "@/legacy/platform/androidWorkspace";
 import { runtimeKind } from "@/platform/runtime";
 import { APP_NAME } from "@/backend/branding";
-import type { ThemeRecord } from "@/backend/protocol";
+import type { ThemeRecord } from "@/legacy/backend/protocol";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

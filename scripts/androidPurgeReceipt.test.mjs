@@ -10,7 +10,7 @@ import { canonicalJson } from "../src/backend/canonicalJson.ts";
 const bundleDirectory = mkdtempSync(path.join(tmpdir(), "tasks-android-purge-test-"));
 after(() => rmSync(bundleDirectory, { recursive: true, force: true }));
 const bundle = await build({
-  entryPoints: ["src/platform/androidBackendEngine.ts"],
+  entryPoints: ["src/legacy/platform/androidBackendEngine.ts"],
   bundle: true,
   format: "esm",
   platform: "node",

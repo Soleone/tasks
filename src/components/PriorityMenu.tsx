@@ -1,6 +1,6 @@
 import { useRef, type ReactElement } from "react";
 import { Check, Flag } from "lucide-react";
-import type { TaskPriority } from "@/backend/protocol";
+import type { TaskPriority } from "@/legacy/backend/protocol";
 import { PRIORITY_META } from "@/components/taskFilters";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 

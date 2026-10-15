@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AndroidUndoError, planAndroidUndo } from "../src/platform/androidUndo.ts";
+import { AndroidUndoError, planAndroidUndo } from "../src/legacy/platform/androidUndo.ts";
 
 const now = "2026-09-10T00:00:00.000Z";
 function task(id, changes = {}) {

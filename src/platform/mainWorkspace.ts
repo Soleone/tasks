@@ -1,10 +1,11 @@
 import { taskView } from "@/components/taskView";
-import type { TaskPriority, TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
-import { parseV2TaskProjection } from "@/backend/v2TaskResults";
-import { compareV2Tasks } from "@/backend/v2TaskModel";
-import { V2WorkspaceReader } from "./v2BackendClient";
-import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2CopyResult, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction, type V2UndoResult } from "./v2EditorClient";
-import { browserUndoStorage, V2UndoHistory, type V2UndoStorage } from "./v2UndoHistory";
+import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
+import type { TaskPriority } from "@/backend/taskModel";
+import { parseV2TaskProjection } from "@/backend/taskResults";
+import { compareV2Tasks } from "@/backend/taskModel";
+import { V2WorkspaceReader } from "./workspaceReader";
+import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2CopyResult, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction, type V2UndoResult } from "./editorClient";
+import { browserUndoStorage, V2UndoHistory, type V2UndoStorage } from "./undoHistory";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
 const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);

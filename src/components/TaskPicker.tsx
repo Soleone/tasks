@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
-import type { TaskRecord } from "@/backend/protocol";
+import type { TaskRecord } from "@/legacy/backend/protocol";
 import { TaskRow, TaskStatusDisplay, taskTitleDisplay } from "@/components/TaskRow";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
 import { getTask, listTasks } from "@/platform/backendClient";

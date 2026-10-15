@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planAndroidPurgeCanonicalChanges } from "../src/platform/androidPurgePlan.ts";
+import { planAndroidPurgeCanonicalChanges } from "../src/legacy/platform/androidPurgePlan.ts";
 
 const currentTask = (id, parentId, position) => ({ id, parentId, position });
 

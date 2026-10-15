@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
-import type { ClassificationToken, TaskRecord } from "@/backend/protocol";
+import type { ClassificationToken, TaskRecord } from "@/legacy/backend/protocol";
 import type { TaskView } from "./taskView";
 import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
 import { stripClassificationTokens } from "@/backend/taskText";

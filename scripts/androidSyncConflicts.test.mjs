@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { listAndroidSyncConflicts } from "../src/platform/androidSyncConflicts.ts";
+import { listAndroidSyncConflicts } from "../src/legacy/platform/androidSyncConflicts.ts";
 
 const file = (relativePath) => ({ relativePath, content: "{}", modifiedAt: null });
 

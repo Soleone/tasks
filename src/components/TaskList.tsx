@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronDown, ChevronRight, Circle, Clock3, Flag, Folder, ListChevronsUpDown, ListOrdered, Plus, RotateCcwClock, Search, ShieldCheck, Tags } from "lucide-react";
-import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, TaskTransitionCommand } from "@/backend/protocol";
+import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, TaskTransitionCommand } from "@/legacy/backend/protocol";
 import { stripClassificationTokens } from "@/backend/taskText";
 import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage, taskRowDisplayTitle } from "@/components/TaskRow";
@@ -34,7 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTaskPriority, selectedMainWorkspace, type TaskMutationResult } from "@/platform/backendClient";
-import { V2EditorError } from "@/platform/v2EditorClient";
+import { V2EditorError } from "@/platform/editorClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
