@@ -39,7 +39,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `text.markers` | Outside code, `@name` sets the category and `#name` adds a tag, where a marker follows start of text or a character other than a letter, digit, `_`, `/` or `@`, and the name starts with a letter |
 | `text.code` | Text inside triple or single backticks never classifies |
 | `text.escape` | `\@`, `\#` and `\\` become literal characters and never classify |
-| `text.remove-span` | Only the marker and name are removed. Other spacing stays: `Review @work now` keeps two spaces |
+| `text.remove-span` | The marker and name are removed, and a marker between two spaces leaves one: `Review @work now` becomes `Review now`. Other spacing stays as typed |
 | `text.normalize` | Category and tags are lowercased; tags are deduplicated and sorted |
 | `text.one-category` | Two different categories fail `MULTIPLE_CATEGORIES` |
 | `text.empty` | An empty title after removal fails `INVALID_ARGUMENT` |

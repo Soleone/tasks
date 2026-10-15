@@ -492,7 +492,7 @@
       },
       "expect": {
         "fields": {
-          "title": "Review  now",
+          "title": "Review now",
           "category": "work",
           "tags": []
         }

@@ -33,13 +33,20 @@ test("shorthand evaluates escaped-marker boundaries on decoded characters", () =
   assert.deepEqual(parseShorthand("Keep \\q \\\\ @Work"), { title: "Keep \\q \\" , category: "work", tags: [] });
 });
 
+test("text.remove-span: a marker between two spaces leaves one; other spacing stays", () => {
+  assert.equal(parseShorthand("Review @work now").title, "Review now");
+  assert.equal(parseShorthand("Call #a #b  now").title, "Call  now");
+  assert.equal(parseShorthand("Ask  @work, then go").title, "Ask  , then go");
+  assert.equal(parseShorthand("@home Call #phone").title, "Call");
+});
+
 const at = "2026-10-01T00:00:00.000Z";
 function typed(text: string) {
   return applyUpdate(validateTask(corpus.taskTemplate, "a"), parseUpdate({ id: "a", expectedVersion: 1, text: `  ${text} ` }), at).task;
 }
 
 test("text.kept: shorthand input is stored trimmed next to what it produced; create with title stores null", () => {
-  assert.deepEqual(pick(typed("Call #phone now @Home")), { title: "Call  now", text: "Call #phone now @Home", category: "home", tags: ["phone"] });
+  assert.deepEqual(pick(typed("Call #phone now @Home")), { title: "Call now", text: "Call #phone now @Home", category: "home", tags: ["phone"] });
   assert.equal(buildCreatedTask(parseCreate({ text: "Ship @work" }), { id: "b", at }, []).text, "Ship @work");
   assert.equal(buildCreatedTask(parseCreate({ title: "Ship @work" }), { id: "b", at }, []).text, null);
 });

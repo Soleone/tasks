@@ -58,7 +58,11 @@ export function parseShorthand(input: string): Pick<CanonicalTask, "title" | "ca
   }
   if (categories.size > 1) throw new CommandError("MULTIPLE_CATEGORIES", "shorthand contains multiple categories");
   let title = decoded;
-  for (const range of ranges.reverse()) title = title.slice(0, range.start) + title.slice(range.end);
+  for (const range of ranges.reverse()) {
+    // A marker between two spaces leaves one space, not two.
+    const end = title[range.start - 1] === " " && title[range.end] === " " ? range.end + 1 : range.end;
+    title = title.slice(0, range.start) + title.slice(end);
+  }
   return { title: title.trim(), category: [...categories][0] ?? null, tags: [...tags].sort() };
 }
 
