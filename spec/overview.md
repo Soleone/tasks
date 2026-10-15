@@ -117,4 +117,4 @@ These express the shared command-path and concrete-boundary direction in [GUIDEL
 | Workspace cache snapshot | `formatVersion: 1` | Task/classification/relation/activity/receipt snapshot, not the full database or sync folder. |
 | Portable task export | `tasks.tasks-export`, version 2 | Readable projection, not canonical schema 2. |
 
-Setup and keyboard help: [usage guide](../docs/usage-guide.md). Commands/validation: [development](../docs/development.md). Operational legacy recovery: [canonical workspace guide](../docs/canonical-workspace.md). This is Tasks' contract, not a universal-standard or independent-interoperability claim.
+Setup and keyboard help: [usage guide](../docs/usage-guide.md). Commands/validation: [development](../docs/development.md). Operational legacy recovery: [canonical workspace guide](https://github.com/Soleone/tasks/blob/f762b50c8739b994629c68e4ab62a3a01142aaae/docs/canonical-workspace.md). This is Tasks' contract, not a universal-standard or independent-interoperability claim.

@@ -1277,7 +1277,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           <h1 id="receive-title" className="text-lg font-semibold">Waiting for workspace</h1>
           <p className="text-sm text-muted-foreground">{APP_NAME} is locked while this device receives the existing workspace. Add the empty sync folder to Syncthing, then wait for the transfer to finish.</p>
           {receiveState.syncRoot ? <p className="wrap-anywhere rounded bg-muted p-2 font-mono text-xs">{receiveState.syncRoot}</p> : null}
-          <p className="text-sm text-muted-foreground"><a className="underline" href="https://github.com/Soleone/tasks/blob/main/docs/syncthing.md" target="_blank" rel="noreferrer">Read the Syncthing setup guide</a></p>
+          <p className="text-sm text-muted-foreground"><a className="underline" href="https://github.com/Soleone/tasks/blob/f762b50c8739b994629c68e4ab62a3a01142aaae/docs/syncthing.md" target="_blank" rel="noreferrer">Read the Syncthing setup guide</a></p>
           <Button variant="outline" onClick={() => void abortReceive()}>Abort and restore backup</Button>
         </section>
       </div> : null}

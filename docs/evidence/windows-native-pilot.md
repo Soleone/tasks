@@ -1,6 +1,6 @@
 # Disposable Windows native task pilot (`m1p`)
 
-This is actual Windows 11 / WebView2 evidence for the bounded replacement loop, not release or owner dogfood acceptance. The original `m1p` observations below used the reader/editor workbench; subsequent `4t6` restores the established main UI through the same selected SEA route. [Current support](support.md) separates client exposure from backend proof. Default `pnpm dev:tauri` still starts legacy. The temporary launcher/config and versioned application routing must be removed in `dvs`.
+This is actual Windows 11 / WebView2 evidence for the bounded replacement loop, not release or owner dogfood acceptance. The original `m1p` observations below used the reader/editor workbench; subsequent `4t6` restores the established main UI through the same selected SEA route. [Current support](../support.md) separates client exposure from backend proof. Default `pnpm dev:tauri` still starts legacy. The temporary launcher/config and versioned application routing must be removed in `dvs`.
 
 ## Current client: the established Tasks UI
 
@@ -8,7 +8,7 @@ The owner rejected the engineering workbench as a replacement interface. The nat
 
 ## Quickstart: Windows PowerShell
 
-Use an isolated Windows checkout with the [native prerequisites](development.md#selected-windows-native-route-dh1-2026-10-04). Never use personal data for this pilot.
+Use an isolated Windows checkout with the [native prerequisites](../development.md#windows-native-development). Never use personal data for this pilot.
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -76,4 +76,4 @@ Harness corrections are not product passes: an early CLI source-binary execution
 
 Final checks: `pnpm check`, `pnpm lint`, `pnpm test` (**1,657 passed / two known skips / zero failures**, 1,659 total), backend bundle and actual Windows native launch; 31 focused native tests passed on both hosts. Existing browser client behavior remains covered by regression, not expanded browser mutation work.
 
-Owner dogfood `hzv` and later sequencing are governed by [PLAN](../PLAN.md). Automated native interaction is not that human acceptance.
+Owner dogfood `hzv` and later sequencing are governed by [PLAN](../../PLAN.md). Automated native interaction is not that human acceptance.

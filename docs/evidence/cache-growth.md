@@ -30,7 +30,7 @@ The script creates/removes its own temporary roots, outside-root caches and app-
 | Nested | 1,000 | 245,760 | 135,000 | 45.08 (44.58–46.81) | 46.07 (44.97–47.51) | 91.42 (86.89–98.72) |
 | Nested | 5,000 | 978,944 | 675,000 | 232.85 (230.88–235.58) | 232.97 (229.75–239.43) | 452.00 (445.71–455.21) |
 
-The same physical caches then receive the old schema-5 array observations, with context/receipts retained. Their next info call refreshes the representation, preserves revision/context, and leaves canonical byte hashes unchanged. Original no-op receipts replay afterward. This reconstructs the old stored representation, not an old-binary speed benchmark; historical old-binary measurements are in [the reset inventory](refactor-reset.md#quadratic-authority-fingerprints).
+The same physical caches then receive the old schema-5 array observations, with context/receipts retained. Their next info call refreshes the representation, preserves revision/context, and leaves canonical byte hashes unchanged. Original no-op receipts replay afterward. This reconstructs the old stored representation, not an old-binary speed benchmark; historical old-binary measurements are in [the reset inventory](https://github.com/Soleone/tasks/blob/f762b50c8739b994629c68e4ab62a3a01142aaae/docs/refactor-reset.md#quadratic-authority-fingerprints).
 
 | Layout | Tasks | Old observation chars | File bytes before/after refresh | Reusable free bytes afterward | First refresh ms | Retained-cache warm info median ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
