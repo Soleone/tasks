@@ -45,19 +45,9 @@ XDG_DATA_HOME="$scratch/profile" pnpm dev:web \
 
 Confirm the displayed root/cache/profile before querying. Reload requires confirmation again. Keep a stable browser origin and profile for display preferences; they do not preserve selection or unresolved requests.
 
-The selected bridge exposes capture/content/status, relationships, manual reorder, same-client durable undo, status batches and Settings backup/restore. See [current support](support.md) for exact limits and the smaller Windows command set. Do not copy a historical command count into another allowlist.
-
 Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to `127.0.0.1:5174`; `TASKS_DEV_BACKEND_PORT` changes its port. `pnpm dev:backend` runs only the bridge. `pnpm dev` runs only Vite; `VITE_DEV_BACKEND_URL` selects a separately started bridge. The development listener and per-process selection token are not a production hosting or filesystem security boundary.
 
-For a necessary legacy regression only, select both scratch paths explicitly:
-
-```bash
-scratch=$(mktemp -d)
-TASKS_DATABASE_PATH="$scratch/tasks.db" TASKS_SYNC_ROOT="$scratch/sync" \
-  XDG_DATA_HOME="$scratch/profile" pnpm dev:web
-```
-
-Unflagged launches otherwise use application defaults and may access personal data. Source-registry/multi-root experiments are not the release direction; their old recipes are retired to Git history.
+For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`, `TASKS_SYNC_ROOT` and `XDG_DATA_HOME` pointing at scratch paths; without them the legacy app uses application defaults and may reach personal data.
 
 ## Validation
 
@@ -102,29 +92,10 @@ All three paths must be explicit, disposable, physically disjoint as required an
 
 On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browser or WSLg session does not establish Omarchy desktop/global-shortcut support. Separately approve native work before pursuing it.
 
-## Android tooling and signing
+## Android
 
-Android is maintained, but its current engine uses the legacy format; schema-2 integration and provider acceptance remain deferred. Preserve its useful tooling without treating old SAF evidence as replacement acceptance. Use [AGENTS.md](../AGENTS.md#android-emulator) for the current Google `android` CLI, SDK/emulator setup and disposable standard-picker checks.
-
-After `eval "$(mise env --shell bash)"`, build an x86_64 emulator APK with `pnpm tauri android build --debug --apk -t x86_64`. Use `-t aarch64` for an arm64 target. Standard-picker emulator, physical-device and third-party-provider evidence are distinct.
-
-### Signed Android release APK
-
-`pnpm build:android` requires signing, builds an arm64 release APK and verifies it with `apksigner`. Set `ANDROID_HOME` or `ANDROID_SDK_ROOT` and install SDK Build-Tools. Missing/incomplete properties are rejected before Tauri; Gradle validates the keystore, passwords and private-key alias.
-
-Create a keystore in a private location, for example:
-
-```bash
-keytool -genkeypair -v -keystore "$HOME/.android/tasks-release.jks" \
-  -alias tasks-release -keyalg RSA -keysize 2048 -validity 10000
-```
-
-Enter passwords interactively, never on the command line. Create the ignored local `src-tauri/gen/android/keystore.properties` with `storeFile`, `storePassword`, `keyAlias` and `keyPassword`. `storeFile` may be absolute or relative to `src-tauri/gen/android/app`. Restrict permissions (for example `chmod 600`), never commit credentials/keystores and keep an independent secure backup. Build/signing validation does not print property values. `pnpm build:android:debug` uses debug signing without release credentials.
+Android is dropped until it is ported to the new engine. The old Android runtime in `src/legacy/platform/` is deleted at cutover; its emulator setup and release signing steps are in git history (`f568d2b:AGENTS.md`, `f568d2b:docs/development.md`).
 
 ## Storage and retry safety
 
-Canonical JSON owns task state. SQLite also owns receipts/history/undo authority; it is not disposable just because queries can be rebuilt. Preserve the original root/cache/profile, journals, raw recovery copies and exact request envelope during uncertainty. Restarting a sidecar does not authorize replay with renewed context/key/version. Rebuild means re-observing canonical files with retained local authority, not deleting the database.
-
-Only sync canonical files, never SQLite, WAL/SHM or local recovery authority. Canonical backup/restore does not transfer old retry/undo authority and does not switch selection. The old receive/seeding instructions are not a replacement-engine sharing guide. Personal read/conversion/selection remain separately permissioned; use [the isolated migration runbook](migration-rehearsal.md) for the rehearsed Linux route.
-
-Keep task content out of shell commands/logs, sanitize Markdown/links, and expose only concrete native permissions. The legacy `bin/tasks` WSL wrapper is not the replacement Windows writer route; never open the Windows database directly from WSL.
+The rules are in [spec/backend/safety.md](../spec/backend/safety.md). In practice: never delete or sync the SQLite cache, keep the original root, cache and profile together during uncertain work, keep task content out of shell commands and logs, and never open the Windows database from WSL.

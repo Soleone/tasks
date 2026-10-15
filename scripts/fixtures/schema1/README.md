@@ -1,4 +1,4 @@
-# Disposable canonical v1 fixture
+# Schema 1 fixture
 
 `sync/` is a TaskDB/Tasks v1 workspace produced by the existing `executeCommand` path. It contains four synthetic tasks: a P1 `@planning` parent, an `@planning` child depending on it, a completed uncategorized task, and a paused `@operations` task. The task/order files have valid v1 hashes. There is intentionally **no SQLite cache or `.tasks-local/`**: an implementation must rebuild local state from these files.
 

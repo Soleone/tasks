@@ -6,6 +6,8 @@ Dated reports support specific implementation and platform claims. They are not 
 
 | Subject | Retained evidence |
 | --- | --- |
+| Conformance ledger | [Per-family evidence, frozen from `spec/v2/conformance.md`](conformance-history.md) |
+| Support snapshot | [Detailed support index at the stage 2 checkpoint](support-2026-10-14.md) |
 | Consolidation inventory | [Audited assets and dispositions](refactor-inventory.md); findings are pinned to its original audit, not a live workflow matrix |
 | Cache growth | [Measurements and retained-authority checks](cache-growth.md) |
 | Concrete update request | [Request trace](update-request-trace.md), [Windows rerun](update-request-proof.json) |
