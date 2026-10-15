@@ -32,7 +32,7 @@ function pickerCandidates(all: TaskRecord[], subject: TaskRecord, mode: TaskPick
   const selectable = all.filter((task) => task.status !== "canceled");
   if (mode === "blocker") {
     const blocked = new Set(subject.dependencyIds);
-    return selectable.filter((task) => task.id !== subject.id && !blocked.has(task.id));
+    return selectable.filter((task) => task.status !== "done" && task.id !== subject.id && !blocked.has(task.id));
   }
   const descendants = collectDescendantIds(all, subject.id);
   return selectable.filter((task) =>

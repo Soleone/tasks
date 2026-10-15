@@ -39,6 +39,6 @@ Capture and edit use the same inline editor. It has three stops: title, priority
 | --- | --- | --- |
 | `pick.parent` | `M` | The move picker opens. Choosing a task nests the selection under it |
 | `pick.remove-parent` | `M` on a child | A Remove parent action sits in its own group above the results |
-| `pick.blocker` | `B` | The blocker picker adds a blocker, or removes an existing one |
+| `pick.blocker` | `B` | The blocker picker adds a blocker, or removes an existing one. Done and canceled tasks aren't offered as new blockers |
 | `pick.refusals` | Choosing a canceled task, or a choice that would create a cycle | Refused before anything is sent |
 | `pick.existing-links` | A task already links to a canceled task | The link can still be removed |
