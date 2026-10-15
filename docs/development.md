@@ -55,7 +55,7 @@ For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`,
 | --- | --- |
 | `pnpm check` | Backend and frontend types |
 | `pnpm lint` | Repository lint |
-| `pnpm test` | File-backed backend regressions; not native acceptance |
+| `pnpm test` | File-backed backend regressions, then client tests (Vitest, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
 | `pnpm build` | Types, backend and frontend build |
 | `pnpm build:backend` | Prepare `dist/backend` for focused script tests |
 | `pnpm test:sidecar` | Bundled Node SEA probe on the actual host |
@@ -73,7 +73,7 @@ Vite pre-optimizes the checkbox dependency to avoid a late dependency reload dro
 - Drive the keyboard path first, then check the mouse path. A shortcut-only feature is incomplete.
 - Buttons are mouse fallbacks with `tabIndex=-1`; clicking them must not take focus (mousedown default prevented). Don't add `autoFocus` to fix initial focus; it belongs in the list lifecycle after the first query renders.
 - `src/components/TaskList.tsx` owns list focus, toolbar modes and home shortcuts. `src/navigation.ts` owns list entry and focus-steal prevention. The focus stack owns dialog return targets.
-- Add every new keyboard action to `src/components/HelpPalette.tsx` and to the [client spec](../spec/client/README.md), with a rule slug a test can cite.
+- Add every new keyboard action to `src/components/HelpPalette.tsx` and to the [client spec](../spec/client/README.md), with a rule slug a test can cite. Client tests live in `src/spec/`, one file per client spec page, using `src/testing/appWorkspace.tsx`.
 - Refreshes come from the shared workspace revision and must keep focus and unsaved editor text.
 
 ## Windows native development

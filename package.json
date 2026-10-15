@@ -22,7 +22,7 @@
     "dev:native": "node scripts/dev-native.mjs",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",
-    "test": "pnpm build:backend && node --test dist/backend/*.test.js dist/legacy/backend/*.test.js dist/migration/*.test.js scripts/*.test.mjs",
+    "test": "pnpm build:backend && node --test dist/backend/*.test.js dist/legacy/backend/*.test.js dist/migration/*.test.js scripts/*.test.mjs && vitest run",
     "test:native:argv": "node scripts/check-native-launch-argv.mjs",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",
@@ -50,15 +50,19 @@
     "@shadcn/lint": "^0.1.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.11.4",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "esbuild": "^0.28.2",
+    "jsdom": "^30.1.2",
     "oxlint": "^1.82.0",
     "postject": "^1.0.0-alpha.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^5.0.4"
   }
 }

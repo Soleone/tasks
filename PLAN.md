@@ -31,11 +31,11 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 5. Windows native runs the established UI on a smaller proven command set: capture, edit, priority, six statuses, latest status undo. Child, relationship, order, batch and general undo are withheld there. The gap list is [spec/client/platforms.md](spec/client/platforms.md).
 6. The latest owner-machine Windows launches stopped before the main window appeared. Automated Windows diagnosis (`100`) is owner-deferred.
 7. Migration from schema 1 is rehearsed on Linux/WSL2 with disposable data ([runbook](docs/migration-rehearsal.md)). No personal data has been touched.
-8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`; no test cites a rule yet.
+8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace and cite 89 client rules (`node scripts/check-spec-rules.mjs --uncited` lists the rest).
 
 ## Next step
 
-Cleanup stage 4, once approved: write tests that cite the client spec rules, then move the UI onto the current model types and split `TaskList.tsx` and `App.tsx` by responsibility with no behavior change. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
+Cleanup stage 4 (approved 2026-10-15): client rule tests are in place; next, move the UI onto the current model types and split `TaskList.tsx` and `App.tsx` by responsibility with no behavior change. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
 
 ## Gates
 

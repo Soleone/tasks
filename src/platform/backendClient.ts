@@ -30,6 +30,8 @@ export function selectMainWorkspace(workspace: MainWorkspace): void {
   mainWorkspace = workspace;
 }
 
+export function closeMainWorkspace(): void { mainWorkspace = null; }
+
 export function selectedMainWorkspace(): MainWorkspace | null { return mainWorkspace; }
 
 function relationshipWorkspace(): MainWorkspace | null {
