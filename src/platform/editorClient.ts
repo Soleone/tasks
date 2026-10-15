@@ -41,7 +41,7 @@ function validateEditorSelection(value: unknown, native = false): asserts value 
     || typeof value.selectionToken !== "string" || !value.selectionToken
     || !Array.isArray(value.writeCommands) || value.writeCommands.length !== commands.length
     || value.writeCommands.some((command, index) => command !== commands[index])) {
-    throw new Error("This editor requires an explicitly enabled --v2-edit backend. No read-only or v1 fallback.");
+    throw new Error("This editor requires a dev bridge started with --root and --database. No legacy fallback.");
   }
   validateSelection(value as EditorSelection);
   validateSelection({ rootPath: value.profilePath, databasePath: value.databasePath });
@@ -63,10 +63,10 @@ function groupResult(value: Record<string, unknown>, request: Request, preview: 
   if (!Array.isArray(value.tasks) || typeof value.changed !== "boolean"
     || (preview ? value.dryRun !== true || value.readOnly !== false || value.operationId !== undefined
       : value.readOnly !== undefined || value.dryRun !== undefined || (value.changed ? typeof value.operationId !== "string" || !value.operationId : value.operationId !== undefined))) {
-    throw new Error("v2 editor returned an invalid group result; retain the original request.");
+    throw new Error("The editor returned an invalid group result; retain the original request.");
   }
   const tasks = value.tasks.map(parseTaskProjection);
-  if (tasks.length !== ids.length || tasks.some((task, index) => task.id !== ids[index])) throw new Error("v2 editor returned other tasks; retain the original request.");
+  if (tasks.length !== ids.length || tasks.some((task, index) => task.id !== ids[index])) throw new Error("The editor returned other tasks; retain the original request.");
   return { tasks, changed: value.changed, ...(!preview && value.changed ? { operationId: value.operationId as string } : {}) };
 }
 
@@ -77,7 +77,7 @@ function undoResult(value: Record<string, unknown>, preview: boolean): UndoResul
       : value.dryRun !== undefined || value.readOnly !== undefined || (value.changed ? typeof value.operationId !== "string" || !value.operationId : value.operationId !== undefined))
     || !Array.isArray(removedIds) || removedIds.some(id => typeof id !== "string" || !id)
     || (value.recoveryLocation !== undefined && typeof value.recoveryLocation !== "string")) {
-    throw new Error("v2 editor returned an invalid undo result; retain the original request.");
+    throw new Error("The editor returned an invalid undo result; retain the original request.");
   }
   return { tasks: value.tasks.map(parseTaskProjection), changed: value.changed, removedIds,
     ...(!preview && value.changed ? { operationId: value.operationId as string } : {}) };
@@ -86,7 +86,7 @@ function undoResult(value: Record<string, unknown>, preview: boolean): UndoResul
 function editorResult(result: Record<string, unknown>, preview: boolean): EditResult {
   if (!preview) return parseTaskEditResult(result, "execution");
   const decoded = parseTaskEditResult(result, "preview");
-  if (!decoded.dryRun || decoded.readOnly) throw new Error("v2 editor returned invalid preview flags; retain the original request.");
+  if (!decoded.dryRun || decoded.readOnly) throw new Error("The editor returned invalid preview flags; retain the original request.");
   return { task: decoded.task, changed: decoded.changed };
 }
 
@@ -95,7 +95,7 @@ function copyResult(value: Record<string, unknown>, preview: boolean): CopyResul
     || !Number.isSafeInteger(value.taskCount) || (value.taskCount as number) < 0 || value.changed !== true
     || (preview ? value.dryRun !== true || value.readOnly !== false || value.operationId !== undefined
       : value.readOnly !== undefined || value.dryRun !== undefined || typeof value.operationId !== "string" || !value.operationId)) {
-    throw new Error("v2 editor returned an invalid copy result; retain the original request.");
+    throw new Error("The editor returned an invalid copy result; retain the original request.");
   }
   return { destinationDirectory: value.destinationDirectory, taskCount: value.taskCount as number, changed: true,
     ...(!preview ? { operationId: value.operationId as string } : {}) };
@@ -156,14 +156,14 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
       const request = JSON.parse(this.serialized) as Request & { requestId: string };
       if (preview) { delete request.idempotencyKey; request.dryRun = true; request.requestId = randomUUID(); }
       const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postDevRequest(this.connection, this.selection, request);
-      if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID; retain the original request.");
+      if (response.requestId !== request.requestId) throw new Error("The editor returned a different request ID; retain the original request.");
       if (!response.ok) throw new AnsweredRefusal(response.error.code, response.error.message);
-      if (response.writeContext !== request.writeContext) throw new Error("v2 editor returned different authority; retain the original request.");
+      if (response.writeContext !== request.writeContext) throw new Error("The editor returned different authority; retain the original request.");
       if (request.command === "task.reorder" || request.command === "task.transitionMany") return groupResult(response.result, request, preview) as R;
       if (request.command === "operation.undo") return undoResult(response.result, preview) as R;
       if (request.command === "workspace.archive" || request.command === "workspace.restore") return copyResult(response.result, preview) as R;
       const result = editorResult(response.result, preview);
-      if (request.command !== "task.create" && result.task.id !== request.args.id) throw new Error("v2 editor returned another task; retain the original request.");
+      if (request.command !== "task.create" && result.task.id !== request.args.id) throw new Error("The editor returned another task; retain the original request.");
       return result as R;
     } finally { this.inFlight = false; }
   }
@@ -172,7 +172,7 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
 export class EditorClient {
   readonly selection: EditorSelection;
   constructor(private readonly connection: string | JsonLineSession<Response>, selection: EditorSelection) {
-    if (runtimeKind() !== "browser" && !(connection instanceof JsonLineSession)) throw new Error("V2 app editing is browser-only; no native sidecar was launched.");
+    if (runtimeKind() !== "browser" && !(connection instanceof JsonLineSession)) throw new Error("App editing is browser-only; no native sidecar was launched.");
     if (runtimeKind() === "android") throw new Error("The native task editor is unavailable on Android.");
     validateEditorSelection(selection, connection instanceof JsonLineSession);
     this.selection = Object.freeze({ ...selection, writeCommands: Object.freeze([...selection.writeCommands]) });
@@ -193,7 +193,7 @@ export class EditorClient {
     const response = await this.query("task.get", { id: taskId });
     if (response.writeContext !== info.writeContext) throw new EditorError("STALE_WRITE_CONTEXT", "Context changed during preparation; no mutation was sent.");
     const task = parseTaskProjection(response.result.task);
-    if (task.id !== taskId) throw new Error("v2 editor returned another task; no mutation was sent.");
+    if (task.id !== taskId) throw new Error("The editor returned another task; no mutation was sent.");
     for (const values of [task.tags, task.dependencyIds, task.blockedByIds]) Object.freeze(values);
     return Object.freeze({ writeContext: response.writeContext, task: Object.freeze(task) });
   }
@@ -265,14 +265,14 @@ export class EditorClient {
   private prepareTaskRequest<R extends GroupResult = EditResult>(baseline: EditBaseline, command: string, args: Record<string, unknown>, key: string = randomUUID()): PreparedEdit<R> {
     return new PreparedEdit<R>(this.connection, this.selection, { version: 2, requestId: randomUUID(), command, args,
       writeContext: baseline.writeContext, idempotencyKey: key,
-      actor: { kind: "human", label: "Tasks v2 editor" }, readOnly: false, dryRun: false });
+      actor: { kind: "human", label: "Tasks editor" }, readOnly: false, dryRun: false });
   }
 
   private async query(command: string, args: Record<string, unknown>) {
     const request = { version: 2 as const, requestId: randomUUID(), command, args,
-      actor: { kind: "human" as const, label: "Tasks v2 editor" }, readOnly: true, dryRun: false };
+      actor: { kind: "human" as const, label: "Tasks editor" }, readOnly: true, dryRun: false };
     const response = this.connection instanceof JsonLineSession ? await this.connection.request(request) : await postDevRequest(this.connection, this.selection, request);
-    if (response.requestId !== request.requestId) throw new Error("v2 editor returned a different request ID.");
+    if (response.requestId !== request.requestId) throw new Error("The editor returned a different request ID.");
     if (!response.ok) throw new EditorError(response.error.code, response.error.message);
     return response;
   }

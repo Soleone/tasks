@@ -12,16 +12,16 @@ import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { executeLine } from "./gateway.js";
 import { observeQueryAuthority, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
+const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 function setup(t: TestContext): { root: string; cache: string } {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-authority-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-authority-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, "root");
   cpSync(golden, root, { recursive: true });
   return { root, cache: path.join(directory, "cache.db") };
 }
 
-test("v2 query context and versions persist across cache reopen; complete cache loss rotates authority", (t) => {
+test("query context and versions persist across cache reopen; complete cache loss rotates authority", (t) => {
   const { root, cache } = setup(t);
   const snapshot = readCanonicalRoot(root);
   const first = observeQueryAuthority(cache, snapshot, snapshot);
@@ -33,7 +33,7 @@ test("v2 query context and versions persist across cache reopen; complete cache 
   assert.deepEqual(readCanonicalRoot(root).files, snapshot.files);
 });
 
-test("v2 copied/moved caches cannot inherit another physical cache's context", (t) => {
+test("copied/moved caches cannot inherit another physical cache's context", (t) => {
   const { root, cache } = setup(t);
   const snapshot = readCanonicalRoot(root);
   const first = observeQueryAuthority(cache, snapshot, snapshot);
@@ -51,7 +51,7 @@ test("v2 copied/moved caches cannot inherit another physical cache's context", (
   assert.deepEqual(observeQueryAuthority(cache, snapshot, snapshot), replaced);
 });
 
-test("v2 query tokens notice formatting, deletion/reappearance and moves whose selected key stays unchanged", (t) => {
+test("query tokens notice formatting, deletion/reappearance and moves whose selected key stays unchanged", (t) => {
   const { root, cache } = setup(t);
   let snapshot = readCanonicalRoot(root);
   const first = observeQueryAuthority(cache, snapshot, snapshot);
@@ -82,7 +82,7 @@ test("v2 query tokens notice formatting, deletion/reappearance and moves whose s
   assert.ok(restored.workspaceRevision > first.workspaceRevision);
 });
 
-test("v2 query context rotates on root switching and same-path physical root replacement", (t) => {
+test("query context rotates on root switching and same-path physical root replacement", (t) => {
   const { root, cache } = setup(t);
   let snapshot = readCanonicalRoot(root);
   const first = observeQueryAuthority(cache, snapshot, snapshot);
@@ -101,7 +101,7 @@ test("v2 query context rotates on root switching and same-path physical root rep
   assert.notEqual(replaced.writeContext, back.writeContext);
 });
 
-test("v2 cache rejects dangling aliases into canonical data before SQLite can create files", (t) => {
+test("cache rejects dangling aliases into canonical data before SQLite can create files", (t) => {
   const { root, cache } = setup(t);
   const snapshot = readCanonicalRoot(root);
   const inside = path.join(root, "must-not-create.db");
@@ -121,7 +121,7 @@ test("v2 cache rejects dangling aliases into canonical data before SQLite can cr
   assert.equal(existsSync(inside), false);
 });
 
-test("v2 cache cannot be canonical data or a v1/foreign SQLite database", (t) => {
+test("cache cannot be canonical data or a legacy/foreign SQLite database", (t) => {
   const { root, cache } = setup(t);
   const snapshot = readCanonicalRoot(root);
   assert.throws(() => observeQueryAuthority(path.join(root, "cache.db"), snapshot, snapshot), { code: "INVALID_STORAGE" });

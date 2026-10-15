@@ -12,7 +12,7 @@ import { pendingIntentPath } from "./localDomain.js";
 import { readRootDescriptor } from "./canonicalReader.js";
 import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 type Projection = CanonicalTask & { version: number };
 function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }

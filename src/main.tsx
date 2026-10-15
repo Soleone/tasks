@@ -12,6 +12,8 @@ import { runtimeKind } from "./platform/runtime";
 import "./styles.css";
 
 const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
+// Native builds keep the legacy app until cutover; dev:web and the Windows launcher opt out.
+const legacy = import.meta.env.VITE_TASKS_LEGACY !== "0";
 
 document.title = APP_NAME;
 if (runtimeKind() === "android") document.documentElement.classList.add("android");
@@ -39,9 +41,9 @@ applyStoredFontSizeIncrease();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      {import.meta.env.VITE_TASKDB_V2 === "1" ? (
-        <Suspense fallback={<p role="status">Loading the v2 reader...</p>}><WorkspaceSelection /></Suspense>
-      ) : <App />}
+      {legacy ? <App /> : (
+        <Suspense fallback={<p role="status">Loading Tasks...</p>}><WorkspaceSelection /></Suspense>
+      )}
     </TooltipProvider>
   </StrictMode>,
 );

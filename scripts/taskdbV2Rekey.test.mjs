@@ -220,7 +220,7 @@ test("v2 rekey: a competing reorder cannot replace persisted intent or change ca
 });
 
 test("v2 rekey: existing v1 fixture sibling order maps to valid sparse keys with unchanged records", () => {
-  const root = new URL("./fixtures/taskdb-v1/sync/", import.meta.url);
+  const root = new URL("./fixtures/schema1/sync/", import.meta.url);
   const tasks = readdirSync(new URL("tasks/", root)).map((name) => JSON.parse(readFileSync(new URL(`tasks/${name}`, root), "utf8")));
   let covered = 0;
   for (const name of readdirSync(new URL("order/", root))) {

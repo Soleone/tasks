@@ -17,7 +17,7 @@ const bundle = path.join(checkout, "dist/sidecar/cli.cjs"), source = readFileSyn
 const { inject } = createRequire(import.meta.url)(path.join(checkout, "node_modules/postject/dist/api.js"));
 mkdirSync(path.join(checkout, ".tmp"), { recursive: true });
 const scratch = mkdtempSync(path.join(checkout, ".tmp/windows-create-"));
-const golden = path.join(checkout, "scripts/fixtures/taskdb-v2/root");
+const golden = path.join(checkout, "scripts/fixtures/workspace/root");
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const cuts = ["stage-written", "published", "beforeCommit", "afterCommit", "flushRefusal", "destination", "parentChange", "unrelatedChange"];
@@ -33,14 +33,14 @@ function workspace(name) {
   const profile = path.join(directory, "profile"), domain = path.join(profile, "com.soleone.tasks/taskdb-v2/roots", key);
   return { name, directory, root, profile, domain, cache: path.join(directory, "cache.db"), pending: path.join(domain, "pending.json") };
 }
-function argv(w, proof) { return ["--stdio", "--v2-root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])]; }
+function argv(w, proof) { return ["--stdio", "--root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])]; }
 function run(runner, w, request, cut, proof = true) {
   const program = cut ? runner.faults[cut] : runner.normal;
   return spawnSync(runner.command ?? program, runner.command ? [program, ...argv(w, proof)] : argv(w, proof), {
     input: JSON.stringify({ version: 2, requestId: "capture-proof", ...request }) + "\n", encoding: "utf8", timeout: 20_000,
     env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, TEMP: process.env.TEMP, TMP: process.env.TMP,
-      APPDATA: path.join(w.directory, "default-profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "v1-trap.db"),
-      TASKS_SYNC_ROOT: path.join(w.directory, "v1-root-trap") },
+      APPDATA: path.join(w.directory, "default-profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "legacy-trap.db"),
+      TASKS_SYNC_ROOT: path.join(w.directory, "legacy-root-trap") },
   });
 }
 function send(runner, w, request, proof = true, cut) {
@@ -48,7 +48,7 @@ function send(runner, w, request, proof = true, cut) {
   assert.equal(child.error, undefined); assert.equal(child.status, 0, `${w.name}: ${child.stderr}`);
   const lines = child.stdout.trim().split(/\r?\n/); assert.equal(lines.length, 1, child.stdout);
   const response = JSON.parse(lines[0]); assert.equal(response.requestId, request.requestId ?? "capture-proof");
-  for (const trap of ["default-profile-trap", "v1-trap.db", "v1-root-trap"]) assert.equal(existsSync(path.join(w.directory, trap)), false);
+  for (const trap of ["default-profile-trap", "legacy-trap.db", "legacy-root-trap"]) assert.equal(existsSync(path.join(w.directory, trap)), false);
   return response;
 }
 function ok(response) { assert.equal(response.ok, true, JSON.stringify(response)); return response; }
@@ -131,7 +131,7 @@ try {
     const advertised = ok(send(runner, w, { command: "workspace.info" })).result.commands;
     assert.deepEqual(advertised, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "workspace.info", "workspace.archive", "workspace.restore", "workspace.recovery.resume"].sort());
     fail(send(runner, w, request, false), "UNSUPPORTED_COMMAND");
-    for (const command of ["task.status.undoMany", "task.move", "task.dependency.add", "task.reorder", "task.transitionMany", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.migrateV1", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
+    for (const command of ["task.status.undoMany", "task.move", "task.dependency.add", "task.reorder", "task.transitionMany", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.migrate", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
     const preview = ok(send(runner, w, { ...request, idempotencyKey: undefined, dryRun: true }));
     assert.match(preview.result.task.id, uuid); assert.equal(preview.result.operationId, undefined);
     assert.deepEqual(raw(w), before); assert.deepEqual(counts(w), [0, 0]);

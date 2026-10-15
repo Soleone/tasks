@@ -55,7 +55,7 @@ export function parseCopyIntent(value: unknown, root: RootBinding): CopyIntent {
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(intent.operationId)) conflict();
     for (const binding of [intent.root, intent.source]) if (!path.isAbsolute(binding.rootPath) || typeof binding.rootIdentity !== "string" || !/^\d+:\d+$/.test(binding.rootIdentity)) conflict();
     const request = parseRequest(intent.request);
-    if (!["workspace.archive", "workspace.restore", "workspace.migrateV1"].includes(request.command) || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) conflict();
+    if (!["workspace.archive", "workspace.restore", "workspace.migrate"].includes(request.command) || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) conflict();
     parseCopyArgs(request);
     if (request.command !== "workspace.restore" && (intent.source.rootPath !== root.rootPath || intent.source.rootIdentity !== root.rootIdentity)) conflict();
     if (!path.isAbsolute(intent.cachePath) || !path.isAbsolute(intent.destination.directory) || !/^\d+:\d+$/.test(intent.destination.parentIdentity)
@@ -69,7 +69,7 @@ export function parseCopyIntent(value: unknown, root: RootBinding): CopyIntent {
         || Buffer.from(file.bytes, "base64").toString("base64") !== file.bytes || file.sha256 !== exactHash(Buffer.from(file.bytes, "base64"))) conflict();
     }
     validateCopyFiles(intent.files);
-    if (request.command === "workspace.migrateV1") parseMigrationEvidence(intent.migration, root, intent.files);
+    if (request.command === "workspace.migrate") parseMigrationEvidence(intent.migration, root, intent.files);
     else if (intent.migration !== undefined) conflict();
     for (const binding of [root, intent.source]) {
       localPathOutsideRoot(intent.destination.directory, binding.rootPath);

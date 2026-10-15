@@ -13,7 +13,7 @@ import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linuxOnly = { skip: process.platform !== "linux" };
 type Projection = CanonicalTask & { version: number; blockedByIds: string[] };
 function send(w: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }

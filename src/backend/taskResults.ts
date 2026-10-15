@@ -11,7 +11,7 @@ export type TaskPreviewResult = {
 export type TaskEditResult = TaskExecutionResult | TaskPreviewResult;
 
 function invalidTaskResult(): never {
-  throw new Error("v2 backend returned invalid task data; retain the original request; no v1 fallback");
+  throw new Error("The backend returned invalid task data; retain the original request; no legacy fallback");
 }
 
 export function parseTaskProjection(value: unknown): TaskProjection {

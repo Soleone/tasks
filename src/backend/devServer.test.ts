@@ -20,7 +20,7 @@ async function postCommand(url: string, body: unknown, origin?: string): Promise
 test("dev server serves health and the same command path as the sidecar", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-dev-server-"));
   const databasePath = path.join(directory, "dev.db");
-  const dev = await startDevServer({ port: 0, databasePath });
+  const dev = await startDevServer({ port: 0, databasePath, legacy: true });
 
   try {
     const health = await fetch(`${dev.url}/health`);
@@ -64,7 +64,7 @@ test("dev server serves health and the same command path as the sidecar", async 
 
 test("dev server rejects non-local origins", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-dev-origin-"));
-  const dev = await startDevServer({ port: 0, databasePath: path.join(directory, "dev.db") });
+  const dev = await startDevServer({ port: 0, databasePath: path.join(directory, "dev.db"), legacy: true });
 
   try {
     const rejected = await postCommand(

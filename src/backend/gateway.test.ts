@@ -8,7 +8,7 @@ import type { TestContext } from "node:test";
 import { executeLine } from "./gateway.js";
 import type { Response } from "./protocol.js";
 
-const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
+const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
   taskTemplate: Record<string, unknown>;
   cases: { id: string; given: { records?: Record<string, unknown>; patch?: object; manifest?: object }; action: { rawEnvelope?: string; envelope?: object; command?: string; args?: object }; expect: { error?: string; categories?: unknown[]; fields?: Record<string, unknown> } }[];
@@ -16,7 +16,7 @@ const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8"
 type Workspace = { root: string; cache: string };
 
 function workspace(t: TestContext, records: Record<string, unknown> = { a: {} }): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-gateway-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-gateway-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, "root");
   mkdirSync(path.join(root, "tasks"), { recursive: true });
@@ -37,7 +37,7 @@ function result(response: Response): Record<string, unknown> {
 
 const caseIds = ["protocol-version", "protocol-schema", "protocol-duplicate", "protocol-nonfinite", "capability-refusal", "query-literal", "query-readiness"];
 for (const entry of corpus.cases.filter(entry => caseIds.includes(entry.id))) {
-  test(`Node v2 query gateway executes ${entry.id}`, { skip: entry.id === "capability-refusal" && process.platform === "linux" ? "Fixture requires withheld doctor.apply; Linux now advertises it. Do not substitute a different command." : false }, (t) => {
+  test(`Node query gateway executes ${entry.id}`, { skip: entry.id === "capability-refusal" && process.platform === "linux" ? "Fixture requires withheld doctor.apply; Linux now advertises it. Do not substitute a different command." : false }, (t) => {
     const current = workspace(t, entry.given.records ?? { a: entry.given.patch ?? {} });
     if (entry.given.manifest) writeFileSync(path.join(current.root, "workspace.json"), JSON.stringify(entry.given.manifest));
     const manifest = readFileSync(path.join(current.root, "workspace.json"));
@@ -58,7 +58,7 @@ for (const entry of corpus.cases.filter(entry => caseIds.includes(entry.id))) {
   });
 }
 
-test("v2 envelope correlation, strict types, unsupported names and previews cannot enable writes", (t) => {
+test("envelope correlation, strict types, unsupported names and previews cannot enable writes", (t) => {
   const current = workspace(t);
   for (const [patch, code] of [
     [{ extra: true }, "INVALID_REQUEST"], [{ args: null }, "INVALID_REQUEST"], [{ actor: { kind: "human", label: " " } }, "INVALID_REQUEST"],
@@ -82,12 +82,12 @@ test("v2 envelope correlation, strict types, unsupported names and previews cann
   assert.ok(Number.isSafeInteger(task.version) && (task.version as number) > 0);
 });
 
-test("v2 info inspects empty, partial and unsupported roots without creating canonical files", (t) => {
+test("info inspects empty, partial and unsupported roots without creating canonical files", (t) => {
   const current = workspace(t);
   const ready = result(query(current, "workspace.info"));
   assert.equal(ready.state, "ready");
   assert.deepEqual(ready.commands, process.platform === "linux"
-    ? ["activity.list", "category.list", "operation.undo", "tag.list", "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove", "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.purgeCanceled", "task.reopen", "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update", "workspace.archive", "workspace.doctor.apply", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.info", "workspace.init", "workspace.migrateV1", "workspace.rebuild", "workspace.recovery.resume", "workspace.restore"]
+    ? ["activity.list", "category.list", "operation.undo", "tag.list", "task.cancel", "task.complete", "task.create", "task.delete", "task.dependency.add", "task.dependency.remove", "task.get", "task.list", "task.move", "task.order.normalize", "task.pause", "task.purgeCanceled", "task.reopen", "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update", "workspace.archive", "workspace.doctor.apply", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.info", "workspace.init", "workspace.migrate", "workspace.rebuild", "workspace.recovery.resume", "workspace.restore"]
     : ["category.list", "tag.list", "task.get", "task.list", "workspace.info"]);
   writeFileSync(path.join(current.root, "tasks/a.json"), '{"title":"partial secret');
   const incomplete = result(query(current, "workspace.info"));
@@ -105,7 +105,7 @@ test("v2 info inspects empty, partial and unsupported roots without creating can
   assert.deepEqual(readdirSync(current.root), []);
 });
 
-test("v2 query filters preserve graph context, AND tags, ASCII search and full manual preorder", (t) => {
+test("query filters preserve graph context, AND tags, ASCII search and full manual preorder", (t) => {
   const current = workspace(t, {
     root: { title: "Parent", status: "paused", orderKey: "a1", category: "work", tags: ["alpha", "beta"] },
     child: { title: "Child", parentId: "root", orderKey: "a0", category: "work", tags: ["alpha", "beta"], description: "Literal %_ ASCII" },
@@ -133,14 +133,14 @@ test("v2 query filters preserve graph context, AND tags, ASCII search and full m
   assert.equal(bounded.offset, 0);
 });
 
-test("v2 date/priority ties use exact IDs and search truncation never leaves a half scalar", (t) => {
+test("date/priority ties use exact IDs and search truncation never leaves a half scalar", (t) => {
   const current = workspace(t, { Z: { priority: 4 }, a: { priority: 0 }, A: { priority: 0 }, text: { title: `${"x".repeat(199)}end` } });
   assert.deepEqual((result(query(current, "task.list", { sort: "priority" })).tasks as { id: string }[]).map(task => task.id), ["A", "a", "text", "Z"]);
   assert.deepEqual((result(query(current, "task.list", { sort: "created", direction: "desc" })).tasks as { id: string }[]).map(task => task.id), ["A", "Z", "a", "text"]);
   assert.equal(result(query(current, "task.list", { search: `${"x".repeat(199)}😀suffix` })).total, 1);
 });
 
-test("v2 gateway reads the golden fixture with unchanged canonical bytes", (t) => {
+test("gateway reads the golden fixture with unchanged canonical bytes", (t) => {
   const current = workspace(t);
   rmSync(current.root, { recursive: true });
   cpSync(path.join(fixtures, "root"), current.root, { recursive: true });

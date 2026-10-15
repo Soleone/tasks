@@ -17,7 +17,7 @@ const KNOWN_COMMANDS = [
   "task.reorder", "task.start", "task.status.undo", "task.status.undoMany", "task.transitionMany", "task.update",
   "theme.list", "theme.set", "workspace.archive", "workspace.backup", "workspace.conflict.list",
   "workspace.conflict.resolve", "workspace.doctor.apply", "workspace.doctor.inspect", "workspace.doctor.plan",
-  "workspace.export", "workspace.exportTasks", "workspace.info", "workspace.init", "workspace.migrateV1",
+  "workspace.export", "workspace.exportTasks", "workspace.info", "workspace.init", "workspace.migrate",
   "workspace.rebuild", "workspace.receive.abort", "workspace.receive.prepare", "workspace.receive.status",
   "workspace.recovery.resume", "workspace.restore", "workspace.sync",
 ] as const;

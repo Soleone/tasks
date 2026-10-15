@@ -13,7 +13,7 @@ import { DatabaseSync } from "node:sqlite";
 import { pendingIntentPath, persistPending, withRootWriterLock } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 
-const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
+const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as { cases: { id: string; action: { steps?: { command: string; sourceDirectory?: string; destinationDirectory: string }[]; args?: { destinationDirectory: string } }; expect: Record<string, unknown> }[] };
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 function send(workspace: Workspace, envelope: object): Response {
@@ -64,7 +64,7 @@ for (const command of ["workspace.archive", "workspace.restore"]) {
   });
 }
 
-test("Node v2 copy commands execute archive-restore corpus case without changing selection or authority", linuxOnly, (t) => {
+test("Node copy commands execute archive-restore corpus case without changing selection or authority", linuxOnly, (t) => {
   const entry = corpus.cases.find(entry => entry.id === "archive-restore")!;
   assert.deepEqual(entry.expect, { sameCanonicalBytes: true, sourceBytesUnchanged: true, selectionUnchanged: true, noCacheCopied: true });
   const workspace = setup(t);
@@ -93,7 +93,7 @@ test("Node v2 copy commands execute archive-restore corpus case without changing
   fail(send(adopted, { command: "task.update", writeContext: before.writeContext, idempotencyKey: "old", args: { id, expectedVersion: 1, title: "Old authority" } }), "STALE_WRITE_CONTEXT");
 });
 
-test("Node v2 archive executes destination-overlap corpus case with zero canonical effects", linuxOnly, (t) => {
+test("Node archive executes destination-overlap corpus case with zero canonical effects", linuxOnly, (t) => {
   const entry = corpus.cases.find(entry => entry.id === "destination-overlap")!;
   assert.equal(entry.expect.error, "INVALID_ARGUMENT");
   const workspace = setup(t);
@@ -113,7 +113,7 @@ test("Node v2 archive executes destination-overlap corpus case with zero canonic
   success(send(workspace, request));
 });
 
-test("v2 copy preserves raw conflicts and excludes transport artifacts", linuxOnly, (t) => {
+test("copy preserves raw conflicts and excludes transport artifacts", linuxOnly, (t) => {
   const workspace = setup(t);
   const conflict = `${id}.sync-conflict-20261002-DEVICE.json`;
   writeFileSync(path.join(workspace.root, "workspace.json"), ' {"schemaVersion": 2}\n');
@@ -132,7 +132,7 @@ test("v2 copy preserves raw conflicts and excludes transport artifacts", linuxOn
   assert.equal(existsSync(path.join(workspace.destination, "tasks", ".syncthing.transfer.tmp")), false);
 });
 
-test("v2 copy previews consume no key and preserve bytes, versions and local activity", linuxOnly, (t) => {
+test("copy previews consume no key and preserve bytes, versions and local activity", linuxOnly, (t) => {
   const workspace = setup(t);
   const before = success(send(workspace, { command: "task.list" }));
   const bytes = rawCanonical(workspace.root);
@@ -151,7 +151,7 @@ test("v2 copy previews consume no key and preserve bytes, versions and local act
   assert.deepEqual(success(send(workspace, { ...request, requestId: "replay" })).result, copied.result);
 });
 
-test("v2 copy historical replay precedes source/destination checks and never recopy overwrites", linuxOnly, (t) => {
+test("copy historical replay precedes source/destination checks and never recopy overwrites", linuxOnly, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace);
   const first = success(send(workspace, request));
@@ -169,7 +169,7 @@ test("v2 copy historical replay precedes source/destination checks and never rec
   assert.deepEqual(success(send(other, restore)).result, result.result);
 });
 
-test("v2 copy validates context, key and shapes; occupied/invalid destinations consume no key", linuxOnly, (t) => {
+test("copy validates context, key and shapes; occupied/invalid destinations consume no key", linuxOnly, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace);
   fail(send(workspace, { ...request, writeContext: undefined }), "WRITE_CONTEXT_REQUIRED");
@@ -189,7 +189,7 @@ test("v2 copy validates context, key and shapes; occupied/invalid destinations c
   success(send(workspace, request));
 });
 
-test("v2 restore destination cannot overlap selected root or cache, even with a separate source", linuxOnly, (t) => {
+test("restore destination cannot overlap selected root or cache, even with a separate source", linuxOnly, (t) => {
   const workspace = setup(t);
   const source = path.join(workspace.directory, "source");
   cpSync(path.join(fixtures, "root"), source, { recursive: true });
@@ -203,7 +203,7 @@ test("v2 restore destination cannot overlap selected root or cache, even with a 
   assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
 });
 
-test("v2 archive refuses descriptor conflicts without changing originals", linuxOnly, (t) => {
+test("archive refuses descriptor conflicts without changing originals", linuxOnly, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace);
   const file = path.join(workspace.root, "workspace.sync-conflict-20261002-OTHER.json");
@@ -214,7 +214,7 @@ test("v2 archive refuses descriptor conflicts without changing originals", linux
   assert.equal(readCanonicalRoot(workspace.root).tasks.length, 4);
 });
 
-test("v2 copy publishes into an explicitly empty destination reached through an authorized alias", linuxOnly, (t) => {
+test("copy publishes into an explicitly empty destination reached through an authorized alias", linuxOnly, (t) => {
   const workspace = setup(t);
   const actual = path.join(workspace.directory, "empty-output");
   mkdirSync(actual);
@@ -228,7 +228,7 @@ test("v2 copy publishes into an explicitly empty destination reached through an 
 });
 
 for (const command of ["workspace.archive", "workspace.restore"]) {
-  test(`v2 ${command} refuses pending source updates without copying unfinished state`, linuxOnly, t => {
+  test(`${command} refuses pending source updates without copying unfinished state`, linuxOnly, t => {
     const workspace = setup(t);
     const sourceDirectory = command === "workspace.archive" ? workspace.root : path.join(workspace.directory, "source");
     if (sourceDirectory !== workspace.root) cpSync(path.join(fixtures, "root"), sourceDirectory, { recursive: true });
@@ -253,7 +253,7 @@ for (const command of ["workspace.archive", "workspace.restore"]) {
   });
 }
 
-test("v2 copy receipts cannot be adopted from a copied cache", linuxOnly, (t) => {
+test("copy receipts cannot be adopted from a copied cache", linuxOnly, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace);
   const original = success(send(workspace, request));
@@ -264,7 +264,7 @@ test("v2 copy receipts cannot be adopted from a copied cache", linuxOnly, (t) =>
   assert.deepEqual(rawCanonical(workspace.destination), rawCanonical(workspace.root));
 });
 
-test("v2 restore copies its named source rather than the selected workspace", linuxOnly, (t) => {
+test("restore copies its named source rather than the selected workspace", linuxOnly, (t) => {
   const workspace = setup(t);
   const source = path.join(workspace.directory, "source");
   cpSync(path.join(fixtures, "root"), source, { recursive: true });
@@ -279,7 +279,7 @@ test("v2 restore copies its named source rather than the selected workspace", li
   assert.notDeepEqual(sourceBytes, selected);
 });
 
-test("v2 invalid or unsupported restore sources are refused without consuming the execution key", linuxOnly, (t) => {
+test("invalid or unsupported restore sources are refused without consuming the execution key", linuxOnly, (t) => {
   const workspace = setup(t);
   const source = path.join(workspace.directory, "source");
   cpSync(path.join(fixtures, "root"), source, { recursive: true });

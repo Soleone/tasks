@@ -104,15 +104,15 @@ test("one-user migration rehearsal preserves a frozen eight-task snapshot and ba
   const legacyCacheBytes = readFileSync(env.TASKS_DATABASE_PATH);
   assert.deepEqual(rawTree(source), frozenBytes);
   const send = (root: string, cache: string, envelope: object): Response => {
-    const child = spawnSync(process.execPath, [cli, "--stdio", "--v2-root", root, "--database", cache], {
+    const child = spawnSync(process.execPath, [cli, "--stdio", "--root", root, "--database", cache], {
       input: JSON.stringify({ version: 2, ...envelope }), env, encoding: "utf8", timeout: 10_000,
     });
     assert.equal(child.status, 0, child.stderr);
     return JSON.parse(child.stdout) as Response;
   };
   const control = success(send(source, controlCache, { command: "workspace.info" }));
-  const request = { command: "workspace.migrateV1", writeContext: control.writeContext, idempotencyKey: "frozen-snapshot-once", args: { destinationDirectory: destination } };
-  const preview = spawnSync(process.execPath, [humanCli, "--v2-root", source, "--database", controlCache, "--json", "--dry-run", "migrate-v1", destination], { env, encoding: "utf8", timeout: 10_000 });
+  const request = { command: "workspace.migrate", writeContext: control.writeContext, idempotencyKey: "frozen-snapshot-once", args: { destinationDirectory: destination } };
+  const preview = spawnSync(process.execPath, [humanCli, "--root", source, "--database", controlCache, "--json", "--dry-run", "migrate", destination], { env, encoding: "utf8", timeout: 10_000 });
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(JSON.parse(preview.stdout).taskCount, 8);
   assert.equal(existsSync(destination), false);

@@ -4,16 +4,16 @@ import { parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 
 const VALUE_FLAGS = new Set([
-  "v2-root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
+  "root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
   "actor-kind", "actor-label", "title", "text", "description", "priority", "parent", "category",
   "tag", "status", "search", "limit", "offset", "sort", "direction", "task",
 ]);
 const BOOLEAN_FLAGS = new Set([
-  "json", "dry-run", "read-only", "help", "root", "clear-category", "clear-tags",
+  "json", "dry-run", "read-only", "help", "no-parent", "clear-category", "clear-tags",
   "uncategorized", "unblocked", "include-ancestors",
 ]);
 const GLOBAL_FLAGS = [
-  "v2-root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
+  "root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
   "actor-kind", "actor-label", "json", "dry-run", "read-only", "help",
 ];
 const VERSIONED_COMMANDS = new Set([
@@ -31,18 +31,15 @@ export type HumanInvocation = {
 };
 export type HumanArgs = HumanInvocation | { help: true; json: boolean };
 
-/** A flag-valued note or a word after -- must not opt a v1 invocation into v2. */
-export function hasHumanOption(argv: readonly string[], name: string, schema1Values?: ReadonlySet<string>): boolean {
+/** Index of an actual --NAME option. A flag value or a word after -- never counts. */
+export function humanOptionIndex(argv: readonly string[], name: string, legacyValueFlags?: ReadonlySet<string>): number {
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
-    if (token === "--") return false;
-    if (token === `--${name}` || token.startsWith(`--${name}=`)) return true;
-    if (token.startsWith("--") && !token.includes("=") && (VALUE_FLAGS.has(token.slice(2)) || schema1Values?.has(token.slice(2)))) index++;
+    if (token === "--") return -1;
+    if (token === `--${name}` || token.startsWith(`--${name}=`)) return index;
+    if (token.startsWith("--") && !token.includes("=") && (VALUE_FLAGS.has(token.slice(2)) || legacyValueFlags?.has(token.slice(2)))) index++;
   }
-  return false;
-}
-export function hasHumanRoot(argv: readonly string[], schema1Values: ReadonlySet<string>): boolean {
-  return hasHumanOption(argv, "v2-root", schema1Values);
+  return -1;
 }
 function tokenize(argv: string[]): { flags: Flags; words: string[] } {
   const flags: Flags = new Map(), words: string[] = [];
@@ -52,7 +49,7 @@ function tokenize(argv: string[]): { flags: Flags; words: string[] } {
     if (token === "-h") { flags.set("help", [true]); continue; }
     if (!token.startsWith("--")) { words.push(token); continue; }
     const equal = token.indexOf("="), name = token.slice(2, equal < 0 ? undefined : equal);
-    if (!VALUE_FLAGS.has(name) && !BOOLEAN_FLAGS.has(name)) usage("unrecognized option; use --help for supported v2 flags");
+    if (!VALUE_FLAGS.has(name) && !BOOLEAN_FLAGS.has(name)) usage("unrecognized option; use --help for supported flags");
     if (flags.has(name) && name !== "tag" && name !== "status") usage(`--${name} may only be supplied once`);
     let supplied: string | true;
     if (VALUE_FLAGS.has(name)) {
@@ -101,9 +98,9 @@ function content(flags: Flags, args: Record<string, unknown>): void {
 export function parseHumanArgs(argv: string[]): HumanArgs {
   const { flags, words } = tokenize(argv), [verb, ...positionals] = words;
   if (flags.has("help")) return { help: true, json: flags.has("json") };
-  const rootPath = value(flags, "v2-root"), cachePath = value(flags, "database");
-  if (!rootPath?.trim() || !cachePath?.trim()) usage("v2 requires explicit --v2-root PATH and --database CACHE_OUTSIDE_ROOT; no environment/default fallback");
-  if (!verb) usage("no command; use tasks-cli --v2-root PATH --help");
+  const rootPath = value(flags, "root"), cachePath = value(flags, "database");
+  if (!rootPath?.trim() || !cachePath?.trim()) usage("tasks-cli requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace (use --legacy for the old CLI)");
+  if (!verb) usage("no command; use tasks-cli --root PATH --help");
   let command: string, allowed: string[] = [], mutation = true;
   const args: Record<string, unknown> = {};
   switch (verb) {
@@ -157,9 +154,9 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       command = "operation.undo"; requirePositionals(positionals, 1, verb); args.operationId = positionals[0];
       break;
     case "move":
-      command = "task.move"; allowed = ["parent", "root"]; requirePositionals(positionals, 1, verb);
-      if (flags.has("parent") === flags.has("root")) usage("move needs exactly --parent ID or --root");
-      args.id = positionals[0]; args.parentId = flags.has("root") ? null : value(flags, "parent");
+      command = "task.move"; allowed = ["parent", "no-parent"]; requirePositionals(positionals, 1, verb);
+      if (flags.has("parent") === flags.has("no-parent")) usage("move needs exactly --parent ID or --no-parent");
+      args.id = positionals[0]; args.parentId = flags.has("no-parent") ? null : value(flags, "parent");
       break;
     case "dep-add": case "dep-remove":
       command = verb === "dep-add" ? "task.dependency.add" : "task.dependency.remove";
@@ -180,8 +177,8 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
     case "init": case "rebuild":
       command = `workspace.${verb}`; requirePositionals(positionals, 0, verb);
       break;
-    case "archive": case "migrate-v1":
-      command = verb === "archive" ? "workspace.archive" : "workspace.migrateV1";
+    case "archive": case "migrate":
+      command = verb === "archive" ? "workspace.archive" : "workspace.migrate";
       requirePositionals(positionals, 1, verb); args.destinationDirectory = directoryArgument(positionals[0]);
       break;
     case "restore":
@@ -191,7 +188,7 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
     case "recover":
       command = "workspace.recovery.resume"; requirePositionals(positionals, 1, verb); args.operationId = positionals[0];
       break;
-    default: usage("human command is unavailable in v2; use --help or the documented JSON-lines advanced controls");
+    default: usage("unknown command; use --help or the documented JSON-lines advanced controls");
   }
   for (const name of flags.keys()) if (!GLOBAL_FLAGS.includes(name) && !allowed.includes(name)) usage(`--${name} is not allowed for ${verb}`);
   if (!mutation && ["write-context", "idempotency-key", "expected-version", "request-hash"].some(name => flags.has(name))) usage("retry authority options require a mutation");
@@ -209,10 +206,11 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
   if (requestHash !== undefined && !/^[0-9a-f]{64}$/.test(requestHash)) usage("--request-hash requires the retained SHA-256 hash");
   return { help: false, rootPath: path.resolve(rootPath), cachePath: path.resolve(cachePath), json: flags.has("json"), requestHash, request, mutation, versioned: VERSIONED_COMMANDS.has(command) };
 }
-export function humanUsage(): string { return `tasks-cli: explicitly selected v2 filesystem mode
+export function humanUsage(): string { return `tasks-cli: work with one explicitly selected workspace folder
 
-  tasks-cli --v2-root PATH --database CACHE_OUTSIDE_ROOT COMMAND [OPTIONS]
-  No v1 environment, registry, default database, initialization or adoption fallback.
+  tasks-cli --root PATH --database CACHE_OUTSIDE_ROOT COMMAND [OPTIONS]
+  No environment, registry, default database, initialization or adoption fallback.
+  tasks-cli --legacy ... runs the old CLI until cutover.
   Linux writes only. Pause other writers/sharing before destructive work.
 
 QUERIES
@@ -231,12 +229,12 @@ WRITES
     add also allows --parent ID. Shorthand cannot mix classification overrides.
   start|pause|complete|reopen|cancel|delete|undo ID
   undo-operation OPERATION_ID | purge-canceled
-  move ID --parent ID | move ID --root
+  move ID --parent ID | move ID --no-parent
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
   init | rebuild | archive DESTINATION | restore SOURCE DESTINATION
-  migrate-v1 DESTINATION | recover OPERATION_ID
-  Copy/migration never switches selection or enables sharing. Rollback selects
-  preserved pre-migration v1 state with a v1 client; later v2 edits stay separate.
+  migrate DESTINATION | recover OPERATION_ID
+  Copy/migration never switches selection or enables sharing. Rollback selects the
+  preserved schema 1 folder with the old client; later edits stay separate.
   Ordering, batches and doctor remain advanced JSON-lines controls, not new verbs.
 
 OUTPUT AND RETRIES

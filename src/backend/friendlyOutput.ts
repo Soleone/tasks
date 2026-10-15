@@ -41,6 +41,6 @@ export function printHumanResult(command: string, response: Extract<Response, { 
   if (result.changed === false) lines.push("No change.");
   if (typeof result.operationId === "string") lines.push(`operation: ${result.operationId}`);
   if (typeof result.recoveryLocation === "string") lines.push(`recovery: ${result.recoveryLocation}`);
-  if (["workspace.archive", "workspace.restore", "workspace.migrateV1"].includes(command)) lines.push("Selection and sharing are unchanged. Retain the source and recovery evidence.");
+  if (["workspace.archive", "workspace.restore", "workspace.migrate"].includes(command)) lines.push("Selection and sharing are unchanged. Retain the source and recovery evidence.");
   process.stdout.write(`${lines.join("\n")}\n`);
 }

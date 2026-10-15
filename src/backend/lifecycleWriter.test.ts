@@ -12,7 +12,7 @@ import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 
-const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
+const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
   taskTemplate: Record<string, unknown>; cases: { id: string; action: { command?: string; args?: object; steps?: Record<string, unknown>[] }; expect: Record<string, unknown> }[];
 };
@@ -218,7 +218,7 @@ for (const fault of ["partial-record", "missing-manifest", "legacy-order", "unsu
   });
 }
 
-test("rebuild removes absent projection rows without resurrecting files or importing a foreign/v1 cache", linuxOnly, (t) => {
+test("rebuild removes absent projection rows without resurrecting files or importing a foreign/legacy cache", linuxOnly, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace, "workspace.rebuild");
   // Remove the complete child/parent linked subgraph, leaving a valid two-task root.

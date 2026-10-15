@@ -25,7 +25,7 @@ import { executeQuery, projectTasks } from "./queries.js";
 import { assertArgs, decodeEnvelope, isRecord, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 import type { Response } from "./protocol.js";
 
-const writeCommands = ["task.update", "task.create", ...STATUS_COMMANDS, ...RELATIONSHIP_COMMANDS, ...ORDER_COMMANDS, ...UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrateV1", "workspace.init", "workspace.rebuild", "workspace.doctor.plan", "workspace.doctor.apply"];
+const writeCommands = ["task.update", "task.create", ...STATUS_COMMANDS, ...RELATIONSHIP_COMMANDS, ...ORDER_COMMANDS, ...UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrate", "workspace.init", "workspace.rebuild", "workspace.doctor.plan", "workspace.doctor.apply"];
 
 export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: string, writerProfile?: "windows-task-proof"): Response {
   let requestId: string | null = null;
@@ -49,7 +49,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
         : ORDER_COMMANDS.includes(request.command) ? executeOrder(request, rootPath, cachePath)
         : isTaskEditRequest(request) ? executeUpdate(request, rootPath, cachePath)
         : request.command === "workspace.recovery.resume" ? resumeOperation(request, rootPath, cachePath, windowsTaskProof)
-        : request.command === "workspace.migrateV1" ? executeMigration(request, rootPath, cachePath)
+        : request.command === "workspace.migrate" ? executeMigration(request, rootPath, cachePath)
         : ["workspace.init", "workspace.rebuild"].includes(request.command) ? executeLifecycle(request, rootPath, cachePath)
         : executeCopy(request, rootPath, cachePath, windowsTaskProof);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
@@ -61,7 +61,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
     }
     const commands = [...QUERY_COMMANDS, ...allowedWrites, ...(writable ? ["activity.list", "workspace.doctor.inspect"] : windowsTaskProof ? ["activity.list"] : [])].sort();
     if (!commands.includes(request.command)) {
-      throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this bounded v2 slice");
+      throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this build");
     }
     if (request.command === "workspace.info") assertArgs(request.args, []);
     let pending;
@@ -91,7 +91,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
   } catch (error) {
     const storageError = isRecord(error) && typeof error.code === "string" && /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
     const code = error instanceof CommandError ? error.code : storageError ? "INVALID_STORAGE" : "INTERNAL_ERROR";
-    const message = error instanceof CommandError ? error.message.slice(error.code.length + 2) : "v2 query could not complete safely";
+    const message = error instanceof CommandError ? error.message.slice(error.code.length + 2) : "query could not complete safely";
     return { version: 2, requestId, ok: false, error: { code, message, ...(error instanceof Schema1MigrationSourceError || error instanceof PurgeReferencedError ? { details: error.details } : {}) } };
   }
 }

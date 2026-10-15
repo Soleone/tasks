@@ -9,20 +9,20 @@ import type { TestContext } from "node:test";
 import type { Response } from "./protocol.js";
 
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
+const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 type Workspace = { root: string; cache: string; trap: string };
 function setup(t: TestContext): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-process-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-process-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, "root");
-  const trap = path.join(directory, "v1-must-not-open");
+  const trap = path.join(directory, "legacy-must-not-open");
   cpSync(golden, root, { recursive: true });
   mkdirSync(trap);
   return { root, cache: path.join(directory, "cache.db"), trap };
 }
 
 function run(workspace: Workspace, bytes: Buffer): Response[] {
-  const output = execFileSync(process.execPath, [cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], {
+  const output = execFileSync(process.execPath, [cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], {
     input: bytes,
     timeout: 10_000,
     env: { ...process.env, TASKS_SYNC_ROOT: workspace.trap, TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.trap, "missing-registry.json") },
@@ -35,7 +35,7 @@ function lines(requests: object[]): Buffer {
   return Buffer.from(requests.map(request => JSON.stringify({ version: 2, ...request })).join("\n"));
 }
 
-test("opt-in v2 JSON-lines queries survive process restart without using v1 roots/registry", (t) => {
+test("opt-in JSON-lines queries survive process restart without using legacy roots/registry", (t) => {
   const current = setup(t);
   const first = run(current, lines([{ requestId: "info", command: "workspace.info" }, { requestId: "list", command: "task.list", args: { sort: "manual" } }]));
   assert.equal(first[0].ok, true);
@@ -58,7 +58,7 @@ test("opt-in v2 JSON-lines queries survive process restart without using v1 root
   if (lost[0].ok) assert.notEqual(lost[0].writeContext, ctx);
 });
 
-test("v2 stdio preserves invalid UTF-8, nulls unsafe correlation and continues after errors/EOF", (t) => {
+test("stdio preserves invalid UTF-8, nulls unsafe correlation and continues after errors/EOF", (t) => {
   const current = setup(t);
   const bytes = Buffer.concat([
     Buffer.from(' \t\r\n{"version":2,"requestId":"unsafe","command":"task.list","args":{"search":"'),
@@ -81,9 +81,9 @@ test("v2 stdio preserves invalid UTF-8, nulls unsafe correlation and continues a
   assert.equal(responses[3].ok, true);
 });
 
-test("v2 CLI requires an explicit cache; an inside-root cache cannot create synced metadata", (t) => {
+test("CLI requires an explicit cache; an inside-root cache cannot create synced metadata", (t) => {
   const current = setup(t);
-  const missing = spawnSync(process.execPath, [cli, "--stdio", "--v2-root", current.root], { input: "", timeout: 10_000 });
+  const missing = spawnSync(process.execPath, [cli, "--stdio", "--root", current.root], { input: "", timeout: 10_000 });
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr.toString(), /--database/);
   const bad = run({ ...current, cache: path.join(current.root, "cache.db") }, lines([{ command: "workspace.info" }]));
@@ -94,7 +94,7 @@ test("v2 CLI requires an explicit cache; an inside-root cache cannot create sync
 
 test("Windows task proof never infers a profile, accepts the old flag, or activates outside Windows", t => {
   const current = setup(t);
-  const base = [cli, "--stdio", "--v2-root", current.root, "--database", current.cache];
+  const base = [cli, "--stdio", "--root", current.root, "--database", current.cache];
   const invalid = [["--windows-task-proof"], ["--local-profile", current.trap], ["--windows-update-proof", "--local-profile", current.trap]];
   if (process.platform !== "win32") invalid.push(["--windows-task-proof", "--local-profile", "C:\\disposable-profile"]);
   for (const flags of invalid) {

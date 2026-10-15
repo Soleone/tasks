@@ -6,11 +6,11 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
-const fixture = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v1/sync/", import.meta.url));
+const fixture = fileURLToPath(new URL("../../scripts/fixtures/schema1/sync/", import.meta.url));
 const conversionModule = new URL("./conversion.js", import.meta.url).href;
 const parentPath = "tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json";
 function setup(t: TestContext) {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v1-source-fault-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-source-fault-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, "source");
   cpSync(fixture, root, { recursive: true });

@@ -8,12 +8,12 @@ import { build } from "esbuild";
 import { startDevServer } from "../dist/backend/devServer.js";
 import { devWebOptions } from "./dev-web-options.mjs";
 
-const bundled = await build({ entryPoints: ["src/platform/workspaceReader.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
+const bundled = await build({ stdin: { contents: "export * from './src/platform/workspaceReader'; export { readEditorSelection } from './src/platform/editorClient';", resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const client = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`);
-const { WorkspaceReader, readDevSelection, parseTaskPage, parseWorkspaceInfo, sidecarArgs } = client;
+const { WorkspaceReader, readEditorSelection, parseTaskPage, parseWorkspaceInfo, sidecarArgs } = client;
 const { parseTaskProjection } = await import("../dist/backend/taskResults.js");
 const { parseResponse } = await import("../dist/backend/protocol.js");
-const task = JSON.parse(readFileSync("scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", "utf8"));
+const task = JSON.parse(readFileSync("scripts/fixtures/workspace/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", "utf8"));
 const projection = { ...task, version: 1, blockedByIds: [] };
 const request = (command = "workspace.info") => ({ version: 2, requestId: crypto.randomUUID(), command, args: {}, actor: { kind: "human", label: "reader test" }, readOnly: true, dryRun: false });
 
@@ -21,9 +21,9 @@ function canonicalBytes(root) {
   return Object.fromEntries(["workspace.json", ...readdirSync(path.join(root, "tasks")).map(name => `tasks/${name}`)].map(name => [name, readFileSync(path.join(root, name), "base64")]));
 }
 function workspace(t) {
-  const directory = mkdtempSync(path.join(tmpdir(), "taskdb-v2-app-reader-"));
+  const directory = mkdtempSync(path.join(tmpdir(), "tasks-app-reader-"));
   const rootPath = path.join(directory, "root");
-  cpSync("scripts/fixtures/taskdb-v2/root", rootPath, { recursive: true });
+  cpSync("scripts/fixtures/workspace/root", rootPath, { recursive: true });
   const originalXdg = process.env.XDG_DATA_HOME;
   const originalRegistry = process.env.TASKS_SOURCE_REGISTRY_PATH;
   delete process.env.TASKS_SOURCE_REGISTRY_PATH;
@@ -36,9 +36,9 @@ function workspace(t) {
   return { rootPath, databasePath: path.join(directory, "cache.db"), directory };
 }
 async function devReader(t, selection) {
-  const dev = await startDevServer({ port: 0, v2Root: selection.rootPath, databasePath: selection.databasePath });
+  const dev = await startDevServer({ port: 0, root: selection.rootPath, databasePath: selection.databasePath });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  const selected = await readDevSelection(dev.url);
+  const selected = await readEditorSelection(dev.url);
   const reader = new WorkspaceReader(selection, { url: dev.url, selection: selected });
   return { dev, selected, reader };
 }
@@ -63,16 +63,16 @@ function processCommand(args, launches, responses) {
   };
 }
 
-test("dev launcher keeps default v1 and Vite arguments separate", () => {
-  assert.deepEqual(devWebOptions([]), { backendArgs: [], viteArgs: [], v2: false });
-  assert.deepEqual(devWebOptions(["--", "--host", "127.0.0.1"]), { backendArgs: [], viteArgs: ["--host", "127.0.0.1"], v2: false });
-  assert.deepEqual(devWebOptions(["--v2-root", "fixture", "--database", "cache.db", "--", "--port", "5231"]), { backendArgs: ["--v2-root", path.resolve("fixture"), "--database", path.resolve("cache.db")], viteArgs: ["--port", "5231"], v2: true });
+test("dev launcher requires an explicit root or --legacy and keeps Vite arguments separate", () => {
+  assert.deepEqual(devWebOptions(["--legacy"]), { backendArgs: ["--legacy"], viteArgs: [], legacy: true });
+  assert.deepEqual(devWebOptions(["--legacy", "--", "--host", "127.0.0.1"]), { backendArgs: ["--legacy"], viteArgs: ["--host", "127.0.0.1"], legacy: true });
+  assert.deepEqual(devWebOptions(["--root", "fixture", "--database", "cache.db", "--", "--port", "5231"]), { backendArgs: ["--root", path.resolve("fixture"), "--database", path.resolve("cache.db")], viteArgs: ["--port", "5231"], legacy: false });
 });
-for (const argv of [["--v2-root", "root"], ["--v2-root"], ["--v2-root", "--database", "cache"], ["--v2-root", "root", "--database", "cache", "--v2-root", "other"], ["--v2-root", "root", "--database", ""], ["--v2-root", "root", "--database", "cache", "--unknown", "value"]]) {
+for (const argv of [[], ["--", "--host", "127.0.0.1"], ["--legacy", "--root", "root"], ["--root", "root"], ["--root"], ["--root", "--database", "cache"], ["--root", "root", "--database", "cache", "--root", "other"], ["--root", "root", "--database", ""], ["--root", "root", "--database", "cache", "--unknown", "value"]]) {
   test(`dev launcher refuses ambiguous selection ${JSON.stringify(argv)}`, () => assert.throws(() => devWebOptions(argv)));
 }
 
-test("v2 response validator refuses v1 and malformed successes/errors", () => {
+test("response validator refuses legacy and malformed successes/errors", () => {
   const success = { version: 2, requestId: "r", ok: true, writeContext: "ctx", result: {} };
   assert.deepEqual(parseResponse(success), success);
   const failure = { version: 2, requestId: null, ok: false, error: { code: "RECOVERY_CONFLICT", message: "preserve evidence", details: {} } };
@@ -80,17 +80,17 @@ test("v2 response validator refuses v1 and malformed successes/errors", () => {
   for (const response of [{ ...success, version: 1 }, { ...success, writeContext: "" }, { ...success, requestId: 1 }, { ...success, result: [] }, { ...success, rootPath: "other" }, { ...failure, ok: "false" }, { ...failure, error: { code: "BAD", message: 7 } }, { ...failure, error: { code: "BAD", message: "bad", details: [] } }]) assert.throws(() => parseResponse(response));
 });
 
-test("v2 projections retain literal title, description, slugs and closedAt", () => {
+test("projections retain literal title, description, slugs and closedAt", () => {
   const literal = { ...projection, title: "Call @alice #not-a-tag", description: "## @literal\n#not-classification", category: "work", tags: ["todo"], status: "done", closedAt: task.updatedAt };
   assert.deepEqual(parseTaskProjection(literal), literal);
   assert.equal(Object.hasOwn(parseTaskProjection(literal), "descriptionMarkdown"), false);
   assert.equal(Object.hasOwn(parseTaskProjection(literal), "completedAt"), false);
 });
 for (const [label, changes] of Object.entries({ "legacy description": { descriptionMarkdown: "legacy" }, "label category": { category: { slug: "work", label: "Work" } }, "zero version": { version: 0 }, "unsafe version": { version: Number.MAX_SAFE_INTEGER + 1 }, "foreign blocker": { blockedByIds: ["missing"] }, "unknown field": { extra: true }, "invalid closure": { status: "open", closedAt: task.updatedAt } })) {
-  test(`v2 client refuses ${label}`, () => assert.throws(() => parseTaskProjection({ ...projection, ...changes })));
+  test(`client refuses ${label}`, () => assert.throws(() => parseTaskProjection({ ...projection, ...changes })));
 }
 
-test("v2 list validator refuses duplicate projection identities and unsafe pagination", () => {
+test("list validator refuses duplicate projection identities and unsafe pagination", () => {
   const page = { tasks: [projection], contextTasks: [], total: 1, limit: 50, offset: 0, workspaceRevision: 1 };
   assert.deepEqual(parseTaskPage(page), page);
   for (const changes of [{ contextTasks: [projection] }, { tasks: [projection, projection], total: 2 }, { limit: 101 }, { offset: -1 }, { total: 0 }, { contextTasks: undefined }]) assert.throws(() => parseTaskPage({ ...page, ...changes }));
@@ -99,16 +99,16 @@ test("v2 list validator refuses duplicate projection identities and unsafe pagin
 
 test("sidecar selection accepts explicit absolute paths and exact argv only", () => {
   for (const rootPath of ["/tmp/disposable root", "C:\\disposable\\root", "\\\\host\\share\\root"]) {
-    assert.deepEqual(sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }), ["--stdio", "--v2-root", rootPath, "--database", "/tmp/cache.db"]);
+    assert.deepEqual(sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }), ["--stdio", "--root", rootPath, "--database", "/tmp/cache.db"]);
   }
-  for (const rootPath of ["", "relative", "--v2-root", "/tmp/root\nother", "/tmp/root\0other"]) assert.throws(() => sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }));
+  for (const rootPath of ["", "relative", "--root", "/tmp/root\nother", "/tmp/root\0other"]) assert.throws(() => sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }));
   const permission = JSON.parse(readFileSync("src-tauri/capabilities/default.json", "utf8")).permissions.find(item => item.identifier === "shell:allow-spawn");
   assert.deepEqual(permission.allow[0].args, ["--stdio"]);
-  assert.equal(permission.allow.length, 1, "native v2 permission must remain withheld rather than duplicate the default binary name");
-  assert.throws(() => new WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }), /No v1 sidecar was launched/);
+  assert.equal(permission.allow.length, 1, "native permission must remain withheld rather than duplicate the default binary name");
+  assert.throws(() => new WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }), /No legacy sidecar was launched/);
 });
 
-test("v2 health discovers explicit selection without reading/initializing root or cache", async t => {
+test("health discovers explicit selection without reading/initializing root or cache", async t => {
   const selected = workspace(t);
   const original = canonicalBytes(selected.rootPath);
   const { reader } = await devReader(t, selected);
@@ -122,20 +122,20 @@ test("v2 health discovers explicit selection without reading/initializing root o
   assert.deepEqual(canonicalBytes(selected.rootPath), original);
 });
 
-test("v2 dev selection requires explicit cache despite v1 environment defaults", async t => {
+test("dev bridge requires an explicit cache despite legacy environment defaults", async t => {
   const selected = workspace(t);
   const original = process.env.TASKS_DATABASE_PATH;
-  process.env.TASKS_DATABASE_PATH = path.join(selected.directory, "v1-trap.db");
-  try { assert.throws(() => startDevServer({ port: 0, v2Root: selected.rootPath }), /no environment\/default fallback/); }
+  process.env.TASKS_DATABASE_PATH = path.join(selected.directory, "legacy-trap.db");
+  try { assert.throws(() => startDevServer({ port: 0, root: selected.rootPath }), /no default workspace/); }
   finally { if (original === undefined) delete process.env.TASKS_DATABASE_PATH; else process.env.TASKS_DATABASE_PATH = original; }
-  assert.equal(existsSync(path.join(selected.directory, "v1-trap.db")), false);
+  assert.equal(existsSync(path.join(selected.directory, "legacy-trap.db")), false);
 });
 
-test("v2 dev bridge refuses raw mutations, stale/missing selection and v1 frames without effects", async t => {
+test("dev bridge refuses unconnected commands, stale/missing selection and legacy frames without effects", async t => {
   const selected = workspace(t);
   const original = canonicalBytes(selected.rootPath);
   const { dev, selected: handshake } = await devReader(t, selected);
-  for (const [body, token, code] of [[{ ...request("task.create"), args: { title: "No write" }, readOnly: false }, handshake.selectionToken, "UNSUPPORTED_COMMAND"], [request(), "old-server", "STALE_DEV_SELECTION"], [request(), undefined, "STALE_DEV_SELECTION"], [{ version: 1, requestId: "legacy", command: "task.list" }, handshake.selectionToken, "INVALID_REQUEST"]]) {
+  for (const [body, token, code] of [[{ ...request("task.purgeCanceled"), readOnly: false }, handshake.selectionToken, "UNSUPPORTED_COMMAND"], [request(), "old-server", "STALE_DEV_SELECTION"], [request(), undefined, "STALE_DEV_SELECTION"], [{ version: 1, requestId: "legacy", command: "task.list" }, handshake.selectionToken, "INVALID_REQUEST"]]) {
     const response = await fetch(`${dev.url}/command`, { method: "POST", headers: { "content-type": "application/json", ...(token ? { "x-taskdb-selection": token } : {}) }, body: JSON.stringify(body) });
     const result = await response.json();
     assert.equal(result.version, 2); assert.equal(result.error.code, code);
@@ -144,14 +144,14 @@ test("v2 dev bridge refuses raw mutations, stale/missing selection and v1 frames
   assert.equal(existsSync(selected.databasePath), false);
 });
 
-test("v2 browser reader refuses v1 endpoints and mismatched selected paths", async t => {
+test("browser client refuses legacy endpoints and mismatched selected paths", async t => {
   const selected = workspace(t);
-  const dev = await startDevServer({ port: 0, databasePath: path.join(selected.directory, "v1.db") });
+  const dev = await startDevServer({ port: 0, databasePath: path.join(selected.directory, "legacy.db"), legacy: true });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  await assert.rejects(readDevSelection(dev.url), /No v1 fallback/);
-  assert.equal(existsSync(path.join(selected.directory, "v1.db")), false);
-  const { dev: v2, selected: handshake } = await devReader(t, selected);
-  assert.throws(() => new WorkspaceReader({ ...selected, rootPath: path.join(selected.directory, "other") }, { url: v2.url, selection: handshake }), /does not match/);
+  await assert.rejects(readEditorSelection(dev.url), /No legacy fallback/);
+  assert.equal(existsSync(path.join(selected.directory, "legacy.db")), false);
+  const { dev: bridge, selected: handshake } = await devReader(t, selected);
+  assert.throws(() => new WorkspaceReader({ ...selected, rootPath: path.join(selected.directory, "other") }, { url: bridge.url, selection: handshake }), /does not match/);
 });
 
 test("a restarted dev backend cannot silently substitute a different root/cache", async t => {
@@ -161,12 +161,12 @@ test("a restarted dev backend cannot silently substitute a different root/cache"
   await new Promise(resolve => dev.server.close(resolve));
   const rootPath = path.join(selected.directory, "different-root");
   const databasePath = path.join(selected.directory, "different-cache.db");
-  cpSync("scripts/fixtures/taskdb-v2/root", rootPath, { recursive: true });
-  const next = await startDevServer({ port: dev.port, v2Root: rootPath, databasePath });
+  cpSync("scripts/fixtures/workspace/root", rootPath, { recursive: true });
+  const next = await startDevServer({ port: dev.port, root: rootPath, databasePath });
   t.after(() => new Promise(resolve => next.server.close(resolve)));
   await assert.rejects(reader.workspaceInfo(), /STALE_DEV_SELECTION|fetch failed/);
   assert.equal(existsSync(databasePath), false);
-  const nextSelection = await readDevSelection(next.url);
+  const nextSelection = await readEditorSelection(next.url);
   await assert.rejects(reader.workspaceInfo(), /STALE_DEV_SELECTION/);
   const nextReader = new WorkspaceReader(nextSelection, { url: next.url, selection: nextSelection });
   assert.equal((await nextReader.workspaceInfo()).state, "ready");
@@ -184,7 +184,7 @@ test("reader selection is a fixed private snapshot, not a mutable caller referen
   assert.ok(Object.isFrozen(reader.selection));
 });
 
-test("empty and v1 roots are inspected without initialization or fallback", async t => {
+test("empty and legacy roots are inspected without initialization or fallback", async t => {
   const selected = workspace(t);
   const empty = path.join(selected.directory, "empty");
   mkdirSync(empty);
@@ -193,7 +193,7 @@ test("empty and v1 roots are inspected without initialization or fallback", asyn
   await assert.rejects(emptyReader.tasks(), /complete schema-2/);
   assert.deepEqual(readdirSync(empty), []);
   const legacy = path.join(selected.directory, "legacy");
-  cpSync("scripts/fixtures/taskdb-v1/sync", legacy, { recursive: true });
+  cpSync("scripts/fixtures/schema1/sync", legacy, { recursive: true });
   const legacyBefore = canonicalBytes(legacy);
   const { reader } = await devReader(t, { rootPath: legacy, databasePath: path.join(selected.directory, "legacy-control.db") });
   assert.equal((await reader.workspaceInfo()).state, "unsupported");
@@ -201,14 +201,14 @@ test("empty and v1 roots are inspected without initialization or fallback", asyn
   assert.deepEqual(canonicalBytes(legacy), legacyBefore);
 });
 
-test("adoption refuses retained v1 cache authority without changing its database", async t => {
+test("adoption refuses retained legacy cache authority without changing its database", async t => {
   const selected = workspace(t);
-  const legacy = path.join(selected.directory, "v1-source");
-  cpSync("scripts/fixtures/taskdb-v1/sync", legacy, { recursive: true });
+  const legacy = path.join(selected.directory, "legacy-source");
+  cpSync("scripts/fixtures/schema1/sync", legacy, { recursive: true });
   const { executeCommand } = await import("../dist/legacy/backend/commands.js");
   const { parseRequest } = await import("../dist/legacy/backend/protocol.js");
   const { withCanonicalRootPath } = await import("../dist/legacy/backend/canonicalWorkspace.js");
-  withCanonicalRootPath(selected.databasePath, legacy, () => executeCommand(parseRequest({ version: 1, requestId: "v1-cache", command: "workspace.info" }), selected.databasePath));
+  withCanonicalRootPath(selected.databasePath, legacy, () => executeCommand(parseRequest({ version: 1, requestId: "legacy-cache", command: "workspace.info" }), selected.databasePath));
   const before = readFileSync(selected.databasePath, "base64");
   const original = canonicalBytes(selected.rootPath);
   const { reader } = await devReader(t, selected);
@@ -252,7 +252,7 @@ test("HTTP reader sees actual friendly CLI edits and retains query-only authorit
   const selected = workspace(t);
   const { reader } = await devReader(t, selected);
   const before = await reader.tasks();
-  const added = JSON.parse(execFileSync(process.execPath, ["dist/backend/tasks-cli.js", "--v2-root", selected.rootPath, "--database", selected.databasePath, "add", "--title", "Call @alice", "--category", "WORK", "--tag", "TODO", "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  const added = JSON.parse(execFileSync(process.execPath, ["dist/backend/tasks-cli.js", "--root", selected.rootPath, "--database", selected.databasePath, "add", "--title", "Call @alice", "--category", "WORK", "--tag", "TODO", "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   const after = await reader.tasks();
   assert.equal(after.total, before.total + 1);
   assert.ok(after.workspaceRevision > before.workspaceRevision);
@@ -262,7 +262,7 @@ test("HTTP reader sees actual friendly CLI edits and retains query-only authorit
   assert.deepEqual(filtered.tasks.map(item => item.id), [observed.id]);
 });
 
-test("actual JSON-lines reader launches only selected v2 process and can reopen retained cache", async t => {
+test("actual JSON-lines reader launches only selected process and can reopen retained cache", async t => {
   const selected = workspace(t);
   const original = canonicalBytes(selected.rootPath);
   const launches = [], responses = [];

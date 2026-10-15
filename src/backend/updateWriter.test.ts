@@ -11,11 +11,11 @@ import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
+const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 type Workspace = { root: string; cache: string };
 const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 function setup(t: TestContext): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-update-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-update-"));
   const env = { XDG_DATA_HOME: process.env.XDG_DATA_HOME, APPDATA: process.env.APPDATA };
   process.env.XDG_DATA_HOME = path.join(directory, "local");
   process.env.APPDATA = path.join(directory, "local");
@@ -41,7 +41,7 @@ function prepared(workspace: Workspace, args: object, key = "edit") {
   return { command: "task.update", writeContext: read.writeContext, idempotencyKey: key, args: { id: parentId, expectedVersion: task.version, ...args } };
 }
 
-test("v2 update commits once, preserves classifications/closure, and replays before live graph checks", { skip: process.platform !== "linux" }, (t) => {
+test("update commits once, preserves classifications/closure, and replays before live graph checks", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace, { title: "Call @alice" });
   const first = success(send(workspace, request));
@@ -82,7 +82,7 @@ test("malformed task result in a retained receipt cannot become typed historical
   assert.deepEqual(success(send(workspace, request)).result, committed.result);
 });
 
-test("v2 copied cache refuses original receipts without changing canonical bytes", { skip: process.platform !== "linux" }, (t) => {
+test("copied cache refuses original receipts without changing canonical bytes", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace, { description: "Copied-cache boundary" });
   const committed = success(send(workspace, request));
@@ -99,7 +99,7 @@ test("v2 copied cache refuses original receipts without changing canonical bytes
   assert.deepEqual(success(send(workspace, request)).result, committed.result);
 });
 
-test("v2 no-op/preview leave bytes, versions and activity unchanged, but executed no-op has a receipt", { skip: process.platform !== "linux" }, (t) => {
+test("no-op/preview leave bytes, versions and activity unchanged, but executed no-op has a receipt", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const file = path.join(workspace.root, "tasks", `${parentId}.json`);
   const bytes = readFileSync(file);
@@ -119,7 +119,7 @@ test("v2 no-op/preview leave bytes, versions and activity unchanged, but execute
   assert.deepEqual((applied.result.task as { tags: string[] }).tags, ["todo"]);
 });
 
-test("v2 stale/missing context, versions, keys and malformed args fail without consuming a retry", { skip: process.platform !== "linux" }, (t) => {
+test("stale/missing context, versions, keys and malformed args fail without consuming a retry", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const request = prepared(workspace, { description: "New" });
   const bytes = readFileSync(path.join(workspace.root, "tasks", `${parentId}.json`));
@@ -143,7 +143,7 @@ test("v2 stale/missing context, versions, keys and malformed args fail without c
   if (!lost.ok) assert.equal(lost.error.code, "STALE_WRITE_CONTEXT");
 });
 
-test("v2 edit of a closed task preserves closure and updates only edit time/content", { skip: process.platform !== "linux" }, (t) => {
+test("edit of a closed task preserves closure and updates only edit time/content", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const file = path.join(workspace.root, "tasks", `${parentId}.json`);
   const task = JSON.parse(readFileSync(file, "utf8"));

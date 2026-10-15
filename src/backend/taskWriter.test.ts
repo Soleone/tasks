@@ -13,7 +13,7 @@ import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 
-const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
+const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 type Case = { id: string; profile: string; given: { patch?: Record<string, unknown> }; action: { command?: string; args?: Record<string, unknown>; at?: string; commands?: string[]; statuses?: string[]; steps?: Record<string, unknown>[]; writeContext?: null }; expect: Record<string, unknown> };
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as { taskTemplate: CanonicalTask; cases: Case[] };
 const linuxOnly = { skip: process.platform !== "linux" };

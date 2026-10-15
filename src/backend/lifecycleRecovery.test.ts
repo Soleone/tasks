@@ -29,7 +29,7 @@ function emptyWorkspace(t: TestContext) {
   return workspace;
 }
 function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
+  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function crash(workspace: Workspace, cut: string) {
   const info = success(send(workspace, { command: "workspace.info" }));

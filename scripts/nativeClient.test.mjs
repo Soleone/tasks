@@ -7,9 +7,9 @@ import { nativePilotConfig, nativePilotSelection, resolveNativePilotSelection } 
 const bundle = await build({ stdin: { contents: `export * from './src/platform/nativeSelection';export * from './src/platform/workspaceReader';export * from './src/platform/editorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseResponse} from './src/backend/protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseShorthand} from './src/backend/updateInputs';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const { parseNativeSelection, validateNativeSelection, nativeSidecarArgs, NATIVE_COMMANDS, EDITOR_COMMANDS, LINUX_EDITOR_COMMANDS, WorkspaceReader, EditorClient, EditorError, PreparedEdit, JsonLineSession, parseResponse, MainWorkspace, taskView, inlineTaskText, parseShorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 const selection = { rootPath: "C:\\proof\\root", databasePath: "C:\\proof\\cache.db", profilePath: "C:\\proof\\profile" };
-const argv = ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
+const argv = ["--stdio", "--root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
 const editorSelection = { ...selection, version: 2, readOnly: false, selectionToken: "native-memory-selection", writeCommands: EDITOR_COMMANDS };
-const task = { ...JSON.parse(readFileSync("scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json")), version: 1, blockedByIds: [] };
+const task = { ...JSON.parse(readFileSync("scripts/fixtures/workspace/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json")), version: 1, blockedByIds: [] };
 const info = { state: "ready", schemaVersion: 2, commands: NATIVE_COMMANDS, issues: [], pendingOperationId: null, workspaceRevision: 1 };
 
 function desktop(t, android = false) {
@@ -42,12 +42,12 @@ function sessionFixture(t, respond) {
  test("native pilot freezes three explicit paths and constructs exactly eight positions", () => {
   const parsed = parseNativeSelection(selection); assert.deepEqual(parsed, selection); assert.equal(Object.isFrozen(parsed), true);
   assert.deepEqual(nativeSidecarArgs(parsed), argv);
-  assert.deepEqual(nativePilotSelection(["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath]), selection);
+  assert.deepEqual(nativePilotSelection(["--root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath]), selection);
   for (const candidate of [null, [], {}, { ...selection, extra: true }]) assert.throws(() => parseNativeSelection(candidate));
-  for (const flags of [[], argv, ["--v2-root", selection.rootPath, "--local-profile", selection.profilePath, "--database", selection.databasePath], ["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath, "--config", "other"]]) assert.throws(() => nativePilotSelection(flags));
+  for (const flags of [[], argv, ["--root", selection.rootPath, "--local-profile", selection.profilePath, "--database", selection.databasePath], ["--root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath, "--config", "other"]]) assert.throws(() => nativePilotSelection(flags));
 });
 test("native launcher refuses package-runner separator corruption rather than repairing selected paths", () => {
-  const flags = ["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath];
+  const flags = ["--root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath];
   for (const index of [1, 3, 5]) {
     const doubled = [...flags];
     doubled[index] = doubled[index].replaceAll("\\", "\\\\");
@@ -103,7 +103,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
  test("native unsupported relationship/grouped controls refuse before queries or preparation", async t => {
   desktop(t); const state = sessionFixture(t, () => { throw new Error("No request expected"); });
   assert.equal(EDITOR_COMMANDS.includes("task.move"), false);
-  assert.throws(() => new EditorClient(state.session, { ...editorSelection, writeCommands: LINUX_EDITOR_COMMANDS }), /explicitly enabled/);
+  assert.throws(() => new EditorClient(state.session, { ...editorSelection, writeCommands: LINUX_EDITOR_COMMANDS }), /started with --root/);
   const native = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   assert.deepEqual([native.supportsRelationships, native.supportsOrdering, native.supportsOperationUndo, EDITOR_COMMANDS.includes("task.reorder")], [false, false, false, false]);
   for (const command of ["task.move", "task.transitionMany", "operation.undo", "workspace.archive", "workspace.restore", "workspace.recovery.resume"]) assert.throws(() => new PreparedEdit(state.session, editorSelection, { version: 2, command, requestId: "r", writeContext: "native-context", idempotencyKey: "k", actor: { kind: "human", label: "native" }, readOnly: false, dryRun: false, args: { id: task.id, expectedVersion: 1 } }));

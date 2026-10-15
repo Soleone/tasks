@@ -8,9 +8,9 @@ const compiled = await build({ entryPoints: [fileURLToPath(new URL("../src/platf
 const { validateNativeSelection, nativeSidecarArgs } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 
 export function nativePilotSelection(argv) {
-  const flags = ["--v2-root", "--database", "--local-profile"];
+  const flags = ["--root", "--database", "--local-profile"];
   if (argv.length !== 6 || flags.some((flag, index) => argv[index * 2] !== flag || typeof argv[index * 2 + 1] !== "string" || !argv[index * 2 + 1])) {
-    throw new Error("Supply exactly --v2-root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection.");
+    throw new Error("Supply exactly --root ROOT --database CACHE --local-profile PROFILE; no extra Tauri arguments or default selection.");
   }
   const selection = { rootPath: argv[1], databasePath: argv[3], profilePath: argv[5] };
   validateNativeSelection(selection);

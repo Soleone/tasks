@@ -63,7 +63,7 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
 
 const { parseResponse } = await import("../dist/backend/protocol.js");
 
-test("protocol-2 framing rejects a v1 reply and restarts only the same selected command", async () => {
+test("protocol-2 framing rejects a legacy reply and restarts only the same selected command", async () => {
   let launches = 0;
   let kills = 0;
   const session = new JsonLineSession(

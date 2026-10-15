@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { build } from "esbuild";
 
-const compiled = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2_NATIVE_SELECTION: "explicit-native-selection" }) } });
+const compiled = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKS_NATIVE_SELECTION: "explicit-native-selection" }) } });
 const client = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 
 const withheldActions = [
@@ -76,17 +76,17 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   ]);
 });
 
-const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
+const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKS_LEGACY: "0" }) } });
 const httpClient = await import(`data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}`);
 const { startDevServer } = await import("../dist/backend/devServer.js");
 
 async function selectedHttpWorkspace(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "taskdb-main-http-"));
   const root = path.join(directory, "root");
-  cpSync("scripts/fixtures/taskdb-v2/root", root, { recursive: true });
+  cpSync("scripts/fixtures/workspace/root", root, { recursive: true });
   const originalXdg = process.env.XDG_DATA_HOME, originalFetch = globalThis.fetch;
   process.env.XDG_DATA_HOME = path.join(directory, "profile");
-  let dev = await startDevServer({ port: 0, v2Root: root, databasePath: path.join(directory, "cache.db"), v2Edit: true });
+  let dev = await startDevServer({ port: 0, root, databasePath: path.join(directory, "cache.db") });
   const calls = [];
   let loseNextWriteReply = false;
   globalThis.fetch = async (...args) => {
@@ -109,14 +109,14 @@ async function selectedHttpWorkspace(t) {
   // Restart the bridge on the same root with a fresh cache and reconfirm, as after closing and reopening.
   const reopen = async () => {
     await new Promise(resolve => dev.server.close(resolve));
-    dev = await startDevServer({ port: 0, v2Root: root, databasePath: path.join(directory, "reopened-cache.db"), v2Edit: true });
+    dev = await startDevServer({ port: 0, root, databasePath: path.join(directory, "reopened-cache.db") });
     return confirm();
   };
   // Restart the bridge on the same root and cache, optionally under another profile, as after closing and reopening.
   const restart = async (storage, profile = "profile") => {
     await new Promise(resolve => dev.server.close(resolve));
     process.env.XDG_DATA_HOME = path.join(directory, profile);
-    dev = await startDevServer({ port: 0, v2Root: root, databasePath: path.join(directory, "cache.db"), v2Edit: true });
+    dev = await startDevServer({ port: 0, root, databasePath: path.join(directory, "cache.db") });
     return confirm(storage);
   };
   return { directory, root, calls, workspace: await confirm(), confirm, reopen, restart, loseNextReply: () => { loseNextWriteReply = true; } };
@@ -446,8 +446,8 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
   workspace = await confirm(storage);
   assert.equal((await workspace.undoHistory()).latest(), null, "a different cache sees no entries");
   const otherRoot = path.join(directory, "other-root");
-  cpSync("scripts/fixtures/taskdb-v2/root", otherRoot, { recursive: true });
-  const other = await startDevServer({ port: 0, v2Root: otherRoot, databasePath: path.join(directory, "other-cache.db"), v2Edit: true });
+  cpSync("scripts/fixtures/workspace/root", otherRoot, { recursive: true });
+  const other = await startDevServer({ port: 0, root: otherRoot, databasePath: path.join(directory, "other-cache.db") });
   t.after(() => new Promise(resolve => other.server.close(resolve)));
   const selection = await httpClient.readEditorSelection(other.url);
   const otherWorkspace = new httpClient.MainWorkspace(new httpClient.WorkspaceReader(selection, { url: other.url, selection }), new httpClient.EditorClient(other.url, selection), storage);
@@ -578,7 +578,7 @@ test("Linux workspace backup and separately selected restore preserve raw canoni
   assert.equal(workspace.reader.selection.rootPath, root);
   assert.deepEqual(history.latest(), entry, "copies do not enter or retire task undo history");
   const selectedContext = (await workspace.editor.begin(undefined, "copy")).writeContext;
-  const dev = await startDevServer({ port: 0, v2Root: restored, databasePath: path.join(directory, "restored-cache.db"), v2Edit: true });
+  const dev = await startDevServer({ port: 0, root: restored, databasePath: path.join(directory, "restored-cache.db") });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
   const selection = await httpClient.readEditorSelection(dev.url);
   const fresh = new httpClient.MainWorkspace(new httpClient.WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.EditorClient(dev.url, selection), memoryStorage());

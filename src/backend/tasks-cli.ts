@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { executeCommand } from "../legacy/backend/commands.js";
 import { getDatabasePath } from "./paths.js";
 import type { ProtocolRequest, TaskRecord } from "../legacy/backend/protocol.js";
-import { hasHumanRoot } from "./friendlyArgs.js";
+import { humanOptionIndex } from "./friendlyArgs.js";
 import { runHumanCli } from "./friendlyCli.js";
 
 const VERSION = 1 as const;
@@ -454,11 +454,13 @@ function handleList(argv: string[], parsed: ParsedArgs, globals: GlobalOptions):
 }
 
 function main(): void {
-  const raw = process.argv.slice(2);
-  if (hasHumanRoot(raw, VALUE_FLAGS)) {
-    runHumanCli(raw);
+  const argv = process.argv.slice(2);
+  const legacyIndex = humanOptionIndex(argv, "legacy", VALUE_FLAGS);
+  if (legacyIndex === -1) {
+    runHumanCli(argv);
     return;
   }
+  const raw = argv.filter((_, index) => index !== legacyIndex);
   let parsed: ParsedArgs;
   try {
     parsed = parseArgv(raw);

@@ -18,7 +18,7 @@ import readline from "node:readline";
 import test from "node:test";
 import { contentHash } from "../dist/legacy/backend/requestHash.js";
 
-const fixtureRoot = fileURLToPath(new URL("./fixtures/taskdb-v1/sync/", import.meta.url));
+const fixtureRoot = fileURLToPath(new URL("./fixtures/schema1/sync/", import.meta.url));
 const sidecarPath = fileURLToPath(new URL("../dist/backend/cli.js", import.meta.url));
 const tasksCliPath = fileURLToPath(new URL("../dist/backend/tasks-cli.js", import.meta.url));
 const fixtureWorkspace = JSON.parse(readFileSync(path.join(fixtureRoot, "workspace.json"), "utf8"));
@@ -149,7 +149,7 @@ function removeCache(databasePath) {
   rmSync(path.join(path.dirname(databasePath), ".tasks-local"), { recursive: true, force: true });
 }
 
-test("JSON-lines v1 preserves fixture behavior, write safety, rebuild, conflicts, and snapshot round-trip", async (t) => {
+test("JSON-lines legacy preserves fixture behavior, write safety, rebuild, conflicts, and snapshot round-trip", async (t) => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-taskdb-conformance-"));
   const syncRoot = copyFixture(path.join(directory, "primary"));
   const databasePath = path.join(directory, "primary", "tasks.db");
@@ -320,7 +320,7 @@ test("JSON-lines v1 preserves fixture behavior, write safety, rebuild, conflicts
   assert.deepEqual(restored.tasks.map(taskProjection), preRebuildTasks.map(taskProjection));
 });
 
-test("incomplete v1 workspaces fail without inventing an identity", async (t) => {
+test("incomplete legacy workspaces fail without inventing an identity", async (t) => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-taskdb-incomplete-"));
   const syncRoot = copyFixture(path.join(directory, "workspace"));
   const databasePath = path.join(directory, "workspace", "tasks.db");
@@ -336,7 +336,7 @@ test("incomplete v1 workspaces fail without inventing an identity", async (t) =>
   assert.equal(existsSync(path.join(syncRoot, "workspace.json")), false);
 });
 
-test("tasks-cli still reads and writes the copied v1 workspace", (t) => {
+test("tasks-cli still reads and writes the copied legacy workspace", (t) => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-taskdb-cli-"));
   const syncRoot = copyFixture(path.join(directory, "workspace"));
   const databasePath = path.join(directory, "workspace", "tasks.db");
@@ -344,7 +344,7 @@ test("tasks-cli still reads and writes the copied v1 workspace", (t) => {
   t.after(() => rmSync(directory, { recursive: true, force: true }));
 
   function runCli(args) {
-    const result = spawnSync(process.execPath, [tasksCliPath, ...args], {
+    const result = spawnSync(process.execPath, [tasksCliPath, "--legacy", ...args], {
       env: tasksEnvironment(),
       encoding: "utf8",
       timeout: 10_000,
@@ -377,7 +377,7 @@ test("source registry combines TaskDB roots and routes ref writes through JSON-l
   const alphaSyncRoot = path.join(directory, "alpha", "sync");
 
   function runCli(args, envOverrides = {}) {
-    const result = spawnSync(process.execPath, [tasksCliPath, ...args], {
+    const result = spawnSync(process.execPath, [tasksCliPath, "--legacy", ...args], {
       env: tasksEnvironment(envOverrides),
       encoding: "utf8",
       timeout: 10_000,

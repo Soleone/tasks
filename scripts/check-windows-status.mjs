@@ -15,7 +15,7 @@ assert.deepEqual(volume, { filesystem: "NTFS", driveType: "Fixed" });
 const bundle = path.join(checkout, "dist/sidecar/cli.cjs"), source = readFileSync(bundle, "utf8");
 const { inject } = createRequire(import.meta.url)(path.join(checkout, "node_modules/postject/dist/api.js"));
 mkdirSync(path.join(checkout, ".tmp"), { recursive: true }); const scratch = mkdtempSync(path.join(checkout, ".tmp/windows-status-"));
-const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9", golden = path.join(checkout, "scripts/fixtures/taskdb-v2/root");
+const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9", golden = path.join(checkout, "scripts/fixtures/workspace/root");
 const states = ["open", "in_progress", "paused", "done", "canceled"];
 const matrix = { start: [["open", "in_progress", "paused", "done"], "in_progress"], pause: [["open", "in_progress", "paused"], "paused"], complete: [["open", "in_progress", "paused", "done"], "done"], reopen: [states, "open"], cancel: [["open", "in_progress", "paused", "canceled"], "canceled"], delete: [states, "canceled"] };
 const commands = ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "workspace.info", "workspace.archive", "workspace.restore", "workspace.recovery.resume", ...Object.keys(matrix).map(suffix => `task.${suffix}`), "task.status.undo"].sort();
@@ -32,14 +32,14 @@ function workspace(name, status = "open") {
 }
 function run(runner, w, request, cut, proof = true) {
   const program = cut ? runner.faults[cut] : runner.normal;
-  const argv = ["--stdio", "--v2-root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])];
+  const argv = ["--stdio", "--root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])];
   return spawnSync(runner.command ?? program, runner.command ? [program, ...argv] : argv, { input: JSON.stringify(request) + "\n", encoding: "utf8", timeout: 20_000,
-    env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, TEMP: process.env.TEMP, TMP: process.env.TMP, APPDATA: path.join(w.directory, "profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "v1-trap.db"), TASKS_SYNC_ROOT: path.join(w.directory, "v1-root-trap"), TASKS_TEST_PENDING: w.pending } });
+    env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, TEMP: process.env.TEMP, TMP: process.env.TMP, APPDATA: path.join(w.directory, "profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "legacy-trap.db"), TASKS_SYNC_ROOT: path.join(w.directory, "legacy-root-trap"), TASKS_TEST_PENDING: w.pending } });
 }
 function send(runner, w, request, cut, proof = true) {
   const child = run(runner, w, { version: 2, requestId: "status-proof", ...request }, cut, proof); assert.equal(child.error, undefined); assert.equal(child.status, 0, `${w.name}: ${child.stderr}`);
   const lines = child.stdout.trim().split(/\r?\n/); assert.equal(lines.length, 1, child.stdout); const response = JSON.parse(lines[0]); assert.equal(response.requestId, request.requestId ?? "status-proof");
-  for (const trap of ["profile-trap", "v1-trap.db", "v1-root-trap"]) assert.equal(existsSync(path.join(w.directory, trap)), false);
+  for (const trap of ["profile-trap", "legacy-trap.db", "legacy-root-trap"]) assert.equal(existsSync(path.join(w.directory, trap)), false);
   return response;
 }
 function ok(response) { assert.equal(response.ok, true, JSON.stringify(response)); return response; }

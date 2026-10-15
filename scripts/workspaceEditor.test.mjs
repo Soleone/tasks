@@ -11,8 +11,6 @@ import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundle = await build({ entryPoints: ["src/platform/editorClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const { EditorClient, PreparedEdit, readEditorSelection } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
-const readerBundle = await build({ entryPoints: ["src/platform/workspaceReader.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { readDevSelection } = await import(`data:text/javascript;base64,${Buffer.from(readerBundle.outputFiles[0].text).toString("base64")}`);
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const statusCommands = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"];
@@ -20,9 +18,9 @@ const linuxEditorCommands = ["task.create", "task.update", ...statusCommands, "t
 const statusSources = { "task.start": "done", "task.pause": "in_progress", "task.complete": "paused", "task.reopen": "done", "task.cancel": "paused", "task.delete": "done" };
 
 function workspace(t) {
-  const directory = mkdtempSync(path.join(tmpdir(), "taskdb-v2-app-editor-"));
+  const directory = mkdtempSync(path.join(tmpdir(), "tasks-app-editor-"));
   const root = path.join(directory, "root"), cache = path.join(directory, "cache.db");
-  cpSync("scripts/fixtures/taskdb-v2/root", root, { recursive: true });
+  cpSync("scripts/fixtures/workspace/root", root, { recursive: true });
   const originalXdg = process.env.XDG_DATA_HOME;
   const originalRegistry = process.env.TASKS_SOURCE_REGISTRY_PATH;
   process.env.XDG_DATA_HOME = path.join(directory, "profile"); delete process.env.TASKS_SOURCE_REGISTRY_PATH;
@@ -39,11 +37,11 @@ function counts(cache) {
   try { return { receipts: db.prepare("SELECT COUNT(*) AS n FROM v2_receipts").get().n, operations: db.prepare("SELECT COUNT(*) AS n FROM v2_operations").get().n }; }
   finally { db.close(); }
 }
-async function server(t, selected, v2Edit = true) {
-  const dev = await startDevServer({ port: 0, v2Root: selected.root, databasePath: selected.cache, v2Edit });
+async function server(t, selected) {
+  const dev = await startDevServer({ port: 0, root: selected.root, databasePath: selected.cache });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  const handshake = await (v2Edit ? readEditorSelection(dev.url) : readDevSelection(dev.url));
-  return { dev, handshake, editor: v2Edit ? new EditorClient(dev.url, handshake) : null };
+  const handshake = await readEditorSelection(dev.url);
+  return { dev, handshake, editor: new EditorClient(dev.url, handshake) };
 }
 function traceFetch(t, alter) {
   const original = globalThis.fetch, calls = [];
@@ -57,28 +55,27 @@ function traceFetch(t, alter) {
   return calls;
 }
 
-for (const argv of [["--v2-edit"], ["--v2-edit", "--database", "cache"], ["--v2-root", "root", "--v2-edit"], ["--v2-root", "root", "--database", "cache", "--v2-edit", "--v2-edit"]]) {
-  test(`editor launcher refuses incomplete/duplicate selection ${JSON.stringify(argv)}`, () => assert.throws(() => devWebOptions(argv)));
+for (const argv of [["--edit"], ["--database", "cache"], ["--root", "root", "--edit"], ["--root", "root", "--database", "cache", "--legacy"]]) {
+  test(`editor launcher refuses incomplete or mixed selection ${JSON.stringify(argv)}`, () => assert.throws(() => devWebOptions(argv)));
 }
-test("editor flag is explicit, retains Vite separation and never enables default v1", () => {
-  const options = devWebOptions(["--v2-root", "root", "--database", "cache", "--v2-edit", "--", "--host", "127.0.0.1"]);
-  assert.equal(options.v2Edit, true); assert.equal(options.v2, true);
-  assert.deepEqual(options.backendArgs, ["--v2-root", path.resolve("root"), "--database", path.resolve("cache"), "--v2-edit"]);
+test("an explicit root opens the editor, keeps Vite separation and never falls back to legacy", () => {
+  const options = devWebOptions(["--root", "root", "--database", "cache", "--", "--host", "127.0.0.1"]);
+  assert.equal(options.legacy, false);
+  assert.deepEqual(options.backendArgs, ["--root", path.resolve("root"), "--database", path.resolve("cache")]);
   assert.deepEqual(options.viteArgs, ["--host", "127.0.0.1"]);
-  assert.equal(devWebOptions([]).v2Edit, undefined);
-  assert.throws(() => startDevServer({ v2Edit: true }), /requires explicit/);
+  assert.throws(() => startDevServer({}), /requires explicit/);
 });
 
-test("editor/read-only handshakes cannot silently cross modes; health creates no cache or profile", async t => {
+test("editor handshake refuses a legacy bridge; health creates no cache or profile", async t => {
   const selected = workspace(t), original = bytes(selected.root);
   const writable = await server(t, selected);
   assert.equal(writable.handshake.readOnly, false);
   assert.deepEqual(writable.handshake.writeCommands, linuxEditorCommands);
   assert.equal(existsSync(selected.cache), false); assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
-  await assert.rejects(readDevSelection(writable.dev.url), /No v1 fallback/);
-  const readonly = await server(t, selected, false);
-  await assert.rejects(readEditorSelection(readonly.dev.url), /--v2-edit/);
-  assert.throws(() => new EditorClient(readonly.dev.url, readonly.handshake), /--v2-edit/);
+  const legacy = await startDevServer({ port: 0, databasePath: path.join(selected.directory, "legacy.db"), legacy: true });
+  t.after(() => new Promise(resolve => legacy.server.close(resolve)));
+  await assert.rejects(readEditorSelection(legacy.url), /No legacy fallback/);
+  assert.equal(existsSync(path.join(selected.directory, "legacy.db")), false);
   assert.deepEqual(bytes(selected.root), original);
 });
 
@@ -93,11 +90,11 @@ test("editor health requires the exact connected-command whitelist, not comma co
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
   const allowed = linuxEditorCommands, native = allowed.slice(0, -6);
-  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -2), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readEditorSelection(dev.url), /explicitly enabled/);
+  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -2), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readEditorSelection(dev.url), /started with --root/);
   assert.equal(existsSync(selected.cache), false);
 });
 
-for (const command of ["task.status.undoMany", "task.order.normalize", "task.purgeCanceled", "workspace.init", "workspace.migrateV1", "workspace.recovery.resume", "workspace.doctor.apply"]) {
+for (const command of ["task.status.undoMany", "task.order.normalize", "task.purgeCanceled", "workspace.init", "workspace.migrate", "workspace.recovery.resume", "workspace.doctor.apply"]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async t => {
     const selected = workspace(t), original = bytes(selected.root);
     const { dev, handshake } = await server(t, selected);
@@ -162,7 +159,7 @@ test("no-op preview/apply retains task bytes/time/version and stores only a succ
   assert.deepEqual(bytes(selected.root), original); assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 0 });
 });
 
-for (const failure of ["lost-reply", "v1-response", "wrong-correlation", "wrong-context", "missing-operation"]) {
+for (const failure of ["lost-reply", "legacy-response", "wrong-correlation", "wrong-context", "missing-operation"]) {
   test(`executing ${failure} retains the original request and replays without queries or another task/group`, async t => {
     const selected = workspace(t), { editor } = await server(t, selected);
     const prepared = editor.prepare(await editor.begin(), literal);
@@ -172,7 +169,7 @@ for (const failure of ["lost-reply", "v1-response", "wrong-correlation", "wrong-
         failed = true;
         const body = await response.json(); assert.equal(body.ok, true);
         if (failure === "lost-reply") throw new TypeError("lost reply after commit");
-        if (failure === "v1-response") body.version = 1;
+        if (failure === "legacy-response") body.version = 1;
         if (failure === "wrong-correlation") body.requestId = "another";
         if (failure === "wrong-context") body.writeContext = "other-authority";
         if (failure === "missing-operation") delete body.result.operationId;
@@ -291,10 +288,10 @@ test("lost receipt authority after a committed/lost reply refuses original creat
   assert.deepEqual(bytes(selected.root), canonical); assert.equal(readdirSync(path.join(selected.root, "tasks")).length, 5);
 });
 
-for (const kind of ["empty", "v1"]) {
+for (const kind of ["empty", "legacy"]) {
   test(`editor preparation refuses ${kind} roots without initialization/adoption/fallback`, async t => {
     const selected = workspace(t); rmSync(selected.root, { recursive: true });
-    if (kind === "empty") mkdirSync(selected.root); else cpSync("scripts/fixtures/taskdb-v1/sync", selected.root, { recursive: true });
+    if (kind === "empty") mkdirSync(selected.root); else cpSync("scripts/fixtures/schema1/sync", selected.root, { recursive: true });
     const original = readdirSync(selected.root, { recursive: true });
     const { editor } = await server(t, selected);
     await assert.rejects(editor.begin(), /UNSUPPORTED_SCHEMA/);
@@ -302,7 +299,7 @@ for (const kind of ["empty", "v1"]) {
   });
 }
 
-test("native editor construction is refused without launching any v1/v2 process", async t => {
+test("native editor construction is refused without launching any legacy/process", async t => {
   const selected = workspace(t), { dev, handshake } = await server(t, selected);
   const originalWindow = globalThis.window; globalThis.window = { __TAURI_INTERNALS__: {} };
   try { assert.throws(() => new EditorClient(dev.url, handshake), /browser-only; no native sidecar/); }
@@ -313,8 +310,8 @@ test("native editor construction is refused without launching any v1/v2 process"
 test("simulated withheld host refuses the explicit editor launcher before storage, not native acceptance", t => {
   const selected = workspace(t), loader = path.join(selected.directory, "platform.mjs");
   writeFileSync(loader, 'Object.defineProperty(process,"platform",{value:"darwin"});\n');
-  const result = spawnSync(process.execPath, ["--import", loader, "dist/backend/devServer.js", "--v2-root", selected.root, "--database", selected.cache, "--v2-edit"], { env: process.env, encoding: "utf8" });
-  assert.equal(result.status, 1); assert.match(result.stderr, /editing is unavailable on this platform/); assert.equal(existsSync(selected.cache), false);
+  const result = spawnSync(process.execPath, ["--import", loader, "dist/backend/devServer.js", "--root", selected.root, "--database", selected.cache], { env: process.env, encoding: "utf8" });
+  assert.equal(result.status, 1); assert.match(result.stderr, /runs only on Linux/); assert.equal(existsSync(selected.cache), false);
 });
 
 const statusMatrix = {
@@ -367,7 +364,7 @@ test("status changes do not cascade, sever links or treat a done dependency as u
   child = await editor.begin(childId); assert.deepEqual(child.task.blockedByIds, []); assert.equal(readFileSync(childFile, "base64"), childBytes); assert.equal(child.task.parentId, parentId);
 });
 
-for (const failure of ["lost-reply", "wrong-task", "wrong-context", "v1-response", "missing-operation"]) {
+for (const failure of ["lost-reply", "wrong-task", "wrong-context", "legacy-response", "missing-operation"]) {
   test(`status executing ${failure} retains context/version/command and replays without negotiation`, async t => {
     const selected = workspace(t), { editor } = await server(t, selected);
     const baseline = await editor.begin(closedId, "status"), prepared = editor.prepareStatus(baseline, "task.delete");
@@ -377,7 +374,7 @@ for (const failure of ["lost-reply", "wrong-task", "wrong-context", "v1-response
       if (failure === "lost-reply") throw new TypeError("lost status reply after commit");
       if (failure === "wrong-task") body.result.task.id = "other-task";
       if (failure === "wrong-context") body.writeContext = "other-context";
-      if (failure === "v1-response") body.version = 1;
+      if (failure === "legacy-response") body.version = 1;
       if (failure === "missing-operation") delete body.result.operationId;
       return new Response(JSON.stringify(body));
     });
@@ -409,15 +406,6 @@ test("stale status execution never refreshes authority or changes concurrent con
   assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
 });
 
-test("readonly bridge refuses all status commands/undo and relationship changes before authority or cache creation", async t => {
-  const selected = workspace(t), { dev, handshake } = await server(t, selected, false), original = bytes(selected.root);
-  for (const command of [...statusCommands, "task.status.undo", "task.move"]) {
-    const response = await fetch(`${dev.url}/command`, { method: "POST", headers: { "content-type": "application/json", "x-taskdb-selection": handshake.selectionToken }, body: JSON.stringify({ version: 2, requestId: command, command, args: { id: closedId, expectedVersion: 1 }, dryRun: true }) });
-    assert.equal((await response.json()).error.code, "UNSUPPORTED_COMMAND");
-  }
-  assert.equal(existsSync(selected.cache), false); assert.deepEqual(bytes(selected.root), original);
-});
-
 test("lost status cache authority after committed/lost reply refuses exact retry without inferred completion", async t => {
   const selected = workspace(t), { editor } = await server(t, selected), baseline = await editor.begin(closedId, "status");
   const prepared = editor.prepareStatus(baseline, "task.delete"); let lost = true;
@@ -435,7 +423,7 @@ test("historic status replay precedes missing task and never recreates canceled 
 });
 
 async function processDev(t, selected, loader, port = 0) {
-  const child = spawn(process.execPath, [...(loader ? ["--import", loader] : []), "dist/backend/devServer.js", "--port", String(port), "--v2-root", selected.root, "--database", selected.cache, "--v2-edit"], { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [...(loader ? ["--import", loader] : []), "dist/backend/devServer.js", "--port", String(port), "--root", selected.root, "--database", selected.cache], { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "", stderr = "";
   child.stderr.on("data", chunk => { stderr += chunk; });
   const closed = new Promise(resolve => child.once("exit", (code, signal) => resolve({ code, signal })));
@@ -453,7 +441,7 @@ async function processDev(t, selected, loader, port = 0) {
   return { child, closed, url, port: Number(new URL(url).port) };
 }
 function manualLine(selected, envelope) {
-  return JSON.parse(execFileSync(process.execPath, ["dist/backend/cli.js", "--stdio", "--v2-root", selected.root, "--database", selected.cache], { env: process.env, input: envelope + "\n", encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
+  return JSON.parse(execFileSync(process.execPath, ["dist/backend/cli.js", "--stdio", "--root", selected.root, "--database", selected.cache], { env: process.env, input: envelope + "\n", encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }));
 }
 
 for (const command of ["task.create", "task.update", ...statusCommands]) {
@@ -496,7 +484,7 @@ return {...result,source};}});\n`);
         const intent = JSON.parse(readFileSync(pendingPath, "utf8"));
         assert.deepEqual(intent.request, JSON.parse(originalRequest)); fixedId = intent.taskId;
         if (["intent", "published", "beforeCommit"].includes(cut)) assert.equal(manualLine(selected, originalRequest).error.code, "RECOVERY_PENDING");
-        const recovered = JSON.parse(execFileSync(process.execPath, ["dist/backend/tasks-cli.js", "--v2-root", selected.root, "--database", selected.cache, "recover", intent.operationId, "--json"], { env: process.env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+        const recovered = JSON.parse(execFileSync(process.execPath, ["dist/backend/tasks-cli.js", "--root", selected.root, "--database", selected.cache, "recover", intent.operationId, "--json"], { env: process.env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
         assert.equal(recovered.outcome, "complete");
       }
       const replay = manualLine(selected, originalRequest); assert.equal(replay.ok, true, JSON.stringify(replay));

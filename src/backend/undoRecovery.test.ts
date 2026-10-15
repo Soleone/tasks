@@ -16,7 +16,7 @@ import type { BatchIntent } from "./batchJournal.js";
 import type { Response } from "./protocol.js";
 import { isWindowsProofIntent } from "./windowsTaskProof.js";
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
 function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
@@ -47,7 +47,7 @@ function scenario(t: TestContext, kind: string) {
   assert.ok(forward);
   return { w, request: prepared(w, kind === "status" ? "task.status.undo" : "operation.undo", kind === "status" ? { id: "a" } : { operationId: forward.result.operationId }), groupsBefore: 1 };
 }
-function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
+function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
 function recover(w: Workspace, operationId: string, key = "resume") { const context = ok(send(w, { command: "workspace.info" })).writeContext;return send(w, { command: "workspace.recovery.resume", writeContext: context, idempotencyKey: key, args: { operationId } }); }
 function crash(w: Workspace, request: object, cut: string) {
   const pending = pendingIntentPath(readRootDescriptor(w.root));

@@ -14,7 +14,7 @@ import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
 
-const fixture = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+const fixture = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const template = fixture.taskTemplate as CanonicalTask;
 const linuxOnly = { skip: process.platform !== "linux" };
 type Projection = CanonicalTask & { version: number; blockedByIds: string[] };
@@ -199,7 +199,7 @@ for (const command of RELATIONSHIP_COMMANDS) {
   });
 }
 
-test("relationship inputs reject unknown/v1 fields and unsafe or omitted target IDs before writes", linuxOnly, (t) => {
+test("relationship inputs reject unknown/legacy fields and unsafe or omitted target IDs before writes", linuxOnly, (t) => {
   const workspace = materialize(t);
   const request = prepared(workspace, "task.move", { id: "a", parentId: "p" });
   const raw = bytes(workspace);

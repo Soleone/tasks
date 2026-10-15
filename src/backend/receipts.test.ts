@@ -7,8 +7,8 @@ import { parseRequest } from "./protocol.js";
 import { observeQueryAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 
-test("v2 SQLite receipts preserve historical payloads across reopen and reject changed identity", (t) => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-receipt-"));
+test("SQLite receipts preserve historical payloads across reopen and reject changed identity", (t) => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-receipt-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = { rootPath: path.join(directory, "root"), rootIdentity: "unit-root" };
   mkdirSync(root.rootPath);

@@ -4,9 +4,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-const fixtureDirectory = fileURLToPath(new URL("./fixtures/taskdb-v2/", import.meta.url));
+const fixtureDirectory = fileURLToPath(new URL("./fixtures/workspace/", import.meta.url));
 const specDirectory = fileURLToPath(new URL("../spec/", import.meta.url));
-const schema1Directory = fileURLToPath(new URL("./fixtures/taskdb-v1/sync/", import.meta.url));
+const schema1Directory = fileURLToPath(new URL("./fixtures/schema1/sync/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtureDirectory, "cases.json"), "utf8"));
 const specFiles = ["backend/data.md", "backend/commands.md", "backend/rules.md", "backend/safety.md", "ecosystem/cli.md", "ecosystem/sharing.md", "ecosystem/backup.md", "ecosystem/migration.md"];
 const specs = new Map(specFiles.map((name) => [name, readFileSync(path.join(specDirectory, name), "utf8")]));
@@ -36,7 +36,7 @@ function assertAcyclicCaseReferences(id, dependencies, active = new Set()) {
   active.delete(id);
 }
 
-test("v2 target corpus integrity: case shapes, profiles, rule anchors and error names (not execution)", () => {
+test("target corpus integrity: case shapes, profiles, rule anchors and error names (not execution)", () => {
   assert.equal(corpus.format, "taskdb.conformance-cases");
   assert.equal(corpus.fixtureVersion, 1);
   assert.equal(corpus.status, "accepted-target");
@@ -69,7 +69,7 @@ test("v2 target corpus integrity: case shapes, profiles, rule anchors and error 
   for (const id of ids) assertAcyclicCaseReferences(id, dependencies);
 });
 
-test("v2 golden fixture integrity: exact fields, literal data, local-state exclusion and graph", () => {
+test("golden fixture integrity: exact fields, literal data, local-state exclusion and graph", () => {
   const root = path.join(fixtureDirectory, "root");
   assert.deepEqual(readdirSync(root).sort(), ["tasks", "workspace.json"]);
   assert.equal(readFileSync(path.join(root, "workspace.json"), "utf8"), '{"schemaVersion":2}\n');
@@ -95,7 +95,7 @@ test("v2 golden fixture integrity: exact fields, literal data, local-state exclu
   assert.equal(existsSync(path.join(root, "order")), false);
 });
 
-test("v2 golden fixture integrity: complete v1 field and sibling-sequence mapping, not converter proof", () => {
+test("golden fixture integrity: complete legacy field and sibling-sequence mapping, not converter proof", () => {
   const byId = new Map(goldenTasks.map(({ record }) => [record.id, record]));
   const classifications = {
     "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed": { title: "Park release notes", category: "operations", tags: [] },

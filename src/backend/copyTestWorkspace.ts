@@ -6,8 +6,8 @@ import type { TestContext } from "node:test";
 
 export type CopyTestWorkspace = { directory: string; root: string; cache: string; destination: string };
 
-export function createCopyTestWorkspace(t: TestContext, fixtureDirectory = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url))): CopyTestWorkspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-copy-"));
+export function createCopyTestWorkspace(t: TestContext, fixtureDirectory = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url))): CopyTestWorkspace {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-copy-"));
   const before = process.env.XDG_DATA_HOME;
   process.env.XDG_DATA_HOME = path.join(directory, "local");
   t.after(() => {

@@ -22,11 +22,11 @@ export function localPathOutsideRoot(cachePath: string, rootPath: string): strin
   const resolved = path.join(realpathSync(ancestor), ...suffix);
   const relative = path.relative(rootPath, resolved);
   if (relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative))) {
-    throw new CommandError("INVALID_STORAGE", "v2 cache must be outside the canonical root");
+    throw new CommandError("INVALID_STORAGE", "the cache must be outside the canonical root");
   }
   for (const suffix of ["", "-wal", "-shm", "-journal"]) {
     if (lstatSync(`${resolved}${suffix}`, { throwIfNoEntry: false })?.isSymbolicLink()) {
-      throw new CommandError("INVALID_STORAGE", "v2 cache sidecars must not be symbolic links");
+      throw new CommandError("INVALID_STORAGE", "cache sidecars must not be symbolic links");
     }
   }
   return resolved;
@@ -39,7 +39,7 @@ function initializeQueryCache(database: DatabaseSync): void {
   if (id === applicationId && version === 5) return;
   const upgrade = id === applicationId && (version === 1 || version === 2 || version === 3 || version === 4);
   if (!upgrade && (id !== 0 || version !== 0 || tables.length !== 0)) {
-    throw new CommandError("INVALID_STORAGE", "database is not a supported v2 query cache");
+    throw new CommandError("INVALID_STORAGE", "database is not a supported query cache");
   }
   if (!upgrade) database.exec(`
     PRAGMA application_id = ${applicationId};
@@ -87,14 +87,14 @@ function snapshotObservations(snapshot: CanonicalSnapshot): Map<string, string> 
 
 export function synchronizeAuthority(database: DatabaseSync, root: RootBinding, snapshot?: CanonicalSnapshot): QueryAuthority {
   const main = database.prepare("PRAGMA database_list").all().find(row => row.name === "main");
-  if (typeof main?.file !== "string" || main.file === "") throw new CommandError("INVALID_STORAGE", "v2 authority requires a physical cache file");
+  if (typeof main?.file !== "string" || main.file === "") throw new CommandError("INVALID_STORAGE", "write authority requires a physical cache file");
   const cacheIdentity = lstatSync(main.file, { bigint: true });
-  if (!cacheIdentity.isFile() || cacheIdentity.isSymbolicLink()) throw new CommandError("INVALID_STORAGE", "v2 authority requires a regular cache file");
+  if (!cacheIdentity.isFile() || cacheIdentity.isSymbolicLink()) throw new CommandError("INVALID_STORAGE", "write authority requires a regular cache file");
   const binding = JSON.stringify([root.rootPath, root.rootIdentity, main.file, `${cacheIdentity.dev}:${cacheIdentity.ino}`]);
   const previous = database.prepare("SELECT binding, context, counter, revision, fingerprint FROM v2_query_state WHERE singleton = 1").get() as CacheState | undefined;
   const state = previous ?? { binding, context: randomUUID(), counter: 0, revision: 0, fingerprint: "" };
   if (![state.counter, state.revision].every(value => Number.isSafeInteger(value) && value >= 0) || typeof state.context !== "string" || state.context === "") {
-    throw new CommandError("INVALID_STORAGE", "v2 query authority is corrupt; explicit cache recovery is required");
+    throw new CommandError("INVALID_STORAGE", "query authority is corrupt; explicit cache recovery is required");
   }
   if (state.binding !== binding || !Number.isSafeInteger(state.counter + (snapshot?.tasks.length ?? 0) + 1) || state.revision === Number.MAX_SAFE_INTEGER) {
     state.binding = binding;
@@ -114,7 +114,7 @@ export function synchronizeAuthority(database: DatabaseSync, root: RootBinding, 
       // Old schema-5 fingerprints contain sibling arrays, not signatures. The first complete
       // observation reissues their versions atomically, retaining context, receipts and history.
       const version = old?.fingerprint === fingerprint ? old.version : ++state.counter;
-      if (!Number.isSafeInteger(version) || version <= 0 || version > state.counter) throw new CommandError("INVALID_STORAGE", "v2 task authority is corrupt");
+      if (!Number.isSafeInteger(version) || version <= 0 || version > state.counter) throw new CommandError("INVALID_STORAGE", "task authority is corrupt");
       upsert.run(id, fingerprint, version);
       versions.set(id, version);
     }

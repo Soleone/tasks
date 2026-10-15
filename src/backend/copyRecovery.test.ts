@@ -11,7 +11,7 @@ import { executeLine } from "./gateway.js";
 import { pendingIntentPath, localDomain } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
+const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
@@ -22,7 +22,7 @@ function success(response: Response): Extract<Response, { ok: true }> {
 }
 function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function run(workspace: Workspace, request: object, loader: string) {
-  return spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
+  return spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function crash(workspace: Workspace, cut: string, source?: string) {
   const info = success(send(workspace, { command: "workspace.info" }));
@@ -59,7 +59,7 @@ function recover(workspace: Workspace, operationId: string, key = "resume-copy")
 }
 const cuts = ["intent", ...Array.from({ length: 6 }, (_, prefix) => `prefix-${prefix}`), "verified", "reserved", "published", "beforeCommit", "afterCommit", "retiring-target", "retiring-evidence"];
 for (const command of ["archive", "restore"]) for (const cut of cuts) {
-  test(`v2 real ${command} CLI kill at ${cut} resumes the same fixed operation without changing source`, { skip: process.platform !== "linux" }, (t) => {
+  test(`real ${command} CLI kill at ${cut} resumes the same fixed operation without changing source`, { skip: process.platform !== "linux" }, (t) => {
     const workspace = setup(t);
     const before = readCanonicalRoot(workspace.root).files;
     const source = command === "restore" ? path.join(workspace.directory, "external-source") : undefined;
@@ -99,7 +99,7 @@ for (const command of ["archive", "restore"]) for (const cut of cuts) {
 }
 
 for (const fault of ["source-edit", "source-arrival", "stage-edit", "stage-missing", "stage-partial", "stage-arrival", "destination-arrival", "published-edit", "progress-loss", "progress-partial", "stage-binding", "published-binding", "published-report-loss", "target-reservation-loss"]) {
-  test(`v2 copy recovery preserves and refuses ${fault}`, { skip: process.platform !== "linux" }, (t) => {
+  test(`copy recovery preserves and refuses ${fault}`, { skip: process.platform !== "linux" }, (t) => {
     const workspace = setup(t);
     const cut = fault.startsWith("published-") || fault === "target-reservation-loss" ? "published" : "prefix-2";
     const { intent, pending } = crash(workspace, cut);
@@ -134,7 +134,7 @@ for (const fault of ["source-edit", "source-arrival", "stage-edit", "stage-missi
 }
 
 for (const fault of ["source-edit", "source-arrival", "destination-arrival", "stage-extra", "stage-partial"]) {
-  test(`v2 copy refuses in-flight ${fault} without publishing or completing the request`, { skip: process.platform !== "linux" }, t => {
+  test(`copy refuses in-flight ${fault} without publishing or completing the request`, { skip: process.platform !== "linux" }, t => {
     const workspace = setup(t);
     const before = readCanonicalRoot(workspace.root).files;
     const info = success(send(workspace, { command: "workspace.info" }));
@@ -175,7 +175,7 @@ return {...result,source};}});`);
   });
 }
 
-test("v2 copy recovery refuses unbound directory creation rather than guessing ownership", { skip: process.platform !== "linux" }, (t) => {
+test("copy recovery refuses unbound directory creation rather than guessing ownership", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { intent, pending } = crash(workspace, "unbound-directory");
   fail(recover(workspace, intent.operationId), "RECOVERY_CONFLICT");
@@ -184,7 +184,7 @@ test("v2 copy recovery refuses unbound directory creation rather than guessing o
   assert.equal(existsSync(pending), true);
 });
 
-test("v2 copy same recovery receipt finishes target/source retirement after a lost reply", { skip: process.platform !== "linux" }, (t) => {
+test("copy same recovery receipt finishes target/source retirement after a lost reply", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { intent, pending } = crash(workspace, "verified");
   const info = success(send(workspace, { command: "workspace.info" }));
@@ -199,7 +199,7 @@ test("v2 copy same recovery receipt finishes target/source retirement after a lo
   assert.equal(success(send(target, { command: "workspace.info" })).result.state, "ready");
 });
 
-test("v2 copy cache loss and other-cache refusal preserve old authority boundaries", { skip: process.platform !== "linux" }, (t) => {
+test("copy cache loss and other-cache refusal preserve old authority boundaries", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { request, intent, pending } = crash(workspace, "published");
   const other = { ...workspace, cache: path.join(workspace.directory, "other.db") };
@@ -212,7 +212,7 @@ test("v2 copy cache loss and other-cache refusal preserve old authority boundari
   fail(send(workspace, request), "STALE_WRITE_CONTEXT");
 });
 
-test("v2 restore resumes a separate fixed source and refuses changes to that source", { skip: process.platform !== "linux" }, (t) => {
+test("restore resumes a separate fixed source and refuses changes to that source", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const source = path.join(workspace.directory, "source");
   cpSync(golden, source, { recursive: true });
@@ -228,10 +228,10 @@ test("v2 restore resumes a separate fixed source and refuses changes to that sou
   assert.deepEqual(readCanonicalRoot(workspace.destination).files, readCanonicalRoot(source).files);
 });
 
-test("v2 actual JSON-lines CLI archives and restores across ordinary subprocess restarts", { skip: process.platform !== "linux" }, (t) => {
+test("actual JSON-lines CLI archives and restores across ordinary subprocess restarts", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const invoke = (request: object) => {
-    const child = spawnSync(process.execPath, [cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify({ version: 2, ...request }), env: process.env, encoding: "utf8", timeout: 10_000 });
+    const child = spawnSync(process.execPath, [cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify({ version: 2, ...request }), env: process.env, encoding: "utf8", timeout: 10_000 });
     assert.equal(child.status, 0, child.stderr);
     return success(JSON.parse(child.stdout));
   };
@@ -244,7 +244,7 @@ test("v2 actual JSON-lines CLI archives and restores across ordinary subprocess 
   assert.deepEqual(readCanonicalRoot(restored).files, readCanonicalRoot(workspace.root).files);
 });
 
-test("v2 historical recovery success survives corrupt cleanup evidence without deleting it", { skip: process.platform !== "linux" }, (t) => {
+test("historical recovery success survives corrupt cleanup evidence without deleting it", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { intent, pending } = crash(workspace, "verified");
   const info = success(send(workspace, { command: "workspace.info" }));

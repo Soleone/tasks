@@ -31,7 +31,7 @@ function success(response: Response): Extract<Response, { ok: true }> {
 }
 function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
+  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function recover(workspace: Workspace, operationId: string, key = "resume") {
   const info = success(send(workspace, { command: "workspace.info" }));

@@ -8,7 +8,7 @@ Use a new scratch directory and **copy** `sync/` before any write. Never point t
 pnpm build:backend
 scratch="$(mktemp -d -t tasks-fixture-XXXXXX)"
 mkdir -p "$scratch/primary"
-cp -a scripts/fixtures/taskdb-v1/sync "$scratch/primary/sync"
+cp -a scripts/fixtures/schema1/sync "$scratch/primary/sync"
 TASKS_DATABASE_PATH="$scratch/primary/tasks.db" node dist/backend/tasks-cli.js list --json
 # Expect four tasks with the described categories/statuses; clean up only $scratch afterward.
 ```

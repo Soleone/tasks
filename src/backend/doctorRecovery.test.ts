@@ -11,7 +11,7 @@ import { pendingIntentPath } from "./localDomain.js";
 import { createDoctorWorkspace as setup, doctorCorpus as corpus, doctorFail as fail, doctorLinux as linux, doctorOk as ok, doctorRaw as raw, planDoctor, sendDoctor as send } from "./doctorTestWorkspace.js";
 import type { DoctorIntent } from "./doctorJournal.js";
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-function run(w: ReturnType<typeof setup>, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10000 }); }
+function run(w: ReturnType<typeof setup>, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10000 }); }
 function response(w: ReturnType<typeof setup>, request: object) { const child = run(w, request);assert.equal(child.status, 0, child.stderr);return JSON.parse(child.stdout); }
 function pending(w: ReturnType<typeof setup>): DoctorIntent { return JSON.parse(readFileSync(pendingIntentPath(readRootDescriptor(w.root)), "utf8")); }
 function scenario(t: TestContext, kind = "complex") {

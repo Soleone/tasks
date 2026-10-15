@@ -12,12 +12,12 @@ import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
+const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 type Workspace = { directory: string; root: string; cache: string };
 function setup(t: TestContext): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-crash-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-crash-"));
   const before = process.env.XDG_DATA_HOME;
   process.env.XDG_DATA_HOME = path.join(directory, "local");
   t.after(() => { if (before === undefined) delete process.env.XDG_DATA_HOME; else process.env.XDG_DATA_HOME = before; rmSync(directory, { recursive: true, force: true }); });
@@ -49,7 +49,7 @@ if(source.split(needle).length!==2)throw Error('cut must be unique');
 const stop='if (cutExists(process.env.TASKDB_TEST_PENDING)) process.kill(process.pid,"SIGKILL");';
 source='import {existsSync as cutExists} from "node:fs";\\n'+source.replace(needle,cut==='beforeCommit'?stop+needle:needle+stop);
 return {...result,source};}});`);
-  const child = spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], {
+  const child = spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], {
     input: JSON.stringify(request), timeout: 10_000,
     env: { ...process.env, TASKDB_TEST_PENDING: pending },
   });
@@ -59,7 +59,7 @@ return {...result,source};}});`);
 }
 
 for (const cut of ["staged", "replaced", "beforeCommit", "afterCommit"]) {
-  test(`v2 real subprocess kill at ${cut} retains fixed update and explicitly resumes`, { skip: process.platform !== "linux" }, (t) => {
+  test(`real subprocess kill at ${cut} retains fixed update and explicitly resumes`, { skip: process.platform !== "linux" }, (t) => {
     const workspace = setup(t);
     const { request, pending } = crash(workspace, cut);
     const intent = JSON.parse(readFileSync(pending, "utf8"));
@@ -121,7 +121,7 @@ registerHooks({load(url,context,next){const result=next(url,context);let source=
 if(!url.endsWith('/updateJournal.js')||!source)return result;
 const needle='syncDirectory(path.dirname(target));';if(source.split(needle).length!==2)throw Error('flush must be unique');
 return {...result,source:source.replace(needle,'throw Object.assign(new Error("test-only flush refusal"),{code:"EPERM"});'+needle)};}});`);
-  const child = spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(recovery), timeout: 10_000 });
+  const child = spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(recovery), timeout: 10_000 });
   assert.equal(child.status, 0, child.stderr.toString());
   const refused = JSON.parse(child.stdout.toString());
   assert.equal(refused.ok, false);
@@ -170,7 +170,7 @@ test("schema-5 sibling-array cache preserves a pending update through compact ob
 });
 
 for (const fault of ["divergence", "missing", "partial", "arrival"]) {
-  test(`v2 recovery refuses ${fault} without rollback/resurrection`, { skip: process.platform !== "linux" }, (t) => {
+  test(`recovery refuses ${fault} without rollback/resurrection`, { skip: process.platform !== "linux" }, (t) => {
     const workspace = setup(t);
     const { pending } = crash(workspace, "staged");
     const intent = JSON.parse(readFileSync(pending, "utf8"));
@@ -189,7 +189,7 @@ for (const fault of ["divergence", "missing", "partial", "arrival"]) {
   });
 }
 
-test("v2 same recovery key finishes retirement after its own receipt commit loses the reply", { skip: process.platform !== "linux" }, (t) => {
+test("same recovery key finishes retirement after its own receipt commit loses the reply", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { pending } = crash(workspace, "staged");
   const intent = JSON.parse(readFileSync(pending, "utf8"));
@@ -199,7 +199,7 @@ test("v2 same recovery key finishes retirement after its own receipt commit lose
   writeFileSync(preload, `import {DatabaseSync} from 'node:sqlite'; import {existsSync} from 'node:fs';
 const original=DatabaseSync.prototype.exec;
 DatabaseSync.prototype.exec=function(sql){const result=original.call(this,sql); if(sql==='COMMIT'&&existsSync(process.env.TASKDB_TEST_PENDING))process.kill(process.pid,'SIGKILL'); return result;};`);
-  const child = spawnSync(process.execPath, ["--import", preload, cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(recovery), timeout: 10_000, env: { ...process.env, TASKDB_TEST_PENDING: pending } });
+  const child = spawnSync(process.execPath, ["--import", preload, cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(recovery), timeout: 10_000, env: { ...process.env, TASKDB_TEST_PENDING: pending } });
   assert.equal(child.signal, "SIGKILL", child.stderr.toString());
   assert.equal(existsSync(pending), true);
   const replay = success(send(workspace, recovery));
@@ -208,7 +208,7 @@ DatabaseSync.prototype.exec=function(sql){const result=original.call(this,sql); 
   assert.equal((success(send(workspace, { command: "activity.list" })).result.activity as object[]).length, 1);
 });
 
-test("v2 root pending state is shared across caches, but a different cache cannot adopt its receipts", { skip: process.platform !== "linux" }, (t) => {
+test("root pending state is shared across caches, but a different cache cannot adopt its receipts", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { pending } = crash(workspace, "staged");
   const intent = JSON.parse(readFileSync(pending, "utf8"));
@@ -224,7 +224,7 @@ test("v2 root pending state is shared across caches, but a different cache canno
   assert.equal(existsSync(pending), true);
 });
 
-test("v2 malformed local intent preserves evidence and info reports manual inspection", { skip: process.platform !== "linux" }, (t) => {
+test("malformed local intent preserves evidence and info reports manual inspection", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { pending } = crash(workspace, "staged");
   const bytes = readFileSync(path.join(workspace.root, "tasks", `${id}.json`));
@@ -240,7 +240,7 @@ test("v2 malformed local intent preserves evidence and info reports manual inspe
   assert.equal(readFileSync(pending, "utf8"), '{"format":');
 });
 
-test("v2 cache loss rejects original retry while explicit fixed-journal recovery uses fresh authority", { skip: process.platform !== "linux" }, (t) => {
+test("cache loss rejects original retry while explicit fixed-journal recovery uses fresh authority", { skip: process.platform !== "linux" }, (t) => {
   const workspace = setup(t);
   const { request, pending } = crash(workspace, "replaced");
   const intent = JSON.parse(readFileSync(pending, "utf8"));

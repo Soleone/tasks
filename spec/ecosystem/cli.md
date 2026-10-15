@@ -22,7 +22,7 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | `start` `pause` `complete` `reopen` `cancel` `delete` `ID` | the matching status command |
 | `undo ID` | `task.status.undo` |
 | `undo-operation ID` | `operation.undo` |
-| `move ID --parent ID` or `--root` | `task.move` |
+| `move ID --parent ID` or `--no-parent` | `task.move` |
 | `dep-add ID DEP` / `dep-remove ID DEP` | `task.dependency.add` / `.remove` |
 | `purge-canceled` | `task.purgeCanceled` |
 | `activity [--task ID]` | `activity.list` |

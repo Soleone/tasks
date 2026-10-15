@@ -24,7 +24,7 @@ export function validateNativeSelection(selection: NativeSelection): void {
 
 export function nativeSidecarArgs(selection: NativeSelection): string[] {
   validateNativeSelection(selection);
-  return ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
+  return ["--stdio", "--root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
 }
 
 export function parseNativeSelection(value: unknown): NativeSelection {

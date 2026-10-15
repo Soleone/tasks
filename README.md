@@ -21,10 +21,10 @@ Run the established task list, inline editor, toolbar and Settings on the replac
 
 ```bash
 scratch=$(mktemp -d)
-cp -R scripts/fixtures/taskdb-v2/root "$scratch/root"
+cp -R scripts/fixtures/workspace/root "$scratch/root"
 printf 'Disposable workspace: %s\n' "$scratch"
 XDG_DATA_HOME="$scratch/profile" pnpm dev:web \
-  --v2-root "$scratch/root" --database "$scratch/cache.db" --v2-edit
+  --root "$scratch/root" --database "$scratch/cache.db"
 ```
 
 Open Vite's URL and confirm the displayed root/cache/profile before querying. Reload requires confirmation again; selection is not saved.
@@ -40,7 +40,7 @@ Filters/search and external CLI changes refresh the list. Follow [the interactio
 
 ## Opt-in v2 browser reader
 
-Omit `--v2-edit` from the command above for query-only inspection. Confirm the paths, navigate with arrows/J/K, and open literal details with Enter or Show details. Search is applied explicitly. Pending/invalid evidence blocks normal rows; the reader does not repair it. Reload and reconfirm after a bridge restart. See [reader behavior](docs/evidence/conformance-history.md#explicit-read-only-app-reader).
+Confirm the paths, navigate with arrows/J/K, and open literal details with Enter or Show details. Search is applied explicitly. Pending/invalid evidence blocks normal rows; the reader does not repair it. Reload and reconfirm after a bridge restart. See [reader behavior](docs/evidence/conformance-history.md#explicit-read-only-app-reader).
 
 ## Opt-in v2 human CLI
 
@@ -49,10 +49,10 @@ Build the backend, then use the same explicit root, outside-root cache and profi
 ```bash
 pnpm build:backend
 XDG_DATA_HOME="$scratch/profile" node dist/backend/tasks-cli.js \
-  --v2-root "$scratch/root" --database "$scratch/cache.db" list --sort manual
+  --root "$scratch/root" --database "$scratch/cache.db" list --sort manual
 ```
 
-Run the same entrypoint with `--help` for verbs and arguments; [the CLI contract](spec/ecosystem/cli.md) defines input/output and retry behavior. Friendly writes are Linux-only: this entrypoint does not select the Windows proof profile. Omitting `--v2-root` still selects legacy behavior.
+Run the same entrypoint with `--help` for verbs and arguments; [the CLI contract](spec/ecosystem/cli.md) defines input/output and retry behavior. Friendly writes are Linux-only: this entrypoint does not select the Windows proof profile. Omitting `--root` still selects legacy behavior.
 
 For new operations the CLI can prepare context/version and a key. Before an executing write it prints `tasks-cli retry: {...}` metadata to stderr. Save it privately with the exact original arguments. An uncertain retry must retain context, key, expected version, actor, flags, payload and root/cache/profile; the reported request hash detects changed arguments before dispatch. Do not refresh authority and guess a replacement request. Previews consume no effects or key.
 
@@ -61,7 +61,7 @@ Ordering, batch and doctor controls use [JSON-lines protocol commands](spec/back
 ```bash
 printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
   XDG_DATA_HOME="$scratch/profile" node dist/backend/cli.js --stdio \
-    --v2-root "$scratch/root" --database "$scratch/cache.db"
+    --root "$scratch/root" --database "$scratch/cache.db"
 ```
 
 ## Windows and Android
@@ -69,7 +69,7 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
 The selected Windows native route uses the same main UI over one embedded SEA session with a smaller, explicitly proved command set. Use [the disposable Windows launch recipe](docs/evidence/windows-native-pilot.md#quickstart-windows-powershell) and [development prerequisites](docs/development.md#windows-native-development):
 
 ```powershell
-pnpm dev:native --v2-root ROOT --database CACHE --local-profile PROFILE
+pnpm dev:native --root ROOT --database CACHE --local-profile PROFILE
 ```
 
 Do not add `--` or substitute an unflagged launch. `pnpm dev:tauri` still starts legacy. Further automated Windows diagnosis is owner-deferred; a manual main-WebView launch is the next native gate. Existing process proofs are not full native parity, durable-preference acceptance or release approval.

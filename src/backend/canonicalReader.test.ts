@@ -10,14 +10,14 @@ import { readCanonicalRoot } from "./canonicalReader.js";
 import { parseCanonicalJson } from "./strictJson.js";
 import { compareTasks, isOrderKey, validateGraph, validateTask } from "./taskModel.js";
 
-const fixtureDirectory = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
+const fixtureDirectory = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtureDirectory, "cases.json"), "utf8")) as {
   taskTemplate: Record<string, unknown>;
   cases: { id: string; profile: string; given: Record<string, unknown>; expect: { error?: string; fields?: Record<string, unknown> } }[];
 };
 
 function scratchRoot(t: TestContext): string {
-  const root = mkdtempSync(path.join(os.tmpdir(), "taskdb-v2-reader-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "tasks-reader-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, "tasks"));
   writeFileSync(path.join(root, "workspace.json"), '{"schemaVersion":2}\n');
@@ -45,7 +45,7 @@ function recordBytes(record: Record<string, unknown>, given: Record<string, unkn
 }
 
 for (const entry of corpus.cases.filter(entry => entry.profile === "model")) {
-  test(`Node read-only v2 reader executes ${entry.id}`, (t) => {
+  test(`Node read-only reader executes ${entry.id}`, (t) => {
     const root = scratchRoot(t);
     const records = (entry.given.records ?? { a: entry.given.patch ?? {} }) as Record<string, Record<string, unknown>>;
     for (const [id, patch] of Object.entries(records)) {
@@ -66,7 +66,7 @@ for (const entry of corpus.cases.filter(entry => entry.profile === "model")) {
   });
 }
 
-test("Node v2 reader preserves golden data/bytes and refuses v1 without writing", (t) => {
+test("Node reader preserves golden data/bytes and refuses legacy without writing", (t) => {
   const root = scratchRoot(t);
   cpSync(path.join(fixtureDirectory, "root"), root, { recursive: true });
   const snapshot = readCanonicalRoot(root);
@@ -81,7 +81,7 @@ test("Node v2 reader preserves golden data/bytes and refuses v1 without writing"
   writeFileSync(path.join(root, "workspace.json"), manifest);
 });
 
-test("Node v2 reader validates key vectors, ID byte ordering, and exact string alphabets", () => {
+test("Node reader validates key vectors, ID byte ordering, and exact string alphabets", () => {
   for (const key of ["a0", "Zz", "a0V", "b00", `A${"0".repeat(26)}1`, `a0${"0".repeat(253)}1`]) assert.equal(isOrderKey(key), true);
   for (const key of ["", "a", "b0", "a_", "a0é", "a0V0", `A${"0".repeat(26)}`, `a0${"0".repeat(253)}1V`]) assert.equal(isOrderKey(key), false);
   const tasks = ["a", "Z", "A", "z"].map(id => validateTask({ ...corpus.taskTemplate, id }, id));
@@ -98,7 +98,7 @@ test("Node v2 reader validates key vectors, ID byte ordering, and exact string a
   }
 });
 
-test("Node v2 reader orders prefix/case keys by literal ASCII bytes", (t) => {
+test("Node reader orders prefix/case keys by literal ASCII bytes", (t) => {
   const root = scratchRoot(t);
   const records = { a: "a0a", d: "a0V", z: "Zz", c: "a0Z", e: "a0" };
   for (const [id, orderKey] of Object.entries(records)) {
@@ -107,14 +107,14 @@ test("Node v2 reader orders prefix/case keys by literal ASCII bytes", (t) => {
   assert.deepEqual(readCanonicalRoot(root).tasks.map(task => task.orderKey), ["Zz", "a0", "a0V", "a0Z", "a0a"]);
 });
 
-test("v2 strict JSON catches escaped duplicate names, BOM, nested aliases and non-finite values without task-text diagnostics", () => {
+test("strict JSON catches escaped duplicate names, BOM, nested aliases and non-finite values without task-text diagnostics", () => {
   for (const text of ['{"title":"secret","\\u0074itle":"other"}', '\uFEFF{"schemaVersion":2}', '{"outer":{"key":1,"key":2}}', '{"number":1e999}', '{"text":"\\udc00"}']) {
     assert.throws(() => parseCanonicalJson(Buffer.from(text)), (error) => error instanceof CommandError && error.code === "INVALID_CANONICAL" && !error.message.includes("secret"));
   }
   assert.deepEqual(parseCanonicalJson(Buffer.from('{"text":"😀","array":[1, true, null, {"key":"value"}]}')), { text: "😀", array: [1, true, null, { key: "value" }] });
 });
 
-test("Node v2 reader refuses missing, mixed and unexpected entries; keeps conflict copies distinct", (t) => {
+test("Node reader refuses missing, mixed and unexpected entries; keeps conflict copies distinct", (t) => {
   const root = scratchRoot(t);
   writeFileSync(path.join(root, "tasks/a.json"), JSON.stringify(corpus.taskTemplate));
   const conflict = JSON.stringify({ ...corpus.taskTemplate, title: "Other" });
@@ -134,7 +134,7 @@ test("Node v2 reader refuses missing, mixed and unexpected entries; keeps confli
   assert.throws(() => readCanonicalRoot(root), { code: "INVALID_CANONICAL" });
 });
 
-test("Node v2 reader rejects an outside-tree symlink whose contents would otherwise be valid", (t) => {
+test("Node reader rejects an outside-tree symlink whose contents would otherwise be valid", (t) => {
   const root = scratchRoot(t);
   const outside = scratchRoot(t);
   const target = path.join(outside, "tasks/escape.json");
@@ -151,7 +151,7 @@ test("Node v2 reader rejects an outside-tree symlink whose contents would otherw
   assert.equal(readFileSync(target, "utf8"), bytes);
 });
 
-test("v2 model handles year zero, rejects direct unpaired text and validates deep graphs without call-stack recursion", () => {
+test("model handles year zero, rejects direct unpaired text and validates deep graphs without call-stack recursion", () => {
   const ancient = validateTask({ ...corpus.taskTemplate, createdAt: "0000-02-29T00:00:00.000Z" }, "a");
   assert.equal(ancient.createdAt, "0000-02-29T00:00:00.000Z");
   assert.throws(() => validateTask({ ...corpus.taskTemplate, title: "\ud800" }, "a"), { code: "INVALID_CANONICAL" });

@@ -12,7 +12,7 @@ import { exactHash } from "../backend/updateJournal.js";
 import { planSchema1Conversion } from "./conversion.js";
 
 export type MigrationEvidence = { directories: { relativePath: string; identity: string }[]; files: CopyFile[] };
-export const SCHEMA1_ROLLBACK_WARNING = "Rollback selects preserved pre-migration v1 state with a v1 client. Later v2 edits are not reverse-converted; retain the v2 folder separately.";
+export const SCHEMA1_ROLLBACK_WARNING = "Rollback selects the preserved pre-migration schema 1 folder with the old client. Later edits are not reverse-converted; keep the migrated folder separately.";
 
 function invalidEvidence(): never { throw new CommandError("RECOVERY_CONFLICT", "migration has missing, divergent or invalid source evidence"); }
 

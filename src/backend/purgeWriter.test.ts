@@ -12,7 +12,7 @@ import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 const canceled = { status: "canceled" as const, closedAt: "2026-09-08T14:00:00.000Z" };
 function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }

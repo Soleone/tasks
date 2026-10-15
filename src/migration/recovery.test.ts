@@ -15,8 +15,8 @@ import { readSchema1MigrationRootDescriptor, readSchema1MigrationSnapshot } from
 import type { Response } from "../backend/protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
-const sourceFixture = path.join(fixtures, "taskdb-v1/sync");
-const golden = path.join(fixtures, "taskdb-v2/root");
+const sourceFixture = path.join(fixtures, "schema1/sync");
+const golden = path.join(fixtures, "workspace/root");
 const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
@@ -28,11 +28,11 @@ function success(response: Response): Extract<Response, { ok: true }> {
 }
 function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
+  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function crash(workspace: Workspace, cut: string) {
   const info = success(send(workspace, { command: "workspace.info" }));
-  const request = { version: 2, command: "workspace.migrateV1", writeContext: info.writeContext, idempotencyKey: "original-migration", args: { destinationDirectory: workspace.destination } };
+  const request = { version: 2, command: "workspace.migrate", writeContext: info.writeContext, idempotencyKey: "original-migration", args: { destinationDirectory: workspace.destination } };
   const pending = pendingIntentPath(readSchema1MigrationRootDescriptor(workspace.root));
   const loader = path.join(workspace.directory, "migration-kill-loader.mjs");
   // Actual CLI process cuts only: no production fault flags or clock/ID overrides.
@@ -205,7 +205,7 @@ for (const fault of ["source-bytes", "source-arrival", "destination-arrival"]) {
   test(`migration preflight ${fault} leaves no intent, backup or stage and preserves external bytes`, linuxOnly, (t) => {
     const workspace = setup(t, sourceFixture);
     const info = success(send(workspace, { command: "workspace.info" }));
-    const request = { version: 2, command: "workspace.migrateV1", writeContext: info.writeContext, idempotencyKey: "preflight", args: { destinationDirectory: workspace.destination } };
+    const request = { version: 2, command: "workspace.migrate", writeContext: info.writeContext, idempotencyKey: "preflight", args: { destinationDirectory: workspace.destination } };
     const loader = path.join(workspace.directory, "preflight-loader.mjs");
     const selected = path.join(workspace.root, "tasks", `${id}.json`);
     const mutation = fault === "source-bytes" ? `faultWrite(${JSON.stringify(selected)},faultRead(${JSON.stringify(selected)},"utf8")+" ");`
@@ -248,7 +248,7 @@ for (const fault of ["fixed-target", "raw-source", "directory-evidence"]) {
 test("ordinary migration subprocess restart replays original completion without recopies", linuxOnly, (t) => {
   const workspace = setup(t, sourceFixture);
   const info = success(send(workspace, { command: "workspace.info" }));
-  const request = { version: 2, command: "workspace.migrateV1", writeContext: info.writeContext, idempotencyKey: "restart", args: { destinationDirectory: workspace.destination } };
+  const request = { version: 2, command: "workspace.migrate", writeContext: info.writeContext, idempotencyKey: "restart", args: { destinationDirectory: workspace.destination } };
   const first = run(workspace, request);
   assert.equal(first.status, 0, first.stderr);
   const result = JSON.parse(first.stdout);

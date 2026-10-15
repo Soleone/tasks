@@ -16,7 +16,7 @@ import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
 import type { UpdateIntent } from "./updateJournal.js";
 
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-const template = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8")).taskTemplate as CanonicalTask;
+const template = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8")).taskTemplate as CanonicalTask;
 const linuxOnly = { skip: process.platform !== "linux" };
 type Projection = CanonicalTask & { version: number };
 function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
@@ -42,7 +42,7 @@ function prepare(workspace: Workspace, command = "task.move") {
   return { version: 2, command, writeContext: info.writeContext, idempotencyKey: "fixed-relationship", actor: { kind: "human", label: "relationship test" }, args: { id: "a", expectedVersion: task.version, ...(command === "task.move" ? { parentId: "next" } : { dependsOnId: command === "task.dependency.add" ? "blocker" : "d" }) } };
 }
 function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
+  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function recover(workspace: Workspace, operationId: string, key = "resume") {
   const info = success(send(workspace, { command: "workspace.info" }));

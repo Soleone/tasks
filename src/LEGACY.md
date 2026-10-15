@@ -1,28 +1,16 @@
 # Legacy runtime
 
-These files belong to the old engine and are deleted at cutover. Don't add features to them, don't import them from new code, and don't copy their patterns. Fix them only to keep the legacy route working until then.
+`src/legacy/` holds the old engine: `legacy/backend/` (commands, SQLite database, schema 1 workspace sync, source registry, old protocol) and `legacy/platform/` (the old Android runtime and the legacy transport). It is deleted at cutover. Don't add features to it, don't import it from new code, and don't copy its patterns. Fix it only to keep the legacy route working until then.
 
-## Legacy only
+The only way in is explicit: `pnpm dev:web --legacy`, `tasks-cli --legacy`, the backend binary without `--root`, and native desktop and Android builds, which start the legacy app until cutover.
 
-Nothing in the current engine reaches these (import scan at `f10545c`).
+## Links still to cut
 
-- `backend/commands.ts`, `backend/tasks.ts`, `backend/taskQueries.ts`, `backend/taskRecords.ts`, `backend/taskArguments.ts`
-- `backend/workspace.ts`, `backend/receiveWorkspace.ts`, `backend/sourceController.ts`, `backend/sourceRegistry.ts`, `backend/themes.ts`
-- `backend/cli.ts`, `backend/tasks-cli.ts`, `backend/devServer.ts` (legacy entry points; the current CLI is `backend/v2HumanCli.ts`)
+Current code still imports legacy code in these places. Each one goes away before or at cutover.
 
-## Legacy, still reached through shared code
-
-The current engine reaches these only through shared modules. Each edge must be cut before the file can move to `src/legacy/`.
-
-| File | Reached through | Cut by |
+| Legacy module | Imported by | Goes away with |
 | --- | --- | --- |
-| `backend/database.ts` | `canonicalWorkspace.ts` | moving `canonicalWorkspace.ts` |
-| `backend/canonicalWorkspace.ts` | `v2MigrationSource.ts`, `v2V1Conversion.ts` | giving the migration its own schema-1 reader |
-| `backend/taskExport.ts` | `workspace.ts`, `platform/androidBackendEngine.ts` | the Android removal |
-| `platform/backendTransport.ts` | `platform/backendClient.ts` | removing the legacy route from the client |
-| `platform/android*.ts` | `backendTransport.ts`, `components/SettingsDialog.tsx` | the Android removal (dropped until ported) |
-
-## Shared, partly legacy
-
-- `backend/protocol.ts`: imported by legacy and current code alike. The parts the current engine uses move into its own protocol module; the rest leaves with legacy.
-- `backend/taskText.ts`, `backend/requestHash.ts`: used by the UI or by the migration's schema-1 conversion. Check importers before moving.
+| `legacy/backend/protocol` | UI components, `App.tsx`, `theme.ts`, `platform/backendClient.ts`, `platform/backendSession.ts`, `backend/builtinThemes.ts` | Stage 4: UI moves to the current model types |
+| `legacy/backend/commands`, `canonicalWorkspace`, `sourceRegistry` | the legacy branches of `backend/cli.ts`, `backend/tasks-cli.ts`, `backend/devServer.ts` | Cutover: the `--legacy` branches are deleted |
+| `legacy/platform/backendTransport`, `androidSyncConflicts`, `androidWorkspace` | `platform/backendClient.ts`, `components/SettingsDialog.tsx` | Cutover: the legacy route and Android runtime are deleted |
+| `legacy/backend/requestHash` | migration tests (hashing schema 1 fixtures) | Cutover, or earlier by hashing with `backend/canonicalJson` |

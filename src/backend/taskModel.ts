@@ -60,7 +60,7 @@ export function isOrderKey(value: unknown): value is string {
 
 export function validateManifest(value: unknown): void {
   if (!isRecord(value) || !Number.isInteger(value.schemaVersion)) invalidTask("manifest");
-  if (value.schemaVersion !== 2) throw new CommandError("UNSUPPORTED_SCHEMA", "canonical schema is not supported by the v2 reader");
+  if (value.schemaVersion !== 2) throw new CommandError("UNSUPPORTED_SCHEMA", "canonical schema is not supported by this reader");
   if (Object.keys(value).length !== 1) invalidTask("manifest fields");
 }
 

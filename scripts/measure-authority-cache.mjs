@@ -12,7 +12,7 @@ assert.equal(process.platform, "linux", "No-op update measurements require the L
 const scratch = mkdtempSync(path.join(os.tmpdir(), "tasks-authority-measure-"));
 const previousProfile = process.env.XDG_DATA_HOME;
 process.env.XDG_DATA_HOME = path.join(scratch, "local-data");
-const template = JSON.parse(readFileSync(new URL("./fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", import.meta.url), "utf8"));
+const template = JSON.parse(readFileSync(new URL("./fixtures/workspace/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", import.meta.url), "utf8"));
 const measurements = [];
 function elapsed(action) {
   const start = performance.now();

@@ -5,7 +5,7 @@ import test from "node:test";
 import { parseTaskEditResult, parseTaskProjection } from "./taskResults.js";
 import type { TaskExecutionResult } from "./taskResults.js";
 
-const file = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", import.meta.url));
+const file = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", import.meta.url));
 const projection = { ...JSON.parse(readFileSync(file, "utf8")), version: 7, blockedByIds: [] };
 
 test("execution results distinguish historical changed success from receipt-only no-op", () => {

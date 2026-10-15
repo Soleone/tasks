@@ -15,7 +15,7 @@ import { purgeRecoveryLocation } from "./purgeJournal.js";
 import type { PurgeFile, PurgeIntent } from "./purgeJournal.js";
 import type { Response } from "./protocol.js";
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
 function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
@@ -29,7 +29,7 @@ function scenario(t: TestContext, linked = true) {
   const context = ok(send(w, { command: "workspace.info" })).writeContext;
   return { w, request: { version: 2, command: "task.purgeCanceled", args: {}, writeContext: context, idempotencyKey: "purge-key", actor: { kind: "human", label: "fixed purge" } } };
 }
-function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
+function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
 function recover(w: Workspace, operationId: string, key = "resume") { return send(w, { command: "workspace.recovery.resume", writeContext: ok(send(w, { command: "workspace.info" })).writeContext, idempotencyKey: key, args: { operationId } }); }
 function crash(w: Workspace, request: object, cut: string) {
   const pending = pendingIntentPath(readRootDescriptor(w.root)), loader = path.join(w.directory, "purge-kill-loader.mjs");

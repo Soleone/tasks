@@ -16,7 +16,7 @@ export type CanonicalSnapshot = {
 };
 
 function invalidEntry(): never {
-  throw new CommandError("INVALID_CANONICAL", "v2 canonical tree has a missing, unexpected or escaping entry");
+  throw new CommandError("INVALID_CANONICAL", "canonical tree has a missing, unexpected or escaping entry");
 }
 
 function directoryIdentity(directory: string): string {
@@ -99,7 +99,7 @@ export function readCanonicalDeletionPrefix(directory: string, deletedTasks: rea
     return observeRoot(realpathSync(directory), deletedTasks.map(task => validateTask(task, task.id)));
   } catch (error) {
     if (error instanceof CommandError) throw error;
-    throw new CommandError("INVALID_STORAGE", "v2 deletion prefix could not be read completely");
+    throw new CommandError("INVALID_STORAGE", "deletion prefix could not be read completely");
   }
 }
 
@@ -156,6 +156,6 @@ export function readCanonicalRoot(directory: string): CanonicalSnapshot {
     return observeRoot(realpathSync(directory));
   } catch (error) {
     if (error instanceof CommandError) throw error;
-    throw new CommandError("INVALID_STORAGE", "v2 canonical root could not be read completely");
+    throw new CommandError("INVALID_STORAGE", "canonical root could not be read completely");
   }
 }

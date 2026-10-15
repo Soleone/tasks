@@ -109,18 +109,18 @@ async function main(): Promise<void> {
   const windowsTaskProof = args.includes("--windows-task-proof");
   const localProfile = optionValue(args, "--local-profile");
   if (windowsTaskProof || args.includes("--local-profile")) {
-    if (!windowsTaskProof || process.platform !== "win32" || !args.includes("--v2-root")
+    if (!windowsTaskProof || process.platform !== "win32" || !args.includes("--root")
       || !localProfile || !/^[A-Za-z]:[\\/]/.test(localProfile) || localProfile.includes("\u0000")) {
-      throw new Error("Windows task proof requires Windows, --v2-root, --database and --local-profile ABSOLUTE_NTFS_PATH");
+      throw new Error("Windows task proof requires Windows, --root, --database and --local-profile ABSOLUTE_NTFS_PATH");
     }
     process.env.APPDATA = path.win32.resolve(localProfile);
   }
-  if (args.includes("--v2-root")) {
-    const rootPath = optionValue(args, "--v2-root");
+  if (args.includes("--root")) {
+    const rootPath = optionValue(args, "--root");
     const cachePath = optionValue(args, "--database");
     if (!args.includes("--stdio") || args.includes("--probe") || !rootPath?.trim() || !cachePath?.trim()
       || rootPath.startsWith("--") || cachePath.startsWith("--")) {
-      throw new Error("v2 requires --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT");
+      throw new Error("--root requires --stdio --root PATH --database CACHE_OUTSIDE_ROOT");
     }
     if (windowsTaskProof) {
       if ([rootPath, cachePath].some(value => !/^[A-Za-z]:[\\/]/.test(value) || value.includes("\u0000"))) {
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --v2-root PATH --database CACHE_OUTSIDE_ROOT [--windows-task-proof --local-profile ABSOLUTE_NTFS_PATH]\n");
+  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --root PATH --database CACHE_OUTSIDE_ROOT [--windows-task-proof --local-profile ABSOLUTE_NTFS_PATH]\n");
   process.exitCode = 2;
 }
 

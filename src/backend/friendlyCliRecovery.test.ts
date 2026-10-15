@@ -14,8 +14,8 @@ const linux = { skip: process.platform !== "linux" };
 const parent = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const original = ["add", "--title", "Private capture @literal", "--description", "Private **Markdown**", "--category", "WORK", "--tag", "TODO", "--actor-kind", "human", "--actor-label", "operator", "--json"];
 function run(workspace: Workspace, argv: string[], loader?: string, profile = process.env.XDG_DATA_HOME) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--v2-root", workspace.root, "--database", workspace.cache, ...argv], {
-    env: { ...process.env, XDG_DATA_HOME: profile, TASKS_SYNC_ROOT: path.join(workspace.directory, "v1-trap"), TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.directory, "v1-registry-trap") }, encoding: "utf8", timeout: 10_000,
+  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--root", workspace.root, "--database", workspace.cache, ...argv], {
+    env: { ...process.env, XDG_DATA_HOME: profile, TASKS_SYNC_ROOT: path.join(workspace.directory, "legacy-trap"), TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.directory, "legacy-registry-trap") }, encoding: "utf8", timeout: 10_000,
   });
 }
 function ok(result: ReturnType<typeof run>) { assert.equal(result.status, 0, result.stderr); return JSON.parse(result.stdout); }
@@ -159,7 +159,7 @@ for (const cut of ["prepared", "beforeCommit", "afterCommit", "lostReply"]) {
 test("human retained directory request hash rejects changed relative-path resolution before dispatch", linux, t => {
   const workspace = setup(t), firstDirectory = path.join(workspace.directory, "first"), laterDirectory = path.join(workspace.directory, "later");
   mkdirSync(firstDirectory);mkdirSync(laterDirectory);
-  const command = [cli, "--v2-root", workspace.root, "--database", workspace.cache, "archive", "relative-target", "--json"];
+  const command = [cli, "--root", workspace.root, "--database", workspace.cache, "archive", "relative-target", "--json"];
   const killed = spawnSync(process.execPath, ["--import", loaderFor(workspace, "prepared"), ...command], { cwd: firstDirectory, env: process.env, encoding: "utf8" });
   assert.equal(killed.signal, "SIGKILL", killed.stderr);
   const retry = spawnSync(process.execPath, [...command, ...retained(killed)], { cwd: laterDirectory, env: process.env, encoding: "utf8" });

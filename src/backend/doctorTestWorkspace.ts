@@ -11,7 +11,7 @@ import type { Response } from "./protocol.js";
 import type { DoctorPlan } from "./doctorPlan.js";
 import type { DoctorIssue, DoctorVersion } from "./doctorSource.js";
 import type { CanonicalTask } from "./taskModel.js";
-export const doctorCorpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
+export const doctorCorpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 export const doctorLinux = { skip: process.platform !== "linux" };
 export function sendDoctor(w: CopyTestWorkspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
 export function doctorOk(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r));if (!r.ok) throw Error("failed doctor");return r; }

@@ -4,7 +4,7 @@ import path from "node:path";
 import { CommandError } from "./errors.js";
 import { executeLine } from "./gateway.js";
 import { getDataDirectory } from "./paths.js";
-import { hasHumanOption, parseHumanArgs, HumanUsageError, humanUsage } from "./friendlyArgs.js";
+import { humanOptionIndex, parseHumanArgs, HumanUsageError, humanUsage } from "./friendlyArgs.js";
 import type { HumanInvocation } from "./friendlyArgs.js";
 import { printHumanResult } from "./friendlyOutput.js";
 import type { Request, Response } from "./protocol.js";
@@ -81,10 +81,10 @@ export function runHumanCli(argv: string[]): void {
   } catch (error) {
     const failure = error instanceof HumanProtocolError ? error.failure.error : {
       code: error instanceof CommandError ? error.code : "INVALID_STORAGE",
-      message: error instanceof CommandError ? error.message.slice(error.code.length + 2) : "v2 CLI could not complete; preserve retry metadata and inspect pending work",
+      message: error instanceof CommandError ? error.message.slice(error.code.length + 2) : "tasks-cli could not complete; preserve retry metadata and inspect pending work",
     };
     // JSON mode can still report a malformed argv invocation without echoing its values.
-    if (!json) json = hasHumanOption(argv, "json");
+    if (!json) json = humanOptionIndex(argv, "json") !== -1;
     process.stderr.write(json ? `${JSON.stringify({ ok: false, error: failure })}\n` : `tasks-cli: ${failure.code}: ${failure.message}\n`);
     process.exitCode = failure.code === "STALE_TASK_VERSION" ? 3 : error instanceof HumanUsageError ? 2 : 1;
   }

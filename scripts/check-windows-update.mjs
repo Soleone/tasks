@@ -22,7 +22,7 @@ const { inject } = createRequire(import.meta.url)(path.join(checkout, "node_modu
 const temporary = path.join(checkout, ".tmp");
 mkdirSync(temporary, { recursive: true });
 const scratch = mkdtempSync(path.join(temporary, "windows-update-"));
-const golden = path.join(checkout, "scripts/fixtures/taskdb-v2/root");
+const golden = path.join(checkout, "scripts/fixtures/workspace/root");
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const cuts = ["staged", "replaced", "beforeCommit", "afterCommit", "lostReply"];
 const passed = [];
@@ -43,15 +43,15 @@ function workspace(name) {
   return { name, directory, root, profile, cache: path.join(directory, "cache.db"), domain, pending: path.join(domain, "pending.json"), file: path.join(root, "tasks", `${id}.json`) };
 }
 function argv(w, proof = true) {
-  return ["--stdio", "--v2-root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])];
+  return ["--stdio", "--root", w.root, "--database", w.cache, ...(proof ? ["--windows-task-proof", "--local-profile", w.profile] : [])];
 }
 function run(runner, w, request, proof = true, cut) {
   const program = cut ? runner.faults[cut] : runner.normal;
   return spawnSync(runner.command ?? program, runner.command ? [program, ...argv(w, proof)] : argv(w, proof), {
     input: JSON.stringify({ version: 2, requestId: "proof", ...request }) + "\n", encoding: "utf8", timeout: 15_000,
     env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, TEMP: process.env.TEMP, TMP: process.env.TMP,
-      APPDATA: path.join(w.directory, "default-profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "v1-trap.db"),
-      TASKS_SYNC_ROOT: path.join(w.directory, "v1-root-trap"), TASKS_SOURCE_REGISTRY_PATH: path.join(w.directory, "missing-registry.json"), TASKS_TEST_PENDING: w.pending },
+      APPDATA: path.join(w.directory, "default-profile-trap"), TASKS_DATABASE_PATH: path.join(w.directory, "legacy-trap.db"),
+      TASKS_SYNC_ROOT: path.join(w.directory, "legacy-root-trap"), TASKS_SOURCE_REGISTRY_PATH: path.join(w.directory, "missing-registry.json"), TASKS_TEST_PENDING: w.pending },
   });
 }
 function send(runner, w, request, proof = true) {
@@ -63,7 +63,7 @@ function send(runner, w, request, proof = true) {
   const response = JSON.parse(lines[0]);
   assert.equal(response.version, 2);
   assert.equal(response.requestId, request.requestId ?? "proof");
-  for (const name of ["v1-trap.db", "v1-root-trap", "default-profile-trap"]) assert.equal(existsSync(path.join(w.directory, name)), false);
+  for (const name of ["legacy-trap.db", "legacy-root-trap", "default-profile-trap"]) assert.equal(existsSync(path.join(w.directory, name)), false);
   return response;
 }
 function ok(response) { assert.equal(response.ok, true, JSON.stringify(response)); return response; }
@@ -136,7 +136,7 @@ try {
     assert.deepEqual(info.result.commands, ["activity.list", "category.list", "tag.list", "task.create", "task.get", "task.list", "task.update", "task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete", "task.status.undo", "workspace.info", "workspace.archive", "workspace.restore", "workspace.recovery.resume"].sort());
     const request = prepared(runner, w), before = raw(w), original = JSON.parse(readFileSync(w.file, "utf8"));
     fail(send(runner, w, request, false), "UNSUPPORTED_COMMAND");
-    for (const command of ["task.status.undoMany", "task.transitionMany", "task.move", "task.dependency.add", "task.reorder", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.rebuild", "workspace.migrateV1", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
+    for (const command of ["task.status.undoMany", "task.transitionMany", "task.move", "task.dependency.add", "task.reorder", "operation.undo", "task.purgeCanceled", "workspace.init", "workspace.rebuild", "workspace.migrate", "workspace.doctor.inspect", "workspace.doctor.plan", "workspace.doctor.apply"]) fail(send(runner, w, { ...request, command }), "UNSUPPORTED_COMMAND");
     assert.deepEqual(raw(w), before);
     assert.deepEqual(counts(w), [0, 0]);
     const preview = ok(send(runner, w, { ...request, dryRun: true, idempotencyKey: undefined }));

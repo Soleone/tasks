@@ -15,15 +15,15 @@ const childId = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
 const doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const taskPath = `tasks/${parentId}.json`;
 type RecordValue = Record<string, unknown> & { sync: Record<string, unknown> };
-const corpus = JSON.parse(readFileSync(path.join(fixtures, "taskdb-v2/cases.json"), "utf8")) as {
+const corpus = JSON.parse(readFileSync(path.join(fixtures, "workspace/cases.json"), "utf8")) as {
   cases: { id: string; given: { patchSchema1?: Record<string, unknown>; removeSchema1?: string; rehashSchema1?: boolean }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number; goldenRoot?: string } }[];
 };
 
 function setup(t: TestContext) {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-v1-conversion-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-conversion-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, "source");
-  cpSync(path.join(fixtures, "taskdb-v1/sync"), root, { recursive: true });
+  cpSync(path.join(fixtures, "schema1/sync"), root, { recursive: true });
   return { directory, root };
 }
 
@@ -72,7 +72,7 @@ test("read-only converter adapts migrate-golden: independent full-field AND exac
   writeFileSync(cache, "not a conversion input");
   const before = tree(directory);
   const plan = planSchema1Conversion(root);
-  const golden = path.join(fixtures, "taskdb-v2", entry.expect.goldenRoot!);
+  const golden = path.join(fixtures, "workspace", entry.expect.goldenRoot!);
   assert.deepEqual(plan.tasks, readCanonicalRoot(golden).tasks.sort((a, b) => a.id < b.id ? -1 : 1));
   assert.equal(plan.tasks.length, entry.expect.taskCount);
   for (const file of plan.files) assert.deepEqual(file.bytes, readFileSync(path.join(golden, file.relativePath)), file.relativePath);

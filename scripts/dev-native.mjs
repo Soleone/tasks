@@ -12,7 +12,7 @@ const directory = mkdtempSync(path.join(root, ".tmp/native-pilot-")), overlay = 
 writeFileSync(overlay, JSON.stringify(nativePilotConfig(selection, path.join(directory, "webview")), null, 2) + "\n");
 process.stdout.write(`Disposable Windows native pilot selection: ${JSON.stringify(selection)}\nCapability overlay: ${overlay}\n`);
 const child = spawn(process.execPath, [path.join(root, "node_modules/@tauri-apps/cli/tauri.js"), "dev", "--config", overlay], {
-  cwd: root, stdio: "inherit", env: { ...process.env, VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1", VITE_TASKDB_V2_NATIVE_SELECTION: JSON.stringify(selection) },
+  cwd: root, stdio: "inherit", env: { ...process.env, VITE_TASKS_LEGACY: "0", VITE_TASKS_NATIVE_SELECTION: JSON.stringify(selection) },
 });
 child.on("error", reason => { process.stderr.write(`${reason.message}\n`); process.exitCode = 1; });
 child.on("exit", code => { process.exitCode = code ?? 1; });

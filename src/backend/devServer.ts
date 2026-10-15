@@ -24,14 +24,16 @@ export type DevServerOptions = {
   port?: number;
   host?: string;
   databasePath?: string;
-  v2Root?: string;
-  v2Edit?: boolean;
+  /** The workspace folder to edit. Required unless `legacy` is set. */
+  root?: string;
+  /** Serve the legacy engine on its default database instead (removed at cutover). */
+  legacy?: boolean;
 };
 
 // Same ordered list as the Linux main-client editor: the native list plus parent/dependency edits,
 // manual reorder, operation undo and status batches. Eligibility stays with the gateway.
 const EDITOR_COMMANDS = ["task.create", "task.update", ...STATUS_COMMANDS, "task.status.undo", ...RELATIONSHIP_COMMANDS, "task.reorder", "operation.undo", "task.transitionMany", "workspace.archive", "workspace.restore"];
-type DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: boolean; profilePath?: string; writeCommands?: string[] };
+type DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: false; profilePath: string; writeCommands: string[] };
 
 export type DevServer = {
   server: http.Server;
@@ -72,17 +74,18 @@ function readBody(request: http.IncomingMessage): Promise<Buffer> {
 }
 
 export function startDevServer(options: DevServerOptions = {}): Promise<DevServer> {
-  if (options.v2Edit && options.v2Root === undefined) throw new Error("--v2-edit requires explicit --v2-root and --database");
-  if (options.v2Edit && process.platform !== "linux") throw new Error("v2 browser editing is unavailable on this platform");
-  if (options.v2Root !== undefined && (!options.v2Root.trim() || !options.databasePath?.trim())) {
-    throw new Error("v2 requires explicit --v2-root PATH and --database CACHE_OUTSIDE_ROOT; no environment/default fallback");
+  if (!options.legacy) {
+    if (!options.root?.trim() || !options.databasePath?.trim()) {
+      throw new Error("the dev bridge requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace (use --legacy for the old app)");
+    }
+    if (process.platform !== "linux") throw new Error("browser editing over the dev bridge runs only on Linux");
   }
-  const databasePath = options.v2Root === undefined
+  const databasePath = options.legacy
     ? options.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath()
     : path.resolve(options.databasePath!);
-  const selection: DevSelection | undefined = options.v2Root === undefined ? undefined : {
-    version: 2, rootPath: path.resolve(options.v2Root), databasePath, selectionToken: randomUUID(), readOnly: !options.v2Edit,
-    ...(options.v2Edit ? { profilePath: path.resolve(getDataDirectory()), writeCommands: EDITOR_COMMANDS } : {}),
+  const selection: DevSelection | undefined = options.legacy ? undefined : {
+    version: 2, rootPath: path.resolve(options.root!), databasePath, selectionToken: randomUUID(), readOnly: false,
+    profilePath: path.resolve(getDataDirectory()), writeCommands: EDITOR_COMMANDS,
   };
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
@@ -95,7 +98,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
       }
       response.writeHead(500, { "content-type": "application/json" });
       response.end(JSON.stringify(selection === undefined ? errorResponse("unknown", error) : {
-        version: 2, requestId: null, ok: false, error: { code: "INVALID_STORAGE", message: "v2 dev bridge could not complete safely" },
+        version: 2, requestId: null, ok: false, error: { code: "INVALID_STORAGE", message: "the dev bridge could not complete safely" },
       }));
     });
   });
@@ -188,16 +191,15 @@ function executeDevCommand(body: Buffer, selection: DevSelection, token: string 
   try {
     const request = parseRequest(decodeEnvelope(body));
     requestId = request.requestId;
-    if (token !== selection.selectionToken || (selection.profilePath !== undefined && selection.profilePath !== path.resolve(getDataDirectory()))) {
-      return { version: 2, requestId, ok: false, error: { code: "STALE_DEV_SELECTION", message: selection.readOnly ? "dev backend selection changed; reload and confirm the selected folder" : "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection" } };
+    if (token !== selection.selectionToken || selection.profilePath !== path.resolve(getDataDirectory())) {
+      return { version: 2, requestId, ok: false, error: { code: "STALE_DEV_SELECTION", message: "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection" } };
     }
-    if (!(QUERY_COMMANDS as readonly string[]).includes(request.command)
-      && (selection.readOnly || !EDITOR_COMMANDS.includes(request.command))) {
-      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: selection.readOnly ? "v2 dev app bridge is read-only; use explicit CLI controls outside the app" : "v2 dev editor permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo and status batches; order normalization, batch status undo and other controls remain unavailable" } };
+    if (!(QUERY_COMMANDS as readonly string[]).includes(request.command) && !EDITOR_COMMANDS.includes(request.command)) {
+      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches and backup/restore; order normalization, batch status undo and other controls remain unavailable" } };
     }
     return executeLine(body, selection.rootPath, selection.databasePath);
   } catch {
-    return { version: 2, requestId, ok: false, error: { code: "INVALID_REQUEST", message: "v2 dev app bridge requires a valid protocol-2 request" } };
+    return { version: 2, requestId, ok: false, error: { code: "INVALID_REQUEST", message: "the dev bridge requires a valid protocol-2 request" } };
   }
 }
 
@@ -213,11 +215,12 @@ async function main(): Promise<void> {
   if (port !== undefined && (!Number.isInteger(port) || port < 0)) {
     throw new Error("--port must be a non-negative integer");
   }
-  const v2Root = optionValue(args, "--v2-root");
-  if (args.includes("--v2-root") && (v2Root === undefined || v2Root.startsWith("--"))) throw new Error("--v2-root requires PATH");
-  const databasePath = optionValue(args, "--database") ?? (v2Root === undefined ? process.env.TASKS_DATABASE_PATH : undefined);
+  const legacy = args.includes("--legacy");
+  const root = optionValue(args, "--root");
+  if (args.includes("--root") && (root === undefined || root.startsWith("--"))) throw new Error("--root requires PATH");
+  const databasePath = optionValue(args, "--database") ?? (legacy ? process.env.TASKS_DATABASE_PATH : undefined);
 
-  const dev = await startDevServer({ port, databasePath, v2Root, v2Edit: args.includes("--v2-edit") });
+  const dev = await startDevServer({ port, databasePath, root, legacy });
   process.stdout.write(`tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`);
 
   const shutdown = (): void => {

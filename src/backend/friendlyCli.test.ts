@@ -11,14 +11,14 @@ import type { TaskProjection } from "./queries.js";
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const linux = { skip: process.platform !== "linux" };
 const parent = "c8d4206d-c25a-4317-baa4-a2c5443060e9", child = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
-const corpus = JSON.parse(readFileSync(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url), "utf8")) as {
+const corpus = JSON.parse(readFileSync(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url), "utf8")) as {
   taskTemplate: Record<string, unknown>;
   cases: { id: string; action: { argv: string[] }; expect: { command?: string; args?: object; fields?: Record<string, unknown>; error?: string; canonicalWrites?: number; noAutomaticAuthorityRefresh?: boolean } }[];
 };
 function run(workspace: Workspace, argv: string[], loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--v2-root", workspace.root, "--database", workspace.cache, ...argv], {
+  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--root", workspace.root, "--database", workspace.cache, ...argv], {
     encoding: "utf8", timeout: 10_000,
-    env: { ...process.env, TASKS_SYNC_ROOT: path.join(workspace.directory, "v1-must-not-open"), TASKS_DATABASE_PATH: path.join(workspace.directory, "v1-must-not-open.db"), TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.directory, "missing-registry.json") },
+    env: { ...process.env, TASKS_SYNC_ROOT: path.join(workspace.directory, "legacy-must-not-open"), TASKS_DATABASE_PATH: path.join(workspace.directory, "legacy-must-not-open.db"), TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.directory, "missing-registry.json") },
   });
 }
 function ok(workspace: Workspace, argv: string[]) {
@@ -79,20 +79,20 @@ for (const id of ["cli-literal", "cli-text", "cli-key-context"]) {
   });
 }
 
-test("human v2 omits classification updates, clears explicitly and maps description, literal values and shorthand", linux, t => {
+test("human omits classification updates, clears explicitly and maps description, literal values and shorthand", linux, t => {
   const workspace = setup(t);
   const first = ok(workspace, ["add", "--title", "Call @alice  #literal", "--category", "WORK", "--tag", "TODO", "--tag", "todo", "--description", "**Markdown**\r\n`@none`", "--priority", "3", "--parent", parent]).task as TaskProjection;
   assert.equal(first.title, "Call @alice  #literal");assert.equal(first.description, "**Markdown**\r\n`@none`");assert.deepEqual(first.tags, ["todo"]);
-  const literal = ok(workspace, ["update", first.id, "--title", "Changed @literal", "--description", "--v2-root"]).task as TaskProjection;
-  assert.equal(literal.category, "work");assert.deepEqual(literal.tags, ["todo"]);assert.equal(literal.description, "--v2-root");
+  const literal = ok(workspace, ["update", first.id, "--title", "Changed @literal", "--description", "--root"]).task as TaskProjection;
+  assert.equal(literal.category, "work");assert.deepEqual(literal.tags, ["todo"]);assert.equal(literal.description, "--root");
   const cleared = ok(workspace, ["update", first.id, "--clear-category", "--clear-tags", "--description="]).task as TaskProjection;
   assert.equal(cleared.title, "Changed @literal");assert.equal(cleared.category, null);assert.deepEqual(cleared.tags, []);assert.equal(cleared.description, "");
   const replacement = ok(workspace, ["update", first.id, "--text", "New @Play #Fun"]).task as TaskProjection;
   assert.equal(replacement.title, "New");assert.equal(replacement.category, "play");assert.deepEqual(replacement.tags, ["fun"]);
   const unclassified = ok(workspace, ["update", first.id, "--text", "No markers"]).task as TaskProjection;
   assert.equal(unclassified.category, null);assert.deepEqual(unclassified.tags, []);
-  const terminator = ok(workspace, ["add", "--", "--v2-root"]).task as TaskProjection;
-  assert.equal(terminator.title, "--v2-root");
+  const terminator = ok(workspace, ["add", "--", "--root"]).task as TaskProjection;
+  assert.equal(terminator.title, "--root");
 });
 
 const invalid: string[][] = [
@@ -103,19 +103,19 @@ const invalid: string[][] = [
   ["update", parent, "--text", "text", "--category", "WORK"], ["update", parent],
   ["add", "New", "--descriptionMarkdown", "private-note"], ["sources"], ["list", "--source-key", "personal"],
   ["add", "New", "--title", "literal", "--title", "other"], ["list", "--limit", "9007199254740992"],
-  ["list", "--priority", "5"], ["move", parent], ["move", parent, "--root", "--parent", child],
+  ["list", "--priority", "5"], ["move", parent], ["move", parent, "--no-parent", "--parent", child],
   ["add", "New", "--expected-version", "1"], ["show", parent, "--write-context", "old"],
   ["list", "--category", "WORK", "--uncategorized"], ["add", "New", "--actor-kind", "system"],
   ["complete", parent, "--expected-version", "0"], ["add", "New", "--request-hash", "not-a-hash"],
-  ["purge-canceled", parent], ["archive"], ["restore", "one-path"], ["recover"], ["migrate-v1"],
+  ["purge-canceled", parent], ["archive"], ["restore", "one-path"], ["recover"], ["migrate"],
 ];
-for (const argv of invalid) test(`v2 CLI refuses conflicting/unknown/unsafe argv ${JSON.stringify(argv)}`, linux, t => {
+for (const argv of invalid) test(`CLI refuses conflicting/unknown/unsafe argv ${JSON.stringify(argv)}`, linux, t => {
   const workspace = setup(t), before = raw(workspace), { loader, trace } = traceLoader(workspace);
   failure(run(workspace, [...argv, "--json"], loader), "INVALID_ARGUMENT", 2);
   assert.equal(existsSync(trace), false);assert.equal(existsSync(workspace.cache), false);assert.deepEqual(raw(workspace), before);
 });
 
-test("v2 query flags, literal search, manual ancestor output, slugs and command-group activity are readable", linux, t => {
+test("query flags, literal search, manual ancestor output, slugs and command-group activity are readable", linux, t => {
   const workspace = setup(t);
   const listed = ok(workspace, ["list", "--status", "open", "--status", "paused,done", "--sort", "manual", "--limit", "2", "--offset", "1"]);
   assert.equal(listed.total, 4);assert.equal((listed.tasks as TaskProjection[]).length, 2);
@@ -133,10 +133,10 @@ test("v2 query flags, literal search, manual ancestor output, slugs and command-
   assert.match(activity.stdout, new RegExp(String(completed.operationId)));assert.match(activity.stdout, /task.complete/);
   assert.equal(activity.stdout.includes("undefined"), false);assert.equal(activity.stdout.includes("#undefined"), false);
   assert.equal(typeof ok(workspace, ["info"]).writeContext, "string");
-  for (const name of ["v1-must-not-open", "v1-must-not-open.db", "missing-registry.json"]) assert.equal(existsSync(path.join(workspace.directory, name)), false);
+  for (const name of ["legacy-must-not-open", "legacy-must-not-open.db", "missing-registry.json"]) assert.equal(existsSync(path.join(workspace.directory, name)), false);
 });
 
-test("v2 previews do not emit executing keys or effects; no-ops retain receipts and report no change", linux, t => {
+test("previews do not emit executing keys or effects; no-ops retain receipts and report no change", linux, t => {
   const workspace = setup(t), before = raw(workspace);
   for (const flag of ["--dry-run", "--read-only"]) {
     const result = run(workspace, ["add", "Private preview", flag, "--json"]);
@@ -151,7 +151,7 @@ test("v2 previews do not emit executing keys or effects; no-ops retain receipts 
   assert.deepEqual(raw(workspace), before);assert.deepEqual(ok(workspace, ["activity"]).activity, []);
 });
 
-for (const verb of ["start", "pause", "complete", "reopen", "cancel", "delete", "undo"]) test(`v2 friendly ${verb} shares accepted status rules`, linux, t => {
+for (const verb of ["start", "pause", "complete", "reopen", "cancel", "delete", "undo"]) test(`friendly ${verb} shares accepted status rules`, linux, t => {
   const workspace = setup(t);
   if (verb === "undo") ok(workspace, ["complete", parent]);
   const result = ok(workspace, [verb, parent]).task as TaskProjection;
@@ -159,9 +159,9 @@ for (const verb of ["start", "pause", "complete", "reopen", "cancel", "delete", 
   assert.equal(result.status, statuses[verb]);
 });
 
-test("v2 friendly relationships, operation inverse and complete-set purge use the shared safety rules", linux, t => {
+test("friendly relationships, operation inverse and complete-set purge use the shared safety rules", linux, t => {
   const workspace = setup(t);
-  const detached = ok(workspace, ["move", child, "--root"]);
+  const detached = ok(workspace, ["move", child, "--no-parent"]);
   assert.equal((detached.task as TaskProjection).parentId, null);
   ok(workspace, ["undo-operation", String(detached.operationId)]);
   assert.equal((ok(workspace, ["show", child]).task as TaskProjection).parentId, parent);
@@ -175,7 +175,7 @@ test("v2 friendly relationships, operation inverse and complete-set purge use th
   assert.deepEqual(new Set(purge.purgedIds as string[]), new Set([parent, child]));assert.equal(existsSync(String(purge.recoveryLocation)), true);
 });
 
-test("v2 supplied key/version/hash refuse missing authority before any refresh and retain stale exit3", linux, t => {
+test("supplied key/version/hash refuse missing authority before any refresh and retain stale exit3", linux, t => {
   const workspace = setup(t), { loader, trace } = traceLoader(workspace), before = raw(workspace);
   for (const argv of [["complete", parent, "--idempotency-key", "original"], ["complete", parent, "--expected-version", "1"], ["add", "New", "--request-hash", "0".repeat(64)]]) failure(run(workspace, [...argv, "--json"], loader), "WRITE_CONTEXT_REQUIRED");
   failure(run(workspace, ["complete", parent, "--idempotency-key", "original", "--write-context", "old", "--json"], loader), "EXPECTED_VERSION_REQUIRED");
@@ -185,7 +185,7 @@ test("v2 supplied key/version/hash refuse missing authority before any refresh a
   assert.deepEqual(raw(workspace), before);
 });
 
-test("v2 original key/context/version/actor/flags/payload replay without renewed authority, including missing live task", linux, t => {
+test("original key/context/version/actor/flags/payload replay without renewed authority, including missing live task", linux, t => {
   const workspace = setup(t), { loader, trace } = traceLoader(workspace);
   const argv = ["update", parent, "--title", "Private literal @a", "--description", "Private Markdown", "--actor-kind", "human", "--actor-label", "operator", "--json"];
   const first = run(workspace, argv);assert.equal(first.status, 0, first.stderr);
@@ -203,7 +203,7 @@ test("v2 original key/context/version/actor/flags/payload replay without renewed
   failure(run(workspace, [...argv, ...retryFlags(metadata)]), "STALE_WRITE_CONTEXT");assert.deepEqual(raw(workspace), afterRemoval);
 });
 
-test("v2 lifecycle explicitly initializes/rebuilds/copies disjoint roots without selection or sharing changes", linux, t => {
+test("lifecycle explicitly initializes/rebuilds/copies disjoint roots without selection or sharing changes", linux, t => {
   const workspace = setup(t), empty = path.join(workspace.directory, "empty");mkdirSync(empty);
   const selected = { ...workspace, root: empty, cache: path.join(workspace.directory, "empty-cache.db") };
   assert.equal(ok(selected, ["info"]).state, "empty");assert.equal(existsSync(path.join(empty, "workspace.json")), false);
@@ -221,31 +221,36 @@ test("v2 lifecycle explicitly initializes/rebuilds/copies disjoint roots without
   failure(run(workspace, ["archive", path.join(workspace.root, "inside"), "--json"]), "INVALID_ARGUMENT");
 });
 
-test("v2 human migration retains original v1 source and explicit v1 rollback, not reverse-converted later edits", linux, t => {
-  const fixture = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v1/sync/", import.meta.url)), workspace = setup(t, fixture), before = raw(workspace);
+test("human migration retains original legacy source and explicit legacy rollback, not reverse-converted later edits", linux, t => {
+  const fixture = fileURLToPath(new URL("../../scripts/fixtures/schema1/sync/", import.meta.url)), workspace = setup(t, fixture), before = raw(workspace);
   const order = readFileSync(path.join(workspace.root, "order/root.json"));
-  const migrated = run(workspace, ["migrate-v1", workspace.destination]);assert.equal(migrated.status, 0, migrated.stderr);assert.match(migrated.stdout, /Rollback selects preserved pre-migration v1 state/);
+  const migrated = run(workspace, ["migrate", workspace.destination]);assert.equal(migrated.status, 0, migrated.stderr);assert.match(migrated.stdout, /Rollback selects the preserved pre-migration schema 1 folder/);
   assert.deepEqual(raw(workspace), before);assert.deepEqual(readFileSync(path.join(workspace.root, "order/root.json")), order);
   const adopted = { ...workspace, root: workspace.destination, cache: path.join(workspace.directory, "adopted-cache.db") };
-  ok(adopted, ["update", parent, "--title", "Later v2 only"]);
-  const old = spawnSync(process.execPath, [cli, "--database", path.join(workspace.directory, "rollback-v1.db"), "show", parent, "--json"], { env: { ...process.env, TASKS_SYNC_ROOT: workspace.root, TASKS_SOURCE_REGISTRY_PATH: "" }, encoding: "utf8" });
-  assert.equal(old.status, 0, old.stderr);assert.notEqual(JSON.parse(old.stdout).task.title, "Later v2 only");
+  ok(adopted, ["update", parent, "--title", "Later only"]);
+  const old = spawnSync(process.execPath, [cli, "--legacy", "--database", path.join(workspace.directory, "rollback-legacy.db"), "show", parent, "--json"], { env: { ...process.env, TASKS_SYNC_ROOT: workspace.root, TASKS_SOURCE_REGISTRY_PATH: "" }, encoding: "utf8" });
+  assert.equal(old.status, 0, old.stderr);assert.notEqual(JSON.parse(old.stdout).task.title, "Later only");
 });
 
-test("explicit friendly-v2 mode has its own help/cache/safe errors while default v1 mode and flag-valued notes stay v1", t => {
+test("explicit friendly-mode has its own help/cache/safe errors while default legacy mode and flag-valued notes stay legacy", t => {
   const workspace = setup(t);
-  const help = run(workspace, ["--help"]);assert.equal(help.status, 0);assert.match(help.stdout, /explicitly selected v2/);assert.equal(existsSync(workspace.cache), false);
-  const missingCache = spawnSync(process.execPath, [cli, "--v2-root", workspace.root, "add", "Private", "--json"], { env: { ...process.env, TASKS_DATABASE_PATH: workspace.cache }, encoding: "utf8" });
+  const help = run(workspace, ["--help"]);assert.equal(help.status, 0);assert.match(help.stdout, /explicitly selected workspace folder/);assert.equal(existsSync(workspace.cache), false);
+  const missingCache = spawnSync(process.execPath, [cli, "--root", workspace.root, "add", "Private", "--json"], { env: { ...process.env, TASKS_DATABASE_PATH: workspace.cache }, encoding: "utf8" });
   failure(missingCache, "INVALID_ARGUMENT", 2);assert.equal(existsSync(workspace.cache), false);assert.equal(missingCache.stderr.includes("Private"), false);
   failure(run({ ...workspace, cache: path.join(workspace.root, "inside.db") }, ["list", "--json"]), "INVALID_STORAGE");assert.equal(existsSync(path.join(workspace.root, "inside.db")), false);
   const flagValuedNote = run(workspace, ["add", "New", "--category", "WORK", "--description", "--json"]);
   assert.equal(flagValuedNote.status, 2);assert.match(flagValuedNote.stderr, /^tasks-cli: INVALID_ARGUMENT:/);assert.equal(flagValuedNote.stderr.includes('{"ok":false'), false);
-  const v1 = path.join(workspace.directory, "old.db");
-  for (const literal of ["--v2-root", "--v2-root=literal"]) {
-    const result = spawnSync(process.execPath, [cli, "add", "Legacy", "--description", literal, "--database", v1, "--json"], { env: { ...process.env, TASKS_SYNC_ROOT: "", TASKS_SOURCE_REGISTRY_PATH: "" }, encoding: "utf8" });
+  const legacyNote = ok(workspace, ["add", "Kept", "--description", "--legacy"]).task as TaskProjection;
+  assert.equal(legacyNote.description, "--legacy");
+  const legacyDatabase = path.join(workspace.directory, "old.db");
+  const legacyEnv = { ...process.env, TASKS_SYNC_ROOT: "", TASKS_SOURCE_REGISTRY_PATH: "" };
+  for (const literal of ["--root", "--root=literal"]) {
+    const result = spawnSync(process.execPath, [cli, "--legacy", "add", "Legacy", "--description", literal, "--database", legacyDatabase, "--json"], { env: legacyEnv, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);assert.equal(JSON.parse(result.stdout).task.descriptionMarkdown, literal);assert.equal("description" in JSON.parse(result.stdout).task, false);
   }
-  const defaultHelp = spawnSync(process.execPath, [cli, "--help"], { encoding: "utf8" });assert.equal(defaultHelp.status, 0);assert.equal(defaultHelp.stdout.includes("explicitly selected v2"), false);
-  const terminated = spawnSync(process.execPath, [cli, "--database", v1, "add", "--json", "--", "--v2-root"], { env: { ...process.env, TASKS_SYNC_ROOT: "", TASKS_SOURCE_REGISTRY_PATH: "" }, encoding: "utf8" });
-  assert.equal(terminated.status, 0, terminated.stderr);assert.equal(JSON.parse(terminated.stdout).task.title, "--v2-root");
+  const legacyHelp = spawnSync(process.execPath, [cli, "--legacy", "--help"], { encoding: "utf8" });assert.equal(legacyHelp.status, 0);assert.equal(legacyHelp.stdout.includes("explicitly selected workspace folder"), false);
+  const terminated = spawnSync(process.execPath, [cli, "--legacy", "--database", legacyDatabase, "add", "--json", "--", "--root"], { env: legacyEnv, encoding: "utf8" });
+  assert.equal(terminated.status, 0, terminated.stderr);assert.equal(JSON.parse(terminated.stdout).task.title, "--root");
+  const notLegacy = spawnSync(process.execPath, [cli, "--database", legacyDatabase, "add", "--json", "--", "--legacy"], { env: legacyEnv, encoding: "utf8" });
+  failure(notLegacy, "INVALID_ARGUMENT", 2);
 });

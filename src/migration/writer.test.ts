@@ -14,12 +14,12 @@ import { contentHash } from "../legacy/backend/requestHash.js";
 import type { Response } from "../backend/protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
-const v1 = path.join(fixtures, "taskdb-v1/sync");
-const golden = path.join(fixtures, "taskdb-v2/root");
+const v1 = path.join(fixtures, "schema1/sync");
+const golden = path.join(fixtures, "workspace/root");
 const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-const corpus = JSON.parse(readFileSync(path.join(fixtures, "taskdb-v2/cases.json"), "utf8")) as { cases: { id: string; given: { patchSchema1?: object; rehashSchema1?: boolean; removeSchema1?: string }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number } }[] };
+const corpus = JSON.parse(readFileSync(path.join(fixtures, "workspace/cases.json"), "utf8")) as { cases: { id: string; given: { patchSchema1?: object; rehashSchema1?: boolean; removeSchema1?: string }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number } }[] };
 function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
 function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
@@ -30,7 +30,7 @@ function fail(response: Response, code: string) { assert.equal(response.ok, fals
 function prepare(workspace: Workspace) {
   const info = success(send(workspace, { command: "workspace.info" }));
   assert.equal(info.result.schemaVersion, 1);
-  return { command: "workspace.migrateV1", writeContext: info.writeContext, idempotencyKey: "migrate", args: { destinationDirectory: workspace.destination } };
+  return { command: "workspace.migrate", writeContext: info.writeContext, idempotencyKey: "migrate", args: { destinationDirectory: workspace.destination } };
 }
 function patch(root: string, fields: object) {
   const file = path.join(root, "tasks", `${id}.json`);
@@ -167,7 +167,7 @@ test("migration refuses selected schema two and never imports a v1 database as c
   const workspace = createCopyTestWorkspace(t, v1);
   const schema2 = path.join(workspace.directory, "schema2");
   cpSync(golden, schema2, { recursive: true });
-  fail(send({ ...workspace, root: schema2 }, { command: "workspace.migrateV1", args: { destinationDirectory: workspace.destination } }), "MIGRATION_INVALID_SOURCE");
+  fail(send({ ...workspace, root: schema2 }, { command: "workspace.migrate", args: { destinationDirectory: workspace.destination } }), "MIGRATION_INVALID_SOURCE");
   const legacyCache = path.join(workspace.directory, "old-v1.db");
   const child = spawnSync(process.execPath, [cli, "--stdio", "--database", legacyCache], {
     input: JSON.stringify({ version: 1, requestId: "v1-cache", command: "task.list" }), encoding: "utf8", timeout: 10_000,

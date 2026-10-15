@@ -46,12 +46,12 @@ Changed/missing source, stage, archive, progress or publication bindings refuse 
    pnpm build:backend
    umask 077
    scratch=$(mktemp -d)
-   cp -R scripts/fixtures/taskdb-v1/sync "$scratch/frozen-v1"
+   cp -R scripts/fixtures/schema1/sync "$scratch/frozen-v1"
    cp -R "$scratch/frozen-v1" "$scratch/independent-backup"
    export XDG_DATA_HOME="$scratch/profile"
    migrate() {
      node dist/backend/cli.js --stdio \
-       --v2-root "$scratch/frozen-v1" --database "$scratch/control.db"
+       --root "$scratch/frozen-v1" --database "$scratch/control.db"
    }
    ```
 
@@ -60,7 +60,7 @@ Changed/missing source, stage, archive, progress or publication bindings refuse 
    ```bash
    context=$(printf '%s\n' '{"version":2,"command":"workspace.info"}' | migrate | jq -er '.writeContext')
    jq -nc --arg ctx "$context" --arg dest "$scratch/converted" \
-     '{version:2,command:"workspace.migrateV1",writeContext:$ctx,idempotencyKey:"snapshot-once",args:{destinationDirectory:$dest}}' \
+     '{version:2,command:"workspace.migrate",writeContext:$ctx,idempotencyKey:"snapshot-once",args:{destinationDirectory:$dest}}' \
      > "$scratch/original-request.json"
    jq -c 'del(.idempotencyKey) + {dryRun:true}' "$scratch/original-request.json" | migrate > "$scratch/preview.json"
    jq -e '.ok == true and .result.dryRun == true and .result.taskCount == 4' "$scratch/preview.json"
@@ -70,13 +70,13 @@ Changed/missing source, stage, archive, progress or publication bindings refuse 
 
    **Stop unless that completion check succeeds.** Inspect `recoveryLocation`, preserve it and the original cache/profile. For an interrupted attempt, use the recovery procedure above rather than rerunning with new authority.
 
-3. **Inspect.** Verify source/backup unchanged and every mapped task/edge/full order, not only the visible Active list. The committed synthetic example should match `scripts/fixtures/taskdb-v2/root` exactly. Open only the completed target with a fresh cache:
+3. **Inspect.** Verify source/backup unchanged and every mapped task/edge/full order, not only the visible Active list. The committed synthetic example should match `scripts/fixtures/workspace/root` exactly. Open only the completed target with a fresh cache:
 
    ```bash
    printf '%s\n' '{"version":2,"command":"workspace.info"}' \
      '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
      node dist/backend/cli.js --stdio \
-       --v2-root "$scratch/converted" --database "$scratch/fresh-target.db"
+       --root "$scratch/converted" --database "$scratch/fresh-target.db"
    ```
 
 4. **Explicitly switch only after review.** Conversion never changes app selection or sharing. A real native/client switch remains gated on owner review, essentials and supported capability evidence; the commands above inspect only this scratch folder.

@@ -31,7 +31,7 @@ const testEnvironment = {
   XDG_DATA_HOME: path.join(scratch, "local-data"),
   APPDATA: path.join(scratch, "local-data"),
 };
-const app = spawn(process.execPath, ["scripts/dev-web.mjs", "--", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], {
+const app = spawn(process.execPath, ["scripts/dev-web.mjs", "--legacy", "--", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], {
   cwd: root,
   env: { ...testEnvironment, TASKS_DEV_BACKEND_PORT: String(backendPort), VITE_DEV_BACKEND_URL: backendUrl },
   stdio: ["ignore", "pipe", "pipe"],
@@ -492,6 +492,7 @@ try {
   browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
   const externalEdit = JSON.parse(execFileSync(process.execPath, [
     path.join(root, "dist/backend/tasks-cli.js"),
+    "--legacy",
     "update",
     saved[0].id,
     "--title",
@@ -1987,6 +1988,7 @@ try {
   const externalTitle = "CLI refresh probe @manual-order-ui";
   const externalOutput = execFileSync(process.execPath, [
     path.join(root, "dist/backend/tasks-cli.js"),
+    "--legacy",
     "add",
     externalTitle,
     "--json",

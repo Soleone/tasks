@@ -67,7 +67,7 @@ function verifyPrepared(row, expected) {
   assert.equal(capability[0].local, true);
   const scope = capability[0].permissions[3].allow[0];
   assert.equal(scope.name, "binaries/tasks-backend");
-  const sidecarArgs = ["--stdio", "--v2-root", selected.rootPath, "--database", selected.databasePath, "--windows-task-proof", "--local-profile", selected.profilePath];
+  const sidecarArgs = ["--stdio", "--root", selected.rootPath, "--database", selected.databasePath, "--windows-task-proof", "--local-profile", selected.profilePath];
   const scopedArgs = sidecarArgs.map((value, index) => [2, 4, 7].includes(index)
     ? { validator: `\\A${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\z` } : value);
   assert.deepEqual(scope.args, scopedArgs);
@@ -83,12 +83,12 @@ try {
   ]) {
     const selectedRoot = path.join(scratch, rootName), profile = path.join(scratch, profileName);
     mkdirSync(selectedRoot); mkdirSync(profile);
-    const argv = ["--v2-root", selectedRoot, "--database", path.join(scratch, cacheName), "--local-profile", profile];
+    const argv = ["--root", selectedRoot, "--database", path.join(scratch, cacheName), "--local-profile", profile];
     verifyPrepared(invoke(`${name}-package`, "pnpm", ["dev:native", ...argv]), argv);
     const separator = invoke(`${name}-package-separator`, "pnpm", ["dev:native", "--", ...argv]);
     assert.notEqual(separator.exitCode, 0);
     assert.equal(separator.observation, null);
-    assert.match(separator.errorOutput, /Supply exactly --v2-root ROOT/);
+    assert.match(separator.errorOutput, /Supply exactly --root ROOT/);
     assert.deepEqual(readdirSync(selectedRoot), []);
     assert.deepEqual(readdirSync(profile), []);
     assert.equal(existsSync(argv[3]), false);

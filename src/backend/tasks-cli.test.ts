@@ -9,7 +9,7 @@ import test from "node:test";
 const cliPath = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 
 function runCli(args: string[], extraEnv: Record<string, string> = {}): string {
-  return execFileSync(process.execPath, [cliPath, ...args], {
+  return execFileSync(process.execPath, [cliPath, "--legacy", ...args], {
     encoding: "utf8",
     env: { ...process.env, ...extraEnv },
   });
@@ -70,7 +70,7 @@ test("tasks-cli uses TASKS_DATABASE_PATH when --database is omitted", () => {
 
 test("tasks-cli with no arguments suggests --help", () => {
   try {
-    execFileSync(process.execPath, [cliPath], { encoding: "utf8" });
+    execFileSync(process.execPath, [cliPath, "--legacy"], { encoding: "utf8" });
     assert.fail("expected a usage failure");
   } catch (error) {
     const failure = error as { status?: number; stderr?: string };
@@ -85,7 +85,7 @@ test("tasks-cli reports stale versions with a distinct exit code", () => {
     const added = JSON.parse(runCli(["add", "Versioned", "--json", "--database", databasePath]));
     const id = (added.task as { id: string }).id;
     try {
-      execFileSync(process.execPath, [cliPath, "complete", id, "--expected-version", "999", "--database", databasePath], {
+      execFileSync(process.execPath, [cliPath, "--legacy", "complete", id, "--expected-version", "999", "--database", databasePath], {
         encoding: "utf8",
       });
       assert.fail("expected a stale version failure");
