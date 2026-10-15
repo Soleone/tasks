@@ -68,7 +68,9 @@ export class MainWorkspace {
 
   async tasks(args: Record<string, unknown>) {
     await this.ready();
-    const page = await this.reader.tasks(args);
+    // The UI's priority "desc" means most important (P0) first; the engine sorts the number.
+    const direction = args.sort === "priority" && args.direction !== undefined ? (args.direction === "desc" ? "asc" : "desc") : args.direction;
+    const page = await this.reader.tasks({ ...args, ...(direction !== undefined ? { direction } : {}) });
     return { ...page, tasks: page.tasks.map(taskView), contextTasks: page.contextTasks.map(taskView) };
   }
 
