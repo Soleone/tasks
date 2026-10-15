@@ -5,14 +5,14 @@ import { compareTasks, isOrderKey, validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { parseContentPatch } from "./updateInputs.js";
 
-export type CreateInput = Pick<CanonicalTask, "title" | "description" | "priority" | "category" | "tags" | "parentId">;
+export type CreateInput = Pick<CanonicalTask, "title" | "text" | "description" | "priority" | "category" | "tags" | "parentId">;
 
 export function parseCreate(args: Record<string, unknown>): CreateInput {
   assertArgs(args, ["title", "text", "description", "priority", "category", "tags", "parentId"]);
   if ((args.title !== undefined) === (args.text !== undefined)) throw new CommandError("INVALID_ARGUMENT", "create requires exactly one title or text");
   if (args.parentId !== undefined && args.parentId !== null && (typeof args.parentId !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.parentId))) throw new CommandError("INVALID_ARGUMENT", "invalid create parentId");
   const patch = parseContentPatch(args);
-  return { title: patch.title!, description: patch.description ?? "", priority: patch.priority ?? 2, category: patch.category ?? null, tags: patch.tags ?? [], parentId: args.parentId as string | null | undefined ?? null };
+  return { title: patch.title!, text: patch.text ?? null, description: patch.description ?? "", priority: patch.priority ?? 2, category: patch.category ?? null, tags: patch.tags ?? [], parentId: args.parentId as string | null | undefined ?? null };
 }
 
 export function buildCreatedTask(input: CreateInput, taskIdentity: { id: string; at: string }, tasks: CanonicalTask[]): CanonicalTask {
@@ -24,7 +24,7 @@ export function buildCreatedTask(input: CreateInput, taskIdentity: { id: string;
   const orderKey = generateKeyBetween(null, first?.orderKey ?? null);
   if (!isOrderKey(orderKey)) throw new CommandError("ORDER_KEY_LIMIT", "first-position allocation exceeds the canonical key limit");
   return validateTask({
-    id: taskIdentity.id, title: input.title, description: input.description, status: "open", priority: input.priority,
+    id: taskIdentity.id, title: input.title, text: input.text, description: input.description, status: "open", priority: input.priority,
     category: input.category, tags: input.tags, parentId: input.parentId, dependencyIds: [], orderKey,
     createdAt: taskIdentity.at, updatedAt: taskIdentity.at, closedAt: null,
   }, taskIdentity.id);

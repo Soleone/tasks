@@ -46,7 +46,7 @@ export function parseCreateIntent(value: unknown, root: RootBinding): CreateInte
     if (typeof intent.nextBytes !== "string" || Buffer.from(intent.nextBytes, "base64").toString("base64") !== intent.nextBytes) conflict();
     const next = validateTask(parseCanonicalJson(Buffer.from(intent.nextBytes, "base64")), intent.taskId);
     if (next.createdAt !== intent.at || next.updatedAt !== intent.at || next.status !== "open" || next.closedAt !== null || next.dependencyIds.length !== 0
-      || canonicalJson({ title: next.title, description: next.description, priority: next.priority, category: next.category, tags: next.tags, parentId: next.parentId }) !== canonicalJson(input)) conflict();
+      || canonicalJson({ title: next.title, text: next.text, description: next.description, priority: next.priority, category: next.category, tags: next.tags, parentId: next.parentId }) !== canonicalJson(input)) conflict();
     if (!Array.isArray(intent.guards) || !intent.guards.some(file => file.relativePath === "workspace.json") || new Set(intent.guards.map(file => file.relativePath)).size !== intent.guards.length) conflict();
     for (const file of intent.guards) {
       if ((file.relativePath !== "workspace.json" && !/^tasks\/(?:[A-Za-z0-9_-]+|[A-Za-z0-9_-]+\.sync-conflict-[^/\\]+)\.json$/.test(file.relativePath))

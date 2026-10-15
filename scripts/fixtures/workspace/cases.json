@@ -5,6 +5,7 @@
   "taskTemplate": {
     "id": "a",
     "title": "The task",
+    "text": null,
     "description": "",
     "status": "open",
     "priority": 2,

@@ -17,6 +17,7 @@ Schema 1 is the format of the original app. `workspace.migrate` converts a schem
 | ID, status, priority, parent, dependencies | Kept exactly. Dependencies sorted |
 | Title | Schema 1 marker recognition (no escape handling) removes `@category` and `#tag` spans; the rest is kept and trimmed |
 | Category and tags from the title | Lowercase slugs, tags unique and sorted |
+| Title as typed | `text`, trimmed, when current shorthand reads it to the same title, category and tags. Otherwise `null` |
 | `descriptionMarkdown` | `description`, unchanged |
 | `createdAt`, `updatedAt` | Kept as instants, even where `updatedAt` reflects a status change |
 | `completedAt` (done) or `canceledAt` (canceled) | `closedAt`. Active tasks get `null`. Inconsistent closure data refuses |

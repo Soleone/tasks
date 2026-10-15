@@ -242,7 +242,7 @@ for (const command of ["workspace.archive", "workspace.restore"]) {
       format: "taskdb.pending-update", version: 1, root, cachePath: workspace.cache,
       request: parseRequest({ version: 2, command: "task.update", writeContext: request.writeContext, idempotencyKey: "pending-edit", args: { id, expectedVersion: 1, title: "Pending edit" } }),
       operationId: "00000000-0000-4000-8000-000000000000", at, taskId: id,
-      beforeBytes: beforeBytes.toString("base64"), nextBytes: Buffer.from(`${JSON.stringify({ ...task, title: "Pending edit", updatedAt: at })}\n`).toString("base64"), guards: source.files,
+      beforeBytes: beforeBytes.toString("base64"), nextBytes: Buffer.from(`${JSON.stringify({ ...task, title: "Pending edit", text: null, updatedAt: at })}\n`).toString("base64"), guards: source.files,
     }));
     const pending = readFileSync(pendingIntentPath(root));
     fail(send(workspace, request), "RECOVERY_PENDING");

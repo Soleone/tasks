@@ -19,6 +19,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 - **Android is dropped until ported** (2026-10-14). The old Android runtime is deleted at cutover; Android returns later as its own project on the new engine.
 - **Windows parity before cutover** (2026-10-14). Child capture, parent and blocker edits, reorder, batch status and general undo must work and be proven on Windows first. Windows 11 is the first release platform.
 - Themes (2026-10-15): ship the built-in palettes only for now; custom theme imports may come later. The candidate model and its Syncthing probe are dropped (2026-10-15).
+- Typed text is kept (2026-10-15): tasks store the shorthand as typed in `text` next to the parsed title, category and tags, so editing shows it unchanged. Changing classification any other way clears it. Schema 2 gains the field without a version bump because no real workspace uses schema 2 yet.
 - Desktop capture writes a temp file and renames it; a duplicate after a crash between rename and receipt is accepted. Native launch is `pnpm dev:native`.
 - Personal data: reading, converting or selecting the owner's workspace each need explicit permission at that moment.
 

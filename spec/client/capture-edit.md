@@ -30,7 +30,7 @@ Capture and edit use the same inline editor. It has three stops: title, priority
 | --- | --- | --- |
 | `shorthand.category` | `@word` in the title | Sets the category. Two different categories refuse the save |
 | `shorthand.tags` | `#word` in the title | Adds tags |
-| `shorthand.literal` | Saving | The stored title is the text as typed. The description is Markdown and never sets category or tags |
+| `shorthand.literal` | Editing a saved task | The title field shows the text exactly as typed, markers in place. After the category or tags change elsewhere, it shows markers first. The description is Markdown and never sets category or tags |
 | `shorthand.empty` | A title that is only shorthand | Refused before saving |
 
 ## Pickers

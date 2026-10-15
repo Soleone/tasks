@@ -2,6 +2,7 @@ import { generateNKeysBetween } from "fractional-indexing";
 import { classificationTokenRanges, classifyTaskText, TaskTextError } from "../backend/taskText.js";
 import { invalidSchema1Source, normalizeSchema1MigrationTimestamp, readSchema1MigrationSnapshot, type CanonicalTaskFile, type Schema1MigrationSnapshot } from "./schema1Source.js";
 import { compareTasks, validateTask, type CanonicalTask } from "../backend/taskModel.js";
+import { typedText } from "../backend/shorthand.js";
 
 export type Schema1ConversionPlan = {
   source: Schema1MigrationSnapshot;
@@ -23,14 +24,18 @@ function convertSchema1Task(task: CanonicalTaskFile, orderKey: string): Canonica
   for (const { start, end } of classificationTokenRanges(task.title).reverse()) title = `${title.slice(0, start)}${title.slice(end)}`;
   title = title.trim();
   if (title === "") invalidSchema1Source(relativePath, "title", "metadata removal leaves an empty literal title");
+  const category = classification.category?.slug ?? null;
+  const tags = classification.tags.map((tag) => tag.slug).sort();
   const converted = {
     id: task.id,
     title,
+    // Schema 1 stored titles as typed. Keep that text when the current shorthand reads it the same way.
+    text: task.title.trim().length <= 1000 ? typedText({ title, text: task.title.trim(), category, tags }) : null,
     description: task.descriptionMarkdown,
     status: task.status,
     priority: task.priority,
-    category: classification.category?.slug ?? null,
-    tags: classification.tags.map((tag) => tag.slug).sort(),
+    category,
+    tags,
     parentId: task.parentId,
     dependencyIds: [...task.dependencyIds].sort(),
     orderKey,

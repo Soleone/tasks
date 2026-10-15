@@ -22,12 +22,13 @@ Everything else (cache, receipts, undo history, journals, recovery copies) lives
 
 ## Task fields
 
-Every task file has exactly these 13 fields. Missing or extra fields make the file invalid (`INVALID_CANONICAL`); readers never fill in defaults.
+Every task file has exactly these 14 fields. Missing or extra fields make the file invalid (`INVALID_CANONICAL`); readers never fill in defaults.
 
 | Field | Value |
 | --- | --- |
 | `id` | Matches the file name. New IDs are lowercase UUIDv4. Older IDs matching `[A-Za-z0-9_-]+` are accepted as they are |
 | `title` | Non-empty, trimmed, at most 1,000 UTF-16 units. Stored literally, including text like `@alice` |
+| `text` | The shorthand as typed (see [text input](commands.md#text-input)), trimmed, non-empty, at most 1,000 UTF-16 units, or `null`. Readers don't check that it matches `title`, `category` and `tags` |
 | `description` | Markdown, at most 10,000 UTF-16 units. Line endings kept |
 | `status` | `open`, `in_progress`, `paused`, `done`, `canceled` |
 | `priority` | Integer 0 to 4 |
@@ -40,7 +41,7 @@ Every task file has exactly these 13 fields. Missing or extra fields make the fi
 | `closedAt` | A timestamp when status is done or canceled, `null` otherwise |
 
 ```json
-{"id":"a","title":"Call @alice","description":"","status":"open","priority":2,"category":null,"tags":[],"parentId":null,"dependencyIds":[],"orderKey":"a0","createdAt":"2026-09-08T12:00:00.000Z","updatedAt":"2026-09-08T12:00:00.000Z","closedAt":null}
+{"id":"a","title":"Call @alice","text":null,"description":"","status":"open","priority":2,"category":null,"tags":[],"parentId":null,"dependencyIds":[],"orderKey":"a0","createdAt":"2026-09-08T12:00:00.000Z","updatedAt":"2026-09-08T12:00:00.000Z","closedAt":null}
 ```
 
 ## Values

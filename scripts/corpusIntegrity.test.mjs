@@ -10,7 +10,7 @@ const schema1Directory = fileURLToPath(new URL("./fixtures/schema1/sync/", impor
 const corpus = JSON.parse(readFileSync(path.join(fixtureDirectory, "cases.json"), "utf8"));
 const specFiles = ["backend/data.md", "backend/commands.md", "backend/rules.md", "backend/safety.md", "ecosystem/cli.md", "ecosystem/sharing.md", "ecosystem/backup.md", "ecosystem/migration.md"];
 const specs = new Map(specFiles.map((name) => [name, readFileSync(path.join(specDirectory, name), "utf8")]));
-const taskFields = ["id", "title", "description", "status", "priority", "category", "tags", "parentId", "dependencyIds", "orderKey", "createdAt", "updatedAt", "closedAt"].sort();
+const taskFields = ["id", "title", "text", "description", "status", "priority", "category", "tags", "parentId", "dependencyIds", "orderKey", "createdAt", "updatedAt", "closedAt"].sort();
 const statuses = ["open", "in_progress", "paused", "done", "canceled"];
 const goldenTasks = readdirSync(path.join(fixtureDirectory, "root/tasks"))
   .map((name) => ({ name, record: JSON.parse(readFileSync(path.join(fixtureDirectory, "root/tasks", name), "utf8")) }));

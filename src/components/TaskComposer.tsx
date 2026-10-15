@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent,
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/legacy/backend/protocol";
 import type { TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { parseShorthand } from "@/backend/updateInputs";
+import { parseShorthand } from "@/backend/shorthand";
 import { createTask, listCategories, listTags, updateTask, selectedMainWorkspace, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

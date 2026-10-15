@@ -46,7 +46,7 @@ export function inlineTaskText(task: Pick<TaskProjection, "title" | "category" |
 export function taskView(task: TaskProjection): TaskView {
   return {
     id: task.id, title: task.title, literalTitle: task.title,
-    inputText: inlineTaskText(task),
+    inputText: task.text ?? inlineTaskText(task),
     descriptionMarkdown: task.description, status: task.status, priority: task.priority,
     category: task.category === null ? null : { slug: task.category, label: task.category },
     tags: task.tags.map(slug => ({ slug, label: slug })), parentId: task.parentId,

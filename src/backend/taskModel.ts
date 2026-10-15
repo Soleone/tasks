@@ -5,6 +5,7 @@ export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 export type CanonicalTask = {
   id: string;
   title: string;
+  text: string | null;
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
@@ -18,7 +19,7 @@ export type CanonicalTask = {
   closedAt: string | null;
 };
 
-const fields = ["id", "title", "description", "status", "priority", "category", "tags", "parentId", "dependencyIds", "orderKey", "createdAt", "updatedAt", "closedAt"];
+const fields = ["id", "title", "text", "description", "status", "priority", "category", "tags", "parentId", "dependencyIds", "orderKey", "createdAt", "updatedAt", "closedAt"];
 const safeId = /^[A-Za-z0-9_-]+$/;
 const slug = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 const statuses = new Set(["open", "in_progress", "paused", "done", "canceled"]);
@@ -68,6 +69,7 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
   if (!isRecord(value) || Object.keys(value).length !== fields.length || fields.some((field) => !Object.hasOwn(value, field))) invalidTask("fields");
   if (typeof value.id !== "string" || !matchesEntireString(value.id, safeId) || value.id !== filenameId) invalidTask("id/filename");
   if (typeof value.title !== "string" || value.title.length === 0 || value.title.length > 1000 || value.title.trim() !== value.title || unpairedSurrogate.test(value.title)) invalidTask("title");
+  if (value.text !== null && (typeof value.text !== "string" || value.text.length === 0 || value.text.length > 1000 || value.text.trim() !== value.text || unpairedSurrogate.test(value.text))) invalidTask("text");
   if (typeof value.description !== "string" || value.description.length > 10000 || unpairedSurrogate.test(value.description)) invalidTask("description");
   if (typeof value.status !== "string" || !statuses.has(value.status)) invalidTask("status");
   if (typeof value.priority !== "number" || !Number.isInteger(value.priority) || value.priority < 0 || value.priority > 4) invalidTask("priority");

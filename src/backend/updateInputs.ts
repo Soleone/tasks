@@ -2,75 +2,16 @@ import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import { validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
+import { invalidInput, parseShorthand, slugInput } from "./shorthand.js";
 
-export type UpdateInput = { id: string; expectedVersion: number; patch: Partial<Pick<CanonicalTask, "title" | "description" | "priority" | "category" | "tags">> };
-const slugPattern = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
-
-function invalidInput(field: string): never {
-  throw new CommandError("INVALID_ARGUMENT", `invalid task ${field}`);
-}
-
-function slugInput(value: unknown): string {
-  if (typeof value !== "string") invalidInput("classification");
-  const slug = value.replace(/[A-Z]/g, letter => letter.toLowerCase());
-  if (!slugPattern.test(slug)) invalidInput("classification");
-  return slug;
-}
-
-export function parseShorthand(input: string): Pick<CanonicalTask, "title" | "category" | "tags"> {
-  let decoded = "";
-  const protectedUnits: boolean[] = [];
-  const append = (value: string, protect: boolean): void => {
-    decoded += value;
-    for (let index = 0; index < value.length; index += 1) protectedUnits.push(protect);
-  };
-  for (let index = 0; index < input.length;) {
-    if (input.startsWith("```", index)) {
-      const close = input.indexOf("```", index + 3);
-      const end = close === -1 ? input.length : close + 3;
-      append(input.slice(index, end), true);
-      index = end;
-      continue;
-    }
-    if (input[index] === "`") {
-      const close = input.indexOf("`", index + 1);
-      if (close !== -1 && !input.slice(index, close).includes("\n")) {
-        append(input.slice(index, close + 1), true);
-        index = close + 1;
-        continue;
-      }
-    }
-    if (input[index] === "\\" && ["@", "#", "\\"].includes(input[index + 1])) {
-      const escaped = input[index + 1];
-      append(escaped, escaped === "@" || escaped === "#");
-      index += 2;
-      continue;
-    }
-    append(input[index++], false);
-  }
-  const categories = new Set<string>();
-  const tags = new Set<string>();
-  const ranges: { start: number; end: number }[] = [];
-  // Escaped markers still participate in boundary checks after decoding.
-  for (const match of decoded.matchAll(/(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b/g)) {
-    const start = match.index + match[1].length;
-    if (protectedUnits.slice(start, start + match[2].length + match[3].length).some(Boolean)) continue;
-    const slug = slugInput(match[3]);
-    (match[2] === "@" ? categories : tags).add(slug);
-    ranges.push({ start, end: start + 1 + match[3].length });
-  }
-  if (categories.size > 1) throw new CommandError("MULTIPLE_CATEGORIES", "shorthand contains multiple categories");
-  let title = decoded;
-  for (const range of ranges.reverse()) title = title.slice(0, range.start) + title.slice(range.end);
-  return { title: title.trim(), category: [...categories][0] ?? null, tags: [...tags].sort() };
-}
+export type UpdateInput = { id: string; expectedVersion: number; patch: Partial<Pick<CanonicalTask, "title" | "text" | "description" | "priority" | "category" | "tags">> };
 
 export function parseContentPatch(args: Record<string, unknown>): UpdateInput["patch"] {
   if (args.text !== undefined && ["title", "category", "tags"].some(field => args[field] !== undefined)) invalidInput("mixed text/classification");
   const patch: UpdateInput["patch"] = {};
   if (args.text !== undefined) {
-    if (typeof args.text !== "string") invalidInput("text");
-    Object.assign(patch, parseShorthand(args.text));
+    if (typeof args.text !== "string" || args.text.trim().length > 1000 || /[\uD800-\uDFFF]/u.test(args.text)) invalidInput("text");
+    Object.assign(patch, parseShorthand(args.text), { text: args.text.trim() });
   }
   if (args.title !== undefined) {
     if (typeof args.title !== "string") invalidInput("title");
@@ -108,6 +49,8 @@ export function parseUpdate(args: Record<string, unknown>): UpdateInput {
 
 export function applyUpdate(task: CanonicalTask, input: UpdateInput, at: string): { task: CanonicalTask; changed: boolean } {
   const next = { ...task, ...input.patch };
+  // Typed text is kept only while it still describes the title and classification it produced.
+  if (input.patch.text === undefined && (["title", "category", "tags"] as const).some(field => JSON.stringify(next[field]) !== JSON.stringify(task[field]))) next.text = null;
   const changed = JSON.stringify(next) !== JSON.stringify(task);
   if (changed) next.updatedAt = at;
   return { task: validateTask(next, task.id), changed };

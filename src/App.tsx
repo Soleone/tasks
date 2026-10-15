@@ -9,7 +9,7 @@ import { EditorError } from "@/platform/editorClient";
 import type { UndoEntry } from "@/platform/undoHistory";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/legacy/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
-import { parseShorthand } from "@/backend/updateInputs";
+import { parseShorthand } from "@/backend/shorthand";
 import type { TaskView } from "@/components/taskView";
 import { compareTasksForViewSort, presetStatuses, sortSummary, taskMatchesViewFilters, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";

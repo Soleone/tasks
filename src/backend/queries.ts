@@ -2,6 +2,7 @@ import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { compareTasks } from "./taskModel.js";
+import { typedText } from "./shorthand.js";
 import type { QueryAuthority } from "./queryCache.js";
 
 export type TaskProjection = CanonicalTask & { version: number; blockedByIds: string[] };
@@ -34,6 +35,7 @@ export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority):
   const byId = new Map(tasks.map(task => [task.id, task]));
   return tasks.map(task => ({
     ...task,
+    text: typedText(task),
     version: authority.versions.get(task.id)!,
     blockedByIds: task.dependencyIds.filter(id => byId.get(id)!.status !== "canceled"),
   }));

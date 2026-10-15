@@ -150,6 +150,20 @@ describe("shorthand", () => {
     await waitFor(async () => expect((await onlyTask()).tags).toEqual(["books", "later"]));
   });
 
+  test("shorthand.literal: editing shows the text as typed until the classification changes elsewhere", async () => {
+    const { task } = await workspace.command<{ task: { id: string } }>("task.create", { text: "Call #phone tomorrow @home", description: "Ask about @work #later" });
+    const { task: moved } = await workspace.command<{ task: { id: string } }>("task.create", { text: "Book #travel trip @home" });
+    await workspace.change("task.update", moved.id, { category: "work" });
+    const { user } = await workspace.render();
+    await user.click(row("Call  tomorrow"));
+    expect((await focusedTitleField()).value).toBe("Call #phone tomorrow @home");
+    const saved = await workspace.task(task.id);
+    expect([saved.category, saved.tags, saved.description]).toEqual(["home", ["phone"], "Ask about @work #later"]);
+    await user.keyboard("{Escape}");
+    await user.click(row("Book  trip"));
+    expect((await focusedTitleField()).value).toBe("@work #travel Book  trip");
+  });
+
   test("shorthand.empty: a title that is only shorthand is refused", async () => {
     const { user } = await workspace.render();
     await capture(user, "@home{Enter}");

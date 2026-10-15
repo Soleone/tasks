@@ -16,14 +16,14 @@ const markdown = "## Notes Ω\r\n\r\n#not-a-tag @not-a-category\r\n```ts\r\ncons
 const expectedTimes = { createdAt: "2026-01-01T01:30:00.000Z", updatedAt: "2026-09-08T12:00:00.123Z" };
 const terminalTime = "2026-09-09T03:00:00.120Z";
 const expectedTasks: CanonicalTask[] = [
-  { id: "done-root", title: "Ship", status: "done", priority: 1, parentId: null, dependencyIds: [], orderKey: "a0", category: "work", tags: ["alpha", "zoo"], description: markdown, ...expectedTimes, closedAt: terminalTime },
-  { id: "Z_parent-7", title: "Retired  Ω `@code #literal`", status: "canceled", priority: 0, parentId: null, dependencyIds: [], orderKey: "a1", category: "home", tags: ["later"], description: markdown, ...expectedTimes, closedAt: terminalTime },
-  { id: "a-root", title: "Plain  Ω", status: "open", priority: 4, parentId: null, dependencyIds: [], orderKey: "a2", category: null, tags: [], description: "", ...expectedTimes, closedAt: null },
-  { id: "paused-child", title: "Paused", status: "paused", priority: 2, parentId: "Z_parent-7", dependencyIds: ["done-root"], orderKey: "a0", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: null },
-  { id: "canceled-child", title: "Canceled", status: "canceled", priority: 0, parentId: "Z_parent-7", dependencyIds: [], orderKey: "a1", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: terminalTime },
-  { id: "done-child", title: "Done", status: "done", priority: 4, parentId: "Z_parent-7", dependencyIds: ["a-root"], orderKey: "a2", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: terminalTime },
-  { id: "open-child", title: "Open", status: "open", priority: 3, parentId: "Z_parent-7", dependencyIds: ["done-child", "done-root"], orderKey: "a3", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: null },
-  { id: "grandchild", title: "Working", status: "in_progress", priority: 1, parentId: "paused-child", dependencyIds: ["a-root"], orderKey: "a0", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: null },
+  { id: "done-root", title: "Ship", text: "Ship @WORK #Zoo #alpha #ZOO", status: "done", priority: 1, parentId: null, dependencyIds: [], orderKey: "a0", category: "work", tags: ["alpha", "zoo"], description: markdown, ...expectedTimes, closedAt: terminalTime },
+  { id: "Z_parent-7", title: "Retired  Ω `@code #literal`", text: "Retired  Ω `@code #literal` @Home #Later", status: "canceled", priority: 0, parentId: null, dependencyIds: [], orderKey: "a1", category: "home", tags: ["later"], description: markdown, ...expectedTimes, closedAt: terminalTime },
+  { id: "a-root", title: "Plain  Ω", text: "Plain  Ω", status: "open", priority: 4, parentId: null, dependencyIds: [], orderKey: "a2", category: null, tags: [], description: "", ...expectedTimes, closedAt: null },
+  { id: "paused-child", title: "Paused", text: "Paused", status: "paused", priority: 2, parentId: "Z_parent-7", dependencyIds: ["done-root"], orderKey: "a0", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: null },
+  { id: "canceled-child", title: "Canceled", text: "Canceled", status: "canceled", priority: 0, parentId: "Z_parent-7", dependencyIds: [], orderKey: "a1", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: terminalTime },
+  { id: "done-child", title: "Done", text: "Done", status: "done", priority: 4, parentId: "Z_parent-7", dependencyIds: ["a-root"], orderKey: "a2", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: terminalTime },
+  { id: "open-child", title: "Open", text: "Open", status: "open", priority: 3, parentId: "Z_parent-7", dependencyIds: ["done-child", "done-root"], orderKey: "a3", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: null },
+  { id: "grandchild", title: "Working", text: "Working", status: "in_progress", priority: 1, parentId: "paused-child", dependencyIds: ["a-root"], orderKey: "a0", category: null, tags: [], description: markdown, ...expectedTimes, closedAt: null },
 ];
 const orders = [
   { parentId: null, taskIds: ["done-root", "Z_parent-7", "a-root"] },

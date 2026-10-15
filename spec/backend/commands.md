@@ -32,7 +32,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 ## Text input
 
-`task.create` takes exactly one of `title` (literal) or `text` (shorthand). `task.update` with `text` replaces title, category and tags together.
+`task.create` takes exactly one of `title` (literal) or `text` (shorthand). `task.update` with `text` replaces title, category and tags together. The typed text is kept so an editor can show it again exactly as written.
 
 | Rule | Then |
 | --- | --- |
@@ -45,6 +45,9 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `text.empty` | An empty title after removal fails `INVALID_ARGUMENT` |
 | `text.literal` | With `title`, `Call @alice` is stored as written with no category |
 | `text.partial-update` | Omitted fields are kept. `category: null` and `tags: []` clear |
+| `text.kept` | With `text`, the trimmed input is stored as the task's `text` next to the title, category and tags it produced. With `title`, `text` is `null` |
+| `text.cleared` | A change to title, category or tags without `text` sets `text` to `null`. Other changes, and setting the same values again, keep it |
+| `text.stale` | Results report `text` only while it still produces the task's title, category and tags. Otherwise, as after a hand edit of the file, they report `null` |
 | `text.mixed` | Mixing `text` with `title`, `category` or `tags`, or using old field names, fails `INVALID_ARGUMENT` |
 
 ## Task commands
