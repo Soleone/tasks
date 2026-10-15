@@ -12,7 +12,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `theme.select` | Choosing a theme in General | Applies at once and is remembered |
+| `theme.select` | Choosing a theme in General | Applies one of the built-in themes at once and remembers it |
 | `theme.picker` | `Alt+T` | The theme picker opens directly |
 | `font.size` | The font size slider | Default, +10%, +25%, +33% or +40%. Applies at once and is remembered |
 | `help.mode` | Keyboard help display | Full shows all hints, Basic only filter and sort hints, None hides automatic hints |

@@ -20,6 +20,6 @@ What runs where today. The target behavior is [the spec](../spec/README.md); wha
 - **Linux desktop:** no Tauri launch on the current engine has been checked; global focus is untested there.
 - **Owner acceptance:** no qualifying multi-day owner sessions recorded yet.
 - **Migration:** rehearsed on Linux/WSL2 with disposable data only ([runbook](migration-rehearsal.md)). No personal data has been read or converted.
-- **Corpus:** 101 of 112 original corpus cases execute; the rest are a withheld-doctor profile case and optional candidate-model probes.
+- **Corpus:** 101 of 112 original corpus cases execute in backend tests; the other 11 have no executor.
 
 When support changes, update this table, the platforms table and the evidence together. Never relabel an unsupported case as passed to make documentation agree.

@@ -18,6 +18,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 - Move completely to the new engine (2026-10-14). Legacy runtime is deleted; schema 1 survives only in the migration tool.
 - **Android is dropped until ported** (2026-10-14). The old Android runtime is deleted at cutover; Android returns later as its own project on the new engine.
 - **Windows parity before cutover** (2026-10-14). Child capture, parent and blocker edits, reorder, batch status and general undo must work and be proven on Windows first. Windows 11 is the first release platform.
+- Themes (2026-10-15): ship the built-in palettes only for now; custom theme imports may come later. The candidate model and its Syncthing probe are dropped (2026-10-15).
 - Desktop capture writes a temp file and renames it; a duplicate after a crash between rename and receipt is accepted. Native launch is `pnpm dev:native`.
 - Personal data: reading, converting or selecting the owner's workspace each need explicit permission at that moment.
 
@@ -26,7 +27,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 1. `pnpm dev:web --root PATH --database CACHE` runs the established UI on the current engine over a Linux dev bridge. Every agreed workflow except global focus works there; the owner reported high-level smoke success on disposable data (no case-level walkthrough).
 2. `tasks-cli --root PATH --database CACHE` is the friendly CLI on the current engine; JSON lines via `tasks-backend --stdio --root ...`. Neither has a default workspace.
 3. `--legacy` reaches the old app and CLI. Native desktop and Android builds still start the legacy app until cutover.
-4. Code is named by responsibility. Legacy code lives in `src/legacy/` ([src/LEGACY.md](src/LEGACY.md)), migration in `src/migration/`. `scripts/check-naming.mjs` ratchets version names; the remaining ones are the candidate-model files.
+4. Code is named by responsibility. Legacy code lives in `src/legacy/` ([src/LEGACY.md](src/LEGACY.md)), migration in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
 5. Windows native runs the established UI on a smaller proven command set: capture, edit, priority, six statuses, latest status undo. Child, relationship, order, batch and general undo are withheld there. The gap list is [spec/client/platforms.md](spec/client/platforms.md).
 6. The latest owner-machine Windows launches stopped before the main window appeared. Automated Windows diagnosis (`100`) is owner-deferred.
 7. Migration from schema 1 is rehearsed on Linux/WSL2 with disposable data ([runbook](docs/migration-rehearsal.md)). No personal data has been touched.
@@ -34,7 +35,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Next step
 
-Cleanup stage 2 checkpoint: owner decides the candidate model (keep its Syncthing probe by porting it to the production gateway, or drop it with `fractional-indexing` duplication), and smokes `pnpm dev:web --root <disposable>`. Then stage 4 (UI on current model types, split `TaskList.tsx` and `App.tsx`), guarded by tests that cite spec rules.
+Cleanup stage 4, once approved: write tests that cite the client spec rules, then move the UI onto the current model types and split `TaskList.tsx` and `App.tsx` by responsibility with no behavior change. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
 
 ## Gates
 
