@@ -16,6 +16,8 @@ Build and run the app on the emulator with `pnpm tauri android build --debug --a
 
 Use the `clean-code` skill when writing, refactoring, or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete. After making changes, run `pnpm lint` and fix all errors.
 
+Name by responsibility. Never add version-named files, identifiers, flags or env vars; `scripts/check-naming.mjs` enforces this. Files listed in [src/LEGACY.md](src/LEGACY.md) are being deleted at cutover: don't extend them or copy their patterns.
+
 ## Development tracking
 
 Development tasks use pi-tasks with the `sq` backend. This is separate from the product's own task storage. Use `sq prime` when direct CLI guidance is needed. Store pi-tasks metadata under `pi_tasks`, for example `--merge-metadata '{"pi_tasks":{"taskType":"TYPE"}}'`.
