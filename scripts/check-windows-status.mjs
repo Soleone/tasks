@@ -62,17 +62,17 @@ function interrupted(runner, w, request, cut) {
 function recovery(runner, w, intent, key = "resume-status") { return { version: 2, requestId: "status-proof", command: "workspace.recovery.resume", writeContext: ok(send(runner, w, { command: "workspace.info" })).writeContext, idempotencyKey: key, args: { operationId: intent.operationId }, actor: { kind: "human", label: "Windows status recovery" }, dryRun: false, readOnly: false }; }
 function faultBundle(name) {
   const [family, cut] = name.includes("-") ? name.split("-") : [null, name];
-  const functionName = ["beforeCommit", "afterCommit"].includes(cut) ? "withV2CacheTransaction" : cut === "verified" && family === "undo" ? "commitV2Undo" : ["intent", "lostReply", "verified"].includes(cut) ? family === "undo" ? "executeV2Undo" : "executeV2Update" : family === "undo" ? "applyV2BatchJournal" : "applyV2Journal";
+  const functionName = ["beforeCommit", "afterCommit"].includes(cut) ? "withCacheTransaction" : cut === "verified" && family === "undo" ? "commitUndo" : ["intent", "lostReply", "verified"].includes(cut) ? family === "undo" ? "executeUndo" : "executeUpdate" : family === "undo" ? "applyBatchJournal" : "applyJournal";
   const start = source.indexOf(`function ${functionName}(`); assert.ok(start >= 0); assert.equal(source.indexOf(`function ${functionName}(`, start + 1), -1);
   const moduleEnd = source.indexOf("\n// src/", start), nextFunction = source.indexOf("\nfunction ", start + 1); assert.ok(moduleEnd > start);
   const end = nextFunction >= 0 ? Math.min(nextFunction, moduleEnd) : moduleEnd, section = source.slice(start, end);
   let needle;
-  if (cut === "intent") needle = "persistV2Pending(root, intent);";
-  else if (cut === "lostReply") needle = family === "undo" ? "retireV2Pending(root);" : "if (retire) retireV2Pending(root);";
-  else if (cut === "verified") needle = family === "undo" ? "const snapshot = applyV2BatchJournal(intent);" : "const result = commitV2Update(database, intent, verified);";
-  else if (cut === "staged") needle = family === "undo" ? "writeV2DurableFile(temporary, next);" : "writeV2DurableFile(temporary, bytes);";
+  if (cut === "intent") needle = "persistPending(root, intent);";
+  else if (cut === "lostReply") needle = family === "undo" ? "retirePending(root);" : "if (retire) retirePending(root);";
+  else if (cut === "verified") needle = family === "undo" ? "const snapshot = applyBatchJournal(intent);" : "const result = commitUpdate(database, intent, verified);";
+  else if (cut === "staged") needle = family === "undo" ? "writeDurableFile(temporary, next);" : "writeDurableFile(temporary, bytes);";
   else if (cut === "replaced") needle = section.match(/\(0, import_node_fs\d+\.renameSync\)\(temporary, target\);/)[0];
-  else if (cut === "flushRefusal") needle = section.match(/syncV2Directory\(import_node_path\d+\.default\.dirname\(target\)\);\n\s*continue;/)[0];
+  else if (cut === "flushRefusal") needle = section.match(/syncDirectory\(import_node_path\d+\.default\.dirname\(target\)\);\n\s*continue;/)[0];
   else needle = 'database.exec("COMMIT");';
   assert.equal(section.split(needle).length, 2, `unique ${name} fault transform required`);
   const stop = `if(require("node:fs").existsSync(process.env.TASKS_TEST_PENDING)${cut === "lostReply" ? "===false" : ""}){require("node:fs").writeSync(2,"TASKS_TEST_CUT:${name}\\n");process.kill(process.pid,"SIGKILL");}`;

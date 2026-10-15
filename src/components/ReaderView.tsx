@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { APP_NAME } from "@/backend/branding";
-import type { V2TaskProjection } from "@/backend/queries";
+import type { TaskProjection } from "@/backend/queries";
 import type { TaskStatus } from "@/legacy/backend/protocol";
 import { TaskStatusDisplay } from "./TaskRow";
 import { taskStatusMeta } from "./taskFilters";
@@ -12,9 +12,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { Input } from "./ui/input";
 import { Item } from "./ui/item";
 import { Label } from "./ui/label";
-import { V2WorkspaceReader, type V2TaskPage, type V2WorkspaceInfo } from "@/platform/workspaceReader";
+import { WorkspaceReader, type TaskPage, type WorkspaceInfo } from "@/platform/workspaceReader";
 
-function TaskDetails({ task }: { task: V2TaskProjection }): ReactElement {
+function TaskDetails({ task }: { task: TaskProjection }): ReactElement {
   return (
     <>
       <DialogHeader><DialogTitle className="break-words">{task.title}</DialogTitle><DialogDescription>Read-only snapshot. Canonical title and classification are separate fields.</DialogDescription></DialogHeader>
@@ -37,9 +37,9 @@ function TaskDetails({ task }: { task: V2TaskProjection }): ReactElement {
   );
 }
 
-export function V2ReaderView({ reader, onLeave }: { reader: V2WorkspaceReader; onLeave: () => void }): ReactElement {
-  const [page, setPage] = useState<V2TaskPage | null>(null);
-  const [workspace, setWorkspace] = useState<V2WorkspaceInfo | null>(null);
+export function ReaderView({ reader, onLeave }: { reader: WorkspaceReader; onLeave: () => void }): ReactElement {
+  const [page, setPage] = useState<TaskPage | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
@@ -47,7 +47,7 @@ export function V2ReaderView({ reader, onLeave }: { reader: V2WorkspaceReader; o
   const [offset, setOffset] = useState(0);
   const [refresh, setRefresh] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [details, setDetails] = useState<V2TaskProjection | null>(null);
+  const [details, setDetails] = useState<TaskProjection | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const retryRef = useRef<HTMLButtonElement>(null);
   const initialFocus = useRef(true);

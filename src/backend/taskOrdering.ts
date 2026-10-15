@@ -1,35 +1,35 @@
 import { generateNKeysBetween } from "fractional-indexing";
 import { CommandError } from "./errors.js";
-import { assertV2Args, isV2Record } from "./protocol.js";
-import { compareV2Tasks, isV2OrderKey } from "./taskModel.js";
-import type { V2CanonicalTask } from "./taskModel.js";
-import { parseV2TaskVersion } from "./updateInputs.js";
+import { assertArgs, isRecord } from "./protocol.js";
+import { compareTasks, isOrderKey } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
+import { parseTaskVersion } from "./updateInputs.js";
 
 type TaskVersion = { id: string; expectedVersion: number };
 type Placement = { beforeId: string } | { afterId: string } | { first: true } | { last: true };
-export type V2OrderInput = { tasks: TaskVersion[] } & (
+export type OrderInput = { tasks: TaskVersion[] } & (
   | { kind: "reorder"; placement: Placement }
   | { kind: "normalize"; parentId: string | null }
 );
-export type V2OrderPlan = { parentId: string | null; before: V2CanonicalTask[]; after: V2CanonicalTask[]; selectedIds: string[]; writes: V2CanonicalTask[]; changed: boolean };
-export const V2_ORDER_COMMANDS = ["task.reorder", "task.order.normalize"];
+export type OrderPlan = { parentId: string | null; before: CanonicalTask[]; after: CanonicalTask[]; selectedIds: string[]; writes: CanonicalTask[]; changed: boolean };
+export const ORDER_COMMANDS = ["task.reorder", "task.order.normalize"];
 function invalid(message: string): never { throw new CommandError("INVALID_ARGUMENT", message); }
 function allocateKeys(lower: string | null, upper: string | null, count: number): string[] {
   try {
     const keys = generateNKeysBetween(lower, upper, count);
-    if (!keys.every(isV2OrderKey)) throw new Error("unrepresentable allocation");
+    if (!keys.every(isOrderKey)) throw new Error("unrepresentable allocation");
     return keys;
   } catch { throw new CommandError("ORDER_KEY_LIMIT", "ordering allocation exceeds the canonical key limit"); }
 }
 
-export function parseV2Order(command: string, args: Record<string, unknown>): V2OrderInput {
+export function parseOrder(command: string, args: Record<string, unknown>): OrderInput {
   const normalize = command === "task.order.normalize";
-  assertV2Args(args, ["tasks", normalize ? "parentId" : "placement"]);
+  assertArgs(args, ["tasks", normalize ? "parentId" : "placement"]);
   if (!Array.isArray(args.tasks) || (!normalize && args.tasks.length === 0)) invalid("ordering needs a versioned task list");
   const tasks = args.tasks.map(value => {
-    if (!isV2Record(value)) invalid("invalid ordering task reference");
-    assertV2Args(value, ["id", "expectedVersion"]);
-    return parseV2TaskVersion(value);
+    if (!isRecord(value)) invalid("invalid ordering task reference");
+    assertArgs(value, ["id", "expectedVersion"]);
+    return parseTaskVersion(value);
   });
   if (new Set(tasks.map(task => task.id)).size !== tasks.length) invalid("ordering IDs must be unique");
   if (normalize) {
@@ -38,7 +38,7 @@ export function parseV2Order(command: string, args: Record<string, unknown>): V2
   }
   if (command !== "task.reorder") throw new CommandError("UNSUPPORTED_COMMAND", "ordering command is unavailable");
   const placement = args.placement;
-  if (!isV2Record(placement) || Object.keys(placement).length !== 1) invalid("placement needs exactly one anchor or end");
+  if (!isRecord(placement) || Object.keys(placement).length !== 1) invalid("placement needs exactly one anchor or end");
   const key = Object.keys(placement)[0];
   if (!["beforeId", "afterId", "first", "last"].includes(key)) invalid("invalid ordering placement");
   if (key === "first" || key === "last") { if (placement[key] !== true) invalid("end placement must be true"); }
@@ -46,13 +46,13 @@ export function parseV2Order(command: string, args: Record<string, unknown>): V2
   return { kind: "reorder", tasks, placement: placement as Placement };
 }
 
-export function planV2Order(input: V2OrderInput, tasks: V2CanonicalTask[]): V2OrderPlan {
+export function planOrder(input: OrderInput, tasks: CanonicalTask[]): OrderPlan {
   const selectedIds = input.tasks.map(task => task.id);
   const selectedSet = new Set(selectedIds);
   const first = tasks.find(task => task.id === selectedIds[0]);
   if (input.kind === "reorder" && !first) throw new CommandError("TASK_NOT_FOUND", "selected ordering task was not found");
   const parentId = input.kind === "normalize" ? input.parentId : first!.parentId;
-  const before = tasks.filter(task => task.parentId === parentId).sort(compareV2Tasks);
+  const before = tasks.filter(task => task.parentId === parentId).sort(compareTasks);
   const selected = before.filter(task => selectedSet.has(task.id));
   if (selected.length !== selectedIds.length) invalid("selected tasks must belong to one sibling scope");
   if (selected.some((task, index) => task.id !== selectedIds[index])) invalid("selected task list must follow current sibling order");

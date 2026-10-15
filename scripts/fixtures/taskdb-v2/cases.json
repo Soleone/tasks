@@ -2446,10 +2446,10 @@
       "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "patchV1": {
+        "patchSchema1": {
           "title": "@Work #TODO"
         },
-        "rehashV1": true
+        "rehashSchema1": true
       },
       "action": {
         "command": "workspace.migrateV1",
@@ -2469,10 +2469,10 @@
       "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "patchV1": {
+        "patchSchema1": {
           "title": "Call \\@Work"
         },
-        "rehashV1": true
+        "rehashSchema1": true
       },
       "action": {
         "command": "workspace.migrateV1",
@@ -2494,10 +2494,10 @@
       "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "patchV1": {
+        "patchSchema1": {
           "createdAt": "2026-09-08T14:00:00.000+02:00"
         },
-        "rehashV1": true
+        "rehashSchema1": true
       },
       "action": {
         "command": "workspace.migrateV1",
@@ -2518,10 +2518,10 @@
       "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "patchV1": {
+        "patchSchema1": {
           "createdAt": "2026-09-08T14:00:00.000-00:00"
         },
-        "rehashV1": true
+        "rehashSchema1": true
       },
       "action": {
         "command": "workspace.migrateV1",
@@ -2540,7 +2540,7 @@
       "rule": "ecosystem/migration.md#before",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "removeV1": "order/root.json"
+        "removeSchema1": "order/root.json"
       },
       "action": {
         "command": "workspace.migrateV1",
@@ -2559,10 +2559,10 @@
       "rule": "ecosystem/migration.md#before",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "patchV1": {
+        "patchSchema1": {
           "extra": "Do not discard"
         },
-        "rehashV1": true
+        "rehashSchema1": true
       },
       "action": {
         "command": "workspace.migrateV1",
@@ -2665,8 +2665,8 @@
         ]
       },
       "expect": {
-        "v1PreMigrationBytes": true,
-        "preserveV2EditsSeparately": true,
+        "schema1PreMigrationBytes": true,
+        "preserveEditsSeparately": true,
         "reverseConversion": false,
         "freshAuthority": true
       }
@@ -2900,10 +2900,10 @@
       "rule": "ecosystem/migration.md#mapping",
       "given": {
         "sourceRoot": "../taskdb-v1/sync",
-        "patchV1": {
+        "patchSchema1": {
           "descriptionMarkdown": "## Checklist\r\n\r\n- [ ] @literal #not-metadata\r\n"
         },
-        "rehashV1": true
+        "rehashSchema1": true
       },
       "action": {
         "command": "workspace.migrateV1",

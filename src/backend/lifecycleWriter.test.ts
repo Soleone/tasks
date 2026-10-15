@@ -5,12 +5,12 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2PhysicalRoot } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readPhysicalRoot } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
@@ -18,13 +18,13 @@ const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8"
 };
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(workspace: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
+function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function emptyWorkspace(t: TestContext) {
   const workspace = setup(t);
   for (const name of readdirSync(workspace.root)) rmSync(path.join(workspace.root, name), { recursive: true });
@@ -56,7 +56,7 @@ test("public workspace.init executes root-empty corpus with exact descriptor and
   assert.equal(success(send(workspace, { command: "task.list" })).result.total, entry.expect.taskCount);
   assert.deepEqual(readdirSync(workspace.root).sort(), ["tasks", "workspace.json"]);
   assert.deepEqual(success(send(workspace, request)).result, initialized.result);
-  assert.equal(existsSync(pendingV2Path(readV2PhysicalRoot(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readPhysicalRoot(workspace.root))), false);
   assert.deepEqual(success(send(workspace, { command: "activity.list" })).result.activity, []);
 });
 
@@ -100,7 +100,7 @@ for (const fault of ["foreign-file", "foreign-directory", "missing-manifest-reco
     assert.equal(response.ok, false, JSON.stringify(response));
     if (fault === "legacy" || fault === "unsupported") fail(response, "UNSUPPORTED_SCHEMA");
     assert.deepEqual(readdirSync(root).sort(), before);
-    assert.equal(existsSync(pendingV2Path(readV2PhysicalRoot(root))), false);
+    assert.equal(existsSync(pendingIntentPath(readPhysicalRoot(root))), false);
     assert.equal(cacheRows(workspace)[2].length, 0);
   });
 }
@@ -214,7 +214,7 @@ for (const fault of ["partial-record", "missing-manifest", "legacy-order", "unsu
     const failed = send(workspace, request);
     assert.equal(failed.ok, false);
     assert.deepEqual(cacheRows(workspace), before);
-    assert.equal(existsSync(pendingV2Path(readV2PhysicalRoot(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readPhysicalRoot(workspace.root))), false);
   });
 }
 
@@ -248,7 +248,7 @@ for (const command of ["workspace.init", "workspace.rebuild"]) {
     fail(send(workspace, request), "UNSUPPORTED_COMMAND");
     assert.deepEqual(cacheRows(workspace), before);
     assert.deepEqual(readdirSync(workspace.root).sort(), names);
-    assert.equal(existsSync(pendingV2Path(readV2PhysicalRoot(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readPhysicalRoot(workspace.root))), false);
   });
 }
 

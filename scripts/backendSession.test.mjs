@@ -61,7 +61,7 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
   }
 });
 
-const { parseV2Response } = await import("../dist/backend/protocol.js");
+const { parseResponse } = await import("../dist/backend/protocol.js");
 
 test("protocol-2 framing rejects a v1 reply and restarts only the same selected command", async () => {
   let launches = 0;
@@ -70,7 +70,7 @@ test("protocol-2 framing rejects a v1 reply and restarts only the same selected 
     async () => fakeCommand(true, () => { kills++; }, () => {}, requestId => ++launches === 1
       ? { version: 1, requestId, ok: true, result: {} }
       : { version: 2, requestId, ok: true, writeContext: "original-selection", result: {} }),
-    parseV2Response,
+    parseResponse,
   );
   try {
     await assert.rejects(session.request({ version: 2, requestId: "first", command: "workspace.info" }), /protocol-2/);
@@ -87,7 +87,7 @@ test("protocol-2 framing preserves error replies rather than retrying or changin
   const session = new JsonLineSession(async () => {
     launches++;
     return fakeCommand(true, () => {}, () => {}, requestId => ({ version: 2, requestId, ok: false, error: { code: "RECOVERY_PENDING", message: "preserve evidence" } }));
-  }, parseV2Response);
+  }, parseResponse);
   try {
     const response = await session.request({ version: 2, requestId: "pending", command: "task.list" });
     assert.equal(response.error.code, "RECOVERY_PENDING");
@@ -97,7 +97,7 @@ test("protocol-2 framing preserves error replies rather than retrying or changin
 
 for (const requestId of ["foreign", null]) {
   test(`protocol-2 framing rejects uncorrelated reply ${String(requestId)}`, async () => {
-    const session = new JsonLineSession(async () => fakeCommand(true, () => {}, () => {}, () => ({ version: 2, requestId, ok: true, writeContext: "ctx", result: {} })), parseV2Response);
+    const session = new JsonLineSession(async () => fakeCommand(true, () => {}, () => {}, () => ({ version: 2, requestId, ok: true, writeContext: "ctx", result: {} })), parseResponse);
     try { await assert.rejects(session.request({ requestId: "wanted" }), /unknown request ID/); }
     finally { await session.close(); }
   });

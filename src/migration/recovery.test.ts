@@ -4,15 +4,15 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, r
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createV2CopyTestWorkspace as setup } from "../backend/copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
-import type { V2CopyIntent } from "../backend/copyJournal.js";
-import { readV2CanonicalRoot, readV2RootDescriptor } from "../backend/canonicalReader.js";
-import { executeV2Line } from "../backend/gateway.js";
-import { pendingV2Path, v2LocalDomain } from "../backend/localDomain.js";
+import { createCopyTestWorkspace as setup } from "../backend/copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
+import type { CopyIntent } from "../backend/copyJournal.js";
+import { readCanonicalRoot, readRootDescriptor } from "../backend/canonicalReader.js";
+import { executeLine } from "../backend/gateway.js";
+import { pendingIntentPath, localDomain } from "../backend/localDomain.js";
 import { migrationRecoveryLocation } from "./journal.js";
-import { readV1MigrationRootDescriptor, readV1MigrationSnapshot } from "./schema1Source.js";
-import type { V2Response } from "../backend/protocol.js";
+import { readSchema1MigrationRootDescriptor, readSchema1MigrationSnapshot } from "./schema1Source.js";
+import type { Response } from "../backend/protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const sourceFixture = path.join(fixtures, "taskdb-v1/sync");
@@ -20,20 +20,20 @@ const golden = path.join(fixtures, "taskdb-v2/root");
 const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(workspace: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
+function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function run(workspace: Workspace, request: object, loader?: string) {
   return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function crash(workspace: Workspace, cut: string) {
   const info = success(send(workspace, { command: "workspace.info" }));
   const request = { version: 2, command: "workspace.migrateV1", writeContext: info.writeContext, idempotencyKey: "original-migration", args: { destinationDirectory: workspace.destination } };
-  const pending = pendingV2Path(readV1MigrationRootDescriptor(workspace.root));
+  const pending = pendingIntentPath(readSchema1MigrationRootDescriptor(workspace.root));
   const loader = path.join(workspace.directory, "migration-kill-loader.mjs");
   // Actual CLI process cuts only: no production fault flags or clock/ID overrides.
   writeFileSync(loader, `import {registerHooks} from 'node:module';import {existsSync} from 'node:fs';import {DatabaseSync} from 'node:sqlite';
@@ -41,19 +41,19 @@ const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pending)};
 if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();
 function replace(needle,value){if(source.split(needle).length!==2)throw Error('cut must be unique: '+needle);source=source.replace(needle,value);}
-if(cut==='intent'&&url.endsWith('/migration/writer.js')){const n='persistV2Pending(root, intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
+if(cut==='intent'&&url.endsWith('/migration/writer.js')){const n='persistPending(root, intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
 if(cut==='backup-preparing'&&url.endsWith('/migration/journal.js')){const n='renameSync(\`\${file}.preparing\`, file);';replace(n,'process.kill(process.pid,"SIGKILL");'+n);}
 if(url.endsWith('/copyJournal.js')){
- if(cut==='backup'){const n='persistV2MigrationRecovery(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
+ if(cut==='backup'){const n='persistMigrationRecovery(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
  if(cut==='prefix-0'){const n='persistCopyProgress(intent, progress);';const at=source.indexOf(n);if(at<0)throw Error('missing prefix');source=source.slice(0,at)+n+'process.kill(process.pid,"SIGKILL");'+source.slice(at+n.length);}
- if(cut.startsWith('prefix-')&&cut!=='prefix-0'){source='let copied=0;\\n'+source;const n='writeV2DurableFile(path.join(intent.stageDirectory, file.relativePath), Buffer.from(file.bytes, "base64"));';replace(n,n+'if(++copied==='+Number(cut.slice(7))+')process.kill(process.pid,"SIGKILL");');}
- for(const [at,needle] of [['verified','recordVerifiedCopy(intent, progress);'],['reserved','reserveCopyTarget(intent, progress);'],['published','renameSync(intent.stageDirectory, intent.destination.directory);'],['unbound','mkdirSync(intent.stageDirectory, { mode: 0o700 });'],['retiring-target','withV2RootWriterLock(target.root, () => retireV2Pending(target.root));'],['retiring-evidence','unlinkSync(file);']]) if(cut===at)replace(needle,needle+'process.kill(process.pid,"SIGKILL");');
+ if(cut.startsWith('prefix-')&&cut!=='prefix-0'){source='let copied=0;\\n'+source;const n='writeDurableFile(path.join(intent.stageDirectory, file.relativePath), Buffer.from(file.bytes, "base64"));';replace(n,n+'if(++copied==='+Number(cut.slice(7))+')process.kill(process.pid,"SIGKILL");');}
+ for(const [at,needle] of [['verified','recordVerifiedCopy(intent, progress);'],['reserved','reserveCopyTarget(intent, progress);'],['published','renameSync(intent.stageDirectory, intent.destination.directory);'],['unbound','mkdirSync(intent.stageDirectory, { mode: 0o700 });'],['retiring-target','withRootWriterLock(target.root, () => retirePending(target.root));'],['retiring-evidence','unlinkSync(file);']]) if(cut===at)replace(needle,needle+'process.kill(process.pid,"SIGKILL");');
 }
 return {...result,source};}});`);
   const child = run(workspace, request, loader);
   assert.equal(child.signal, "SIGKILL", child.stderr);
   assert.equal(existsSync(pending), true);
-  const intent = JSON.parse(readFileSync(pending, "utf8")) as V2CopyIntent;
+  const intent = JSON.parse(readFileSync(pending, "utf8")) as CopyIntent;
   return { request, pending, intent };
 }
 function recover(workspace: Workspace, operationId: string, key = "resume-migration") {
@@ -65,7 +65,7 @@ const cuts = ["intent", "backup", ...Array.from({ length: 6 }, (_, prefix) => `p
 for (const cut of cuts) {
   test(`public migrate-interrupted: CLI SIGKILL at ${cut} resumes fixed bytes/report without v1 writes or selection`, linuxOnly, (t) => {
     const workspace = setup(t, sourceFixture);
-    const before = readV1MigrationSnapshot(workspace.root).files;
+    const before = readSchema1MigrationSnapshot(workspace.root).files;
     const { request, pending, intent } = crash(workspace, cut);
     const info = success(send(workspace, { command: "workspace.info" }));
     assert.equal(info.result.state, "recovery_pending");
@@ -83,8 +83,8 @@ for (const cut of cuts) {
     const resumed = success(recover(workspace, intent.operationId));
     assert.equal(resumed.result.outcome, "complete");
     assert.equal(existsSync(pending), false);
-    assert.deepEqual(readV1MigrationSnapshot(workspace.root).files, before);
-    assert.deepEqual(readV2CanonicalRoot(workspace.destination).files, readV2CanonicalRoot(golden).files);
+    assert.deepEqual(readSchema1MigrationSnapshot(workspace.root).files, before);
+    assert.deepEqual(readCanonicalRoot(workspace.destination).files, readCanonicalRoot(golden).files);
     const replay = success(send(workspace, request));
     assert.deepEqual(resumed.result.originalResult, replay.result);
     assert.equal(replay.result.operationId, intent.operationId);
@@ -116,11 +116,11 @@ for (const fault of ["source-bytes", "source-missing", "source-arrival", "source
     if (fault === "destination-arrival") { mkdirSync(workspace.destination); writeFileSync(path.join(workspace.destination, "keep"), "destination occupation"); }
     if (fault === "backup-missing") rmSync(backup);
     if (fault === "backup-partial" || fault === "backup-edit") writeFileSync(backup, fault === "backup-partial" ? "{" : "changed recovery copy");
-    const domain = v2LocalDomain(intent.root);
+    const domain = localDomain(intent.root);
     if (fault === "progress-missing") rmSync(path.join(domain, `copy-${intent.operationId}.progress.json`));
     if (fault === "progress-partial") writeFileSync(path.join(domain, `copy-${intent.operationId}.progress.json`), "{");
     if (fault === "report-missing") rmSync(path.join(domain, `copy-${intent.operationId}.verified.json`));
-    if (fault === "reservation-missing") rmSync(pendingV2Path(readV2RootDescriptor(workspace.destination)));
+    if (fault === "reservation-missing") rmSync(pendingIntentPath(readRootDescriptor(workspace.destination)));
     if (fault === "published-edit") writeFileSync(path.join(workspace.destination, "tasks", `${id}.json`), "changed output");
     if (fault === "stage-binding" || fault === "published-binding") {
       const changed = fault === "stage-binding" ? intent.stageDirectory : workspace.destination;
@@ -163,14 +163,14 @@ test("unbound migration stage requires preserved inspection rather than ownershi
 
 test("unpublished v1 recovery artifact is preserved without automatic repair or stage effects", linuxOnly, (t) => {
   const workspace = setup(t, sourceFixture);
-  const before = readV1MigrationSnapshot(workspace.root).files;
+  const before = readSchema1MigrationSnapshot(workspace.root).files;
   const { intent, pending } = crash(workspace, "backup-preparing");
   fail(recover(workspace, intent.operationId), "RECOVERY_CONFLICT");
   assert.equal(existsSync(`${migrationRecoveryLocation(intent)}.preparing`), true);
   assert.equal(existsSync(intent.stageDirectory), false);
   assert.equal(existsSync(workspace.destination), false);
   assert.equal(existsSync(pending), true);
-  assert.deepEqual(readV1MigrationSnapshot(workspace.root).files, before);
+  assert.deepEqual(readSchema1MigrationSnapshot(workspace.root).files, before);
 });
 
 test("migration cache copy/different cache/loss and fresh-context recovery never revalidate old keys", linuxOnly, (t) => {
@@ -184,7 +184,7 @@ test("migration cache copy/different cache/loss and fresh-context recovery never
   fail(send(workspace, request), "STALE_WRITE_CONTEXT");
   success(recover(workspace, intent.operationId));
   fail(send(workspace, request), "STALE_WRITE_CONTEXT");
-  assert.deepEqual(readV2CanonicalRoot(workspace.destination).files, readV2CanonicalRoot(golden).files);
+  assert.deepEqual(readCanonicalRoot(workspace.destination).files, readCanonicalRoot(golden).files);
 });
 
 test("migration recovery receipt completes retirement after recovery's own lost reply", linuxOnly, (t) => {
@@ -211,13 +211,13 @@ for (const fault of ["source-bytes", "source-arrival", "destination-arrival"]) {
     const mutation = fault === "source-bytes" ? `faultWrite(${JSON.stringify(selected)},faultRead(${JSON.stringify(selected)},"utf8")+" ");`
       : fault === "source-arrival" ? `faultWrite(${JSON.stringify(path.join(workspace.root, "tasks/late.json"))},"outside late bytes");`
         : `faultMkdir(${JSON.stringify(workspace.destination)});faultWrite(${JSON.stringify(path.join(workspace.destination, "keep"))},"outside destination bytes");`;
-    writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/migration/writer.js'))return result;let source=result.source.toString();const needle='guardV2MigrationSource(intent);';if(source.split(needle).length!==2)throw Error('unique preflight required');source='import {writeFileSync as faultWrite,readFileSync as faultRead,mkdirSync as faultMkdir} from "node:fs";\\n'+source.replace(needle,${JSON.stringify(mutation)}+needle);return {...result,source};}});`);
+    writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/migration/writer.js'))return result;let source=result.source.toString();const needle='guardMigrationSource(intent);';if(source.split(needle).length!==2)throw Error('unique preflight required');source='import {writeFileSync as faultWrite,readFileSync as faultRead,mkdirSync as faultMkdir} from "node:fs";\\n'+source.replace(needle,${JSON.stringify(mutation)}+needle);return {...result,source};}});`);
     const child = run(workspace, request, loader);
     assert.equal(child.status, 0, child.stderr);
     fail(JSON.parse(child.stdout), fault === "destination-arrival" ? "DESTINATION_NOT_EMPTY" : "MIGRATION_CONFLICT");
-    const root = readV1MigrationRootDescriptor(workspace.root);
-    assert.equal(existsSync(pendingV2Path(root)), false);
-    assert.equal(readdirSync(v2LocalDomain(root)).some(name => name.startsWith("migration-") || name.startsWith("copy-")), false);
+    const root = readSchema1MigrationRootDescriptor(workspace.root);
+    assert.equal(existsSync(pendingIntentPath(root)), false);
+    assert.equal(readdirSync(localDomain(root)).some(name => name.startsWith("migration-") || name.startsWith("copy-")), false);
     assert.equal(readdirSync(workspace.directory).some(name => name.endsWith(".stage")), false);
     assert.equal(existsSync(workspace.destination), fault === "destination-arrival");
     if (fault === "source-bytes") assert.ok(readFileSync(selected, "utf8").endsWith(" "));

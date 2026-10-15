@@ -1,9 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { assertV2Args } from "./protocol.js";
+import { assertArgs } from "./protocol.js";
 
-export function listV2Activity(database: DatabaseSync, args: Record<string, unknown>, context: string): Record<string, unknown> {
-  assertV2Args(args, ["taskId", "limit"]);
+export function listActivity(database: DatabaseSync, args: Record<string, unknown>, context: string): Record<string, unknown> {
+  assertArgs(args, ["taskId", "limit"]);
   if (args.taskId !== undefined && (typeof args.taskId !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.taskId))) throw new CommandError("INVALID_ARGUMENT", "invalid activity taskId");
   const limit = args.limit ?? 50;
   if (typeof limit !== "number" || !Number.isSafeInteger(limit)) throw new CommandError("INVALID_ARGUMENT", "invalid activity limit");

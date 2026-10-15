@@ -4,30 +4,30 @@ import { APP_NAME } from "./backend/branding";
 import App from "./App";
 import { MainWorkspace } from "./platform/mainWorkspace";
 import { selectMainWorkspace } from "./platform/backendClient";
-import { V2ReaderView } from "./components/V2ReaderView";
+import { ReaderView } from "./components/ReaderView";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "./components/ui/field";
-import { parseV2Response, type V2Response } from "./backend/protocol";
+import { parseResponse, type Response } from "./backend/protocol";
 import { JsonLineSession } from "./platform/backendSession";
-import { parseV2NativeSelection, v2NativeSidecarArgs } from "./platform/nativeSelection";
+import { parseNativeSelection, nativeSidecarArgs } from "./platform/nativeSelection";
 import { runtimeKind } from "./platform/runtime";
-import { readV2DevSelection, v2DevBackendUrl, V2WorkspaceReader, type V2DevSelection } from "./platform/workspaceReader";
-import { readV2EditorSelection, V2EditorClient, V2_EDITOR_COMMANDS, type V2EditorSelection } from "./platform/editorClient";
+import { readDevSelection, devBackendUrl, WorkspaceReader, type DevSelection } from "./platform/workspaceReader";
+import { readEditorSelection, EditorClient, EDITOR_COMMANDS, type EditorSelection } from "./platform/editorClient";
 
-function nativeSession(selection: V2EditorSelection): JsonLineSession<V2Response> {
-  const selected = parseV2NativeSelection({ rootPath: selection.rootPath, databasePath: selection.databasePath, profilePath: selection.profilePath });
+function nativeSession(selection: EditorSelection): JsonLineSession<Response> {
+  const selected = parseNativeSelection({ rootPath: selection.rootPath, databasePath: selection.databasePath, profilePath: selection.profilePath });
   return new JsonLineSession(async () => {
     const { Command } = await import("@tauri-apps/plugin-shell");
-    return Command.sidecar("binaries/tasks-backend", v2NativeSidecarArgs(selected));
-  }, parseV2Response);
+    return Command.sidecar("binaries/tasks-backend", nativeSidecarArgs(selected));
+  }, parseResponse);
 }
 
-export default function V2App(): ReactElement {
-  const [devSelection, setDevSelection] = useState<V2DevSelection | V2EditorSelection | null>(null);
+export default function WorkspaceSelection(): ReactElement {
+  const [devSelection, setDevSelection] = useState<DevSelection | EditorSelection | null>(null);
   const editing = import.meta.env.VITE_TASKDB_V2_EDIT === "1";
-  const [reader, setReader] = useState<V2WorkspaceReader | null>(null);
+  const [reader, setReader] = useState<WorkspaceReader | null>(null);
   const [workspace, setWorkspace] = useState<MainWorkspace | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -44,8 +44,8 @@ export default function V2App(): ReactElement {
       setDevSelection(null);
       try {
         if (!native || !editing) throw new Error("This explicit native pilot requires Windows desktop; no HTTP or v1 fallback was launched.");
-        const selection = parseV2NativeSelection(JSON.parse(nativeSelection) as unknown);
-        setDevSelection({ ...selection, version: 2, readOnly: false, selectionToken: randomUUID(), writeCommands: V2_EDITOR_COMMANDS });
+        const selection = parseNativeSelection(JSON.parse(nativeSelection) as unknown);
+        setDevSelection({ ...selection, version: 2, readOnly: false, selectionToken: randomUUID(), writeCommands: EDITOR_COMMANDS });
       } catch (reason) { setError(reason instanceof Error ? reason.message : "Invalid native selection; no backend was launched."); }
       return;
     }
@@ -53,7 +53,7 @@ export default function V2App(): ReactElement {
     let cancelled = false;
     setError(null);
     setDevSelection(null);
-    void (editing ? readV2EditorSelection(v2DevBackendUrl()) : readV2DevSelection(v2DevBackendUrl())).then(selection => {
+    void (editing ? readEditorSelection(devBackendUrl()) : readDevSelection(devBackendUrl())).then(selection => {
       if (cancelled) return;
       setDevSelection(selection);
     }).catch((reason: unknown) => {
@@ -77,17 +77,17 @@ export default function V2App(): ReactElement {
     if (!devSelection) return;
     try {
       if (devSelection.readOnly === false) {
-        const connection = native ? nativeSession(devSelection) : v2DevBackendUrl();
-        const selectedEditor = new V2EditorClient(connection, devSelection);
+        const connection = native ? nativeSession(devSelection) : devBackendUrl();
+        const selectedEditor = new EditorClient(connection, devSelection);
         const selectedReader = typeof connection === "string"
-          ? new V2WorkspaceReader(devSelection, { url: connection, selection: devSelection })
-          : new V2WorkspaceReader(devSelection, undefined, connection);
+          ? new WorkspaceReader(devSelection, { url: connection, selection: devSelection })
+          : new WorkspaceReader(devSelection, undefined, connection);
         const selectedWorkspace = new MainWorkspace(selectedReader, selectedEditor);
         selectMainWorkspace(selectedWorkspace);
         setWorkspace(selectedWorkspace);
         setReader(selectedReader);
       } else {
-        setReader(new V2WorkspaceReader(devSelection, { url: v2DevBackendUrl(), selection: devSelection }));
+        setReader(new WorkspaceReader(devSelection, { url: devBackendUrl(), selection: devSelection }));
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not select this folder.");
@@ -95,7 +95,7 @@ export default function V2App(): ReactElement {
   }
 
   if (reader && workspace) return <App workspace={workspace} />;
-  if (reader) return <V2ReaderView reader={reader} onLeave={() => setReader(null)} />;
+  if (reader) return <ReaderView reader={reader} onLeave={() => setReader(null)} />;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">

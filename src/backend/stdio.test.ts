@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import type { V2Response } from "./protocol.js";
+import type { Response } from "./protocol.js";
 
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
@@ -21,14 +21,14 @@ function setup(t: TestContext): Workspace {
   return { root, cache: path.join(directory, "cache.db"), trap };
 }
 
-function run(workspace: Workspace, bytes: Buffer): V2Response[] {
+function run(workspace: Workspace, bytes: Buffer): Response[] {
   const output = execFileSync(process.execPath, [cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], {
     input: bytes,
     timeout: 10_000,
     env: { ...process.env, TASKS_SYNC_ROOT: workspace.trap, TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.trap, "missing-registry.json") },
     stdio: ["pipe", "pipe", "pipe"],
   });
-  return output.toString().trim().split("\n").map(line => JSON.parse(line) as V2Response);
+  return output.toString().trim().split("\n").map(line => JSON.parse(line) as Response);
 }
 
 function lines(requests: object[]): Buffer {

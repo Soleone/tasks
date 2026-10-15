@@ -5,20 +5,20 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { executeV2Line } from "./gateway.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { executeLine } from "./gateway.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
 const canceled = { status: "canceled" as const, closedAt: "2026-09-08T14:00:00.000Z" };
-function send(w: Workspace, request: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
-function ok(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: V2Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
-function materialize(t: TestContext, records: Record<string, Partial<V2CanonicalTask>> = { a: canceled, z: {} }) {
+function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
+function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
+function fail(r: Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
+function materialize(t: TestContext, records: Record<string, Partial<CanonicalTask>> = { a: canceled, z: {} }) {
   const w = setup(t);
   for (const file of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", file));
   for (const [id, fields] of Object.entries(records)) writeFileSync(path.join(w.root, "tasks", `${id}.json`), JSON.stringify({ ...corpus.taskTemplate, ...fields, id }) + "\n");
@@ -30,7 +30,7 @@ function prepared(w: Workspace, command = "task.purgeCanceled", args: Record<str
   if (typeof args.id === "string") args = { ...args, expectedVersion: (ok(send(w, { command: "task.get", args: { id: args.id } })).result.task as { version: number }).version };
   return { command, args, writeContext: info.writeContext, idempotencyKey: key, actor: { kind: "human", label: "purge test" } };
 }
-function history(w: Workspace, taskId?: string) { return ok(send(w, { command: "activity.list", args: taskId ? { taskId } : {} })).result.activity as { operationId: string; command: string; before: { tasks: V2CanonicalTask[] }; after: { tasks: V2CanonicalTask[] } }[]; }
+function history(w: Workspace, taskId?: string) { return ok(send(w, { command: "activity.list", args: taskId ? { taskId } : {} })).result.activity as { operationId: string; command: string; before: { tasks: CanonicalTask[] }; after: { tasks: CanonicalTask[] } }[]; }
 function counts(w: Workspace) { const db = new DatabaseSync(w.cache);try { return ["v2_receipts", "v2_operations", "v2_undo_claims"].map(table => db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n); } finally { db.close(); } }
 
 for (const id of ["purge-referenced", "purge-closed-subgraph"]) test(`purge executes original corpus ${id}`, linux, t => {
@@ -43,13 +43,13 @@ for (const status of ["open", "in_progress", "paused", "done"] as const) for (co
   const w = materialize(t, { a: canceled, b: canceled, survivor: { status, closedAt: status === "done" ? canceled.closedAt : null, ...(field === "parentId" ? { parentId: "a" } : { dependencyIds: ["a", "b"] }) } });
   const before = raw(w), response = send(w, prepared(w));fail(response, "PURGE_REFERENCED");
   if (!response.ok) assert.deepEqual(response.error.details?.references, (field === "parentId" ? ["a"] : ["a", "b"]).map(targetId => ({ taskId: "survivor", targetId, field })));
-  assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [0, 0, 0]);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))), false);
+  assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [0, 0, 0]);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);
 });
 for (const flags of [{ readOnly: true }, { dryRun: true }, { readOnly: true, dryRun: true }]) test(`purge preview ${JSON.stringify(flags)} consumes no archive/key/activity/version`, linux, t => {
   const w = materialize(t), request = prepared(w), before = raw(w), initial = ok(send(w, { command: "task.get", args: { id: "z" } })).result;
   const preview = ok(send(w, { ...request, idempotencyKey: undefined, ...flags }));assert.deepEqual(preview.result.purgedIds, ["a"]);assert.equal(preview.result.changed, true);assert.equal(preview.result.recoveryLocation, undefined);
   assert.deepEqual(counts(w), [0, 0, 0]);assert.deepEqual(raw(w), before);assert.deepEqual(ok(send(w, { command: "task.get", args: { id: "z" } })).result, initial);
-  assert.equal(readdirSync(path.dirname(pendingV2Path(readV2RootDescriptor(w.root)))).some(file => file.endsWith(".recovery.json")), false);ok(send(w, request));
+  assert.equal(readdirSync(path.dirname(pendingIntentPath(readRootDescriptor(w.root)))).some(file => file.endsWith(".recovery.json")), false);ok(send(w, request));
 });
 for (const args of [{ ids: ["a"] }, { status: "canceled" }, { expectedVersion: 1 }, { force: true }, { destinationDirectory: "somewhere" }]) test(`purge refuses undeclared argument ${Object.keys(args)[0]}`, linux, t => {
   const w = materialize(t), before = raw(w);fail(send(w, prepared(w, "task.purgeCanceled", args)), "INVALID_ARGUMENT");assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [0, 0, 0]);
@@ -80,7 +80,7 @@ test("historical receipt precedes arrivals/invalid graph/archive loss but enforc
 });
 test("failed reference guard consumes no key; new explicit unlink permits the original purge", linux, t => {
   const w = materialize(t, { a: canceled, child: { parentId: "a", dependencyIds: ["a"] } }), request = prepared(w);
-  fail(send(w, request), "PURGE_REFERENCED");ok(send(w, prepared(w, "task.move", { id: "child", parentId: null })));ok(send(w, prepared(w, "task.dependency.remove", { id: "child", dependsOnId: "a" })));ok(send(w, request));assert.deepEqual((ok(send(w, { command: "task.get", args: { id: "child" } })).result.task as V2CanonicalTask).dependencyIds, []);
+  fail(send(w, request), "PURGE_REFERENCED");ok(send(w, prepared(w, "task.move", { id: "child", parentId: null })));ok(send(w, prepared(w, "task.dependency.remove", { id: "child", dependsOnId: "a" })));ok(send(w, request));assert.deepEqual((ok(send(w, { command: "task.get", args: { id: "child" } })).result.task as CanonicalTask).dependencyIds, []);
 });
 test("nonempty purge permanently invalidates removed-task history despite exact external reappearance, but unrelated content inverse survives", linux, t => {
   const w = materialize(t, { a: {}, z: {} });const changed = ok(send(w, prepared(w, "task.update", { id: "a", priority: 0 }, "a-edit"))).result;
@@ -100,11 +100,11 @@ for (const relation of ["parent", "dependency"]) test(`purge invalidates histori
 });
 for (const field of ["counter", "revision"]) test(`purge ${field} exhaustion refuses before archive/staging/deletion`, linux, t => {
   const w = materialize(t), request = prepared(w), before = raw(w), db = new DatabaseSync(w.cache);db.prepare(`UPDATE v2_query_state SET ${field} = ?`).run(Number.MAX_SAFE_INTEGER - 2);db.close();
-  fail(send(w, request), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))), false);assert.deepEqual(counts(w), [0, 0, 0]);
+  fail(send(w, request), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);assert.deepEqual(counts(w), [0, 0, 0]);
 });
 test("purge refuses descriptor conflict authority before creating recovery or deleting files", linux, t => {
   const w = materialize(t), request = prepared(w), before = raw(w);writeFileSync(path.join(w.root, "workspace.sync-conflict-test.json"), '{"schemaVersion":1}');
-  fail(send(w, request), "INVALID_CANONICAL");assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [0, 0, 0]);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))), false);
+  fail(send(w, request), "INVALID_CANONICAL");assert.deepEqual(raw(w), before);assert.deepEqual(counts(w), [0, 0, 0]);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);
 });
 
 test("purge uses complete canonical canceled set, not a filtered or default-sized projection", linux, t => {

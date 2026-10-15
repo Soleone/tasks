@@ -6,21 +6,21 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import { v2UndoRecoveryLocation } from "./batchJournal.js";
-import type { V2BatchIntent } from "./batchJournal.js";
-import type { V2Response } from "./protocol.js";
-import { isV2WindowsProofIntent } from "./windowsTaskProof.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import { undoRecoveryLocation } from "./batchJournal.js";
+import type { BatchIntent } from "./batchJournal.js";
+import type { Response } from "./protocol.js";
+import { isWindowsProofIntent } from "./windowsTaskProof.js";
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
-function send(w: Workspace, request: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
-function ok(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: V2Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
+function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
+function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
+function fail(r: Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
 function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(file => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]); }
 function prepared(w: Workspace, command: string, args: Record<string, unknown>) {
   const read = ok(send(w, { command: "task.list", args: { sort: "manual" } }));
@@ -50,27 +50,27 @@ function scenario(t: TestContext, kind: string) {
 function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--v2-root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
 function recover(w: Workspace, operationId: string, key = "resume") { const context = ok(send(w, { command: "workspace.info" })).writeContext;return send(w, { command: "workspace.recovery.resume", writeContext: context, idempotencyKey: key, args: { operationId } }); }
 function crash(w: Workspace, request: object, cut: string) {
-  const pending = pendingV2Path(readV2RootDescriptor(w.root));
+  const pending = pendingIntentPath(readRootDescriptor(w.root));
   const loader = path.join(w.directory, "undo-kill-loader.mjs");
   writeFileSync(loader, `import{registerHooks}from'node:module';import{existsSync}from'node:fs';import{DatabaseSync}from'node:sqlite';const cut=${JSON.stringify(cut)},pending=${JSON.stringify(pending)};
 if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();function replace(n,v){if(source.split(n).length!==2)throw Error('unique undo cut required: '+n);source=source.replace(n,v);}
-if(url.endsWith('/undoWriter.js')){if(cut==='intent'||cut==='prefix-0'){const n='persistV2Pending(root, intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut==='verified'){const n='const snapshot = applyV2BatchJournal(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut==='archive'){const n='persistV2UndoArchive(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}}
-if(url.endsWith('/batchJournal.js')){if(cut==='staged'){const n='writeV2DurableFile(temporary, next);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut.startsWith('prefix-')&&cut!=='prefix-0'){source='let changed=0;'+source;const kill='if(++changed==='+Number(cut.slice(7))+')process.kill(process.pid,"SIGKILL");';for(const n of ['renameSync(temporary, target);','unlinkSync(target);'])replace(n,n+kill);}}
-if(url.endsWith('/localDomain.js')&&cut==='retired'){const n='unlinkSync(pendingV2Path(root));';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
+if(url.endsWith('/undoWriter.js')){if(cut==='intent'||cut==='prefix-0'){const n='persistPending(root, intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut==='verified'){const n='const snapshot = applyBatchJournal(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut==='archive'){const n='persistUndoArchive(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}}
+if(url.endsWith('/batchJournal.js')){if(cut==='staged'){const n='writeDurableFile(temporary, next);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut.startsWith('prefix-')&&cut!=='prefix-0'){source='let changed=0;'+source;const kill='if(++changed==='+Number(cut.slice(7))+')process.kill(process.pid,"SIGKILL");';for(const n of ['renameSync(temporary, target);','unlinkSync(target);'])replace(n,n+kill);}}
+if(url.endsWith('/localDomain.js')&&cut==='retired'){const n='unlinkSync(pendingIntentPath(root));';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
 return{...result,source};}});`);
   const child = run(w, request, loader);assert.equal(child.signal, "SIGKILL", child.stderr);
-  return { pending, intent: existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as V2BatchIntent : undefined };
+  return { pending, intent: existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as BatchIntent : undefined };
 }
 
 test("Windows proof accepts only single-status undo evidence, never grouped/arbitrary batch history", linux, t => {
   for (const kind of ["status", "transition", "undoMany", "order", "create", "content"]) {
     const { w, request } = scenario(t, kind), { intent } = crash(w, request, "intent");
     assert.ok(intent);
-    assert.equal(isV2WindowsProofIntent(intent), kind === "status");
+    assert.equal(isWindowsProofIntent(intent), kind === "status");
     if (kind === "undoMany") {
       const disguised = { ...intent, request: { ...intent.request, command: "task.status.undo", args: { id: "a", expectedVersion: 1 } }, sources: [intent.sources[0]] };
-      assert.equal(isV2WindowsProofIntent(disguised), false);
+      assert.equal(isWindowsProofIntent(disguised), false);
     }
   }
 });
@@ -82,7 +82,7 @@ test("already-applied single-status inverse requires directory flush before hist
   const loader = path.join(w.directory, "undo-flush-refusal.mjs");
   writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);
 if(!url.endsWith('/batchJournal.js'))return result;let source=result.source.toString();
-const needle='syncV2Directory(path.dirname(target));\\n            continue;';
+const needle='syncDirectory(path.dirname(target));\\n            continue;';
 if(source.split(needle).length!==2)throw Error('unique already-applied flush required');
 return {...result,source:source.replace(needle,'throw Object.assign(new Error("test-only inverse flush refusal"),{code:"EPERM"});'+needle)};}});`);
   const resume = { version: 2, command: "workspace.recovery.resume", args: { operationId: intent.operationId }, writeContext: request.writeContext, idempotencyKey: "flush-inverse" };
@@ -157,7 +157,7 @@ for (const fault of ["arrival", "delete-before", "applied-edit", "formatting", "
 for (const fault of ["archive-missing", "archive-partial", "archive-divergent", "target-divergent", "target-reappeared", "new-child", "intent-old-bytes"]) {
   test(`creation removal fixed archive/absence refuses ${fault}, never restores deleted canonical files`, linux, t => {
     const { w, request } = scenario(t, "create");const { pending, intent } = crash(w, request, fault === "target-divergent" || fault === "new-child" ? "intent" : "prefix-1");
-    const removed = intent!.files.find(file => file.nextBytes === null)!;const archive = v2UndoRecoveryLocation(intent!)!;
+    const removed = intent!.files.find(file => file.nextBytes === null)!;const archive = undoRecoveryLocation(intent!)!;
     if (fault === "archive-missing") rmSync(archive);
     if (fault === "archive-partial") writeFileSync(archive, "{");
     if (fault === "archive-divergent") writeFileSync(archive, "Preserve divergent archive");
@@ -183,7 +183,7 @@ for (const kind of ["undoMany", "create"]) {
     const recovery = { version: 2, command: "workspace.recovery.resume", writeContext: ctx, idempotencyKey: "resume-lost", args: { operationId: intent!.operationId } };
     const loader = path.join(w.directory, "undo-resume-kill.mjs");writeFileSync(loader, `import{DatabaseSync}from'node:sqlite';import{existsSync}from'node:fs';const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(${JSON.stringify(pending)}))process.kill(process.pid,'SIGKILL');return result;};`);
     assert.equal(run(w, recovery, loader).signal, "SIGKILL");const replay = ok(send(w, recovery));assert.deepEqual(ok(send(w, recovery)).result, replay.result);assert.equal(existsSync(pending), false);
-    if (kind === "create") assert.equal(existsSync(v2UndoRecoveryLocation(intent!)!), true);
+    if (kind === "create") assert.equal(existsSync(undoRecoveryLocation(intent!)!), true);
   });
 }
 
@@ -195,19 +195,19 @@ test("pending undo budget exhaustion preserves fixed remaining effects and origi
 
 test("completed creation inverse keeps historical recovery despite corrupt archive cleanup until manually corrected", linux, t => {
   const { w, request } = scenario(t, "create");const { pending, intent } = crash(w, request, "afterCommit");const result = ok(send(w, request));
-  const archive = v2UndoRecoveryLocation(intent!)!, original = readFileSync(archive);writeFileSync(archive, "preserve divergent recovery copy");
+  const archive = undoRecoveryLocation(intent!)!, original = readFileSync(archive);writeFileSync(archive, "preserve divergent recovery copy");
   fail(recover(w, intent!.operationId), "RECOVERY_CONFLICT");const historical = ok(recover(w, intent!.operationId));assert.deepEqual(historical.result.originalResult, result.result);assert.equal(existsSync(pending), true);
   assert.deepEqual(raw(w), []);writeFileSync(archive, original);assert.deepEqual(ok(recover(w, intent!.operationId)).result, historical.result);assert.equal(existsSync(pending), false);assert.equal(existsSync(archive), true);
 });
 
 for (const fault of ["arrival", "formatting", "delete", "budget", "claims"]) {
   test(`pre-intent undo ${fault} refuses without intended file writes/archive/pending effects`, linux, t => {
-    const { w, request } = scenario(t, "undoMany");const pending = pendingV2Path(readV2RootDescriptor(w.root));
+    const { w, request } = scenario(t, "undoMany");const pending = pendingIntentPath(readRootDescriptor(w.root));
     if (fault === "budget") { const db = new DatabaseSync(w.cache);db.prepare("UPDATE v2_query_state SET counter = ?, revision = ?").run(Number.MAX_SAFE_INTEGER - 3, Number.MAX_SAFE_INTEGER - 1);db.close();const before = raw(w);fail(send(w, request), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);assert.equal(existsSync(pending), false);return; }
     if (fault === "claims") { const db = new DatabaseSync(w.cache);const row = db.prepare("SELECT id FROM v2_operations").get()!;db.prepare("INSERT INTO v2_undo_claims VALUES (?, ?, ?)").run(row.id, "b", "already-used");db.close();const before = raw(w);fail(send(w, request), "UNDO_UNAVAILABLE");assert.deepEqual(raw(w), before);assert.equal(existsSync(pending), false);return; }
     const target = path.join(w.root, "tasks/b.json");const loader = path.join(w.directory, "undo-guard-fault.mjs");
     const mutation = fault === "arrival" ? `faultWrite(${JSON.stringify(path.join(w.root, "tasks/new.json"))},${JSON.stringify(JSON.stringify({ ...corpus.taskTemplate, id: "new" }))});` : fault === "delete" ? `faultRemove(${JSON.stringify(target)});` : `faultAppend(${JSON.stringify(target)},' ');`;
-    writeFileSync(loader, `import{registerHooks}from'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/undoWriter.js'))return result;let source=result.source.toString();const n='guardV2Batch(intent, false);';if(source.split(n).length!==3)throw Error('exact two guards required');source='import{writeFileSync as faultWrite,rmSync as faultRemove,appendFileSync as faultAppend}from"node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return{...result,source};}});`);
+    writeFileSync(loader, `import{registerHooks}from'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/undoWriter.js'))return result;let source=result.source.toString();const n='guardBatch(intent, false);';if(source.split(n).length!==3)throw Error('exact two guards required');source='import{writeFileSync as faultWrite,rmSync as faultRemove,appendFileSync as faultAppend}from"node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return{...result,source};}});`);
     const child = run(w, request, loader);assert.equal(child.status, 0, child.stderr);fail(JSON.parse(child.stdout), fault === "formatting" ? "STALE_FILE" : "STALE_SCOPE");assert.equal(existsSync(pending), false);
     assert.equal(JSON.parse(readFileSync(path.join(w.root, "tasks/a.json"), "utf8")).status, "done");if (fault === "delete") assert.equal(existsSync(target), false);
   });

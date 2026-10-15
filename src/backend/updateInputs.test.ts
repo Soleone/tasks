@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { CommandError } from "./errors.js";
-import { applyV2Update, parseV2Shorthand, parseV2Update } from "./updateInputs.js";
-import { validateV2Task } from "./taskModel.js";
+import { applyUpdate, parseShorthand, parseUpdate } from "./updateInputs.js";
+import { validateTask } from "./taskModel.js";
 
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8")) as {
   taskTemplate: Record<string, unknown>;
@@ -12,8 +12,8 @@ const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixt
 };
 for (const entry of corpus.cases.filter(entry => entry.profile === "inputs" && entry.action.command === "task.update")) {
   test(`v2 update input vector ${entry.id} (not create-command conformance)`, () => {
-    const task = validateV2Task({ ...corpus.taskTemplate, ...entry.given.patch }, "a");
-    const execute = () => applyV2Update(task, parseV2Update({ id: "a", expectedVersion: 1, ...entry.action.args }), "2026-10-01T00:00:00.000Z");
+    const task = validateTask({ ...corpus.taskTemplate, ...entry.given.patch }, "a");
+    const execute = () => applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...entry.action.args }), "2026-10-01T00:00:00.000Z");
     if (entry.expect.error) {
       assert.throws(execute, error => error instanceof CommandError && error.code === entry.expect.error);
     } else {
@@ -24,7 +24,7 @@ for (const entry of corpus.cases.filter(entry => entry.profile === "inputs" && e
 }
 
 test("v2 shorthand evaluates escaped-marker boundaries on decoded characters", () => {
-  assert.deepEqual(parseV2Shorthand("See \\@#tag"), { title: "See @#tag", category: null, tags: [] });
-  assert.deepEqual(parseV2Shorthand("See \\#literal #Real"), { title: "See #literal", category: null, tags: ["real"] });
-  assert.deepEqual(parseV2Shorthand("Keep \\q \\\\ @Work"), { title: "Keep \\q \\" , category: "work", tags: [] });
+  assert.deepEqual(parseShorthand("See \\@#tag"), { title: "See @#tag", category: null, tags: [] });
+  assert.deepEqual(parseShorthand("See \\#literal #Real"), { title: "See #literal", category: null, tags: ["real"] });
+  assert.deepEqual(parseShorthand("Keep \\q \\\\ @Work"), { title: "Keep \\q \\" , category: "work", tags: [] });
 });

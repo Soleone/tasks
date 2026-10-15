@@ -11,7 +11,7 @@ import { applyStoredTheme } from "./theme";
 import { runtimeKind } from "./platform/runtime";
 import "./styles.css";
 
-const V2App = lazy(() => import("./WorkspaceSelection"));
+const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
 
 document.title = APP_NAME;
 if (runtimeKind() === "android") document.documentElement.classList.add("android");
@@ -40,7 +40,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
       {import.meta.env.VITE_TASKDB_V2 === "1" ? (
-        <Suspense fallback={<p role="status">Loading the v2 reader...</p>}><V2App /></Suspense>
+        <Suspense fallback={<p role="status">Loading the v2 reader...</p>}><WorkspaceSelection /></Suspense>
       ) : <App />}
     </TooltipProvider>
   </StrictMode>,

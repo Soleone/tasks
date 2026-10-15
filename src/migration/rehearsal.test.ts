@@ -7,15 +7,15 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { contentHash } from "../legacy/backend/requestHash.js";
-import type { V2Response } from "../backend/protocol.js";
-import type { V2CanonicalTask } from "../backend/taskModel.js";
+import type { Response } from "../backend/protocol.js";
+import type { CanonicalTask } from "../backend/taskModel.js";
 
 const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const humanCli = fileURLToPath(new URL("../backend/tasks-cli.js", import.meta.url));
 const markdown = "## Notes Ω\r\n\r\n#not-a-tag @not-a-category\r\n```ts\r\nconst text = 'λ';\r\n```\r\n";
 const expectedTimes = { createdAt: "2026-01-01T01:30:00.000Z", updatedAt: "2026-09-08T12:00:00.123Z" };
 const terminalTime = "2026-09-09T03:00:00.120Z";
-const expectedTasks: V2CanonicalTask[] = [
+const expectedTasks: CanonicalTask[] = [
   { id: "done-root", title: "Ship", status: "done", priority: 1, parentId: null, dependencyIds: [], orderKey: "a0", category: "work", tags: ["alpha", "zoo"], description: markdown, ...expectedTimes, closedAt: terminalTime },
   { id: "Z_parent-7", title: "Retired  Ω `@code #literal`", status: "canceled", priority: 0, parentId: null, dependencyIds: [], orderKey: "a1", category: "home", tags: ["later"], description: markdown, ...expectedTimes, closedAt: terminalTime },
   { id: "a-root", title: "Plain  Ω", status: "open", priority: 4, parentId: null, dependencyIds: [], orderKey: "a2", category: null, tags: [], description: "", ...expectedTimes, closedAt: null },
@@ -67,7 +67,7 @@ function rawTree(root: string, prefix = ""): [string, string][] {
   });
 }
 
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("rehearsal command failed");
   return response;
@@ -103,12 +103,12 @@ test("one-user migration rehearsal preserves a frozen eight-task snapshot and ba
   assert.equal(legacyResult.result.total, 8);
   const legacyCacheBytes = readFileSync(env.TASKS_DATABASE_PATH);
   assert.deepEqual(rawTree(source), frozenBytes);
-  const send = (root: string, cache: string, envelope: object): V2Response => {
+  const send = (root: string, cache: string, envelope: object): Response => {
     const child = spawnSync(process.execPath, [cli, "--stdio", "--v2-root", root, "--database", cache], {
       input: JSON.stringify({ version: 2, ...envelope }), env, encoding: "utf8", timeout: 10_000,
     });
     assert.equal(child.status, 0, child.stderr);
-    return JSON.parse(child.stdout) as V2Response;
+    return JSON.parse(child.stdout) as Response;
   };
   const control = success(send(source, controlCache, { command: "workspace.info" }));
   const request = { command: "workspace.migrateV1", writeContext: control.writeContext, idempotencyKey: "frozen-snapshot-once", args: { destinationDirectory: destination } };
@@ -124,7 +124,7 @@ test("one-user migration rehearsal preserves a frozen eight-task snapshot and ba
   const convertedBytes = rawTree(destination);
   assert.deepEqual(convertedBytes.map(([file]) => file).sort(), ["workspace.json", ...expectedTasks.map(task => `tasks/${task.id}.json`)].sort());
   assert.equal(readFileSync(path.join(destination, "workspace.json"), "utf8"), '{"schemaVersion":2}\n');
-  const tasks = expectedTasks.map(task => JSON.parse(readFileSync(path.join(destination, "tasks", `${task.id}.json`), "utf8")) as V2CanonicalTask);
+  const tasks = expectedTasks.map(task => JSON.parse(readFileSync(path.join(destination, "tasks", `${task.id}.json`), "utf8")) as CanonicalTask);
   assert.deepEqual(tasks, expectedTasks);
   for (const order of orders) {
     const siblings = tasks.filter(task => task.parentId === order.parentId).sort((a, b) => a.orderKey < b.orderKey ? -1 : 1);

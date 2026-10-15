@@ -94,15 +94,15 @@ function interrupted(runner, w, cut) {
   return request;
 }
 function faultBundle(cut) {
-  const functionName = ["replaced", "flushRefusal"].includes(cut) ? "applyV2Journal" : ["beforeCommit", "afterCommit"].includes(cut) ? "withV2CacheTransaction" : "executeV2Update";
+  const functionName = ["replaced", "flushRefusal"].includes(cut) ? "applyJournal" : ["beforeCommit", "afterCommit"].includes(cut) ? "withCacheTransaction" : "executeUpdate";
   const start = source.indexOf(`function ${functionName}(`);
   assert.ok(start >= 0 && source.indexOf(`function ${functionName}(`, start + 1) === -1, "unique function required");
   const nextModule = source.indexOf("\n// src/", start);
   assert.ok(nextModule > start);
   const section = source.slice(start, nextModule);
-  const needle = cut === "staged" ? "persistV2Pending(root, intent);" : cut === "lostReply" ? "if (retire) retireV2Pending(root);"
+  const needle = cut === "staged" ? "persistPending(root, intent);" : cut === "lostReply" ? "if (retire) retirePending(root);"
     : cut === "replaced" ? section.match(/\(0, import_node_fs\d+\.renameSync\)\(temporary, target\);/)[0]
-    : cut === "flushRefusal" ? section.match(/syncV2Directory\(import_node_path\d+\.default\.dirname\(target\)\);/)[0] : 'database.exec("COMMIT");';
+    : cut === "flushRefusal" ? section.match(/syncDirectory\(import_node_path\d+\.default\.dirname\(target\)\);/)[0] : 'database.exec("COMMIT");';
   assert.equal(section.split(needle).length, 2, "unique fault cut required");
   const stop = `if(require("node:fs").existsSync(process.env.TASKS_TEST_PENDING)${cut === "lostReply" ? "===false" : ""}){require("node:fs").writeSync(2,"TASKS_TEST_CUT:${cut}\\n");process.kill(process.pid,"SIGKILL");}`;
   const replacement = cut === "flushRefusal" ? `throw Object.assign(new Error("test-only directory flush refusal"),{code:"EPERM"});${needle}`

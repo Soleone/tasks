@@ -2,7 +2,7 @@ import { CommandError } from "./errors.js";
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 
-export type V2CanonicalTask = {
+export type CanonicalTask = {
   id: string;
   title: string;
   description: string;
@@ -37,7 +37,7 @@ function matchesEntireString(value: string, pattern: RegExp): boolean {
   return pattern.exec(value)?.[0] === value;
 }
 
-export function isV2Timestamp(value: unknown): value is string {
+export function isTimestamp(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
   const date = new Date(value);
   return Number.isFinite(date.getTime()) && date.toISOString() === value;
@@ -48,7 +48,7 @@ function isSortedStrings(value: unknown, pattern: RegExp): value is string[] {
   return value.every((entry, index) => typeof entry === "string" && matchesEntireString(entry, pattern) && (index === 0 || value[index - 1] < entry));
 }
 
-export function isV2OrderKey(value: unknown): value is string {
+export function isOrderKey(value: unknown): value is string {
   if (typeof value !== "string" || value.length < 2 || value.length > 256) return false;
   const head = value.charCodeAt(0);
   if (!((head >= 65 && head <= 90) || (head >= 97 && head <= 122))) return false;
@@ -58,13 +58,13 @@ export function isV2OrderKey(value: unknown): value is string {
   return value.length === integerLength || !value.endsWith("0");
 }
 
-export function validateV2Manifest(value: unknown): void {
+export function validateManifest(value: unknown): void {
   if (!isRecord(value) || !Number.isInteger(value.schemaVersion)) invalidTask("manifest");
   if (value.schemaVersion !== 2) throw new CommandError("UNSUPPORTED_SCHEMA", "canonical schema is not supported by the v2 reader");
   if (Object.keys(value).length !== 1) invalidTask("manifest fields");
 }
 
-export function validateV2Task(value: unknown, filenameId: string): V2CanonicalTask {
+export function validateTask(value: unknown, filenameId: string): CanonicalTask {
   if (!isRecord(value) || Object.keys(value).length !== fields.length || fields.some((field) => !Object.hasOwn(value, field))) invalidTask("fields");
   if (typeof value.id !== "string" || !matchesEntireString(value.id, safeId) || value.id !== filenameId) invalidTask("id/filename");
   if (typeof value.title !== "string" || value.title.length === 0 || value.title.length > 1000 || value.title.trim() !== value.title || unpairedSurrogate.test(value.title)) invalidTask("title");
@@ -75,19 +75,19 @@ export function validateV2Task(value: unknown, filenameId: string): V2CanonicalT
   if (!isSortedStrings(value.tags, slug)) invalidTask("tags");
   if (value.parentId !== null && (typeof value.parentId !== "string" || !matchesEntireString(value.parentId, safeId))) invalidTask("parentId");
   if (!isSortedStrings(value.dependencyIds, safeId)) invalidTask("dependencyIds");
-  if (!isV2OrderKey(value.orderKey)) invalidTask("orderKey");
-  if (!isV2Timestamp(value.createdAt) || !isV2Timestamp(value.updatedAt)) invalidTask("timestamps");
+  if (!isOrderKey(value.orderKey)) invalidTask("orderKey");
+  if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt)) invalidTask("timestamps");
   const terminal = value.status === "done" || value.status === "canceled";
-  if (terminal ? !isV2Timestamp(value.closedAt) : value.closedAt !== null) invalidTask("closedAt/status");
-  return value as V2CanonicalTask;
+  if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null) invalidTask("closedAt/status");
+  return value as CanonicalTask;
 }
 
-export function compareV2Tasks(left: V2CanonicalTask, right: V2CanonicalTask): number {
+export function compareTasks(left: CanonicalTask, right: CanonicalTask): number {
   if (left.orderKey !== right.orderKey) return left.orderKey < right.orderKey ? -1 : 1;
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 
-export class V2GraphError extends CommandError {
+export class GraphError extends CommandError {
   readonly taskId: string;
   readonly relation: "parentId" | "dependencyIds";
 
@@ -98,7 +98,7 @@ export class V2GraphError extends CommandError {
   }
 }
 
-export function validateV2Graph(tasks: readonly Pick<V2CanonicalTask, "id" | "parentId" | "dependencyIds">[]): void {
+export function validateGraph(tasks: readonly Pick<CanonicalTask, "id" | "parentId" | "dependencyIds">[]): void {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   if (byId.size !== tasks.length) invalidTask("duplicate IDs");
   // Walk edge kinds separately: a parent/dependency combination is not itself a forbidden cycle.
@@ -112,7 +112,7 @@ export function validateV2Graph(tasks: readonly Pick<V2CanonicalTask, "id" | "pa
         if (current.exit) { active.delete(current.id); complete.add(current.id); continue; }
         if (complete.has(current.id)) continue;
         const record = byId.get(current.id);
-        if (!record || active.has(current.id)) throw new V2GraphError(current.id, relation);
+        if (!record || active.has(current.id)) throw new GraphError(current.id, relation);
         active.add(current.id);
         stack.push({ id: current.id, exit: true });
         const targets = relation === "dependencyIds" ? record.dependencyIds : record.parentId === null ? [] : [record.parentId];

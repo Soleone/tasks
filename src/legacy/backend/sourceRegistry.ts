@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "../../backend/errors.js";
 
-export type TaskDbV1Source = {
+export type TaskDbSchema1Source = {
   key: string;
   label: string;
   databasePath: string;
@@ -12,7 +12,7 @@ export type TaskDbV1Source = {
 export type TaskSourceRegistry = {
   path: string;
   defaultSourceKey?: string;
-  sources: TaskDbV1Source[];
+  sources: TaskDbSchema1Source[];
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -55,7 +55,7 @@ export function readSourceRegistry(filePath: string): TaskSourceRegistry {
   const keys = new Set<string>();
   const databasePaths = new Set<string>();
   const syncRoots = new Set<string>();
-  const sources = value.sources.map((entry, index): TaskDbV1Source => {
+  const sources = value.sources.map((entry, index): TaskDbSchema1Source => {
     if (!isRecord(entry)) {
       throw new CommandError("INVALID_SOURCE_REGISTRY", `sources[${index}] must be an object`);
     }

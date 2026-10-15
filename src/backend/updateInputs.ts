@@ -1,9 +1,9 @@
 import { CommandError } from "./errors.js";
-import { assertV2Args } from "./protocol.js";
-import { validateV2Task } from "./taskModel.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { assertArgs } from "./protocol.js";
+import { validateTask } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
 
-export type V2UpdateInput = { id: string; expectedVersion: number; patch: Partial<Pick<V2CanonicalTask, "title" | "description" | "priority" | "category" | "tags">> };
+export type UpdateInput = { id: string; expectedVersion: number; patch: Partial<Pick<CanonicalTask, "title" | "description" | "priority" | "category" | "tags">> };
 const slugPattern = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 
 function invalidInput(field: string): never {
@@ -17,7 +17,7 @@ function slugInput(value: unknown): string {
   return slug;
 }
 
-export function parseV2Shorthand(input: string): Pick<V2CanonicalTask, "title" | "category" | "tags"> {
+export function parseShorthand(input: string): Pick<CanonicalTask, "title" | "category" | "tags"> {
   let decoded = "";
   const protectedUnits: boolean[] = [];
   const append = (value: string, protect: boolean): void => {
@@ -65,12 +65,12 @@ export function parseV2Shorthand(input: string): Pick<V2CanonicalTask, "title" |
   return { title: title.trim(), category: [...categories][0] ?? null, tags: [...tags].sort() };
 }
 
-export function parseV2ContentPatch(args: Record<string, unknown>): V2UpdateInput["patch"] {
+export function parseContentPatch(args: Record<string, unknown>): UpdateInput["patch"] {
   if (args.text !== undefined && ["title", "category", "tags"].some(field => args[field] !== undefined)) invalidInput("mixed text/classification");
-  const patch: V2UpdateInput["patch"] = {};
+  const patch: UpdateInput["patch"] = {};
   if (args.text !== undefined) {
     if (typeof args.text !== "string") invalidInput("text");
-    Object.assign(patch, parseV2Shorthand(args.text));
+    Object.assign(patch, parseShorthand(args.text));
   }
   if (args.title !== undefined) {
     if (typeof args.title !== "string") invalidInput("title");
@@ -83,7 +83,7 @@ export function parseV2ContentPatch(args: Record<string, unknown>): V2UpdateInpu
   }
   if (args.priority !== undefined) {
     if (!Number.isInteger(args.priority) || (args.priority as number) < 0 || (args.priority as number) > 4) invalidInput("priority");
-    patch.priority = args.priority as V2CanonicalTask["priority"];
+    patch.priority = args.priority as CanonicalTask["priority"];
   }
   if (args.category !== undefined) patch.category = args.category === null ? null : slugInput(args.category);
   if (args.tags !== undefined) {
@@ -93,7 +93,7 @@ export function parseV2ContentPatch(args: Record<string, unknown>): V2UpdateInpu
   return patch;
 }
 
-export function parseV2TaskVersion(args: Record<string, unknown>): { id: string; expectedVersion: number } {
+export function parseTaskVersion(args: Record<string, unknown>): { id: string; expectedVersion: number } {
   if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) invalidInput("id");
   if (!Number.isSafeInteger(args.expectedVersion) || (args.expectedVersion as number) <= 0) {
     throw new CommandError("EXPECTED_VERSION_REQUIRED", "positive safe expectedVersion is required");
@@ -101,14 +101,14 @@ export function parseV2TaskVersion(args: Record<string, unknown>): { id: string;
   return { id: args.id, expectedVersion: args.expectedVersion as number };
 }
 
-export function parseV2Update(args: Record<string, unknown>): V2UpdateInput {
-  assertV2Args(args, ["id", "expectedVersion", "title", "text", "description", "priority", "category", "tags"]);
-  return { ...parseV2TaskVersion(args), patch: parseV2ContentPatch(args) };
+export function parseUpdate(args: Record<string, unknown>): UpdateInput {
+  assertArgs(args, ["id", "expectedVersion", "title", "text", "description", "priority", "category", "tags"]);
+  return { ...parseTaskVersion(args), patch: parseContentPatch(args) };
 }
 
-export function applyV2Update(task: V2CanonicalTask, input: V2UpdateInput, at: string): { task: V2CanonicalTask; changed: boolean } {
+export function applyUpdate(task: CanonicalTask, input: UpdateInput, at: string): { task: CanonicalTask; changed: boolean } {
   const next = { ...task, ...input.patch };
   const changed = JSON.stringify(next) !== JSON.stringify(task);
   if (changed) next.updatedAt = at;
-  return { task: validateV2Task(next, task.id), changed };
+  return { task: validateTask(next, task.id), changed };
 }

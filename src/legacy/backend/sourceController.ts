@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { withCanonicalRootPath } from "./canonicalWorkspace.js";
 import { CommandError } from "../../backend/errors.js";
 import type { ProtocolRequest, TaskRecord, TaskRef } from "./protocol.js";
-import type { TaskDbV1Source, TaskSourceRegistry } from "./sourceRegistry.js";
+import type { TaskDbSchema1Source, TaskSourceRegistry } from "./sourceRegistry.js";
 
 type SingleWorkspaceExecutor = (request: ProtocolRequest, databasePath: string) => Record<string, unknown>;
-type ResolvedSource = TaskDbV1Source & { workspaceId: string; info: Record<string, unknown> };
+type ResolvedSource = TaskDbSchema1Source & { workspaceId: string; info: Record<string, unknown> };
 type ListedTask = { sourceKey: string; task: TaskRecord; sourceOrder: number };
 
 const TASK_CAPABILITIES = {
@@ -50,7 +50,7 @@ function internalRequest(command: ProtocolRequest["command"], args: Record<strin
 
 function executeSource(
   request: ProtocolRequest,
-  source: TaskDbV1Source,
+  source: TaskDbSchema1Source,
   executeSingle: SingleWorkspaceExecutor,
 ): Record<string, unknown> {
   return withCanonicalRootPath(source.databasePath, source.syncRoot, () => executeSingle(request, source.databasePath));

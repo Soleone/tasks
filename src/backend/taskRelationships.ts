@@ -1,21 +1,21 @@
 import { generateKeyBetween } from "fractional-indexing";
 import { canonicalJson } from "./canonicalJson.js";
 import { CommandError } from "./errors.js";
-import { assertV2Args } from "./protocol.js";
-import { compareV2Tasks, isV2OrderKey, validateV2Graph, validateV2Task, V2GraphError } from "./taskModel.js";
-import type { V2CanonicalTask } from "./taskModel.js";
-import { parseV2TaskVersion } from "./updateInputs.js";
+import { assertArgs } from "./protocol.js";
+import { compareTasks, isOrderKey, validateGraph, validateTask, GraphError } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
+import { parseTaskVersion } from "./updateInputs.js";
 
-export const V2_RELATIONSHIP_COMMANDS = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
-export type V2RelationshipInput = { id: string; expectedVersion: number } & (
+export const RELATIONSHIP_COMMANDS = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
+export type RelationshipInput = { id: string; expectedVersion: number } & (
   | { kind: "parent"; parentId: string | null }
   | { kind: "add" | "remove"; dependsOnId: string }
 );
 
-export function parseV2Relationship(command: string, args: Record<string, unknown>): V2RelationshipInput {
+export function parseRelationship(command: string, args: Record<string, unknown>): RelationshipInput {
   const parent = command === "task.move";
-  assertV2Args(args, ["id", "expectedVersion", parent ? "parentId" : "dependsOnId"]);
-  const reference = parseV2TaskVersion(args);
+  assertArgs(args, ["id", "expectedVersion", parent ? "parentId" : "dependsOnId"]);
+  const reference = parseTaskVersion(args);
   if (parent) {
     if (args.parentId !== null && (typeof args.parentId !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.parentId))) throw new CommandError("INVALID_ARGUMENT", "parentId must be a safe task ID or explicit null");
     return { ...reference, kind: "parent", parentId: args.parentId as string | null };
@@ -25,7 +25,7 @@ export function parseV2Relationship(command: string, args: Record<string, unknow
   return { ...reference, kind: command === "task.dependency.add" ? "add" : "remove", dependsOnId: args.dependsOnId };
 }
 
-function relationshipPatch(task: V2CanonicalTask, input: V2RelationshipInput): Partial<Pick<V2CanonicalTask, "parentId" | "dependencyIds">> | undefined {
+function relationshipPatch(task: CanonicalTask, input: RelationshipInput): Partial<Pick<CanonicalTask, "parentId" | "dependencyIds">> | undefined {
   if (input.kind === "parent") return task.parentId === input.parentId ? undefined : { parentId: input.parentId };
   const exists = task.dependencyIds.includes(input.dependsOnId);
   if (exists === (input.kind === "add")) return undefined;
@@ -33,7 +33,7 @@ function relationshipPatch(task: V2CanonicalTask, input: V2RelationshipInput): P
 }
 
 /** Validate fixed local effects without requiring live files for pending inspection or historical replay. */
-export function matchesV2RelationshipEffect(before: V2CanonicalTask, next: V2CanonicalTask, input: V2RelationshipInput, at: string): boolean {
+export function matchesRelationshipEffect(before: CanonicalTask, next: CanonicalTask, input: RelationshipInput, at: string): boolean {
   const patch = relationshipPatch(before, input);
   if (!patch) return false;
   const expected = { ...before, ...patch, updatedAt: at, ...(input.kind === "parent" ? { orderKey: next.orderKey } : {}) };
@@ -41,7 +41,7 @@ export function matchesV2RelationshipEffect(before: V2CanonicalTask, next: V2Can
   return canonicalJson(expected) === canonicalJson(next);
 }
 
-export function applyV2Relationship(task: V2CanonicalTask, input: V2RelationshipInput, tasks: V2CanonicalTask[], at: string): { task: V2CanonicalTask; changed: boolean } {
+export function applyRelationship(task: CanonicalTask, input: RelationshipInput, tasks: CanonicalTask[], at: string): { task: CanonicalTask; changed: boolean } {
   const patch = relationshipPatch(task, input);
   if (!patch) return { task, changed: false };
   const targetId = input.kind === "parent" ? input.parentId : input.kind === "add" ? input.dependsOnId : null;
@@ -50,15 +50,15 @@ export function applyV2Relationship(task: V2CanonicalTask, input: V2Relationship
     if (!target || target.status === "canceled") throw new CommandError(input.kind === "parent" ? "INVALID_PARENT" : "INVALID_DEPENDENCY", "new relationship target must exist and not be canceled");
   }
   let next = { ...task, ...patch, updatedAt: at };
-  try { validateV2Graph(tasks.map(record => record.id === task.id ? next : record)); } catch (error) {
-    if (error instanceof V2GraphError) throw new CommandError(error.relation === "parentId" ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE", "prospective relationship graph has a cycle");
+  try { validateGraph(tasks.map(record => record.id === task.id ? next : record)); } catch (error) {
+    if (error instanceof GraphError) throw new CommandError(error.relation === "parentId" ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE", "prospective relationship graph has a cycle");
     throw error;
   }
   if (input.kind === "parent") {
-    const first = tasks.filter(record => record.parentId === input.parentId).sort(compareV2Tasks)[0];
+    const first = tasks.filter(record => record.parentId === input.parentId).sort(compareTasks)[0];
     const orderKey = generateKeyBetween(null, first?.orderKey ?? null);
-    if (!isV2OrderKey(orderKey)) throw new CommandError("ORDER_KEY_LIMIT", "first-position allocation exceeds the canonical key limit");
+    if (!isOrderKey(orderKey)) throw new CommandError("ORDER_KEY_LIMIT", "first-position allocation exceeds the canonical key limit");
     next = { ...next, orderKey };
   }
-  return { task: validateV2Task(next, task.id), changed: true };
+  return { task: validateTask(next, task.id), changed: true };
 }

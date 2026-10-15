@@ -10,9 +10,9 @@ import { startDevServer } from "../dist/backend/devServer.js";
 import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundle = await build({ entryPoints: ["src/platform/editorClient.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { V2EditorClient, V2PreparedEdit, readV2EditorSelection } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+const { EditorClient, PreparedEdit, readEditorSelection } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 const readerBundle = await build({ entryPoints: ["src/platform/workspaceReader.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { readV2DevSelection } = await import(`data:text/javascript;base64,${Buffer.from(readerBundle.outputFiles[0].text).toString("base64")}`);
+const { readDevSelection } = await import(`data:text/javascript;base64,${Buffer.from(readerBundle.outputFiles[0].text).toString("base64")}`);
 const literal = { title: "Call @alice #literal", description: "## @literal\n#not-classification", category: "WORK", tags: ["TODO", "alpha"], priority: 2 };
 const closedId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const statusCommands = ["task.start", "task.pause", "task.complete", "task.reopen", "task.cancel", "task.delete"];
@@ -42,8 +42,8 @@ function counts(cache) {
 async function server(t, selected, v2Edit = true) {
   const dev = await startDevServer({ port: 0, v2Root: selected.root, databasePath: selected.cache, v2Edit });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  const handshake = await (v2Edit ? readV2EditorSelection(dev.url) : readV2DevSelection(dev.url));
-  return { dev, handshake, editor: v2Edit ? new V2EditorClient(dev.url, handshake) : null };
+  const handshake = await (v2Edit ? readEditorSelection(dev.url) : readDevSelection(dev.url));
+  return { dev, handshake, editor: v2Edit ? new EditorClient(dev.url, handshake) : null };
 }
 function traceFetch(t, alter) {
   const original = globalThis.fetch, calls = [];
@@ -75,10 +75,10 @@ test("editor/read-only handshakes cannot silently cross modes; health creates no
   assert.equal(writable.handshake.readOnly, false);
   assert.deepEqual(writable.handshake.writeCommands, linuxEditorCommands);
   assert.equal(existsSync(selected.cache), false); assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
-  await assert.rejects(readV2DevSelection(writable.dev.url), /No v1 fallback/);
+  await assert.rejects(readDevSelection(writable.dev.url), /No v1 fallback/);
   const readonly = await server(t, selected, false);
-  await assert.rejects(readV2EditorSelection(readonly.dev.url), /--v2-edit/);
-  assert.throws(() => new V2EditorClient(readonly.dev.url, readonly.handshake), /--v2-edit/);
+  await assert.rejects(readEditorSelection(readonly.dev.url), /--v2-edit/);
+  assert.throws(() => new EditorClient(readonly.dev.url, readonly.handshake), /--v2-edit/);
   assert.deepEqual(bytes(selected.root), original);
 });
 
@@ -93,7 +93,7 @@ test("editor health requires the exact connected-command whitelist, not comma co
   let writeCommands;
   traceFetch(t, async response => { const body = await response.json(); return new Response(JSON.stringify({ ...body, writeCommands })); });
   const allowed = linuxEditorCommands, native = allowed.slice(0, -6);
-  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -2), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readV2EditorSelection(dev.url), /explicitly enabled/);
+  for (writeCommands of [native, ["task.create,task.update"], ["task.update", "task.create"], ["task.create", "task.update", "workspace.recovery.resume"], [], ["task.create", null], [...allowed].reverse(), allowed.slice(0, -2), allowed.slice(0, -1), [...allowed.slice(0, -1), "task.order.normalize"], [...allowed.slice(0, -1), "task.start"]]) await assert.rejects(readEditorSelection(dev.url), /explicitly enabled/);
   assert.equal(existsSync(selected.cache), false);
 });
 
@@ -254,13 +254,13 @@ test("profile selection change is refused before gateway/cache access rather tha
 
 test("prepared requests copy caller payload/selection and reject absent original authority", async t => {
   const selected = workspace(t), { dev, handshake } = await server(t, selected);
-  const caller = structuredClone(handshake), editor = new V2EditorClient(dev.url, caller);
+  const caller = structuredClone(handshake), editor = new EditorClient(dev.url, caller);
   const baseline = await editor.begin(); const prepared = editor.prepare(baseline, literal);
   caller.rootPath = "/wrong"; caller.databasePath = "/wrong"; caller.profilePath = "/wrong"; caller.selectionToken = "wrong";
   const metadata = JSON.parse(prepared.retryMetadata); assert.equal(metadata.rootPath, selected.root); assert.equal(metadata.databasePath, selected.cache);
   assert.equal((await prepared.execute()).task.title, literal.title);
   const request = JSON.parse(prepared.originalRequest);
-  for (const changes of [{ writeContext: undefined }, { idempotencyKey: undefined }, { requestId: undefined }, { requestId: "" }, { readOnly: true }, { dryRun: true }, { command: "task.move" }, { command: "task.update", args: { id: closedId, expectedVersion: 0, title: "bad" } }]) assert.throws(() => new V2PreparedEdit(dev.url, handshake, { ...request, ...changes }));
+  for (const changes of [{ writeContext: undefined }, { idempotencyKey: undefined }, { requestId: undefined }, { requestId: "" }, { readOnly: true }, { dryRun: true }, { command: "task.move" }, { command: "task.update", args: { id: closedId, expectedVersion: 0, title: "bad" } }]) assert.throws(() => new PreparedEdit(dev.url, handshake, { ...request, ...changes }));
 });
 
 test("parallel execute cannot issue a second request while the original is in flight", async t => {
@@ -305,7 +305,7 @@ for (const kind of ["empty", "v1"]) {
 test("native editor construction is refused without launching any v1/v2 process", async t => {
   const selected = workspace(t), { dev, handshake } = await server(t, selected);
   const originalWindow = globalThis.window; globalThis.window = { __TAURI_INTERNALS__: {} };
-  try { assert.throws(() => new V2EditorClient(dev.url, handshake), /browser-only; no native sidecar/); }
+  try { assert.throws(() => new EditorClient(dev.url, handshake), /browser-only; no native sidecar/); }
   finally { if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow; }
   assert.equal(existsSync(selected.cache), false);
 });
@@ -462,9 +462,9 @@ for (const command of ["task.create", "task.update", ...statusCommands]) {
       const selected = workspace(t);
       const originalTask = JSON.parse(readFileSync(path.join(selected.root, "tasks", `${closedId}.json`), "utf8"));
       if (statusCommands.includes(command)) writeFileSync(path.join(selected.root, "tasks", `${closedId}.json`), JSON.stringify({ ...originalTask, status: statusSources[command], closedAt: statusSources[command] === "done" ? originalTask.closedAt : null }) + "\n");
-      const { inspectV2CanonicalRoot } = await import("../dist/backend/canonicalReader.js");
-      const { pendingV2Path } = await import("../dist/backend/localDomain.js");
-      const pendingPath = pendingV2Path(inspectV2CanonicalRoot(selected.root));
+      const { inspectCanonicalRoot } = await import("../dist/backend/canonicalReader.js");
+      const { pendingIntentPath } = await import("../dist/backend/localDomain.js");
+      const pendingPath = pendingIntentPath(inspectCanonicalRoot(selected.root));
       const loader = path.join(selected.directory, "cut.mjs");
       writeFileSync(loader, `import { registerHooks } from 'node:module'; import fs from 'node:fs'; import { DatabaseSync } from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pendingPath)}, command=${JSON.stringify(command)};
@@ -472,15 +472,15 @@ if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.
 registerHooks({load(url,context,next){const result=next(url,context); if(!result.source)return result; let source=String(result.source); function replace(marker){if(source.split(marker).length!==2)throw Error('fault marker not unique: '+marker); source=source.replace(marker,marker+'\\nprocess.kill(process.pid,"SIGKILL");');}
 if(cut==='intent'&&url.endsWith('/localDomain.js'))replace('renameSync(temporary, pending);');
 if(command==='task.create'&&url.endsWith('/createWriter.js')){
- const marker='writeV2DurableFile(stage, bytes);';if(source.split(marker).length!==2)throw Error('unique stage marker required');source=source.replace(marker,marker+'globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
+ const marker='writeDurableFile(stage, bytes);';if(source.split(marker).length!==2)throw Error('unique stage marker required');source=source.replace(marker,marker+'globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
  if(cut==='published')replace('renameSync(stage, target);');
 }
 if(cut==='published'&&command!=='task.create'&&url.endsWith('/updateJournal.js'))replace('renameSync(temporary, target);');
-if(cut==='lostReply'&&url.endsWith('/devServer.js')){const marker='const result = executeDevV2Command(body, selection, request.headers["x-taskdb-selection"]);';if(source.split(marker).length!==2)throw Error('HTTP fault marker missing');source=source.replace(marker,marker+'\\nif(JSON.parse(body).command===command&&!JSON.parse(body).dryRun&&!JSON.parse(body).readOnly)process.kill(process.pid,"SIGKILL");'.replace('===command','==='+JSON.stringify(command)));}
+if(cut==='lostReply'&&url.endsWith('/devServer.js')){const marker='const result = executeDevCommand(body, selection, request.headers["x-taskdb-selection"]);';if(source.split(marker).length!==2)throw Error('HTTP fault marker missing');source=source.replace(marker,marker+'\\nif(JSON.parse(body).command===command&&!JSON.parse(body).dryRun&&!JSON.parse(body).readOnly)process.kill(process.pid,"SIGKILL");'.replace('===command','==='+JSON.stringify(command)));}
 return {...result,source};}});\n`);
       const initial = await processDev(t, selected, loader);
-      const handshake = await readV2EditorSelection(initial.url);
-      const editor = new V2EditorClient(initial.url, handshake);
+      const handshake = await readEditorSelection(initial.url);
+      const editor = new EditorClient(initial.url, handshake);
       const baseline = await editor.begin(command === "task.create" ? undefined : closedId, statusCommands.includes(command) ? "status" : "content");
       const prepared = statusCommands.includes(command) ? editor.prepareStatus(baseline, command) : editor.prepare(baseline, baseline.task ? { ...baseline.task, title: literal.title } : literal);
       const originalRequest = prepared.originalRequest;
@@ -489,7 +489,7 @@ return {...result,source};}});\n`);
       assert.equal((await initial.closed).signal, "SIGKILL"); assert.equal(prepared.hasExecuted, true);
       assert.equal(prepared.originalRequest, originalRequest);
       const restarted = await processDev(t, selected, undefined, initial.port);
-      await readV2EditorSelection(restarted.url);
+      await readEditorSelection(restarted.url);
       await assert.rejects(prepared.execute(), /STALE_DEV_SELECTION/);
       let fixedId;
       if (existsSync(pendingPath)) {

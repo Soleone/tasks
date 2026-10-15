@@ -5,21 +5,21 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
 
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linuxOnly = { skip: process.platform !== "linux" };
-type Projection = V2CanonicalTask & { version: number; blockedByIds: string[] };
-function send(w: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }
-function success(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: V2Response, code: string) { assert.equal(r.ok, false); if (!r.ok) assert.equal(r.error.code, code, JSON.stringify(r)); }
-function materialize(t: TestContext, records: Record<string, Partial<V2CanonicalTask>> = { a: {} }) {
+type Projection = CanonicalTask & { version: number; blockedByIds: string[] };
+function send(w: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }
+function success(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
+function fail(r: Response, code: string) { assert.equal(r.ok, false); if (!r.ok) assert.equal(r.error.code, code, JSON.stringify(r)); }
+function materialize(t: TestContext, records: Record<string, Partial<CanonicalTask>> = { a: {} }) {
   const w = setup(t);
   for (const f of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", f));
   for (const [id, patch] of Object.entries(records)) writeFileSync(path.join(w.root, "tasks", `${id}.json`), JSON.stringify({ ...corpus.taskTemplate, ...patch, id }));
@@ -32,7 +32,7 @@ function request(w: Workspace, command: string, args: { tasks: { id: string }[] 
   const tasks = new Map((read.result.tasks as Projection[]).map(task => [task.id, task]));
   return { command, args: { ...args, tasks: args.tasks.map(task => ({ ...task, expectedVersion: tasks.get(task.id)!.version })) }, writeContext: read.writeContext, idempotencyKey: "order" };
 }
-function activity(w: Workspace, taskId?: string) { return success(send(w, { command: "activity.list", args: taskId ? { taskId } : {} })).result.activity as { operationId: string; command: string; before: { scope: { id: string; orderKey: string }[]; tasks: V2CanonicalTask[]; selectedIds: string[]; rewrittenIds: string[] }; after: { scope: { id: string; orderKey: string }[]; tasks: V2CanonicalTask[] } }[]; }
+function activity(w: Workspace, taskId?: string) { return success(send(w, { command: "activity.list", args: taskId ? { taskId } : {} })).result.activity as { operationId: string; command: string; before: { scope: { id: string; orderKey: string }[]; tasks: CanonicalTask[]; selectedIds: string[]; rewrittenIds: string[] }; after: { scope: { id: string; orderKey: string }[]; tasks: CanonicalTask[] } }[]; }
 function receipts(w: Workspace) { const db = new DatabaseSync(w.cache); try { return db.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n; } finally { db.close(); } }
 
 for (const id of ["key-overflow", "reorder-tied", "reorder-selected-unchanged", "reorder-noop", "reorder-hidden", "normalize", "normalize-noop", "time-reorder"]) {
@@ -53,7 +53,7 @@ for (const id of ["key-overflow", "reorder-tied", "reorder-selected-unchanged", 
     if (entry.expect.canonicalWrites === 0) assert.deepEqual(raw(w), bytes);
     for (const old of before) {
       const next = after.find(task => task.id === old.id)!;
-      for (const field of Object.keys(corpus.taskTemplate).filter(field => field !== "orderKey")) assert.deepEqual(next[field as keyof V2CanonicalTask], old[field as keyof V2CanonicalTask]);
+      for (const field of Object.keys(corpus.taskTemplate).filter(field => field !== "orderKey")) assert.deepEqual(next[field as keyof CanonicalTask], old[field as keyof CanonicalTask]);
       if (entry.expect.versionsChanged?.includes(old.id)) assert.ok(next.version > old.version);
       if (!(result.rewrittenIds as string[]).includes(old.id)) assert.deepEqual(raw(w).find(([file]) => file === `${old.id}.json`), bytes.find(([file]) => file === `${old.id}.json`));
     }
@@ -70,7 +70,7 @@ for (const id of ["key-overflow", "reorder-tied", "reorder-selected-unchanged", 
 const vectors = corpus.cases.find((entry: { id: string }) => entry.id === "key-vectors");
 for (const [index, vector] of vectors.action.vectors.entries()) {
   test(`public key-vectors allocation ${index} through normalization/reorder with exact declared bounds`, linuxOnly, (t) => {
-    const records: Record<string, Partial<V2CanonicalTask>> = {};
+    const records: Record<string, Partial<CanonicalTask>> = {};
     const selected = Array.from({ length: vector.count }, (_, i) => `s${i}`);
     for (const [i, id] of selected.entries()) records[id] = { orderKey: vector.upper === null && vector.lower !== null ? "Zz" : `a${i + 2}` };
     if (vector.lower !== null) records.lower = { orderKey: vector.lower };
@@ -91,7 +91,7 @@ const supplementalAllocations = [
 for (const vector of supplementalAllocations) {
   test(`public supplemental allocation (${vector.lower},${vector.upper},${vector.count}) preserves literal keys`, linuxOnly, (t) => {
     const selected = Array.from({ length: vector.count }, (_, index) => `s${index}`);
-    const records: Record<string, Partial<V2CanonicalTask>> = Object.fromEntries(selected.map((id, index) => [id, { orderKey: `a${index + 2}` }]));
+    const records: Record<string, Partial<CanonicalTask>> = Object.fromEntries(selected.map((id, index) => [id, { orderKey: `a${index + 2}` }]));
     if (vector.lower !== null) records.lower = { orderKey: vector.lower };
     if (vector.upper !== null) records.upper = { orderKey: vector.upper };
     const w = materialize(t, records);
@@ -207,7 +207,7 @@ test("selection/scope/placement/ref types refuse before writes without selecting
   fail(send(w, { ...req, args: { ...req.args, tasks: [{ id: "absent", expectedVersion: 1 }] } }), "TASK_NOT_FOUND");
   assert.deepEqual(raw(w), before);
   assert.equal(receipts(w), 0);
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);
 });
 
 test("empty normalization and all-matching keys are receipt-only, never a root initializer", linuxOnly, (t) => {
@@ -253,6 +253,6 @@ for (const command of ["task.reorder", "task.order.normalize"]) {
     const w = materialize(t, { a: { orderKey: "a0V" }, b: { orderKey: "a1V" } });
     const req = request(w, command, { tasks: command === "task.reorder" ? [{ id: "a" }] : [{ id: "a" }, { id: "b" }], ...(command === "task.reorder" ? { placement: { last: true } } : { parentId: null }) });
     const db = new DatabaseSync(w.cache);db.prepare("UPDATE v2_query_state SET counter = ?, revision = ?").run(Number.MAX_SAFE_INTEGER - 3, Number.MAX_SAFE_INTEGER - 1);db.close();
-    const before = raw(w);fail(send(w, req), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))), false);
+    const before = raw(w);fail(send(w, req), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);
   });
 }

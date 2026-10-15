@@ -4,22 +4,22 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { createDoctorWorkspace as materialize, doctorCorpus as corpus, doctorRaw as raw } from "./doctorTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { executeV2Line } from "./gateway.js";
-import type { V2Response } from "./protocol.js";
-import type { V2DoctorPlan } from "./doctorPlan.js";
-import type { V2DoctorIssue, V2DoctorLink, V2DoctorVersion } from "./doctorSource.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { executeLine } from "./gateway.js";
+import type { Response } from "./protocol.js";
+import type { DoctorPlan } from "./doctorPlan.js";
+import type { DoctorIssue, DoctorLink, DoctorVersion } from "./doctorSource.js";
 const linux = { skip: process.platform !== "linux" };
-function send(w: Workspace, request: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
-function ok(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r));if (!r.ok) throw Error("failed");return r; }
-function fail(r: V2Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r));if (!r.ok) assert.equal(r.error.code, code); }
-function inspect(w: Workspace) { const response = ok(send(w, { command: "workspace.doctor.inspect" }));return { ...response, result: response.result as { issues: V2DoctorIssue[]; versionRefs: V2DoctorVersion[]; incomingLinks: V2DoctorLink[]; canonicalIds: string[]; applyAvailable: boolean } }; }
+function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
+function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r));if (!r.ok) throw Error("failed");return r; }
+function fail(r: Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r));if (!r.ok) assert.equal(r.error.code, code); }
+function inspect(w: Workspace) { const response = ok(send(w, { command: "workspace.doctor.inspect" }));return { ...response, result: response.result as { issues: DoctorIssue[]; versionRefs: DoctorVersion[]; incomingLinks: DoctorLink[]; canonicalIds: string[]; applyAvailable: boolean } }; }
 function keep(w: Workspace, chooseAlternate = false) {
   const response = inspect(w), issue = response.result.issues.find(issue => issue.code === "CONFLICT_COPY")!;
   const version = response.result.versionRefs.find(version => version.taskId === issue.taskId && version.canonical !== chooseAlternate)!;
   return { command: "workspace.doctor.plan", writeContext: response.writeContext, idempotencyKey: "plan", args: { kind: "keep-both", issueIds: [issue.issueId!], canonicalVersions: [{ issueId: issue.issueId!, versionRef: version.versionRef }], linkChoices: [] as object[] }, actor: { kind: "human", label: "review test" } };
 }
-function retained(w: Workspace, planId: unknown): V2DoctorPlan { const db = new DatabaseSync(w.cache);try { return JSON.parse(db.prepare("SELECT payload FROM v2_doctor_plans WHERE id = ?").get(planId as string)!.payload as string); } finally { db.close(); } }
+function retained(w: Workspace, planId: unknown): DoctorPlan { const db = new DatabaseSync(w.cache);try { return JSON.parse(db.prepare("SELECT payload FROM v2_doctor_plans WHERE id = ?").get(planId as string)!.payload as string); } finally { db.close(); } }
 function counts(w: Workspace) { const db = new DatabaseSync(w.cache);try { return ["v2_doctor_plans", "v2_receipts", "v2_operations"].map(table => db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n); } finally { db.close(); } }
 
 for (const id of ["join-conflict", "edit-delete", "doctor-ambiguous"]) test(`doctor controls execute original corpus ${id}`, linux, t => {
@@ -27,7 +27,7 @@ for (const id of ["join-conflict", "edit-delete", "doctor-ambiguous"]) test(`doc
   const w = materialize(t, entry.given.records ?? { a: entry.given.patch ?? {} }, { [conflict.id]: conflict.alternate }), before = raw(w);
   const response = entry.action.command === "workspace.doctor.plan" ? send(w, { ...keep(w), actor: { kind: "agent", label: "cli" } }) : send(w, { command: entry.action.command, args: entry.action.args });
   if (entry.expect.error) { fail(response, entry.expect.error);assert.deepEqual(counts(w), [0, 0, 0]); }
-  else { const result = ok(response).result;assert.deepEqual(result.canonicalIds, entry.expect.canonicalIds);if (entry.expect.unresolvedIssues) assert.equal((result.issues as V2DoctorIssue[]).length, entry.expect.unresolvedIssues);for (const missing of entry.expect.notResurrected ?? []) assert.equal(existsSync(path.join(w.root, "tasks", `${missing}.json`)), false); }
+  else { const result = ok(response).result;assert.deepEqual(result.canonicalIds, entry.expect.canonicalIds);if (entry.expect.unresolvedIssues) assert.equal((result.issues as DoctorIssue[]).length, entry.expect.unresolvedIssues);for (const missing of entry.expect.notResurrected ?? []) assert.equal(existsSync(path.join(w.root, "tasks", `${missing}.json`)), false); }
   assert.deepEqual(raw(w), before);
 });
 test("stable exact path/ID/byte refs inspect all valid versions and never project them as duplicate canonical tasks", linux, t => {

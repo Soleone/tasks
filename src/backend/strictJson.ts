@@ -73,7 +73,7 @@ function rejectDuplicateMembers(text: string): void {
   valueToken();
 }
 
-export function parseV2CanonicalJson(bytes: Uint8Array): unknown {
+export function parseCanonicalJson(bytes: Uint8Array): unknown {
   try {
     const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
     const value: unknown = JSON.parse(text);

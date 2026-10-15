@@ -5,11 +5,11 @@ import { toast as sonnerToast } from "sonner";
 import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
-import { V2EditorError } from "@/platform/editorClient";
-import type { V2UndoEntry } from "@/platform/undoHistory";
+import { EditorError } from "@/platform/editorClient";
+import type { UndoEntry } from "@/platform/undoHistory";
 import type { ClassificationToken, TagRecord, TaskPriority, TaskRecord, TaskStatus, ThemeRecord } from "@/legacy/backend/protocol";
 import { classifyTaskText } from "@/backend/taskText";
-import { parseV2Shorthand } from "@/backend/updateInputs";
+import { parseShorthand } from "@/backend/updateInputs";
 import type { TaskView } from "@/components/taskView";
 import { compareTasksForViewSort, presetStatuses, sortSummary, taskMatchesViewFilters, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
@@ -139,7 +139,7 @@ function readHelpMode(): KeyboardHelpMode {
   return "full";
 }
 
-type OperationUndoEntry = V2UndoEntry & { expectedVersion?: number };
+type OperationUndoEntry = UndoEntry & { expectedVersion?: number };
 
 type ToastDisplayOptions = {
   icon?: LucideIcon;
@@ -966,8 +966,8 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       showToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
-      if ((caught instanceof BackendCommandError || caught instanceof V2EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND"
-        || (caught instanceof V2EditorError && (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))) {
+      if ((caught instanceof BackendCommandError || caught instanceof EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND"
+        || (caught instanceof EditorError && (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))) {
         retireUndo(entry);
         setExitingTaskIds(new Set());
         setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
@@ -997,7 +997,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   }, [newTaskId]);
 
   function showOptimisticCreate(draft: TaskCreateDraft): void {
-    const literal = workspace ? parseV2Shorthand(draft.title) : null;
+    const literal = workspace ? parseShorthand(draft.title) : null;
     const classification = literal ? {
       category: literal.category === null ? null : { slug: literal.category, label: literal.category },
       tags: literal.tags.map(slug => ({ slug, label: slug })),

@@ -4,13 +4,13 @@ import test from "node:test";
 import { build } from "esbuild";
 import { nativePilotConfig, nativePilotSelection, resolveNativePilotSelection } from "./native-pilot-options.mjs";
 
-const bundle = await build({ stdin: { contents: `export * from './src/platform/nativeSelection';export * from './src/platform/workspaceReader';export * from './src/platform/editorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseV2Response} from './src/backend/protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseV2Shorthand} from './src/backend/updateInputs';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
-const { parseV2NativeSelection, validateV2NativeSelection, v2NativeSidecarArgs, V2_NATIVE_COMMANDS, V2_EDITOR_COMMANDS, V2_LINUX_EDITOR_COMMANDS, V2WorkspaceReader, V2EditorClient, V2EditorError, V2PreparedEdit, JsonLineSession, parseV2Response, MainWorkspace, taskView, inlineTaskText, parseV2Shorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
+const bundle = await build({ stdin: { contents: `export * from './src/platform/nativeSelection';export * from './src/platform/workspaceReader';export * from './src/platform/editorClient';export {JsonLineSession} from './src/platform/backendSession';export {parseResponse} from './src/backend/protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseShorthand} from './src/backend/updateInputs';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
+const { parseNativeSelection, validateNativeSelection, nativeSidecarArgs, NATIVE_COMMANDS, EDITOR_COMMANDS, LINUX_EDITOR_COMMANDS, WorkspaceReader, EditorClient, EditorError, PreparedEdit, JsonLineSession, parseResponse, MainWorkspace, taskView, inlineTaskText, parseShorthand } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`);
 const selection = { rootPath: "C:\\proof\\root", databasePath: "C:\\proof\\cache.db", profilePath: "C:\\proof\\profile" };
 const argv = ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
-const editorSelection = { ...selection, version: 2, readOnly: false, selectionToken: "native-memory-selection", writeCommands: V2_EDITOR_COMMANDS };
+const editorSelection = { ...selection, version: 2, readOnly: false, selectionToken: "native-memory-selection", writeCommands: EDITOR_COMMANDS };
 const task = { ...JSON.parse(readFileSync("scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json")), version: 1, blockedByIds: [] };
-const info = { state: "ready", schemaVersion: 2, commands: V2_NATIVE_COMMANDS, issues: [], pendingOperationId: null, workspaceRevision: 1 };
+const info = { state: "ready", schemaVersion: 2, commands: NATIVE_COMMANDS, issues: [], pendingOperationId: null, workspaceRevision: 1 };
 
 function desktop(t, android = false) {
   const beforeWindow = Object.getOwnPropertyDescriptor(globalThis, "window"), beforeNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator"), beforeFetch = globalThis.fetch;
@@ -26,7 +26,7 @@ function desktop(t, android = false) {
 function sessionFixture(t, respond) {
   const requests = [], launches = []; let kills = 0;
   const session = new JsonLineSession(async () => {
-    launches.push(v2NativeSidecarArgs(selection));
+    launches.push(nativeSidecarArgs(selection));
     let stdout, close;
     return { stdout: { on(_event, callback) { stdout = callback; } }, on(event, callback) { if (event === "close") close = callback; },
       async spawn() { return {
@@ -34,16 +34,16 @@ function sessionFixture(t, respond) {
         async kill() { kills++; },
       }; },
     };
-  }, parseV2Response);
+  }, parseResponse);
   t.after(() => session.close());
   return { session, requests, launches, kills: () => kills };
 }
 
  test("native pilot freezes three explicit paths and constructs exactly eight positions", () => {
-  const parsed = parseV2NativeSelection(selection); assert.deepEqual(parsed, selection); assert.equal(Object.isFrozen(parsed), true);
-  assert.deepEqual(v2NativeSidecarArgs(parsed), argv);
+  const parsed = parseNativeSelection(selection); assert.deepEqual(parsed, selection); assert.equal(Object.isFrozen(parsed), true);
+  assert.deepEqual(nativeSidecarArgs(parsed), argv);
   assert.deepEqual(nativePilotSelection(["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath]), selection);
-  for (const candidate of [null, [], {}, { ...selection, extra: true }]) assert.throws(() => parseV2NativeSelection(candidate));
+  for (const candidate of [null, [], {}, { ...selection, extra: true }]) assert.throws(() => parseNativeSelection(candidate));
   for (const flags of [[], argv, ["--v2-root", selection.rootPath, "--local-profile", selection.profilePath, "--database", selection.databasePath], ["--v2-root", selection.rootPath, "--database", selection.databasePath, "--local-profile", selection.profilePath, "--config", "other"]]) assert.throws(() => nativePilotSelection(flags));
 });
 test("native launcher refuses package-runner separator corruption rather than repairing selected paths", () => {
@@ -58,17 +58,17 @@ test("native launcher refuses package-runner separator corruption rather than re
 });
 for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other", "/tmp/root", "\\\\server\\share", "\\\\?\\C:\\root", "C:/root", "C:\\root/other", "C:\\root\n", "C:\\root\r", "C:\\root\u0000", "C:\\root\\..\\other", "C:\\root\\.", "C:\\root\\", "C:\\root ", "C:\\root.", "C:\\root:stream", "C:\\root?", "C:\\root|other", "C:\\CON", "C:\\nul.db", "C:\\COM1", "C:\\LPT².txt", "C:\\CONOUT$"]) {
   test(`native path admission refuses ${JSON.stringify(filename)} before any launch`, () => {
-    for (const field of Object.keys(selection)) assert.throws(() => v2NativeSidecarArgs({ ...selection, [field]: filename }));
+    for (const field of Object.keys(selection)) assert.throws(() => nativeSidecarArgs({ ...selection, [field]: filename }));
   });
 }
  test("native path admission measures complete cache and physical-root lock journal paths", () => {
   const lockSuffix = `\\com.soleone.tasks\\taskdb-v2\\roots\\${"0".repeat(64)}\\lock.db-journal`;
   const atBoundary = "C:\\" + "p".repeat(259 - lockSuffix.length - 3);
-  validateV2NativeSelection({ ...selection, profilePath: atBoundary });
-  assert.throws(() => validateV2NativeSelection({ ...selection, profilePath: atBoundary + "p" }), /complete SQLite/);
+  validateNativeSelection({ ...selection, profilePath: atBoundary });
+  assert.throws(() => validateNativeSelection({ ...selection, profilePath: atBoundary + "p" }), /complete SQLite/);
   const cache = "C:\\" + "c".repeat(259 - "-journal".length - 3);
-  validateV2NativeSelection({ ...selection, databasePath: cache });
-  assert.throws(() => validateV2NativeSelection({ ...selection, databasePath: cache + "c" }), /complete SQLite/);
+  validateNativeSelection({ ...selection, databasePath: cache });
+  assert.throws(() => validateNativeSelection({ ...selection, databasePath: cache + "c" }), /complete SQLite/);
   if (process.platform !== "win32") assert.throws(() => resolveNativePilotSelection(selection), /actual Windows/);
 });
  test("pilot overlay selects one Windows local/main capability and one exact scoped sidecar", () => {
@@ -93,7 +93,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
  test("reader and editor share one selected native session without HTTP or duplicate sidecars", async t => {
   desktop(t);
   const state = sessionFixture(t, request => request.command === "workspace.info" ? info : request.command === "task.get" ? { task } : { task: { ...task, title: request.args.title }, changed: true, operationId: "native-operation" });
-  const reader = new V2WorkspaceReader(selection, undefined, state.session), editor = new V2EditorClient(state.session, editorSelection);
+  const reader = new WorkspaceReader(selection, undefined, state.session), editor = new EditorClient(state.session, editorSelection);
   await reader.workspaceInfo(); const baseline = await editor.begin(task.id);
   const prepared = editor.prepare(baseline, { ...task, title: "Native content" }); const original = prepared.originalRequest;
   await prepared.execute(); await prepared.execute(); assert.equal(prepared.originalRequest, original);
@@ -102,16 +102,16 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
 });
  test("native unsupported relationship/grouped controls refuse before queries or preparation", async t => {
   desktop(t); const state = sessionFixture(t, () => { throw new Error("No request expected"); });
-  assert.equal(V2_EDITOR_COMMANDS.includes("task.move"), false);
-  assert.throws(() => new V2EditorClient(state.session, { ...editorSelection, writeCommands: V2_LINUX_EDITOR_COMMANDS }), /explicitly enabled/);
-  const native = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
-  assert.deepEqual([native.supportsRelationships, native.supportsOrdering, native.supportsOperationUndo, V2_EDITOR_COMMANDS.includes("task.reorder")], [false, false, false, false]);
-  for (const command of ["task.move", "task.transitionMany", "operation.undo", "workspace.archive", "workspace.restore", "workspace.recovery.resume"]) assert.throws(() => new V2PreparedEdit(state.session, editorSelection, { version: 2, command, requestId: "r", writeContext: "native-context", idempotencyKey: "k", actor: { kind: "human", label: "native" }, readOnly: false, dryRun: false, args: { id: task.id, expectedVersion: 1 } }));
+  assert.equal(EDITOR_COMMANDS.includes("task.move"), false);
+  assert.throws(() => new EditorClient(state.session, { ...editorSelection, writeCommands: LINUX_EDITOR_COMMANDS }), /explicitly enabled/);
+  const native = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
+  assert.deepEqual([native.supportsRelationships, native.supportsOrdering, native.supportsOperationUndo, EDITOR_COMMANDS.includes("task.reorder")], [false, false, false, false]);
+  for (const command of ["task.move", "task.transitionMany", "operation.undo", "workspace.archive", "workspace.restore", "workspace.recovery.resume"]) assert.throws(() => new PreparedEdit(state.session, editorSelection, { version: 2, command, requestId: "r", writeContext: "native-context", idempotencyKey: "k", actor: { kind: "human", label: "native" }, readOnly: false, dryRun: false, args: { id: task.id, expectedVersion: 1 } }));
   assert.equal(state.requests.length, 0); assert.equal(state.launches.length, 0);
 });
  test("native capability mismatch pauses browsing and preparation without fallback", async t => {
   desktop(t); const state = sessionFixture(t, () => ({ ...info, commands: [...info.commands, "task.move"].sort() }));
-  const reader = new V2WorkspaceReader(selection, undefined, state.session), editor = new V2EditorClient(state.session, editorSelection);
+  const reader = new WorkspaceReader(selection, undefined, state.session), editor = new EditorClient(state.session, editorSelection);
   await assert.rejects(() => reader.workspaceInfo(), /does not advertise/); await assert.rejects(() => editor.begin(task.id), /does not advertise/);
   assert.deepEqual(state.requests.map(request => request.command), ["workspace.info", "workspace.info"]);
 });
@@ -123,7 +123,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
     if (loseReply) { loseReply = false; close(); return null; }
     return { task: { ...task, title: request.args.title }, changed: true, operationId: "retained-operation" };
   });
-  const editor = new V2EditorClient(state.session, editorSelection), baseline = await editor.begin(task.id), prepared = editor.prepare(baseline, { ...task, title: "Uncertain native edit" });
+  const editor = new EditorClient(state.session, editorSelection), baseline = await editor.begin(task.id), prepared = editor.prepare(baseline, { ...task, title: "Uncertain native edit" });
   const original = prepared.originalRequest; await assert.rejects(() => prepared.execute(), /backend process closed/);
   assert.equal(prepared.hasExecuted, true); await assert.rejects(() => prepared.preview(), /cannot renew uncertain authority/);
   await prepared.execute(); assert.equal(prepared.originalRequest, original); assert.deepEqual(state.requests.at(-1), state.requests.at(-2));
@@ -131,9 +131,9 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
 });
  test("native Android and missing-native-session remain withheld", async t => {
   desktop(t, true); const state = sessionFixture(t, () => info);
-  assert.throws(() => new V2EditorClient(state.session, editorSelection), /unavailable on Android/);
-  assert.throws(() => new V2EditorClient("http://127.0.0.1", editorSelection), /browser-only/);
-  const reader = new V2WorkspaceReader(selection, undefined, state.session); await assert.rejects(() => reader.workspaceInfo(), /not available on Android/);
+  assert.throws(() => new EditorClient(state.session, editorSelection), /unavailable on Android/);
+  assert.throws(() => new EditorClient("http://127.0.0.1", editorSelection), /browser-only/);
+  const reader = new WorkspaceReader(selection, undefined, state.session); await assert.rejects(() => reader.workspaceInfo(), /not available on Android/);
   assert.equal(state.launches.length, 0);
 });
 
@@ -142,7 +142,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
     const canonical = { ...task, title, category: "work", tags: ["alpha", "todo"] };
     const view = taskView(canonical);
     assert.equal(view.title, title); assert.equal(view.literalTitle, title);
-    assert.deepEqual(parseV2Shorthand(inlineTaskText(canonical)), { title, category: "work", tags: ["alpha", "todo"] });
+    assert.deepEqual(parseShorthand(inlineTaskText(canonical)), { title, category: "work", tags: ["alpha", "todo"] });
     assert.equal(view.descriptionMarkdown, canonical.description);
   }
 });
@@ -150,7 +150,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
  test("established inline save uses the new protocol directly, without a preview dialog or legacy request", async t => {
   desktop(t);
   const state = sessionFixture(t, request => request.command === "workspace.info" ? info : request.command === "task.get" ? { task } : { task, changed: true, operationId: "inline-save" });
-  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   await workspace.save("Keep the main UI @work #todo", "Markdown", 2, "inline-key", task.id, task.version);
   const write = state.requests.at(-1);
   assert.equal(write.version, 2); assert.equal(write.command, "task.update");
@@ -166,7 +166,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
     assert.equal(request.command, "workspace.info");
     return info;
   });
-  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   assert.equal(await workspace.revision(), info.workspaceRevision);
   assert.deepEqual(state.requests.map(request => request.command), ["workspace.info"]);
 });
@@ -174,7 +174,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
  test("main-client stale selection never replaces the expected version or sends a mutation", async t => {
   desktop(t);
   const state = sessionFixture(t, request => request.command === "workspace.info" ? info : { task: { ...task, version: 2 } });
-  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   await assert.rejects(() => workspace.save("Draft", "", 2, "stale-key", task.id, 1), /draft was not sent/);
   assert.ok(state.requests.every(request => request.readOnly)); assert.equal(workspace.getUnresolved(), null);
 });
@@ -187,7 +187,7 @@ for (const filename of ["root", "C:relative", "C:\\\\root", "C:\\root\\\\other",
     if (lose) { lose = false; close(); return null; }
     return { task, changed: true, operationId: "one-effect" };
   });
-  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   const unresolved = new Promise(resolve => { const unsubscribe = workspace.subscribe(() => { if (workspace.getUnresolved()) { unsubscribe(); resolve(workspace.getUnresolved()); } }); });
   const saving = workspace.save("Retained draft", "", 2, "original-key", task.id, task.version);
   const retained = await unresolved;
@@ -219,7 +219,7 @@ for (const code of ["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]
       if (refuse) { refuse = false; return answeredRefusal(request, code); }
       return { task, changed: true, operationId: "next-write" };
     });
-    const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+    const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
     await assert.rejects(workspace.save("Refused", "", 2, "refused-key", task.id, 1), { code });
     assert.equal(workspace.getUnresolved(), null);
     assert.equal(workspace.hasWriteInProgress(), false);
@@ -236,7 +236,7 @@ for (const code of ["INVALID_STORAGE", "INVALID_ARGUMENT", "MULTIPLE_CATEGORIES"
       if (request.command === "workspace.info") return info;
       return answeredRefusal(request, ++attempts === 1 ? code : "INVALID_REQUEST");
     });
-    const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+    const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
     const unresolved = nextUnresolved(workspace);
     const saving = workspace.save("Uncertain create", "", 2, "original-key");
     let settled = false;
@@ -269,7 +269,7 @@ test("main-client answered storage refusal retries the frozen create and accepts
     // Model a committed receipt replay, not a guarantee every create failure has a receipt.
     return { task, changed: true, operationId: "retained-create" };
   });
-  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   const unresolved = nextUnresolved(workspace);
   const saving = workspace.save("Possibly published", "", 2, "original-key");
   const retained = await unresolved, before = state.requests.length;
@@ -292,16 +292,16 @@ for (const fault of ["local-error", "wrong-correlation", "malformed-response"]) 
       if (fault === "malformed-response") response.error.message = 42;
       return response;
     });
-    const editor = new V2EditorClient(state.session, editorSelection);
+    const editor = new EditorClient(state.session, editorSelection);
     if (fault === "local-error") {
       const prepare = editor.prepareInline.bind(editor);
       editor.prepareInline = (...args) => {
         const prepared = prepare(...args);
-        prepared.execute = async () => { throw new V2EditorError("INVALID_REQUEST", "local failure, not an answer"); };
+        prepared.execute = async () => { throw new EditorError("INVALID_REQUEST", "local failure, not an answer"); };
         return prepared;
       };
     }
-    const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), editor);
+    const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), editor);
     const unresolved = nextUnresolved(workspace);
     const saving = workspace.save("Uncertain", "", 2, "original-key", task.id, 1);
     const rejected = assert.rejects(saving, /external reconciliation/);
@@ -315,7 +315,7 @@ for (const fault of ["local-error", "wrong-correlation", "malformed-response"]) 
  test("acknowledged external reconciliation keeps main-client writes paused", async t => {
   desktop(t);
   const state = sessionFixture(t, (request, close) => request.command === "workspace.info" ? info : request.command === "task.get" ? { task } : (close(), null));
-  const workspace = new MainWorkspace(new V2WorkspaceReader(selection, undefined, state.session), new V2EditorClient(state.session, editorSelection));
+  const workspace = new MainWorkspace(new WorkspaceReader(selection, undefined, state.session), new EditorClient(state.session, editorSelection));
   const unresolved = new Promise(resolve => { const unsubscribe = workspace.subscribe(() => { if (workspace.getUnresolved()) { unsubscribe(); resolve(workspace.getUnresolved()); } }); });
   const saving = workspace.save("Uncertain", "", 2, "retained-key", task.id, task.version);
   const rejected = assert.rejects(saving, /external reconciliation/);

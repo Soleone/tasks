@@ -4,9 +4,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import type { V2TaskProjection } from "./queries.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import type { TaskProjection } from "./queries.js";
 
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const linux = { skip: process.platform !== "linux" };
@@ -81,17 +81,17 @@ for (const id of ["cli-literal", "cli-text", "cli-key-context"]) {
 
 test("human v2 omits classification updates, clears explicitly and maps description, literal values and shorthand", linux, t => {
   const workspace = setup(t);
-  const first = ok(workspace, ["add", "--title", "Call @alice  #literal", "--category", "WORK", "--tag", "TODO", "--tag", "todo", "--description", "**Markdown**\r\n`@none`", "--priority", "3", "--parent", parent]).task as V2TaskProjection;
+  const first = ok(workspace, ["add", "--title", "Call @alice  #literal", "--category", "WORK", "--tag", "TODO", "--tag", "todo", "--description", "**Markdown**\r\n`@none`", "--priority", "3", "--parent", parent]).task as TaskProjection;
   assert.equal(first.title, "Call @alice  #literal");assert.equal(first.description, "**Markdown**\r\n`@none`");assert.deepEqual(first.tags, ["todo"]);
-  const literal = ok(workspace, ["update", first.id, "--title", "Changed @literal", "--description", "--v2-root"]).task as V2TaskProjection;
+  const literal = ok(workspace, ["update", first.id, "--title", "Changed @literal", "--description", "--v2-root"]).task as TaskProjection;
   assert.equal(literal.category, "work");assert.deepEqual(literal.tags, ["todo"]);assert.equal(literal.description, "--v2-root");
-  const cleared = ok(workspace, ["update", first.id, "--clear-category", "--clear-tags", "--description="]).task as V2TaskProjection;
+  const cleared = ok(workspace, ["update", first.id, "--clear-category", "--clear-tags", "--description="]).task as TaskProjection;
   assert.equal(cleared.title, "Changed @literal");assert.equal(cleared.category, null);assert.deepEqual(cleared.tags, []);assert.equal(cleared.description, "");
-  const replacement = ok(workspace, ["update", first.id, "--text", "New @Play #Fun"]).task as V2TaskProjection;
+  const replacement = ok(workspace, ["update", first.id, "--text", "New @Play #Fun"]).task as TaskProjection;
   assert.equal(replacement.title, "New");assert.equal(replacement.category, "play");assert.deepEqual(replacement.tags, ["fun"]);
-  const unclassified = ok(workspace, ["update", first.id, "--text", "No markers"]).task as V2TaskProjection;
+  const unclassified = ok(workspace, ["update", first.id, "--text", "No markers"]).task as TaskProjection;
   assert.equal(unclassified.category, null);assert.deepEqual(unclassified.tags, []);
-  const terminator = ok(workspace, ["add", "--", "--v2-root"]).task as V2TaskProjection;
+  const terminator = ok(workspace, ["add", "--", "--v2-root"]).task as TaskProjection;
   assert.equal(terminator.title, "--v2-root");
 });
 
@@ -118,8 +118,8 @@ for (const argv of invalid) test(`v2 CLI refuses conflicting/unknown/unsafe argv
 test("v2 query flags, literal search, manual ancestor output, slugs and command-group activity are readable", linux, t => {
   const workspace = setup(t);
   const listed = ok(workspace, ["list", "--status", "open", "--status", "paused,done", "--sort", "manual", "--limit", "2", "--offset", "1"]);
-  assert.equal(listed.total, 4);assert.equal((listed.tasks as V2TaskProjection[]).length, 2);
-  assert.equal((ok(workspace, ["list", "--category", "@PLANNING", "--tag", "#PRODUCT"]).tasks as V2TaskProjection[])[0].id, parent);
+  assert.equal(listed.total, 4);assert.equal((listed.tasks as TaskProjection[]).length, 2);
+  assert.equal((ok(workspace, ["list", "--category", "@PLANNING", "--tag", "#PRODUCT"]).tasks as TaskProjection[])[0].id, parent);
   assert.equal(ok(workspace, ["list", "--uncategorized"]).total, 1);
   assert.equal(ok(workspace, ["list", "--unblocked"]).total, 3);
   assert.equal(ok(workspace, ["list", "%_"]).total, 0);
@@ -154,7 +154,7 @@ test("v2 previews do not emit executing keys or effects; no-ops retain receipts 
 for (const verb of ["start", "pause", "complete", "reopen", "cancel", "delete", "undo"]) test(`v2 friendly ${verb} shares accepted status rules`, linux, t => {
   const workspace = setup(t);
   if (verb === "undo") ok(workspace, ["complete", parent]);
-  const result = ok(workspace, [verb, parent]).task as V2TaskProjection;
+  const result = ok(workspace, [verb, parent]).task as TaskProjection;
   const statuses: Record<string, string> = { start: "in_progress", pause: "paused", complete: "done", reopen: "open", cancel: "canceled", delete: "canceled", undo: "open" };
   assert.equal(result.status, statuses[verb]);
 });
@@ -162,11 +162,11 @@ for (const verb of ["start", "pause", "complete", "reopen", "cancel", "delete", 
 test("v2 friendly relationships, operation inverse and complete-set purge use the shared safety rules", linux, t => {
   const workspace = setup(t);
   const detached = ok(workspace, ["move", child, "--root"]);
-  assert.equal((detached.task as V2TaskProjection).parentId, null);
+  assert.equal((detached.task as TaskProjection).parentId, null);
   ok(workspace, ["undo-operation", String(detached.operationId)]);
-  assert.equal((ok(workspace, ["show", child]).task as V2TaskProjection).parentId, parent);
-  assert.deepEqual((ok(workspace, ["dep-remove", child, parent]).task as V2TaskProjection).dependencyIds, []);
-  assert.deepEqual((ok(workspace, ["dep-add", child, parent]).task as V2TaskProjection).dependencyIds, [parent]);
+  assert.equal((ok(workspace, ["show", child]).task as TaskProjection).parentId, parent);
+  assert.deepEqual((ok(workspace, ["dep-remove", child, parent]).task as TaskProjection).dependencyIds, []);
+  assert.deepEqual((ok(workspace, ["dep-add", child, parent]).task as TaskProjection).dependencyIds, [parent]);
   ok(workspace, ["cancel", parent]);
   const rejected = failure(run(workspace, ["purge-canceled", "--json"]), "PURGE_REFERENCED");
   assert.ok(Array.isArray(rejected.details.references));

@@ -96,9 +96,9 @@ function persistReport(complete) {
   return report;
 }
 function faultBundle(cut) {
-  const name = ["beforeCommit", "afterCommit"].includes(cut) ? "withV2CacheTransaction" : cut === "preparing" ? "persistCopyProgress"
-    : cut === "flushRefusal" ? "verifyPublishedCopy" : ["intent", "lostReply"].includes(cut) ? "executeV2Copy" : cut.startsWith("retiring-") ? "retireV2Copy" : "applyV2CopyJournal";
-  const moduleName = name === "withV2CacheTransaction" ? "v2QueryCache" : name === "executeV2Copy" ? "v2CopyWriter" : "v2CopyJournal";
+  const name = ["beforeCommit", "afterCommit"].includes(cut) ? "withCacheTransaction" : cut === "preparing" ? "persistCopyProgress"
+    : cut === "flushRefusal" ? "verifyPublishedCopy" : ["intent", "lostReply"].includes(cut) ? "executeCopy" : cut.startsWith("retiring-") ? "retireCopy" : "applyCopyJournal";
+  const moduleName = name === "withCacheTransaction" ? "queryCache" : name === "executeCopy" ? "copyWriter" : "copyJournal";
   const matches = []; let marker = -1;
   while ((marker = source.indexOf(`// src/backend/${moduleName}.ts\n`, marker + 1)) >= 0) {
     const moduleEnd = source.indexOf("\n// src/", marker + 1); assert.ok(moduleEnd > marker);
@@ -107,18 +107,18 @@ function faultBundle(cut) {
   assert.equal(matches.length, 1, `unique ${name} required`);
   const { start, moduleEnd } = matches[0], next = source.indexOf("\nfunction ", start + 1), end = next < 0 ? moduleEnd : Math.min(next, moduleEnd);
   const section = source.slice(start, end); let needle;
-  if (cut === "intent") needle = "persistV2Pending(root, intent);";
-  else if (cut === "lostReply") needle = "if (completed) retireV2Copy(completed);";
+  if (cut === "intent") needle = "persistPending(root, intent);";
+  else if (cut === "lostReply") needle = "if (completed) retireCopy(completed);";
   else if (cut === "prefix-0") needle = "written: [] };\n      persistCopyProgress(intent, progress);";
-  else if (cut.startsWith("prefix-")) needle = section.match(/writeV2DurableFile\(import_node_path\d+\.default\.join\(intent.stageDirectory, file.relativePath\), Buffer.from\(file.bytes, "base64"\)\);/)[0];
+  else if (cut.startsWith("prefix-")) needle = section.match(/writeDurableFile\(import_node_path\d+\.default\.join\(intent.stageDirectory, file.relativePath\), Buffer.from\(file.bytes, "base64"\)\);/)[0];
   else if (cut === "verified") needle = "recordVerifiedCopy(intent, progress);";
   else if (["reserved", "lateArrival"].includes(cut)) needle = "reserveCopyTarget(intent, progress);";
   else if (cut === "published") needle = section.match(/\(0, import_node_fs\d+\.renameSync\)\(intent.stageDirectory, intent.destination.directory\);/)[0];
   else if (cut === "unbound") needle = section.match(/\(0, import_node_fs\d+\.mkdirSync\)\(intent.stageDirectory, \{ mode: 448 \}\);/)[0];
   else if (cut === "preparing") needle = section.match(/\(0, import_node_fs\d+\.renameSync\)\(`\$\{file\}\.preparing`, file\);/)[0];
-  else if (cut === "retiring-target") needle = "withV2RootWriterLock(target.root, () => retireV2Pending(target.root));";
+  else if (cut === "retiring-target") needle = "withRootWriterLock(target.root, () => retirePending(target.root));";
   else if (cut === "retiring-evidence") needle = section.match(/\(0, import_node_fs\d+\.unlinkSync\)\(file\);/)[0];
-  else if (cut === "flushRefusal") needle = section.match(/syncV2Directory\(import_node_path\d+\.default\.dirname\(intent.destination.directory\)\);/)[0];
+  else if (cut === "flushRefusal") needle = section.match(/syncDirectory\(import_node_path\d+\.default\.dirname\(intent.destination.directory\)\);/)[0];
   else needle = 'database.exec("COMMIT");';
   assert.equal(section.split(needle).length, 2, `unique ${cut} statement required`);
   const stop = `if(require("node:fs").existsSync(process.env.TASKS_TEST_PENDING)${cut === "lostReply" ? "===false" : ""}){require("node:fs").writeSync(2,"TASKS_TEST_CUT:${cut}\\n");process.kill(process.pid,"SIGKILL");}`;

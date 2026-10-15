@@ -1,15 +1,15 @@
 import { generateKeyBetween } from "fractional-indexing";
 import { CommandError } from "./errors.js";
-import { assertV2Args, isV2Record } from "./protocol.js";
-import type { V2DoctorRecord, V2DoctorSource, V2DoctorVersion } from "./doctorSource.js";
-import { compareV2Tasks, isV2OrderKey, validateV2Graph, validateV2Task, V2GraphError } from "./taskModel.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { assertArgs, isRecord } from "./protocol.js";
+import type { DoctorRecord, DoctorSource, DoctorVersion } from "./doctorSource.js";
+import { compareTasks, isOrderKey, validateGraph, validateTask, GraphError } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
 
-type LinkChoice = { record: V2DoctorRecord; field: "parentId" | "dependencyIds"; fromId: string; targetVersionRef: string };
+type LinkChoice = { record: DoctorRecord; field: "parentId" | "dependencyIds"; fromId: string; targetVersionRef: string };
 type LinkEdit = { taskId: string; parentId?: string | null; removeDependencyIds?: string[] };
-export type V2DoctorInput = { kind: "keep-both"; issueIds: string[]; canonicalVersions: { issueId: string; versionRef: string }[]; linkChoices: LinkChoice[] } | { kind: "repair-links"; edits: LinkEdit[] };
-export type V2DoctorAllocation = { planId: string; cloneIds: Record<string, string> };
-export type V2DoctorPlan = { format: "taskdb.doctor-plan"; version: 1; planId: string; input: V2DoctorInput; source: V2DoctorSource; allocation: V2DoctorAllocation; nextTasks: V2CanonicalTask[]; clones: { versionRef: string; taskId: string; parentId: string | null; orderKey: string }[]; linkEdits: { taskId: string; parentId?: string | null; dependencyIds?: string[] }[]; editedIds: string[]; removedConflictPaths: string[] };
+export type DoctorInput = { kind: "keep-both"; issueIds: string[]; canonicalVersions: { issueId: string; versionRef: string }[]; linkChoices: LinkChoice[] } | { kind: "repair-links"; edits: LinkEdit[] };
+export type DoctorAllocation = { planId: string; cloneIds: Record<string, string> };
+export type DoctorPlan = { format: "taskdb.doctor-plan"; version: 1; planId: string; input: DoctorInput; source: DoctorSource; allocation: DoctorAllocation; nextTasks: CanonicalTask[]; clones: { versionRef: string; taskId: string; parentId: string | null; orderKey: string }[]; linkEdits: { taskId: string; parentId?: string | null; dependencyIds?: string[] }[]; editedIds: string[]; removedConflictPaths: string[] };
 function invalid(): never { throw new CommandError("INVALID_ARGUMENT", "invalid reviewed repair choices"); }
 function stale(): never { throw new CommandError("STALE_REPAIR_PLAN", "repair references or fixed identities are unavailable or stale"); }
 function safeId(id: unknown): id is string { return typeof id === "string" && /^[A-Za-z0-9_-]+$/.test(id); }
@@ -17,30 +17,30 @@ function strings(value: unknown): string[] {
   if (!Array.isArray(value) || value.some(item => typeof item !== "string" || item === "") || new Set(value).size !== value.length) invalid();
   return value as string[];
 }
-export function parseV2DoctorInput(args: Record<string, unknown>): V2DoctorInput {
+export function parseDoctorInput(args: Record<string, unknown>): DoctorInput {
   if (args.kind === "keep-both") {
-    assertV2Args(args, ["kind", "issueIds", "canonicalVersions", "linkChoices"]);
+    assertArgs(args, ["kind", "issueIds", "canonicalVersions", "linkChoices"]);
     const issueIds = strings(args.issueIds);
     if (!issueIds.length || !Array.isArray(args.canonicalVersions) || !Array.isArray(args.linkChoices)) invalid();
     const canonicalVersions = args.canonicalVersions.map(value => {
-      if (!isV2Record(value)) invalid();assertV2Args(value, ["issueId", "versionRef"]);
+      if (!isRecord(value)) invalid();assertArgs(value, ["issueId", "versionRef"]);
       if (typeof value.issueId !== "string" || !value.issueId || typeof value.versionRef !== "string" || !value.versionRef) invalid();
       return { issueId: value.issueId, versionRef: value.versionRef };
     });
     if (canonicalVersions.length !== issueIds.length || new Set(canonicalVersions.map(choice => choice.issueId)).size !== issueIds.length || canonicalVersions.some(choice => !issueIds.includes(choice.issueId))) invalid();
     const linkChoices = args.linkChoices.map(value => {
-      if (!isV2Record(value) || !isV2Record(value.record)) invalid();assertV2Args(value, ["record", "field", "fromId", "targetVersionRef"]);assertV2Args(value.record, ["taskId", "versionRef"]);
+      if (!isRecord(value) || !isRecord(value.record)) invalid();assertArgs(value, ["record", "field", "fromId", "targetVersionRef"]);assertArgs(value.record, ["taskId", "versionRef"]);
       if (Object.keys(value.record).length !== 1 || ("taskId" in value.record ? !safeId(value.record.taskId) : typeof value.record.versionRef !== "string" || !value.record.versionRef)
         || !["parentId", "dependencyIds"].includes(value.field as string) || !safeId(value.fromId) || typeof value.targetVersionRef !== "string" || !value.targetVersionRef) invalid();
-      return { record: value.record as V2DoctorRecord, field: value.field as LinkChoice["field"], fromId: value.fromId, targetVersionRef: value.targetVersionRef };
+      return { record: value.record as DoctorRecord, field: value.field as LinkChoice["field"], fromId: value.fromId, targetVersionRef: value.targetVersionRef };
     });
     return { kind: "keep-both", issueIds, canonicalVersions, linkChoices };
   }
   if (args.kind !== "repair-links") invalid();
-  assertV2Args(args, ["kind", "edits"]);
+  assertArgs(args, ["kind", "edits"]);
   if (!Array.isArray(args.edits) || !args.edits.length) invalid();
   const edits = args.edits.map(value => {
-    if (!isV2Record(value)) invalid();assertV2Args(value, ["taskId", "parentId", "removeDependencyIds"]);
+    if (!isRecord(value)) invalid();assertArgs(value, ["taskId", "parentId", "removeDependencyIds"]);
     if (!safeId(value.taskId) || Object.keys(value).length < 2 || ("parentId" in value && value.parentId !== null && !safeId(value.parentId))) invalid();
     const remove = "removeDependencyIds" in value ? strings(value.removeDependencyIds) : undefined;
     if (remove && (!remove.length || remove.some(id => !safeId(id)))) invalid();
@@ -49,7 +49,7 @@ export function parseV2DoctorInput(args: Record<string, unknown>): V2DoctorInput
   if (new Set(edits.map(edit => edit.taskId)).size !== edits.length) invalid();
   return { kind: "repair-links", edits };
 }
-export function doctorCloneVersions(input: V2DoctorInput, source: V2DoctorSource): V2DoctorVersion[] {
+export function doctorCloneVersions(input: DoctorInput, source: DoctorSource): DoctorVersion[] {
   if (input.kind === "repair-links") return [];
   return input.issueIds.flatMap(id => {
     const issue = source.issues.find(issue => issue.issueId === id);
@@ -62,30 +62,30 @@ export function doctorCloneVersions(input: V2DoctorInput, source: V2DoctorSource
     return versions.filter(version => version.versionRef !== chosen);
   });
 }
-function prospectiveGraph(tasks: V2CanonicalTask[]): void {
+function prospectiveGraph(tasks: CanonicalTask[]): void {
   const ids = new Set(tasks.map(task => task.id));
   if (tasks.some(task => task.parentId !== null && !ids.has(task.parentId))) throw new CommandError("INVALID_PARENT", "prospective repair still has a missing parent");
   if (tasks.some(task => task.dependencyIds.some(id => !ids.has(id)))) throw new CommandError("INVALID_DEPENDENCY", "prospective repair still has a missing blocker");
-  for (const task of tasks) validateV2Task(task, task.id);
-  try { validateV2Graph(tasks); }
+  for (const task of tasks) validateTask(task, task.id);
+  try { validateGraph(tasks); }
   catch (error) {
-    if (!(error instanceof V2GraphError)) throw error;
+    if (!(error instanceof GraphError)) throw error;
     throw new CommandError(error.relation === "parentId" ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE", "prospective reviewed repair graph is invalid");
   }
 }
-function firstKey(task: V2CanonicalTask, tasks: V2CanonicalTask[]): string {
-  const first = tasks.filter(other => other.id !== task.id && other.parentId === task.parentId).sort(compareV2Tasks)[0];
-  try { const key = generateKeyBetween(null, first?.orderKey ?? null);if (!isV2OrderKey(key)) throw Error("key limit");return key; }
+function firstKey(task: CanonicalTask, tasks: CanonicalTask[]): string {
+  const first = tasks.filter(other => other.id !== task.id && other.parentId === task.parentId).sort(compareTasks)[0];
+  try { const key = generateKeyBetween(null, first?.orderKey ?? null);if (!isOrderKey(key)) throw Error("key limit");return key; }
   catch { throw new CommandError("ORDER_KEY_LIMIT", "reviewed reparent allocation exceeds the canonical key limit"); }
 }
 
-export function buildV2DoctorPlan(input: V2DoctorInput, source: V2DoctorSource, allocation: V2DoctorAllocation): V2DoctorPlan {
+export function buildDoctorPlan(input: DoctorInput, source: DoctorSource, allocation: DoctorAllocation): DoctorPlan {
   if (source.taskDirectoryIdentity === null || source.issues.some(issue => ["UNREADABLE_OR_UNSAFE_ENTRY", "DESCRIPTOR_CONFLICT", "MIXED_FORMAT"].includes(issue.code))
     || source.versionRefs.some(version => version.canonical && !version.valid)) throw new CommandError("INVALID_CANONICAL", "planning requires a complete safe schema-2 tree with valid canonical records");
   const cloneVersions = doctorCloneVersions(input, source), cloneIds = Object.values(allocation.cloneIds);
   if (cloneIds.length !== cloneVersions.length || cloneVersions.some(version => !allocation.cloneIds[version.versionRef]) || new Set(cloneIds).size !== cloneIds.length
     || cloneIds.some(id => !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id) || source.versionRefs.some(version => version.taskId === id))) stale();
-  const outputs = new Map<string, { source: V2DoctorVersion; task: V2CanonicalTask }>();
+  const outputs = new Map<string, { source: DoctorVersion; task: CanonicalTask }>();
   for (const version of source.versionRefs.filter(version => version.canonical && version.task)) outputs.set(version.versionRef, { source: version, task: version.task! });
   const removedConflictPaths: string[] = [];
   if (input.kind === "keep-both") {
@@ -130,7 +130,7 @@ export function buildV2DoctorPlan(input: V2DoctorInput, source: V2DoctorSource, 
       output.task = { ...old, ...("parentId" in edit ? { parentId: edit.parentId! } : {}), dependencyIds: old.dependencyIds.filter(id => !edit.removeDependencyIds?.includes(id)) };
     }
   }
-  const nextTasks = [...outputs.values()].map(output => output.task), editedIds: string[] = [], linkEdits: V2DoctorPlan["linkEdits"] = [];
+  const nextTasks = [...outputs.values()].map(output => output.task), editedIds: string[] = [], linkEdits: DoctorPlan["linkEdits"] = [];
   prospectiveGraph(nextTasks);
   for (const output of [...outputs.values()].sort((a, b) => a.task.id < b.task.id ? -1 : a.task.id > b.task.id ? 1 : 0)) {
     const task = output.task, before = output.source.task!;

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { CommandError } from "./errors.js";
-import { parseV2Request } from "./protocol.js";
-import type { V2Request } from "./protocol.js";
+import { parseRequest } from "./protocol.js";
+import type { Request } from "./protocol.js";
 
 const VALUE_FLAGS = new Set([
   "v2-root", "database", "write-context", "idempotency-key", "expected-version", "request-hash",
@@ -21,28 +21,28 @@ const VERSIONED_COMMANDS = new Set([
   "task.delete", "task.status.undo", "task.move", "task.dependency.add", "task.dependency.remove",
 ]);
 type Flags = Map<string, (string | true)[]>;
-export class V2HumanUsageError extends CommandError {
+export class HumanUsageError extends CommandError {
   constructor(message: string) { super("INVALID_ARGUMENT", message); }
 }
-function usage(message: string): never { throw new V2HumanUsageError(message); }
-export type V2HumanInvocation = {
+function usage(message: string): never { throw new HumanUsageError(message); }
+export type HumanInvocation = {
   help: false; rootPath: string; cachePath: string; json: boolean; requestHash?: string;
-  request: V2Request; mutation: boolean; versioned: boolean;
+  request: Request; mutation: boolean; versioned: boolean;
 };
-export type V2HumanArgs = V2HumanInvocation | { help: true; json: boolean };
+export type HumanArgs = HumanInvocation | { help: true; json: boolean };
 
 /** A flag-valued note or a word after -- must not opt a v1 invocation into v2. */
-export function hasV2HumanOption(argv: readonly string[], name: string, v1Values?: ReadonlySet<string>): boolean {
+export function hasHumanOption(argv: readonly string[], name: string, schema1Values?: ReadonlySet<string>): boolean {
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
     if (token === "--") return false;
     if (token === `--${name}` || token.startsWith(`--${name}=`)) return true;
-    if (token.startsWith("--") && !token.includes("=") && (VALUE_FLAGS.has(token.slice(2)) || v1Values?.has(token.slice(2)))) index++;
+    if (token.startsWith("--") && !token.includes("=") && (VALUE_FLAGS.has(token.slice(2)) || schema1Values?.has(token.slice(2)))) index++;
   }
   return false;
 }
-export function hasV2HumanRoot(argv: readonly string[], v1Values: ReadonlySet<string>): boolean {
-  return hasV2HumanOption(argv, "v2-root", v1Values);
+export function hasHumanRoot(argv: readonly string[], schema1Values: ReadonlySet<string>): boolean {
+  return hasHumanOption(argv, "v2-root", schema1Values);
 }
 function tokenize(argv: string[]): { flags: Flags; words: string[] } {
   const flags: Flags = new Map(), words: string[] = [];
@@ -98,7 +98,7 @@ function content(flags: Flags, args: Record<string, unknown>): void {
   if (priority !== undefined) args.priority = priority;
   classification(flags, args);
 }
-export function parseV2HumanArgs(argv: string[]): V2HumanArgs {
+export function parseHumanArgs(argv: string[]): HumanArgs {
   const { flags, words } = tokenize(argv), [verb, ...positionals] = words;
   if (flags.has("help")) return { help: true, json: flags.has("json") };
   const rootPath = value(flags, "v2-root"), cachePath = value(flags, "database");
@@ -200,7 +200,7 @@ export function parseV2HumanArgs(argv: string[]): V2HumanArgs {
   if (!["human", "agent"].includes(actorKind)) usage("--actor-kind must be human or agent");
   const expectedVersion = integer(flags, "expected-version", 1);
   if (expectedVersion !== undefined) args.expectedVersion = expectedVersion;
-  const request = parseV2Request({
+  const request = parseRequest({
     version: 2, command, args, actor: { kind: actorKind, label: value(flags, "actor-label") ?? "tasks-cli" },
     writeContext: value(flags, "write-context"), idempotencyKey: value(flags, "idempotency-key"),
     dryRun: flags.has("dry-run"), readOnly: flags.has("read-only"),
@@ -209,7 +209,7 @@ export function parseV2HumanArgs(argv: string[]): V2HumanArgs {
   if (requestHash !== undefined && !/^[0-9a-f]{64}$/.test(requestHash)) usage("--request-hash requires the retained SHA-256 hash");
   return { help: false, rootPath: path.resolve(rootPath), cachePath: path.resolve(cachePath), json: flags.has("json"), requestHash, request, mutation, versioned: VERSIONED_COMMANDS.has(command) };
 }
-export function v2HumanUsage(): string { return `tasks-cli: explicitly selected v2 filesystem mode
+export function humanUsage(): string { return `tasks-cli: explicitly selected v2 filesystem mode
 
   tasks-cli --v2-root PATH --database CACHE_OUTSIDE_ROOT COMMAND [OPTIONS]
   No v1 environment, registry, default database, initialization or adoption fallback.

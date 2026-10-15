@@ -3,28 +3,28 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symli
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2CanonicalRoot, readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { executeV2Copy } from "./copyWriter.js";
-import { parseV2Request } from "./protocol.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { executeCopy } from "./copyWriter.js";
+import { parseRequest } from "./protocol.js";
 import { DatabaseSync } from "node:sqlite";
-import { pendingV2Path, persistV2Pending, withV2RootWriterLock } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
+import { pendingIntentPath, persistPending, withRootWriterLock } from "./localDomain.js";
+import type { Response } from "./protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as { cases: { id: string; action: { steps?: { command: string; sourceDirectory?: string; destinationDirectory: string }[]; args?: { destinationDirectory: string } }; expect: Record<string, unknown> }[] };
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
-function send(workspace: Workspace, envelope: object): V2Response {
-  return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache);
+function send(workspace: Workspace, envelope: object): Response {
+  return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache);
 }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw new Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) {
+function fail(response: Response, code: string) {
   assert.equal(response.ok, false);
   if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response));
 }
@@ -42,25 +42,25 @@ for (const command of ["workspace.archive", "workspace.restore"]) {
   test(`Windows absence-only ${command} refuses an empty destination before staging without consuming the key`, linuxOnly, t => {
     const workspace = setup(t), canonical = rawCanonical(workspace.root);
     mkdirSync(workspace.destination);
-    const request = parseV2Request({ version: 2, ...prepared(workspace, command, {
+    const request = parseRequest({ version: 2, ...prepared(workspace, command, {
       destinationDirectory: workspace.destination, ...(command === "workspace.restore" ? { sourceDirectory: workspace.root } : {}),
     }) });
     for (const flags of [{}, { readOnly: true }, { dryRun: true }]) {
-      assert.throws(() => executeV2Copy({ ...request, ...flags }, workspace.root, workspace.cache, true),
+      assert.throws(() => executeCopy({ ...request, ...flags }, workspace.root, workspace.cache, true),
         { code: "UNSUPPORTED_COMMAND", message: "UNSUPPORTED_COMMAND: Windows copy proof requires an absent destination; existing empty directories are not supported" });
       assert.deepEqual(rawCanonical(workspace.root), canonical);
       assert.deepEqual(readdirSync(workspace.destination), []);
-      assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+      assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
       const database = new DatabaseSync(workspace.cache);
       try { assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0); }
       finally { database.close(); }
     }
     // Disposable preparation, not a production delete-before-publication fallback.
     rmSync(workspace.destination, { recursive: true });
-    const result = executeV2Copy(request, workspace.root, workspace.cache, true);
+    const result = executeCopy(request, workspace.root, workspace.cache, true);
     assert.deepEqual(rawCanonical(workspace.destination), canonical);
     assert.deepEqual(rawCanonical(workspace.root), canonical);
-    assert.deepEqual(executeV2Copy(request, workspace.root, workspace.cache, true).result, result.result);
+    assert.deepEqual(executeCopy(request, workspace.root, workspace.cache, true).result, result.result);
   });
 }
 
@@ -79,7 +79,7 @@ test("Node v2 copy commands execute archive-restore corpus case without changing
   assert.equal(archive.result.taskCount, 4);
   assert.deepEqual(rawCanonical(workspace.destination), bytes);
   assert.deepEqual(readdirSync(workspace.destination).sort(), ["tasks", "workspace.json"]);
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   const restored = path.join(workspace.directory, restoreStep.destinationDirectory);
   success(send(workspace, { ...request, command: restoreStep.command, idempotencyKey: "restore", args: { sourceDirectory: workspace.destination, destinationDirectory: restored } }));
   assert.deepEqual(rawCanonical(restored), bytes);
@@ -106,7 +106,7 @@ test("Node v2 archive executes destination-overlap corpus case with zero canonic
   for (const destinationDirectory of [workspace.root, overlap, workspace.directory, path.join(workspace.root, "tasks", "archive"), alias, path.join(alias, "archive"), missingParent]) {
     fail(send(workspace, { ...request, args: { destinationDirectory } }), "INVALID_ARGUMENT");
     assert.deepEqual(rawCanonical(workspace.root), bytes);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   }
   assert.equal(existsSync(path.dirname(missingParent)), false);
   assert.equal(readdirSync(workspace.directory).some(name => name.endsWith(".stage")), false);
@@ -184,7 +184,7 @@ test("v2 copy validates context, key and shapes; occupied/invalid destinations c
   writeFileSync(workspace.destination, "Occupied file");
   fail(send(workspace, request), "DESTINATION_NOT_EMPTY");
   assert.equal(readFileSync(workspace.destination, "utf8"), "Occupied file");
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   rmSync(workspace.destination);
   success(send(workspace, request));
 });
@@ -200,7 +200,7 @@ test("v2 restore destination cannot overlap selected root or cache, even with a 
   const other = { ...workspace, cache: path.join(cacheDirectory, "cache.db") };
   const restore = prepared(other, "workspace.restore", { sourceDirectory: source, destinationDirectory: cacheDirectory });
   fail(send(other, restore), "DESTINATION_NOT_EMPTY");
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
 });
 
 test("v2 archive refuses descriptor conflicts without changing originals", linuxOnly, (t) => {
@@ -211,7 +211,7 @@ test("v2 archive refuses descriptor conflicts without changing originals", linux
   fail(send(workspace, request), "INVALID_CANONICAL");
   assert.equal(readFileSync(file, "utf8"), '{"schemaVersion":1}');
   assert.equal(existsSync(workspace.destination), false);
-  assert.equal(readV2CanonicalRoot(workspace.root).tasks.length, 4);
+  assert.equal(readCanonicalRoot(workspace.root).tasks.length, 4);
 });
 
 test("v2 copy publishes into an explicitly empty destination reached through an authorized alias", linuxOnly, (t) => {
@@ -233,21 +233,21 @@ for (const command of ["workspace.archive", "workspace.restore"]) {
     const sourceDirectory = command === "workspace.archive" ? workspace.root : path.join(workspace.directory, "source");
     if (sourceDirectory !== workspace.root) cpSync(path.join(fixtures, "root"), sourceDirectory, { recursive: true });
     const request = prepared(workspace, command, { destinationDirectory: workspace.destination, ...(command === "workspace.restore" ? { sourceDirectory } : {}) });
-    const source = readV2CanonicalRoot(sourceDirectory);
-    const root = readV2RootDescriptor(sourceDirectory);
+    const source = readCanonicalRoot(sourceDirectory);
+    const root = readRootDescriptor(sourceDirectory);
     const task = source.tasks.find(task => task.id === id)!;
     const beforeBytes = readFileSync(path.join(sourceDirectory, "tasks", `${id}.json`));
     const at = "2026-10-02T12:00:00.000Z";
-    withV2RootWriterLock(root, () => persistV2Pending(root, {
+    withRootWriterLock(root, () => persistPending(root, {
       format: "taskdb.pending-update", version: 1, root, cachePath: workspace.cache,
-      request: parseV2Request({ version: 2, command: "task.update", writeContext: request.writeContext, idempotencyKey: "pending-edit", args: { id, expectedVersion: 1, title: "Pending edit" } }),
+      request: parseRequest({ version: 2, command: "task.update", writeContext: request.writeContext, idempotencyKey: "pending-edit", args: { id, expectedVersion: 1, title: "Pending edit" } }),
       operationId: "00000000-0000-4000-8000-000000000000", at, taskId: id,
       beforeBytes: beforeBytes.toString("base64"), nextBytes: Buffer.from(`${JSON.stringify({ ...task, title: "Pending edit", updatedAt: at })}\n`).toString("base64"), guards: source.files,
     }));
-    const pending = readFileSync(pendingV2Path(root));
+    const pending = readFileSync(pendingIntentPath(root));
     fail(send(workspace, request), "RECOVERY_PENDING");
-    assert.deepEqual(readV2CanonicalRoot(sourceDirectory).files, source.files);
-    assert.deepEqual(readFileSync(pendingV2Path(root)), pending);
+    assert.deepEqual(readCanonicalRoot(sourceDirectory).files, source.files);
+    assert.deepEqual(readFileSync(pendingIntentPath(root)), pending);
     assert.equal(existsSync(workspace.destination), false);
     assert.equal(readdirSync(workspace.directory).some(name => name.endsWith(".stage")), false);
   });
@@ -291,7 +291,7 @@ test("v2 invalid or unsupported restore sources are refused without consuming th
     fail(send(workspace, request), "INVALID_CANONICAL");
     assert.deepEqual(readFileSync(file), bytes);
     assert.equal(existsSync(workspace.destination), false);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
     assert.equal(readdirSync(workspace.directory).some(name => name.endsWith(".stage")), false);
   }
   writeFileSync(file, original);

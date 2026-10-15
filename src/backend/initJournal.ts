@@ -1,21 +1,21 @@
 import { linkSync, lstatSync, mkdirSync, readdirSync, renameSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
-import { parseV2CanonicalJson } from "./strictJson.js";
-import { readV2CanonicalRoot, readV2PhysicalRoot, readV2RegularFile } from "./canonicalReader.js";
-import { retireV2Pending, syncV2Directory, v2LocalDomain, writeV2DurableFile } from "./localDomain.js";
-import { assertV2Args, isV2Record, parseV2Request } from "./protocol.js";
-import type { V2Request } from "./protocol.js";
-import { localPathOutsideV2Root } from "./queryCache.js";
-import type { V2RootBinding } from "./queryCache.js";
-import { exactV2Hash } from "./updateJournal.js";
+import { parseCanonicalJson } from "./strictJson.js";
+import { readCanonicalRoot, readPhysicalRoot, readRegularFile } from "./canonicalReader.js";
+import { retirePending, syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
+import { assertArgs, isRecord, parseRequest } from "./protocol.js";
+import type { Request } from "./protocol.js";
+import { localPathOutsideRoot } from "./queryCache.js";
+import type { RootBinding } from "./queryCache.js";
+import { exactHash } from "./updateJournal.js";
 
-export const V2_INIT_DESCRIPTOR = '{"schemaVersion":2}\n';
+export const INIT_DESCRIPTOR = '{"schemaVersion":2}\n';
 type InitMarker = { name: string; identity: string; kind: "file" | "directory"; sha256?: string };
-export type V2InitBaseline = { markers: InitMarker[]; tasksIdentity: string | null };
-export type V2InitIntent = {
-  format: "taskdb.pending-init"; version: 1; root: V2RootBinding; cachePath: string;
-  request: V2Request; operationId: string; baseline: V2InitBaseline;
+export type InitBaseline = { markers: InitMarker[]; tasksIdentity: string | null };
+export type InitIntent = {
+  format: "taskdb.pending-init"; version: 1; root: RootBinding; cachePath: string;
+  request: Request; operationId: string; baseline: InitBaseline;
 };
 type InitProgress = { operationId: string; tasksIdentity: string; manifestIdentity: string | null; published: boolean };
 const markerNames = new Set([".stfolder", ".stignore", ".stversions"]);
@@ -29,8 +29,8 @@ function entryIdentity(file: string, kind: "file" | "directory"): string {
   return `${stat.dev}:${stat.ino}`;
 }
 
-function observeMarkers(root: V2RootBinding, additionalNames: string[]): InitMarker[] {
-  const physical = readV2PhysicalRoot(root.rootPath);
+function observeMarkers(root: RootBinding, additionalNames: string[]): InitMarker[] {
+  const physical = readPhysicalRoot(root.rootPath);
   if (physical.rootPath !== root.rootPath || physical.rootIdentity !== root.rootIdentity) conflict();
   const markers: InitMarker[] = [];
   for (const name of readdirSync(root.rootPath).sort()) {
@@ -41,14 +41,14 @@ function observeMarkers(root: V2RootBinding, additionalNames: string[]): InitMar
     if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory()) || (name === ".stignore" && !stat.isFile()) || (name === ".stversions" && !stat.isDirectory())) conflict();
     const kind = stat.isFile() ? "file" : "directory";
     const identity = entryIdentity(file, kind);
-    const sha256 = kind === "file" ? exactV2Hash(readV2RegularFile(file)) : undefined;
+    const sha256 = kind === "file" ? exactHash(readRegularFile(file)) : undefined;
     if (entryIdentity(file, kind) !== identity) conflict();
     markers.push({ name, identity, kind, ...(sha256 ? { sha256 } : {}) });
   }
   return markers;
 }
 
-function emptyTasksIdentity(root: V2RootBinding): string | null {
+function emptyTasksIdentity(root: RootBinding): string | null {
   const directory = path.join(root.rootPath, "tasks");
   if (lstatSync(directory, { throwIfNoEntry: false }) === undefined) return null;
   const identity = entryIdentity(directory, "directory");
@@ -57,7 +57,7 @@ function emptyTasksIdentity(root: V2RootBinding): string | null {
   return identity;
 }
 
-export function inspectV2InitRoot(root: V2RootBinding): V2InitBaseline {
+export function inspectInitRoot(root: RootBinding): InitBaseline {
   const markers = observeMarkers(root, []);
   const tasksIdentity = emptyTasksIdentity(root);
   const baseline = { markers, tasksIdentity };
@@ -65,15 +65,15 @@ export function inspectV2InitRoot(root: V2RootBinding): V2InitBaseline {
   return baseline;
 }
 
-export function parseV2InitIntent(value: unknown, root: V2RootBinding): V2InitIntent {
+export function parseInitIntent(value: unknown, root: RootBinding): InitIntent {
   try {
-    if (!isV2Record(value)) conflict();
-    const intent = value as unknown as V2InitIntent;
+    if (!isRecord(value)) conflict();
+    const intent = value as unknown as InitIntent;
     if (intent.format !== "taskdb.pending-init" || intent.version !== 1 || intent.root.rootPath !== root.rootPath || intent.root.rootIdentity !== root.rootIdentity
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(intent.operationId)) conflict();
     if (!path.isAbsolute(root.rootPath) || !physicalIdentity.test(root.rootIdentity) || !path.isAbsolute(intent.cachePath)) conflict();
-    const request = parseV2Request(intent.request);
-    assertV2Args(request.args, []);
+    const request = parseRequest(intent.request);
+    assertArgs(request.args, []);
     if (request.command !== "workspace.init" || request.readOnly || request.dryRun || !request.writeContext || !request.idempotencyKey) conflict();
     if (!Array.isArray(intent.baseline.markers) || (intent.baseline.tasksIdentity !== null && !physicalIdentity.test(intent.baseline.tasksIdentity))) conflict();
     const names = intent.baseline.markers.map(marker => marker.name);
@@ -83,22 +83,22 @@ export function parseV2InitIntent(value: unknown, root: V2RootBinding): V2InitIn
         || (marker.name === ".stignore" && marker.kind !== "file") || (marker.name === ".stversions" && marker.kind !== "directory")
         || (marker.kind === "file" ? typeof marker.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(marker.sha256) : marker.sha256 !== undefined)) conflict();
     }
-    localPathOutsideV2Root(intent.cachePath, root.rootPath);
-    v2LocalDomain(root);
+    localPathOutsideRoot(intent.cachePath, root.rootPath);
+    localDomain(root);
     return { ...intent, request };
   } catch { return conflict(); }
 }
 
-function progressPath(intent: V2InitIntent): string { return path.join(v2LocalDomain(intent.root), `init-${intent.operationId}.progress.json`); }
-function stagePath(intent: V2InitIntent): string { return path.join(intent.root.rootPath, `.syncthing.taskdb-init-${intent.operationId}.tmp`); }
+function progressPath(intent: InitIntent): string { return path.join(localDomain(intent.root), `init-${intent.operationId}.progress.json`); }
+function stagePath(intent: InitIntent): string { return path.join(intent.root.rootPath, `.syncthing.taskdb-init-${intent.operationId}.tmp`); }
 
-function readProgress(intent: V2InitIntent): InitProgress | undefined {
+function readProgress(intent: InitIntent): InitProgress | undefined {
   const file = progressPath(intent);
   if (lstatSync(file, { throwIfNoEntry: false }) === undefined) {
     if (lstatSync(`${file}.preparing`, { throwIfNoEntry: false })) conflict();
     return undefined;
   }
-  const progress = parseV2CanonicalJson(readV2RegularFile(file)) as InitProgress;
+  const progress = parseCanonicalJson(readRegularFile(file)) as InitProgress;
   if (progress.operationId !== intent.operationId || !physicalIdentity.test(progress.tasksIdentity)
     || (progress.manifestIdentity !== null && !physicalIdentity.test(progress.manifestIdentity)) || typeof progress.published !== "boolean"
     || (progress.published && progress.manifestIdentity === null)
@@ -106,14 +106,14 @@ function readProgress(intent: V2InitIntent): InitProgress | undefined {
   return progress;
 }
 
-function saveProgress(intent: V2InitIntent, progress: InitProgress): void {
+function saveProgress(intent: InitIntent, progress: InitProgress): void {
   const file = progressPath(intent);
-  writeV2DurableFile(`${file}.preparing`, Buffer.from(`${JSON.stringify(progress)}\n`));
+  writeDurableFile(`${file}.preparing`, Buffer.from(`${JSON.stringify(progress)}\n`));
   renameSync(`${file}.preparing`, file);
-  syncV2Directory(v2LocalDomain(intent.root));
+  syncDirectory(localDomain(intent.root));
 }
 
-function guardInit(intent: V2InitIntent, progress?: InitProgress): void {
+function guardInit(intent: InitIntent, progress?: InitProgress): void {
   const stage = stagePath(intent);
   const markers = observeMarkers(intent.root, [path.basename(stage), "workspace.json"]);
   if (JSON.stringify(markers) !== JSON.stringify(intent.baseline.markers)) conflict();
@@ -121,15 +121,15 @@ function guardInit(intent: V2InitIntent, progress?: InitProgress): void {
   const manifest = path.join(intent.root.rootPath, "workspace.json");
   if (lstatSync(manifest, { throwIfNoEntry: false })) {
     if (!progress?.manifestIdentity || entryIdentity(manifest, "file") !== progress.manifestIdentity
-      || readV2RegularFile(manifest).toString("utf8") !== V2_INIT_DESCRIPTOR) conflict();
+      || readRegularFile(manifest).toString("utf8") !== INIT_DESCRIPTOR) conflict();
   } else if (progress?.published) conflict();
   if (lstatSync(stage, { throwIfNoEntry: false })) {
     if (progress?.manifestIdentity && entryIdentity(stage, "file") !== progress.manifestIdentity) conflict();
-    if (!readV2RegularFile(stage).equals(Buffer.from(V2_INIT_DESCRIPTOR))) conflict();
+    if (!readRegularFile(stage).equals(Buffer.from(INIT_DESCRIPTOR))) conflict();
   } else if (progress?.manifestIdentity) conflict();
 }
 
-export function applyV2InitJournal(intent: V2InitIntent) {
+export function applyInitJournal(intent: InitIntent) {
   try {
     let progress = readProgress(intent);
     guardInit(intent, progress);
@@ -137,8 +137,8 @@ export function applyV2InitJournal(intent: V2InitIntent) {
       const tasks = path.join(intent.root.rootPath, "tasks");
       if (intent.baseline.tasksIdentity === null) {
         mkdirSync(tasks, { mode: 0o700 });
-        syncV2Directory(tasks);
-        syncV2Directory(intent.root.rootPath);
+        syncDirectory(tasks);
+        syncDirectory(intent.root.rootPath);
       }
       progress = { operationId: intent.operationId, tasksIdentity: entryIdentity(tasks, "directory"), manifestIdentity: null, published: false };
       saveProgress(intent, progress);
@@ -147,8 +147,8 @@ export function applyV2InitJournal(intent: V2InitIntent) {
     const stage = stagePath(intent);
     if (!progress.manifestIdentity) {
       // Only the next exact complete file at the fixed private name can survive write-before-progress.
-      if (!lstatSync(stage, { throwIfNoEntry: false })) writeV2DurableFile(stage, Buffer.from(V2_INIT_DESCRIPTOR));
-      syncV2Directory(intent.root.rootPath);
+      if (!lstatSync(stage, { throwIfNoEntry: false })) writeDurableFile(stage, Buffer.from(INIT_DESCRIPTOR));
+      syncDirectory(intent.root.rootPath);
       guardInit(intent, progress);
       progress.manifestIdentity = entryIdentity(stage, "file");
       saveProgress(intent, progress);
@@ -158,12 +158,12 @@ export function applyV2InitJournal(intent: V2InitIntent) {
     if (!lstatSync(manifest, { throwIfNoEntry: false })) {
       // Same-directory hard link publishes atomically without replacing an arriving descriptor.
       linkSync(stage, manifest);
-      syncV2Directory(intent.root.rootPath);
+      syncDirectory(intent.root.rootPath);
     }
     guardInit(intent, progress);
     progress.published = true;
     saveProgress(intent, progress);
-    const snapshot = readV2CanonicalRoot(intent.root.rootPath);
+    const snapshot = readCanonicalRoot(intent.root.rootPath);
     guardInit(intent, progress);
     if (snapshot.rootIdentity !== intent.root.rootIdentity || snapshot.tasks.length !== 0) conflict();
     return snapshot;
@@ -171,20 +171,20 @@ export function applyV2InitJournal(intent: V2InitIntent) {
 }
 
 /** Called only after a durable original/recovery receipt; never modifies canonical files. */
-export function retireV2Init(intent: V2InitIntent): void {
+export function retireInit(intent: InitIntent): void {
   try {
     const stage = stagePath(intent);
     const progress = readProgress(intent);
     if (lstatSync(stage, { throwIfNoEntry: false })) {
-      if (!progress?.published || entryIdentity(stage, "file") !== progress.manifestIdentity || !readV2RegularFile(stage).equals(Buffer.from(V2_INIT_DESCRIPTOR))) conflict();
+      if (!progress?.published || entryIdentity(stage, "file") !== progress.manifestIdentity || !readRegularFile(stage).equals(Buffer.from(INIT_DESCRIPTOR))) conflict();
       unlinkSync(stage);
-      syncV2Directory(intent.root.rootPath);
+      syncDirectory(intent.root.rootPath);
     }
     if (progress) {
       unlinkSync(progressPath(intent));
-      syncV2Directory(v2LocalDomain(intent.root));
+      syncDirectory(localDomain(intent.root));
     }
     if (lstatSync(`${progressPath(intent)}.preparing`, { throwIfNoEntry: false })) conflict();
-    retireV2Pending(intent.root);
+    retirePending(intent.root);
   } catch { return conflict(); }
 }

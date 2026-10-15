@@ -5,26 +5,26 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
 type Case = { id: string; profile: string; given: { patch?: Record<string, unknown> }; action: { command?: string; args?: Record<string, unknown>; at?: string; commands?: string[]; statuses?: string[]; steps?: Record<string, unknown>[]; writeContext?: null }; expect: Record<string, unknown> };
-const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as { taskTemplate: V2CanonicalTask; cases: Case[] };
+const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as { taskTemplate: CanonicalTask; cases: Case[] };
 const linuxOnly = { skip: process.platform !== "linux" };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-function send(workspace: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
+function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function materialize(t: TestContext, patch: Record<string, unknown> = {}) {
   const workspace = setup(t);
   for (const name of readdirSync(path.join(workspace.root, "tasks"))) rmSync(path.join(workspace.root, "tasks", name));
@@ -43,7 +43,7 @@ function canonicalBytes(workspace: Workspace) {
   return ["workspace.json", ...readdirSync(path.join(workspace.root, "tasks")).sort().map(name => `tasks/${name}`)]
     .map(name => [name, readFileSync(path.join(workspace.root, name)).toString("base64")]);
 }
-function activity(workspace: Workspace) { return success(send(workspace, { command: "activity.list" })).result.activity as { operationId: string; command: string; createdAt: string; before: unknown; after: V2CanonicalTask }[]; }
+function activity(workspace: Workspace) { return success(send(workspace, { command: "activity.list" })).result.activity as { operationId: string; command: string; createdAt: string; before: unknown; after: CanonicalTask }[]; }
 function cacheRows(workspace: Workspace) {
   const db = new DatabaseSync(workspace.cache);
   try { return ["v2_query_state", "v2_query_tasks", "v2_receipts", "v2_operations"].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()); }
@@ -64,8 +64,8 @@ for (const entry of corpus.cases.filter(entry => entry.profile === "inputs")) {
       return;
     }
     const result = success(response).result;
-    const task = result.task as V2CanonicalTask & { version: number; blockedByIds: string[] };
-    for (const [field, value] of Object.entries(entry.expect.fields as Record<string, unknown>)) assert.deepEqual(task[field as keyof V2CanonicalTask], value);
+    const task = result.task as CanonicalTask & { version: number; blockedByIds: string[] };
+    for (const [field, value] of Object.entries(entry.expect.fields as Record<string, unknown>)) assert.deepEqual(task[field as keyof CanonicalTask], value);
     if (entry.action.command === "task.create") {
       assert.match(task.id, uuid);
       assert.ok(Date.parse(task.createdAt) >= started && Date.parse(task.createdAt) <= Date.now());
@@ -91,7 +91,7 @@ for (const command of matrix.action.commands!) for (const status of matrix.actio
     const closedAt = status === "done" || status === "canceled" ? "2026-09-08T14:00:00.000Z" : null;
     const workspace = materialize(t, { status, closedAt });
     const request = prepared(workspace, `task.${command}`, { id: "a" });
-    const before = success(send(workspace, { command: "task.get", args: { id: "a" } })).result.task as V2CanonicalTask & { version: number };
+    const before = success(send(workspace, { command: "task.get", args: { id: "a" } })).result.task as CanonicalTask & { version: number };
     const bytes = canonicalBytes(workspace);
     const response = send(workspace, request);
     const allowed = (matrix.expect.allowed as Record<string, string[]>)[command].includes(status);
@@ -103,7 +103,7 @@ for (const command of matrix.action.commands!) for (const status of matrix.actio
       return;
     }
     const result = success(response).result;
-    const after = result.task as V2CanonicalTask & { version: number };
+    const after = result.task as CanonicalTask & { version: number };
     const target = (matrix.expect.targets as Record<string, string>)[command];
     assert.equal(after.status, target);
     const changed = status !== target;
@@ -132,11 +132,11 @@ for (const id of ["time-complete", "time-noop", "time-edit-closed"]) {
     const bytes = canonicalBytes(workspace);
     const started = Date.now();
     const result = success(send(workspace, request)).result;
-    const task = result.task as V2CanonicalTask & { version: number };
+    const task = result.task as CanonicalTask & { version: number };
     const rows = activity(workspace);
     const boundAt = rows[0]?.createdAt;
     if (boundAt) assert.ok(Date.parse(boundAt) >= started && Date.parse(boundAt) <= Date.now());
-    for (const [field, value] of Object.entries(entry.expect.fields as Record<string, unknown>)) assert.equal(task[field as keyof V2CanonicalTask], value === entry.action.at ? boundAt : value);
+    for (const [field, value] of Object.entries(entry.expect.fields as Record<string, unknown>)) assert.equal(task[field as keyof CanonicalTask], value === entry.action.at ? boundAt : value);
     if (entry.expect.versionChanged !== undefined) assert.equal(task.version !== request.args.expectedVersion, entry.expect.versionChanged);
     if (entry.expect.activityGroups !== undefined) assert.equal(rows.length, entry.expect.activityGroups);
     if (entry.expect.canonicalWrites === 0) assert.deepEqual(canonicalBytes(workspace), bytes);
@@ -198,15 +198,15 @@ test("capture preserves full Markdown/defaults, prepends complete scopes and rej
   const request = prepared(workspace, "task.create", { title: "Child", parentId: "missing" });
   fail(send(workspace, request), "INVALID_PARENT");
   const note = "## Notes\r\n\n@not-a-category #not-a-tag\n```js\nconst x = 1;\n```";
-  const first = success(send(workspace, { ...request, args: { title: " Child ", parentId: "a", description: note, priority: 0 } })).result.task as V2CanonicalTask;
+  const first = success(send(workspace, { ...request, args: { title: " Child ", parentId: "a", description: note, priority: 0 } })).result.task as CanonicalTask;
   assert.equal(first.parentId, "a");
   assert.equal(first.orderKey, "a0");
   assert.equal(first.description, note);
   assert.equal(first.category, null);
-  const next = success(send(workspace, { ...prepared(workspace, "task.create", { text: "Second @Work #B #a", parentId: "a" }), idempotencyKey: "second" })).result.task as V2CanonicalTask;
+  const next = success(send(workspace, { ...prepared(workspace, "task.create", { text: "Second @Work #B #a", parentId: "a" }), idempotencyKey: "second" })).result.task as CanonicalTask;
   assert.equal(next.orderKey, "Zz");
   const canceled = success(send(workspace, { ...prepared(workspace, "task.delete", { id: "a" }), idempotencyKey: "cancel-parent" }));
-  assert.equal((canceled.result.task as V2CanonicalTask).status, "canceled");
+  assert.equal((canceled.result.task as CanonicalTask).status, "canceled");
   const rejected = { ...prepared(workspace, "task.create", { title: "Not under canceled", parentId: "a" }), idempotencyKey: "new-child" };
   fail(send(workspace, rejected), "INVALID_PARENT");
   success(send(workspace, { ...prepared(workspace, "task.reopen", { id: "a" }), idempotencyKey: "reopen-parent" }));
@@ -219,10 +219,10 @@ test("capture first placement includes hidden/canceled equal-key siblings withou
   writeFileSync(path.join(workspace.root, "tasks/b.json"), JSON.stringify({ ...corpus.taskTemplate, id: "b", status: "paused" }));
   const before = canonicalBytes(workspace);
   const result = success(send(workspace, prepared(workspace, "task.create"))).result;
-  assert.equal((result.task as V2CanonicalTask).orderKey, "Zz");
+  assert.equal((result.task as CanonicalTask).orderKey, "Zz");
   assert.deepEqual(canonicalBytes(workspace).filter(([file]) => file === "workspace.json" || file === "tasks/a.json" || file === "tasks/b.json"), before);
-  const manual = success(send(workspace, { command: "task.list", args: { sort: "manual", status: ["open", "paused", "canceled"] } })).result.tasks as V2CanonicalTask[];
-  assert.deepEqual(manual.map(task => task.id), [(result.task as V2CanonicalTask).id, "a", "b"]);
+  const manual = success(send(workspace, { command: "task.list", args: { sort: "manual", status: ["open", "paused", "canceled"] } })).result.tasks as CanonicalTask[];
+  assert.deepEqual(manual.map(task => task.id), [(result.task as CanonicalTask).id, "a", "b"]);
 });
 
 test("capture rejects forbidden fields/text boundaries and key exhaustion before staging or canonical effects", linuxOnly, (t) => {
@@ -240,7 +240,7 @@ test("capture rejects forbidden fields/text boundaries and key exhaustion before
   const longBytes = canonicalBytes(workspace);
   fail(send(workspace, request), "ORDER_KEY_LIMIT");
   assert.deepEqual(canonicalBytes(workspace), longBytes);
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
 });
 
 test("capture/status previews preserve cache/bytes/history and do not reserve preview IDs or keys", linuxOnly, (t) => {
@@ -256,10 +256,10 @@ test("capture/status previews preserve cache/bytes/history and do not reserve pr
     assert.equal(withKey.result.changed, true);
     assert.deepEqual(cacheRows(workspace), rows);
     assert.deepEqual(canonicalBytes(workspace), bytes);
-    if (request === create) { previewId = (preview.result.task as V2CanonicalTask).id; assert.match(previewId, uuid); fail(send(workspace, { command: "task.get", args: { id: previewId } }), "TASK_NOT_FOUND"); }
+    if (request === create) { previewId = (preview.result.task as CanonicalTask).id; assert.match(previewId, uuid); fail(send(workspace, { command: "task.get", args: { id: previewId } }), "TASK_NOT_FOUND"); }
   }
   const created = success(send(workspace, create));
-  assert.notEqual((created.result.task as V2CanonicalTask).id, previewId);
+  assert.notEqual((created.result.task as CanonicalTask).id, previewId);
   fail(send(workspace, { ...create, dryRun: true }), "IDEMPOTENCY_KEY_REUSED");
   const freshComplete = prepared(workspace, complete.command, { id: "a" });
   success(send(workspace, { ...freshComplete, idempotencyKey: complete.idempotencyKey }));
@@ -272,8 +272,8 @@ test("status preserves relationship/order bytes, never cascades, and done still 
   const completed = success(send(workspace, prepared(workspace, "task.complete", { id: "a" })));
   assert.deepEqual((success(send(workspace, { command: "task.get", args: { id: "child" } })).result.task as { blockedByIds: string[] }).blockedByIds, ["a"]);
   const canceled = success(send(workspace, { ...prepared(workspace, "task.delete", { id: "a" }), idempotencyKey: "delete-done" }));
-  assert.equal((canceled.result.task as V2CanonicalTask).status, "canceled");
-  assert.equal((canceled.result.task as V2CanonicalTask).updatedAt, (completed.result.task as V2CanonicalTask).updatedAt);
+  assert.equal((canceled.result.task as CanonicalTask).status, "canceled");
+  assert.equal((canceled.result.task as CanonicalTask).updatedAt, (completed.result.task as CanonicalTask).updatedAt);
   assert.deepEqual((success(send(workspace, { command: "task.get", args: { id: "child" } })).result.task as { blockedByIds: string[] }).blockedByIds, []);
   assert.deepEqual(readFileSync(path.join(workspace.root, "tasks/child.json")), child);
 });
@@ -292,7 +292,7 @@ for (const command of ["task.create", "task.complete"]) {
       fail(send(workspace, { ...request, args: { ...request.args, expectedVersion: 123456 } }), "STALE_TASK_VERSION");
     }
     const first = success(send(workspace, request));
-    const task = first.result.task as V2CanonicalTask;
+    const task = first.result.task as CanonicalTask;
     rmSync(path.join(workspace.root, "tasks", `${task.id}.json`));
     assert.deepEqual(success(send(workspace, request)).result, first.result);
     assert.equal(existsSync(path.join(workspace.root, "tasks", `${task.id}.json`)), false);
@@ -328,6 +328,6 @@ for (const command of ["task.create", "task.complete"]) {
     fail(send(workspace, request), "UNSUPPORTED_COMMAND");
     assert.deepEqual(cacheRows(workspace), rows);
     assert.deepEqual(canonicalBytes(workspace), bytes);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   });
 }

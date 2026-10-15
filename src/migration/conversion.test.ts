@@ -5,9 +5,9 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { contentHash } from "../legacy/backend/requestHash.js";
-import { readV2CanonicalRoot } from "../backend/canonicalReader.js";
-import { normalizeV1MigrationTimestamp, readV1MigrationSnapshot, V1MigrationSourceError } from "./schema1Source.js";
-import { planV1ToV2Conversion } from "./conversion.js";
+import { readCanonicalRoot } from "../backend/canonicalReader.js";
+import { normalizeSchema1MigrationTimestamp, readSchema1MigrationSnapshot, Schema1MigrationSourceError } from "./schema1Source.js";
+import { planSchema1Conversion } from "./conversion.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
@@ -16,7 +16,7 @@ const doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 const taskPath = `tasks/${parentId}.json`;
 type RecordValue = Record<string, unknown> & { sync: Record<string, unknown> };
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "taskdb-v2/cases.json"), "utf8")) as {
-  cases: { id: string; given: { patchV1?: Record<string, unknown>; removeV1?: string; rehashV1?: boolean }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number; goldenRoot?: string } }[];
+  cases: { id: string; given: { patchSchema1?: Record<string, unknown>; removeSchema1?: string; rehashSchema1?: boolean }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number; goldenRoot?: string } }[];
 };
 
 function setup(t: TestContext) {
@@ -51,8 +51,8 @@ function tree(root: string, prefix = ""): unknown[] {
 
 function invalid(root: string, expectedPath?: string, field?: string) {
   const before = tree(root);
-  assert.throws(() => planV1ToV2Conversion(root), (error: unknown) => {
-    assert.ok(error instanceof V1MigrationSourceError);
+  assert.throws(() => planSchema1Conversion(root), (error: unknown) => {
+    assert.ok(error instanceof Schema1MigrationSourceError);
     assert.equal(error.code, "MIGRATION_INVALID_SOURCE");
     assert.ok(error.details.reason);
     if (expectedPath) assert.equal(error.details.path, expectedPath);
@@ -71,13 +71,13 @@ test("read-only converter adapts migrate-golden: independent full-field AND exac
   writeFileSync(selection, JSON.stringify({ root }));
   writeFileSync(cache, "not a conversion input");
   const before = tree(directory);
-  const plan = planV1ToV2Conversion(root);
+  const plan = planSchema1Conversion(root);
   const golden = path.join(fixtures, "taskdb-v2", entry.expect.goldenRoot!);
-  assert.deepEqual(plan.tasks, readV2CanonicalRoot(golden).tasks.sort((a, b) => a.id < b.id ? -1 : 1));
+  assert.deepEqual(plan.tasks, readCanonicalRoot(golden).tasks.sort((a, b) => a.id < b.id ? -1 : 1));
   assert.equal(plan.tasks.length, entry.expect.taskCount);
   for (const file of plan.files) assert.deepEqual(file.bytes, readFileSync(path.join(golden, file.relativePath)), file.relativePath);
-  assert.deepEqual(plan.files, planV1ToV2Conversion(root).files);
-  assert.deepEqual(plan.source.files, readV1MigrationSnapshot(root).files);
+  assert.deepEqual(plan.files, planSchema1Conversion(root).files);
+  assert.deepEqual(plan.source.files, readSchema1MigrationSnapshot(root).files);
   assert.equal(plan.source.orders.length, 2);
   assert.equal(plan.source.directories.length, 3);
   assert.equal(plan.source.rootPath, root);
@@ -89,15 +89,15 @@ for (const id of ["migrate-title-only-tokens", "migrate-legacy-escape", "migrate
   test(`read-only converter adapts ${id} source/mapping vector, not migration command execution`, (t) => {
     const entry = corpus.cases.find(entry => entry.id === id)!;
     const { root } = setup(t);
-    if (entry.given.patchV1) {
-      assert.equal(entry.given.rehashV1, true);
-      patch(root, taskPath, record => Object.assign(record, entry.given.patchV1));
+    if (entry.given.patchSchema1) {
+      assert.equal(entry.given.rehashSchema1, true);
+      patch(root, taskPath, record => Object.assign(record, entry.given.patchSchema1));
     }
-    if (entry.given.removeV1) rmSync(path.join(root, entry.given.removeV1));
+    if (entry.given.removeSchema1) rmSync(path.join(root, entry.given.removeSchema1));
     const before = tree(root);
     if (entry.expect.error) invalid(root);
     else {
-      const converted = planV1ToV2Conversion(root).tasks.find(task => task.id === parentId)!;
+      const converted = planSchema1Conversion(root).tasks.find(task => task.id === parentId)!;
       for (const [field, value] of Object.entries(entry.expect.fields!)) assert.deepEqual(converted[field as keyof typeof converted], value, field);
     }
     assert.deepEqual(tree(root), before);
@@ -110,7 +110,7 @@ test("migration preserves nonmetadata spacing, Unicode, protected code and unkno
     record.title = "  Prépare  😃\t launch @WORK #Zoo #alpha #ZOO @work `  @code #literal  ` \\q\n```\n#fenced @ignored\n```  ";
     record.descriptionMarkdown = "## Notes\r\n\r\n#not-a-tag\n\\@literal\r\n😃";
   });
-  const converted = planV1ToV2Conversion(root).tasks.find(task => task.id === parentId)!;
+  const converted = planSchema1Conversion(root).tasks.find(task => task.id === parentId)!;
   assert.equal(converted.title, "Prépare  😃\t launch      `  @code #literal  ` \\q\n```\n#fenced @ignored\n```");
   assert.equal(converted.description, "## Notes\r\n\r\n#not-a-tag\n\\@literal\r\n😃");
   assert.equal(converted.category, "work");
@@ -126,7 +126,7 @@ test("migration keeps all inactive siblings, exact legacy IDs, edge membership a
     record.dependencyIds = [doneId, "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed"];
     record.priority = 0;
   });
-  const plan = planV1ToV2Conversion(root);
+  const plan = planSchema1Conversion(root);
   const converted = plan.tasks.find(task => task.id === parentId)!;
   assert.equal(converted.orderKey, "a2");
   assert.equal(converted.status, "canceled");
@@ -141,7 +141,7 @@ test("migration keeps all inactive siblings, exact legacy IDs, edge membership a
   patch(root, "order/root.json", record => { record.taskIds = (record.taskIds as string[]).map(id => id === parentId ? "Legacy_ID-7" : id); });
   renameSync(path.join(root, `order/${parentId}.json`), path.join(root, "order/Legacy_ID-7.json"));
   patch(root, "order/Legacy_ID-7.json", record => { record.parentId = "Legacy_ID-7"; });
-  const legacy = planV1ToV2Conversion(root);
+  const legacy = planSchema1Conversion(root);
   assert.equal(legacy.tasks.find(task => task.id === "Legacy_ID-7")!.orderKey, "a2");
   assert.deepEqual(legacy.tasks.find(task => task.id === childId)!.dependencyIds, ["Legacy_ID-7"]);
   assert.ok(legacy.files.some(file => file.relativePath === "tasks/Legacy_ID-7.json"));
@@ -151,12 +151,12 @@ test("empty source and valid empty leaf scope convert without inventing tasks", 
   const { root } = setup(t);
   patch(root, `order/${parentId}.json`, record => { record.taskIds = []; });
   rmSync(path.join(root, `tasks/${childId}.json`));
-  assert.equal(planV1ToV2Conversion(root).tasks.length, 3);
+  assert.equal(planSchema1Conversion(root).tasks.length, 3);
   rmSync(path.join(root, "tasks"), { recursive: true });
   mkdirSync(path.join(root, "tasks"));
   rmSync(path.join(root, `order/${parentId}.json`));
   patch(root, "order/root.json", record => { record.taskIds = []; });
-  const empty = planV1ToV2Conversion(root);
+  const empty = planSchema1Conversion(root);
   assert.deepEqual(empty.tasks, []);
   assert.deepEqual(empty.files.map(file => file.relativePath), ["workspace.json"]);
 });
@@ -169,7 +169,7 @@ test("known physical Syncthing artifacts are excluded, not copied or parsed as t
   writeFileSync(path.join(root, ".stignore"), "# marker");
   writeFileSync(path.join(root, "tasks/.syncthing.transfer.tmp"), "partial { arbitrary bytes");
   const before = tree(root);
-  assert.equal(planV1ToV2Conversion(root).files.length, 5);
+  assert.equal(planSchema1Conversion(root).files.length, 5);
   assert.deepEqual(tree(root), before);
 });
 
@@ -244,8 +244,8 @@ for (const [name, bytes] of [
     const { root } = setup(t);
     writeFileSync(path.join(root, taskPath), bytes);
     invalid(root, taskPath, "JSON");
-    assert.throws(() => planV1ToV2Conversion(root), (error: unknown) => {
-      assert.ok(error instanceof V1MigrationSourceError);
+    assert.throws(() => planSchema1Conversion(root), (error: unknown) => {
+      assert.ok(error instanceof Schema1MigrationSourceError);
       assert.equal(error.details.taskId, parentId);
       assert.ok(!error.message.includes("secret"));
       return true;
@@ -307,7 +307,7 @@ const validTimes = [
 ];
 for (const [input, expected] of validTimes) {
   test(`migration normalizes lossless instant ${input}`, () => {
-    assert.equal(normalizeV1MigrationTimestamp(input, taskPath, "createdAt"), expected);
+    assert.equal(normalizeSchema1MigrationTimestamp(input, taskPath, "createdAt"), expected);
   });
 }
 for (const input of [

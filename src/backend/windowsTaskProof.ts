@@ -1,24 +1,24 @@
 import { batchIntentPlan } from "./batchJournal.js";
-import type { V2PendingIntent } from "./pending.js";
-import { V2_STATUS_COMMANDS } from "./taskStatus.js";
-import type { V2HistorySource } from "./undoPlan.js";
+import type { PendingIntent } from "./pending.js";
+import { STATUS_COMMANDS } from "./taskStatus.js";
+import type { HistorySource } from "./undoPlan.js";
 
-export function isV2SingleStatusSource(source: V2HistorySource): boolean {
-  return (V2_STATUS_COMMANDS as readonly string[]).includes(source.command);
+export function isSingleStatusSource(source: HistorySource): boolean {
+  return (STATUS_COMMANDS as readonly string[]).includes(source.command);
 }
 
 /** Windows proof checks concrete families and destination scope, including receipt-based cleanup. */
-export function isV2WindowsProofIntent(intent: V2PendingIntent): boolean {
+export function isWindowsProofIntent(intent: PendingIntent): boolean {
   if (intent.format === "taskdb.pending-create") return intent.request.command === "task.create";
   if (intent.format === "taskdb.pending-update") {
-    return intent.request.command === "task.update" || (V2_STATUS_COMMANDS as readonly string[]).includes(intent.request.command);
+    return intent.request.command === "task.update" || (STATUS_COMMANDS as readonly string[]).includes(intent.request.command);
   }
   if (intent.format === "taskdb.pending-copy") {
     return ["workspace.archive", "workspace.restore"].includes(intent.request.command)
       && intent.destination.identity === null && intent.migration === undefined;
   }
   if (intent.format !== "taskdb.pending-batch" || intent.request.command !== "task.status.undo"
-    || intent.sources.length !== 1 || !isV2SingleStatusSource(intent.sources[0])) return false;
+    || intent.sources.length !== 1 || !isSingleStatusSource(intent.sources[0])) return false;
   const id = intent.request.args.id, plan = batchIntentPlan(intent);
   const changed = intent.files.filter(file => file.beforeBytes !== file.nextBytes);
   return typeof id === "string" && plan.selectedIds.length === 1 && plan.selectedIds[0] === id

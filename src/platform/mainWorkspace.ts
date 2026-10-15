@@ -1,11 +1,11 @@
 import { taskView } from "@/components/taskView";
 import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
 import type { TaskPriority } from "@/backend/taskModel";
-import { parseV2TaskProjection } from "@/backend/taskResults";
-import { compareV2Tasks } from "@/backend/taskModel";
-import { V2WorkspaceReader } from "./workspaceReader";
-import { V2AnsweredRefusal, V2EditorClient, V2EditorError, type V2CopyResult, type V2EditorMode, type V2EditResult, type V2OrderResult, type V2PreparedEdit, type V2RelationshipAction, type V2StatusAction, type V2UndoResult } from "./editorClient";
-import { browserUndoStorage, V2UndoHistory, type V2UndoStorage } from "./undoHistory";
+import { parseTaskProjection } from "@/backend/taskResults";
+import { compareTasks } from "@/backend/taskModel";
+import { WorkspaceReader } from "./workspaceReader";
+import { AnsweredRefusal, EditorClient, EditorError, type CopyResult, type EditorMode, type EditResult, type OrderResult, type PreparedEdit, type RelationshipAction, type StatusAction, type UndoResult } from "./editorClient";
+import { browserUndoStorage, UndoHistory, type UndoStorage } from "./undoHistory";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
 const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);
@@ -20,7 +20,7 @@ function classificationEntries(value: unknown): { slug: string; taskCount: numbe
 }
 
 export type UnresolvedTaskRequest = {
-  prepared: V2PreparedEdit<V2EditResult | V2OrderResult | V2UndoResult | V2CopyResult>;
+  prepared: PreparedEdit<EditResult | OrderResult | UndoResult | CopyResult>;
   error: string;
   retry: () => Promise<void>;
   preserveForReconciliation: () => void;
@@ -32,9 +32,9 @@ export class MainWorkspace {
   private reconciliationRequired = false;
   private unresolved: UnresolvedTaskRequest | null = null;
   private listeners = new Set<() => void>();
-  private history: Promise<V2UndoHistory> | null = null;
+  private history: Promise<UndoHistory> | null = null;
 
-  constructor(readonly reader: V2WorkspaceReader, readonly editor: V2EditorClient, private readonly undoStorage: V2UndoStorage | null = browserUndoStorage()) {
+  constructor(readonly reader: WorkspaceReader, readonly editor: EditorClient, private readonly undoStorage: UndoStorage | null = browserUndoStorage()) {
     if (reader.selection.rootPath !== editor.selection.rootPath || reader.selection.databasePath !== editor.selection.databasePath) {
       throw new Error("The list and editor must share the same explicitly selected workspace.");
     }
@@ -57,8 +57,8 @@ export class MainWorkspace {
   hasWriteInProgress = (): boolean => this.writing;
 
   /** Copies never change selection or enter task undo history. The gateway validates paths and the complete source. */
-  async copyWorkspace(destinationDirectory: string, key: string, sourceDirectory?: string): Promise<V2CopyResult> {
-    if (!this.supportsBackupRestore) throw new V2EditorError("UNSUPPORTED_COMMAND", "Backup and restore are not available in this selected workspace.");
+  async copyWorkspace(destinationDirectory: string, key: string, sourceDirectory?: string): Promise<CopyResult> {
+    if (!this.supportsBackupRestore) throw new EditorError("UNSUPPORTED_COMMAND", "Backup and restore are not available in this selected workspace.");
     return this.run(async () => {
       const prepared = this.editor.prepareCopy(await this.editor.begin(undefined, "copy"), destinationDirectory, key, sourceDirectory);
       await prepared.preview();
@@ -105,7 +105,7 @@ export class MainWorkspace {
     return this.write(async () => this.editor.prepareInline(await this.baseline(), text, description, priority, key, parentId));
   }
 
-  async relationship(command: V2RelationshipAction, id: string, version: number, target: string | null, key: string) {
+  async relationship(command: RelationshipAction, id: string, version: number, target: string | null, key: string) {
     return this.write(async () => {
       const baseline = await this.baseline(id, version, "relationship");
       if (target !== null && command !== "task.dependency.remove") await this.assertRelationshipTarget(command, id, target);
@@ -134,12 +134,12 @@ export class MainWorkspace {
   }
 
   /** This client's own undo history for the confirmed root/cache/profile and current write context; Linux route only. */
-  undoHistory(): Promise<V2UndoHistory> {
-    if (!this.supportsOperationUndo) return Promise.reject(new V2EditorError("UNSUPPORTED_COMMAND", "Undo is limited to status changes in this selected workspace."));
+  undoHistory(): Promise<UndoHistory> {
+    if (!this.supportsOperationUndo) return Promise.reject(new EditorError("UNSUPPORTED_COMMAND", "Undo is limited to status changes in this selected workspace."));
     if (!this.history) {
       const { rootPath, databasePath, profilePath } = this.editor.selection;
       this.history = this.editor.begin(undefined, "operation")
-        .then(baseline => new V2UndoHistory(JSON.stringify([rootPath, databasePath, profilePath, baseline.writeContext]), this.undoStorage));
+        .then(baseline => new UndoHistory(JSON.stringify([rootPath, databasePath, profilePath, baseline.writeContext]), this.undoStorage));
       this.history.catch(() => { this.history = null; });
     }
     return this.history;
@@ -159,50 +159,50 @@ export class MainWorkspace {
     return this.write(async () => this.editor.preparePriority(await this.baseline(id, version), priority, key));
   }
 
-  async status(command: V2StatusAction, id: string, version: number, key: string) {
+  async status(command: StatusAction, id: string, version: number, key: string) {
     return this.write(async () => this.editor.prepareStatus(await this.baseline(id, version, "status"), command, key));
   }
 
   private async ready() {
     const workspace = await this.reader.workspaceInfo();
-    if (workspace.state !== "ready") throw new V2EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "WORKSPACE_UNAVAILABLE", "Task browsing is paused. Preserve the selected paths and use explicit recovery; nothing was repaired automatically.");
+    if (workspace.state !== "ready") throw new EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "WORKSPACE_UNAVAILABLE", "Task browsing is paused. Preserve the selected paths and use explicit recovery; nothing was repaired automatically.");
     return workspace;
   }
 
-  private async baseline(id?: string, version?: number, mode: V2EditorMode = "content") {
+  private async baseline(id?: string, version?: number, mode: EditorMode = "content") {
     const baseline = await this.editor.begin(id, mode);
-    if (id !== undefined && baseline.task?.version !== version) throw new V2EditorError("STALE_TASK_VERSION", "This task changed elsewhere. Your draft was not sent; reopen it before saving.");
+    if (id !== undefined && baseline.task?.version !== version) throw new EditorError("STALE_TASK_VERSION", "This task changed elsewhere. Your draft was not sent; reopen it before saving.");
     return baseline;
   }
 
   // Writer refusals keep the original request like an uncertain reply, so reachable graph mistakes are refused before sending.
-  private async assertRelationshipTarget(command: V2RelationshipAction, id: string, targetId: string): Promise<void> {
+  private async assertRelationshipTarget(command: RelationshipAction, id: string, targetId: string): Promise<void> {
     const move = command === "task.move";
     const seen = new Set<string>();
     const pending = [targetId];
     while (pending.length > 0) {
       const current = pending.pop()!;
-      if (current === id) throw new V2EditorError(move ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE", move ? "A task cannot move under itself or one of its subtasks. Nothing was sent." : "This dependency would create a cycle. Nothing was sent.");
+      if (current === id) throw new EditorError(move ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE", move ? "A task cannot move under itself or one of its subtasks. Nothing was sent." : "This dependency would create a cycle. Nothing was sent.");
       if (seen.has(current)) continue;
       seen.add(current);
-      const task = parseV2TaskProjection((await this.reader.query("task.get", { id: current })).task);
-      if (current === targetId && task.status === "canceled") throw new V2EditorError(move ? "INVALID_PARENT" : "INVALID_DEPENDENCY", "Reopen the canceled task before linking to it. Nothing was sent.");
+      const task = parseTaskProjection((await this.reader.query("task.get", { id: current })).task);
+      if (current === targetId && task.status === "canceled") throw new EditorError(move ? "INVALID_PARENT" : "INVALID_DEPENDENCY", "Reopen the canceled task before linking to it. Nothing was sent.");
       pending.push(...(move ? (task.parentId === null ? [] : [task.parentId]) : task.dependencyIds));
     }
   }
 
   // Like relationship edits, reachable ordering refusals are checked before sending so they cannot lock the request.
   private async assertReorderScope(tasks: readonly TaskReorderTask[], placement: TaskReorderPlacement): Promise<void> {
-    const changed = () => new V2EditorError("STALE_TASK_VERSION", "A selected task changed elsewhere. Nothing was sent; refresh and try again.");
-    const current = async (id: string) => parseV2TaskProjection((await this.reader.query("task.get", { id })).task);
+    const changed = () => new EditorError("STALE_TASK_VERSION", "A selected task changed elsewhere. Nothing was sent; refresh and try again.");
+    const current = async (id: string) => parseTaskProjection((await this.reader.query("task.get", { id })).task);
     const selected = await Promise.all(tasks.map(task => current(task.id)));
     if (selected.some((task, index) => task.version !== tasks[index].expectedVersion)) throw changed();
     const parentId = selected[0].parentId;
     if (new Set(tasks.map(task => task.id)).size !== tasks.length || selected.some(task => task.parentId !== parentId)
-      || selected.some((task, index) => index > 0 && compareV2Tasks(selected[index - 1], task) >= 0)) throw changed();
+      || selected.some((task, index) => index > 0 && compareTasks(selected[index - 1], task) >= 0)) throw changed();
     const anchorId = "beforeId" in placement ? placement.beforeId : "afterId" in placement ? placement.afterId : null;
     if (anchorId !== null && (tasks.some(task => task.id === anchorId) || (await current(anchorId)).parentId !== parentId)) {
-      throw new V2EditorError("STALE_TASK_VERSION", "The move target changed elsewhere. Nothing was sent; refresh and try again.");
+      throw new EditorError("STALE_TASK_VERSION", "The move target changed elsewhere. Nothing was sent; refresh and try again.");
     }
   }
 
@@ -211,14 +211,14 @@ export class MainWorkspace {
     for (const listener of this.listeners) listener();
   }
 
-  private async write(prepare: () => Promise<V2PreparedEdit>) {
+  private async write(prepare: () => Promise<PreparedEdit>) {
     const result = await this.run(prepare);
     return { ...result, task: taskView(result.task) };
   }
 
-  private async run<R extends V2EditResult | V2OrderResult | V2UndoResult | V2CopyResult>(prepare: () => Promise<V2PreparedEdit<R>>): Promise<R> {
-    if (this.reconciliationRequired) throw new V2EditorError("MANUAL_RECONCILIATION", "Writes are paused until you reconcile the preserved request and reopen this workspace.");
-    if (this.writing) throw new V2EditorError("WRITE_IN_PROGRESS", "Finish the current task change before starting another.");
+  private async run<R extends EditResult | OrderResult | UndoResult | CopyResult>(prepare: () => Promise<PreparedEdit<R>>): Promise<R> {
+    if (this.reconciliationRequired) throw new EditorError("MANUAL_RECONCILIATION", "Writes are paused until you reconcile the preserved request and reopen this workspace.");
+    if (this.writing) throw new EditorError("WRITE_IN_PROGRESS", "Finish the current task change before starting another.");
     this.writing = true;
     try {
       const prepared = await prepare();
@@ -233,7 +233,7 @@ export class MainWorkspace {
             this.publishUnresolved(null);
             resolve(result);
           } catch (error) {
-            if (!uncertainAttempt && error instanceof V2AnsweredRefusal && PRE_EFFECT_REFUSALS.has(error.code)) {
+            if (!uncertainAttempt && error instanceof AnsweredRefusal && PRE_EFFECT_REFUSALS.has(error.code)) {
               this.publishUnresolved(null);
               reject(error);
               return;
@@ -244,7 +244,7 @@ export class MainWorkspace {
               preserveForReconciliation: () => {
                 this.reconciliationRequired = true;
                 this.publishUnresolved(null);
-                reject(new V2EditorError("MANUAL_RECONCILIATION", "The original request still needs external reconciliation. Do not submit a replacement."));
+                reject(new EditorError("MANUAL_RECONCILIATION", "The original request still needs external reconciliation. Do not submit a replacement."));
               } });
           } finally { inFlight = false; }
         };

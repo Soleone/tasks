@@ -1,5 +1,5 @@
 import type { ClassificationToken, TaskPriority, TaskStatus } from "@/legacy/backend/protocol";
-import type { V2TaskProjection } from "@/backend/queries";
+import type { TaskProjection } from "@/backend/queries";
 
 /** Presentation data for the existing list/composer, never a canonical file or protocol envelope. */
 export type TaskView = {
@@ -22,7 +22,7 @@ export type TaskView = {
   inputText?: string;
 };
 
-export function inlineTaskText(task: Pick<V2TaskProjection, "title" | "category" | "tags">): string {
+export function inlineTaskText(task: Pick<TaskProjection, "title" | "category" | "tags">): string {
   let escaped = "";
   for (let index = 0; index < task.title.length;) {
     const marker = task.title.startsWith("```", index) ? "```" : task.title[index] === "`" ? "`" : null;
@@ -43,7 +43,7 @@ export function inlineTaskText(task: Pick<V2TaskProjection, "title" | "category"
   return [...classification, escaped].join(" ");
 }
 
-export function taskView(task: V2TaskProjection): TaskView {
+export function taskView(task: TaskProjection): TaskView {
   return {
     id: task.id, title: task.title, literalTitle: task.title,
     inputText: inlineTaskText(task),

@@ -1,10 +1,10 @@
 import { CommandError } from "./errors.js";
-import { assertV2Args } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
-import { compareV2Tasks } from "./taskModel.js";
-import type { V2QueryAuthority } from "./queryCache.js";
+import { assertArgs } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
+import { compareTasks } from "./taskModel.js";
+import type { QueryAuthority } from "./queryCache.js";
 
-export type V2TaskProjection = V2CanonicalTask & { version: number; blockedByIds: string[] };
+export type TaskProjection = CanonicalTask & { version: number; blockedByIds: string[] };
 const slugPattern = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 const taskStatuses = new Set(["open", "in_progress", "paused", "done", "canceled"]);
 
@@ -30,7 +30,7 @@ function queryInteger(value: unknown, fallback: number): number {
   return value;
 }
 
-export function projectV2Tasks(tasks: V2CanonicalTask[], authority: V2QueryAuthority): V2TaskProjection[] {
+export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority): TaskProjection[] {
   const byId = new Map(tasks.map(task => [task.id, task]));
   return tasks.map(task => ({
     ...task,
@@ -39,16 +39,16 @@ export function projectV2Tasks(tasks: V2CanonicalTask[], authority: V2QueryAutho
   }));
 }
 
-function manualPreorder(tasks: V2TaskProjection[]): V2TaskProjection[] {
-  const scopes = new Map<string | null, V2TaskProjection[]>();
+function manualPreorder(tasks: TaskProjection[]): TaskProjection[] {
+  const scopes = new Map<string | null, TaskProjection[]>();
   for (const task of tasks) {
     const scope = scopes.get(task.parentId) ?? [];
     scope.push(task);
     scopes.set(task.parentId, scope);
   }
-  for (const scope of scopes.values()) scope.sort(compareV2Tasks);
+  for (const scope of scopes.values()) scope.sort(compareTasks);
   const stack = [...(scopes.get(null) ?? [])].reverse();
-  const ordered: V2TaskProjection[] = [];
+  const ordered: TaskProjection[] = [];
   while (stack.length > 0) {
     const task = stack.pop()!;
     ordered.push(task);
@@ -58,8 +58,8 @@ function manualPreorder(tasks: V2TaskProjection[]): V2TaskProjection[] {
   return ordered;
 }
 
-function listV2Tasks(tasks: V2TaskProjection[], args: Record<string, unknown>, revision: number): Record<string, unknown> {
-  assertV2Args(args, ["status", "priority", "category", "categoryIsNull", "tags", "search", "unblocked", "includeAncestors", "sort", "direction", "limit", "offset"]);
+function listTasks(tasks: TaskProjection[], args: Record<string, unknown>, revision: number): Record<string, unknown> {
+  assertArgs(args, ["status", "priority", "category", "categoryIsNull", "tags", "search", "unblocked", "includeAncestors", "sort", "direction", "limit", "offset"]);
   const statuses = args.status === undefined ? [] : Array.isArray(args.status) ? args.status : [args.status];
   if (statuses.some(status => typeof status !== "string" || !taskStatuses.has(status))) invalidFilter("status");
   const priority = args.priority === undefined ? undefined : queryInteger(args.priority, 2);
@@ -118,16 +118,16 @@ function listV2Tasks(tasks: V2TaskProjection[], args: Record<string, unknown>, r
   return { tasks: page, ...(args.includeAncestors === true ? { contextTasks: ordered.filter(task => ancestors.has(task.id)) } : {}), total: matching.length, limit, offset, workspaceRevision: revision };
 }
 
-export function executeV2Query(command: string, args: Record<string, unknown>, tasks: V2TaskProjection[], revision: number): Record<string, unknown> {
-  if (command === "task.list") return listV2Tasks(tasks, args, revision);
+export function executeQuery(command: string, args: Record<string, unknown>, tasks: TaskProjection[], revision: number): Record<string, unknown> {
+  if (command === "task.list") return listTasks(tasks, args, revision);
   if (command === "task.get") {
-    assertV2Args(args, ["id"]);
+    assertArgs(args, ["id"]);
     if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) invalidFilter("id");
     const task = tasks.find(task => task.id === args.id);
     if (!task) throw new CommandError("TASK_NOT_FOUND", "task was not found");
     return { task };
   }
-  assertV2Args(args, []);
+  assertArgs(args, []);
   const counts = new Map<string, number>();
   for (const task of tasks) {
     if (task.status === "canceled") continue;

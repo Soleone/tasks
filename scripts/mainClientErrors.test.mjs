@@ -4,10 +4,10 @@ import test from "node:test";
 import { build, transformSync } from "esbuild";
 
 const compiled = await build({
-  stdin: { contents: `export {BackendCommandError} from './src/platform/backendClient'; export {V2EditorError} from './src/platform/editorClient';`, resolveDir: process.cwd() },
+  stdin: { contents: `export {BackendCommandError} from './src/platform/backendClient'; export {EditorError} from './src/platform/editorClient';`, resolveDir: process.cwd() },
   bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": "{}" },
 });
-const { BackendCommandError, V2EditorError } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
+const { BackendCommandError, EditorError } = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 
 // Execute the real catch blocks with inert UI callbacks. This checks error
 // handling only, not rendering, focus, request execution or native acceptance.
@@ -25,12 +25,12 @@ function failureHandler(file, functionName, bindings) {
 
 const undoSource = "src/App.tsx";
 const deleteSource = "src/components/TaskList.tsx";
-for (const ErrorClass of [BackendCommandError, V2EditorError]) {
+for (const ErrorClass of [BackendCommandError, EditorError]) {
   for (const code of ["STALE_TASK_VERSION", "TASK_NOT_FOUND"]) {
     test(`undo retires ${ErrorClass.name} ${code}`, () => {
       const events = [];
       const bindings = {
-        BackendCommandError, V2EditorError, entry: { title: "Task" },
+        BackendCommandError, EditorError, entry: { title: "Task" },
         retireUndo: () => events.push("retire"),
         setExitingTaskIds: ids => events.push([...ids]),
         setAnnouncement: text => events.push(text),
@@ -43,7 +43,7 @@ for (const ErrorClass of [BackendCommandError, V2EditorError]) {
   test(`delete refreshes ${ErrorClass.name} stale failure`, () => {
     const events = [];
     const bindings = {
-      BackendCommandError, V2EditorError, task: { title: "Task" },
+      BackendCommandError, EditorError, task: { title: "Task" },
       onAnnounce: text => events.push(text), onRefresh: () => events.push("refresh"),
     };
     failureHandler(deleteSource, "deleteTaskRecord", bindings)(new ErrorClass("STALE_TASK_VERSION", "Failure"));
@@ -51,11 +51,11 @@ for (const ErrorClass of [BackendCommandError, V2EditorError]) {
   });
 }
 
-for (const error of [new V2EditorError("INVALID_STORAGE", "Preserve request"), new Error("Lost reply")]) {
+for (const error of [new EditorError("INVALID_STORAGE", "Preserve request"), new Error("Lost reply")]) {
   test(`undo and delete keep other failures on their existing path: ${error.message}`, () => {
     const events = [];
     const bindings = {
-      BackendCommandError, V2EditorError, entry: { title: "Task" }, task: { title: "Task" },
+      BackendCommandError, EditorError, entry: { title: "Task" }, task: { title: "Task" },
       retireUndo: () => events.push("retire"), setExitingTaskIds: () => events.push("exit"),
       setAnnouncement: text => events.push(text), refreshTasks: () => events.push("refresh"),
       onAnnounce: text => events.push(text), onRefresh: () => events.push("refresh"),

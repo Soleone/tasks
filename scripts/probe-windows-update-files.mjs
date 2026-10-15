@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, renameSync, rmSync, statfsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { syncV2Directory, withV2RootWriterLock, writeV2DurableFile } from "../dist/backend/localDomain.js";
+import { syncDirectory, withRootWriterLock, writeDurableFile } from "../dist/backend/localDomain.js";
 
 assert.equal(process.platform, "win32", "Run with Windows Node from a Windows filesystem checkout");
 assert.match(realpathSync(import.meta.dirname), /^[A-Za-z]:\\/, "The probe must not run from a WSL/UNC checkout");
@@ -27,8 +27,8 @@ try {
   const target = path.join(rootPath, "tasks", "target.json");
   const stage = path.join(rootPath, "tasks", "stage.tmp");
   probe("exclusive-file-write-and-flush", () => {
-    writeV2DurableFile(target, Buffer.from("before\n"));
-    writeV2DurableFile(stage, Buffer.from("after\n"));
+    writeDurableFile(target, Buffer.from("before\n"));
+    writeDurableFile(stage, Buffer.from("after\n"));
     assert.equal(readFileSync(stage, "utf8"), "after\n");
     return { observedStageBytes: "after\\n" };
   });
@@ -37,13 +37,13 @@ try {
     assert.equal(readFileSync(target, "utf8"), "after\n");
     return { stageAbsent: !existsSync(stage), observedTargetBytes: "after\\n" };
   });
-  probe("flush-task-directory", () => syncV2Directory(path.dirname(target)));
+  probe("flush-task-directory", () => syncDirectory(path.dirname(target)));
   probe("flush-task-directory-with-write-access", () => {
     const descriptor = openSync(path.dirname(target), "r+");
     try { fsyncSync(descriptor); } finally { closeSync(descriptor); }
   });
   let lockActionEntered = false;
-  probe("initialize-root-lock-domain", () => withV2RootWriterLock(root, () => { lockActionEntered = true; }));
+  probe("initialize-root-lock-domain", () => withRootWriterLock(root, () => { lockActionEntered = true; }));
   assert.equal(process.env.APPDATA, profile);
   console.log(JSON.stringify({
     platform: process.platform, os: os.release(), arch: process.arch, node: process.version, libuv: process.versions.uv,

@@ -68,8 +68,8 @@ function counts(w) {
   finally { db.close(); }
 }
 function faultBundle(cut) {
-  const name = ["beforeCommit", "afterCommit"].includes(cut) ? "withV2CacheTransaction" : "executeV2Create";
-  const moduleName = name === "withV2CacheTransaction" ? "v2QueryCache" : "v2CreateWriter";
+  const name = ["beforeCommit", "afterCommit"].includes(cut) ? "withCacheTransaction" : "executeCreate";
+  const moduleName = name === "withCacheTransaction" ? "queryCache" : "createWriter";
   const matches = [];
   let marker = -1;
   while ((marker = source.indexOf(`// src/backend/${moduleName}.ts\n`, marker + 1)) >= 0) {
@@ -84,9 +84,9 @@ function faultBundle(cut) {
   const end = nextFunction >= 0 ? Math.min(nextFunction, moduleEnd) : moduleEnd;
   const section = source.slice(start, end);
   let needle;
-  if (cut === "stage-written") needle = "writeV2DurableFile(stage, bytes);";
+  if (cut === "stage-written") needle = "writeDurableFile(stage, bytes);";
   else if (cut === "published") needle = section.match(/\(0, import_node_fs\d+\.renameSync\)\(stage, target\);/)[0];
-  else if (cut === "flushRefusal") needle = "syncV2Directory(taskDirectory);";
+  else if (cut === "flushRefusal") needle = "syncDirectory(taskDirectory);";
   else if (["destination", "parentChange", "unrelatedChange"].includes(cut)) needle = section.match(/guardCreateDestination\d*\(snapshot, taskDirectoryIdentity, taskId\d*, task.parentId\);/)[0];
   else needle = 'database.exec("COMMIT");';
   assert.equal(section.split(needle).length, 2, `unique ${cut} cut required`);
@@ -111,7 +111,7 @@ async function sea(name, input) {
 try {
   // Validate every unique source transform before spending time packaging any executable.
   const faultSources = new Map(cuts.map(cut => [cut, faultBundle(cut)]));
-  const diagnosticNeedle = "const storageError = isV2Record(error)";
+  const diagnosticNeedle = "const storageError = isRecord(error)";
   for (const [cut, fault] of faultSources) {
     assert.equal(fault.split(diagnosticNeedle).length, 2, "unique disposable gateway diagnostic required");
     faultSources.set(cut, fault.replace(diagnosticNeedle, 'require("node:fs").writeSync(2, String(error.stack || error)+"\\n");' + diagnosticNeedle));

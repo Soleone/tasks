@@ -7,10 +7,10 @@ import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { executeV2Line } from "./gateway.js";
-import { readV2CanonicalRoot, readV2RootDescriptor } from "./canonicalReader.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
+import { executeLine } from "./gateway.js";
+import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
 
 const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
@@ -25,10 +25,10 @@ function setup(t: TestContext): Workspace {
   cpSync(golden, root, { recursive: true });
   return { directory, root, cache: path.join(directory, "cache.db") };
 }
-function send(workspace: Workspace, envelope: object): V2Response {
-  return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache);
+function send(workspace: Workspace, envelope: object): Response {
+  return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache);
 }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw new Error("failed");
   return response;
@@ -36,7 +36,7 @@ function success(response: V2Response): Extract<V2Response, { ok: true }> {
 function crash(workspace: Workspace, cut: string): { request: object; pending: string } {
   const read = success(send(workspace, { command: "task.get", args: { id } }));
   const request = { version: 2, command: "task.update", args: { id, expectedVersion: (read.result.task as { version: number }).version, title: "Fixed crash edit" }, writeContext: read.writeContext, idempotencyKey: "original" };
-  const pending = pendingV2Path(readV2RootDescriptor(workspace.root));
+  const pending = pendingIntentPath(readRootDescriptor(workspace.root));
   const loader = path.join(workspace.directory, "crash-loader.mjs");
   // Only test processes load this transform. No production fault flag changes engine behavior.
   writeFileSync(loader, `import {registerHooks} from 'node:module';
@@ -44,7 +44,7 @@ const cut=${JSON.stringify(cut)};
 registerHooks({load(url,context,next){const result=next(url,context);let source=result.source?.toString();
 const module=cut==='staged'?'updateWriter.js':cut==='replaced'?'updateJournal.js':'queryCache.js';
 if(!url.endsWith('/'+module)||!source)return result;
-const needle=cut==='staged'?'persistV2Pending(root, intent);':cut==='replaced'?'renameSync(temporary, target);':'database.exec("COMMIT");';
+const needle=cut==='staged'?'persistPending(root, intent);':cut==='replaced'?'renameSync(temporary, target);':'database.exec("COMMIT");';
 if(source.split(needle).length!==2)throw Error('cut must be unique');
 const stop='if (cutExists(process.env.TASKDB_TEST_PENDING)) process.kill(process.pid,"SIGKILL");';
 source='import {existsSync as cutExists} from "node:fs";\\n'+source.replace(needle,cut==='beforeCommit'?stop+needle:needle+stop);
@@ -119,7 +119,7 @@ test("already-replaced recovery requires directory flush before committing recei
   writeFileSync(loader, `import {registerHooks} from 'node:module';
 registerHooks({load(url,context,next){const result=next(url,context);let source=result.source?.toString();
 if(!url.endsWith('/updateJournal.js')||!source)return result;
-const needle='syncV2Directory(path.dirname(target));';if(source.split(needle).length!==2)throw Error('flush must be unique');
+const needle='syncDirectory(path.dirname(target));';if(source.split(needle).length!==2)throw Error('flush must be unique');
 return {...result,source:source.replace(needle,'throw Object.assign(new Error("test-only flush refusal"),{code:"EPERM"});'+needle)};}});`);
   const child = spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--v2-root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(recovery), timeout: 10_000 });
   assert.equal(child.status, 0, child.stderr.toString());
@@ -143,7 +143,7 @@ test("schema-5 sibling-array cache preserves a pending update through compact ob
   const { request, pending } = crash(workspace, "replaced");
   const pendingBytes = readFileSync(pending);
   const intent = JSON.parse(pendingBytes.toString());
-  const snapshot = readV2CanonicalRoot(workspace.root);
+  const snapshot = readCanonicalRoot(workspace.root);
   const database = new DatabaseSync(workspace.cache);
   const rows = database.prepare("SELECT id, fingerprint FROM v2_query_tasks").all();
   const update = database.prepare("UPDATE v2_query_tasks SET fingerprint = ? WHERE id = ?");

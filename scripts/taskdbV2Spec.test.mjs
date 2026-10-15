@@ -6,7 +6,7 @@ import test from "node:test";
 
 const fixtureDirectory = fileURLToPath(new URL("./fixtures/taskdb-v2/", import.meta.url));
 const specDirectory = fileURLToPath(new URL("../spec/", import.meta.url));
-const v1Directory = fileURLToPath(new URL("./fixtures/taskdb-v1/sync/", import.meta.url));
+const schema1Directory = fileURLToPath(new URL("./fixtures/taskdb-v1/sync/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtureDirectory, "cases.json"), "utf8"));
 const specFiles = ["backend/data.md", "backend/commands.md", "backend/rules.md", "backend/safety.md", "ecosystem/cli.md", "ecosystem/sharing.md", "ecosystem/backup.md", "ecosystem/migration.md"];
 const specs = new Map(specFiles.map((name) => [name, readFileSync(path.join(specDirectory, name), "utf8")]));
@@ -103,10 +103,10 @@ test("v2 golden fixture integrity: complete v1 field and sibling-sequence mappin
     "c8d4206d-c25a-4317-baa4-a2c5443060e9": { title: "Plan launch", category: "planning", tags: ["product"] },
     "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1": { title: "Review checklist", category: "planning", tags: [] },
   };
-  const sourceNames = readdirSync(path.join(v1Directory, "tasks"));
+  const sourceNames = readdirSync(path.join(schema1Directory, "tasks"));
   assert.deepEqual(sourceNames.sort(), goldenTasks.map(({ name }) => name).sort());
   for (const name of sourceNames) {
-    const source = JSON.parse(readFileSync(path.join(v1Directory, "tasks", name), "utf8"));
+    const source = JSON.parse(readFileSync(path.join(schema1Directory, "tasks", name), "utf8"));
     const target = byId.get(source.id);
     for (const field of ["id", "status", "priority", "parentId", "dependencyIds", "createdAt", "updatedAt"]) {
       assert.deepEqual(target[field], source[field], `${name}: ${field}`);
@@ -115,8 +115,8 @@ test("v2 golden fixture integrity: complete v1 field and sibling-sequence mappin
     assert.equal(target.closedAt, source.completedAt ?? source.canceledAt);
     for (const [field, expected] of Object.entries(classifications[source.id])) assert.deepEqual(target[field], expected);
   }
-  for (const name of readdirSync(path.join(v1Directory, "order"))) {
-    const source = JSON.parse(readFileSync(path.join(v1Directory, "order", name), "utf8"));
+  for (const name of readdirSync(path.join(schema1Directory, "order"))) {
+    const source = JSON.parse(readFileSync(path.join(schema1Directory, "order", name), "utf8"));
     const scope = goldenTasks.map(({ record }) => record).filter((record) => record.parentId === source.parentId);
     scope.sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     assert.deepEqual(scope.map((record) => record.id), source.taskIds, name);

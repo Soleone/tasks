@@ -2,17 +2,17 @@ import { createHash } from "node:crypto";
 import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
-import { parseV2CanonicalJson } from "./strictJson.js";
-import { compareV2Tasks, validateV2Graph, validateV2Manifest, validateV2Task } from "./taskModel.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { parseCanonicalJson } from "./strictJson.js";
+import { compareTasks, validateGraph, validateManifest, validateTask } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
 
-export type V2FileObservation = { relativePath: string; sha256: string };
-export type V2CanonicalSnapshot = {
+export type FileObservation = { relativePath: string; sha256: string };
+export type CanonicalSnapshot = {
   rootPath: string;
   rootIdentity: string;
-  tasks: V2CanonicalTask[];
-  files: V2FileObservation[];
-  conflictFiles: V2FileObservation[];
+  tasks: CanonicalTask[];
+  files: FileObservation[];
+  conflictFiles: FileObservation[];
 };
 
 function invalidEntry(): never {
@@ -25,7 +25,7 @@ function directoryIdentity(directory: string): string {
   return `${stat.dev}:${stat.ino}`;
 }
 
-export function readV2RegularFile(filePath: string): Buffer {
+export function readRegularFile(filePath: string): Buffer {
   const observed = lstatSync(filePath, { bigint: true });
   if (!observed.isFile()) invalidEntry();
   const descriptor = openSync(filePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -45,13 +45,13 @@ function exactHash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function observeRoot(rootPath: string, deletedTasks: readonly V2CanonicalTask[] = []): V2CanonicalSnapshot {
+function observeRoot(rootPath: string, deletedTasks: readonly CanonicalTask[] = []): CanonicalSnapshot {
   const rootIdentity = directoryIdentity(rootPath);
   const manifestPath = path.join(rootPath, "workspace.json");
   const taskDirectory = path.join(rootPath, "tasks");
   if (!existsSync(manifestPath)) invalidEntry();
-  const manifestBytes = readV2RegularFile(manifestPath);
-  validateV2Manifest(parseV2CanonicalJson(manifestBytes));
+  const manifestBytes = readRegularFile(manifestPath);
+  validateManifest(parseCanonicalJson(manifestBytes));
   if (!existsSync(taskDirectory)) invalidEntry();
   const taskIdentity = directoryIdentity(taskDirectory);
   const orderDirectory = path.join(rootPath, "order");
@@ -60,43 +60,43 @@ function observeRoot(rootPath: string, deletedTasks: readonly V2CanonicalTask[] 
     if (readdirSync(orderDirectory).length > 0) invalidEntry();
   }
   const files = [{ relativePath: "workspace.json", sha256: exactHash(manifestBytes) }];
-  const conflictFiles: V2FileObservation[] = [];
-  const tasks: V2CanonicalTask[] = [];
+  const conflictFiles: FileObservation[] = [];
+  const tasks: CanonicalTask[] = [];
   const names = readdirSync(taskDirectory).sort();
   for (const name of names) {
     // Syncthing transfer temporaries are not published task documents.
     if (name.startsWith(".syncthing.") && name.endsWith(".tmp")) continue;
     const conflict = /^[A-Za-z0-9_-]+\.sync-conflict-.+\.json$/.test(name);
     if (!conflict && !/^[A-Za-z0-9_-]+\.json$/.test(name)) invalidEntry();
-    const bytes = readV2RegularFile(path.join(taskDirectory, name));
+    const bytes = readRegularFile(path.join(taskDirectory, name));
     const observation = { relativePath: `tasks/${name}`, sha256: exactHash(bytes) };
     files.push(observation);
     if (conflict) { conflictFiles.push(observation); continue; }
-    tasks.push(validateV2Task(parseV2CanonicalJson(bytes), name.slice(0, -5)));
+    tasks.push(validateTask(parseCanonicalJson(bytes), name.slice(0, -5)));
   }
   if (deletedTasks.some(deleted => tasks.some(task => task.id === deleted.id))) invalidEntry();
-  validateV2Graph([...tasks, ...deletedTasks]);
+  validateGraph([...tasks, ...deletedTasks]);
   if (directoryIdentity(rootPath) !== rootIdentity || directoryIdentity(taskDirectory) !== taskIdentity
     || JSON.stringify(readdirSync(taskDirectory).sort()) !== JSON.stringify(names)) {
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
   for (const observation of files) {
-    if (exactHash(readV2RegularFile(path.join(rootPath, observation.relativePath))) !== observation.sha256) {
+    if (exactHash(readRegularFile(path.join(rootPath, observation.relativePath))) !== observation.sha256) {
       throw new CommandError("STALE_FILE", "canonical bytes changed during observation");
     }
   }
   tasks.sort((left, right) => {
     const leftParent = left.parentId ?? "";
     const rightParent = right.parentId ?? "";
-    return leftParent === rightParent ? compareV2Tasks(left, right) : leftParent < rightParent ? -1 : 1;
+    return leftParent === rightParent ? compareTasks(left, right) : leftParent < rightParent ? -1 : 1;
   });
   return { rootPath, rootIdentity, tasks, files, conflictFiles };
 }
 
 /** Only purge recovery calls this after proving each absent preimage's bound quarantine. */
-export function readV2CanonicalDeletionPrefix(directory: string, deletedTasks: readonly V2CanonicalTask[]): V2CanonicalSnapshot {
+export function readCanonicalDeletionPrefix(directory: string, deletedTasks: readonly CanonicalTask[]): CanonicalSnapshot {
   try {
-    return observeRoot(realpathSync(directory), deletedTasks.map(task => validateV2Task(task, task.id)));
+    return observeRoot(realpathSync(directory), deletedTasks.map(task => validateTask(task, task.id)));
   } catch (error) {
     if (error instanceof CommandError) throw error;
     throw new CommandError("INVALID_STORAGE", "v2 deletion prefix could not be read completely");
@@ -104,27 +104,27 @@ export function readV2CanonicalDeletionPrefix(directory: string, deletedTasks: r
 }
 
 /** Resolve an explicitly selected existing directory, without assuming or creating a schema. */
-export function readV2PhysicalRoot(directory: string): { rootPath: string; rootIdentity: string } {
+export function readPhysicalRoot(directory: string): { rootPath: string; rootIdentity: string } {
   const rootPath = realpathSync(directory);
   return { rootPath, rootIdentity: directoryIdentity(rootPath) };
 }
 
-export function readV2RootDescriptor(directory: string): { rootPath: string; rootIdentity: string } {
-  const root = readV2PhysicalRoot(directory);
-  validateV2Manifest(parseV2CanonicalJson(readV2RegularFile(path.join(root.rootPath, "workspace.json"))));
+export function readRootDescriptor(directory: string): { rootPath: string; rootIdentity: string } {
+  const root = readPhysicalRoot(directory);
+  validateManifest(parseCanonicalJson(readRegularFile(path.join(root.rootPath, "workspace.json"))));
   return root;
 }
 
-export type V2RootInspection = {
+export type RootInspection = {
   rootPath: string;
   rootIdentity: string;
   state: "empty" | "ready" | "incomplete" | "unsupported";
   schemaVersion: number | null;
   issues: { code: string; message: string }[];
-  snapshot?: V2CanonicalSnapshot;
+  snapshot?: CanonicalSnapshot;
 };
 
-export function inspectV2CanonicalRoot(directory: string): V2RootInspection {
+export function inspectCanonicalRoot(directory: string): RootInspection {
   const rootPath = realpathSync(directory);
   const rootIdentity = directoryIdentity(rootPath);
   const base = { rootPath, rootIdentity };
@@ -133,12 +133,12 @@ export function inspectV2CanonicalRoot(directory: string): V2RootInspection {
     if (readdirSync(rootPath).length === 0) return { ...base, state: "empty", schemaVersion, issues: [] };
     const manifestPath = path.join(rootPath, "workspace.json");
     if (!existsSync(manifestPath)) invalidEntry();
-    const manifest = parseV2CanonicalJson(readV2RegularFile(manifestPath));
+    const manifest = parseCanonicalJson(readRegularFile(manifestPath));
     if (manifest !== null && typeof manifest === "object" && !Array.isArray(manifest)
       && Number.isSafeInteger((manifest as Record<string, unknown>).schemaVersion)) {
       schemaVersion = (manifest as { schemaVersion: number }).schemaVersion;
     }
-    validateV2Manifest(manifest);
+    validateManifest(manifest);
     const snapshot = observeRoot(rootPath);
     if (snapshot.rootIdentity !== rootIdentity) throw new CommandError("STALE_SCOPE", "root changed during inspection");
     const issues = snapshot.conflictFiles.map(() => ({ code: "CONFLICT_COPY", message: "raw conflict copy requires reviewed repair" }));
@@ -151,7 +151,7 @@ export function inspectV2CanonicalRoot(directory: string): V2RootInspection {
 }
 
 /** Read-only Node observation, not an API projection, writer lock, journal or distributed snapshot. */
-export function readV2CanonicalRoot(directory: string): V2CanonicalSnapshot {
+export function readCanonicalRoot(directory: string): CanonicalSnapshot {
   try {
     return observeRoot(realpathSync(directory));
   } catch (error) {

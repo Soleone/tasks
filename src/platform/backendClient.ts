@@ -19,7 +19,7 @@ import { getBackendTransport, isSelectedWorkspaceLaunch } from "../legacy/platfo
 import type { AndroidSyncConflict } from "../legacy/platform/androidSyncConflicts";
 import { MainWorkspace } from "./mainWorkspace";
 import { taskView } from "@/components/taskView";
-import { parseV2TaskProjection } from "../backend/taskResults";
+import { parseTaskProjection } from "../backend/taskResults";
 import { builtinThemes } from "../backend/builtinThemes";
 import { GILT_THEME_NAME } from "../backend/themePalette";
 
@@ -168,7 +168,7 @@ export async function listTags(): Promise<TagListResult> {
 }
 
 export async function getTask(id: string): Promise<{ task: TaskRecord }> {
-  if (mainWorkspace) return { task: taskView(parseV2TaskProjection((await mainWorkspace.reader.query("task.get", { id })).task)) };
+  if (mainWorkspace) return { task: taskView(parseTaskProjection((await mainWorkspace.reader.query("task.get", { id })).task)) };
   return runBackendCommand<{ task: TaskRecord }>("task.get", { id });
 }
 

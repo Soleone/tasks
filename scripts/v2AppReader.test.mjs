@@ -10,9 +10,9 @@ import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundled = await build({ entryPoints: ["src/platform/workspaceReader.ts"], bundle: true, platform: "node", format: "esm", write: false, external: ["@tauri-apps/plugin-shell"] });
 const client = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`);
-const { V2WorkspaceReader, readV2DevSelection, parseV2TaskPage, parseV2WorkspaceInfo, v2SidecarArgs } = client;
-const { parseV2TaskProjection } = await import("../dist/backend/taskResults.js");
-const { parseV2Response } = await import("../dist/backend/protocol.js");
+const { WorkspaceReader, readDevSelection, parseTaskPage, parseWorkspaceInfo, sidecarArgs } = client;
+const { parseTaskProjection } = await import("../dist/backend/taskResults.js");
+const { parseResponse } = await import("../dist/backend/protocol.js");
 const task = JSON.parse(readFileSync("scripts/fixtures/taskdb-v2/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json", "utf8"));
 const projection = { ...task, version: 1, blockedByIds: [] };
 const request = (command = "workspace.info") => ({ version: 2, requestId: crypto.randomUUID(), command, args: {}, actor: { kind: "human", label: "reader test" }, readOnly: true, dryRun: false });
@@ -38,8 +38,8 @@ function workspace(t) {
 async function devReader(t, selection) {
   const dev = await startDevServer({ port: 0, v2Root: selection.rootPath, databasePath: selection.databasePath });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  const selected = await readV2DevSelection(dev.url);
-  const reader = new V2WorkspaceReader(selection, { url: dev.url, selection: selected });
+  const selected = await readDevSelection(dev.url);
+  const reader = new WorkspaceReader(selection, { url: dev.url, selection: selected });
   return { dev, selected, reader };
 }
 function processCommand(args, launches, responses) {
@@ -74,38 +74,38 @@ for (const argv of [["--v2-root", "root"], ["--v2-root"], ["--v2-root", "--datab
 
 test("v2 response validator refuses v1 and malformed successes/errors", () => {
   const success = { version: 2, requestId: "r", ok: true, writeContext: "ctx", result: {} };
-  assert.deepEqual(parseV2Response(success), success);
+  assert.deepEqual(parseResponse(success), success);
   const failure = { version: 2, requestId: null, ok: false, error: { code: "RECOVERY_CONFLICT", message: "preserve evidence", details: {} } };
-  assert.deepEqual(parseV2Response(failure), failure);
-  for (const response of [{ ...success, version: 1 }, { ...success, writeContext: "" }, { ...success, requestId: 1 }, { ...success, result: [] }, { ...success, rootPath: "other" }, { ...failure, ok: "false" }, { ...failure, error: { code: "BAD", message: 7 } }, { ...failure, error: { code: "BAD", message: "bad", details: [] } }]) assert.throws(() => parseV2Response(response));
+  assert.deepEqual(parseResponse(failure), failure);
+  for (const response of [{ ...success, version: 1 }, { ...success, writeContext: "" }, { ...success, requestId: 1 }, { ...success, result: [] }, { ...success, rootPath: "other" }, { ...failure, ok: "false" }, { ...failure, error: { code: "BAD", message: 7 } }, { ...failure, error: { code: "BAD", message: "bad", details: [] } }]) assert.throws(() => parseResponse(response));
 });
 
 test("v2 projections retain literal title, description, slugs and closedAt", () => {
   const literal = { ...projection, title: "Call @alice #not-a-tag", description: "## @literal\n#not-classification", category: "work", tags: ["todo"], status: "done", closedAt: task.updatedAt };
-  assert.deepEqual(parseV2TaskProjection(literal), literal);
-  assert.equal(Object.hasOwn(parseV2TaskProjection(literal), "descriptionMarkdown"), false);
-  assert.equal(Object.hasOwn(parseV2TaskProjection(literal), "completedAt"), false);
+  assert.deepEqual(parseTaskProjection(literal), literal);
+  assert.equal(Object.hasOwn(parseTaskProjection(literal), "descriptionMarkdown"), false);
+  assert.equal(Object.hasOwn(parseTaskProjection(literal), "completedAt"), false);
 });
 for (const [label, changes] of Object.entries({ "legacy description": { descriptionMarkdown: "legacy" }, "label category": { category: { slug: "work", label: "Work" } }, "zero version": { version: 0 }, "unsafe version": { version: Number.MAX_SAFE_INTEGER + 1 }, "foreign blocker": { blockedByIds: ["missing"] }, "unknown field": { extra: true }, "invalid closure": { status: "open", closedAt: task.updatedAt } })) {
-  test(`v2 client refuses ${label}`, () => assert.throws(() => parseV2TaskProjection({ ...projection, ...changes })));
+  test(`v2 client refuses ${label}`, () => assert.throws(() => parseTaskProjection({ ...projection, ...changes })));
 }
 
 test("v2 list validator refuses duplicate projection identities and unsafe pagination", () => {
   const page = { tasks: [projection], contextTasks: [], total: 1, limit: 50, offset: 0, workspaceRevision: 1 };
-  assert.deepEqual(parseV2TaskPage(page), page);
-  for (const changes of [{ contextTasks: [projection] }, { tasks: [projection, projection], total: 2 }, { limit: 101 }, { offset: -1 }, { total: 0 }, { contextTasks: undefined }]) assert.throws(() => parseV2TaskPage({ ...page, ...changes }));
-  assert.throws(() => parseV2WorkspaceInfo({ state: "ready", schemaVersion: 2, commands: [], issues: [], pendingOperationId: null, workspaceRevision: -1 }));
+  assert.deepEqual(parseTaskPage(page), page);
+  for (const changes of [{ contextTasks: [projection] }, { tasks: [projection, projection], total: 2 }, { limit: 101 }, { offset: -1 }, { total: 0 }, { contextTasks: undefined }]) assert.throws(() => parseTaskPage({ ...page, ...changes }));
+  assert.throws(() => parseWorkspaceInfo({ state: "ready", schemaVersion: 2, commands: [], issues: [], pendingOperationId: null, workspaceRevision: -1 }));
 });
 
 test("sidecar selection accepts explicit absolute paths and exact argv only", () => {
   for (const rootPath of ["/tmp/disposable root", "C:\\disposable\\root", "\\\\host\\share\\root"]) {
-    assert.deepEqual(v2SidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }), ["--stdio", "--v2-root", rootPath, "--database", "/tmp/cache.db"]);
+    assert.deepEqual(sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }), ["--stdio", "--v2-root", rootPath, "--database", "/tmp/cache.db"]);
   }
-  for (const rootPath of ["", "relative", "--v2-root", "/tmp/root\nother", "/tmp/root\0other"]) assert.throws(() => v2SidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }));
+  for (const rootPath of ["", "relative", "--v2-root", "/tmp/root\nother", "/tmp/root\0other"]) assert.throws(() => sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }));
   const permission = JSON.parse(readFileSync("src-tauri/capabilities/default.json", "utf8")).permissions.find(item => item.identifier === "shell:allow-spawn");
   assert.deepEqual(permission.allow[0].args, ["--stdio"]);
   assert.equal(permission.allow.length, 1, "native v2 permission must remain withheld rather than duplicate the default binary name");
-  assert.throws(() => new V2WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }), /No v1 sidecar was launched/);
+  assert.throws(() => new WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }), /No v1 sidecar was launched/);
 });
 
 test("v2 health discovers explicit selection without reading/initializing root or cache", async t => {
@@ -148,10 +148,10 @@ test("v2 browser reader refuses v1 endpoints and mismatched selected paths", asy
   const selected = workspace(t);
   const dev = await startDevServer({ port: 0, databasePath: path.join(selected.directory, "v1.db") });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  await assert.rejects(readV2DevSelection(dev.url), /No v1 fallback/);
+  await assert.rejects(readDevSelection(dev.url), /No v1 fallback/);
   assert.equal(existsSync(path.join(selected.directory, "v1.db")), false);
   const { dev: v2, selected: handshake } = await devReader(t, selected);
-  assert.throws(() => new V2WorkspaceReader({ ...selected, rootPath: path.join(selected.directory, "other") }, { url: v2.url, selection: handshake }), /does not match/);
+  assert.throws(() => new WorkspaceReader({ ...selected, rootPath: path.join(selected.directory, "other") }, { url: v2.url, selection: handshake }), /does not match/);
 });
 
 test("a restarted dev backend cannot silently substitute a different root/cache", async t => {
@@ -166,9 +166,9 @@ test("a restarted dev backend cannot silently substitute a different root/cache"
   t.after(() => new Promise(resolve => next.server.close(resolve)));
   await assert.rejects(reader.workspaceInfo(), /STALE_DEV_SELECTION|fetch failed/);
   assert.equal(existsSync(databasePath), false);
-  const nextSelection = await readV2DevSelection(next.url);
+  const nextSelection = await readDevSelection(next.url);
   await assert.rejects(reader.workspaceInfo(), /STALE_DEV_SELECTION/);
-  const nextReader = new V2WorkspaceReader(nextSelection, { url: next.url, selection: nextSelection });
+  const nextReader = new WorkspaceReader(nextSelection, { url: next.url, selection: nextSelection });
   assert.equal((await nextReader.workspaceInfo()).state, "ready");
 });
 
@@ -176,7 +176,7 @@ test("reader selection is a fixed private snapshot, not a mutable caller referen
   const selected = workspace(t);
   const { dev, selected: handshake } = await devReader(t, selected);
   const supplied = { rootPath: selected.rootPath, databasePath: selected.databasePath };
-  const reader = new V2WorkspaceReader(supplied, { url: dev.url, selection: handshake });
+  const reader = new WorkspaceReader(supplied, { url: dev.url, selection: handshake });
   supplied.rootPath = "/must-not-select";
   handshake.selectionToken = "changed-by-caller";
   assert.equal(reader.selection.rootPath, selected.rootPath);
@@ -234,9 +234,9 @@ test("malformed pending evidence pauses queries without automatic repair or dele
   const selected = workspace(t);
   const { reader } = await devReader(t, selected);
   await reader.workspaceInfo();
-  const { inspectV2CanonicalRoot } = await import("../dist/backend/canonicalReader.js");
-  const { pendingV2Path } = await import("../dist/backend/localDomain.js");
-  const pending = pendingV2Path(inspectV2CanonicalRoot(selected.rootPath));
+  const { inspectCanonicalRoot } = await import("../dist/backend/canonicalReader.js");
+  const { pendingIntentPath } = await import("../dist/backend/localDomain.js");
+  const pending = pendingIntentPath(inspectCanonicalRoot(selected.rootPath));
   mkdirSync(path.dirname(pending), { recursive: true });
   writeFileSync(pending, "{incomplete");
   const original = canonicalBytes(selected.rootPath);
@@ -266,8 +266,8 @@ test("actual JSON-lines reader launches only selected v2 process and can reopen 
   const selected = workspace(t);
   const original = canonicalBytes(selected.rootPath);
   const launches = [], responses = [];
-  const args = v2SidecarArgs(selected);
-  const reader = new V2WorkspaceReader(selected, undefined, processCommand(args, launches, responses));
+  const args = sidecarArgs(selected);
+  const reader = new WorkspaceReader(selected, undefined, processCommand(args, launches, responses));
   t.after(() => reader.close());
   assert.equal(launches.length, 0);
   const info = await reader.workspaceInfo();

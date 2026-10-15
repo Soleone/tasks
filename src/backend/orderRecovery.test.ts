@@ -6,21 +6,21 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2OrderIntent } from "./orderJournal.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { OrderIntent } from "./orderJournal.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
 
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(w: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }
-function success(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: V2Response, code: string) { assert.equal(r.ok, false); if (!r.ok) assert.equal(r.error.code, code, JSON.stringify(r)); }
+function send(w: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }
+function success(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
+function fail(r: Response, code: string) { assert.equal(r.ok, false); if (!r.ok) assert.equal(r.error.code, code, JSON.stringify(r)); }
 function materialize(t: TestContext, caseId = "reorder-tied") {
   const w = setup(t);
   const entry = corpus.cases.find((entry: { id: string }) => entry.id === caseId);
@@ -44,18 +44,18 @@ function recover(w: Workspace, operationId: string, key = "resume") {
 function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(file => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]); }
 function crash(w: Workspace, cut: string, caseId = "reorder-tied") {
   const request = prepared(w, caseId);
-  const pending = pendingV2Path(readV2RootDescriptor(w.root));
+  const pending = pendingIntentPath(readRootDescriptor(w.root));
   const loader = path.join(w.directory, "ordering-kill-loader.mjs");
   writeFileSync(loader, `import{registerHooks}from'node:module';import{existsSync}from'node:fs';import{DatabaseSync}from'node:sqlite';const cut=${JSON.stringify(cut)},pending=${JSON.stringify(pending)};
 if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();function replace(n,value){if(source.split(n).length!==2)throw Error('unique ordering cut required: '+n);source=source.replace(n,value);}
-if(url.endsWith('/orderWriter.js')){if(cut==='intent'||cut==='prefix-0'){const n='persistV2Pending(root, intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut==='verified'){const n='const snapshot = applyV2OrderJournal(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}}
-if(url.endsWith('/orderJournal.js')){if(cut==='staged'){const n='writeV2DurableFile(temporary, next);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut.startsWith('prefix-')&&cut!=='prefix-0'){source='let written=0;'+source;const n='renameSync(temporary, target);';replace(n,n+'if(++written==='+Number(cut.slice(7))+')process.kill(process.pid,"SIGKILL");');}}
-if(url.endsWith('/localDomain.js')&&cut==='retired'){const n='unlinkSync(pendingV2Path(root));';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
+if(url.endsWith('/orderWriter.js')){if(cut==='intent'||cut==='prefix-0'){const n='persistPending(root, intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut==='verified'){const n='const snapshot = applyOrderJournal(intent);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}}
+if(url.endsWith('/orderJournal.js')){if(cut==='staged'){const n='writeDurableFile(temporary, next);';replace(n,n+'process.kill(process.pid,"SIGKILL");');}if(cut.startsWith('prefix-')&&cut!=='prefix-0'){source='let written=0;'+source;const n='renameSync(temporary, target);';replace(n,n+'if(++written==='+Number(cut.slice(7))+')process.kill(process.pid,"SIGKILL");');}}
+if(url.endsWith('/localDomain.js')&&cut==='retired'){const n='unlinkSync(pendingIntentPath(root));';replace(n,n+'process.kill(process.pid,"SIGKILL");');}
 return{...result,source};}});`);
   const child = run(w, request, loader);
   assert.equal(child.signal, "SIGKILL", child.stderr);
-  return { request, pending, intent: existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as V2OrderIntent : undefined };
+  return { request, pending, intent: existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as OrderIntent : undefined };
 }
 
 const prefixCase = corpus.cases.find((entry: { id: string }) => entry.id === "recover-prefix");
@@ -84,11 +84,11 @@ for (const [caseId, count] of prefixCases) for (const cut of ["intent", "staged"
     const child = run(w, request);assert.equal(child.status, 0, child.stderr);const replay = success(JSON.parse(child.stdout));
     const rows = success(send(w, { command: "activity.list" })).result.activity as { operationId: string; actor: object; createdAt: string; before: object; after: { scope: { id: string; orderKey: string }[] } }[];
     assert.equal(rows.length, 1);assert.deepEqual(rows[0].actor, request.actor);assert.equal(rows[0].operationId, replay.result.operationId);if(intent)assert.equal(rows[0].createdAt,intent.at);
-    const list = success(send(w, { command: "task.list", args: { sort: "manual" } })).result.tasks as V2CanonicalTask[];
+    const list = success(send(w, { command: "task.list", args: { sort: "manual" } })).result.tasks as CanonicalTask[];
     assert.deepEqual((replay.result.tasks as {id:string}[]).map(task=>task.id),request.args.tasks.map((task:{id:string})=>task.id));
     assert.deepEqual(list.map(task=>task.id),entry.expect.order);
     for(const [id,key] of Object.entries(entry.expect.keys))assert.equal(list.find(task=>task.id===id)!.orderKey,key);
-    for(const task of list){const old=JSON.parse(Buffer.from(before.find(([file])=>file===`${task.id}.json`)![1],"base64").toString());for(const field of Object.keys(old).filter(key=>key!=="orderKey"))assert.deepEqual(task[field as keyof V2CanonicalTask],old[field]);}
+    for(const task of list){const old=JSON.parse(Buffer.from(before.find(([file])=>file===`${task.id}.json`)![1],"base64").toString());for(const field of Object.keys(old).filter(key=>key!=="orderKey"))assert.deepEqual(task[field as keyof CanonicalTask],old[field]);}
     assert.equal(existsSync(pending), false);
   });
 }
@@ -170,8 +170,8 @@ for(const id of ["scope-arrival","scope-delete","scope-formatting"]){
     if(fault.arrival)for(const[newId,patch]of Object.entries(fault.arrival))mutation+=`faultWrite(${JSON.stringify(path.join(w.root,"tasks",`${newId}.json`))},JSON.stringify({...${JSON.stringify(corpus.taskTemplate)},...${JSON.stringify(patch)},id:${JSON.stringify(newId)}}));`;
     if(fault.delete)mutation=`faultRemove(${JSON.stringify(path.join(w.root,"tasks",`${fault.delete}.json`))});`;
     if(fault.formattingOnly)mutation=`faultAppend(${JSON.stringify(path.join(w.root,"tasks/a.json"))},' ');`;
-    const loader=path.join(w.directory,"ordering-guard-loader.mjs");writeFileSync(loader,`import{registerHooks}from'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith(${JSON.stringify(update?"/updateWriter.js":"/orderWriter.js")}))return result;let source=result.source.toString();const n=${JSON.stringify(update?"guardV2Update(intent, false);":"guardV2Order(intent, false);")};if(source.split(n).length!==2)throw Error('unique guard cut required');source='import{writeFileSync as faultWrite,rmSync as faultRemove,appendFileSync as faultAppend}from"node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return{...result,source};}});`);
+    const loader=path.join(w.directory,"ordering-guard-loader.mjs");writeFileSync(loader,`import{registerHooks}from'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith(${JSON.stringify(update?"/updateWriter.js":"/orderWriter.js")}))return result;let source=result.source.toString();const n=${JSON.stringify(update?"guardUpdate(intent, false);":"guardOrder(intent, false);")};if(source.split(n).length!==2)throw Error('unique guard cut required');source='import{writeFileSync as faultWrite,rmSync as faultRemove,appendFileSync as faultAppend}from"node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return{...result,source};}});`);
     const child=run(w,req,loader);assert.equal(child.status,0,child.stderr);fail(JSON.parse(child.stdout),entry.expect.error);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))),false);assert.equal(JSON.parse(readFileSync(path.join(w.root,"tasks/a.json"),"utf8")).orderKey,corpus.taskTemplate.orderKey);assert.equal(JSON.parse(readFileSync(path.join(w.root,"tasks/a.json"),"utf8")).title,corpus.taskTemplate.title);assert.equal(JSON.parse(readFileSync(path.join(w.root,"tasks/a.json"),"utf8")).updatedAt,corpus.taskTemplate.updatedAt);if(fault.delete)assert.equal(existsSync(path.join(w.root,"tasks",`${fault.delete}.json`)),false);if(fault.arrival)assert.equal(existsSync(path.join(w.root,"tasks/new.json")),true);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))),false);assert.equal(JSON.parse(readFileSync(path.join(w.root,"tasks/a.json"),"utf8")).orderKey,corpus.taskTemplate.orderKey);assert.equal(JSON.parse(readFileSync(path.join(w.root,"tasks/a.json"),"utf8")).title,corpus.taskTemplate.title);assert.equal(JSON.parse(readFileSync(path.join(w.root,"tasks/a.json"),"utf8")).updatedAt,corpus.taskTemplate.updatedAt);if(fault.delete)assert.equal(existsSync(path.join(w.root,"tasks",`${fault.delete}.json`)),false);if(fault.arrival)assert.equal(existsSync(path.join(w.root,"tasks/new.json")),true);
   });
 }

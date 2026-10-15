@@ -4,14 +4,14 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createV2CopyTestWorkspace } from "../backend/copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
-import { readV2CanonicalRoot } from "../backend/canonicalReader.js";
-import { executeV2Line } from "../backend/gateway.js";
-import { readV1MigrationSnapshot } from "./schema1Source.js";
-import { V1_ROLLBACK_WARNING } from "./journal.js";
+import { createCopyTestWorkspace } from "../backend/copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
+import { readCanonicalRoot } from "../backend/canonicalReader.js";
+import { executeLine } from "../backend/gateway.js";
+import { readSchema1MigrationSnapshot } from "./schema1Source.js";
+import { SCHEMA1_ROLLBACK_WARNING } from "./journal.js";
 import { contentHash } from "../legacy/backend/requestHash.js";
-import type { V2Response } from "../backend/protocol.js";
+import type { Response } from "../backend/protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const v1 = path.join(fixtures, "taskdb-v1/sync");
@@ -19,14 +19,14 @@ const golden = path.join(fixtures, "taskdb-v2/root");
 const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-const corpus = JSON.parse(readFileSync(path.join(fixtures, "taskdb-v2/cases.json"), "utf8")) as { cases: { id: string; given: { patchV1?: object; rehashV1?: boolean; removeV1?: string }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number } }[] };
-function send(workspace: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+const corpus = JSON.parse(readFileSync(path.join(fixtures, "taskdb-v2/cases.json"), "utf8")) as { cases: { id: string; given: { patchSchema1?: object; rehashSchema1?: boolean; removeSchema1?: string }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number } }[] };
+function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
+function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function prepare(workspace: Workspace) {
   const info = success(send(workspace, { command: "workspace.info" }));
   assert.equal(info.result.schemaVersion, 1);
@@ -48,10 +48,10 @@ function rawFiles(root: string) {
 for (const caseId of ["migrate-golden", "migrate-title-only-tokens", "migrate-legacy-escape", "migrate-offset", "migrate-invalid-time", "migrate-order-missing", "migrate-unknown-field", "migrate-markdown"]) {
   test(`public migration executes ${caseId} without changing v1 source or selection`, linuxOnly, (t) => {
     const entry = corpus.cases.find(entry => entry.id === caseId)!;
-    const workspace = createV2CopyTestWorkspace(t, v1);
+    const workspace = createCopyTestWorkspace(t, v1);
     const request = prepare(workspace);
-    if (entry.given.patchV1) { assert.equal(entry.given.rehashV1, true); patch(workspace.root, entry.given.patchV1); }
-    if (entry.given.removeV1) rmSync(path.join(workspace.root, entry.given.removeV1));
+    if (entry.given.patchSchema1) { assert.equal(entry.given.rehashSchema1, true); patch(workspace.root, entry.given.patchSchema1); }
+    if (entry.given.removeSchema1) rmSync(path.join(workspace.root, entry.given.removeSchema1));
     const before = rawFiles(workspace.root);
     const response = send(workspace, request);
     if (entry.expect.error) {
@@ -63,9 +63,9 @@ for (const caseId of ["migrate-golden", "migrate-title-only-tokens", "migrate-le
       assert.equal(result.result.taskCount, 4);
       assert.equal(result.result.selectionChanged, false);
       assert.equal(result.result.sourceDirectory, workspace.root);
-      assert.equal(result.result.rollbackWarning, V1_ROLLBACK_WARNING);
-      assert.deepEqual(result.result.transformedIds, readV1MigrationSnapshot(workspace.root).tasks.map(task => task.id));
-      const target = readV2CanonicalRoot(workspace.destination);
+      assert.equal(result.result.rollbackWarning, SCHEMA1_ROLLBACK_WARNING);
+      assert.deepEqual(result.result.transformedIds, readSchema1MigrationSnapshot(workspace.root).tasks.map(task => task.id));
+      const target = readCanonicalRoot(workspace.destination);
       if (caseId === "migrate-golden") assert.deepEqual(rawFiles(workspace.destination), rawFiles(golden));
       if (entry.expect.fields) {
         const task = target.tasks.find(task => task.id === id)!;
@@ -83,7 +83,7 @@ for (const caseId of ["migrate-golden", "migrate-title-only-tokens", "migrate-le
 }
 
 test("public migration executes migrate-destination and overlap refusals before staging", linuxOnly, (t) => {
-  const workspace = createV2CopyTestWorkspace(t, v1);
+  const workspace = createCopyTestWorkspace(t, v1);
   const request = prepare(workspace);
   const before = rawFiles(workspace.root);
   assert.equal(corpus.cases.find(entry => entry.id === "migrate-destination")!.expect.error, "DESTINATION_NOT_EMPTY");
@@ -98,7 +98,7 @@ test("public migration executes migrate-destination and overlap refusals before 
 });
 
 test("migration previews, shape/authority failures and failed-precondition key reuse have no target effects", linuxOnly, (t) => {
-  const workspace = createV2CopyTestWorkspace(t, v1);
+  const workspace = createCopyTestWorkspace(t, v1);
   const request = prepare(workspace);
   for (const preview of [{ readOnly: true }, { dryRun: true }]) {
     const result = success(send(workspace, { ...request, idempotencyKey: undefined, ...preview }));
@@ -118,7 +118,7 @@ test("migration previews, shape/authority failures and failed-precondition key r
 });
 
 test("historical migration replay precedes later v1 task/conflict/destination validation", linuxOnly, (t) => {
-  const workspace = createV2CopyTestWorkspace(t, v1);
+  const workspace = createCopyTestWorkspace(t, v1);
   const request = prepare(workspace);
   const result = success(send(workspace, request));
   rmSync(path.join(workspace.root, "tasks", `${id}.json`));
@@ -130,12 +130,12 @@ test("historical migration replay precedes later v1 task/conflict/destination va
 
 test("public migration executes rollback via explicit fresh v2 selection then preserved v1 client, retaining later edits", linuxOnly, (t) => {
   const entry = corpus.cases.find(entry => entry.id === "rollback")!;
-  assert.deepEqual(entry.expect, { v1PreMigrationBytes: true, preserveV2EditsSeparately: true, reverseConversion: false, freshAuthority: true });
-  const workspace = createV2CopyTestWorkspace(t, v1);
+  assert.deepEqual(entry.expect, { schema1PreMigrationBytes: true, preserveEditsSeparately: true, reverseConversion: false, freshAuthority: true });
+  const workspace = createCopyTestWorkspace(t, v1);
   const before = rawFiles(workspace.root);
   const request = prepare(workspace);
   const migrated = success(send(workspace, request));
-  assert.equal(migrated.result.rollbackWarning, V1_ROLLBACK_WARNING);
+  assert.equal(migrated.result.rollbackWarning, SCHEMA1_ROLLBACK_WARNING);
   const selected = { ...workspace, root: workspace.destination, cache: path.join(workspace.directory, "fresh-v2.db") };
   const first = success(send(selected, { command: "task.get", args: { id } }));
   assert.notEqual(first.writeContext, request.writeContext);
@@ -160,11 +160,11 @@ test("public migration executes rollback via explicit fresh v2 selection then pr
   assert.equal(restored.result.tasks.find((task: { id: string }) => task.id === id).title, "Plan launch @planning #product");
   assert.deepEqual(rawFiles(preserved), before);
   assert.deepEqual(rawFiles(workspace.root), before);
-  assert.equal(readV2CanonicalRoot(workspace.destination).tasks.find(task => task.id === id)!.title, "Later v2 edit");
+  assert.equal(readCanonicalRoot(workspace.destination).tasks.find(task => task.id === id)!.title, "Later v2 edit");
 });
 
 test("migration refuses selected schema two and never imports a v1 database as control authority", linuxOnly, (t) => {
-  const workspace = createV2CopyTestWorkspace(t, v1);
+  const workspace = createCopyTestWorkspace(t, v1);
   const schema2 = path.join(workspace.directory, "schema2");
   cpSync(golden, schema2, { recursive: true });
   fail(send({ ...workspace, root: schema2 }, { command: "workspace.migrateV1", args: { destinationDirectory: workspace.destination } }), "MIGRATION_INVALID_SOURCE");

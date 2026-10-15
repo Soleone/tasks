@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { performance } from "node:perf_hooks";
-import { executeV2Line } from "../dist/backend/gateway.js";
-import { readV2CanonicalRoot } from "../dist/backend/canonicalReader.js";
+import { executeLine } from "../dist/backend/gateway.js";
+import { readCanonicalRoot } from "../dist/backend/canonicalReader.js";
 
 assert.equal(process.platform, "linux", "No-op update measurements require the Linux writer");
 const scratch = mkdtempSync(path.join(os.tmpdir(), "tasks-authority-measure-"));
@@ -45,7 +45,7 @@ try {
     }));
     for (const task of tasks) writeFileSync(path.join(root, "tasks", `${task.id}.json`), JSON.stringify(task) + "\n");
     const send = request => {
-      const response = executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), root, cache);
+      const response = executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), root, cache);
       assert.equal(response.ok, true, JSON.stringify(response));
       return response;
     };
@@ -56,7 +56,7 @@ try {
     const receipt = send(request);
     assert.equal(receipt.result.changed, false);
     let key = 0;
-    const snapshot = readV2CanonicalRoot(root);
+    const snapshot = readCanonicalRoot(root);
     const compact = cacheSize(cache);
     assert.equal(compact.fingerprintChars, count * 135);
     const unchangedMs = {
@@ -85,7 +85,7 @@ try {
     assert.equal(refresh.result.writeContext, current.writeContext);
     assert.equal(refresh.result.result.workspaceRevision, initial.result.result.workspaceRevision);
     assert.deepEqual(send(request).result, receipt.result);
-    assert.deepEqual(readV2CanonicalRoot(root).files, snapshot.files);
+    assert.deepEqual(readCanonicalRoot(root).files, snapshot.files);
     const refreshed = cacheSize(cache);
     assert.equal(refreshed.fingerprintChars, count * 135);
     const retainedCacheInfoMs = repeated(() => send({ command: "workspace.info" }));

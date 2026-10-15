@@ -5,34 +5,34 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
-import { V2_RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
-import type { V2UpdateIntent } from "./updateJournal.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
+import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
+import type { UpdateIntent } from "./updateJournal.js";
 
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
-const template = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8")).taskTemplate as V2CanonicalTask;
+const template = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8")).taskTemplate as CanonicalTask;
 const linuxOnly = { skip: process.platform !== "linux" };
-type Projection = V2CanonicalTask & { version: number };
-function send(workspace: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+type Projection = CanonicalTask & { version: number };
+function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
-function makeTask(workspace: Workspace, id: string, patch: Partial<V2CanonicalTask> = {}) {
+function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
+function makeTask(workspace: Workspace, id: string, patch: Partial<CanonicalTask> = {}) {
   writeFileSync(path.join(workspace.root, "tasks", `${id}.json`), JSON.stringify({ ...template, ...patch, id }));
 }
 function materialize(t: TestContext) {
   const workspace = setup(t);
   for (const file of readdirSync(path.join(workspace.root, "tasks"))) rmSync(path.join(workspace.root, "tasks", file));
-  for (const [id, patch] of Object.entries({ a: { parentId: "old", dependencyIds: ["d"], status: "done", closedAt: "2026-09-08T14:00:00.000Z" }, old: {}, next: { orderKey: "a1" }, d: {}, blocker: { status: "done", closedAt: "2026-09-08T14:00:00.000Z" }, leaf: { parentId: "a" }, oldSibling: { parentId: "old", orderKey: "a1" }, hidden: { parentId: "next", status: "canceled", closedAt: "2026-09-08T14:00:00.000Z" }, tie: { parentId: "next", status: "paused" } }) as [string, Partial<V2CanonicalTask>][]) makeTask(workspace, id, patch);
+  for (const [id, patch] of Object.entries({ a: { parentId: "old", dependencyIds: ["d"], status: "done", closedAt: "2026-09-08T14:00:00.000Z" }, old: {}, next: { orderKey: "a1" }, d: {}, blocker: { status: "done", closedAt: "2026-09-08T14:00:00.000Z" }, leaf: { parentId: "a" }, oldSibling: { parentId: "old", orderKey: "a1" }, hidden: { parentId: "next", status: "canceled", closedAt: "2026-09-08T14:00:00.000Z" }, tie: { parentId: "next", status: "paused" } }) as [string, Partial<CanonicalTask>][]) makeTask(workspace, id, patch);
   return workspace;
 }
 function bytes(workspace: Workspace) { return readdirSync(path.join(workspace.root, "tasks")).sort().map(file => [file, readFileSync(path.join(workspace.root, "tasks", file)).toString("base64")]); }
@@ -50,20 +50,20 @@ function recover(workspace: Workspace, operationId: string, key = "resume") {
 }
 function crash(workspace: Workspace, command: string, cut: string) {
   const request = prepare(workspace, command);
-  const pending = pendingV2Path(readV2RootDescriptor(workspace.root));
+  const pending = pendingIntentPath(readRootDescriptor(workspace.root));
   const loader = path.join(workspace.directory, "relationship-kill-loader.mjs");
   writeFileSync(loader, `import {registerHooks} from 'node:module';import {existsSync} from 'node:fs';import {DatabaseSync} from 'node:sqlite';const cut=${JSON.stringify(cut)},pending=${JSON.stringify(pending)};
 if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();
-for(const [at,module,needle] of [['intent','updateWriter.js','persistV2Pending(root, intent);'],['staged','updateJournal.js','writeV2DurableFile(temporary, bytes);'],['replaced','updateJournal.js','renameSync(temporary, target);'],['retired','localDomain.js','unlinkSync(pendingV2Path(root));']]){if(cut===at&&url.endsWith('/'+module)){if(source.split(needle).length!==2)throw Error('unique relationship cut required');source=source.replace(needle,needle+'process.kill(process.pid,"SIGKILL");');}}
+for(const [at,module,needle] of [['intent','updateWriter.js','persistPending(root, intent);'],['staged','updateJournal.js','writeDurableFile(temporary, bytes);'],['replaced','updateJournal.js','renameSync(temporary, target);'],['retired','localDomain.js','unlinkSync(pendingIntentPath(root));']]){if(cut===at&&url.endsWith('/'+module)){if(source.split(needle).length!==2)throw Error('unique relationship cut required');source=source.replace(needle,needle+'process.kill(process.pid,"SIGKILL");');}}
 return {...result,source};}});`);
   const child = run(workspace, request, loader);
   assert.equal(child.signal, "SIGKILL", child.stderr);
-  const intent = existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as V2UpdateIntent : undefined;
+  const intent = existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) as UpdateIntent : undefined;
   return { request, pending, intent };
 }
 
-for (const command of V2_RELATIONSHIP_COMMANDS) for (const cut of ["intent", "staged", "replaced", "beforeCommit", "afterCommit", "retired"]) {
+for (const command of RELATIONSHIP_COMMANDS) for (const cut of ["intent", "staged", "replaced", "beforeCommit", "afterCommit", "retired"]) {
   test(`${command} actual CLI SIGKILL ${cut} preserves graph/scopes/key/time/closure and one activity group`, linuxOnly, (t) => {
     const workspace = materialize(t);
     const before = bytes(workspace);
@@ -133,7 +133,7 @@ for (const fault of ["old-arrival", "new-arrival", "old-formatting", "new-format
   });
 }
 
-for (const command of V2_RELATIONSHIP_COMMANDS) {
+for (const command of RELATIONSHIP_COMMANDS) {
   test(`${command} cache loss recovers fixed original intent only at original cache location with explicit fresh context`, linuxOnly, (t) => {
     const workspace = materialize(t);
     const { request, pending, intent } = crash(workspace, command, "replaced");
@@ -174,14 +174,14 @@ for (const fault of ["old-arrival", "new-arrival", "old-delete", "new-delete", "
     if (fault.endsWith("delete")) mutation = `faultRemove(${JSON.stringify(path.join(workspace.root, "tasks", fault === "old-delete" ? "oldSibling.json" : "hidden.json"))});`;
     if (fault === "formatting") mutation = `faultAppend(${JSON.stringify(path.join(workspace.root, "tasks/hidden.json"))},' ');`;
     if (fault === "target-canceled") mutation = `faultWrite(${JSON.stringify(path.join(workspace.root, "tasks/next.json"))},JSON.stringify({...${JSON.stringify(template)},id:'next',orderKey:'a1',status:'canceled',closedAt:'2026-09-08T14:00:00.000Z'}));`;
-    writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/updateWriter.js'))return result;let source=result.source.toString(),n='guardV2Update(intent, false);';if(source.split(n).length!==2)throw Error('unique preflight cut required');source='import {writeFileSync as faultWrite,appendFileSync as faultAppend,rmSync as faultRemove} from "node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return {...result,source};}});`);
+    writeFileSync(loader, `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/updateWriter.js'))return result;let source=result.source.toString(),n='guardUpdate(intent, false);';if(source.split(n).length!==2)throw Error('unique preflight cut required');source='import {writeFileSync as faultWrite,appendFileSync as faultAppend,rmSync as faultRemove} from "node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return {...result,source};}});`);
     const child = run(workspace, request, loader);
     assert.equal(child.status, 0, child.stderr);
     fail(JSON.parse(child.stdout), fault.endsWith("arrival") || fault.endsWith("delete") ? "STALE_SCOPE" : "STALE_FILE");
     const task = JSON.parse(readFileSync(path.join(workspace.root, "tasks/a.json"), "utf8"));
     assert.equal(task.parentId, "old");
     assert.equal(task.updatedAt, template.updatedAt);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
     assert.equal(readdirSync(path.join(workspace.root, "tasks")).some(file => file.startsWith(".syncthing.taskdb-")), false);
   });
 }

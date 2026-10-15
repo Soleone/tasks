@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent,
 import type { CategoryRecord, TagRecord, TaskPriority, TaskRecord } from "@/legacy/backend/protocol";
 import type { TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { parseV2Shorthand } from "@/backend/updateInputs";
+import { parseShorthand } from "@/backend/updateInputs";
 import { createTask, listCategories, listTags, updateTask, selectedMainWorkspace, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -299,7 +299,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     }
     const options = { idempotencyKey: receipt.current.key };
     try {
-      if (selectedMainWorkspace() && !parseV2Shorthand(title).title) {
+      if (selectedMainWorkspace() && !parseShorthand(title).title) {
         setTitleError(true);
         titleInput.current?.focus();
         return;

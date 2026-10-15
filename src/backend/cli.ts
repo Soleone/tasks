@@ -5,9 +5,9 @@ import { executeCommand } from "../legacy/backend/commands.js";
 import { watchCanonicalWorkspace, withCanonicalRootPath } from "../legacy/backend/canonicalWorkspace.js";
 import { readSourceRegistry } from "../legacy/backend/sourceRegistry.js";
 import { getDatabasePath } from "./paths.js";
-import { executeV2Line } from "./gateway.js";
-import { localPathOutsideV2Root } from "./queryCache.js";
-import type { V2Response } from "./protocol.js";
+import { executeLine } from "./gateway.js";
+import { localPathOutsideRoot } from "./queryCache.js";
+import type { Response } from "./protocol.js";
 import {
   errorResponse,
   parseLine,
@@ -21,7 +21,7 @@ function optionValue(args: string[], name: string): string | undefined {
   return index === -1 ? undefined : args[index + 1];
 }
 
-function writeResponse(response: ProtocolResponse | V2Response): void {
+function writeResponse(response: ProtocolResponse | Response): void {
   process.stdout.write(`${JSON.stringify(response)}\n`);
 }
 
@@ -33,7 +33,7 @@ function requestForProbe(): ReturnType<typeof parseRequest> {
   });
 }
 
-async function runStdio(databasePath: string): Promise<void> {
+async function runLegacyStdio(databasePath: string): Promise<void> {
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const backgroundSyncRequest = parseRequest({
     version: 1,
@@ -86,11 +86,11 @@ async function runStdio(databasePath: string): Promise<void> {
   await backgroundSync;
 }
 
-async function runV2Stdio(rootPath: string, cachePath: string, writerProfile?: "windows-task-proof"): Promise<void> {
+async function runStdio(rootPath: string, cachePath: string, writerProfile?: "windows-task-proof"): Promise<void> {
   let buffered = Buffer.alloc(0);
   const respond = (line: Buffer): void => {
     if (line.every(byte => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
-    writeResponse(executeV2Line(line, rootPath, cachePath, writerProfile));
+    writeResponse(executeLine(line, rootPath, cachePath, writerProfile));
   };
   // Frame bytes before UTF-8 decoding so invalid input cannot become replacement characters.
   for await (const chunk of process.stdin) {
@@ -126,15 +126,15 @@ async function main(): Promise<void> {
       if ([rootPath, cachePath].some(value => !/^[A-Za-z]:[\\/]/.test(value) || value.includes("\u0000"))) {
         throw new Error("Windows task proof requires explicit local absolute root/cache paths");
       }
-      localPathOutsideV2Root(localProfile!, realpathSync(rootPath));
+      localPathOutsideRoot(localProfile!, realpathSync(rootPath));
     }
-    await runV2Stdio(rootPath, cachePath, windowsTaskProof ? "windows-task-proof" : undefined);
+    await runStdio(rootPath, cachePath, windowsTaskProof ? "windows-task-proof" : undefined);
     return;
   }
   const databasePath = optionValue(args, "--database") ?? getDatabasePath();
 
   if (args.includes("--stdio")) {
-    await runStdio(databasePath);
+    await runLegacyStdio(databasePath);
     return;
   }
 

@@ -1,14 +1,14 @@
-import type { V2Response } from "./protocol.js";
-import type { V2TaskProjection } from "./queries.js";
+import type { Response } from "./protocol.js";
+import type { TaskProjection } from "./queries.js";
 
-function taskLine(task: V2TaskProjection): string {
+function taskLine(task: TaskProjection): string {
   return [
     task.id, `[${task.status}]`, task.title, `(p${task.priority})`,
     ...(task.category === null ? [] : [`@${task.category}`]), ...task.tags.map(tag => `#${tag}`),
     ...(task.blockedByIds.length ? [`blocked-by:${task.blockedByIds.length}`] : []), `v${task.version}`,
   ].join(" ");
 }
-function taskDetail(task: V2TaskProjection): string {
+function taskDetail(task: TaskProjection): string {
   return [
     `${task.id} [${task.status}] v${task.version}`, `title: ${task.title}`, `priority: ${task.priority}`,
     `category: ${task.category === null ? "none" : `@${task.category}`}`,
@@ -18,18 +18,18 @@ function taskDetail(task: V2TaskProjection): string {
     `created: ${task.createdAt} updated: ${task.updatedAt} closed: ${task.closedAt ?? "none"}`,
   ].join("\n");
 }
-export function printV2HumanResult(command: string, response: Extract<V2Response, { ok: true }>, json: boolean): void {
+export function printHumanResult(command: string, response: Extract<Response, { ok: true }>, json: boolean): void {
   // Info exposes transport authority for callers preparing their own stable key.
   const result = command === "workspace.info" ? { ...response.result, writeContext: response.writeContext } : response.result;
   if (json) { process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);return; }
   const lines: string[] = [];
   if (result.readOnly === true || result.dryRun === true) lines.push("Preview only. No canonical effects, receipt or history.");
   if (Array.isArray(result.tasks)) {
-    for (const task of result.contextTasks as V2TaskProjection[] | undefined ?? []) lines.push(`context: ${taskLine(task)}`);
-    for (const task of result.tasks as V2TaskProjection[]) lines.push(taskLine(task));
+    for (const task of result.contextTasks as TaskProjection[] | undefined ?? []) lines.push(`context: ${taskLine(task)}`);
+    for (const task of result.tasks as TaskProjection[]) lines.push(taskLine(task));
     if (!result.tasks.length) lines.push("No tasks.");
     if (typeof result.total === "number") lines.push(`(${result.tasks.length} of ${result.total})`);
-  } else if (result.task) lines.push(taskDetail(result.task as V2TaskProjection));
+  } else if (result.task) lines.push(taskDetail(result.task as TaskProjection));
   else if (Array.isArray(result.categories) || Array.isArray(result.tags)) {
     const marker = command === "category.list" ? "@" : "#", entries = (result.categories ?? result.tags) as { slug: string; taskCount: number }[];
     for (const entry of entries) lines.push(`${marker}${entry.slug} (${entry.taskCount})`);

@@ -1,12 +1,12 @@
-import { V2_QUERY_COMMANDS } from "../backend/protocol";
-import { V2_STATUS_COMMANDS } from "../backend/taskStatus";
+import { QUERY_COMMANDS } from "../backend/protocol";
+import { STATUS_COMMANDS } from "../backend/taskStatus";
 
-export const V2_NATIVE_COMMANDS = ["activity.list", ...V2_QUERY_COMMANDS, "task.create", "task.update", ...V2_STATUS_COMMANDS,
+export const NATIVE_COMMANDS = ["activity.list", ...QUERY_COMMANDS, "task.create", "task.update", ...STATUS_COMMANDS,
   "task.status.undo", "workspace.archive", "workspace.restore", "workspace.recovery.resume"].sort();
 
-export type V2NativeSelection = { rootPath: string; databasePath: string; profilePath: string };
+export type NativeSelection = { rootPath: string; databasePath: string; profilePath: string };
 
-export function validateV2NativeSelection(selection: V2NativeSelection): void {
+export function validateNativeSelection(selection: NativeSelection): void {
   for (const filename of [selection.rootPath, selection.databasePath, selection.profilePath]) {
     if (typeof filename !== "string" || filename.includes("/") || !/^[A-Za-z]:\\[^<>:"|?*]+$/.test(filename)
       || Array.from(filename).some(character => character.charCodeAt(0) < 32)
@@ -22,15 +22,15 @@ export function validateV2NativeSelection(selection: V2NativeSelection): void {
   }
 }
 
-export function v2NativeSidecarArgs(selection: V2NativeSelection): string[] {
-  validateV2NativeSelection(selection);
+export function nativeSidecarArgs(selection: NativeSelection): string[] {
+  validateNativeSelection(selection);
   return ["--stdio", "--v2-root", selection.rootPath, "--database", selection.databasePath, "--windows-task-proof", "--local-profile", selection.profilePath];
 }
 
-export function parseV2NativeSelection(value: unknown): V2NativeSelection {
+export function parseNativeSelection(value: unknown): NativeSelection {
   if (typeof value !== "object" || value === null || Array.isArray(value)
     || Object.keys(value).sort().join(",") !== "databasePath,profilePath,rootPath") throw new Error("The explicit native selection is unavailable; no backend was launched.");
-  const selection = value as V2NativeSelection;
-  validateV2NativeSelection(selection);
+  const selection = value as NativeSelection;
+  validateNativeSelection(selection);
   return Object.freeze({ ...selection });
 }

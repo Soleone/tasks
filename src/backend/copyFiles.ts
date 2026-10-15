@@ -1,8 +1,8 @@
 import { lstatSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
-import { readV2CanonicalRoot } from "./canonicalReader.js";
-import type { V2CanonicalSnapshot } from "./canonicalReader.js";
+import { readCanonicalRoot } from "./canonicalReader.js";
+import type { CanonicalSnapshot } from "./canonicalReader.js";
 
 export type CopyDestination = { directory: string; parentIdentity: string; identity: string | null };
 
@@ -44,11 +44,11 @@ export function guardCopyDestination(sourceDirectory: string, expected: CopyDest
   }
 }
 
-export function guardCopySource(expected: V2CanonicalSnapshot): void {
+export function guardCopySource(expected: CanonicalSnapshot): void {
   if (readdirSync(expected.rootPath).some(name => /^workspace\.sync-conflict-.+\.json$/.test(name))) {
     throw new CommandError("INVALID_CANONICAL", "descriptor conflict copies require explicit inspection before staging");
   }
-  const current = readV2CanonicalRoot(expected.rootPath);
+  const current = readCanonicalRoot(expected.rootPath);
   if (current.rootIdentity !== expected.rootIdentity || current.files.length !== expected.files.length
     || current.files.some((file, index) => file.relativePath !== expected.files[index].relativePath)) {
     throw new CommandError("STALE_SCOPE", "copy source membership or binding changed");
@@ -58,13 +58,13 @@ export function guardCopySource(expected: V2CanonicalSnapshot): void {
   }
 }
 
-export function verifyCopyStage(source: V2CanonicalSnapshot, stageDirectory: string): void {
+export function verifyCopyStage(source: CanonicalSnapshot, stageDirectory: string): void {
   const taskNames = source.files.filter(file => file.relativePath.startsWith("tasks/")).map(file => path.basename(file.relativePath)).sort();
   if (JSON.stringify(readdirSync(stageDirectory).sort()) !== JSON.stringify(["tasks", "workspace.json"])
     || JSON.stringify(readdirSync(path.join(stageDirectory, "tasks")).sort()) !== JSON.stringify(taskNames)) {
     throw new CommandError("RECOVERY_CONFLICT", "staged copy has unexpected or missing entries");
   }
-  const staged = readV2CanonicalRoot(stageDirectory);
+  const staged = readCanonicalRoot(stageDirectory);
   if (JSON.stringify(staged.files) !== JSON.stringify(source.files)
     || JSON.stringify(staged.tasks) !== JSON.stringify(source.tasks)
     || JSON.stringify(staged.conflictFiles) !== JSON.stringify(source.conflictFiles)) {

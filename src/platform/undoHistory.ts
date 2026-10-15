@@ -1,5 +1,5 @@
 /** One of this client's own recorded operations; whether it can still be undone is the gateway's answer. */
-export type V2UndoEntry = {
+export type UndoEntry = {
   operationId: string;
   key: string;
   affectedTaskIds: string[];
@@ -8,19 +8,19 @@ export type V2UndoEntry = {
   statusLike: boolean;
   wasActiveTaskId: string | null;
 };
-export type V2UndoStorage = Pick<Storage, "getItem" | "setItem">;
-type StoredHistory = { version: 1; workspaces: { scope: string; entries: V2UndoEntry[] }[] };
+export type UndoStorage = Pick<Storage, "getItem" | "setItem">;
+type StoredHistory = { version: 1; workspaces: { scope: string; entries: UndoEntry[] }[] };
 
-export const V2_UNDO_HISTORY_LIMIT = 50;
+export const UNDO_HISTORY_LIMIT = 50;
 const STORAGE_KEY = "tasks.v2UndoHistory";
 const RETAINED_WORKSPACES = 10;
 
-export function browserUndoStorage(): V2UndoStorage | null {
+export function browserUndoStorage(): UndoStorage | null {
   try { return typeof localStorage === "undefined" ? null : localStorage; }
   catch { return null; }
 }
 
-function isEntry(value: unknown): value is V2UndoEntry {
+function isEntry(value: unknown): value is UndoEntry {
   const ids = (list: unknown) => Array.isArray(list) && list.every(id => typeof id === "string" && id !== "");
   if (!value || typeof value !== "object") return false;
   const entry = value as Record<string, unknown>;
@@ -34,17 +34,17 @@ function isEntry(value: unknown): value is V2UndoEntry {
  * root/cache/profile and write context. It never decides eligibility: every undo still goes
  * through the gateway's preview and the locked executing request.
  */
-export class V2UndoHistory {
-  private memory: V2UndoEntry[] = [];
+export class UndoHistory {
+  private memory: UndoEntry[] = [];
 
-  constructor(private readonly scope: string, private readonly storage: V2UndoStorage | null) {}
+  constructor(private readonly scope: string, private readonly storage: UndoStorage | null) {}
 
-  latest(): V2UndoEntry | null {
+  latest(): UndoEntry | null {
     return this.read().at(-1) ?? null;
   }
 
-  push(entry: V2UndoEntry): void {
-    this.write([...this.read().filter(existing => existing.operationId !== entry.operationId), entry].slice(-V2_UNDO_HISTORY_LIMIT));
+  push(entry: UndoEntry): void {
+    this.write([...this.read().filter(existing => existing.operationId !== entry.operationId), entry].slice(-UNDO_HISTORY_LIMIT));
   }
 
   remove(operationId: string): void {
@@ -52,15 +52,15 @@ export class V2UndoHistory {
   }
 
   // Storage is reread on every use so another tab of the same client cannot be overwritten with a stale copy.
-  private read(): V2UndoEntry[] {
+  private read(): UndoEntry[] {
     const stored = this.stored();
     if (!stored) return this.memory;
     const entries = stored.workspaces.find(workspace => workspace.scope === this.scope)?.entries ?? [];
-    this.memory = entries.filter(isEntry).slice(-V2_UNDO_HISTORY_LIMIT);
+    this.memory = entries.filter(isEntry).slice(-UNDO_HISTORY_LIMIT);
     return this.memory;
   }
 
-  private write(entries: V2UndoEntry[]): void {
+  private write(entries: UndoEntry[]): void {
     this.memory = entries;
     if (!this.storage) return;
     const others = (this.stored()?.workspaces ?? []).filter(workspace => workspace.scope !== this.scope);

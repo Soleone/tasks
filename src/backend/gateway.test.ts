@@ -5,8 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { executeV2Line } from "./gateway.js";
-import type { V2Response } from "./protocol.js";
+import { executeLine } from "./gateway.js";
+import type { Response } from "./protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
@@ -25,11 +25,11 @@ function workspace(t: TestContext, records: Record<string, unknown> = { a: {} })
   return { root, cache: path.join(directory, "cache.db") };
 }
 
-function query(workspace: Workspace, command: string, args: object = {}): V2Response {
-  return executeV2Line(Buffer.from(JSON.stringify({ version: 2, command, args })), workspace.root, workspace.cache);
+function query(workspace: Workspace, command: string, args: object = {}): Response {
+  return executeLine(Buffer.from(JSON.stringify({ version: 2, command, args })), workspace.root, workspace.cache);
 }
 
-function result(response: V2Response): Record<string, unknown> {
+function result(response: Response): Record<string, unknown> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw new Error("query failed");
   return response.result;
@@ -43,7 +43,7 @@ for (const entry of corpus.cases.filter(entry => caseIds.includes(entry.id))) {
     const manifest = readFileSync(path.join(current.root, "workspace.json"));
     const before = readdirSync(path.join(current.root, "tasks")).map(name => readFileSync(path.join(current.root, "tasks", name)));
     const envelope = entry.action.rawEnvelope ?? JSON.stringify(entry.action.envelope ?? { version: 2, command: entry.action.command, args: entry.action.args });
-    const response = executeV2Line(Buffer.from(envelope), current.root, current.cache);
+    const response = executeLine(Buffer.from(envelope), current.root, current.cache);
     if (entry.expect.error) {
       assert.equal(response.ok, false);
       if (!response.ok) assert.equal(response.error.code, entry.expect.error);
@@ -66,7 +66,7 @@ test("v2 envelope correlation, strict types, unsupported names and previews cann
     [{ readOnly: "true" }, "INVALID_REQUEST"], [{ writeContext: null }, "INVALID_REQUEST"], [{ command: "made.up" }, "UNKNOWN_COMMAND"],
     [{ command: "workspace.receive.prepare", readOnly: true, dryRun: true, args: { title: "private text" } }, "UNSUPPORTED_COMMAND"],
   ] as const) {
-    const response = executeV2Line(Buffer.from(JSON.stringify({ version: 2, requestId: "correlated", command: "task.list", ...patch })), current.root, current.cache);
+    const response = executeLine(Buffer.from(JSON.stringify({ version: 2, requestId: "correlated", command: "task.list", ...patch })), current.root, current.cache);
     assert.equal(response.ok, false);
     if (!response.ok) {
       assert.equal(response.error.code, code);
@@ -74,7 +74,7 @@ test("v2 envelope correlation, strict types, unsupported names and previews cann
       assert.equal(response.error.message.includes("private text"), false);
     }
   }
-  const malformed = executeV2Line(Buffer.from('{"requestId":"unsafe","version":2,"command":"task.list","command":"task.get"}'), current.root, current.cache);
+  const malformed = executeLine(Buffer.from('{"requestId":"unsafe","version":2,"command":"task.list","command":"task.get"}'), current.root, current.cache);
   assert.equal(malformed.requestId, null);
   const valid = query(current, "task.get", { id: "a" });
   const task = result(valid).task as Record<string, unknown>;

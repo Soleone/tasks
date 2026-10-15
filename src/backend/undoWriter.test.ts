@@ -5,20 +5,20 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
-type Projection = V2CanonicalTask & { version: number };
-function send(w: Workspace, request: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
-function ok(r: V2Response): Extract<V2Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: V2Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
-function materialize(t: TestContext, records: Record<string, Partial<V2CanonicalTask>> = { a: {} }) {
+type Projection = CanonicalTask & { version: number };
+function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
+function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
+function fail(r: Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
+function materialize(t: TestContext, records: Record<string, Partial<CanonicalTask>> = { a: {} }) {
   const w = setup(t);
   for (const file of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", file));
   for (const [id, patch] of Object.entries(records)) writeFileSync(path.join(w.root, "tasks", `${id}.json`), JSON.stringify({ ...corpus.taskTemplate, ...patch, id }));
@@ -42,7 +42,7 @@ for (const id of ["time-status-undo", "undo-cycle", "undo-unrelated-edit", "undo
     const entry = corpus.cases.find((entry: { id: string }) => entry.id === id);
     const w = materialize(t, entry.given.records ?? { a: entry.given.patch ?? {} });
     let operationId: unknown;
-    let last: V2Response | undefined;
+    let last: Response | undefined;
     let before: string[][] = [];
     let firstAt = "";
     for (const step of entry.action.steps ?? [entry.action]) {
@@ -65,7 +65,7 @@ for (const id of ["time-status-undo", "undo-cycle", "undo-unrelated-edit", "undo
       const task = get(w);
       for (const [field, value] of Object.entries(entry.expect.fields)) {
         if (field === "updatedAt" && id === "undo-unrelated-edit") { assert.equal(task.updatedAt, rows(w)[0].createdAt); assert.ok(task.updatedAt >= firstAt && task.updatedAt <= new Date().toISOString()); }
-        else assert.deepEqual(task[field as keyof V2CanonicalTask], value);
+        else assert.deepEqual(task[field as keyof CanonicalTask], value);
       }
     }
   });
@@ -81,7 +81,7 @@ for (const [suffix, states] of Object.entries(allowed)) for (const status of sta
     if (!changed) { fail(send(w, req), "UNDO_UNAVAILABLE"); return; }
     const result = ok(send(w, req)).result;
     const current = get(w);
-    for (const key of Object.keys(corpus.taskTemplate) as (keyof V2CanonicalTask)[]) assert.deepEqual(current[key], before[key]);
+    for (const key of Object.keys(corpus.taskTemplate) as (keyof CanonicalTask)[]) assert.deepEqual(current[key], before[key]);
     assert.ok(current.version > before.version);
     assert.deepEqual(ok(send(w, req)).result, result);
     fail(send(w, prepared(w, "task.status.undo", { id: "a" }, "again")), "UNDO_UNAVAILABLE");
@@ -174,7 +174,7 @@ for (const invalid of ["edited", "formatting", "child", "dependency", "local-edi
     if (invalid === "conflict") writeFileSync(path.join(w.root, "tasks", `${id}.sync-conflict-device.json`), "raw alternate");
     const before = raw(w), req = prepared(w, "operation.undo", { operationId: created.result.operationId });
     if (invalid === "conflict") { fail(send(w, req), "OPERATION_UNAVAILABLE"); } else { fail(send(w, { ...req, dryRun: true, idempotencyKey: undefined }), "OPERATION_UNAVAILABLE");fail(send(w, req), "OPERATION_UNAVAILABLE"); }
-    assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(w.root))), false);
+    assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);
   });
 }
 

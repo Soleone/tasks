@@ -3,16 +3,16 @@ import { lstatSync, mkdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import type { V2CanonicalSnapshot } from "./canonicalReader.js";
-import { compareV2Tasks } from "./taskModel.js";
+import type { CanonicalSnapshot } from "./canonicalReader.js";
+import { compareTasks } from "./taskModel.js";
 
-export type V2RootBinding = { rootPath: string; rootIdentity: string };
-export type V2QueryAuthority = { writeContext: string; workspaceRevision: number; versions: Map<string, number> };
+export type RootBinding = { rootPath: string; rootIdentity: string };
+export type QueryAuthority = { writeContext: string; workspaceRevision: number; versions: Map<string, number> };
 type CacheState = { binding: string; context: string; counter: number; revision: number; fingerprint: string };
 type CachedObservation = { id: string; fingerprint: string; version: number };
 const applicationId = 0x54534432;
 
-export function localPathOutsideV2Root(cachePath: string, rootPath: string): string {
+export function localPathOutsideRoot(cachePath: string, rootPath: string): string {
   let ancestor = path.resolve(cachePath);
   const suffix: string[] = [];
   while (lstatSync(ancestor, { throwIfNoEntry: false }) === undefined) {
@@ -71,7 +71,7 @@ function initializeQueryCache(database: DatabaseSync): void {
   `);
 }
 
-function snapshotObservations(snapshot: V2CanonicalSnapshot): Map<string, string> {
+function snapshotObservations(snapshot: CanonicalSnapshot): Map<string, string> {
   const hashes = new Map(snapshot.files.map(file => [file.relativePath, file.sha256]));
   const scopes = new Map<string | null, typeof snapshot.tasks>();
   for (const task of snapshot.tasks) {
@@ -80,12 +80,12 @@ function snapshotObservations(snapshot: V2CanonicalSnapshot): Map<string, string
     scopes.set(task.parentId, scope);
   }
   const scopeSignatures = new Map([...scopes].map(([id, scope]) => [id,
-    createHash("sha256").update(JSON.stringify(scope.sort(compareV2Tasks).map(task => task.id))).digest("hex"),
+    createHash("sha256").update(JSON.stringify(scope.sort(compareTasks).map(task => task.id))).digest("hex"),
   ]));
   return new Map(snapshot.tasks.map(task => [task.id, JSON.stringify([hashes.get(`tasks/${task.id}.json`), scopeSignatures.get(task.parentId)])]));
 }
 
-export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
+export function synchronizeAuthority(database: DatabaseSync, root: RootBinding, snapshot?: CanonicalSnapshot): QueryAuthority {
   const main = database.prepare("PRAGMA database_list").all().find(row => row.name === "main");
   if (typeof main?.file !== "string" || main.file === "") throw new CommandError("INVALID_STORAGE", "v2 authority requires a physical cache file");
   const cacheIdentity = lstatSync(main.file, { bigint: true });
@@ -129,18 +129,18 @@ export function synchronizeV2Authority(database: DatabaseSync, root: V2RootBindi
 }
 
 /** Rebuild the projection only; retained context, receipts and grouped history remain authoritative. */
-export function rebuildV2QueryAuthority(database: DatabaseSync, root: V2RootBinding, snapshot: V2CanonicalSnapshot): V2QueryAuthority {
+export function rebuildQueryAuthority(database: DatabaseSync, root: RootBinding, snapshot: CanonicalSnapshot): QueryAuthority {
   const state = database.prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1").get() as Pick<CacheState, "counter" | "revision">;
   // Reserve the rebuild allocations and the following complete read, without rotating mid-command.
   if (!Number.isSafeInteger(state.counter + snapshot.tasks.length * 2 + 2) || !Number.isSafeInteger(state.revision + 2)) {
     throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before rebuild");
   }
   database.exec("DELETE FROM v2_query_tasks; UPDATE v2_query_state SET fingerprint = '' WHERE singleton = 1");
-  return synchronizeV2Authority(database, root, snapshot);
+  return synchronizeAuthority(database, root, snapshot);
 }
 
-export function withV2CacheTransaction<T>(cachePath: string, root: V2RootBinding, action: (database: DatabaseSync) => T): T {
-  const resolved = localPathOutsideV2Root(cachePath, root.rootPath);
+export function withCacheTransaction<T>(cachePath: string, root: RootBinding, action: (database: DatabaseSync) => T): T {
+  const resolved = localPathOutsideRoot(cachePath, root.rootPath);
   mkdirSync(path.dirname(resolved), { recursive: true });
   const database = new DatabaseSync(resolved);
   try {
@@ -155,6 +155,6 @@ export function withV2CacheTransaction<T>(cachePath: string, root: V2RootBinding
   }
 }
 
-export function observeV2QueryAuthority(cachePath: string, root: V2RootBinding, snapshot?: V2CanonicalSnapshot): V2QueryAuthority {
-  return withV2CacheTransaction(cachePath, root, database => synchronizeV2Authority(database, root, snapshot));
+export function observeQueryAuthority(cachePath: string, root: RootBinding, snapshot?: CanonicalSnapshot): QueryAuthority {
+  return withCacheTransaction(cachePath, root, database => synchronizeAuthority(database, root, snapshot));
 }

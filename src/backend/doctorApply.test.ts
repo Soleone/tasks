@@ -4,8 +4,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { createDoctorWorkspace as setup, doctorCorpus as corpus, doctorFail as fail, doctorLinux as linux, doctorOk as ok, doctorRaw as raw, planDoctor, sendDoctor as send } from "./doctorTestWorkspace.js";
-import type { V2CanonicalTask } from "./taskModel.js";
-const task = (w: ReturnType<typeof setup>, id: string) => JSON.parse(readFileSync(path.join(w.root, "tasks", `${id}.json`), "utf8")) as V2CanonicalTask;
+import type { CanonicalTask } from "./taskModel.js";
+const task = (w: ReturnType<typeof setup>, id: string) => JSON.parse(readFileSync(path.join(w.root, "tasks", `${id}.json`), "utf8")) as CanonicalTask;
 function planCount(w: ReturnType<typeof setup>) { const db = new DatabaseSync(w.cache);try { return db.prepare("SELECT count(*) AS n FROM v2_doctor_plans").get()!.n; } finally { db.close(); } }
 for (const id of ["doctor-replay", "doctor-stale", "doctor-cache-loss", "doctor-late-link"]) test(`confirmed apply executes independent original corpus ${id}`, linux, t => {
   const entry = corpus.cases.find((entry: { id: string }) => entry.id === id), w = setup(t, { a: {} }, { a: entry.given.conflict.alternate }), before = raw(w), { plan, request } = planDoctor(w);
@@ -28,7 +28,7 @@ test("original doctor-dangling applies the complete declared unlink plan with on
   const entry = corpus.cases.find((entry: { id: string }) => entry.id === "doctor-dangling"), w = setup(t, { a: entry.given.patch }, {}), before = raw(w), inspected = ok(send(w, { command: "workspace.doctor.inspect" }));
   const planned = ok(send(w, { ...entry.action.steps[0], writeContext: inspected.writeContext, idempotencyKey: "plan" })), start = Date.now(), result = ok(send(w, { command: "workspace.doctor.apply", writeContext: inspected.writeContext, idempotencyKey: "apply", args: { planId: planned.result.planId } })), end = Date.now();
   const archive = JSON.parse(readFileSync(result.result.recoveryLocation as string, "utf8"));assert.ok(Date.parse(archive.at) >= start && Date.parse(archive.at) <= end);
-  const expected = { ...entry.expect.fields, updatedAt: archive.at };for (const [key, value] of Object.entries(expected)) assert.deepEqual(task(w, "a")[key as keyof V2CanonicalTask], value);
+  const expected = { ...entry.expect.fields, updatedAt: archive.at };for (const [key, value] of Object.entries(expected)) assert.deepEqual(task(w, "a")[key as keyof CanonicalTask], value);
   assert.equal(archive.plan.source.files.find((file: { relativePath: string }) => file.relativePath === "tasks/a.json").beforeBytes, before[0][1]);assert.equal(task(w, "a").createdAt, corpus.taskTemplate.createdAt);assert.equal(task(w, "a").closedAt, corpus.taskTemplate.closedAt);
 });
 for (const alternate of [false, true]) test(`apply ${alternate ? "alternate" : "canonical"} winner preserves exact recovery bytes, source times/keys and untouched sibling bytes`, linux, t => {

@@ -4,10 +4,10 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { pendingV2Path } from "./localDomain.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { pendingIntentPath } from "./localDomain.js";
 
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const linux = { skip: process.platform !== "linux" };
@@ -37,7 +37,7 @@ function raw(workspace: Workspace) {
   return readdirSync(path.join(workspace.root, "tasks")).sort().map(name => [name, readFileSync(path.join(workspace.root, "tasks", name)).toString("base64")]);
 }
 function loaderFor(workspace: Workspace, cut: string): string {
-  const loader = path.join(workspace.directory, `${cut}-loader.mjs`), pending = pendingV2Path(readV2RootDescriptor(workspace.root));
+  const loader = path.join(workspace.directory, `${cut}-loader.mjs`), pending = pendingIntentPath(readRootDescriptor(workspace.root));
   writeFileSync(loader, `import {registerHooks,syncBuiltinESMExports} from 'node:module';import fs from 'node:fs';import {DatabaseSync} from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pending)}, cache=${JSON.stringify(workspace.cache)}, task=${JSON.stringify(path.join(workspace.root, "tasks", `${parent}.json`))};
 if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
@@ -45,13 +45,13 @@ if(['metadata-failure','metadata-short','metadata-zero'].includes(cut)){const wr
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();function replace(needle,value){if(source.split(needle).length!==2)throw Error('cut must be unique: '+needle);source=source.replace(needle,value);}
 if(url.endsWith('/friendlyCli.js')){
  if(cut==='prepared')replace('const response = dispatch(invocation, request);','process.kill(process.pid,"SIGKILL");const response = dispatch(invocation, request);');
- if(cut==='lostReply')replace('printV2HumanResult(request.command, response, json);','process.kill(process.pid,"SIGKILL");');
+ if(cut==='lostReply')replace('printHumanResult(request.command, response, json);','process.kill(process.pid,"SIGKILL");');
  if(cut==='context-race')replace('const observed = query(invocation, "task.get", { id: request.args.id });','fs.rmSync(cache);const observed = query(invocation, "task.get", { id: request.args.id });');
  if(cut==='version-race')replace('reportRetry(invocation, request);','reportRetry(invocation, request);const changed=JSON.parse(fs.readFileSync(task,"utf8"));changed.title="External newer content";fs.writeFileSync(task,JSON.stringify(changed));');
  if(['context-race','version-race'].includes(cut))source='import fs from "node:fs";const cache='+JSON.stringify(cache)+',task='+JSON.stringify(task)+';'+source;
 }
 if(url.endsWith('/createWriter.js')){
- replace('writeV2DurableFile(stage, bytes);','writeV2DurableFile(stage, bytes);globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
+ replace('writeDurableFile(stage, bytes);','writeDurableFile(stage, bytes);globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
  if(cut==='published')replace('renameSync(stage, target);','renameSync(stage, target);process.kill(process.pid,"SIGKILL");');
 }
 return {...result,source};}});`);
@@ -65,7 +65,7 @@ for (const cut of ["prepared", "stage-written", "published", "beforeCommit", "af
     const retry = retained(result), recorded = metadata(result);
     assert.equal(recorded.rootPath, workspace.root);assert.equal(recorded.cachePath, workspace.cache);assert.match(recorded.profileDirectory, /tasks$/);
     assert.equal(result.stderr.includes("Private capture"), false);assert.equal(result.stderr.includes("Private **Markdown**"), false);
-    const pending = pendingV2Path(readV2RootDescriptor(workspace.root));
+    const pending = pendingIntentPath(readRootDescriptor(workspace.root));
     if (cut === "prepared") assert.deepEqual(raw(workspace), before);
     assert.equal(existsSync(pending), false);
     const beforeRetry = raw(workspace), replay = run(workspace, [...original, ...retry]);
@@ -89,7 +89,7 @@ for (const cut of ["metadata-failure", "metadata-zero", "metadata-short"]) {
   test(`human CLI ${cut} finishes retry reporting before canonical effects or refuses`, linux, t => {
     const workspace = setup(t), before = raw(workspace), result = run(workspace, original, loaderFor(workspace, cut));
     if (cut === "metadata-short") { const task = ok(result).task;assert.equal(metadata(result).idempotencyKey.length, 36);assert.equal(task.title, "Private capture @literal"); }
-    else { fail(result, "INVALID_STORAGE");assert.deepEqual(raw(workspace), before);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false); }
+    else { fail(result, "INVALID_STORAGE");assert.deepEqual(raw(workspace), before);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false); }
     assert.equal(result.stderr.includes("Private capture"), false);assert.equal(result.stderr.includes("Private **Markdown**"), false);
   });
 }
@@ -110,7 +110,7 @@ test("human initial preparation keeps its observed task version if a concurrent 
 for (const change of ["profile", "root", "cache", "cache-copy", "payload", "actor", "flags", "placement"]) {
   test(`prepared CLI hash refuses a changed ${change} before any retry dispatch`, linux, t => {
     const workspace = setup(t), killed = run(workspace, original, loaderFor(workspace, "stage-written"));assert.equal(killed.signal, "SIGKILL", killed.stderr);
-    const pending = pendingV2Path(readV2RootDescriptor(workspace.root)), before = raw(workspace), changed = { ...workspace };
+    const pending = pendingIntentPath(readRootDescriptor(workspace.root)), before = raw(workspace), changed = { ...workspace };
     let argv = [...original, ...retained(killed)], profile = process.env.XDG_DATA_HOME;
     if (change === "profile") profile = path.join(workspace.directory, "different-profile");
     if (change === "root") { changed.root = path.join(workspace.directory, "copied-root");cpSync(workspace.root, changed.root, { recursive: true }); }
@@ -128,7 +128,7 @@ for (const change of ["profile", "root", "cache", "cache-copy", "payload", "acto
 
 test("human cache loss after unreceipted publication refuses old authority without adopting or recovering the task", linux, t => {
   const workspace = setup(t), killed = run(workspace, original, loaderFor(workspace, "published"));assert.equal(killed.signal, "SIGKILL", killed.stderr);
-  const pending = pendingV2Path(readV2RootDescriptor(workspace.root)), before = raw(workspace);
+  const pending = pendingIntentPath(readRootDescriptor(workspace.root)), before = raw(workspace);
   assert.equal(existsSync(pending), false);
   rmSync(workspace.cache);
   fail(run(workspace, [...original, ...retained(killed)]), "STALE_WRITE_CONTEXT");assert.deepEqual(raw(workspace), before);
@@ -143,7 +143,7 @@ for (const cut of ["prepared", "beforeCommit", "afterCommit", "lostReply"]) {
     const workspace = setup(t), argv = ["update", parent, "--title", "Fixed literal @a", "--description", "Fixed Markdown", "--json"];
     const result = run(workspace, argv, loaderFor(workspace, cut));
     assert.equal(result.signal, "SIGKILL", result.stderr);assert.ok(metadata(result).expectedVersion);
-    const pending = pendingV2Path(readV2RootDescriptor(workspace.root));
+    const pending = pendingIntentPath(readRootDescriptor(workspace.root));
     const intent = existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) : undefined;
     if (intent) assert.equal(intent.request.args.expectedVersion, metadata(result).expectedVersion);
     const replay = run(workspace, [...argv, ...retained(result)]);
@@ -170,5 +170,5 @@ test("human retained directory request hash rejects changed relative-path resolu
 test("client capability negotiation and replay use withheld-write refusal, not fabricated native acceptance", linux, t => {
   const workspace = setup(t), loader = path.join(workspace.directory, "withheld-loader.mjs"), before = raw(workspace);
   writeFileSync(loader, 'Object.defineProperty(process,"platform",{value:"darwin"});');
-  fail(run(workspace, original, loader), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(workspace), before);assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  fail(run(workspace, original, loader), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(workspace), before);assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
 });

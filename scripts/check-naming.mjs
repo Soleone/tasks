@@ -11,6 +11,8 @@ const scannedDirs = ["src", "scripts"];
 const allowedPrefixes = ["src/migration/"];
 const codeExtensions = /\.(ts|tsx|js|mjs|cjs)$/;
 const versionName = /v[12](?!\d)/i;
+// Names already persisted on users' machines: local cache tables and a browser storage key.
+const storedNames = /^(v2_[a-z_]+|v2UndoHistory)$/;
 const identifier = /[A-Za-z_$][\w$]*/g;
 
 function listFiles(dir) {
@@ -24,7 +26,7 @@ function countFile(path) {
   let count = versionName.test(path) ? 1 : 0;
   if (codeExtensions.test(path)) {
     const tokens = readFileSync(join(root, path), "utf8").match(identifier) ?? [];
-    count += tokens.filter((token) => versionName.test(token)).length;
+    count += tokens.filter((token) => versionName.test(token) && !storedNames.test(token)).length;
   }
   return count;
 }

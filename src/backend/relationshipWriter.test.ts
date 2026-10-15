@@ -5,27 +5,27 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createV2CopyTestWorkspace as setup } from "./copyTestWorkspace.js";
-import type { V2CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { executeV2Line } from "./gateway.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
-import type { V2CanonicalTask } from "./taskModel.js";
-import { V2_RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { executeLine } from "./gateway.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
+import type { CanonicalTask } from "./taskModel.js";
+import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
 
 const fixture = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/cases.json", import.meta.url)), "utf8"));
-const template = fixture.taskTemplate as V2CanonicalTask;
+const template = fixture.taskTemplate as CanonicalTask;
 const linuxOnly = { skip: process.platform !== "linux" };
-type Projection = V2CanonicalTask & { version: number; blockedByIds: string[] };
-function send(workspace: Workspace, envelope: object): V2Response { return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+type Projection = CanonicalTask & { version: number; blockedByIds: string[] };
+function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw Error("failed");
   return response;
 }
-function fail(response: V2Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
-function materialize(t: TestContext, records: Record<string, Partial<V2CanonicalTask>> = { a: {}, p: {}, d: {} }) {
+function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
+function materialize(t: TestContext, records: Record<string, Partial<CanonicalTask>> = { a: {}, p: {}, d: {} }) {
   const workspace = setup(t);
   for (const file of readdirSync(path.join(workspace.root, "tasks"))) rmSync(path.join(workspace.root, "tasks", file));
   for (const [id, patch] of Object.entries(records)) writeFileSync(path.join(workspace.root, "tasks", `${id}.json`), JSON.stringify({ ...template, ...patch, id }));
@@ -37,7 +37,7 @@ function prepared(workspace: Workspace, command: string, args: Record<string, un
   return { command, args: { ...args, expectedVersion: get(workspace, args.id as string).version }, writeContext: context, idempotencyKey: "edit" };
 }
 function bytes(workspace: Workspace) { return readdirSync(path.join(workspace.root, "tasks")).sort().map(file => [file, readFileSync(path.join(workspace.root, "tasks", file)).toString("base64")]); }
-function history(workspace: Workspace) { return success(send(workspace, { command: "activity.list" })).result.activity as { command: string; createdAt: string; before: V2CanonicalTask; after: V2CanonicalTask }[]; }
+function history(workspace: Workspace) { return success(send(workspace, { command: "activity.list" })).result.activity as { command: string; createdAt: string; before: CanonicalTask; after: CanonicalTask }[]; }
 function receipts(workspace: Workspace) {
   const db = new DatabaseSync(workspace.cache);
   try { return db.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n; } finally { db.close(); }
@@ -53,14 +53,14 @@ test("public task.move materializes time-parent with independent records/expecte
   const task = result.task as Projection;
   const at = history(workspace)[0].createdAt;
   assert.ok(Date.parse(at) >= started && Date.parse(at) <= Date.now());
-  for (const [field, value] of Object.entries(entry.expect.fields)) assert.equal(task[field as keyof V2CanonicalTask], value === entry.action.at ? at : value);
+  for (const [field, value] of Object.entries(entry.expect.fields)) assert.equal(task[field as keyof CanonicalTask], value === entry.action.at ? at : value);
   assert.equal(task.orderKey, "a0");
   assert.equal(history(workspace).length, 1);
   assert.deepEqual(bytes(workspace).filter(([file]) => file !== "a.json"), before.filter(([file]) => file !== "a.json"));
   assert.deepEqual(success(send(workspace, request)).result, result);
 });
 
-for (const status of ["open", "in_progress", "paused", "done", "canceled"] as const) for (const command of V2_RELATIONSHIP_COMMANDS) {
+for (const status of ["open", "in_progress", "paused", "done", "canceled"] as const) for (const command of RELATIONSHIP_COMMANDS) {
   test(`${command} edits ${status} task while retaining closure/content/descendant links`, linuxOnly, (t) => {
     const workspace = materialize(t, { a: { status, closedAt: status === "done" || status === "canceled" ? "3999-01-01T00:00:00.000Z" : null, createdAt: "3999-01-01T00:00:00.000Z", updatedAt: "3999-01-01T00:00:00.000Z", dependencyIds: command === "task.dependency.remove" ? ["d"] : [], description: "# **Notes**\r\n@literal #literal", category: "work", tags: ["alpha", "todo"], priority: 0 }, child: { parentId: "a" }, p: {}, d: { status: "done", closedAt: "2026-09-08T14:00:00.000Z" } });
     const before = get(workspace), raw = bytes(workspace);
@@ -82,7 +82,7 @@ for (const status of ["open", "in_progress", "paused", "done", "canceled"] as co
   });
 }
 
-for (const command of V2_RELATIONSHIP_COMMANDS) {
+for (const command of RELATIONSHIP_COMMANDS) {
   test(`${command} effective no-op on existing canceled references or absent removal is receipt-only`, linuxOnly, (t) => {
     const workspace = materialize(t, { a: { parentId: "p", dependencyIds: ["d"], orderKey: "a2" }, p: { status: "canceled", closedAt: "2026-09-08T14:00:00.000Z" }, d: { status: "canceled", closedAt: "2026-09-08T14:00:00.000Z" } });
     const before = get(workspace), raw = bytes(workspace);
@@ -114,7 +114,7 @@ for (const [command, args, records, error] of [
   ["task.dependency.add", { dependsOnId: "missing" }, { a: {} }, "INVALID_DEPENDENCY"],
   ["task.move", { parentId: "gone" }, { a: {}, gone: { status: "canceled", closedAt: "2026-09-08T14:00:00.000Z" } }, "INVALID_PARENT"],
   ["task.dependency.add", { dependsOnId: "gone" }, { a: {}, gone: { status: "canceled", closedAt: "2026-09-08T14:00:00.000Z" } }, "INVALID_DEPENDENCY"],
-] as [string, Record<string, unknown>, Record<string, Partial<V2CanonicalTask>>, string][]) {
+] as [string, Record<string, unknown>, Record<string, Partial<CanonicalTask>>, string][]) {
   test(`${command} refuses ${error}/${Object.values(args)[0]} before effects or key consumption`, linuxOnly, (t) => {
     const workspace = materialize(t, records);
     const request = prepared(workspace, command, { id: "a", ...args });
@@ -123,7 +123,7 @@ for (const [command, args, records, error] of [
     assert.deepEqual(bytes(workspace), raw);
     assert.equal(history(workspace).length, 0);
     assert.equal(receipts(workspace), 0);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   });
 }
 
@@ -174,7 +174,7 @@ test("dependency edits byte-sort IDs, retain canceled links until explicit remov
   fail(send(workspace, { ...prepared(workspace, "task.dependency.add", { id: "a", dependsOnId: "done" }), idempotencyKey: "case-sensitive" }), "INVALID_DEPENDENCY");
 });
 
-for (const command of V2_RELATIONSHIP_COMMANDS) {
+for (const command of RELATIONSHIP_COMMANDS) {
   test(`${command} validates authority/shape/version, previews without effects, and replays original identity`, linuxOnly, (t) => {
     const workspace = materialize(t, { a: { dependencyIds: command === "task.dependency.remove" ? ["d"] : [] }, p: {}, d: {} });
     const request = prepared(workspace, command, { id: "a", ...(command === "task.move" ? { parentId: "p" } : { dependsOnId: "d" }) });
@@ -219,7 +219,7 @@ test("reparent key exhaustion and corrupt complete source refuse without normali
   const raw = bytes(workspace);
   fail(send(workspace, request), "ORDER_KEY_LIMIT");
   assert.deepEqual(bytes(workspace), raw);
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   writeFileSync(path.join(workspace.root, "tasks/low.json"), "{");
   const corrupt = bytes(workspace);
   fail(send(workspace, request), "INVALID_CANONICAL");
@@ -239,7 +239,7 @@ test("historical move replay precedes missing target/invalid live graph and neve
   assert.equal(existsSync(path.join(workspace.root, "tasks/a.json")), false);
 });
 
-for (const command of V2_RELATIONSHIP_COMMANDS) {
+for (const command of RELATIONSHIP_COMMANDS) {
   test(`${command} refuses near-exhausted authority before staging`, linuxOnly, (t) => {
     const workspace = materialize(t, { a: { dependencyIds: ["d"] }, p: {}, d: {} });
     const request = prepared(workspace, command, { id: "a", ...(command === "task.move" ? { parentId: "p" } : { dependsOnId: command === "task.dependency.add" ? "p" : "d" }) });
@@ -249,6 +249,6 @@ for (const command of V2_RELATIONSHIP_COMMANDS) {
     db.close();
     fail(send(workspace, request), "UNSUPPORTED_COMMAND");
     assert.deepEqual(bytes(workspace), raw);
-    assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   });
 }

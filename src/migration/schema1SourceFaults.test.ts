@@ -23,8 +23,8 @@ function canonicalBytes(root: string) {
 function faultProcess(workspace: { directory: string; root: string }, fault: string, prefix = -1) {
   const worker = path.join(workspace.directory, "worker.mjs");
   const loader = path.join(workspace.directory, "loader.mjs");
-  writeFileSync(worker, `import {planV1ToV2Conversion} from ${JSON.stringify(conversionModule)};
-try { const plan=planV1ToV2Conversion(process.argv[2]); console.log(JSON.stringify({taskCount:plan.tasks.length})); }
+  writeFileSync(worker, `import {planSchema1Conversion} from ${JSON.stringify(conversionModule)};
+try { const plan=planSchema1Conversion(process.argv[2]); console.log(JSON.stringify({taskCount:plan.tasks.length})); }
 catch(error) { console.log(JSON.stringify({code:error.code,details:error.details})); process.exitCode=1; }`);
   // Test-only loader cuts. The production converter has no fault flags, callbacks or writes.
   writeFileSync(loader, `import {registerHooks} from 'node:module';
@@ -47,7 +47,7 @@ const actions={
  'root-replaced': 'faultRename(rootPath,rootPath+".kept");faultCopy(rootPath+".kept",rootPath,{recursive:true});',
  'tasks-replaced': 'faultRename(path.join(rootPath,"tasks"),path.join(path.dirname(rootPath),"tasks.kept"));faultCopy(path.join(path.dirname(rootPath),"tasks.kept"),path.join(rootPath,"tasks"),{recursive:true});'
 };
-if(actions[fault]) { const cut='verifyV1Scopes(tasks, orders);'; replace(cut,actions[fault]+cut); }
+if(actions[fault]) { const cut='verifySchema1Scopes(tasks, orders);'; replace(cut,actions[fault]+cut); }
 return {...result,source};}});`);
   return spawnSync(process.execPath, ["--import", loader, worker, workspace.root], { encoding: "utf8", timeout: 10_000 });
 }

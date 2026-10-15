@@ -76,7 +76,7 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   ]);
 });
 
-const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {V2WorkspaceReader} from './src/platform/workspaceReader'; export {readV2EditorSelection, V2EditorClient} from './src/platform/editorClient'; export {V2UndoHistory, V2_UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
+const http = await build({ stdin: { contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`, resolveDir: process.cwd() }, bundle: true, platform: "node", format: "esm", write: false, define: { "import.meta.env": JSON.stringify({ VITE_TASKDB_V2: "1", VITE_TASKDB_V2_EDIT: "1" }) } });
 const httpClient = await import(`data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}`);
 const { startDevServer } = await import("../dist/backend/devServer.js");
 
@@ -103,8 +103,8 @@ async function selectedHttpWorkspace(t) {
     rmSync(directory, { recursive: true, force: true });
   });
   const confirm = async storage => {
-    const selection = await httpClient.readV2EditorSelection(dev.url);
-    return new httpClient.MainWorkspace(new httpClient.V2WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.V2EditorClient(dev.url, selection), storage);
+    const selection = await httpClient.readEditorSelection(dev.url);
+    return new httpClient.MainWorkspace(new httpClient.WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.EditorClient(dev.url, selection), storage);
   };
   // Restart the bridge on the same root with a fresh cache and reconfirm, as after closing and reopening.
   const reopen = async () => {
@@ -449,24 +449,24 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
   cpSync("scripts/fixtures/taskdb-v2/root", otherRoot, { recursive: true });
   const other = await startDevServer({ port: 0, v2Root: otherRoot, databasePath: path.join(directory, "other-cache.db"), v2Edit: true });
   t.after(() => new Promise(resolve => other.server.close(resolve)));
-  const selection = await httpClient.readV2EditorSelection(other.url);
-  const otherWorkspace = new httpClient.MainWorkspace(new httpClient.V2WorkspaceReader(selection, { url: other.url, selection }), new httpClient.V2EditorClient(other.url, selection), storage);
+  const selection = await httpClient.readEditorSelection(other.url);
+  const otherWorkspace = new httpClient.MainWorkspace(new httpClient.WorkspaceReader(selection, { url: other.url, selection }), new httpClient.EditorClient(other.url, selection), storage);
   assert.equal((await otherWorkspace.undoHistory()).latest(), null, "another root sees no entries");
 });
 
 test("own undo history keeps the newest entries up to its bound and tolerates unusable storage", () => {
   const storage = memoryStorage();
-  const history = new httpClient.V2UndoHistory("scope", storage);
-  for (let index = 0; index < httpClient.V2_UNDO_HISTORY_LIMIT + 5; index += 1) history.push(undoEntry(`operation-${index}`, "task"));
-  const reloaded = new httpClient.V2UndoHistory("scope", storage);
+  const history = new httpClient.UndoHistory("scope", storage);
+  for (let index = 0; index < httpClient.UNDO_HISTORY_LIMIT + 5; index += 1) history.push(undoEntry(`operation-${index}`, "task"));
+  const reloaded = new httpClient.UndoHistory("scope", storage);
   const walked = [];
   for (let entry = reloaded.latest(); entry; entry = reloaded.latest()) { walked.push(entry.operationId); reloaded.remove(entry.operationId); }
-  assert.equal(walked.length, httpClient.V2_UNDO_HISTORY_LIMIT);
-  assert.deepEqual([walked[0], walked.at(-1)], [`operation-${httpClient.V2_UNDO_HISTORY_LIMIT + 4}`, "operation-5"]);
+  assert.equal(walked.length, httpClient.UNDO_HISTORY_LIMIT);
+  assert.deepEqual([walked[0], walked.at(-1)], [`operation-${httpClient.UNDO_HISTORY_LIMIT + 4}`, "operation-5"]);
 
   storage.setItem("tasks.v2UndoHistory", "{not json");
-  assert.equal(new httpClient.V2UndoHistory("scope", storage).latest(), null);
-  const unusable = new httpClient.V2UndoHistory("scope", { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } });
+  assert.equal(new httpClient.UndoHistory("scope", storage).latest(), null);
+  const unusable = new httpClient.UndoHistory("scope", { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } });
   unusable.push(undoEntry("memory-only", "task"));
   assert.equal(unusable.latest()?.operationId, "memory-only", "unusable storage keeps this session's history in memory");
 });
@@ -580,8 +580,8 @@ test("Linux workspace backup and separately selected restore preserve raw canoni
   const selectedContext = (await workspace.editor.begin(undefined, "copy")).writeContext;
   const dev = await startDevServer({ port: 0, v2Root: restored, databasePath: path.join(directory, "restored-cache.db"), v2Edit: true });
   t.after(() => new Promise(resolve => dev.server.close(resolve)));
-  const selection = await httpClient.readV2EditorSelection(dev.url);
-  const fresh = new httpClient.MainWorkspace(new httpClient.V2WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.V2EditorClient(dev.url, selection), memoryStorage());
+  const selection = await httpClient.readEditorSelection(dev.url);
+  const fresh = new httpClient.MainWorkspace(new httpClient.WorkspaceReader(selection, { url: dev.url, selection }), new httpClient.EditorClient(dev.url, selection), memoryStorage());
   assert.notEqual((await fresh.editor.begin(undefined, "copy")).writeContext, selectedContext);
   assert.equal((await fresh.undoHistory()).latest(), null);
   assert.deepEqual(calls.filter(call => call.command.startsWith("workspace.") && call.readOnly === false && call.dryRun === false).map(call => call.command), ["workspace.archive", "workspace.restore"]);

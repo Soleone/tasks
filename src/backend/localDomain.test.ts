@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { syncV2Directory, v2LocalDomain, withV2RootWriterLock, writeV2DurableFile } from "./localDomain.js";
+import { syncDirectory, localDomain, withRootWriterLock, writeDurableFile } from "./localDomain.js";
 
 function scratch(t: TestContext): string {
   const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-local-domain-"));
@@ -14,14 +14,14 @@ function scratch(t: TestContext): string {
 
 test("local directory flush and exclusive file flush succeed without dropping failures", { skip: process.platform !== "linux" && process.platform !== "win32" }, t => {
   const directory = scratch(t);
-  syncV2Directory(directory);
+  syncDirectory(directory);
   const file = path.join(directory, "exact-bytes");
   const bytes = Buffer.from("durable byte probe\r\n");
-  writeV2DurableFile(file, bytes);
+  writeDurableFile(file, bytes);
   assert.deepEqual(readFileSync(file), bytes);
-  assert.throws(() => writeV2DurableFile(file, Buffer.from("must not overwrite")), { code: "EEXIST" });
+  assert.throws(() => writeDurableFile(file, Buffer.from("must not overwrite")), { code: "EEXIST" });
   assert.deepEqual(readFileSync(file), bytes);
-  assert.throws(() => syncV2Directory(path.join(directory, "absent")), { code: "ENOENT" });
+  assert.throws(() => syncDirectory(path.join(directory, "absent")), { code: "ENOENT" });
 });
 
 test("first root-domain initialization stops at the created parent, including Windows namespace spelling", { skip: process.platform !== "linux" && process.platform !== "win32" }, t => {
@@ -35,8 +35,8 @@ test("first root-domain initialization stops at the created parent, including Wi
   process.env[variable] = path.join(directory, "new-profile/nested");
   t.after(() => { if (previous === undefined) delete process.env[variable]; else process.env[variable] = previous; });
   let calls = 0;
-  withV2RootWriterLock(root, () => { calls += 1; });
-  withV2RootWriterLock(root, () => { calls += 1; });
+  withRootWriterLock(root, () => { calls += 1; });
+  withRootWriterLock(root, () => { calls += 1; });
   assert.equal(calls, 2);
-  assert.equal(existsSync(path.join(v2LocalDomain(root), "lock.db")), true);
+  assert.equal(existsSync(path.join(localDomain(root), "lock.db")), true);
 });

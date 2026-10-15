@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { executeV2Line } from "./gateway.js";
-import { readV2RootDescriptor } from "./canonicalReader.js";
-import { pendingV2Path } from "./localDomain.js";
-import type { V2Response } from "./protocol.js";
+import { executeLine } from "./gateway.js";
+import { readRootDescriptor } from "./canonicalReader.js";
+import { pendingIntentPath } from "./localDomain.js";
+import type { Response } from "./protocol.js";
 
 const golden = fileURLToPath(new URL("../../scripts/fixtures/taskdb-v2/root/", import.meta.url));
 type Workspace = { root: string; cache: string };
@@ -27,10 +27,10 @@ function setup(t: TestContext): Workspace {
   cpSync(golden, root, { recursive: true });
   return { root, cache: path.join(directory, "cache.db") };
 }
-function send(workspace: Workspace, envelope: object): V2Response {
-  return executeV2Line(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache);
+function send(workspace: Workspace, envelope: object): Response {
+  return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache);
 }
-function success(response: V2Response): Extract<V2Response, { ok: true }> {
+function success(response: Response): Extract<Response, { ok: true }> {
   assert.equal(response.ok, true, JSON.stringify(response));
   if (!response.ok) throw new Error("failed");
   return response;
@@ -51,7 +51,7 @@ test("v2 update commits once, preserves classifications/closure, and replays bef
   assert.deepEqual(task.tags, ["product"]);
   assert.equal(task.closedAt, null);
   assert.ok((task.version as number) > request.args.expectedVersion);
-  assert.equal(existsSync(pendingV2Path(readV2RootDescriptor(workspace.root))), false);
+  assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
   assert.deepEqual(success(send(workspace, { ...request, requestId: "repeat" })).result, first.result);
   const activity = success(send(workspace, { command: "activity.list" })).result.activity as object[];
   assert.equal(activity.length, 1);

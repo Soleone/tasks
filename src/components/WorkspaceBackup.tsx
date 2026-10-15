@@ -1,7 +1,7 @@
 import { randomUUID } from "../lib/randomUUID";
 import { useRef, useState, type ReactElement } from "react";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
-import type { V2CopyResult } from "@/platform/editorClient";
+import type { CopyResult } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";
@@ -17,7 +17,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
   const [confirmation, setConfirmation] = useState<CopyChoice | null>(null);
   const [pending, setPending] = useState(false);
   const copying = useRef(false);
-  const [result, setResult] = useState<V2CopyResult | null>(null);
+  const [result, setResult] = useState<CopyResult | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   async function copyNow(choice: CopyChoice): Promise<void> {
