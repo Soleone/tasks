@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from "react";
+import { useRef, type KeyboardEvent, type ReactElement } from "react";
 import { Check, Tags } from "lucide-react";
 import type { ClassificationOption } from "./taskView";
 import {
@@ -13,6 +13,7 @@ import { listTags } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
 import { literalWordScore } from "@/components/commandFilter";
 import { PaletteDialog } from "@/components/variants/command";
+import { useLoadOnOpen } from "./useLoadOnOpen";
 
 export function TagPicker({
   open,
@@ -29,32 +30,8 @@ export function TagPicker({
   onChange: (tags: ClassificationOption[]) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [tags, setTags] = useState<ClassificationOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    listTags()
-      .then((result) => {
-        if (cancelled) return;
-        setTags(result.tags);
-      })
-      .catch((caught) => {
-        if (cancelled) return;
-        setError(caught instanceof Error ? caught.message : String(caught));
-        setTags([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
+  const { value, loading, error } = useLoadOnOpen(open, listTags);
+  const tags = value?.tags ?? [];
 
   const emptyText = loading ? "Loading tags…" : (error ?? "No tags yet. Add #tag to a task.");
   const selectedSlugs = new Set(selected.map((tag) => tag.slug));

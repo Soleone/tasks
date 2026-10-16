@@ -20,6 +20,8 @@ Don't read `docs/evidence/` unless asked; it is frozen history.
 
 Use the `clean-code` skill when writing, refactoring or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete. Run `pnpm check`, `pnpm lint`, `pnpm test` and `kit check` and fix all errors. `pnpm lint` includes knip: an unused file, export or dependency is a finding, so delete it rather than ignore it.
 
+`pnpm check` stays free of warnings, including the React hook rules. Take `ref` as a prop instead of wrapping components in `forwardRef`: React 19.2 never refreshes `useEffectEvent` handlers inside `forwardRef` components, so their listeners see the first render forever.
+
 Name by responsibility. Never add version-named files, identifiers, flags or env vars; `scripts/check-naming.mjs` enforces this. Stored format numbers and persisted names (cache tables, the local `taskdb-v2` folder) keep their names.
 
 Crash and Windows-proof tests inject faults by matching source or bundle text (`registerHooks` loaders, `scripts/check-windows-*.mjs`). When a refactor or formatting change moves such a line, update the needle in the same change and keep it whitespace-tolerant.

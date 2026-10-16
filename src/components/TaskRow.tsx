@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
@@ -10,6 +10,7 @@ import { ItemDescription } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClassificationBadge } from "@/components/variants/badge";
 import { TaskItemMetadata, TaskItemTitle } from "@/components/variants/item";
+import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
 
@@ -75,8 +76,7 @@ export function TaskStatusToggle({
   previousLabel: string;
   onToggle: (task: TaskView) => void;
 }): ReactElement {
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const lastFeedbackVersion = useRef(feedbackVersion);
+  const feedback = useFlashTooltip(feedbackVersion, STATUS_FEEDBACK_DURATION_MS);
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
   const pauseHint =
@@ -86,17 +86,8 @@ export function TaskStatusToggle({
         ? " Press P to resume."
         : "";
 
-  useEffect(() => {
-    if (feedbackVersion === lastFeedbackVersion.current) return;
-    lastFeedbackVersion.current = feedbackVersion;
-    if (feedbackVersion === undefined) return;
-    setFeedbackOpen(true);
-    const timeout = window.setTimeout(() => setFeedbackOpen(false), STATUS_FEEDBACK_DURATION_MS);
-    return () => window.clearTimeout(timeout);
-  }, [feedbackVersion]);
-
   return (
-    <Tooltip open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+    <Tooltip open={feedback.open} onOpenChange={feedback.onOpenChange}>
       <TooltipTrigger
         render={
           <span

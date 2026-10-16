@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -20,10 +20,13 @@ export function SearchDialog({
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-
-  useEffect(() => {
-    if (open) setQuery(initialQuery);
-  }, [open, initialQuery]);
+  // Each opening starts from the applied search.
+  const openedWith = open ? initialQuery : null;
+  const [syncedWith, setSyncedWith] = useState(openedWith);
+  if (syncedWith !== openedWith) {
+    setSyncedWith(openedWith);
+    if (openedWith !== null) setQuery(openedWith);
+  }
 
   // Read the submitted value from the form, not from state: a fast
   // fill-then-Enter (or type-then-Enter) must apply what is on screen even if

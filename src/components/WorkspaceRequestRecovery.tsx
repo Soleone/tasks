@@ -19,11 +19,13 @@ export function WorkspaceRequestRecovery({
   const [preserved, setPreserved] = useState(false);
   const [copied, setCopied] = useState(false);
   const retryRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
+  // A new unresolved request starts unpreserved.
+  const [shownRequest, setShownRequest] = useState(request?.prepared);
+  if (shownRequest !== request?.prepared) {
+    setShownRequest(request?.prepared);
     setPreserved(false);
     setCopied(false);
-  }, [request?.prepared]);
+  }
 
   useEffect(() => {
     const protectReload = (event: BeforeUnloadEvent): void => {

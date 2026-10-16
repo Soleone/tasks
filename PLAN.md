@@ -37,7 +37,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Next step
 
-Kit r1 adoption (owner request, 2026-10-16) runs in three steps before stage 5: (1) knip in `pnpm lint`, dead code removed and the accepted prune findings applied: done; (2) the Vite+ toolchain (`vp check`, `vp lint`, `vp test`, oxfmt): done; (3) `src/components/ui` back to stock upstream, with local looks moved to wrappers in `src/components/variants/` and the r2 pointer cursor: done, pending an owner look at the UI. The `@soleone/theme` kit waits for cutover (gate 5 below), so `.kit.json` stays at r0 until then. About 50 React hook warnings (refs, set-state-in-effect, exhaustive-deps) remain from the stricter linter; fix them in a focused pass with keyboard and focus checks, not in bulk.
+Kit r1 adoption (owner request, 2026-10-16) runs in three steps before stage 5: (1) knip in `pnpm lint`, dead code removed and the accepted prune findings applied: done; (2) the Vite+ toolchain (`vp check`, `vp lint`, `vp test`, oxfmt): done; (3) `src/components/ui` back to stock upstream, with local looks moved to wrappers in `src/components/variants/` and the r2 pointer cursor: done, pending an owner look at the UI. The `@soleone/theme` kit waits for cutover (gate 5 below), so `.kit.json` stays at r0 until then. The React hook warnings from the stricter linter are fixed (2026-10-16); `pnpm check` reports none.
 
 Cleanup stage 4 refactoring (approved 2026-10-15) is complete and validated. `TaskListRows.tsx` and `TaskListToolbar.tsx` own presentation; `useTaskListSelection.ts` and `useTaskListKeyboard.ts` own selection and shortcut dispatch. `useWorkspaceTasks.ts` owns workspace queries and visible-task membership; `useWorkspaceActions.tsx` owns command-result handling and undo. `App.tsx` retains preferences, dialogs and focus wiring. Legacy-only branch removal still waits for cutover. Stop at this checkpoint: stage 5 (Windows parity) needs the owner's Windows entry gate and a separate go-ahead; automated diagnosis (`100`) remains deferred.
 
@@ -59,7 +59,7 @@ At least three short owner sessions over two days on realistic disposable data, 
 2. Delete `src/legacy/`, `--legacy`, the Android runtime and legacy fixtures that aren't migration inputs.
 3. Close the `platforms.md` gap rows; the naming ratchet allows only `src/migration/` and stored names.
 4. Prove restart and recovery on the default route on Linux and Windows with disposable data, then with the real workspace. Never strand pending work or discard receipts, history or retry authority.
-5. Adopt the `@soleone/theme` kit once the legacy theme list (backend themes, Omarchy `omarchy-system`) is gone: use `tasks.selectedTheme` as its `storageKey`, move `themePalette.ts` and `builtinThemes.ts` out with the legacy code, and check its global D dark/light hotkey against the app's single-key shortcuts. Then bump `.kit.json`.
+5. Adopt the `@soleone/theme` kit once the legacy theme list (backend themes, Omarchy `omarchy-system`) is gone: use `tasks.selectedTheme` as its `storageKey` and move `themePalette.ts` and `builtinThemes.ts` out with the legacy code. No D dark/light hotkey (owner, 2026-10-16): the vendored provider always installs it, so first make it optional in the soleone registry rather than editing the vendored copy. Then bump `.kit.json`.
 
 ### Publication
 

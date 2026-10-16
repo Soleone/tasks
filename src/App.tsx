@@ -1,6 +1,6 @@
 import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
@@ -162,7 +162,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   // Rebind after development module reloads before the list's query effects run.
   useEffect(() => {
     if (workspace) selectMainWorkspace(workspace);
-  }, [workspace, selectMainWorkspace]);
+  }, [workspace]);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(readPriorityFilter);
@@ -281,9 +281,11 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     closeSettings: () => setSettingsOpen(false),
   });
 
-  useEffect(() => {
+  // Register the stored shortcut once at startup; later changes go through changeGlobalShortcut.
+  const registerStoredShortcut = useEffectEvent(() => {
     if (!workspace) void setGlobalShortcut(globalShortcut, null).catch(() => undefined);
-  }, []);
+  });
+  useEffect(() => registerStoredShortcut(), []);
 
   async function changeGlobalShortcut(value: string): Promise<void> {
     if (workspace)
@@ -373,52 +375,48 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     setComposer(null);
   }
 
+  const onAppKeyDown = useEffectEvent((event: KeyboardEvent): void => {
+    if (event.isComposing || event.repeat) return;
+    const target = event.target;
+    const typing =
+      target instanceof HTMLElement &&
+      (target.matches("input, textarea, [contenteditable=true]") ||
+        target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
+    if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
+      event.preventDefault();
+      setStarterHelpOpen((open) => !open);
+      return;
+    }
+    if (event.key === "Escape" && starterHelpOpen) {
+      event.preventDefault();
+      setStarterHelpOpen(false);
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ",") {
+      event.preventDefault();
+      if (settingsOpen) setSettingsOpen(false);
+      else openSettings();
+      return;
+    }
+    if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
+      event.preventDefault();
+      if (themesOpen) setThemesOpen(false);
+      else openThemes();
+      return;
+    }
+    if (event.altKey) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      if (helpOpen) setHelpOpen(false);
+      else openHelp();
+      return;
+    }
+  });
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.isComposing || event.repeat) return;
-      const target = event.target;
-      const typing =
-        target instanceof HTMLElement &&
-        (target.matches("input, textarea, [contenteditable=true]") ||
-          target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
-      if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
-        event.preventDefault();
-        setStarterHelpOpen((open) => !open);
-        return;
-      }
-      if (event.key === "Escape" && starterHelpOpen) {
-        event.preventDefault();
-        setStarterHelpOpen(false);
-        return;
-      }
-      if (
-        (event.ctrlKey || event.metaKey) &&
-        !event.altKey &&
-        !event.shiftKey &&
-        event.key === ","
-      ) {
-        event.preventDefault();
-        if (settingsOpen) setSettingsOpen(false);
-        else openSettings();
-        return;
-      }
-      if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        if (themesOpen) setThemesOpen(false);
-        else openThemes();
-        return;
-      }
-      if (event.altKey) return;
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (helpOpen) setHelpOpen(false);
-        else openHelp();
-        return;
-      }
-    };
+    const onKeyDown = (event: KeyboardEvent): void => onAppKeyDown(event);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [helpOpen, settingsOpen, starterHelpOpen, themesOpen]);
+  }, []);
 
   async function chooseTheme(name: string): Promise<void> {
     setThemesOpen(false);

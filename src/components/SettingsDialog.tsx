@@ -120,27 +120,34 @@ export function SettingsDialog({
   const [purgingPending, setPurgingPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedShortcut, setCopiedShortcut] = useState(false);
-  const [isLinux, setIsLinux] = useState(false);
   const [syncFolder, setSyncFolder] = useState<AndroidDirectorySelection | null>(null);
   const [syncFolderPending, setSyncFolderPending] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [confirmReceive, setConfirmReceive] = useState(false);
   const [shortcutDraft, setShortcutDraft] = useState(globalShortcut);
+  const isLinux = navigator.platform.toLowerCase().includes("linux");
+
+  // Each opening starts fresh and reads the workspace again.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) {
+      setDatabasePath(null);
+      setCanceledTaskCount(null);
+      setExported(null);
+      setPurgedCount(null);
+      setCopied(false);
+      setCopiedShortcut(false);
+      setFailure(null);
+      setConfirmReceive(false);
+      setSyncFolder(null);
+      setShortcutDraft(globalShortcut);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
     let stale = false;
-    setDatabasePath(null);
-    setCanceledTaskCount(null);
-    setExported(null);
-    setPurgedCount(null);
-    setCopied(false);
-    setCopiedShortcut(false);
-    setFailure(null);
-    setConfirmReceive(false);
-    setSyncFolder(null);
-    setShortcutDraft(globalShortcut);
-    setIsLinux(navigator.platform.toLowerCase().includes("linux"));
     if (isAndroid) {
       getAndroidSyncFolder()
         .then((folder) => {

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { TaskOptionClick } from "./TaskListRows";
 import { selectableSiblingRows } from "./taskReordering";
 import type { VisibleTaskRow } from "./taskTree";
 import type { TaskView } from "./taskView";
+import { useStableHandler } from "./useStableHandler";
 
 export type ActiveTaskRequest = {
   key: number;
@@ -14,7 +15,6 @@ type TaskListSelectionView = {
   tasks: TaskView[];
   visibleRows: VisibleTaskRow[];
   filterIdentity: string;
-  viewIdentity: string;
   newTaskId?: string | null;
   activeTaskRequest: ActiveTaskRequest;
   composerOpen: boolean;
@@ -26,45 +26,42 @@ export function useTaskListSelection({
   tasks,
   visibleRows,
   filterIdentity,
-  viewIdentity,
   newTaskId,
   activeTaskRequest,
   composerOpen,
   onAnnounce,
   onEdit,
 }: TaskListSelectionView) {
-  const [activeTaskIndex, setActiveTaskIndexState] = useState(0);
+  // The active row is followed by task id, so hierarchy moves and refreshes
+  // that shift row positions keep the same task active.
+  const [active, setActive] = useState<{ index: number; id: string | null }>({
+    index: 0,
+    id: null,
+  });
+  const activeTaskIndex = active.index;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const visibleRowsRef = useRef<VisibleTaskRow[]>([]);
   const selectedIdsRef = useRef<Set<string>>(new Set());
   const previousFilterIdentityRef = useRef<string | null>(null);
   const selectionClearedRef = useRef(false);
   const selectionAnchorRef = useRef<string | null>(null);
-  const pendingActiveIdRef = useRef<string | null>(null);
-  const pendingActiveViewRef = useRef<string | null>(null);
   const restoreActiveIdRef = useRef<string | null>(null);
   const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
   const identityRefreshPendingRef = useRef(false);
   const activeTaskIndexRef = useRef(0);
-  const activeTaskRequestKeyRef = useRef(activeTaskRequest.key);
-  const activeTaskRequestTasksRef = useRef<TaskView[] | null>(null);
-  const preserveActiveTaskOnRefreshRef = useRef(false);
   const activeTaskIdRef = useRef<string | null>(null);
   const activeTaskRef = useRef<TaskView | undefined>(undefined);
   const lastSelectedNewTaskIdRef = useRef<string | null>(null);
   const activeScrollFrameRef = useRef<number | null>(null);
   const activeScrollTargetRef = useRef<string | null>(null);
-  const optionClickRef = useRef<TaskOptionClick>(() => undefined);
 
   function setActiveTaskIndex(nextIndex: number): void {
     activeTaskIdRef.current = visibleRowsRef.current[nextIndex]?.task.id ?? null;
     activeTaskIndexRef.current = nextIndex;
-    setActiveTaskIndexState(nextIndex);
+    setActive({ index: nextIndex, id: activeTaskIdRef.current });
   }
 
   function clearActiveTaskSelection(): void {
-    pendingActiveIdRef.current = null;
-    pendingActiveViewRef.current = null;
     restoreActiveIdRef.current = null;
     restoreSelectionIdsRef.current = null;
     setActiveTaskIndex(-1);
@@ -76,46 +73,25 @@ export function useTaskListSelection({
   const clampedActiveIndex = visibleRows.length
     ? Math.min(activeTaskIndex, visibleRows.length - 1)
     : 0;
-  const pendingActiveIndex =
-    pendingActiveIdRef.current === null || pendingActiveViewRef.current !== viewIdentity
-      ? -1
-      : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
-  // Hierarchy moves change row positions; follow the active task by identity.
   const identityActiveIndex =
-    activeTaskIdRef.current === null
-      ? -1
-      : visibleRows.findIndex((row) => row.task.id === activeTaskIdRef.current);
-  const activeIndex =
-    pendingActiveIndex >= 0
-      ? pendingActiveIndex
-      : identityActiveIndex >= 0
-        ? identityActiveIndex
-        : clampedActiveIndex;
+    active.id === null ? -1 : visibleRows.findIndex((row) => row.task.id === active.id);
+  const activeIndex = identityActiveIndex >= 0 ? identityActiveIndex : clampedActiveIndex;
   const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
   const activeTask = activeRow?.task;
-  visibleRowsRef.current = visibleRows;
-  selectedIdsRef.current = selectedIds;
-  activeTaskIndexRef.current = activeIndex;
-  activeTaskIdRef.current = activeTask?.id ?? null;
-  activeTaskRef.current = activeTask;
+  const activeTaskId = activeTask?.id ?? null;
+
+  // Event handlers read these between renders.
+  useLayoutEffect(() => {
+    visibleRowsRef.current = visibleRows;
+    selectedIdsRef.current = selectedIds;
+    activeTaskIndexRef.current = activeIndex;
+    activeTaskIdRef.current = activeTaskId;
+    activeTaskRef.current = activeTask;
+  });
 
   useEffect(() => {
-    const pendingActiveId = pendingActiveIdRef.current;
-    if (pendingActiveId !== null && pendingActiveViewRef.current !== viewIdentity) {
-      pendingActiveIdRef.current = null;
-      pendingActiveViewRef.current = null;
-    } else if (pendingActiveId !== null) {
-      const pendingIndex = visibleRows.findIndex((row) => row.task.id === pendingActiveId);
-      if (pendingIndex < 0) {
-        pendingActiveIdRef.current = null;
-        pendingActiveViewRef.current = null;
-      } else if (activeTaskIndex !== pendingIndex) setActiveTaskIndex(pendingIndex);
-      else {
-        pendingActiveIdRef.current = null;
-        pendingActiveViewRef.current = null;
-      }
-    }
-    if (activeIndex !== activeTaskIndex) setActiveTaskIndex(activeIndex);
+    if (activeIndex !== activeTaskIndex || activeTaskId !== active.id)
+      setActiveTaskIndex(activeIndex);
 
     const selectableIds = new Set(
       visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id),
@@ -183,46 +159,45 @@ export function useTaskListSelection({
     }
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
   }, [
+    active.id,
     activeIndex,
+    activeTaskId,
     activeTaskIndex,
     filterIdentity,
     newTaskId,
     onAnnounce,
     selectedIds,
-    viewIdentity,
     visibleRows,
   ]);
 
   // Right-arrow category filtering keeps the task id through the async list
-  // refresh; other active-task requests apply once to the current rows.
+  // refresh; other active-task requests apply once to the current rows. This
+  // runs after the selection effect above, so the request wins; applying it
+  // during render instead selects the wrong row after a filter change.
+  const appliedRequestRef = useRef<{ key: number; tasks: TaskView[] | null }>({
+    key: activeTaskRequest.key,
+    tasks: null,
+  });
   useEffect(() => {
-    const requestChanged = activeTaskRequestKeyRef.current !== activeTaskRequest.key;
-    if (requestChanged) {
-      activeTaskRequestKeyRef.current = activeTaskRequest.key;
-      activeTaskRequestTasksRef.current = tasks;
-      preserveActiveTaskOnRefreshRef.current = activeTaskRequest.preserveTaskOnRefresh;
-      pendingActiveIdRef.current = null;
-      pendingActiveViewRef.current = null;
-    }
-
-    if (activeTaskRequest.taskId !== null) {
-      const taskDataChanged =
-        activeTaskRequestTasksRef.current !== null && activeTaskRequestTasksRef.current !== tasks;
-      const refreshApplied = preserveActiveTaskOnRefreshRef.current && taskDataChanged;
-      if (requestChanged || refreshApplied) {
-        const requestedIndex = visibleRows.findIndex(
-          (row) => row.task.id === activeTaskRequest.taskId,
-        );
-        if (requestedIndex >= 0) setActiveTaskIndex(requestedIndex);
-        else setActiveTaskIndex(0);
-      }
-      if (refreshApplied) {
-        activeTaskRequestTasksRef.current = null;
-        preserveActiveTaskOnRefreshRef.current = false;
-      }
-      return;
-    }
-    if (requestChanged) setActiveTaskIndex(0);
+    const appliedRequest = appliedRequestRef.current;
+    const requestChanged = appliedRequest.key !== activeTaskRequest.key;
+    const refreshApplied =
+      activeTaskRequest.taskId !== null &&
+      appliedRequest.tasks !== null &&
+      appliedRequest.tasks !== tasks;
+    if (!requestChanged && !refreshApplied) return;
+    appliedRequestRef.current = {
+      key: activeTaskRequest.key,
+      tasks: requestChanged && activeTaskRequest.preserveTaskOnRefresh ? tasks : null,
+    };
+    const requestedIndex =
+      activeTaskRequest.taskId === null
+        ? 0
+        : Math.max(
+            visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId),
+            0,
+          );
+    setActiveTaskIndex(requestedIndex);
   }, [
     activeTaskRequest.key,
     activeTaskRequest.preserveTaskOnRefresh,
@@ -237,11 +212,6 @@ export function useTaskListSelection({
     },
     [],
   );
-
-  useEffect(() => {
-    const nextIndex = Math.min(activeTaskIndex, Math.max(visibleRows.length - 1, 0));
-    if (nextIndex !== activeTaskIndex) setActiveTaskIndex(nextIndex);
-  }, [activeTaskIndex, visibleRows.length]);
 
   function setSelection(ids: Iterable<string>, anchorId: string | null): void {
     const next = new Set(ids);
@@ -306,8 +276,6 @@ export function useTaskListSelection({
       const firstIndex = visibleRows.findIndex((row) => !row.contextOnly);
       if (firstIndex < 0) return;
       const firstTask = visibleRows[firstIndex];
-      pendingActiveIdRef.current = firstTask.task.id;
-      pendingActiveViewRef.current = viewIdentity;
       setActiveTaskIndex(firstIndex);
       selectOnly(firstTask);
       scheduleActiveScroll(firstTask.task.id);
@@ -337,8 +305,6 @@ export function useTaskListSelection({
         (candidate) => candidate.task.id === target.task.id,
       );
       if (targetIndex < 0) return;
-      pendingActiveIdRef.current = target.task.id;
-      pendingActiveViewRef.current = viewIdentity;
       setActiveTaskIndex(targetIndex);
       selectRangeTo(target);
       scheduleActiveScroll(target.task.id);
@@ -347,8 +313,6 @@ export function useTaskListSelection({
 
     const wrapped = (requestedIndex + visibleRows.length) % visibleRows.length;
     const target = visibleRows[wrapped];
-    pendingActiveIdRef.current = target.task.id;
-    pendingActiveViewRef.current = viewIdentity;
     setActiveTaskIndex(wrapped);
     selectOnly(target);
     scheduleActiveScroll(target.task.id);
@@ -363,8 +327,6 @@ export function useTaskListSelection({
     const scope = selectableSiblingRows(current, visibleRowsRef.current);
     const target = end === "start" ? scope[0] : scope[scope.length - 1];
     if (!target) return;
-    pendingActiveIdRef.current = target.task.id;
-    pendingActiveViewRef.current = viewIdentity;
     setActiveTaskIndex(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
     selectRangeTo(target);
     scheduleActiveScroll(target.task.id);
@@ -377,11 +339,9 @@ export function useTaskListSelection({
     return true;
   }
 
-  optionClickRef.current = (row, index, event) => {
+  const handleOptionClick = useStableHandler<Parameters<TaskOptionClick>>((row, index, event) => {
     if (composerOpen) return;
     const { task } = row;
-    pendingActiveIdRef.current = null;
-    pendingActiveViewRef.current = null;
     if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
       onAnnounce("Context-only ancestors cannot be selected.");
       return;
@@ -413,13 +373,7 @@ export function useTaskListSelection({
     setActiveTaskIndex(index);
     selectOnly(row);
     onEdit(task);
-  };
-  const handleOptionClick = useCallback(
-    (row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>): void => {
-      optionClickRef.current(row, index, event);
-    },
-    [],
-  );
+  });
 
   function restoreSelectionAfterMove(taskId: string, taskIds: Iterable<string>): void {
     restoreActiveIdRef.current = taskId;

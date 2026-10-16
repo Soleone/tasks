@@ -28,49 +28,57 @@ function nativeSession(selection: EditorSelection): JsonLineSession<Response> {
   }, parseResponse);
 }
 
+/** A native launch carries its selection in the build, so it is parsed without any backend. */
+function readNativeSelection(
+  nativeSelection: string,
+  native: boolean,
+): { selection: EditorSelection | null; error: string | null } {
+  try {
+    if (!native)
+      throw new Error(
+        "This native launch requires Windows desktop; no HTTP or legacy fallback was launched.",
+      );
+    const selected = parseNativeSelection(JSON.parse(nativeSelection) as unknown);
+    return {
+      selection: {
+        ...selected,
+        version: 2,
+        readOnly: false,
+        selectionToken: randomUUID(),
+        writeCommands: EDITOR_COMMANDS,
+      },
+      error: null,
+    };
+  } catch (reason) {
+    return {
+      selection: null,
+      error:
+        reason instanceof Error
+          ? reason.message
+          : "Invalid native selection; no backend was launched.",
+    };
+  }
+}
+
 /** Shows the selected folder, cache and profile, and opens Tasks only after explicit confirmation. */
 export default function WorkspaceSelection(): ReactElement {
-  const [selection, setSelection] = useState<EditorSelection | null>(null);
-  const [workspace, setWorkspace] = useState<MainWorkspace | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const confirmRef = useRef<HTMLButtonElement>(null);
-  const retryRef = useRef<HTMLButtonElement>(null);
   const kind = runtimeKind();
   const nativeSelection = import.meta.env.VITE_TASKS_NATIVE_SELECTION as string | undefined;
   const native =
     kind === "desktop" && /\bWindows\b/i.test(navigator.userAgent) && !!nativeSelection;
+  const [nativeLaunch] = useState(() =>
+    nativeSelection ? readNativeSelection(nativeSelection, native) : null,
+  );
+  const [selection, setSelection] = useState(nativeLaunch?.selection ?? null);
+  const [workspace, setWorkspace] = useState<MainWorkspace | undefined>(undefined);
+  const [error, setError] = useState(nativeLaunch?.error ?? null);
+  const [attempt, setAttempt] = useState(0);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const retryRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (nativeSelection) {
-      setError(null);
-      setSelection(null);
-      try {
-        if (!native)
-          throw new Error(
-            "This native launch requires Windows desktop; no HTTP or legacy fallback was launched.",
-          );
-        const selected = parseNativeSelection(JSON.parse(nativeSelection) as unknown);
-        setSelection({
-          ...selected,
-          version: 2,
-          readOnly: false,
-          selectionToken: randomUUID(),
-          writeCommands: EDITOR_COMMANDS,
-        });
-      } catch (reason) {
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Invalid native selection; no backend was launched.",
-        );
-      }
-      return;
-    }
-    if (kind !== "browser") return;
+    if (nativeSelection || kind !== "browser") return;
     let cancelled = false;
-    setError(null);
-    setSelection(null);
     void readEditorSelection(devBackendUrl())
       .then((selected) => {
         if (!cancelled) setSelection(selected);
@@ -86,7 +94,19 @@ export default function WorkspaceSelection(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [kind, attempt, native, nativeSelection]);
+  }, [kind, attempt, nativeSelection]);
+
+  function retry(): void {
+    if (nativeSelection) {
+      const launch = readNativeSelection(nativeSelection, native);
+      setSelection(launch.selection);
+      setError(launch.error);
+      return;
+    }
+    setError(null);
+    setSelection(null);
+    setAttempt((value) => value + 1);
+  }
 
   useEffect(() => {
     if (workspace) return;
@@ -183,12 +203,7 @@ export default function WorkspaceSelection(): ReactElement {
         <Alert variant="destructive">
           <AlertTitle>Workspace selection is unavailable</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
-          <Button
-            ref={retryRef}
-            variant="outline"
-            className="mt-3"
-            onClick={() => setAttempt((value) => value + 1)}
-          >
+          <Button ref={retryRef} variant="outline" className="mt-3" onClick={retry}>
             Retry selection
           </Button>
         </Alert>

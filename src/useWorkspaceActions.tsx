@@ -80,7 +80,7 @@ export function useWorkspaceActions({
   const {
     tasks,
     setTasks,
-    querySequence,
+    invalidateQueries,
     sortFieldRef,
     setReceiveState,
     refreshTasks,
@@ -526,7 +526,7 @@ export function useWorkspaceActions({
   }
 
   function handleCanceledMany(previous: TaskView[], current: TaskView[]): void {
-    ++querySequence.current;
+    invalidateQueries();
     if (cancelExitTimer.current !== null) {
       window.clearTimeout(cancelExitTimer.current);
       cancelExitTimer.current = null;

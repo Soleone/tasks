@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useMemo, useRef, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
 import type { TaskView } from "./taskView";
 import { TaskRow, TaskStatusDisplay } from "@/components/TaskRow";
@@ -13,6 +13,7 @@ import {
 import { getTask, listTasks } from "@/platform/backendClient";
 import { literalWordScore } from "@/components/commandFilter";
 import { PaletteDialog } from "@/components/variants/command";
+import { useLoadOnOpen } from "./useLoadOnOpen";
 
 export type TaskPickerMode = "blocker" | "move";
 
@@ -75,43 +76,23 @@ export function TaskPicker({
   onRemoveParent?: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [fetched, setFetched] = useState<TaskView[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    // Candidate tasks exclude canceled rows at the query boundary. Fetch
-    // current relationship targets separately so canceled dependencies and
-    // parents remain available for removal and context.
+  // Candidate tasks exclude canceled rows at the query boundary. Fetch
+  // current relationship targets separately so canceled dependencies and
+  // parents remain available for removal and context.
+  const loadCandidates = useCallback(async (): Promise<TaskView[]> => {
     const relationshipIds = [
       ...new Set([...(subject.parentId ? [subject.parentId] : []), ...subject.dependencyIds]),
     ];
-    Promise.all([
+    const [result, relationships] = await Promise.all([
       listTasks(NON_CANCELED_TASK_STATUSES, 0),
       Promise.all(relationshipIds.map((id) => getTask(id))),
-    ])
-      .then(([result, relationships]) => {
-        if (cancelled) return;
-        const byId = new Map(result.tasks.map((task) => [task.id, task]));
-        for (const relationship of relationships) byId.set(relationship.task.id, relationship.task);
-        setFetched([...byId.values()]);
-      })
-      .catch((caught) => {
-        if (cancelled) return;
-        setError(caught instanceof Error ? caught.message : String(caught));
-        setFetched([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, subject, mode]);
+    ]);
+    const byId = new Map(result.tasks.map((task) => [task.id, task]));
+    for (const relationship of relationships) byId.set(relationship.task.id, relationship.task);
+    return [...byId.values()];
+  }, [subject]);
+  const { value, loading, error } = useLoadOnOpen(open, loadCandidates);
+  const fetched = useMemo(() => value ?? [], [value]);
 
   const candidates = useMemo(
     () => pickerCandidates(fetched, subject, mode),

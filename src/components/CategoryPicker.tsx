@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
+import { useRef, type CSSProperties, type ReactElement } from "react";
 import { Folder } from "lucide-react";
 import type { ClassificationOption } from "./taskView";
 import {
@@ -12,6 +12,7 @@ import {
 import { listCategories } from "@/platform/backendClient";
 import { literalWordScore } from "@/components/commandFilter";
 import { PaletteDialog } from "@/components/variants/command";
+import { useLoadOnOpen } from "./useLoadOnOpen";
 
 export function CategoryPicker({
   open,
@@ -25,32 +26,8 @@ export function CategoryPicker({
   onSelect: (category: ClassificationOption) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const [categories, setCategories] = useState<ClassificationOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    listCategories()
-      .then((result) => {
-        if (cancelled) return;
-        setCategories(result.categories);
-      })
-      .catch((caught) => {
-        if (cancelled) return;
-        setError(caught instanceof Error ? caught.message : String(caught));
-        setCategories([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
+  const { value, loading, error } = useLoadOnOpen(open, listCategories);
+  const categories = value?.categories ?? [];
 
   const emptyText = loading
     ? "Loading categories…"

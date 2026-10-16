@@ -1,13 +1,13 @@
 import { randomUUID } from "../lib/randomUUID";
 import {
-  forwardRef,
-  useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactElement,
+  type Ref,
 } from "react";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
@@ -63,6 +63,8 @@ import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { TaskItem } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
+import { useFlashTooltip } from "./useFlashTooltip";
+import { useStableHandler } from "./useStableHandler";
 
 export async function copyTaskText(task: TaskView): Promise<void> {
   const text = [selectedMainWorkspace() ? task.title : (task.text ?? task.title), task.description]
@@ -163,75 +165,73 @@ type DeleteReceipt = {
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
-export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList(
-  {
-    tasks,
-    newTaskId,
-    exitingTaskIds,
-    contextTasks,
-    contextOrder,
-    total,
-    statusPreset,
-    exactStatus,
-    onToggleStatusPreset,
-    onResetStatusFilter,
-    onExactStatus,
-    onOpenStatusMenu,
-    priorityFilter,
-    onPriorityFilter,
-    onOpenPriorityMenu,
-    showUnblocked,
-    onShowUnblockedChange,
-    sortField,
-    sortDirection,
-    onSortFieldChange,
-    onReverseSort,
-    showDetails,
-    helpMode,
-    onDisableHelp,
-    onDisableComposerHelp,
-    onToggleDetails,
-    categoryFilter,
-    onCategoryFilterChange,
-    onSelectCategory,
-    onOpenCategoryPicker,
-    tagFilter,
-    onTagFilterChange,
-    onOpenTagPicker,
-    searchQuery,
-    onSearchChange,
-    onOpenSearch,
-    hasActiveFilters,
-    onClearAllFilters,
-    activeTaskRequest,
-    loading,
-    error,
-    nav,
-    onCreate,
-    composer,
-    optimisticTask,
-    onCloseComposer,
-    onComposerSaved,
-    onCreatePending,
-    onCreateFailed,
-    onRefresh,
-    onAnnounce,
-    onToast,
-    onEdit,
-    onTaskUpdated,
-    onTasksUpdated,
-    onOperation,
-    onStatusChanged,
-    onStatusBatchChanged,
-    canUndoStatus,
-    onUndoStatus,
-    onCanceled,
-    onCanceledMany,
-    onAddBlocker,
-    onMoveUnder,
-  }: TaskListProps,
+export function TaskList({
   ref,
-): ReactElement {
+  tasks,
+  newTaskId,
+  exitingTaskIds,
+  contextTasks,
+  contextOrder,
+  total,
+  statusPreset,
+  exactStatus,
+  onToggleStatusPreset,
+  onResetStatusFilter,
+  onExactStatus,
+  onOpenStatusMenu,
+  priorityFilter,
+  onPriorityFilter,
+  onOpenPriorityMenu,
+  showUnblocked,
+  onShowUnblockedChange,
+  sortField,
+  sortDirection,
+  onSortFieldChange,
+  onReverseSort,
+  showDetails,
+  helpMode,
+  onDisableHelp,
+  onDisableComposerHelp,
+  onToggleDetails,
+  categoryFilter,
+  onCategoryFilterChange,
+  onSelectCategory,
+  onOpenCategoryPicker,
+  tagFilter,
+  onTagFilterChange,
+  onOpenTagPicker,
+  searchQuery,
+  onSearchChange,
+  onOpenSearch,
+  hasActiveFilters,
+  onClearAllFilters,
+  activeTaskRequest,
+  loading,
+  error,
+  nav,
+  onCreate,
+  composer,
+  optimisticTask,
+  onCloseComposer,
+  onComposerSaved,
+  onCreatePending,
+  onCreateFailed,
+  onRefresh,
+  onAnnounce,
+  onToast,
+  onEdit,
+  onTaskUpdated,
+  onTasksUpdated,
+  onOperation,
+  onStatusChanged,
+  onStatusBatchChanged,
+  canUndoStatus,
+  onUndoStatus,
+  onCanceled,
+  onCanceledMany,
+  onAddBlocker,
+  onMoveUnder,
+}: TaskListProps & { ref?: Ref<TaskListHandle> }): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const filterToolbar = useRef<HTMLDivElement>(null);
@@ -239,6 +239,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const statusFilterButton = useRef<HTMLButtonElement>(null);
   const loadMore = useRef<HTMLButtonElement>(null);
   const initialHomeFocusPending = useRef(true);
+  // Once the first query has succeeded, reloads keep the list on screen.
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
+  if (!firstLoadDone && !loading && !error) setFirstLoadDone(true);
   const retry = useRef<HTMLButtonElement>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
   const batchTransitionReceiptRef = useRef<{ signature: string; key: string } | null>(null);
@@ -250,21 +253,20 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const [listFocused, setListFocused] = useState(false);
   const composerOpenRef = useRef(composer !== null);
   const previousComposerOpenRef = useRef(composer !== null);
-  composerOpenRef.current = composer !== null;
+  useLayoutEffect(() => {
+    composerOpenRef.current = composer !== null;
+  });
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode | null>(null);
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(
     null,
   );
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
-  const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
+  const filterFeedback = useFlashTooltip(filterFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
-  const [unblockedFeedbackOpen, setUnblockedFeedbackOpen] = useState(false);
+  const unblockedFeedback = useFlashTooltip(unblockedFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [moveControlsOpen, setMoveControlsOpen] = useState(false);
-  const optionToggleStatusRef = useRef<(task: TaskView) => void>(() => undefined);
-  const optionToggleExpandedRef = useRef<(row: VisibleTaskRow) => void>(() => undefined);
-  const optionSelectCategoryRef = useRef<(category: ClassificationToken) => void>(() => undefined);
   const reorderPending = useRef(false);
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
@@ -273,8 +275,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     [tasks, expandedIds, contextTasks, contextOrder],
   );
   const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
-  // A pending keyboard move belongs to the view it was made in. Filter and
-  // sort changes must not let that stale task override the new active index.
+  // A filter change resets the selection.
   const filterIdentity = [
     statusPreset,
     exactStatus ?? "",
@@ -284,7 +285,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     showUnblocked ? "1" : "0",
     categoryFilter?.slug ?? "",
   ].join("|");
-  const viewIdentity = [filterIdentity, sortField, sortDirection].join("|");
   const hasMore = tasks.length < total;
   const {
     activeIndex,
@@ -306,7 +306,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     tasks,
     visibleRows,
     filterIdentity,
-    viewIdentity,
     newTaskId,
     activeTaskRequest,
     composerOpen: composer !== null,
@@ -314,7 +313,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onEdit,
   });
 
-  useImperativeHandle(ref, () => selectionHandle, []);
+  useImperativeHandle(ref, () => selectionHandle, [selectionHandle]);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
@@ -353,26 +352,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       list.current?.focus();
     }
   }, [visibleRows.length]);
-
-  useEffect(() => {
-    if (filterFeedbackVersion === 0) return;
-    setFilterFeedbackOpen(true);
-    const timeout = window.setTimeout(
-      () => setFilterFeedbackOpen(false),
-      TOGGLE_FEEDBACK_DURATION_MS,
-    );
-    return () => window.clearTimeout(timeout);
-  }, [filterFeedbackVersion]);
-
-  useEffect(() => {
-    if (unblockedFeedbackVersion === 0) return;
-    setUnblockedFeedbackOpen(true);
-    const timeout = window.setTimeout(
-      () => setUnblockedFeedbackOpen(false),
-      TOGGLE_FEEDBACK_DURATION_MS,
-    );
-    return () => window.clearTimeout(timeout);
-  }, [unblockedFeedbackVersion]);
 
   function clearToolbarMode(): void {
     toolbarModeRef.current = null;
@@ -1112,20 +1091,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  optionToggleStatusRef.current = (task) => {
+  const handleOptionToggleStatus = useStableHandler((task: TaskView): void => {
     void toggleStatus(task);
-  };
-  optionToggleExpandedRef.current = toggleExpanded;
-  optionSelectCategoryRef.current = selectCategory;
-  const handleOptionToggleStatus = useCallback((task: TaskView): void => {
-    optionToggleStatusRef.current(task);
-  }, []);
-  const handleOptionToggleExpanded = useCallback((row: VisibleTaskRow): void => {
-    optionToggleExpandedRef.current(row);
-  }, []);
-  const handleOptionSelectCategory = useCallback((category: ClassificationToken): void => {
-    optionSelectCategoryRef.current(category);
-  }, []);
+  });
+  const handleOptionToggleExpanded = useStableHandler(toggleExpanded);
+  const handleOptionSelectCategory = useStableHandler(selectCategory);
 
   useTaskListKeyboard(
     {
@@ -1193,7 +1163,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       visibleRows.length > 0 ||
       isFilteredEmpty ||
       listFocused ||
-      (!initialHomeFocusPending.current && loading));
+      (firstLoadDone && loading));
   const visibleRowCount = visibleRows.length + (optimisticTask ? 1 : 0);
   const selectionCount = selectedIds.size;
   const selectionLabel = `${selectionCount} task${selectionCount === 1 ? "" : "s"} selected`;
@@ -1207,11 +1177,12 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ? `editing ${composer.task.title}`
       : selectionLabel;
 
+  const optimisticTaskId = optimisticTask?.id;
   useEffect(() => {
-    if (!optimisticTask) return;
+    if (!optimisticTaskId) return;
     list.current?.focus();
     list.current?.scrollTo({ top: 0 });
-  }, [optimisticTask?.id]);
+  }, [optimisticTaskId]);
 
   return (
     <section
@@ -1252,8 +1223,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         openTagPicker={openTagPicker}
         showUnblocked={showUnblocked}
         toggleUnblockedFilter={toggleUnblockedFilter}
-        unblockedFeedbackOpen={unblockedFeedbackOpen}
-        setUnblockedFeedbackOpen={setUnblockedFeedbackOpen}
+        unblockedFeedbackOpen={unblockedFeedback.open}
+        setUnblockedFeedbackOpen={unblockedFeedback.onOpenChange}
         searchQuery={searchQuery}
         openSearch={openSearch}
         sortField={sortField}
@@ -1407,7 +1378,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           </EmptyHeader>
         </Empty>
       ) : null}
-      <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
+      <Tooltip open={filterFeedback.open} onOpenChange={filterFeedback.onOpenChange}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
         <AnchoredTooltipContent anchor={statusFilterButton} side="top" sideOffset={8}>
           {exactStatus !== null
@@ -1430,4 +1401,4 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ) : null}
     </section>
   );
-});
+}

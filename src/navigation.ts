@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * The surface that can receive explicit home focus. The inline task editor
@@ -22,31 +22,36 @@ export type Navigator = {
  * never from the DOM, so modal surfaces cannot become accidental destinations.
  */
 export function useFocusNavigation(order: DestinationId[]): Navigator {
-  const handles = useRef(new Map<DestinationId, DestinationHandle>());
-  const orderRef = useRef(order);
-  const navigator = useRef<Navigator | null>(null);
-
+  const [navigation] = useState(createNavigation);
   useEffect(() => {
-    orderRef.current = order;
+    navigation.setOrder(order);
   });
+  return navigation.navigator;
+}
 
-  if (!navigator.current) {
-    const available = (): DestinationId[] =>
-      orderRef.current.filter((id) => handles.current.has(id));
-    navigator.current = {
+function createNavigation(): {
+  navigator: Navigator;
+  setOrder: (order: DestinationId[]) => void;
+} {
+  const handles = new Map<DestinationId, DestinationHandle>();
+  let order: DestinationId[] = [];
+  return {
+    navigator: {
       register(id, handle) {
-        handles.current.set(id, handle);
+        handles.set(id, handle);
         return () => {
-          if (handles.current.get(id) === handle) handles.current.delete(id);
+          if (handles.get(id) === handle) handles.delete(id);
         };
       },
       last() {
-        const ids = available();
-        if (ids.length) handles.current.get(ids[ids.length - 1])?.focusLast();
+        const ids = order.filter((id) => handles.has(id));
+        if (ids.length) handles.get(ids[ids.length - 1])?.focusLast();
       },
-    };
-  }
-  return navigator.current;
+    },
+    setOrder(next) {
+      order = next;
+    },
+  };
 }
 
 export type FocusStack = {
@@ -71,28 +76,28 @@ export function preventFocusSteal(event: { preventDefault: () => void }): void {
  * layers compose and one can hand its target to the next (palette -> settings).
  */
 export function useFocusStack(): FocusStack {
-  const entries = useRef<{ id: string; element: HTMLElement }[]>([]);
-  const stack = useRef<FocusStack | null>(null);
+  const [stack] = useState(createFocusStack);
+  return stack;
+}
 
-  if (!stack.current) {
-    const find = (id: string): number => {
-      for (let index = entries.current.length - 1; index >= 0; --index) {
-        if (entries.current[index].id === id) return index;
-      }
-      return -1;
-    };
-    stack.current = {
-      push(id, from) {
-        const element = (from ?? document.activeElement) as HTMLElement | null;
-        if (element) entries.current.push({ id, element });
-      },
-      restore(id) {
-        const index = find(id);
-        if (index === -1) return undefined;
-        const element = entries.current.splice(index, 1)[0].element;
-        return element.isConnected ? element : undefined;
-      },
-    };
-  }
-  return stack.current;
+function createFocusStack(): FocusStack {
+  const entries: { id: string; element: HTMLElement }[] = [];
+  const find = (id: string): number => {
+    for (let index = entries.length - 1; index >= 0; --index) {
+      if (entries[index].id === id) return index;
+    }
+    return -1;
+  };
+  return {
+    push(id, from) {
+      const element = (from ?? document.activeElement) as HTMLElement | null;
+      if (element) entries.push({ id, element });
+    },
+    restore(id) {
+      const index = find(id);
+      if (index === -1) return undefined;
+      const element = entries.splice(index, 1)[0].element;
+      return element.isConnected ? element : undefined;
+    },
+  };
 }

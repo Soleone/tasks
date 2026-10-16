@@ -88,11 +88,10 @@ export function useWorkspaceTasks({
   const restoredMetadataRef = useRef(false);
   const workspaceRevisionRef = useRef<number | null>(null);
 
-  const refreshTasks = useCallback(
-    async (offset = 0, preserveContextOrder = false): Promise<boolean> => {
+  // Runs the current query. Callers mark the list as loading first.
+  const fetchTasks = useCallback(
+    async (offset: number, preserveContextOrder: boolean): Promise<boolean> => {
       const sequence = ++querySequence.current;
-      setLoading(true);
-      setLoadError(null);
       try {
         const exact = exactStatusRef.current;
         const statuses = exact !== null ? [exact] : presetStatuses(statusPresetRef.current);
@@ -194,8 +193,22 @@ export function useWorkspaceTasks({
         if (sequence === querySequence.current) setLoading(false);
       }
     },
-    [],
+    [setCategoryFilter, setTagFilter],
   );
+
+  const refreshTasks = useCallback(
+    (offset = 0, preserveContextOrder = false): Promise<boolean> => {
+      setLoading(true);
+      setLoadError(null);
+      return fetchTasks(offset, preserveContextOrder);
+    },
+    [fetchTasks],
+  );
+
+  /** Drops the answers of queries still in flight. */
+  const invalidateQueries = useCallback((): void => {
+    ++querySequence.current;
+  }, []);
 
   useEffect(() => {
     statusPresetRef.current = statusPreset;
@@ -207,20 +220,36 @@ export function useWorkspaceTasks({
     sortFieldRef.current = sortField;
     sortDirectionRef.current = sortDirection;
     categoryFilterRef.current = categoryFilter?.slug ?? null;
-    if (!receiveState?.waiting) void refreshTasks();
-  }, [
-    statusPreset,
-    exactStatus,
-    priorityFilter,
-    tagFilter,
-    searchQuery,
-    showUnblocked,
-    sortField,
-    sortDirection,
-    categoryFilter,
-    refreshTasks,
-    receiveState?.waiting,
-  ]);
+  });
+
+  // A changed view starts loading in the same render it changes in, and the
+  // query for it runs once that render commits. Waiting to receive a
+  // workspace pauses queries.
+  const viewKey = receiveState?.waiting
+    ? null
+    : JSON.stringify([
+        statusPreset,
+        exactStatus,
+        priorityFilter,
+        tagFilter.map((tag) => tag.slug),
+        searchQuery,
+        showUnblocked,
+        sortField,
+        sortDirection,
+        categoryFilter?.slug ?? null,
+      ]);
+  const [loadingViewKey, setLoadingViewKey] = useState(viewKey);
+  if (loadingViewKey !== viewKey) {
+    setLoadingViewKey(viewKey);
+    if (viewKey !== null) {
+      setLoading(true);
+      setLoadError(null);
+    }
+  }
+
+  useEffect(() => {
+    if (viewKey !== null) void fetchTasks(0, false);
+  }, [viewKey, fetchTasks]);
 
   useEffect(() => {
     void receiveWorkspaceStatus()
@@ -241,6 +270,10 @@ export function useWorkspaceTasks({
     );
     return () => window.clearTimeout(timeout);
   }, [loading, loadError, tasks.length, refreshTasks]);
+
+  const finishIdentityPreservingRefresh = useCallback((): void => {
+    window.requestAnimationFrame(() => taskListRef.current?.finishIdentityPreservingRefresh());
+  }, [taskListRef]);
 
   useEffect(() => {
     if (loading || receiveState?.waiting) return;
@@ -285,7 +318,7 @@ export function useWorkspaceTasks({
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshOnVisibility);
     };
-  }, [loading, receiveState?.waiting, refreshTasks]);
+  }, [loading, receiveState?.waiting, refreshTasks, finishIdentityPreservingRefresh, taskListRef]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => {
@@ -293,15 +326,11 @@ export function useWorkspaceTasks({
     };
     window.addEventListener("focus", refreshOnFocus);
     return () => {
-      ++querySequence.current;
+      invalidateQueries();
       window.removeEventListener("focus", refreshOnFocus);
       void closeBackendSession();
     };
-  }, [refreshTasks]);
-
-  function finishIdentityPreservingRefresh(): void {
-    window.requestAnimationFrame(() => taskListRef.current?.finishIdentityPreservingRefresh());
-  }
+  }, [refreshTasks, invalidateQueries]);
 
   function syncContextTasks(
     nextTasks: TaskView[],
@@ -449,7 +478,7 @@ export function useWorkspaceTasks({
     receiveState,
     setReceiveState,
     unresolvedConflicts,
-    querySequence,
+    invalidateQueries,
     sortFieldRef,
     categoryFilterRef,
     refreshTasks,
