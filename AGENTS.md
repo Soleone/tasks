@@ -18,9 +18,20 @@ Don't read `docs/evidence/` unless asked; it is frozen history.
 
 ## Code quality
 
-Use the `clean-code` skill when writing, refactoring or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete. Run `pnpm check`, `pnpm lint` and `pnpm test` and fix all errors.
+Use the `clean-code` skill when writing, refactoring or reviewing code. Keep changes scoped, prefer simple concrete boundaries, and run its review checklist before declaring code work complete. Run `pnpm check`, `pnpm lint`, `pnpm test` and `kit check` and fix all errors. `pnpm lint` includes knip: an unused file, export or dependency is a finding, so delete it rather than ignore it.
 
 Name by responsibility. Never add version-named files, identifiers, flags or env vars; `scripts/check-naming.mjs` enforces this. Stored format numbers and persisted names (cache tables, the local `taskdb-v2` folder) keep their names.
+
+Crash and Windows-proof tests inject faults by matching source or bundle text (`registerHooks` loaders, `scripts/check-windows-*.mjs`). When a refactor or formatting change moves such a line, update the needle in the same change and keep it whitespace-tolerant.
+
+## UI
+
+The project follows the `web` template of `kit` (`.kit.json` records the revision; `kit upgrade` lists what changed since).
+
+- shadcn on Base UI (`base-nova`). App code uses `src/components/ui`; direct `@base-ui/react` imports are lint errors.
+- `src/components/ui` is vendored and stays byte for byte upstream, so `pnpm dlx shadcn@latest add <item> --overwrite` can update it. Don't edit it; `kit check` fails when it drifts.
+- Style through tokens and component props, never raw colors, arbitrary values or className overrides on primitives. The lint rules in `vite.config.ts` enforce this.
+- A look the stock variants don't have is a wrapper in `src/components/variants/` (for example `ToggleButton` around `Button`), named for its job and with a one-line reason. That folder is the only place allowed to restyle primitives or import `class-variance-authority`. Behavior that isn't styling, such as the palette search scorer in `components/commandFilter.ts`, lives outside both folders.
 
 ## Development tracking
 
