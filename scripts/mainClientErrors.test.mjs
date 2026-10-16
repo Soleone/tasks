@@ -23,7 +23,7 @@ function failureHandler(file, functionName, bindings) {
   return caught => execute(caught, ...Object.values(bindings));
 }
 
-const undoSource = "src/App.tsx";
+const undoSource = "src/useWorkspaceActions.tsx";
 const deleteSource = "src/components/TaskList.tsx";
 for (const ErrorClass of [BackendCommandError, EditorError]) {
   for (const code of ["STALE_TASK_VERSION", "TASK_NOT_FOUND"]) {

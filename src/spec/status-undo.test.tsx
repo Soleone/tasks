@@ -123,6 +123,12 @@ describe("undo", () => {
     await user.keyboard("{Control>}z{/Control}");
     await expectStatus(task.id, "open");
     await screen.findByText("Undo status change to Open");
+    await user.keyboard("{Delete}");
+    await expectStatus(task.id, "canceled");
+    await user.keyboard("{Control>}z{/Control}");
+    await expectStatus(task.id, "open");
+    await expectRows(["Task"]);
+    await expectActive("Task");
   });
 
   test("undo.batch: one undo restores every task in a batch", async () => {
@@ -146,6 +152,21 @@ describe("undo", () => {
     await user.keyboard("{Control>}z{/Control}");
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect((await workspace.task(task.id)).status).toBe("in_progress");
+  });
+
+  test("undo.depth: this client's change remains undoable after reopening the workspace", async () => {
+    const task = await workspace.create("Task");
+    const first = await workspace.render();
+    await expectActive("Task");
+    await first.user.keyboard("0");
+    await waitFor(() => expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe("P0"));
+    first.view.unmount();
+
+    const second = await workspace.render();
+    await expectActive("Task");
+    await second.user.keyboard("{Control>}z{/Control}");
+    await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(2));
+    await waitFor(() => expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe("P2"));
   });
 
   test("undo.capture: undoing a capture removes the new task", async () => {

@@ -37,7 +37,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Next step
 
-Cleanup stage 4 (approved 2026-10-15): the UI model-types move and `TaskList` extractions are complete and validated. `TaskListRows.tsx` owns row presentation; `TaskListToolbar.tsx` owns toolbar presentation. `useTaskListSelection.ts` owns active-row and selection bookkeeping; `useTaskListKeyboard.ts` dispatches home shortcuts. `TaskList.tsx` retains toolbar/focus actions and task mutations. Next checkpoint, with its own go-ahead: extract `App.tsx` workspace actions, with no behavior change. Use existing tests and add coverage only for concrete risks. Stage 5 (Windows parity) can start whenever the owner's Windows host is available.
+Cleanup stage 4 refactoring (approved 2026-10-15) is complete and validated. `TaskListRows.tsx` and `TaskListToolbar.tsx` own presentation; `useTaskListSelection.ts` and `useTaskListKeyboard.ts` own selection and shortcut dispatch. `useWorkspaceTasks.ts` owns workspace queries and visible-task membership; `useWorkspaceActions.tsx` owns command-result handling and undo. `App.tsx` retains preferences, dialogs and focus wiring. Legacy-only branch removal still waits for cutover. Stop at this checkpoint: stage 5 (Windows parity) needs the owner's Windows entry gate and a separate go-ahead; automated diagnosis (`100`) remains deferred.
 
 ## Gates
 
