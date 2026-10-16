@@ -16,11 +16,16 @@ const backend = spawn(process.execPath, ["dist/backend/devServer.js", ...backend
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,
 });
-const vite = spawn(process.execPath, ["node_modules/vite-plus/bin/vp", "dev", ...viteArgs], {
-  cwd: root,
-  stdio: ["ignore", "pipe", "pipe"],
-  env: { ...process.env, VITE_TASKS_LEGACY: legacy ? "1" : "0" },
-});
+// Vite directly, not the vp wrapper: vp exits on SIGTERM without stopping its Vite child.
+const vite = spawn(
+  process.execPath,
+  ["node_modules/vite/dist/vite/node/cli.js", "dev", ...viteArgs],
+  {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, VITE_TASKS_LEGACY: legacy ? "1" : "0" },
+  },
+);
 
 function pipe(child, name) {
   child.stdout.on("data", (data) => process.stdout.write(`[${name}] ${data}`));

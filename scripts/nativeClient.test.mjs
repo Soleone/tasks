@@ -265,7 +265,8 @@ test("pilot overlay selects one Windows local/main capability and one exact scop
   assert.equal(config.app.windows[0].dataDirectory, "C:\\proof\\webview");
   assert.deepEqual(config.build, {
     devUrl: "http://127.0.0.1:5178",
-    beforeDevCommand: "pnpm exec vp dev --host 127.0.0.1 --port 5178 --strictPort",
+    beforeDevCommand:
+      "node node_modules/vite/dist/vite/node/cli.js dev --host 127.0.0.1 --port 5178 --strictPort",
   });
   assert.match(readFileSync("vite.config.ts", "utf8"), /\*\*\/\.tmp\/\*\*/);
   assert.equal(config.app.security.capabilities.length, 1);
