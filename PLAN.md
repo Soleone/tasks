@@ -59,7 +59,7 @@ At least three short owner sessions over two days on realistic disposable data, 
 2. Delete `src/legacy/`, `--legacy`, the Android runtime and legacy fixtures that aren't migration inputs.
 3. Close the `platforms.md` gap rows; the naming ratchet allows only `src/migration/` and stored names.
 4. Prove restart and recovery on the default route on Linux and Windows with disposable data, then with the real workspace. Never strand pending work or discard receipts, history or retry authority.
-5. Adopt the `@soleone/theme` kit once the legacy theme list (backend themes, Omarchy `omarchy-system`) is gone: use `tasks.selectedTheme` as its `storageKey` and move `themePalette.ts` and `builtinThemes.ts` out with the legacy code. No D dark/light hotkey (owner, 2026-10-16): the vendored provider always installs it, so first make it optional in the soleone registry rather than editing the vendored copy. Then bump `.kit.json`.
+5. Adopt the `@soleone/theme` kit once the legacy theme list (backend themes, Omarchy `omarchy-system`) is gone: use `tasks.selectedTheme` as its `storageKey` and move `themePalette.ts` and `builtinThemes.ts` out with the legacy code. No D dark/light hotkey (owner, 2026-10-16): the registry dropped it in kit r3. Then bump `.kit.json`.
 
 ### Publication
 

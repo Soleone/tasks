@@ -894,7 +894,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         <p role="status" className="sr-only">
           {announcement}
         </p>
-        <Toaster theme={themes.find((theme) => theme.name === selectedTheme)?.mode ?? "system"} />
+        <Toaster />
       </div>
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <DisableKeyboardHelpDialog
