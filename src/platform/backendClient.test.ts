@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { expect, test, vi } from "vite-plus/test";
 import { listTasks, undoOperation, updateTaskPriority } from "./backendClient";
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }));

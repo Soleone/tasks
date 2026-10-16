@@ -16,7 +16,7 @@ const backend = spawn(process.execPath, ["dist/backend/devServer.js", ...backend
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,
 });
-const vite = spawn(process.execPath, ["node_modules/vite/bin/vite.js", ...viteArgs], {
+const vite = spawn(process.execPath, ["node_modules/vite-plus/bin/vp", "dev", ...viteArgs], {
   cwd: root,
   stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, VITE_TASKS_LEGACY: legacy ? "1" : "0" },

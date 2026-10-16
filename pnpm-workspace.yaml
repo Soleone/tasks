@@ -4,3 +4,13 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - "@shadcn/lint@0.1.0"
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.2.0
+  vite-plus: 1.2.0
+overrides:
+  vite@*: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

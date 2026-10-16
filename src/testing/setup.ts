@@ -1,5 +1,5 @@
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach } from "vite-plus/test";
 
 // jsdom lacks layout APIs the list and popovers call.
 Element.prototype.scrollIntoView ??= function scrollIntoView() {};

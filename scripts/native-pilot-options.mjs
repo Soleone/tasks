@@ -117,7 +117,7 @@ export function nativePilotConfig(selection, webviewDirectory) {
   return {
     build: {
       devUrl: "http://127.0.0.1:5178",
-      beforeDevCommand: "pnpm exec vite --host 127.0.0.1 --port 5178 --strictPort",
+      beforeDevCommand: "pnpm exec vp dev --host 127.0.0.1 --port 5178 --strictPort",
     },
     app: {
       windows: [{ ...mainWindow, dataDirectory: webviewDirectory }],

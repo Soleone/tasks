@@ -3,10 +3,10 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import type { TestProject } from "vitest/node";
+import type { TestProject } from "vite-plus/test/node";
 import { startDevServer, type DevServer } from "../backend/devServer";
 
-declare module "vitest" {
+declare module "vite-plus/test" {
   export interface ProvidedContext {
     workspaceServerUrl: string;
   }

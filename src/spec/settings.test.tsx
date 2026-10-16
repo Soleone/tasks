@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows } from "@/testing/taskList";
 

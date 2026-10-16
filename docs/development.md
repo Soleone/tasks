@@ -53,9 +53,9 @@ For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`,
 
 | Command | Scope |
 | --- | --- |
-| `pnpm check` | Backend and frontend types |
-| `pnpm lint` | Repository lint |
-| `pnpm test` | File-backed backend regressions, then client tests (Vitest, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
+| `pnpm check` | `vp check`: formatting, type-aware lint and types for backend and frontend |
+| `pnpm lint` | `vp lint`, naming and spec-rule checks, and knip for dead code |
+| `pnpm test` | File-backed backend regressions, then client tests (`vp test`, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
 | `pnpm build` | Types, backend and frontend build |
 | `pnpm build:backend` | Prepare `dist/backend` for focused script tests |
 | `pnpm test:sidecar` | Bundled Node SEA probe on the actual host |

@@ -37,7 +37,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Next step
 
-Kit r1 adoption (owner request, 2026-10-16) runs in three steps before stage 5: (1) knip in `pnpm lint`, dead code removed and the accepted prune findings applied: done; (2) the Vite+ toolchain; (3) stock shadcn files with local fixes moved to wrappers, then the `@soleone/theme` kit. Each step needs its own go-ahead; step 3 needs an owner look at the UI. `.kit.json` tracks the revision.
+Kit r1 adoption (owner request, 2026-10-16) runs in three steps before stage 5: (1) knip in `pnpm lint`, dead code removed and the accepted prune findings applied: done; (2) the Vite+ toolchain (`vp check`, `vp lint`, `vp test`, oxfmt): done; (3) stock shadcn files with local fixes moved to wrappers, then the `@soleone/theme` kit. Each step needs its own go-ahead; step 3 needs an owner look at the UI. `.kit.json` tracks the revision.
 
 Cleanup stage 4 refactoring (approved 2026-10-15) is complete and validated. `TaskListRows.tsx` and `TaskListToolbar.tsx` own presentation; `useTaskListSelection.ts` and `useTaskListKeyboard.ts` own selection and shortcut dispatch. `useWorkspaceTasks.ts` owns workspace queries and visible-task membership; `useWorkspaceActions.tsx` owns command-result handling and undo. `App.tsx` retains preferences, dialogs and focus wiring. Legacy-only branch removal still waits for cutover. Stop at this checkpoint: stage 5 (Windows parity) needs the owner's Windows entry gate and a separate go-ahead; automated diagnosis (`100`) remains deferred.
 

@@ -5,12 +5,12 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vp dev",
     "dev:web": "node scripts/dev-web.mjs",
     "dev:backend": "pnpm build:backend && node dist/backend/devServer.js",
     "tasks-cli": "pnpm build:backend && node dist/backend/tasks-cli.js",
     "build": "pnpm check && pnpm build:backend && pnpm build:web",
-    "build:web": "vite build",
+    "build:web": "vp build",
     "build:backend": "tsc -p tsconfig.backend.json",
     "build:backend:bundle": "esbuild src/backend/cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/cli.cjs && esbuild src/backend/tasks-cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/tasks-cli.cjs",
     "build:sidecar": "pnpm build:backend:bundle && node scripts/build-sidecar.mjs",
@@ -21,12 +21,13 @@
     "dev:native": "node scripts/dev-native.mjs",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",
-    "test": "pnpm build:backend && node --test dist/backend/*.test.js dist/legacy/backend/*.test.js dist/migration/*.test.js scripts/*.test.mjs && vitest run",
+    "test": "pnpm build:backend && node --test dist/backend/*.test.js dist/legacy/backend/*.test.js dist/migration/*.test.js scripts/*.test.mjs && vp test run",
     "test:native:argv": "node scripts/check-native-launch-argv.mjs",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",
-    "lint": "oxlint && node scripts/check-naming.mjs && node scripts/check-spec-rules.mjs && knip --no-progress",
-    "check": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.web.json --noEmit"
+    "lint": "vp lint && node scripts/check-naming.mjs && node scripts/check-spec-rules.mjs && knip --no-progress",
+    "check": "vp check",
+    "prepare": "vp config"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -58,12 +59,11 @@
     "esbuild": "^0.28.2",
     "jsdom": "^30.1.2",
     "knip": "^6.41.0",
-    "oxlint": "^1.82.0",
     "postject": "^1.0.0-alpha.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^5.0.4"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "packageManager": "pnpm@11.22.0"
 }

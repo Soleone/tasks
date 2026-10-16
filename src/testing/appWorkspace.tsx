@@ -1,6 +1,6 @@
 import { render, screen, waitFor, type RenderResult } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
-import { expect, inject } from "vitest";
+import { expect, inject } from "vite-plus/test";
 import App from "@/App";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { closeMainWorkspace, selectMainWorkspace } from "@/platform/backendClient";

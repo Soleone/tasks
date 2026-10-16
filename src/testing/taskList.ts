@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { expect } from "vitest";
+import { expect } from "vite-plus/test";
 
 /** Reads the rendered task list the way a screen reader would. */
 export function taskList(): HTMLElement {
