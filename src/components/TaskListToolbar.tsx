@@ -28,15 +28,19 @@ import {
 } from "./taskFilters";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
-import { Badge } from "./ui/badge";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbSeparator } from "./ui/breadcrumb";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb";
 import { Button } from "./ui/button";
 import { ButtonGroup } from "./ui/button-group";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Popover, PopoverTrigger } from "./ui/popover";
 import { Separator } from "./ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
+import { ToggleButton } from "@/components/variants/button";
+import { ToolbarGroup } from "@/components/variants/button-group";
+import { CompactPopoverContent } from "@/components/variants/popover";
+import { CompactBreadcrumbList } from "@/components/variants/breadcrumb";
+import { ClassificationBadge } from "@/components/variants/badge";
 
 type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
 type FilterSummaryPart = {
@@ -68,7 +72,7 @@ function FilterSummaryAction({
       title={label}
       onMouseDown={preventFocusSteal}
       onClick={onClear}
-      className={`cursor-pointer rounded-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:focus-ring ${className ?? ""}`}
+      className={`rounded-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-3 ${className ?? ""}`}
     >
       {children}
     </button>
@@ -258,15 +262,14 @@ export function TaskListToolbar({
                 onDisableHelp={onDisableHelp}
               />
             ) : null}
-            <ButtonGroup
+            <ToolbarGroup
               ref={filterToolbar}
               aria-label="Task list filters"
               aria-keyshortcuts="F S O I D P X 0 1 2 3 4 C T U /"
               tabIndex={-1}
               data-toolbar="filters"
               data-toolbar-active={toolbarMode === "filter" || undefined}
-              toolbar
-              toolbarActive={toolbarMode === "filter"}
+              active={toolbarMode === "filter"}
               onFocus={() => activateToolbarMode("filter")}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
@@ -275,7 +278,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={categoryFilter ? "outline" : "ghost"}
                       selected={categoryFilter !== null}
                       size="icon-sm"
@@ -309,7 +312,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       ref={statusFilterButton}
                       variant={statusActive ? "outline" : "ghost"}
                       selected={statusActive}
@@ -337,7 +340,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={priorityFilter !== null ? "outline" : "ghost"}
                       selected={priorityFilter !== null}
                       size="icon-sm"
@@ -364,7 +367,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={tagFilter.length > 0 ? "outline" : "ghost"}
                       selected={tagFilter.length > 0}
                       size="icon-sm"
@@ -391,7 +394,7 @@ export function TaskListToolbar({
               <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={showUnblocked ? "outline" : "ghost"}
                       selected={showUnblocked}
                       size="icon-sm"
@@ -420,7 +423,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={searchActive ? "outline" : "ghost"}
                       selected={searchActive}
                       size="icon-sm"
@@ -446,7 +449,7 @@ export function TaskListToolbar({
                   {searchActive ? searchQuery.trim() : "Search"}
                 </TooltipContent>
               </Tooltip>
-            </ButtonGroup>
+            </ToolbarGroup>
           </div>
           <Separator orientation="vertical" className="h-7" />
           <div className="relative">
@@ -457,15 +460,14 @@ export function TaskListToolbar({
                 onDisableHelp={onDisableHelp}
               />
             ) : null}
-            <ButtonGroup
+            <ToolbarGroup
               ref={sortToolbar}
               aria-label="Task list sort"
               aria-keyshortcuts="S C U M R"
               tabIndex={-1}
               data-toolbar="sort"
               data-toolbar-active={toolbarMode === "sort" || undefined}
-              toolbar
-              toolbarActive={toolbarMode === "sort"}
+              active={toolbarMode === "sort"}
               onFocus={() => activateToolbarMode("sort")}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
@@ -474,7 +476,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={sortField === "created" ? "outline" : "ghost"}
                       selected={sortField === "created"}
                       size="icon-sm"
@@ -497,7 +499,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={sortField === "updated" ? "outline" : "ghost"}
                       selected={sortField === "updated"}
                       size="icon-sm"
@@ -520,7 +522,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={sortField === "priority" ? "outline" : "ghost"}
                       selected={sortField === "priority"}
                       size="icon-sm"
@@ -543,7 +545,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={sortField === "manual" ? "outline" : "ghost"}
                       selected={sortField === "manual"}
                       size="icon-sm"
@@ -566,7 +568,7 @@ export function TaskListToolbar({
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
                       variant={reverseActive ? "outline" : "ghost"}
                       selected={reverseActive}
                       size="icon-sm"
@@ -617,14 +619,14 @@ export function TaskListToolbar({
                         : "Oldest first"}
                 </TooltipContent>
               </Tooltip>
-            </ButtonGroup>
+            </ToolbarGroup>
           </div>
           <Separator orientation="vertical" className="h-7" />
           <ButtonGroup aria-label="Task list view">
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <Button
+                  <ToggleButton
                     variant={showDetails ? "outline" : "ghost"}
                     selected={showDetails}
                     size="icon-sm"
@@ -658,7 +660,7 @@ export function TaskListToolbar({
                   render={
                     <PopoverTrigger
                       render={
-                        <Button
+                        <ToggleButton
                           variant={moveControlsOpen ? "outline" : "ghost"}
                           selected={moveControlsOpen}
                           size="icon-sm"
@@ -683,14 +685,13 @@ export function TaskListToolbar({
                   {moveControlsOpen ? "Hide move controls" : "Show move controls"}
                 </TooltipContent>
               </Tooltip>
-              <PopoverContent
+              <CompactPopoverContent
                 data-move-controls
                 side="bottom"
                 align="end"
                 sideOffset={8}
                 initialFocus={false}
                 finalFocus={false}
-                density="compact"
               >
                 <p className="sr-only">Move {moveSubjectLabel} in manual order.</p>
                 <div
@@ -788,7 +789,7 @@ export function TaskListToolbar({
                     </TooltipContent>
                   </Tooltip>
                 </div>
-              </PopoverContent>
+              </CompactPopoverContent>
             </Popover>
           </ButtonGroup>
         </div>
@@ -800,7 +801,7 @@ export function TaskListToolbar({
         title={filterSummary}
         className="overflow-hidden"
       >
-        <BreadcrumbList density="compact">
+        <CompactBreadcrumbList>
           <BreadcrumbItem className="shrink-0">
             {statusIsDefault ? (
               <span className="text-sm font-medium">{summaryBase}</span>
@@ -825,10 +826,14 @@ export function TaskListToolbar({
                   onClear={clearCategoryFilter}
                   className="shrink-0 rounded-full"
                 >
-                  <Badge variant="category" data-filter-category="true" className="shrink-0">
+                  <ClassificationBadge
+                    kind="category"
+                    data-filter-category="true"
+                    className="shrink-0"
+                  >
                     <Folder data-icon="inline-start" aria-hidden="true" />
                     {categoryFilter.label}
-                  </Badge>
+                  </ClassificationBadge>
                 </FilterSummaryAction>
               </BreadcrumbItem>
             </>
@@ -848,7 +853,7 @@ export function TaskListToolbar({
               </BreadcrumbItem>
             </Fragment>
           ))}
-        </BreadcrumbList>
+        </CompactBreadcrumbList>
       </Breadcrumb>
     </div>
   );

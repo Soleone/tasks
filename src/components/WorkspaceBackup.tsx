@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Field, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
+import { ConfirmationAlert } from "@/components/variants/alert";
 
 type CopyChoice = { destination: string; source?: string };
 
@@ -78,7 +79,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
           </Button>
         </div>
       ) : confirmation ? (
-        <Alert tone="confirmation" layout="stacked">
+        <ConfirmationAlert>
           <AlertTitle>
             {mode === "restore" ? "Restore to this new folder?" : "Create this backup?"}
           </AlertTitle>
@@ -101,7 +102,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
               {pending ? "Copying…" : mode === "restore" ? "Confirm restore" : "Confirm backup"}
             </Button>
           </div>
-        </Alert>
+        </ConfirmationAlert>
       ) : (
         <form
           className="flex flex-col gap-3"

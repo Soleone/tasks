@@ -3,15 +3,15 @@ import { Folder } from "lucide-react";
 import type { ClassificationOption } from "./taskView";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  literalWordScore,
 } from "@/components/ui/command";
 import { listCategories } from "@/platform/backendClient";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog } from "@/components/variants/command";
 
 export function CategoryPicker({
   open,
@@ -61,7 +61,7 @@ export function CategoryPicker({
   );
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
@@ -119,6 +119,6 @@ export function CategoryPicker({
           </CommandGroup>
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

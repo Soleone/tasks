@@ -3,15 +3,15 @@ import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/themePalette";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
   CommandShortcut,
-  literalWordScore,
 } from "@/components/ui/command";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog } from "@/components/variants/command";
 
 function modeLabel(mode: ThemeMode): string {
   if (mode === "system") return "Follows system";
@@ -85,7 +85,7 @@ export function ThemePalette({
   }, [open, selectedTheme, themes.length]);
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={onOpenChange}
       title="Themes"
@@ -116,6 +116,6 @@ export function ThemePalette({
           </CommandGroup>
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

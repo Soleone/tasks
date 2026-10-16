@@ -4,15 +4,15 @@ import type { TaskView } from "./taskView";
 import { TaskRow, TaskStatusDisplay } from "@/components/TaskRow";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  literalWordScore,
 } from "@/components/ui/command";
 import { getTask, listTasks } from "@/platform/backendClient";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog } from "@/components/variants/command";
 
 export type TaskPickerMode = "blocker" | "move";
 
@@ -149,7 +149,7 @@ export function TaskPicker({
   }, [showRemoveBlocker, subject.dependencyIds, fetched]);
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
@@ -234,6 +234,6 @@ export function TaskPicker({
           </CommandGroup>
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

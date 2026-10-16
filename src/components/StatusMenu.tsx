@@ -5,14 +5,14 @@ import type { TaskStatus } from "@/backend/taskModel";
 import { EXACT_STATUS_META, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  literalWordScore,
 } from "@/components/ui/command";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog } from "@/components/variants/command";
 
 export function StatusMenu({
   open,
@@ -32,7 +32,7 @@ export function StatusMenu({
   const searchInput = useRef<HTMLInputElement>(null);
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
@@ -102,6 +102,6 @@ export function StatusMenu({
           </CommandGroup>
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

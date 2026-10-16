@@ -46,8 +46,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Item } from "@/components/ui/item";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import {
   BackendCommandError,
@@ -62,6 +61,8 @@ import {
 import { EditorError } from "@/platform/editorClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
+import { TaskItem } from "@/components/variants/item";
+import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 
 export async function copyTaskText(task: TaskView): Promise<void> {
   const text = [selectedMainWorkspace() ? task.title : (task.text ?? task.title), task.description]
@@ -1367,17 +1368,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
             ),
           )}
           {isDefaultActiveEmpty ? (
-            <Item data-empty-state="active" size="sm" state="empty">
+            <TaskItem data-empty-state="active" size="sm" state="empty">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">No active tasks</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Press C or choose New task to capture.
                 </p>
               </div>
-            </Item>
+            </TaskItem>
           ) : null}
           {isFilteredEmpty ? (
-            <Item data-empty-state="filtered" size="sm" state="empty">
+            <TaskItem data-empty-state="filtered" size="sm" state="empty">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">No tasks match the current filters</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -1395,7 +1396,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               >
                 Clear filters
               </Button>
-            </Item>
+            </TaskItem>
           ) : null}
         </div>
       ) : !loading && !error && composer === null ? (
@@ -1408,14 +1409,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ) : null}
       <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
-        <TooltipContent anchor={statusFilterButton} side="top" sideOffset={8}>
+        <AnchoredTooltipContent anchor={statusFilterButton} side="top" sideOffset={8}>
           {exactStatus !== null
             ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ??
               exactStatus)
             : statusPreset === "active"
               ? "Active"
               : "Inactive"}
-        </TooltipContent>
+        </AnchoredTooltipContent>
       </Tooltip>
       {hasMore ? (
         <Button

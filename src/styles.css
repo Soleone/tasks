@@ -164,11 +164,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Share ring geometry while controls retain their semantic focus colors. */
-@utility focus-ring {
-  @apply ring-3;
-}
-
 /*
  * Header mark hooks. The branding SVG paints background shapes with
  * --app-icon-bg and foreground shapes with --app-icon-fg (as inline

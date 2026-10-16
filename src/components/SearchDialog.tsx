@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { AnchoredDialogContent } from "@/components/variants/dialog";
 
 export function SearchDialog({
   open,
@@ -47,7 +42,7 @@ export function SearchDialog({
       <DialogHeader className="sr-only">
         <DialogTitle>Search tasks</DialogTitle>
       </DialogHeader>
-      <DialogContent
+      <AnchoredDialogContent
         className="sm:max-w-md"
         showCloseButton={false}
         initialFocus={searchInput}
@@ -104,7 +99,7 @@ export function SearchDialog({
             </div>
           </div>
         </form>
-      </DialogContent>
+      </AnchoredDialogContent>
     </Dialog>
   );
 }

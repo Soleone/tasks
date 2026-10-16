@@ -21,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogClose,
-  DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -34,9 +33,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { WorkspaceBackup } from "./WorkspaceBackup";
+import {
+  ConfirmationAlert,
+  ConfirmationAlertTitle,
+  ConfirmationAlertActions,
+} from "@/components/variants/alert";
+import { AnchoredDialogContent } from "@/components/variants/dialog";
+import { ReadableTabsTrigger } from "@/components/variants/tabs";
+import { DestructiveButton } from "@/components/variants/button";
 
 type Failure = { title: string; detail: string };
 
@@ -294,7 +301,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+      <AnchoredDialogContent
         showCloseButton={false}
         className="h-[calc(100svh-6rem)] max-h-[40rem] content-start overflow-y-auto sm:max-w-3xl md:max-h-[40rem]"
         initialFocus={settingsTab}
@@ -334,11 +341,11 @@ export function SettingsDialog({
               aria-describedby="settings-tabs-help"
               activateOnFocus
             >
-              <TabsTrigger ref={settingsTab} value="general">
+              <ReadableTabsTrigger ref={settingsTab} value="general">
                 General
-              </TabsTrigger>
-              <TabsTrigger value="shortcuts">Shortcuts</TabsTrigger>
-              <TabsTrigger value="workspace">Data</TabsTrigger>
+              </ReadableTabsTrigger>
+              <ReadableTabsTrigger value="shortcuts">Shortcuts</ReadableTabsTrigger>
+              <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
             </TabsList>
             <span id="settings-tabs-help" className="sr-only">
               Use the Left and Right Arrow keys to switch sections. Press Tab to enter the selected
@@ -672,22 +679,24 @@ export function SettingsDialog({
                     Sync with another device…
                   </Button>
                 ) : (
-                  <Alert tone="confirmation" layout="stacked">
-                    <AlertTitle tone="destructive">Replace this device’s workspace?</AlertTitle>
+                  <ConfirmationAlert>
+                    <ConfirmationAlertTitle>
+                      Replace this device’s workspace?
+                    </ConfirmationAlertTitle>
                     <AlertDescription>
                       Your current tasks will be backed up, then the local sync folder will be
                       emptied. {APP_NAME} will stay locked until an existing workspace arrives
                       through Syncthing.
                     </AlertDescription>
-                    <AlertAction layout="stacked">
+                    <ConfirmationAlertActions>
                       <Button variant="outline" size="xs" onClick={() => setConfirmReceive(false)}>
                         Cancel
                       </Button>
-                      <Button variant="destructive" size="xs" onClick={onPrepareReceive}>
+                      <DestructiveButton size="xs" onClick={onPrepareReceive}>
                         Back up and continue
-                      </Button>
-                    </AlertAction>
-                  </Alert>
+                      </DestructiveButton>
+                    </ConfirmationAlertActions>
+                  </ConfirmationAlert>
                 )}
               </section>
 
@@ -759,8 +768,7 @@ export function SettingsDialog({
                     Permanently remove canceled tasks from this workspace.
                   </p>
                 </div>
-                <Button
-                  variant="destructive"
+                <DestructiveButton
                   className="w-fit"
                   disabled={
                     selectedWorkspace !== null ||
@@ -774,7 +782,7 @@ export function SettingsDialog({
                   {purgingPending
                     ? "Deleting canceled tasks…"
                     : "Permanently delete canceled tasks"}
-                </Button>
+                </DestructiveButton>
                 <p className="text-sm text-muted-foreground">
                   {selectedWorkspace
                     ? "Permanent deletion is not yet available in this selected workspace."
@@ -844,7 +852,7 @@ export function SettingsDialog({
             ) : null}
           </Alert>
         ) : null}
-      </DialogContent>
+      </AnchoredDialogContent>
     </Dialog>
   );
 }

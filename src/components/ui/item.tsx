@@ -35,7 +35,7 @@ function ItemSeparator({
 }
 
 const itemVariants = cva(
-  "group/item flex w-full flex-wrap items-center rounded-lg border text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:focus-ring [a]:transition-colors [a]:hover:bg-muted",
+  "group/item flex w-full flex-wrap items-center rounded-lg border text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-muted",
   {
     variants: {
       variant: {
@@ -47,14 +47,6 @@ const itemVariants = cva(
         default: "gap-2.5 px-3 py-2.5",
         sm: "gap-2.5 px-3 py-2.5",
         xs: "gap-2 px-2.5 py-2 in-data-[slot=dropdown-menu-content]:p-0",
-      },
-      // Explicit task-row states. Active wins over selected when both
-      // apply; callers keep that precedence when choosing the value.
-      state: {
-        active: "border-transparent bg-primary/10",
-        selected: "border-transparent bg-primary/5",
-        context: "bg-muted/50 text-muted-foreground",
-        empty: "min-h-16 border-dashed border-border bg-transparent",
       },
     },
     defaultVariants: {
@@ -68,7 +60,6 @@ function Item({
   className,
   variant = "default",
   size = "default",
-  state,
   render,
   ...props
 }: useRender.ComponentProps<"div"> & VariantProps<typeof itemVariants>) {
@@ -76,7 +67,7 @@ function Item({
     defaultTagName: "div",
     props: mergeProps<"div">(
       {
-        className: cn(itemVariants({ variant, size, state, className })),
+        className: cn(itemVariants({ variant, size, className })),
       },
       props
     ),
@@ -85,7 +76,6 @@ function Item({
       slot: "item",
       variant,
       size,
-      state,
     },
   })
 }
@@ -135,16 +125,12 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemTitle({ className, unclamped = false, ...props }: React.ComponentProps<"div"> & {
-  // Task rows keep complete titles readable at narrow widths.
-  unclamped?: boolean
-}) {
+function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-title"
       className={cn(
         "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
-        unclamped && "line-clamp-none",
         className
       )}
       {...props}
@@ -152,16 +138,12 @@ function ItemTitle({ className, unclamped = false, ...props }: React.ComponentPr
   )
 }
 
-function ItemDescription({ className, metadata = false, ...props }: React.ComponentProps<"p"> & {
-  // Quiet classification row for category/tag badges.
-  metadata?: boolean
-}) {
+function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
   return (
     <p
       data-slot="item-description"
       className={cn(
         "line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-xs [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
-        metadata && "flex flex-wrap items-center gap-1.5",
         className
       )}
       {...props}

@@ -4,14 +4,14 @@ import type { TaskPriority } from "@/backend/taskModel";
 import { PRIORITY_META } from "@/components/taskFilters";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  literalWordScore,
 } from "@/components/ui/command";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog } from "@/components/variants/command";
 
 export function PriorityMenu({
   open,
@@ -29,7 +29,7 @@ export function PriorityMenu({
   const searchInput = useRef<HTMLInputElement>(null);
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
@@ -76,6 +76,6 @@ export function PriorityMenu({
           </CommandGroup>
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

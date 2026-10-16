@@ -13,6 +13,11 @@ const noBaseUi = {
   message:
     "Use a local high-level component from @/components/ui instead of importing Base UI primitives directly.",
 };
+const noCva = {
+  group: ["class-variance-authority"],
+  message:
+    "Variants live in src/components/variants: wrap the primitive there and import the wrapper.",
+};
 
 export default defineConfig({
   staged: { "*": "vp check --fix" },
@@ -48,13 +53,31 @@ export default defineConfig({
       "shadcn/no-arbitrary-values": ["error", { allow: ["layout"] }],
       "shadcn/no-inline-styles": "error",
       "shadcn/no-unknown-classes": ["error", { allow: ["app-icon", "wrap-anywhere"] }],
-      "no-restricted-imports": ["error", { patterns: [noBaseUi] }],
+      "no-restricted-imports": ["error", { patterns: [noBaseUi, noCva] }],
     },
     overrides: [
       {
-        // node:test registers top-level tests without awaiting them.
-        files: ["**/*.test.{ts,tsx,mjs}", "scripts/**"],
-        rules: { "typescript/no-floating-promises": "off" },
+        // Wrappers around stock primitives: the one place that restyles them and adds variants.
+        files: ["src/components/variants/**"],
+        rules: {
+          "shadcn/no-restyle": "off",
+          "shadcn/no-arbitrary-values": "off",
+          "no-restricted-imports": ["error", { patterns: [noBaseUi] }],
+        },
+      },
+      {
+        // Tests and scripts build strings and functions from fixtures on purpose, node:test
+        // registers top-level tests without awaiting them, and jsdom shims patch prototypes.
+        files: ["**/*.test.{ts,tsx,mjs}", "scripts/**", "src/testing/**"],
+        rules: {
+          "typescript/no-floating-promises": "off",
+          "typescript/no-base-to-string": "off",
+          "typescript/restrict-template-expressions": "off",
+          "typescript/require-array-sort-compare": "off",
+          "typescript/no-implied-eval": "off",
+          "typescript/no-misused-spread": "off",
+          "typescript/unbound-method": "off",
+        },
       },
     ],
   },

@@ -3,9 +3,10 @@ import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Field, FieldLabel } from "./ui/field";
 import { Textarea } from "./ui/textarea";
+import { AnchoredDialogContent } from "@/components/variants/dialog";
 
 /** Appears only when a sent workspace request has no verified success reply. */
 export function WorkspaceRequestRecovery({
@@ -37,7 +38,11 @@ export function WorkspaceRequestRecovery({
   if (!request) return null;
   return (
     <Dialog open disablePointerDismissal onOpenChange={() => undefined}>
-      <DialogContent showCloseButton={false} initialFocus={retryRef} className="overflow-y-auto">
+      <AnchoredDialogContent
+        showCloseButton={false}
+        initialFocus={retryRef}
+        className="overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle>Workspace request needs attention</DialogTitle>
           <DialogDescription>
@@ -120,7 +125,7 @@ export function WorkspaceRequestRecovery({
         >
           Pause writes for reconciliation
         </Button>
-      </DialogContent>
+      </AnchoredDialogContent>
     </Dialog>
   );
 }

@@ -3,16 +3,16 @@ import { Check, Tags } from "lucide-react";
 import type { ClassificationOption } from "./taskView";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  literalWordScore,
 } from "@/components/ui/command";
 import { listTags } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog } from "@/components/variants/command";
 
 export function TagPicker({
   open,
@@ -90,7 +90,7 @@ export function TagPicker({
   }
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
@@ -150,6 +150,6 @@ export function TagPicker({
           </CommandGroup>
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

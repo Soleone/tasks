@@ -28,17 +28,16 @@ import {
 import type { TaskView } from "./taskView";
 import {
   Command,
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
-  literalWordScore,
 } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { literalWordScore } from "@/components/commandFilter";
+import { PaletteDialog, KeysShortcut } from "@/components/variants/command";
 
 type HelpEntry = {
   label: string;
@@ -401,7 +400,7 @@ export function HelpPalette({
   const searchInput = useRef<HTMLInputElement>(null);
 
   return (
-    <CommandDialog
+    <PaletteDialog
       open={open}
       onOpenChange={onOpenChange}
       title="Shortcuts and syntax"
@@ -474,13 +473,13 @@ export function HelpPalette({
                       <span className="font-medium">{label}</span>
                       {hint ? <span className="text-muted-foreground">{hint}</span> : null}
                       {entry.keys ? (
-                        <CommandShortcut keys>
+                        <KeysShortcut>
                           <KbdGroup>
                             {entry.keys.map((key) => (
                               <Kbd key={key}>{key}</Kbd>
                             ))}
                           </KbdGroup>
-                        </CommandShortcut>
+                        </KeysShortcut>
                       ) : null}
                     </CommandItem>
                   );
@@ -490,6 +489,6 @@ export function HelpPalette({
           ))}
         </CommandList>
       </Command>
-    </CommandDialog>
+    </PaletteDialog>
   );
 }

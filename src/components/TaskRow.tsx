@@ -6,9 +6,10 @@ import type { TaskView } from "./taskView";
 import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
-import { Badge } from "@/components/ui/badge";
-import { ItemDescription, ItemTitle } from "@/components/ui/item";
+import { ItemDescription } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ClassificationBadge } from "@/components/variants/badge";
+import { TaskItemMetadata, TaskItemTitle } from "@/components/variants/item";
 
 export type TaskRowVariant = "full" | "compact";
 
@@ -139,16 +140,16 @@ function TaskRowMetadata({
   if (!category && task.tags.length === 0) {
     if (!task.category) {
       return (
-        <ItemDescription metadata>
+        <TaskItemMetadata>
           <span className="sr-only">No category or tags</span>
-        </ItemDescription>
+        </TaskItemMetadata>
       );
     }
     return null;
   }
 
   return (
-    <ItemDescription metadata>
+    <TaskItemMetadata>
       {category ? (
         onSelectCategory ? (
           // A pointer shortcut inside a list option, like the status glyph.
@@ -166,24 +167,24 @@ function TaskRowMetadata({
             }}
             className="cursor-pointer rounded-full"
           >
-            <Badge variant="category">
+            <ClassificationBadge kind="category">
               <Folder data-icon="inline-start" aria-hidden="true" />
               {category.label}
-            </Badge>
+            </ClassificationBadge>
           </span>
         ) : (
-          <Badge variant="category">
+          <ClassificationBadge kind="category">
             <Folder data-icon="inline-start" aria-hidden="true" />
             {category.label}
-          </Badge>
+          </ClassificationBadge>
         )
       ) : null}
       {task.tags.map((tag) => (
-        <Badge key={tag.slug} variant="tag">
+        <ClassificationBadge key={tag.slug} kind="tag">
           {tag.label}
-        </Badge>
+        </ClassificationBadge>
       ))}
-    </ItemDescription>
+    </TaskItemMetadata>
   );
 }
 
@@ -289,9 +290,7 @@ export function TaskRow({
         {variant === "full" ? <TaskPriorityDisplay task={task} /> : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <ItemTitle unclamped className="wrap-anywhere w-full">
-          {task.title}
-        </ItemTitle>
+        <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
         {variant === "full" && showDetails && task.description ? (
           <ItemDescription data-task-description className="wrap-anywhere">
             {task.description}

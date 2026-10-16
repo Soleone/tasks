@@ -1099,7 +1099,7 @@ try {
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   check(
-    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] [data-slot=tooltip-arrow]").getBoundingClientRect(); const title = document.querySelector("form[aria-label=\\"New task\\"] input").getBoundingClientRect(); return shell.width <= 600 && help.width < 320 && help.left >= 0 && help.right < title.left && arrow.right > help.right && arrow.right < title.left && Math.abs((arrow.top + arrow.height / 2) - (title.top + title.height / 2)) < 3; })()',
+    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] > [data-side]").getBoundingClientRect(); const title = document.querySelector("form[aria-label=\\"New task\\"] input").getBoundingClientRect(); return shell.width <= 600 && help.width < 320 && help.left >= 0 && help.right < title.left && arrow.right > help.right && arrow.right < title.left && Math.abs((arrow.top + arrow.height / 2) - (title.top + title.height / 2)) < 3; })()',
   );
   check(
     'document.querySelector("[data-context-help] [aria-label=\\"Use basic keyboard help\\"]") !== null',

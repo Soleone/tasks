@@ -4,14 +4,8 @@ import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { preventFocusSteal } from "@/navigation";
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverDescription, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { GuidePopoverContent, InlinePopoverHeader } from "@/components/variants/popover";
 
 export type TaskListMode = "filter" | "sort";
 
@@ -108,7 +102,7 @@ export function TaskListModeHelp({
           <span aria-hidden="true" tabIndex={-1} className="pointer-events-none absolute inset-0" />
         }
       />
-      <PopoverContent
+      <GuidePopoverContent
         data-shortcut-guide={mode}
         role="status"
         aria-live="polite"
@@ -117,9 +111,8 @@ export function TaskListModeHelp({
         sideOffset={8}
         initialFocus={false}
         finalFocus={false}
-        density="guide"
       >
-        <PopoverHeader inline>
+        <InlinePopoverHeader>
           <PopoverTitle>{guide.title}</PopoverTitle>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <KbdGroup>
@@ -141,7 +134,7 @@ export function TaskListModeHelp({
               <X aria-hidden="true" />
             </Button>
           </span>
-        </PopoverHeader>
+        </InlinePopoverHeader>
         <PopoverDescription className="sr-only">{guide.description}</PopoverDescription>
         <div className="flex flex-col gap-2.5">
           {guide.groups.map((group, groupIndex) => (
@@ -174,7 +167,7 @@ export function TaskListModeHelp({
             </div>
           ))}
         </div>
-      </PopoverContent>
+      </GuidePopoverContent>
     </Popover>
   );
 }

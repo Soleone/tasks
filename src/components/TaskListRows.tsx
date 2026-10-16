@@ -11,6 +11,7 @@ import { Item } from "./ui/item";
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
+import { TaskItem } from "@/components/variants/item";
 
 export type TaskOptionClick = (
   row: VisibleTaskRow,
@@ -65,7 +66,7 @@ export const TaskOption = memo(function TaskOption({
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <Item
+    <TaskItem
       id={`task-option-${task.id}`}
       role="option"
       aria-selected={selected}
@@ -122,7 +123,7 @@ export const TaskOption = memo(function TaskOption({
           <DisclosureIcon aria-hidden="true" className="size-4" />
         </span>
       ) : null}
-    </Item>
+    </TaskItem>
   );
 });
 
@@ -182,7 +183,7 @@ export function InlineTaskComposer({
   const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
 
   return (
-    <Item
+    <TaskItem
       role="group"
       aria-label={task ? `Editing ${task.title}` : "New task inline"}
       data-inline-task-editor
@@ -202,6 +203,6 @@ export function InlineTaskComposer({
         helpMode={helpMode}
         onDisableHelp={onDisableHelp}
       />
-    </Item>
+    </TaskItem>
   );
 }

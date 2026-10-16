@@ -1,6 +1,5 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { forwardRef } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
@@ -16,18 +15,6 @@ const buttonGroupVariants = cva(
         vertical:
           "flex-col *:data-slot:rounded-b-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-b-lg! [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
       },
-      // Toolbar focus presentation for the F/S focus modes. The visible
-      // outer ring belongs to the whole group; toolbarActive is driven by
-      // the existing data-toolbar-active attribute. Keep every toolbar
-      // button's left border so toggling a control cannot change its layout.
-      toolbar: {
-        true: "rounded-lg outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:focus-ring [&>[data-slot]~[data-slot]]:border-l!",
-        false: "",
-      },
-      toolbarActive: {
-        true: "ring-3 ring-ring/50",
-        false: "",
-      },
     },
     defaultVariants: {
       orientation: "horizontal",
@@ -35,26 +22,21 @@ const buttonGroupVariants = cva(
   }
 )
 
-const ButtonGroup = forwardRef<HTMLDivElement, React.ComponentProps<"div"> & VariantProps<typeof buttonGroupVariants>>(
-  function ButtonGroup({
-    className,
-    orientation,
-    toolbar = false,
-    toolbarActive = false,
-    ...props
-  }, ref) {
-    return (
-      <div
-        ref={ref}
-        role="group"
-        data-slot="button-group"
-        data-orientation={orientation}
-        className={cn(buttonGroupVariants({ orientation, toolbar, toolbarActive }), className)}
-        {...props}
-      />
-    )
-  }
-)
+function ButtonGroup({
+  className,
+  orientation,
+  ...props
+}: React.ComponentProps<"div"> & VariantProps<typeof buttonGroupVariants>) {
+  return (
+    <div
+      role="group"
+      data-slot="button-group"
+      data-orientation={orientation}
+      className={cn(buttonGroupVariants({ orientation }), className)}
+      {...props}
+    />
+  )
+}
 
 function ButtonGroupText({
   className,

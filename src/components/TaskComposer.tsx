@@ -23,7 +23,6 @@ import {
 } from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +30,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { X } from "lucide-react";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { preventFocusSteal } from "@/navigation";
+import { ToolbarGroup } from "@/components/variants/button-group";
+import { ToggleButton } from "@/components/variants/button";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -496,9 +497,8 @@ export function TaskComposer({
           ) : null}
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <div>
-            <ButtonGroup
+            <ToolbarGroup
               ref={prioritySection}
-              toolbar
               role="radiogroup"
               aria-labelledby={`${id}-priority-label`}
               aria-describedby={
@@ -515,7 +515,7 @@ export function TaskComposer({
               {PRIORITY_META.map((meta) => {
                 const selected = priority === meta.value;
                 return (
-                  <Button
+                  <ToggleButton
                     key={meta.value}
                     id={`${id}-priority-${meta.value}`}
                     type="button"
@@ -538,10 +538,10 @@ export function TaskComposer({
                       className={`inline-block size-2 rounded-full ${meta.dot}`}
                     />
                     {meta.shortLabel}
-                  </Button>
+                  </ToggleButton>
                 );
               })}
-            </ButtonGroup>
+            </ToolbarGroup>
           </div>
           {showPriorityHelp ? (
             <FieldDescription id={`${id}-priority-help`}>

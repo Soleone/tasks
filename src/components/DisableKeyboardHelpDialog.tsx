@@ -3,12 +3,12 @@ import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AnchoredDialogContent } from "@/components/variants/dialog";
 
 type DisableHelpMode = Extract<KeyboardHelpMode, "basic" | "none">;
 
@@ -29,7 +29,7 @@ export function DisableKeyboardHelpDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent finalFocus={finalFocus}>
+      <AnchoredDialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>
             {keepsShortcutGuides ? "Hide task editor help?" : "Disable keyboard help?"}
@@ -52,7 +52,7 @@ export function DisableKeyboardHelpDialog({
             Turn down help level
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </AnchoredDialogContent>
     </Dialog>
   );
 }
