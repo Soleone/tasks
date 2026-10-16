@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import type { LucideIcon } from "lucide-react";
-import { toast as sonnerToast } from "sonner";
 import { randomUUID } from "@/lib/randomUUID";
 import type { TaskStatus } from "@/backend/taskModel";
 import { classifyTaskText, stripClassificationTokens } from "@/backend/taskText";
 import { parseShorthand } from "@/backend/shorthand";
 import type { TaskListHandle } from "@/components/TaskList";
+import { showTaskToast } from "@/components/TaskToaster";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import type { TaskPickerMode } from "@/components/TaskPicker";
 import type { TaskView } from "@/components/taskView";
@@ -30,11 +29,6 @@ import type { useWorkspaceTasks } from "./useWorkspaceTasks";
 
 type OperationUndoEntry = UndoEntry & { expectedVersion?: number };
 
-type ToastDisplayOptions = {
-  icon?: LucideIcon;
-  completion?: boolean;
-};
-
 type StatusChangeFeedback = {
   message: string;
   notifyWhenVisible: boolean;
@@ -47,8 +41,6 @@ const STATUS_CHANGE_FEEDBACK: Record<TaskStatus, StatusChangeFeedback> = {
   done: { message: "Task marked as done", notifyWhenVisible: true },
   canceled: { message: "Task marked as canceled", notifyWhenVisible: true },
 };
-
-const TOAST_DURATION_MS = 3000;
 
 type WorkspaceActionsProps = {
   workspace?: MainWorkspace;
@@ -315,15 +307,6 @@ export function useWorkspaceActions({
     );
   }
 
-  function showToast(message: string, options: ToastDisplayOptions = {}): void {
-    const Icon = options.icon;
-    const iconClassName = options.completion ? "size-4 task-completion-icon" : "size-4";
-    sonnerToast(message, {
-      duration: TOAST_DURATION_MS,
-      ...(Icon ? { icon: <Icon aria-hidden="true" className={iconClassName} /> } : {}),
-    });
-  }
-
   async function handleUndoStatus(): Promise<void> {
     const entry = statusUndoRef.current;
     if (!entry) return;
@@ -367,7 +350,7 @@ export function useWorkspaceActions({
               ? `Undid change to ${restored[0].title}`
               : `Undid changes for ${entry.affectedTaskIds.length} tasks`;
       setAnnouncement(message);
-      showToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
+      showTaskToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
       if (
@@ -486,7 +469,7 @@ export function useWorkspaceActions({
       .filter((entry) => movedOutOfView || entry.notifyWhenVisible);
     if (feedback.length === 0) return;
     const Icon = statuses.length === 1 ? taskStatusMeta[statuses[0]].Icon : undefined;
-    showToast(
+    showTaskToast(
       feedback.length === 1
         ? feedback[0].message
         : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
@@ -598,7 +581,6 @@ export function useWorkspaceActions({
     pickerSelected,
     pauseTaskFromPalette,
     recordOperationUndo,
-    showToast,
     handleUndoStatus,
     showOptimisticCreate,
     taskSaved,

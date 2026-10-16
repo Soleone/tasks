@@ -91,7 +91,7 @@ function auditTaskList() {
   assert.equal(audit.data.incomplete.length, 0, JSON.stringify(audit.data));
 }
 function toastWithText(message) {
-  return `[...document.querySelectorAll("[data-sonner-toast]")].find((toast) => toast.textContent.includes(${JSON.stringify(message)}))`;
+  return `[...document.querySelectorAll("[data-slot=toast]")].find((toast) => toast.textContent.includes(${JSON.stringify(message)}))`;
 }
 function hasToastWithText(message) {
   return `Boolean(${toastWithText(message)})`;
@@ -184,7 +184,7 @@ try {
   browser("snapshot", "-i");
   // The task list is home: no dialog opens and the empty list shell owns focus.
   waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
-  check('document.querySelector("[role=dialog]") === null');
+  check('document.querySelector("[role=dialog]:not([aria-modal=false])") === null');
   check('document.body.textContent.includes("Press C or choose New task")');
   check('document.querySelector("[data-slot=empty-title]")?.textContent === "No active tasks"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
@@ -306,10 +306,10 @@ try {
   browser("press", "Control+k");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   waitFor(
-    '(() => { const dialog = [...document.querySelectorAll("[role=dialog]")].find((entry) => entry.querySelector("[cmdk-input]")); if (!dialog) return false; const top = Math.round(dialog.getBoundingClientRect().top); return top === 64 || top === 80; })()',
+    '(() => { const dialog = [...document.querySelectorAll("[role=dialog]:not([aria-modal=false])")].find((entry) => entry.querySelector("[cmdk-input]")); if (!dialog) return false; const top = Math.round(dialog.getBoundingClientRect().top); return top === 64 || top === 80; })()',
   );
   check(
-    '(() => { const dialog = [...document.querySelectorAll("[role=dialog]")].find((entry) => entry.querySelector("[cmdk-input]")); if (!dialog) return false; if (dialog.getBoundingClientRect().bottom > innerHeight + 1) return false; const style = getComputedStyle(dialog); if (style.top !== "64px" && style.top !== "80px") return false; return style.padding === "0px"; })()',
+    '(() => { const dialog = [...document.querySelectorAll("[role=dialog]:not([aria-modal=false])")].find((entry) => entry.querySelector("[cmdk-input]")); if (!dialog) return false; if (dialog.getBoundingClientRect().bottom > innerHeight + 1) return false; const style = getComputedStyle(dialog); if (style.top !== "64px" && style.top !== "80px") return false; return style.padding === "0px"; })()',
   );
   check(
     '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("New task") && item.textContent.includes("C"))',
@@ -416,7 +416,7 @@ try {
     'document.querySelector(\'form[aria-label="New task"]\') !== null && document.querySelector(\'form[aria-label="New task"] input\').value === "Draft @l"',
   );
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
   check(
     '!document.querySelector("[role=listbox]").hasAttribute("aria-activedescendant") && document.querySelector("[role=option][aria-selected=true]") === null',
@@ -440,7 +440,7 @@ try {
     'document.querySelector(\'form[aria-label="Edit task"]\') !== null && document.querySelector(\'form[aria-label="Edit task"] input\').value === "Draft @l"',
   );
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   check('document.querySelector("[data-filter-summary]")?.textContent === "1 active task"');
   focus("[role=listbox]");
   browser("press", "ArrowRight");
@@ -546,7 +546,7 @@ try {
   );
   waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   // Pressing the focus key again closes the mode, while Escape remains a
   // second close path.
   browser("press", "f");
@@ -631,7 +631,7 @@ try {
     `!document.querySelector("[role=option]") && ${hasToastWithText("Task marked as in progress")}`,
   );
   check(
-    `(() => { const paused = ${toastWithText("Task marked as paused")}; const resumed = ${toastWithText("Task marked as in progress")}; const stacked = [paused, resumed].find((item) => item?.getAttribute("data-front") === "false"); return Boolean(stacked && getComputedStyle(stacked).transitionDuration.split(",").some((duration) => parseFloat(duration) > 0)); })()`,
+    `(() => { const paused = ${toastWithText("Task marked as paused")}; const resumed = ${toastWithText("Task marked as in progress")}; const stacked = [paused, resumed].find((item) => item?.style.getPropertyValue("--toast-index") === "1"); return Boolean(stacked && getComputedStyle(stacked).transitionDuration.split(",").some((duration) => parseFloat(duration) > 0)); })()`,
   );
   browser("press", "f");
   browser("press", "s");
@@ -642,9 +642,8 @@ try {
   browser("press", "Space");
   waitFor('!document.querySelector("[role=option]")');
   waitFor(`${hasToastWithText("Task marked as done")}`);
-  check('document.querySelector("[data-sonner-toaster]")?.classList.contains("group") === true');
   check(
-    'document.querySelector("[data-sonner-toaster]")?.style.getPropertyValue("--normal-bg").trim() === "var(--popover)"',
+    `getComputedStyle(${toastWithText("Task marked as done")}).backgroundColor !== "rgba(0, 0, 0, 0)"`,
   );
   check(
     `getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).animationName === "task-completion-pop"`,
@@ -792,7 +791,7 @@ try {
     '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Active") && item.textContent.includes("Open"))',
   );
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
 
   // Inline edits preserve stale drafts after a conflict until discard.
   focus("[role=listbox]");
@@ -909,7 +908,7 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor(
-    '!document.querySelector("[role=dialog]") && getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)"',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)"',
   );
   waitFor(
     '[...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task")) && getComputedStyle([...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task"))).backgroundColor === "rgb(125, 174, 163)"',
@@ -931,7 +930,7 @@ try {
   waitFor('document.activeElement.matches("[cmdk-input]")');
   browser("press", "Escape");
   waitFor(
-    '!document.querySelector("[role=dialog]") && document.activeElement === window.themeOpenerFocus',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.activeElement === window.themeOpenerFocus',
   );
   browser("reload");
   waitFor(
@@ -944,7 +943,7 @@ try {
     'document.querySelector("[data-slot=command-item][aria-selected=true]")?.textContent.startsWith("Gruvbox")',
   );
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
 
   // A light palette drops the dark class, and a file beside the database joins the picker.
   writeFileSync(
@@ -957,9 +956,12 @@ try {
   } catch {
     // Rare autofocus race on reopen: close fully and open once more.
     console.error("DIAG inputs:", evaluate('document.querySelectorAll("[cmdk-input]").length'));
-    console.error("DIAG dialogs:", evaluate('document.querySelectorAll("[role=dialog]").length'));
+    console.error(
+      "DIAG dialogs:",
+      evaluate('document.querySelectorAll("[role=dialog]:not([aria-modal=false])").length'),
+    );
     browser("press", "Escape");
-    waitFor('!document.querySelector("[role=dialog]")');
+    waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
     browser("press", "Alt+t");
     waitFor('document.activeElement.matches("[cmdk-input]")');
   }
@@ -1093,7 +1095,7 @@ try {
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   browser("set", "viewport", "1981", "1071");
   browser("press", "c");
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
@@ -1158,7 +1160,7 @@ try {
   );
   waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   focus("[role=listbox]");
   browser("press", "f");
   waitFor('document.activeElement.matches("[data-toolbar=filters]")');
@@ -1181,7 +1183,7 @@ try {
   );
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   evaluate(
-    '[...document.querySelectorAll("[role=dialog] button")].find((button) => button.textContent === "Export tasks as JSON").click(); true',
+    '[...document.querySelectorAll("[role=dialog]:not([aria-modal=false]) button")].find((button) => button.textContent === "Export tasks as JSON").click(); true',
   );
   waitFor('document.body.textContent.includes("Exported 3 tasks")');
   const exportedPath = evaluate(
@@ -1220,7 +1222,7 @@ try {
   waitFor('document.querySelector("[data-font-size-control]")?.value === "0"');
   check('document.documentElement.style.fontSize === ""');
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   check('document.activeElement.matches("[role=listbox]")');
 
   // The palette reaches the same dialog without a mouse.
@@ -1234,7 +1236,7 @@ try {
   );
   browser("press", "Escape");
   waitFor(
-    '!document.querySelector("[role=dialog]") && document.activeElement.matches("[role=listbox]")',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.activeElement.matches("[role=listbox]")',
   );
 
   // Tab does not leave the task list; C opens inline capture from the list.
@@ -1383,7 +1385,7 @@ try {
   );
   browser("press", "Delete");
   check(
-    'document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[role=dialog]")].some((dialog) => dialog.textContent.includes("Cancel task?"))',
+    'document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[role=dialog]:not([aria-modal=false])")].some((dialog) => dialog.textContent.includes("Cancel task?"))',
   );
   browser("press", "Escape");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
@@ -1397,7 +1399,7 @@ try {
   );
   browser("press", "Delete");
   waitFor(
-    '!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 3',
   );
   waitFor(`${hasToastWithText("Task marked as canceled")}`);
   check("document.activeElement === window.deleteList");
@@ -1437,7 +1439,7 @@ try {
     'document.querySelector("[role=option] [data-slot=item-title]")?.textContent === "Changed before delete"',
   );
   check(
-    '!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 4',
   );
 
   // A committed cancellation with a lost reply can be retried safely.
@@ -1456,11 +1458,11 @@ try {
   browser("press", "Delete");
   waitFor('document.body.textContent.includes("Could not cancel")');
   check(
-    '!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 4',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 4',
   );
   browser("press", "Delete");
   waitFor(
-    '!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 3',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 3',
   );
   waitFor(`${hasToastWithText("Task marked as canceled")}`);
   check("window.deleteKeys.length === 2 && window.deleteKeys[0] === window.deleteKeys[1]");
@@ -1808,7 +1810,7 @@ try {
     '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("P2"))',
   );
   browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   // The inline editor defaults to P2. Pointer selection works too, but the group
   // remains the one keyboard focus target.
   browser("press", "c");
@@ -1862,7 +1864,7 @@ try {
   );
   browser("press", "Space");
   waitFor(
-    'document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=dialog]") !== null',
+    'document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.querySelector("[role=dialog]:not([aria-modal=false])") !== null',
   );
   // Picker stays open for multi-select; pick product to narrow to AND with Space.
   check('document.activeElement.matches("[cmdk-input]")');
@@ -1882,7 +1884,7 @@ try {
   );
   // Enter closes the picker without changing the current multi-selection.
   browser("press", "Enter");
-  waitFor('!document.querySelector("[role=dialog]")');
+  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
   // Clearing lives in the picker itself: reopen and pick Clear tags.
   focus("[role=listbox]");
   browser("press", "f");
@@ -1896,7 +1898,7 @@ try {
   );
   browser("press", "Escape");
   waitFor(
-    '!document.querySelector("[role=dialog]") && document.querySelectorAll("[role=option]").length === 12',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 12',
   );
   // With no selection, Enter picks the highlighted tag before closing the picker.
   const planningCount = (await command("task.list", { tags: ["planning"] })).total;
@@ -1910,7 +1912,7 @@ try {
   );
   browser("press", "Enter");
   waitFor(
-    '!document.querySelector("[role=dialog]") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")',
+    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")',
   );
   waitFor(
     `${summaryBaseExpression()} === "${planningCount} active task${planningCount === 1 ? "" : "s"}" && ${summaryFilterExpression("tags")} === "#planning"`,
@@ -1929,7 +1931,7 @@ try {
   );
   browser("press", "Enter");
   waitFor(
-    'document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=dialog]") && document.activeElement.matches("[role=listbox]")',
+    'document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "true" && !document.querySelector("[role=dialog]:not([aria-modal=false])") && document.activeElement.matches("[role=listbox]")',
   );
   browser("press", "Escape");
   browser("press", "Escape");
@@ -2171,7 +2173,9 @@ try {
       '"',
   );
   browser("press", "m");
-  waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Remove parent")');
+  waitFor(
+    'document.querySelector("[role=dialog]:not([aria-modal=false])")?.textContent.includes("Remove parent")',
+  );
   check(
     'JSON.stringify([...document.querySelectorAll("[cmdk-group-heading]")].map((heading) => heading.textContent.trim())) === JSON.stringify(["Current parent", "Select new parent"])',
   );
@@ -2219,7 +2223,7 @@ try {
   const undoVersion = (await command("task.get", { id: undoTask.id })).task.version;
   // The toast expires without changing task state again.
   await new Promise((resolve) => setTimeout(resolve, 4000));
-  check('document.querySelectorAll("[data-sonner-toast]").length === 0');
+  check('document.querySelectorAll("[data-slot=toast]").length === 0');
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
   assert.equal((await command("task.get", { id: undoTask.id })).task.version, undoVersion);
   // The same action runs from the Help palette by mouse/keyboard.
@@ -2284,7 +2288,7 @@ try {
   // The entry is consumed: a second Ctrl+Z does nothing.
   browser("press", "Control+z");
   await delay(500);
-  check('document.querySelectorAll("[data-sonner-toast]").length === 0');
+  check('document.querySelectorAll("[data-slot=toast]").length === 0');
   assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
   assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
   // Undo does not fire inside the composer.
@@ -2311,7 +2315,7 @@ try {
   browser("press", "Control+z");
   await delay(500);
   check(
-    'document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[data-sonner-toast]")].some((toast) => toast.textContent.includes("Undo status change"))',
+    'document.querySelector(\'form[aria-label="New task"]\') !== null && ![...document.querySelectorAll("[data-slot=toast]")].some((toast) => toast.textContent.includes("Undo status change"))',
   );
   browser("press", "Escape");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
@@ -2874,7 +2878,9 @@ try {
     return window.originalFetchForParentMove(...args);
   }; true`);
   browser("press", "m");
-  waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Select new parent")');
+  waitFor(
+    'document.querySelector("[role=dialog]:not([aria-modal=false])")?.textContent.includes("Select new parent")',
+  );
   browser("fill", 'input[role="combobox"]', "Manual move target");
   waitFor(
     '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Manual move target"))',
@@ -2899,7 +2905,9 @@ try {
   // Remove parent through the same picker and require another manual refresh.
   evaluate("window.parentMoveLists = []; true");
   browser("press", "m");
-  waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Remove parent")');
+  waitFor(
+    'document.querySelector("[role=dialog]:not([aria-modal=false])")?.textContent.includes("Remove parent")',
+  );
   evaluate(
     '([...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.includes("Remove parent"))?.click(), true)',
   );

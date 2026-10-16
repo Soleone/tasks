@@ -23,7 +23,7 @@ import {
   type StatusPreset,
 } from "@/components/taskFilters";
 import { InlineTaskComposer, OptimisticTaskOption, TaskOption } from "./TaskListRows";
-import { useTaskListKeyboard } from "./useTaskListKeyboard";
+import { isDialogOpen, useTaskListKeyboard } from "./useTaskListKeyboard";
 import { useTaskListSelection, type ActiveTaskRequest } from "./useTaskListSelection";
 import {
   forwardStatusTransition,
@@ -405,7 +405,7 @@ export function TaskList({
   }
 
   function focusListBeforeToolbarDialog(): void {
-    if (!document.querySelector('[role="dialog"]') && !composerOpenRef.current) returnToList();
+    if (!isDialogOpen() && !composerOpenRef.current) returnToList();
   }
 
   function openStatusMenu(): void {

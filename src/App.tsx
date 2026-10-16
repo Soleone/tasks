@@ -29,7 +29,7 @@ import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Toaster } from "@/components/ui/sonner";
+import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
@@ -257,7 +257,6 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     pickerSelected,
     pauseTaskFromPalette,
     recordOperationUndo,
-    showToast,
     handleUndoStatus,
     showOptimisticCreate,
     taskSaved,
@@ -875,7 +874,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           onCreateFailed={() => setOptimisticCreate(null)}
           onRefresh={refreshTasks}
           onAnnounce={setAnnouncement}
-          onToast={(message) => showToast(message)}
+          onToast={(message) => showTaskToast(message)}
           onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
           onTasksUpdated={updateVisibleTasks}
@@ -894,7 +893,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         <p role="status" className="sr-only">
           {announcement}
         </p>
-        <Toaster />
+        <TaskToaster />
       </div>
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <DisableKeyboardHelpDialog

@@ -77,6 +77,11 @@ type HomeShortcutSurface = {
   section: RefObject<HTMLElement | null>;
 };
 
+/** Whether a dialog holds the keyboard. Toasts are non-modal dialogs and leave it to the list. */
+export function isDialogOpen(): boolean {
+  return document.querySelector('[role="dialog"]:not([aria-modal="false"])') !== null;
+}
+
 export function useTaskListKeyboard(
   actions: HomeShortcutActions,
   surface: HomeShortcutSurface,
@@ -94,7 +99,7 @@ export function useTaskListKeyboard(
         event.preventDefault();
       return;
     }
-    if (document.querySelector('[role="dialog"]') || composerOpenRef.current) return;
+    if (isDialogOpen() || composerOpenRef.current) return;
     if (isHomeTypingTarget(event.target)) return;
     if (event.key === "Escape") {
       event.preventDefault();
