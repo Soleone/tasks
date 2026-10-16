@@ -15,8 +15,6 @@
     "build:backend:bundle": "esbuild src/backend/cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/cli.cjs && esbuild src/backend/tasks-cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/tasks-cli.cjs",
     "build:sidecar": "pnpm build:backend:bundle && node scripts/build-sidecar.mjs",
     "build:tauri": "pnpm build:sidecar && tauri build",
-    "build:android": "node scripts/build-android-release.mjs",
-    "build:android:debug": "tauri android build --debug --apk -t aarch64",
     "dev:native": "node scripts/ensure-sidecar.mjs && tauri dev",
     "ensure:sidecar": "node scripts/ensure-sidecar.mjs",
     "tauri": "tauri",

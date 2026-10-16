@@ -1,69 +1,35 @@
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "linux", debug_assertions))]
 use tauri::Manager;
 
-// The SQLite bridge is platform-neutral; run its storage tests on the host too.
-#[cfg(any(target_os = "android", test))]
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
-mod android_backend;
-#[cfg(target_os = "android")]
-mod android_workspace;
-
 /// Whether a path exists, so setup can tell a new task folder from an existing one.
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 fn path_exists(path: String) -> bool {
     std::path::Path::new(&path).exists()
 }
 
 /// Creates a task folder (and its parents) for a new or imported workspace.
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 #[tauri::command]
 fn create_folder(path: String) -> Result<(), String> {
     std::fs::create_dir_all(&path).map_err(|error| error.to_string())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
-
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    let builder = builder
+    tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![path_exists, create_folder]);
-
-    #[cfg(target_os = "android")]
-    let builder = builder
-        .plugin(android_workspace::init())
-        .manage(android_backend::AndroidStorageState::default())
-        .invoke_handler(tauri::generate_handler![
-            android_backend::android_storage,
-            android_workspace::pick_sync_folder,
-            android_workspace::get_sync_folder,
-            android_workspace::clear_sync_folder,
-            android_workspace::export_task_document,
-            android_workspace::read_sync_files,
-            android_workspace::write_sync_files,
-        ]);
-
-    builder
+        .invoke_handler(tauri::generate_handler![path_exists, create_folder])
         .setup(|app| {
-            #[cfg(target_os = "android")]
-            let _ = app;
-
             #[cfg(target_os = "linux")]
             app.get_webview_window("main")
                 .expect("main window should exist")
                 .set_decorations(false)?;
 
-            #[cfg(all(
-                debug_assertions,
-                any(target_os = "windows", target_os = "macos", target_os = "linux")
-            ))]
+            #[cfg(debug_assertions)]
             app.get_webview_window("main")
                 .expect("main window should exist")
                 .open_devtools();
 
+            let _ = app;
             Ok(())
         })
         .run(tauri::generate_context!())

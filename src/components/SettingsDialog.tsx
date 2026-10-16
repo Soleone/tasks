@@ -13,6 +13,7 @@ import {
   type AndroidDirectorySelection,
 } from "@/legacy/platform/androidWorkspace";
 import { runtimeKind } from "@/platform/runtime";
+import { rememberFolder } from "@/platform/desktopWorkspace";
 import { APP_NAME } from "@/backend/branding";
 import type { ThemeRecord } from "@/backend/themePalette";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -621,15 +622,34 @@ export function SettingsDialog({
               >
                 <div className="flex flex-col gap-1">
                   <h2 id="settings-sync" className="text-sm font-medium">
-                    Workspace sync
+                    {selectedWorkspace ? "Task folder" : "Workspace sync"}
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     {selectedWorkspace
-                      ? "Receiving a workspace from another device is not yet available here."
+                      ? "Each task is a file in this folder."
                       : "Move an existing workspace to this device through Syncthing."}
                   </p>
                 </div>
-                {selectedWorkspace ? null : isAndroid ? (
+                {selectedWorkspace ? (
+                  <>
+                    <code className="wrap-anywhere text-xs">
+                      {selectedWorkspace.editor.selection.rootPath}
+                    </code>
+                    {runtimeKind() === "desktop" && (
+                      <Button
+                        variant="outline"
+                        className="w-fit"
+                        onClick={() => {
+                          // Setup asks for a folder again on the next start.
+                          rememberFolder(null);
+                          window.location.reload();
+                        }}
+                      >
+                        Change folder…
+                      </Button>
+                    )}
+                  </>
+                ) : isAndroid ? (
                   <>
                     <p className="text-sm text-muted-foreground">
                       Choose the user-visible folder that Syncthing will share. Tasks imports
