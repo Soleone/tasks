@@ -56,8 +56,8 @@ export function SearchDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            const data = new FormData(event.currentTarget);
-            apply(String(data.get("search") ?? ""));
+            const search = new FormData(event.currentTarget).get("search");
+            apply(typeof search === "string" ? search : "");
           }}
           className="flex flex-col gap-4"
         >

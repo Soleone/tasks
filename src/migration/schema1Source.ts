@@ -158,7 +158,7 @@ const taskFields = [
 ];
 const orderFields = ["format", "formatVersion", "workspaceId", "parentId", "taskIds", "sync"];
 
-function requireId(value: unknown, relativePath: string, field: string): void {
+function requireId(value: unknown, relativePath: string, field: string): asserts value is string {
   if (typeof value !== "string" || !safeId.test(value))
     invalidSchema1Source(relativePath, field, "unsafe or missing ID");
 }

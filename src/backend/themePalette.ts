@@ -92,7 +92,12 @@ function parseHexColor(value: string): Rgb | null {
   if (!HEX_COLOR.test(value)) return null;
   const digits = value.slice(1);
   const expanded =
-    digits.length === 3 ? [...digits].map((digit) => digit + digit).join("") : digits;
+    digits.length === 3
+      ? digits
+          .split("")
+          .map((digit) => digit + digit)
+          .join("")
+      : digits;
   return {
     r: Number.parseInt(expanded.slice(0, 2), 16),
     g: Number.parseInt(expanded.slice(2, 4), 16),
@@ -118,7 +123,10 @@ function toHex({ r, g, b }: Rgb): string {
 export function normalizeHex(value: string): string {
   const digits = value.slice(1);
   if (digits.length !== 3) return value.toLowerCase();
-  return `#${[...digits].map((digit) => digit + digit).join("")}`.toLowerCase();
+  return `#${digits
+    .split("")
+    .map((digit) => digit + digit)
+    .join("")}`.toLowerCase();
 }
 
 function toLinear(value: number): number {
