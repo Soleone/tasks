@@ -61,7 +61,6 @@ For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`,
 | `pnpm test:sidecar` | Bundled Node SEA probe on the actual host |
 | `pnpm test:ui` | Default legacy UI Chromium regression on disposable data |
 | `node --test scripts/mainClientRouting.test.mjs scripts/appearancePreferences.test.mjs` | Client routing and stored appearance checks |
-| `pnpm test:native:argv` | Actual-Windows launch preparation/refusals, not a window launch |
 
 `pnpm build` builds the backend before Vite clears `dist/`; rebuild the backend before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.
 
@@ -76,19 +75,14 @@ Vite pre-optimizes the checkbox dependency to avoid a late dependency reload dro
 - Add every new keyboard action to `src/components/HelpPalette.tsx` and to the [client spec](../spec/client/README.md), with a rule slug a test can cite. Client tests live in `src/spec/`, one file per client spec page, using `src/testing/appWorkspace.tsx`.
 - Refreshes come from the shared workspace revision and must keep focus and unsaved editor text.
 
-## Windows native development
+## Desktop development
 
-Use a local Windows NTFS checkout, not WSL-mounted task/cache files. Install Node, Rust's MSVC toolchain, Visual Studio C++ Build Tools/Windows SDK and WebView2 through the normal Tauri prerequisites. Do not install or repair owner-host dependencies without permission.
+Build on the machine the app runs on, from a local checkout (on Windows an NTFS checkout, not WSL-mounted files). Install Node, pnpm, Rust (MSVC toolchain on Windows), and the Tauri prerequisites (on Windows the C++ Build Tools and WebView2). Do not install or repair owner-host dependencies without permission.
 
-[The disposable native launch guide](evidence/windows-native-pilot.md#quickstart-windows-powershell) uses:
+- `pnpm dev:native` builds the sidecar if needed and runs `tauri dev` with hot reload.
+- `pnpm build:tauri` builds the sidecar and the release app. The app is `src-tauri/target/release/tasks(.exe)`; installers land in `src-tauri/target/release/bundle/`.
 
-```powershell
-pnpm dev:native --root ROOT --database CACHE --local-profile PROFILE
-```
-
-All three paths must be explicit, disposable, physically disjoint as required and within the launcher's supported short-path boundary. Project `shellEmulator: true` preserves Windows arguments; do not add `--`, normalize corrupted paths or use a fallback launch route. Confirm the displayed paths before any sidecar starts. The selected route uses one inline capability and one SEA session. Windows writers remain restricted to their proved profile.
-
-`pnpm dev:tauri` still starts the legacy native route. `pnpm build:sidecar` builds target sidecar/CLI binaries; `pnpm build:tauri` creates native release bundles. Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons. Global focus, durable native preferences and the current Windows launch blocker remain governed by PLAN and support, not older proof instructions.
+The app opens the remembered task folder and keeps one cache per folder in its app data folder (`%APPDATA%\com.soleone.tasks` on Windows, `~/.local/share/com.soleone.tasks` on Linux). The first launch asks for a folder and offers to import the old version's tasks from `sync` in that same app data folder; import only reads them. Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
 
 On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browser or WSLg session does not establish Omarchy desktop/global-shortcut support. Separately approve native work before pursuing it.
 

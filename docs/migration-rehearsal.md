@@ -4,7 +4,7 @@
 
 Reuse the existing converter and guarded copy publication unchanged. The rehearsal passes on **WSL2 Linux Node v22.22.3**, with canonical roots on the Linux filesystem, a separate protocol-2 control cache and disposable `XDG_DATA_HOME`. This is process-interruption evidence, not native migration, hardware power-loss or sharing/provider acceptance.
 
-**Windows migration remains unavailable**, including in the private `windows-task-proof` profile. Its archive/restore proof does not authorize conversion. Android migration is also withheld. A future Windows-only conversion requirement needs a bounded prerequisite, not removal of the platform gate. Moving personal snapshots onto this Linux host also requires explicit permission; none was accessed here.
+Since 2026-10-16 the desktop app runs the same conversion as its first-launch import, on every desktop OS; a disposable import was smoke-tested on Windows Node. Moving personal snapshots onto this Linux host requires explicit permission; none was accessed here.
 
 `y9b` closes disposable rehearsal only. Owner sessions and the essential-workflow checklist (`hzv`), permission to read/convert/select personal tasks, and sole-default cutover (`dvs`) remain open.
 

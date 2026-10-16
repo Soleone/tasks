@@ -24,7 +24,7 @@ Use the `clean-code` skill when writing, refactoring or reviewing code. Keep cha
 
 Name by responsibility. Never add version-named files, identifiers, flags or env vars; `scripts/check-naming.mjs` enforces this. Stored format numbers and persisted names (cache tables, the local `taskdb-v2` folder) keep their names.
 
-Crash and Windows-proof tests inject faults by matching source or bundle text (`registerHooks` loaders, `scripts/check-windows-*.mjs`). When a refactor or formatting change moves such a line, update the needle in the same change and keep it whitespace-tolerant.
+Crash tests inject faults by matching source or bundle text (`registerHooks` loaders). When a refactor or formatting change moves such a line, update the needle in the same change and keep it whitespace-tolerant.
 
 ## UI
 

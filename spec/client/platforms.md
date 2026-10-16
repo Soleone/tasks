@@ -6,23 +6,14 @@ This is the only place platform differences are listed. Everything else in the c
 
 | Rule | Desktop | Web |
 | --- | --- | --- |
-| `platform.open-workspace` | The workspace folder, cache and profile are confirmed in the window before anything loads | Same, with paths on the machine running the dev server |
+| `platform.open-workspace` | Opens the remembered task folder. The first launch asks for one: a new folder starts empty, an existing task folder opens, and the old version's tasks can be imported into a new folder. Each folder's cache lives in the app data folder | The dev server's folder, cache and profile are confirmed in the window before anything loads |
 | `platform.global-focus` | A configurable global shortcut brings the window forward. On Omarchy/Hyprland, Settings shows the binding to copy | Not available |
 | `platform.prefs-scope` | Preferences belong to the app profile | Preferences belong to the browser origin (scheme, host, port) and browser profile |
 
-## Not yet on Windows
+## Not yet built
 
-Until these close, Windows is not at parity and the old runtime stays.
-
-| Missing on Windows | Today instead |
+| Missing | Today instead |
 | --- | --- |
-| Child capture, move picker, blocker picker | Existing links show but can't change |
-| Reorder | Refused |
-| Status batches | Refused |
-| Undo beyond the latest single status change | `Ctrl/⌘+Z` restores only the latest status change |
-| Backup and restore from Settings | Available through the CLI only |
-| Global focus shortcut | Not registered |
-| Remembered preferences | Reset each launch while the launcher uses fresh WebView storage |
-| Friendly CLI writes | Raw JSON-lines only |
+| Global focus shortcut on the current engine | Not registered (deferred, owner 2026-10-16) |
 
 Android is dropped until it is ported to the current engine.

@@ -45,15 +45,16 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
 
 See [spec/ecosystem/cli.md](spec/ecosystem/cli.md) and [spec/backend/commands.md](spec/backend/commands.md).
 
-## Windows
+## Desktop
 
-The Windows desktop runs the same UI on a smaller, proven set of commands:
+The desktop app runs the same UI on the current engine. It opens the remembered task folder; the first launch asks for one and can import the old version's tasks. Build it on the machine it should run on:
 
 ```powershell
-pnpm dev:native --root ROOT --database CACHE --local-profile PROFILE
+pnpm install
+pnpm build:tauri
 ```
 
-Setup is in [docs/development.md](docs/development.md#windows-native-development); what Windows doesn't have yet is in [spec/client/platforms.md](spec/client/platforms.md). Android is dropped until it is ported to the new engine.
+`pnpm dev:native` runs it in development. Setup is in [docs/development.md](docs/development.md#desktop-development). Android is dropped until it is ported to the new engine.
 
 ## Data safety
 
