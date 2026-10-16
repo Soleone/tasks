@@ -2,6 +2,8 @@ import { randomUUID } from "../lib/randomUUID";
 import { isRecord, type TaskReorderPlacement, type Request, type Response } from "../backend/protocol";
 import type { TaskProjection } from "../backend/queries";
 import { STATUS_COMMANDS } from "../backend/taskStatus";
+import { EDITOR_COMMANDS, LINUX_EDITOR_COMMANDS } from "../backend/editorCommands";
+import { RELATIONSHIP_COMMANDS } from "../backend/taskRelationships";
 import { parseTaskEditResult, parseTaskProjection, type TaskExecutionResult, type TaskPreviewResult } from "../backend/taskResults";
 import { parseWorkspaceInfo, postDevRequest, validateSelection, type DevConnection } from "./workspaceReader";
 import { runtimeKind } from "./runtime";
@@ -9,14 +11,9 @@ import { JsonLineSession } from "./backendSession";
 import { validateNativeSelection, NATIVE_COMMANDS } from "./nativeSelection";
 
 const statusActions = [...STATUS_COMMANDS, "task.status.undo"] as const;
-const relationshipActions = ["task.move", "task.dependency.add", "task.dependency.remove"] as const;
-/** The proven Windows native editor list; native relationship writers remain withheld. */
-export const EDITOR_COMMANDS = ["task.create", "task.update", ...statusActions] as const;
-/** Linux-only workflow commands through the selected gateway; the Windows list above stays bounded. */
-export const LINUX_EDITOR_COMMANDS = [...EDITOR_COMMANDS, ...relationshipActions, "task.reorder", "operation.undo", "task.transitionMany", "workspace.archive", "workspace.restore"] as const;
 export type EditorMode = "content" | "status" | "relationship" | "order" | "operation" | "batch" | "copy";
 export type StatusAction = typeof statusActions[number];
-export type RelationshipAction = typeof relationshipActions[number];
+export type RelationshipAction = typeof RELATIONSHIP_COMMANDS[number];
 
 export type EditorSelection = DevConnection & { readOnly: false; profilePath: string; writeCommands: readonly string[] };
 export type EditBaseline = { writeContext: string; task: TaskProjection | null };
@@ -185,7 +182,7 @@ export class EditorClient {
     const info = await this.query("workspace.info", {});
     const workspace = parseWorkspaceInfo(info.result);
     if (this.connection instanceof JsonLineSession && JSON.stringify(workspace.commands) !== JSON.stringify(NATIVE_COMMANDS)) throw new EditorError("UNSUPPORTED_COMMAND", "The selected native backend does not advertise the proven Windows command set; no mutation was sent.");
-    const commands = mode === "status" ? statusActions : mode === "relationship" ? relationshipActions : mode === "order" ? ["task.reorder"]
+    const commands = mode === "status" ? statusActions : mode === "relationship" ? RELATIONSHIP_COMMANDS : mode === "order" ? ["task.reorder"]
       : mode === "operation" ? ["operation.undo"] : mode === "batch" ? ["task.transitionMany"] : mode === "copy" ? ["workspace.archive", "workspace.restore"] : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready") throw new EditorError(workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA", "A complete ready schema-2 collection is required; no initialization or recovery was performed.");
     if (commands.some(command => !workspace.commands.includes(command))) throw new EditorError("UNSUPPORTED_COMMAND", "This platform does not advertise the selected task operation.");
@@ -229,7 +226,7 @@ export class EditorClient {
 
   /** `target` is the new parent (null for top level) for moves, or the dependency for add/remove. */
   prepareRelationship(baseline: EditBaseline, command: RelationshipAction, target: string | null, key: string): PreparedEdit {
-    if (!baseline.task || !relationshipActions.some(allowed => allowed === command) || (target === null && command !== "task.move")) {
+    if (!baseline.task || !RELATIONSHIP_COMMANDS.some(allowed => allowed === command) || (target === null && command !== "task.move")) {
       throw new Error("An existing task and supported relationship command are required.");
     }
     const relation = command === "task.move" ? { parentId: target } : { dependsOnId: target };

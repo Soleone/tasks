@@ -2,7 +2,6 @@ import { randomUUID } from "../lib/randomUUID";
 import {
   PROTOCOL_VERSION,
   parseTaskCommandResult,
-  type ActivityRecord,
   type ProtocolRequest,
   type TaskRecord,
 } from "../legacy/backend/protocol";
@@ -53,7 +52,6 @@ export type TaskListFilters = {
 
 export type CategoryListResult = { categories: ClassificationOption[] };
 export type TagListResult = { tags: ClassificationOption[] };
-export type ActivityListResult = { activity: ActivityRecord[]; limit: number };
 export type WorkspaceInfoResult = { databasePath: string; workspaceId?: string; sourceRegistryPath?: string; primarySourceKey?: string; sourceCount?: number; taskCount: number; canceledTaskCount: number; workspaceRevision: number };
 export type TasksExportResult = { databasePath: string; destinationPath: string | null; displayName?: string; taskCount: number; exportedAt: string };
 export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
@@ -87,7 +85,6 @@ export type TaskTransitionManyResult = {
   dryRun?: boolean;
   readOnly?: boolean;
 };
-export type TaskStatusUndoManyResult = TaskTransitionManyResult;
 export type OperationUndoResult = {
   operationId?: string;
   undoneOperationId: string;
@@ -116,6 +113,7 @@ function legacyTaskView(task: TaskRecord): TaskView {
   };
 }
 
+/** @public Tested from scripts/ through an esbuild bundle, which knip can't trace. */
 export async function runBackendCommand<T extends Record<string, unknown>>(
   command: ProtocolRequest["command"],
   args: Record<string, unknown> = {},
@@ -255,13 +253,6 @@ export async function undoStatusChange(
   return runBackendCommand<TaskMutationResult & { undoneSeq?: number }>("task.status.undo", { id, expectedVersion }, options);
 }
 
-export async function undoStatusChanges(
-  tasks: { id: string; expectedVersion: number }[],
-  options: CommandOptions,
-): Promise<TaskStatusUndoManyResult> {
-  return runBackendCommand<TaskStatusUndoManyResult>("task.status.undoMany", { tasks }, options);
-}
-
 export async function undoOperation(operationId: string, options: CommandOptions): Promise<OperationUndoResult> {
   if (mainWorkspace) {
     if (!mainWorkspace.supportsOperationUndo) throw new BackendCommandError("UNSUPPORTED_COMMAND", "Undo is limited to status changes in this selected workspace.");
@@ -299,10 +290,6 @@ export async function removeDependency(id: string, dependsOnId: string, expected
   const workspace = relationshipWorkspace();
   if (workspace) return workspace.relationship("task.dependency.remove", id, expectedVersion, dependsOnId, mainWriteKey(options));
   return runBackendCommand<TaskMutationResult>("task.dependency.remove", { id, dependsOnId, expectedVersion }, options);
-}
-
-export async function listActivity(taskId?: string): Promise<ActivityListResult> {
-  return runBackendCommand<ActivityListResult>("activity.list", taskId ? { taskId } : {});
 }
 
 export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {

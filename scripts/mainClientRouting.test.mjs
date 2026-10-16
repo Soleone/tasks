@@ -10,14 +10,12 @@ const client = await import(`data:text/javascript;base64,${Buffer.from(compiled.
 
 const withheldActions = [
   ["transitionTasks", [[{ id: "id", expectedVersion: 1, command: "task.start" }], {}]],
-  ["undoStatusChanges", [[{ id: "id", expectedVersion: 1 }], {}]],
   ["undoOperation", ["operation", {}]],
   ["moveTask", ["id", null, 1, {}]],
   ["reorderTasks", [[{ id: "id", expectedVersion: 1 }], { first: true }, {}]],
   ["addDependency", ["id", "blocker", 1, {}]],
   ["removeDependency", ["id", "blocker", 1, {}]],
   ["purgeCanceledTasks", [{}]],
-  ["listActivity", []],
   ["exportTasks", []],
   ["prepareReceiveWorkspace", []],
   ["abortReceiveWorkspace", []],

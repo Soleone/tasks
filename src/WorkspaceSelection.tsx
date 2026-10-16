@@ -13,7 +13,8 @@ import { JsonLineSession } from "./platform/backendSession";
 import { parseNativeSelection, nativeSidecarArgs } from "./platform/nativeSelection";
 import { runtimeKind } from "./platform/runtime";
 import { devBackendUrl, WorkspaceReader } from "./platform/workspaceReader";
-import { readEditorSelection, EditorClient, EDITOR_COMMANDS, type EditorSelection } from "./platform/editorClient";
+import { EDITOR_COMMANDS } from "./backend/editorCommands";
+import { readEditorSelection, EditorClient, type EditorSelection } from "./platform/editorClient";
 
 function nativeSession(selection: EditorSelection): JsonLineSession<Response> {
   const selected = parseNativeSelection({ rootPath: selection.rootPath, databasePath: selection.databasePath, profilePath: selection.profilePath });

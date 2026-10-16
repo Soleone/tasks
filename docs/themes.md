@@ -18,5 +18,3 @@ foreground = "#c0caf5"
 ```
 
 Palette text roles are adjusted toward readability while retaining the author's accent when it cannot meet the normal text contrast floor. This is not universal custom-theme accessibility acceptance.
-
-`themes.html` is a preview-only palette viewer served by Vite. Its existing legacy backend can read workspace theme files, but that is not a supported custom-theme workflow for the selected replacement client. Do not point an unflagged backend at personal data merely to preview a palette. Older workspace-theme installation instructions remain in Git history, not the current migration guide.

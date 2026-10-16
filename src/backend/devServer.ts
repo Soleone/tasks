@@ -5,10 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCommand } from "../legacy/backend/commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
-import { STATUS_COMMANDS } from "./taskStatus.js";
 import { errorResponse, parseRequest as parseLegacyRequest, successResponse } from "../legacy/backend/protocol.js";
 import { executeLine } from "./gateway.js";
-import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
+import { LINUX_EDITOR_COMMANDS } from "./editorCommands.js";
 import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 
 /**
@@ -30,9 +29,6 @@ export type DevServerOptions = {
   legacy?: boolean;
 };
 
-// Same ordered list as the Linux main-client editor: the native list plus parent/dependency edits,
-// manual reorder, operation undo and status batches. Eligibility stays with the gateway.
-const EDITOR_COMMANDS = ["task.create", "task.update", ...STATUS_COMMANDS, "task.status.undo", ...RELATIONSHIP_COMMANDS, "task.reorder", "operation.undo", "task.transitionMany", "workspace.archive", "workspace.restore"];
 type DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: false; profilePath: string; writeCommands: string[] };
 
 export type DevServer = {
@@ -85,7 +81,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
     : path.resolve(options.databasePath!);
   const selection: DevSelection | undefined = options.legacy ? undefined : {
     version: 2, rootPath: path.resolve(options.root!), databasePath, selectionToken: randomUUID(), readOnly: false,
-    profilePath: path.resolve(getDataDirectory()), writeCommands: EDITOR_COMMANDS,
+    profilePath: path.resolve(getDataDirectory()), writeCommands: [...LINUX_EDITOR_COMMANDS],
   };
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
@@ -194,7 +190,7 @@ function executeDevCommand(body: Buffer, selection: DevSelection, token: string 
     if (token !== selection.selectionToken || selection.profilePath !== path.resolve(getDataDirectory())) {
       return { version: 2, requestId, ok: false, error: { code: "STALE_DEV_SELECTION", message: "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection" } };
     }
-    if (!(QUERY_COMMANDS as readonly string[]).includes(request.command) && !EDITOR_COMMANDS.includes(request.command)) {
+    if (!(QUERY_COMMANDS as readonly string[]).includes(request.command) && !(LINUX_EDITOR_COMMANDS as readonly string[]).includes(request.command)) {
       return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches and backup/restore; order normalization, batch status undo and other controls remain unavailable" } };
     }
     return executeLine(body, selection.rootPath, selection.databasePath);
