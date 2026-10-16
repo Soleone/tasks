@@ -7,7 +7,7 @@ import {
 } from "../backend/protocol";
 import type { TaskProjection } from "../backend/queries";
 import { STATUS_COMMANDS } from "../backend/taskStatus";
-import { EDITOR_COMMANDS, LINUX_EDITOR_COMMANDS } from "../backend/editorCommands";
+import { EDITOR_COMMANDS } from "../backend/editorCommands";
 import { RELATIONSHIP_COMMANDS } from "../backend/taskRelationships";
 import {
   parseTaskEditResult,
@@ -23,7 +23,6 @@ import {
 } from "./workspaceReader";
 import { runtimeKind } from "./runtime";
 import { JsonLineSession } from "./backendSession";
-import { validateNativeSelection, NATIVE_COMMANDS } from "./nativeSelection";
 
 const statusActions = [...STATUS_COMMANDS, "task.status.undo"] as const;
 export type EditorMode =
@@ -70,8 +69,8 @@ export class EditorError extends Error {
 /** A validated, correlated backend refusal, not a local or transport failure. */
 export class AnsweredRefusal extends EditorError {}
 
-function validateEditorSelection(value: unknown, native = false): asserts value is EditorSelection {
-  const commands: readonly string[] = native ? EDITOR_COMMANDS : LINUX_EDITOR_COMMANDS;
+function validateEditorSelection(value: unknown): asserts value is EditorSelection {
+  const commands: readonly string[] = EDITOR_COMMANDS;
   if (
     !isRecord(value) ||
     value.version !== 2 ||
@@ -91,7 +90,6 @@ function validateEditorSelection(value: unknown, native = false): asserts value 
   }
   validateSelection(value as EditorSelection);
   validateSelection({ rootPath: value.profilePath, databasePath: value.databasePath });
-  if (native) validateNativeSelection(value as EditorSelection);
 }
 
 export async function readEditorSelection(url: string): Promise<EditorSelection> {
@@ -228,7 +226,7 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
     selection: EditorSelection,
     request: Request & { requestId: string },
   ) {
-    validateEditorSelection(selection, connection instanceof JsonLineSession);
+    validateEditorSelection(selection);
     if (
       !selection.writeCommands.includes(request.command) ||
       !request.writeContext ||
@@ -344,7 +342,7 @@ export class EditorClient {
       throw new Error("App editing is browser-only; no native sidecar was launched.");
     if (runtimeKind() === "android")
       throw new Error("The native task editor is unavailable on Android.");
-    validateEditorSelection(selection, connection instanceof JsonLineSession);
+    validateEditorSelection(selection);
     this.selection = Object.freeze({
       ...selection,
       writeCommands: Object.freeze([...selection.writeCommands]),
@@ -371,14 +369,6 @@ export class EditorClient {
       );
     const info = await this.query("workspace.info", {});
     const workspace = parseWorkspaceInfo(info.result);
-    if (
-      this.connection instanceof JsonLineSession &&
-      JSON.stringify(workspace.commands) !== JSON.stringify(NATIVE_COMMANDS)
-    )
-      throw new EditorError(
-        "UNSUPPORTED_COMMAND",
-        "The selected native backend does not advertise the proven Windows command set; no mutation was sent.",
-      );
     const commands =
       mode === "status"
         ? statusActions

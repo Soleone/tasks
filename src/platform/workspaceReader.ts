@@ -11,7 +11,6 @@ import { parseTaskProjection } from "../backend/taskResults";
 import type { TaskProjection } from "../backend/queries";
 import { JsonLineSession } from "./backendSession";
 import { runtimeKind } from "./runtime";
-import { NATIVE_COMMANDS } from "./nativeSelection";
 
 export type Selection = { rootPath: string; databasePath: string };
 export type DevConnection = Selection & { version: 2; selectionToken: string; readOnly: boolean };
@@ -137,7 +136,6 @@ export class WorkspaceReader {
   readonly selection: Readonly<Selection>;
   private readonly dev: { url: string; selection: DevConnection } | undefined;
   private readonly session: JsonLineSession<Response> | null;
-  private readonly windowsProof: boolean;
 
   constructor(
     selection: Selection,
@@ -147,7 +145,6 @@ export class WorkspaceReader {
     validateSelection(selection);
     if (dev && native)
       throw new Error("Select one backend connection; native sessions cannot fall back to HTTP.");
-    this.windowsProof = native instanceof JsonLineSession;
     if (
       dev &&
       (selection.rootPath !== dev.selection.rootPath ||
@@ -197,16 +194,7 @@ export class WorkspaceReader {
   }
 
   async workspaceInfo(): Promise<WorkspaceInfo> {
-    const workspace = parseWorkspaceInfo(await this.query("workspace.info"));
-    if (
-      this.windowsProof &&
-      JSON.stringify(workspace.commands) !== JSON.stringify(NATIVE_COMMANDS)
-    ) {
-      throw new Error(
-        "The selected native backend does not advertise the proven Windows command set; no fallback or task query was performed.",
-      );
-    }
-    return workspace;
+    return parseWorkspaceInfo(await this.query("workspace.info"));
   }
 
   async tasks(args: Record<string, unknown> = {}): Promise<TaskPage> {

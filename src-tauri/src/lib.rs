@@ -8,6 +8,20 @@ mod android_backend;
 #[cfg(target_os = "android")]
 mod android_workspace;
 
+/// Whether a path exists, so setup can tell a new task folder from an existing one.
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+#[tauri::command]
+fn path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
+/// Creates a task folder (and its parents) for a new or imported workspace.
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+#[tauri::command]
+fn create_folder(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path).map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -15,7 +29,8 @@ pub fn run() {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     let builder = builder
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![path_exists, create_folder]);
 
     #[cfg(target_os = "android")]
     let builder = builder

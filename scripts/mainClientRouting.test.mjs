@@ -23,9 +23,7 @@ const compiled = await build({
   platform: "node",
   format: "esm",
   write: false,
-  define: {
-    "import.meta.env": JSON.stringify({ VITE_TASKS_NATIVE_SELECTION: "explicit-native-selection" }),
-  },
+  define: { "import.meta.env": JSON.stringify({}) },
 });
 const client = await import(
   `data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`

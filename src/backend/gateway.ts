@@ -43,38 +43,18 @@ const writeCommands = [
   "workspace.doctor.apply",
 ];
 
-export function executeLine(
-  bytes: Uint8Array,
-  rootPath: string,
-  cachePath: string,
-  writerProfile?: "windows-task-proof",
-): Response {
+export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: string): Response {
   let requestId: string | null = null;
   try {
     const envelope = decodeEnvelope(bytes);
     if (isRecord(envelope) && typeof envelope.requestId === "string")
       requestId = envelope.requestId;
     const request = parseRequest(envelope);
-    const writable = process.platform === "linux";
-    const windowsTaskProof = process.platform === "win32" && writerProfile === "windows-task-proof";
-    const allowedWrites = windowsTaskProof
-      ? [
-          "task.create",
-          "task.update",
-          ...STATUS_COMMANDS,
-          "task.status.undo",
-          "workspace.archive",
-          "workspace.restore",
-          "workspace.recovery.resume",
-        ]
-      : writable
-        ? writeCommands
-        : [];
-    if (writable && request.command === "workspace.doctor.inspect") {
+    if (request.command === "workspace.doctor.inspect") {
       const outcome = executeDoctorInspect(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
-    if (allowedWrites.includes(request.command)) {
+    if (writeCommands.includes(request.command)) {
       const outcome =
         request.command === "task.create"
           ? executeCreate(request, rootPath, cachePath)
@@ -85,37 +65,29 @@ export function executeLine(
               : request.command === "workspace.doctor.apply"
                 ? executeDoctorApply(request, rootPath, cachePath)
                 : UNDO_COMMANDS.includes(request.command)
-                  ? executeUndo(request, rootPath, cachePath, windowsTaskProof)
+                  ? executeUndo(request, rootPath, cachePath)
                   : ORDER_COMMANDS.includes(request.command)
                     ? executeOrder(request, rootPath, cachePath)
                     : isTaskEditRequest(request)
                       ? executeUpdate(request, rootPath, cachePath)
                       : request.command === "workspace.recovery.resume"
-                        ? resumeOperation(request, rootPath, cachePath, windowsTaskProof)
+                        ? resumeOperation(request, rootPath, cachePath)
                         : request.command === "workspace.migrate"
                           ? executeMigration(request, rootPath, cachePath)
                           : ["workspace.init", "workspace.rebuild"].includes(request.command)
                             ? executeLifecycle(request, rootPath, cachePath)
-                            : executeCopy(request, rootPath, cachePath, windowsTaskProof);
+                            : executeCopy(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
-    if (writeCommands.includes(request.command))
-      throw new CommandError(
-        "UNSUPPORTED_COMMAND",
-        "write is unavailable in this platform/profile",
-      );
     const inspection = inspectCanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
       throw new CommandError("UNSUPPORTED_SCHEMA", "task commands require canonical schema 2");
     }
     const commands = [
       ...QUERY_COMMANDS,
-      ...allowedWrites,
-      ...(writable
-        ? ["activity.list", "workspace.doctor.inspect"]
-        : windowsTaskProof
-          ? ["activity.list"]
-          : []),
+      ...writeCommands,
+      "activity.list",
+      "workspace.doctor.inspect",
     ].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this build");

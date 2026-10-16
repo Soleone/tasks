@@ -77,9 +77,9 @@ class HttpBackendTransport implements BackendTransport {
 
 let transport: BackendTransport | null = null;
 
-/** Explicit replacement launches (browser bridge or native) must never reach a legacy backend. */
+/** Only `dev:web --legacy` reaches a legacy backend; every other launch selects a workspace. */
 export function isSelectedWorkspaceLaunch(): boolean {
-  return import.meta.env.VITE_TASKS_LEGACY === "0" || !!import.meta.env.VITE_TASKS_NATIVE_SELECTION;
+  return import.meta.env.VITE_TASKS_LEGACY !== "1";
 }
 
 export function getBackendTransport(): BackendTransport {

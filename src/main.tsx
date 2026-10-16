@@ -12,8 +12,9 @@ import { runtimeKind } from "./platform/runtime";
 import "./styles.css";
 
 const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
-// Native builds keep the legacy app until cutover; dev:web and the Windows launcher opt out.
-const legacy = import.meta.env.VITE_TASKS_LEGACY !== "0";
+const DesktopWorkspace = lazy(() => import("./DesktopWorkspace"));
+// Only `pnpm dev:web --legacy` still reaches the old app; it is deleted at cutover.
+const legacy = import.meta.env.VITE_TASKS_LEGACY === "1";
 
 document.title = APP_NAME;
 if (runtimeKind() === "android") document.documentElement.classList.add("android");
@@ -45,7 +46,7 @@ createRoot(document.getElementById("root")!).render(
         <App />
       ) : (
         <Suspense fallback={<p role="status">Loading Tasks...</p>}>
-          <WorkspaceSelection />
+          {runtimeKind() === "desktop" ? <DesktopWorkspace /> : <WorkspaceSelection />}
         </Suspense>
       )}
     </TooltipProvider>

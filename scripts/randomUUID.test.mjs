@@ -70,7 +70,7 @@ test("hosted HTTP task loading sends a valid request without native randomUUID",
     platform: "node",
     format: "esm",
     write: false,
-    define: { "import.meta.env": "{}" },
+    define: { "import.meta.env": JSON.stringify({ VITE_TASKS_LEGACY: "1" }) },
   });
   const client = await import(
     `data:text/javascript;base64,${Buffer.from(clientBundle.outputFiles[0].text).toString("base64")}`

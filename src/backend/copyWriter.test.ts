@@ -15,9 +15,7 @@ import test from "node:test";
 import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
-import { executeCopy } from "./copyWriter.js";
 import { parseRequest } from "./protocol.js";
-import { DatabaseSync } from "node:sqlite";
 import { pendingIntentPath, persistPending, withRootWriterLock } from "./localDomain.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
@@ -50,53 +48,6 @@ function rawCanonical(root: string) {
   ].map((name) => [name, readFileSync(path.join(root, name)).toString("base64")]);
 }
 const linuxOnly = { skip: process.platform !== "linux" };
-
-for (const command of ["workspace.archive", "workspace.restore"]) {
-  test(
-    `Windows absence-only ${command} refuses an empty destination before staging without consuming the key`,
-    linuxOnly,
-    (t) => {
-      const workspace = setup(t),
-        canonical = rawCanonical(workspace.root);
-      mkdirSync(workspace.destination);
-      const request = parseRequest({
-        version: 2,
-        ...prepared(workspace, command, {
-          destinationDirectory: workspace.destination,
-          ...(command === "workspace.restore" ? { sourceDirectory: workspace.root } : {}),
-        }),
-      });
-      for (const flags of [{}, { readOnly: true }, { dryRun: true }]) {
-        assert.throws(
-          () => executeCopy({ ...request, ...flags }, workspace.root, workspace.cache, true),
-          {
-            code: "UNSUPPORTED_COMMAND",
-            message:
-              "UNSUPPORTED_COMMAND: Windows copy proof requires an absent destination; existing empty directories are not supported",
-          },
-        );
-        assert.deepEqual(rawCanonical(workspace.root), canonical);
-        assert.deepEqual(readdirSync(workspace.destination), []);
-        assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
-        const database = new DatabaseSync(workspace.cache);
-        try {
-          assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0);
-        } finally {
-          database.close();
-        }
-      }
-      // Disposable preparation, not a production delete-before-publication fallback.
-      rmSync(workspace.destination, { recursive: true });
-      const result = executeCopy(request, workspace.root, workspace.cache, true);
-      assert.deepEqual(rawCanonical(workspace.destination), canonical);
-      assert.deepEqual(rawCanonical(workspace.root), canonical);
-      assert.deepEqual(
-        executeCopy(request, workspace.root, workspace.cache, true).result,
-        result.result,
-      );
-    },
-  );
-}
 
 test(
   "Node copy commands execute archive-restore corpus case without changing selection or authority",

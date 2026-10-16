@@ -267,11 +267,11 @@ test("sidecar selection accepts explicit absolute paths and exact argv only", ()
   const permission = JSON.parse(
     readFileSync("src-tauri/capabilities/default.json", "utf8"),
   ).permissions.find((item) => item.identifier === "shell:allow-spawn");
-  assert.deepEqual(permission.allow[0].args, ["--stdio"]);
-  assert.equal(
-    permission.allow.length,
-    1,
-    "native permission must remain withheld rather than duplicate the default binary name",
+  // The desktop app may start the backend only on one folder and its cache.
+  assert.equal(permission.allow.length, 1);
+  assert.deepEqual(
+    permission.allow[0].args.map((arg) => (typeof arg === "string" ? arg : "*")),
+    ["--stdio", "--root", "*", "--database", "*"],
   );
   assert.throws(
     () => new WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }),

@@ -21,12 +21,7 @@ export function commitCopy(database: DatabaseSync, intent: CopyIntent): Record<s
   return result;
 }
 
-export function executeCopy(
-  request: Request,
-  rootPath: string,
-  cachePath: string,
-  windowsAbsentDestination = false,
-) {
+export function executeCopy(request: Request, rootPath: string, cachePath: string) {
   const root = readRootDescriptor(rootPath);
   return withRootWriterLock(root, () => {
     let completed: CopyIntent | undefined;
@@ -51,10 +46,11 @@ export function executeCopy(
           throw new CommandError("STALE_SCOPE", "source binding changed");
         guardCopySource(source);
         const destination = inspectCopyDestination(source.rootPath, input.destinationDirectory);
-        if (windowsAbsentDestination && destination.identity !== null) {
+        // Windows can't rename a folder onto an existing one, even an empty one.
+        if (process.platform === "win32" && destination.identity !== null) {
           throw new CommandError(
-            "UNSUPPORTED_COMMAND",
-            "Windows copy proof requires an absent destination; existing empty directories are not supported",
+            "DESTINATION_NOT_EMPTY",
+            "on Windows, copy into a folder that doesn't exist yet",
           );
         }
         inspectCopyDestination(root.rootPath, destination.directory);

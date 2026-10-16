@@ -26,7 +26,6 @@ import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
 import { undoRecoveryLocation } from "./batchJournal.js";
 import type { BatchIntent } from "./batchJournal.js";
-import { isWindowsProofIntent } from "./windowsTaskProof.js";
 const corpus = JSON.parse(
   readFileSync(
     fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)),
@@ -154,31 +153,6 @@ return{...result,source};}});`,
       : undefined,
   };
 }
-
-test(
-  "Windows proof accepts only single-status undo evidence, never grouped/arbitrary batch history",
-  linux,
-  (t) => {
-    for (const kind of ["status", "transition", "undoMany", "order", "create", "content"]) {
-      const { w, request } = scenario(t, kind),
-        { intent } = crash(w, request, "intent");
-      assert.ok(intent);
-      assert.equal(isWindowsProofIntent(intent), kind === "status");
-      if (kind === "undoMany") {
-        const disguised = {
-          ...intent,
-          request: {
-            ...intent.request,
-            command: "task.status.undo",
-            args: { id: "a", expectedVersion: 1 },
-          },
-          sources: [intent.sources[0]],
-        };
-        assert.equal(isWindowsProofIntent(disguised), false);
-      }
-    }
-  },
-);
 
 test(
   "already-applied single-status inverse requires directory flush before history/claim/receipt",

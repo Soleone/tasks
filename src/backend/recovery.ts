@@ -21,14 +21,8 @@ import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from
 import { findReceipt, findTaskEditReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { applyJournal, guardUpdate } from "./updateJournal.js";
 import { commitUpdate } from "./updateWriter.js";
-import { isWindowsProofIntent } from "./windowsTaskProof.js";
 
-export function resumeOperation(
-  request: Request,
-  rootPath: string,
-  cachePath: string,
-  windowsTaskProof = false,
-) {
+export function resumeOperation(request: Request, rootPath: string, cachePath: string) {
   const root = readControlRoot(rootPath);
   return withRootWriterLock(root, () => {
     let completed: PendingIntent | undefined;
@@ -45,15 +39,7 @@ export function resumeOperation(
         // A historical receipt can retire its own intent, never unrelated or malformed work.
         try {
           const pending = readPending(root);
-          if (pending && pending.operationId === replay.operationId) {
-            if (windowsTaskProof && !isWindowsProofIntent(pending)) {
-              throw new CommandError(
-                "UNSUPPORTED_COMMAND",
-                "Windows proof requires a supported intent and destination scope",
-              );
-            }
-            completed = pending;
-          }
+          if (pending && pending.operationId === replay.operationId) completed = pending;
         } catch (error) {
           if (!(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT") throw error;
         }
@@ -62,12 +48,6 @@ export function resumeOperation(
       const intent = readPending(root);
       if (!intent || intent.operationId !== request.args.operationId)
         throw new CommandError("OPERATION_UNAVAILABLE", "pending operation is unavailable");
-      if (windowsTaskProof && !isWindowsProofIntent(intent)) {
-        throw new CommandError(
-          "UNSUPPORTED_COMMAND",
-          "Windows proof requires a supported intent and destination scope",
-        );
-      }
       if (intent.format === "taskdb.pending-copy-target")
         throw new CommandError(
           "RECOVERY_CONFLICT",

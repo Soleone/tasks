@@ -11,7 +11,7 @@ import {
   successResponse,
 } from "../legacy/backend/protocol.js";
 import { executeLine } from "./gateway.js";
-import { LINUX_EDITOR_COMMANDS } from "./editorCommands.js";
+import { EDITOR_COMMANDS } from "./editorCommands.js";
 import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 
 /**
@@ -108,7 +108,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
         selectionToken: randomUUID(),
         readOnly: false,
         profilePath: path.resolve(getDataDirectory()),
-        writeCommands: [...LINUX_EDITOR_COMMANDS],
+        writeCommands: [...EDITOR_COMMANDS],
       };
   const host = options.host ?? "127.0.0.1";
   const port =
@@ -261,7 +261,7 @@ function executeDevCommand(
     }
     if (
       !(QUERY_COMMANDS as readonly string[]).includes(request.command) &&
-      !(LINUX_EDITOR_COMMANDS as readonly string[]).includes(request.command)
+      !(EDITOR_COMMANDS as readonly string[]).includes(request.command)
     ) {
       return {
         version: 2,

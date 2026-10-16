@@ -26,7 +26,6 @@ import { selectUndoHistory } from "./undoHistory.js";
 import { parseUndo, planUndo } from "./undoPlan.js";
 import type { UndoPlan } from "./undoPlan.js";
 import { exactHash } from "./updateJournal.js";
-import { isSingleStatusSource } from "./windowsTaskProof.js";
 
 function requireUndoBudget(database: DatabaseSync, count: number): void {
   const state = database
@@ -102,12 +101,7 @@ function batchIntentPlanOriginals(intent: BatchIntent): CanonicalTask[] {
   );
 }
 
-export function executeUndo(
-  request: Request,
-  rootPath: string,
-  cachePath: string,
-  windowsSingleStatus = false,
-) {
+export function executeUndo(request: Request, rootPath: string, cachePath: string) {
   const root = readRootDescriptor(rootPath);
   return withRootWriterLock(root, () => {
     let completed: BatchIntent | undefined;
@@ -135,17 +129,6 @@ export function executeUndo(
         }
       const at = new Date().toISOString();
       const sources = selectUndoHistory(database, authority.writeContext, input, snapshot.tasks);
-      if (
-        windowsSingleStatus &&
-        (request.command !== "task.status.undo" ||
-          sources.length !== 1 ||
-          !isSingleStatusSource(sources[0]))
-      ) {
-        throw new CommandError(
-          "UNDO_UNAVAILABLE",
-          "Windows proof requires retained single-task status history, not a grouped or arbitrary inverse",
-        );
-      }
       const plan = planUndo(input, snapshot.tasks, at, sources);
       for (const id of plan.removedIds) {
         if (

@@ -390,17 +390,3 @@ test(
     assert.equal(existsSync(path.join(laterDirectory, "relative-target")), false);
   },
 );
-
-test(
-  "client capability negotiation and replay use withheld-write refusal, not fabricated native acceptance",
-  linux,
-  (t) => {
-    const workspace = setup(t),
-      loader = path.join(workspace.directory, "withheld-loader.mjs"),
-      before = raw(workspace);
-    writeFileSync(loader, 'Object.defineProperty(process,"platform",{value:"darwin"});');
-    fail(run(workspace, original, loader), "UNSUPPORTED_COMMAND");
-    assert.deepEqual(raw(workspace), before);
-    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
-  },
-);

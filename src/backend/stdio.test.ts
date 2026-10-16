@@ -130,25 +130,3 @@ test("CLI requires an explicit cache; an inside-root cache cannot create synced 
   if (!bad[0].ok) assert.equal(bad[0].error.code, "INVALID_STORAGE");
   assert.equal(existsSync(path.join(current.root, "cache.db")), false);
 });
-
-test("Windows task proof never infers a profile, accepts the old flag, or activates outside Windows", (t) => {
-  const current = setup(t);
-  const base = [cli, "--stdio", "--root", current.root, "--database", current.cache];
-  const invalid = [
-    ["--windows-task-proof"],
-    ["--local-profile", current.trap],
-    ["--windows-update-proof", "--local-profile", current.trap],
-  ];
-  if (process.platform !== "win32")
-    invalid.push(["--windows-task-proof", "--local-profile", "C:\\disposable-profile"]);
-  for (const flags of invalid) {
-    const child = spawnSync(process.execPath, [...base, ...flags], {
-      input: lines([{ command: "workspace.info" }]),
-      timeout: 10_000,
-    });
-    assert.notEqual(child.status, 0);
-    assert.match(child.stderr.toString(), /Windows task proof requires Windows/);
-    assert.equal(existsSync(current.cache), false);
-    assert.equal(existsSync(path.join(current.trap, "com.soleone.tasks")), false);
-  }
-});

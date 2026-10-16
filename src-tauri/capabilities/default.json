@@ -2,8 +2,14 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Main window capabilities",
-  "platforms": ["linux", "macOS", "windows"],
-  "windows": ["main"],
+  "platforms": [
+    "linux",
+    "macOS",
+    "windows"
+  ],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "global-shortcut:allow-register",
@@ -16,7 +22,17 @@
         {
           "name": "binaries/tasks-backend",
           "sidecar": true,
-          "args": ["--stdio"]
+          "args": [
+            "--stdio",
+            "--root",
+            {
+              "validator": "\\S.*"
+            },
+            "--database",
+            {
+              "validator": "\\S.*"
+            }
+          ]
         }
       ]
     }
