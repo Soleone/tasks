@@ -198,7 +198,7 @@ try {
   }
   console.log(JSON.stringify({ runtime: { platform: process.platform, os: os.release(), arch: process.arch, node: process.version, libuv: process.versions.uv, volume }, checkout,
     sourceBundle: { path: bundle, sha256: createHash("sha256").update(source).digest("hex"), bytes: Buffer.byteLength(source) }, artifacts, passed, count: passed.length,
-    implementation: "unjournaled same-directory native rename; this run does not remeasure the old pending-create journal", limitations: "One fixed local NTFS host only. Rename is not a no-clobber CAS; final-check races, power-loss, hostile reparse races, native UI, network/provider and release acceptance are not proved.", scratchWillBeRemoved: true }, null, 2));
+    implementation: "unjournaled same-directory native rename", limitations: "One fixed local NTFS host only. Rename is not a no-clobber CAS; final-check races, power-loss, hostile reparse races, native UI, network/provider and release acceptance are not proved.", scratchWillBeRemoved: true }, null, 2));
   completedProof = true;
 } finally {
   if (completedProof) rmSync(scratch, { recursive: true, force: true });

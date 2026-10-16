@@ -1,29 +1,22 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, recover, run, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
 import { undoRecoveryLocation } from "./batchJournal.js";
 import type { BatchIntent } from "./batchJournal.js";
-import type { Response } from "./protocol.js";
 import { isWindowsProofIntent } from "./windowsTaskProof.js";
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
-function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
-function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
 function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(file => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]); }
 function prepared(w: Workspace, command: string, args: Record<string, unknown>) {
-  const read = ok(send(w, { command: "task.list", args: { sort: "manual" } }));
+  const read = success(send(w, { command: "task.list", args: { sort: "manual" } }));
   const versions = new Map((read.result.tasks as { id: string; version: number }[]).map(task => [task.id, task.version]));
   return { version: 2, command, writeContext: read.writeContext, idempotencyKey: command, actor: { kind: "human", label: "undo test" }, args: { ...args, ...(typeof args.id === "string" ? { expectedVersion: versions.get(args.id) } : {}), ...(Array.isArray(args.tasks) ? { tasks: args.tasks.map(task => ({ ...task, expectedVersion: versions.get(task.id) })) } : {}) } };
 }
@@ -37,18 +30,16 @@ function scenario(t: TestContext, kind: string) {
   if (kind === "transition" || kind === "undoMany") {
     const args = { tasks: [{ id: "a", command: "task.complete" }, { id: "b", command: "task.pause" }, { id: "c", command: "task.start" }] };
     if (kind === "transition") return { w, request: prepared(w, "task.transitionMany", args), groupsBefore: 0 };
-    forward = ok(send(w, prepared(w, "task.transitionMany", args)));
+    forward = success(send(w, prepared(w, "task.transitionMany", args)));
     return { w, request: prepared(w, "task.status.undoMany", { tasks: [{ id: "a" }, { id: "b" }, { id: "c" }] }), groupsBefore: 1 };
   }
-  if (kind === "status") forward = ok(send(w, prepared(w, "task.complete", { id: "a" })));
-  if (kind === "create") forward = ok(send(w, prepared(w, "task.create", { title: "Preserve raw creation", description: "**Raw**\r\n" })));
-  if (kind === "order") forward = ok(send(w, prepared(w, "task.reorder", { tasks: [{ id: "move" }], placement: { beforeId: "b" } })));
-  if (kind === "content") { forward = ok(send(w, prepared(w, "task.update", { id: "a", priority: 0 })));const file = path.join(w.root, "tasks/a.json");writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), description: "Preserve unrelated edit", updatedAt: "2030-01-01T00:00:00.000Z" })); }
+  if (kind === "status") forward = success(send(w, prepared(w, "task.complete", { id: "a" })));
+  if (kind === "create") forward = success(send(w, prepared(w, "task.create", { title: "Preserve raw creation", description: "**Raw**\r\n" })));
+  if (kind === "order") forward = success(send(w, prepared(w, "task.reorder", { tasks: [{ id: "move" }], placement: { beforeId: "b" } })));
+  if (kind === "content") { forward = success(send(w, prepared(w, "task.update", { id: "a", priority: 0 })));const file = path.join(w.root, "tasks/a.json");writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), description: "Preserve unrelated edit", updatedAt: "2030-01-01T00:00:00.000Z" })); }
   assert.ok(forward);
   return { w, request: prepared(w, kind === "status" ? "task.status.undo" : "operation.undo", kind === "status" ? { id: "a" } : { operationId: forward.result.operationId }), groupsBefore: 1 };
 }
-function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
-function recover(w: Workspace, operationId: string, key = "resume") { const context = ok(send(w, { command: "workspace.info" })).writeContext;return send(w, { command: "workspace.recovery.resume", writeContext: context, idempotencyKey: key, args: { operationId } }); }
 function crash(w: Workspace, request: object, cut: string) {
   const pending = pendingIntentPath(readRootDescriptor(w.root));
   const loader = path.join(w.directory, "undo-kill-loader.mjs");
@@ -93,7 +84,7 @@ return {...result,source:source.replace(needle,'throw Object.assign(new Error("t
   assert.equal(db.prepare("SELECT count(*) AS n FROM v2_operations").get()!.n, 1);
   assert.equal(db.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 1);
   assert.equal(db.prepare("SELECT count(*) AS n FROM v2_undo_claims").get()!.n, 0); db.close();
-  ok(send(w, resume)); ok(send(w, request)); assert.equal(existsSync(pending), false);
+  success(send(w, resume)); success(send(w, request)); assert.equal(existsSync(pending), false);
   assert.deepEqual(readFileSync(target), targetBytes);
 });
 
@@ -107,15 +98,15 @@ for (const [kind, writes] of [["transition", 3], ["undoMany", 3], ["order", 3], 
       if (!existsSync(target) || file.nextBytes === null || file.nextBytes === file.beforeBytes || readFileSync(target).toString("base64") !== file.nextBytes) return [];
       return [[file.taskId, lstatSync(target).ino] as const];
     }) ?? [];
-    if (cut === "afterCommit" || cut === "retired") ok(send(w, request));else fail(send(w, request), "RECOVERY_PENDING");
+    if (cut === "afterCommit" || cut === "retired") success(send(w, request));else fail(send(w, request), "RECOVERY_PENDING");
     if (intent) {
-      const info = ok(send(w, { command: "workspace.info" }));assert.equal(info.result.pendingOperationId, intent.operationId);fail(send(w, { command: "task.list" }), "RECOVERY_PENDING");
-      const resumed = ok(recover(w, intent.operationId));assert.equal(resumed.result.outcome, "complete");assert.deepEqual(ok(send(w, request)).result, resumed.result.originalResult);
+      const info = success(send(w, { command: "workspace.info" }));assert.equal(info.result.pendingOperationId, intent.operationId);fail(send(w, { command: "task.list" }), "RECOVERY_PENDING");
+      const resumed = success(recover(w, intent.operationId));assert.equal(resumed.result.outcome, "complete");assert.deepEqual(success(send(w, request)).result, resumed.result.originalResult);
       for (const [id, inode] of applied) assert.equal(lstatSync(path.join(w.root, "tasks", `${id}.json`)).ino, inode);
       for (const file of intent.files) if (file.nextBytes === null) assert.equal(existsSync(path.join(w.root, "tasks", `${file.taskId}.json`)), false);else assert.equal(readFileSync(path.join(w.root, "tasks", `${file.taskId}.json`)).toString("base64"), file.nextBytes);
     }
-    const replay = run(w, request);assert.equal(replay.status, 0, replay.stderr);const result = ok(JSON.parse(replay.stdout)).result;
-    const history = ok(send(w, { command: "activity.list" })).result.activity as { operationId: string; actor: object; createdAt: string }[];
+    const replay = run(w, request);assert.equal(replay.status, 0, replay.stderr);const result = success(JSON.parse(replay.stdout)).result;
+    const history = success(send(w, { command: "activity.list" })).result.activity as { operationId: string; actor: object; createdAt: string }[];
     assert.equal(history.length, groupsBefore + 1);assert.equal(history[0].operationId, result.operationId);assert.deepEqual(history[0].actor, request.actor);if (intent) assert.equal(history[0].createdAt, intent.at);
     if (kind === "create") { const archived = JSON.parse(readFileSync(result.recoveryLocation as string, "utf8"));assert.equal(archived.operationId, result.operationId);if (intent) assert.equal(archived.files[0].beforeBytes, intent.files.find(file => file.nextBytes === null)!.beforeBytes); }
     assert.equal(existsSync(pending), false);
@@ -171,18 +162,18 @@ for (const fault of ["archive-missing", "archive-partial", "archive-divergent", 
 for (const kind of ["transition", "undoMany", "order", "status", "create", "content"]) {
   test(`${kind} original cache loss permits fixed explicit recovery, not old-context request/history`, linux, t => {
     const { w, request } = scenario(t, kind);const { pending, intent } = crash(w, request, "prefix-1");rmSync(w.cache);
-    assert.notEqual(ok(send(w, { command: "workspace.info" })).writeContext, request.writeContext);fail(send(w, request), "STALE_WRITE_CONTEXT");
-    const result = ok(recover(w, intent!.operationId));assert.equal(result.result.outcome, "complete");fail(send(w, request), "STALE_WRITE_CONTEXT");assert.equal(existsSync(pending), false);
-    assert.equal((ok(send(w, { command: "activity.list" })).result.activity as object[]).length, 1);
+    assert.notEqual(success(send(w, { command: "workspace.info" })).writeContext, request.writeContext);fail(send(w, request), "STALE_WRITE_CONTEXT");
+    const result = success(recover(w, intent!.operationId));assert.equal(result.result.outcome, "complete");fail(send(w, request), "STALE_WRITE_CONTEXT");assert.equal(existsSync(pending), false);
+    assert.equal((success(send(w, { command: "activity.list" })).result.activity as object[]).length, 1);
   });
 }
 
 for (const kind of ["undoMany", "create"]) {
   test(`${kind} recovery lost reply retires only its own group/intent and retains raw archive`, linux, t => {
-    const { w, request } = scenario(t, kind);const { pending, intent } = crash(w, request, "prefix-1");const ctx = ok(send(w, { command: "workspace.info" })).writeContext;
+    const { w, request } = scenario(t, kind);const { pending, intent } = crash(w, request, "prefix-1");const ctx = success(send(w, { command: "workspace.info" })).writeContext;
     const recovery = { version: 2, command: "workspace.recovery.resume", writeContext: ctx, idempotencyKey: "resume-lost", args: { operationId: intent!.operationId } };
     const loader = path.join(w.directory, "undo-resume-kill.mjs");writeFileSync(loader, `import{DatabaseSync}from'node:sqlite';import{existsSync}from'node:fs';const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(${JSON.stringify(pending)}))process.kill(process.pid,'SIGKILL');return result;};`);
-    assert.equal(run(w, recovery, loader).signal, "SIGKILL");const replay = ok(send(w, recovery));assert.deepEqual(ok(send(w, recovery)).result, replay.result);assert.equal(existsSync(pending), false);
+    assert.equal(run(w, recovery, loader).signal, "SIGKILL");const replay = success(send(w, recovery));assert.deepEqual(success(send(w, recovery)).result, replay.result);assert.equal(existsSync(pending), false);
     if (kind === "create") assert.equal(existsSync(undoRecoveryLocation(intent!)!), true);
   });
 }
@@ -194,10 +185,10 @@ test("pending undo budget exhaustion preserves fixed remaining effects and origi
 });
 
 test("completed creation inverse keeps historical recovery despite corrupt archive cleanup until manually corrected", linux, t => {
-  const { w, request } = scenario(t, "create");const { pending, intent } = crash(w, request, "afterCommit");const result = ok(send(w, request));
+  const { w, request } = scenario(t, "create");const { pending, intent } = crash(w, request, "afterCommit");const result = success(send(w, request));
   const archive = undoRecoveryLocation(intent!)!, original = readFileSync(archive);writeFileSync(archive, "preserve divergent recovery copy");
-  fail(recover(w, intent!.operationId), "RECOVERY_CONFLICT");const historical = ok(recover(w, intent!.operationId));assert.deepEqual(historical.result.originalResult, result.result);assert.equal(existsSync(pending), true);
-  assert.deepEqual(raw(w), []);writeFileSync(archive, original);assert.deepEqual(ok(recover(w, intent!.operationId)).result, historical.result);assert.equal(existsSync(pending), false);assert.equal(existsSync(archive), true);
+  fail(recover(w, intent!.operationId), "RECOVERY_CONFLICT");const historical = success(recover(w, intent!.operationId));assert.deepEqual(historical.result.originalResult, result.result);assert.equal(existsSync(pending), true);
+  assert.deepEqual(raw(w), []);writeFileSync(archive, original);assert.deepEqual(success(recover(w, intent!.operationId)).result, historical.result);assert.equal(existsSync(pending), false);assert.equal(existsSync(archive), true);
 });
 
 for (const fault of ["arrival", "formatting", "delete", "budget", "claims"]) {

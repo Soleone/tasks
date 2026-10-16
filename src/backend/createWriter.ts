@@ -7,8 +7,6 @@ import { readCanonicalRoot, readPhysicalRoot, readRegularFile, readRootDescripto
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { directoryIdentity } from "./copyFiles.js";
 import { buildCreatedTask, parseCreate } from "./createInputs.js";
-import { applyCreateJournal, guardCreateIntent } from "./createJournal.js";
-import type { CreateIntent } from "./createJournal.js";
 import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { projectTasks } from "./queries.js";
@@ -24,20 +22,6 @@ function requireCreateBudget(database: DatabaseSync, taskCount: number): number 
     throw new CommandError("UNSUPPORTED_COMMAND", "explicit fresh-cache authority is required before capture");
   }
   return (budget.counter as number) + 1;
-}
-
-/** Explicit recovery only: old pending-create evidence retains its original ownership contract. */
-export function commitLegacyCreate(database: DatabaseSync, intent: CreateIntent): Record<string, unknown> {
-  const before = guardCreateIntent(intent);
-  requireCreateBudget(database, before.tasks.length);
-  const snapshot = applyCreateJournal(intent);
-  const authority = synchronizeAuthority(database, intent.root, snapshot);
-  const task = projectTasks(snapshot.tasks, authority).find(task => task.id === intent.taskId)!;
-  database.prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(intent.operationId, authority.writeContext, intent.taskId, "task.create", JSON.stringify(intent.request.actor), intent.at, "null", JSON.stringify(snapshot.tasks.find(task => task.id === intent.taskId)));
-  const result = { task, changed: true, operationId: intent.operationId };
-  if (authority.writeContext === intent.request.writeContext) storeReceipt(database, intent.request, result);
-  return result;
 }
 
 function guardCreateDestination(snapshot: CanonicalSnapshot, taskDirectoryIdentity: string, taskId: string, parentId: string | null): void {

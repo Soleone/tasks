@@ -7,8 +7,6 @@ import { parseCopyIntent } from "./copyJournal.js";
 import type { CopyIntent } from "./copyJournal.js";
 import { parseInitIntent } from "./initJournal.js";
 import type { InitIntent } from "./initJournal.js";
-import { parseCreateIntent } from "./createJournal.js";
-import type { CreateIntent } from "./createJournal.js";
 import { parseOrderIntent } from "./orderJournal.js";
 import type { OrderIntent } from "./orderJournal.js";
 import { parseBatchIntent } from "./batchJournal.js";
@@ -22,8 +20,8 @@ import type { RootBinding } from "./queryCache.js";
 import { readPending as readUpdatePending } from "./updateJournal.js";
 import type { UpdateIntent } from "./updateJournal.js";
 
-export type CopyTarget = { format: "taskdb.pending-copy-target"; version: 1; root: RootBinding; owner: RootBinding; operationId: string };
-export type PendingIntent = UpdateIntent | CopyIntent | CopyTarget | InitIntent | CreateIntent | OrderIntent | BatchIntent | PurgeIntent | DoctorIntent;
+type CopyTarget = { format: "taskdb.pending-copy-target"; version: 1; root: RootBinding; owner: RootBinding; operationId: string };
+export type PendingIntent = UpdateIntent | CopyIntent | CopyTarget | InitIntent | OrderIntent | BatchIntent | PurgeIntent | DoctorIntent;
 
 export function readPending(root: RootBinding): PendingIntent | undefined {
   const file = pendingIntentPath(root);
@@ -36,7 +34,6 @@ export function readPending(root: RootBinding): PendingIntent | undefined {
     if (value.format === "taskdb.pending-update") return readUpdatePending(root);
     if (value.format === "taskdb.pending-copy") return parseCopyIntent(value, root);
     if (value.format === "taskdb.pending-init") return parseInitIntent(value, root);
-    if (value.format === "taskdb.pending-create") return parseCreateIntent(value, root);
     if (value.format === "taskdb.pending-order") return parseOrderIntent(value, root);
     if (value.format === "taskdb.pending-batch") return parseBatchIntent(value, root);
     if (value.format === "taskdb.pending-purge") return parsePurgeIntent(value, root);

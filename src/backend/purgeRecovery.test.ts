@@ -1,36 +1,27 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, recover, run, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
 import { purgeRecoveryLocation } from "./purgeJournal.js";
 import type { PurgeFile, PurgeIntent } from "./purgeJournal.js";
-import type { Response } from "./protocol.js";
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linux = { skip: process.platform !== "linux" };
-function send(w: Workspace, request: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...request })), w.root, w.cache); }
-function ok(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: Response, code: string) { assert.equal(r.ok, false, JSON.stringify(r)); if (!r.ok) assert.equal(r.error.code, code); }
 function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(file => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]); }
 function scenario(t: TestContext, linked = true) {
   const w = setup(t);
   for (const file of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", file));
   for (const [index, id] of ["a", "b", "c", "z"].entries()) writeFileSync(path.join(w.root, "tasks", `${id}.json`), JSON.stringify({ ...corpus.taskTemplate, id, orderKey: `a${index}`, ...(id === "z" ? {} : { status: "canceled", closedAt: "2026-09-08T14:00:00.000Z", ...(linked && id !== "a" ? { parentId: id === "b" ? "a" : "b", dependencyIds: id === "b" ? ["a"] : ["a", "b"] } : {}) }) }) + "\n");
   writeFileSync(path.join(w.root, "tasks/a.sync-conflict-test.json"), "Preserve raw conflict\xff");
-  const context = ok(send(w, { command: "workspace.info" })).writeContext;
+  const context = success(send(w, { command: "workspace.info" })).writeContext;
   return { w, request: { version: 2, command: "task.purgeCanceled", args: {}, writeContext: context, idempotencyKey: "purge-key", actor: { kind: "human", label: "fixed purge" } } };
 }
-function run(w: Workspace, request: object, loader?: string) { return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 }); }
-function recover(w: Workspace, operationId: string, key = "resume") { return send(w, { command: "workspace.recovery.resume", writeContext: ok(send(w, { command: "workspace.info" })).writeContext, idempotencyKey: key, args: { operationId } }); }
 function crash(w: Workspace, request: object, cut: string) {
   const pending = pendingIntentPath(readRootDescriptor(w.root)), loader = path.join(w.directory, "purge-kill-loader.mjs");
   writeFileSync(loader, `import{registerHooks}from'node:module';import{existsSync}from'node:fs';import{DatabaseSync}from'node:sqlite';const cut=${JSON.stringify(cut)},pending=${JSON.stringify(pending)};
@@ -47,17 +38,17 @@ for (const linked of [false, true]) for (const cut of ["intent", "prefix-0", "pr
   const { w, request } = scenario(t, linked), before = raw(w), { pending, intent } = crash(w, request, cut);
   const retained = raw(w).filter(([name]) => name.startsWith(".syncthing.")).map(([name, bytes]) => [name, bytes, lstatSync(path.join(w.root, "tasks", name)).ino] as const);
   if (linked && cut === "prefix-1") assert.throws(() => readCanonicalRoot(w.root), /parent|graph|canonical/i);
-  if (["afterCommit", "cleanup-1", "cleanup-2", "cleanup-3", "retired"].includes(cut)) ok(send(w, request));else fail(send(w, request), "RECOVERY_PENDING");
+  if (["afterCommit", "cleanup-1", "cleanup-2", "cleanup-3", "retired"].includes(cut)) success(send(w, request));else fail(send(w, request), "RECOVERY_PENDING");
   if (intent) {
     assert.deepEqual(JSON.parse(readFileSync(purgeRecoveryLocation(intent), "utf8")).files.filter((file: { relativePath: string }) => file.relativePath.startsWith("tasks/")).map((file: { relativePath: string; beforeBytes: string }) => [path.basename(file.relativePath), file.beforeBytes]), before);
-    fail(send(w, { command: "task.list" }), "RECOVERY_PENDING");assert.equal(ok(send(w, { command: "workspace.info" })).result.pendingOperationId, intent.operationId);
-    const resumed = ok(recover(w, intent.operationId));assert.deepEqual(resumed.result.originalResult, ok(send(w, request)).result);
+    fail(send(w, { command: "task.list" }), "RECOVERY_PENDING");assert.equal(success(send(w, { command: "workspace.info" })).result.pendingOperationId, intent.operationId);
+    const resumed = success(recover(w, intent.operationId));assert.deepEqual(resumed.result.originalResult, success(send(w, request)).result);
     for (const [name, bytes, inode] of retained) { const saved: PurgeFile | undefined = intent.files.find(file => file.beforeBytes === bytes);assert.ok(saved);assert.equal(saved.identity.split(":")[1], String(inode));assert.equal(existsSync(path.join(w.root, "tasks", name as string)), false); }
     assert.equal(existsSync(purgeRecoveryLocation(intent)), true);
   }
-  const restarted = run(w, request);assert.equal(restarted.status, 0, restarted.stderr);const result = ok(JSON.parse(restarted.stdout)).result;assert.deepEqual(result.purgedIds, ["a", "b", "c"]);
+  const restarted = run(w, request);assert.equal(restarted.status, 0, restarted.stderr);const result = success(JSON.parse(restarted.stdout)).result;assert.deepEqual(result.purgedIds, ["a", "b", "c"]);
   assert.deepEqual(raw(w), before.filter(([name]) => !["a.json", "b.json", "c.json"].includes(name)));
-  const rows = ok(send(w, { command: "activity.list" })).result.activity as { operationId: string; command: string; actor: object; createdAt: string }[];assert.equal(rows.length, 1);assert.equal(rows[0].command, request.command);assert.equal(rows[0].operationId, result.operationId);assert.deepEqual(rows[0].actor, request.actor);if (intent) assert.equal(rows[0].createdAt, intent.at);
+  const rows = success(send(w, { command: "activity.list" })).result.activity as { operationId: string; command: string; actor: object; createdAt: string }[];assert.equal(rows.length, 1);assert.equal(rows[0].command, request.command);assert.equal(rows[0].operationId, result.operationId);assert.deepEqual(rows[0].actor, request.actor);if (intent) assert.equal(rows[0].createdAt, intent.at);
   assert.equal(existsSync(pending), false);
 });
 for (const cut of ["archive", "preparing"]) test(`actual purge ${cut} preserves canonical bytes and does not auto-adopt private evidence`, linux, t => {
@@ -94,20 +85,20 @@ for (const fault of ["arrival", "foreign-delete-planned", "foreign-delete-surviv
 });
 for (const prefix of [0, 1, 2, 3]) test(`original-location cache loss after deletion prefix ${prefix} permits explicit fixed recovery, never old-context retry`, linux, t => {
   const { w, request } = scenario(t), { intent: captured } = crash(w, request, `prefix-${prefix}`), intent = captured!;for (const suffix of ["", "-wal", "-shm"]) rmSync(w.cache + suffix, { force: true });
-  const context = ok(send(w, { command: "workspace.info" })).writeContext;assert.notEqual(context, request.writeContext);fail(send(w, request), "STALE_WRITE_CONTEXT");assert.equal(ok(recover(w, intent.operationId)).result.outcome, "complete");fail(send(w, request), "STALE_WRITE_CONTEXT");assert.deepEqual(readCanonicalRoot(w.root).tasks.map(task => task.id), ["z"]);assert.equal(existsSync(purgeRecoveryLocation(intent)), true);
+  const context = success(send(w, { command: "workspace.info" })).writeContext;assert.notEqual(context, request.writeContext);fail(send(w, request), "STALE_WRITE_CONTEXT");assert.equal(success(recover(w, intent.operationId)).result.outcome, "complete");fail(send(w, request), "STALE_WRITE_CONTEXT");assert.deepEqual(readCanonicalRoot(w.root).tasks.map(task => task.id), ["z"]);assert.equal(existsSync(purgeRecoveryLocation(intent)), true);
 });
 for (const field of ["counter", "revision"]) test(`pending purge ${field} budget refuses before further deletion`, linux, t => {
   const { w, request } = scenario(t), { intent } = crash(w, request, "prefix-1"), db = new DatabaseSync(w.cache);db.prepare(`UPDATE v2_query_state SET ${field} = ?`).run(Number.MAX_SAFE_INTEGER - 2);db.close();const before = raw(w);fail(recover(w, intent!.operationId), "UNSUPPORTED_COMMAND");assert.deepEqual(raw(w), before);
 });
 test("recovery's own lost committed reply replays one purge group and retires evidence", linux, t => {
-  const { w, request } = scenario(t), { intent } = crash(w, request, "prefix-1");const context = ok(send(w, { command: "workspace.info" })).writeContext;
-  const resume = { version: 2, command: "workspace.recovery.resume", writeContext: context, idempotencyKey: "recovery-key", args: { operationId: intent!.operationId } };crash(w, resume, "afterCommit");const result = ok(send(w, resume)).result;assert.equal(result.outcome, "complete");assert.deepEqual(ok(send(w, request)).result, result.originalResult);assert.equal((ok(send(w, { command: "activity.list" })).result.activity as unknown[]).length, 1);
+  const { w, request } = scenario(t), { intent } = crash(w, request, "prefix-1");const context = success(send(w, { command: "workspace.info" })).writeContext;
+  const resume = { version: 2, command: "workspace.recovery.resume", writeContext: context, idempotencyKey: "recovery-key", args: { operationId: intent!.operationId } };crash(w, resume, "afterCommit");const result = success(send(w, resume)).result;assert.equal(result.outcome, "complete");assert.deepEqual(success(send(w, request)).result, result.originalResult);assert.equal((success(send(w, { command: "activity.list" })).result.activity as unknown[]).length, 1);
 });
 test("committed receipt remains historical with divergent cleanup; exact quarantine correction retires without a second group", linux, t => {
   const { w, request } = scenario(t), { intent: captured } = crash(w, request, "afterCommit"), intent = captured!;
   const quarantine = path.join(w.root, "tasks", `.syncthing.taskdb-purge-${intent.operationId}-1.tmp`), fixed = readFileSync(quarantine);writeFileSync(quarantine, "bad");fail(recover(w, intent.operationId), "RECOVERY_CONFLICT");const before = raw(w);
-  assert.equal(ok(recover(w, intent.operationId)).result.outcome, "complete");assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingIntentPath(intent.root)), true);assert.equal(ok(send(w, request)).result.operationId, intent.operationId);
-  writeFileSync(quarantine, fixed);ok(recover(w, intent.operationId));assert.equal(existsSync(pendingIntentPath(intent.root)), false);assert.equal((ok(send(w, { command: "activity.list" })).result.activity as unknown[]).length, 1);
+  assert.equal(success(recover(w, intent.operationId)).result.outcome, "complete");assert.deepEqual(raw(w), before);assert.equal(existsSync(pendingIntentPath(intent.root)), true);assert.equal(success(send(w, request)).result.operationId, intent.operationId);
+  writeFileSync(quarantine, fixed);success(recover(w, intent.operationId));assert.equal(existsSync(pendingIntentPath(intent.root)), false);assert.equal((success(send(w, { command: "activity.list" })).result.activity as unknown[]).length, 1);
 });
 for (const fault of ["arrival", "descriptor-conflict", "formatting", "same-byte-replacement", "status", "incoming-link", "task-directory"]) test(`actual pre-intent purge ${fault} race preserves external edits and writes no canonical files`, linux, t => {
   const { w, request } = scenario(t, false), loader = path.join(w.directory, "purge-race.mjs"), target = path.join(w.root, "tasks/b.json");

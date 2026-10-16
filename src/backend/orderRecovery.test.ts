@@ -1,26 +1,19 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, recover, run, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
 import type { OrderIntent } from "./orderJournal.js";
-import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(w: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }
-function success(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: Response, code: string) { assert.equal(r.ok, false); if (!r.ok) assert.equal(r.error.code, code, JSON.stringify(r)); }
 function materialize(t: TestContext, caseId = "reorder-tied") {
   const w = setup(t);
   const entry = corpus.cases.find((entry: { id: string }) => entry.id === caseId);
@@ -33,13 +26,6 @@ function prepared(w: Workspace, caseId: string) {
   const read = success(send(w, { command: "task.list" }));
   const versions = new Map((read.result.tasks as { id: string; version: number }[]).map(task => [task.id, task.version]));
   return { version: 2, command: entry.action.command, writeContext: read.writeContext, idempotencyKey: "fixed-order", actor: { kind: "human", label: "order test" }, args: { ...entry.action.args, tasks: entry.action.args.tasks.map((task: { id: string }) => ({ id: task.id, expectedVersion: versions.get(task.id) })) } };
-}
-function run(w: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", w.root, "--database", w.cache], { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10_000 });
-}
-function recover(w: Workspace, operationId: string, key = "resume") {
-  const context = success(send(w, { command: "workspace.info" })).writeContext;
-  return send(w, { command: "workspace.recovery.resume", args: { operationId }, writeContext: context, idempotencyKey: key });
 }
 function raw(w: Workspace) { return readdirSync(path.join(w.root, "tasks")).sort().map(file => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]); }
 function crash(w: Workspace, cut: string, caseId = "reorder-tied") {

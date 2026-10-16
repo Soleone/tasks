@@ -5,12 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
-import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
@@ -18,13 +16,6 @@ type Case = { id: string; profile: string; given: { patch?: Record<string, unkno
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as { taskTemplate: CanonicalTask; cases: Case[] };
 const linuxOnly = { skip: process.platform !== "linux" };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function materialize(t: TestContext, patch: Record<string, unknown> = {}) {
   const workspace = setup(t);
   for (const name of readdirSync(path.join(workspace.root, "tasks"))) rmSync(path.join(workspace.root, "tasks", name));

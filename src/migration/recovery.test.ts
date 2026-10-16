@@ -1,35 +1,22 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createCopyTestWorkspace as setup } from "../backend/copyTestWorkspace.js";
+import { fail, recover, run, send, success } from "../backend/copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
 import type { CopyIntent } from "../backend/copyJournal.js";
 import { readCanonicalRoot, readRootDescriptor } from "../backend/canonicalReader.js";
-import { executeLine } from "../backend/gateway.js";
 import { pendingIntentPath, localDomain } from "../backend/localDomain.js";
 import { migrationRecoveryLocation } from "./journal.js";
 import { readSchema1MigrationRootDescriptor, readSchema1MigrationSnapshot } from "./schema1Source.js";
-import type { Response } from "../backend/protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const sourceFixture = path.join(fixtures, "schema1/sync");
 const golden = path.join(fixtures, "workspace/root");
-const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
-function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
-}
 function crash(workspace: Workspace, cut: string) {
   const info = success(send(workspace, { command: "workspace.info" }));
   const request = { version: 2, command: "workspace.migrate", writeContext: info.writeContext, idempotencyKey: "original-migration", args: { destinationDirectory: workspace.destination } };
@@ -55,10 +42,6 @@ return {...result,source};}});`);
   assert.equal(existsSync(pending), true);
   const intent = JSON.parse(readFileSync(pending, "utf8")) as CopyIntent;
   return { request, pending, intent };
-}
-function recover(workspace: Workspace, operationId: string, key = "resume-migration") {
-  const info = success(send(workspace, { command: "workspace.info" }));
-  return send(workspace, { command: "workspace.recovery.resume", args: { operationId }, writeContext: info.writeContext, idempotencyKey: key });
 }
 
 const cuts = ["intent", "backup", ...Array.from({ length: 6 }, (_, prefix) => `prefix-${prefix}`), "verified", "reserved", "published", "beforeCommit", "afterCommit", "retiring-target", "retiring-evidence"];

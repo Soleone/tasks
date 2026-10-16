@@ -5,13 +5,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createCopyTestWorkspace } from "../backend/copyTestWorkspace.js";
+import { fail, send, success } from "../backend/copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
 import { readCanonicalRoot } from "../backend/canonicalReader.js";
-import { executeLine } from "../backend/gateway.js";
 import { readSchema1MigrationSnapshot } from "./schema1Source.js";
 import { SCHEMA1_ROLLBACK_WARNING } from "./journal.js";
 import { contentHash } from "../legacy/backend/requestHash.js";
-import type { Response } from "../backend/protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const v1 = path.join(fixtures, "schema1/sync");
@@ -20,13 +19,6 @@ const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "workspace/cases.json"), "utf8")) as { cases: { id: string; given: { patchSchema1?: object; rehashSchema1?: boolean; removeSchema1?: string }; expect: { error?: string; fields?: Record<string, unknown>; taskCount?: number } }[] };
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function prepare(workspace: Workspace) {
   const info = success(send(workspace, { command: "workspace.info" }));
   assert.equal(info.result.schemaVersion, 1);

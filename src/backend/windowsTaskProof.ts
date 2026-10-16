@@ -9,7 +9,6 @@ export function isSingleStatusSource(source: HistorySource): boolean {
 
 /** Windows proof checks concrete families and destination scope, including receipt-based cleanup. */
 export function isWindowsProofIntent(intent: PendingIntent): boolean {
-  if (intent.format === "taskdb.pending-create") return intent.request.command === "task.create";
   if (intent.format === "taskdb.pending-update") {
     return intent.request.command === "task.update" || (STATUS_COMMANDS as readonly string[]).includes(intent.request.command);
   }

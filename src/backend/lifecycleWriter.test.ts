@@ -5,12 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readPhysicalRoot } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
-import type { Response } from "./protocol.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
@@ -18,13 +16,6 @@ const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8"
 };
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function emptyWorkspace(t: TestContext) {
   const workspace = setup(t);
   for (const name of readdirSync(workspace.root)) rmSync(path.join(workspace.root, name), { recursive: true });

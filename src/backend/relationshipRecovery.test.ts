@@ -1,31 +1,20 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, recover, run, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
-import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
 import type { UpdateIntent } from "./updateJournal.js";
 
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const template = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8")).taskTemplate as CanonicalTask;
 const linuxOnly = { skip: process.platform !== "linux" };
 type Projection = CanonicalTask & { version: number };
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function makeTask(workspace: Workspace, id: string, patch: Partial<CanonicalTask> = {}) {
   writeFileSync(path.join(workspace.root, "tasks", `${id}.json`), JSON.stringify({ ...template, ...patch, id }));
 }
@@ -40,13 +29,6 @@ function prepare(workspace: Workspace, command = "task.move") {
   const info = success(send(workspace, { command: "workspace.info" }));
   const task = success(send(workspace, { command: "task.get", args: { id: "a" } })).result.task as Projection;
   return { version: 2, command, writeContext: info.writeContext, idempotencyKey: "fixed-relationship", actor: { kind: "human", label: "relationship test" }, args: { id: "a", expectedVersion: task.version, ...(command === "task.move" ? { parentId: "next" } : { dependsOnId: command === "task.dependency.add" ? "blocker" : "d" }) } };
-}
-function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
-}
-function recover(workspace: Workspace, operationId: string, key = "resume") {
-  const info = success(send(workspace, { command: "workspace.info" }));
-  return send(workspace, { command: "workspace.recovery.resume", writeContext: info.writeContext, idempotencyKey: key, args: { operationId } });
 }
 function crash(workspace: Workspace, command: string, cut: string) {
   const request = prepare(workspace, command);

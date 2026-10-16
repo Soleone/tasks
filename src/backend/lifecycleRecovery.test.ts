@@ -1,35 +1,20 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, recover, run, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readPhysicalRoot } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import type { InitIntent } from "./initJournal.js";
 import { pendingIntentPath, localDomain } from "./localDomain.js";
-import type { Response } from "./protocol.js";
 
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const linuxOnly = { skip: process.platform !== "linux" };
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
 function emptyWorkspace(t: TestContext) {
   const workspace = setup(t);
   for (const name of readdirSync(workspace.root)) rmSync(path.join(workspace.root, name), { recursive: true });
   return workspace;
-}
-function run(workspace: Workspace, request: object, loader?: string) {
-  return spawnSync(process.execPath, [...(loader ? ["--import", loader] : []), cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
 }
 function crash(workspace: Workspace, cut: string) {
   const info = success(send(workspace, { command: "workspace.info" }));
@@ -56,10 +41,6 @@ return {...result,source};}});`);
   const progress = path.join(localDomain(root), `init-${intent.operationId}.progress.json`);
   const stage = path.join(root.rootPath, `.syncthing.taskdb-init-${intent.operationId}.tmp`);
   return { request, pending, intent, progress, stage };
-}
-function recover(workspace: Workspace, operationId: string, key = "resume-init") {
-  const info = success(send(workspace, { command: "workspace.info" }));
-  return send(workspace, { command: "workspace.recovery.resume", args: { operationId }, writeContext: info.writeContext, idempotencyKey: key });
 }
 
 for (const cut of ["intent", "tasks-bound", "stage-written", "stage-bound", "published", "verified", "beforeCommit", "afterCommit", "retiring-stage", "retiring-evidence"]) {

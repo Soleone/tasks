@@ -4,26 +4,14 @@ import { cpSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } f
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, recover, run, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { inspectCanonicalRoot, readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath, localDomain } from "./localDomain.js";
-import type { Response } from "./protocol.js";
 
 const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
-function send(workspace: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), workspace.root, workspace.cache); }
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw new Error("failed");
-  return response;
-}
-function fail(response: Response, code: string) { assert.equal(response.ok, false); if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response)); }
-function run(workspace: Workspace, request: object, loader: string) {
-  return spawnSync(process.execPath, ["--import", loader, cli, "--stdio", "--root", workspace.root, "--database", workspace.cache], { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 });
-}
 function crash(workspace: Workspace, cut: string, source?: string) {
   const info = success(send(workspace, { command: "workspace.info" }));
   const request = { version: 2, command: source ? "workspace.restore" : "workspace.archive", writeContext: info.writeContext, idempotencyKey: "original-copy", args: { destinationDirectory: workspace.destination, ...(source ? { sourceDirectory: source } : {}) } };
@@ -52,10 +40,6 @@ return {...result,source};}});`);
   assert.equal(existsSync(pending), true);
   const intent = JSON.parse(readFileSync(pending, "utf8"));
   return { request, pending, intent };
-}
-function recover(workspace: Workspace, operationId: string, key = "resume-copy") {
-  const info = success(send(workspace, { command: "workspace.info" }));
-  return send(workspace, { command: "workspace.recovery.resume", args: { operationId }, writeContext: info.writeContext, idempotencyKey: key });
 }
 const cuts = ["intent", ...Array.from({ length: 6 }, (_, prefix) => `prefix-${prefix}`), "verified", "reserved", "published", "beforeCommit", "afterCommit", "retiring-target", "retiring-evidence"];
 for (const command of ["archive", "restore"]) for (const cut of cuts) {

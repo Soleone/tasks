@@ -60,7 +60,7 @@ For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`,
 | `pnpm build:backend` | Prepare `dist/backend` for focused script tests |
 | `pnpm test:sidecar` | Bundled Node SEA probe on the actual host |
 | `pnpm test:ui` | Default legacy UI Chromium regression on disposable data |
-| `node --test scripts/mainClientRouting.test.mjs scripts/mainClientPreferences.test.mjs` | Replacement bridge/client and preference checks |
+| `node --test scripts/mainClientRouting.test.mjs scripts/appearancePreferences.test.mjs` | Client routing and stored appearance checks |
 | `pnpm test:native:argv` | Actual-Windows launch preparation/refusals, not a window launch |
 
 `pnpm build` builds the backend before Vite clears `dist/`; rebuild the backend before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.

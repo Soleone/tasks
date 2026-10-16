@@ -5,20 +5,15 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
-import { executeLine } from "./gateway.js";
 import { pendingIntentPath } from "./localDomain.js";
-import type { Response } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 const corpus = JSON.parse(readFileSync(fileURLToPath(new URL("../../scripts/fixtures/workspace/cases.json", import.meta.url)), "utf8"));
 const linuxOnly = { skip: process.platform !== "linux" };
 type Projection = CanonicalTask & { version: number; blockedByIds: string[] };
-function send(w: Workspace, envelope: object): Response { return executeLine(Buffer.from(JSON.stringify({ version: 2, ...envelope })), w.root, w.cache); }
-function success(r: Response): Extract<Response, { ok: true }> { assert.equal(r.ok, true, JSON.stringify(r)); if (!r.ok) throw Error("failed"); return r; }
-function fail(r: Response, code: string) { assert.equal(r.ok, false); if (!r.ok) assert.equal(r.error.code, code, JSON.stringify(r)); }
 function materialize(t: TestContext, records: Record<string, Partial<CanonicalTask>> = { a: {} }) {
   const w = setup(t);
   for (const f of readdirSync(path.join(w.root, "tasks"))) rmSync(path.join(w.root, "tasks", f));
