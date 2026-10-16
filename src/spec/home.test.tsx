@@ -1,11 +1,25 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { AppWorkspace } from "@/testing/appWorkspace";
-import { activeTitle, announcements, expectActive, focusedTitleField, expectListFocused, expectRows, row, selectedTitles, taskList } from "@/testing/taskList";
+import {
+  activeTitle,
+  announcements,
+  expectActive,
+  focusedTitleField,
+  expectListFocused,
+  expectRows,
+  row,
+  selectedTitles,
+  taskList,
+} from "@/testing/taskList";
 
 let workspace: AppWorkspace;
-beforeEach(async () => { workspace = await AppWorkspace.start(); });
-afterEach(async () => { await workspace.stop(); });
+beforeEach(async () => {
+  workspace = await AppWorkspace.start();
+});
+afterEach(async () => {
+  await workspace.stop();
+});
 
 /** Seeds tasks oldest first, so the default newest-first list shows them reversed. */
 async function seed(...titles: string[]): Promise<void> {
@@ -23,7 +37,9 @@ describe("launch", () => {
 
   test("home.launch-empty: the empty shell has focus and C opens capture", async () => {
     const { user } = await workspace.render();
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Saved tasks" })));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("region", { name: "Saved tasks" })),
+    );
     await user.keyboard("c");
     await focusedTitleField();
   });
@@ -202,7 +218,9 @@ describe("selection", () => {
 
 describe("reorder", () => {
   async function manualTitles(): Promise<string[]> {
-    const { tasks } = await workspace.command<{ tasks: { title: string }[] }>("task.list", { sort: "manual" });
+    const { tasks } = await workspace.command<{ tasks: { title: string }[] }>("task.list", {
+      sort: "manual",
+    });
     return tasks.map((task) => task.title);
   }
 
@@ -241,7 +259,11 @@ describe("reorder", () => {
     await seed("A", "B");
     const { user } = await workspace.render();
     await user.keyboard("{Control>}{ArrowDown}{/Control}");
-    await waitFor(() => expect(document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed")).toBe("true"));
+    await waitFor(() =>
+      expect(
+        document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed"),
+      ).toBe("true"),
+    );
   });
 
   test("reorder.allowed-view: outside the default view nothing moves and the filter is named", async () => {
@@ -265,7 +287,15 @@ describe("reorder", () => {
     const first = activeTitle();
     await user.keyboard("{Control>}{End}{/Control}");
     await waitFor(async () => expect((await manualTitles())[0]).not.toBe(first));
-    expect((await workspace.task((await workspace.command<{ tasks: { id: string; title: string }[] }>("task.list", {})).tasks.find((task) => task.title === "Child")!.id)).parentId).toBe(parent.id);
+    expect(
+      (
+        await workspace.task(
+          (
+            await workspace.command<{ tasks: { id: string; title: string }[] }>("task.list", {})
+          ).tasks.find((task) => task.title === "Child")!.id,
+        )
+      ).parentId,
+    ).toBe(parent.id);
   });
 
   test("reorder.mouse: the Move button opens move controls, closed by default", async () => {
@@ -274,7 +304,8 @@ describe("reorder", () => {
     const toggle = document.querySelector("[data-move-controls-toggle]") as HTMLElement;
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     await user.click(toggle);
-    for (const name of ["Move up", "Move down", "Move to beginning", "Move to end"]) await screen.findByRole("button", { name: new RegExp(name, "i") });
+    for (const name of ["Move up", "Move down", "Move to beginning", "Move to end"])
+      await screen.findByRole("button", { name: new RegExp(name, "i") });
   });
 });
 
@@ -284,7 +315,9 @@ describe("hierarchy in a filtered list", () => {
     await workspace.create("Urgent child", { parentId: parent.id, priority: 0 });
     const { user } = await workspace.render();
     await user.keyboard("f0");
-    await waitFor(() => expect(document.querySelector("[data-filter-summary]")?.textContent).toMatch(/^1 /));
+    await waitFor(() =>
+      expect(document.querySelector("[data-filter-summary]")?.textContent).toMatch(/^1 /),
+    );
     await expectRows(["Parent"]);
     await user.keyboard("{ArrowRight}");
     await expectRows(["Parent", "Urgent child"]);
@@ -330,6 +363,8 @@ describe("details", () => {
     await workspace.create("Task");
     const { user } = await workspace.render();
     await user.keyboard("v");
-    await waitFor(() => expect(row("Task").querySelector("[title^=Created]")?.textContent).toMatch(/today/));
+    await waitFor(() =>
+      expect(row("Task").querySelector("[title^=Created]")?.textContent).toMatch(/today/),
+    );
   });
 });

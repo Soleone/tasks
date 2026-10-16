@@ -4,8 +4,12 @@ import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
-beforeEach(async () => { workspace = await AppWorkspace.start(); });
-afterEach(async () => { await workspace.stop(); });
+beforeEach(async () => {
+  workspace = await AppWorkspace.start();
+});
+afterEach(async () => {
+  await workspace.stop();
+});
 
 test("settings.open: Ctrl+, opens Settings with focus on its tabs", async () => {
   await workspace.create("Task");
@@ -72,6 +76,12 @@ test("prefs.remembered: sort and Details survive a reload", async () => {
   await expectRows(["Urgent", "Low"]);
   first.view.unmount();
   await workspace.render();
-  await waitFor(() => expect(document.querySelector("[data-sort=task-sort-priority]")?.getAttribute("aria-pressed")).toBe("true"));
-  expect(document.querySelector("[data-view=task-details]")?.getAttribute("aria-pressed")).toBe("true");
+  await waitFor(() =>
+    expect(
+      document.querySelector("[data-sort=task-sort-priority]")?.getAttribute("aria-pressed"),
+    ).toBe("true"),
+  );
+  expect(document.querySelector("[data-view=task-details]")?.getAttribute("aria-pressed")).toBe(
+    "true",
+  );
 });

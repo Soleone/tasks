@@ -13,22 +13,36 @@ function reparsePurgeResult(currentTasks, deletedTasks, affectedTasks, plan) {
     orders.set(task.parentId, siblings);
   }
   for (const [parentId, siblings] of orders) {
-    orders.set(parentId, siblings.sort((left, right) => left.position - right.position || left.id.localeCompare(right.id)).map((task) => task.id));
+    orders.set(
+      parentId,
+      siblings
+        .sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+        .map((task) => task.id),
+    );
   }
 
   for (const parentId of plan.deletedOrderParentIds) orders.delete(parentId);
-  for (const task of affectedTasks) tasksById.set(task.id, { ...tasksById.get(task.id), parentId: task.parentId });
+  for (const task of affectedTasks)
+    tasksById.set(task.id, { ...tasksById.get(task.id), parentId: task.parentId });
   for (const order of plan.orders) orders.set(order.parentId, order.taskIds);
   for (const task of deletedTasks) tasksById.delete(task.id);
 
   const tasks = [...tasksById.values()].map((task) => JSON.parse(JSON.stringify(task)));
-  const parsedOrders = [...orders].map(([parentId, taskIds]) => JSON.parse(JSON.stringify({ parentId, taskIds })));
+  const parsedOrders = [...orders].map(([parentId, taskIds]) =>
+    JSON.parse(JSON.stringify({ parentId, taskIds })),
+  );
   const tasksByParsedId = new Map(tasks.map((task) => [task.id, task]));
   for (const task of tasks) {
-    assert.ok(task.parentId === null || tasksByParsedId.has(task.parentId), `missing parent ${task.parentId}`);
+    assert.ok(
+      task.parentId === null || tasksByParsedId.has(task.parentId),
+      `missing parent ${task.parentId}`,
+    );
   }
   for (const order of parsedOrders) {
-    assert.ok(order.parentId === null || tasksByParsedId.has(order.parentId), `orphaned order parent ${order.parentId}`);
+    assert.ok(
+      order.parentId === null || tasksByParsedId.has(order.parentId),
+      `orphaned order parent ${order.parentId}`,
+    );
     for (const id of order.taskIds) assert.equal(tasksByParsedId.get(id)?.parentId, order.parentId);
   }
   return { tasks, orders: parsedOrders };
@@ -87,9 +101,19 @@ test("the reparsed canonical purge matches the SQLite root sibling order", () =>
   const plan = planAndroidPurgeCanonicalChanges(current, deleted, affected);
   const reparsed = reparsePurgeResult(current, deleted, affected, plan);
 
-  assert.deepEqual(reparsed.orders.find((order) => order.parentId === null)?.taskIds, ["a", "e", "f"]);
-  assert.deepEqual(reparsed.tasks.map((task) => task.id), ["a", "e", "f"]);
-  assert.equal(reparsed.orders.some((order) => order.parentId === "d"), false);
+  assert.deepEqual(reparsed.orders.find((order) => order.parentId === null)?.taskIds, [
+    "a",
+    "e",
+    "f",
+  ]);
+  assert.deepEqual(
+    reparsed.tasks.map((task) => task.id),
+    ["a", "e", "f"],
+  );
+  assert.equal(
+    reparsed.orders.some((order) => order.parentId === "d"),
+    false,
+  );
 });
 
 test("purging a child updates the surviving parent order and deletes the child's order file", () => {

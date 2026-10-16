@@ -26,7 +26,10 @@ function rootFor(task: TaskView, byId: Map<string, TaskView>): string {
   return current.id;
 }
 
-export function contextAncestorIds(tasks: readonly TaskView[], knownTasks: readonly TaskView[]): Set<string> {
+export function contextAncestorIds(
+  tasks: readonly TaskView[],
+  knownTasks: readonly TaskView[],
+): Set<string> {
   const byId = new Map(knownTasks.map((task) => [task.id, task]));
   const contextIds = new Set<string>();
   for (const task of tasks) {
@@ -70,7 +73,11 @@ export function visibleTaskRows(
   tasks.forEach((task, index) => {
     const rootId = rootFor(task, byId);
     const root = byId.get(rootId) ?? task;
-    const group = groups.get(rootId) ?? { root, descendants: [], rootIndex: rootOrder.get(rootId) ?? index };
+    const group = groups.get(rootId) ?? {
+      root,
+      descendants: [],
+      rootIndex: rootOrder.get(rootId) ?? index,
+    };
     if (task.id === rootId) group.root = task;
     else group.descendants.push(task);
     if (!rootOrder.has(rootId)) group.rootIndex = Math.min(group.rootIndex, index);
@@ -87,11 +94,14 @@ export function visibleTaskRows(
         contextOnly: !matchingIds.has(group.root.id),
       };
       if (!expandedIds.has(group.root.id)) return [rootRow];
-      return [rootRow, ...group.descendants.map((task) => ({
-        task,
-        depth: 1 as const,
-        hasChildren: false,
-        contextOnly: false,
-      }))];
+      return [
+        rootRow,
+        ...group.descendants.map((task) => ({
+          task,
+          depth: 1 as const,
+          hasChildren: false,
+          contextOnly: false,
+        })),
+      ];
     });
 }

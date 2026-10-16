@@ -5,7 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import { startDevServer } from "./devServer.js";
 
-async function postCommand(url: string, body: unknown, origin?: string): Promise<{ status: number; json: Record<string, unknown> }> {
+async function postCommand(
+  url: string,
+  body: unknown,
+  origin?: string,
+): Promise<{ status: number; json: Record<string, unknown> }> {
   const response = await fetch(`${url}/command`, {
     method: "POST",
     headers: {
@@ -14,7 +18,7 @@ async function postCommand(url: string, body: unknown, origin?: string): Promise
     },
     body: JSON.stringify(body),
   });
-  return { status: response.status, json: await response.json() as Record<string, unknown> };
+  return { status: response.status, json: (await response.json()) as Record<string, unknown> };
 }
 
 test("dev server serves health and the same command path as the sidecar", async () => {
@@ -25,14 +29,22 @@ test("dev server serves health and the same command path as the sidecar", async 
   try {
     const health = await fetch(`${dev.url}/health`);
     assert.equal(health.status, 200);
-    const healthBody = await health.json() as { ok: boolean; databasePath: string };
+    const healthBody = (await health.json()) as { ok: boolean; databasePath: string };
     assert.equal(healthBody.ok, true);
     assert.equal(healthBody.databasePath, databasePath);
 
-    const probe = await postCommand(dev.url, { version: 1, requestId: "dev-probe", command: "runtime.probe" });
+    const probe = await postCommand(dev.url, {
+      version: 1,
+      requestId: "dev-probe",
+      command: "runtime.probe",
+    });
     assert.equal(probe.status, 200);
     assert.equal(probe.json.ok, true);
-    const probeResult = probe.json.result as { databasePath: string; searchMatches: number; fts5Enabled: boolean };
+    const probeResult = probe.json.result as {
+      databasePath: string;
+      searchMatches: number;
+      fts5Enabled: boolean;
+    };
     assert.equal(probeResult.databasePath, databasePath);
     assert.equal(probeResult.searchMatches, 1);
     assert.equal(probeResult.fts5Enabled, true);
@@ -47,13 +59,23 @@ test("dev server serves health and the same command path as the sidecar", async 
     assert.equal(created.status, 200);
     assert.equal(created.json.ok, true);
 
-    const listed = await postCommand(dev.url, { version: 1, requestId: "dev-list", command: "task.list" });
-    const listedResult = (listed.json as { result: { total: number; tasks: Array<{ title: string }> } }).result;
+    const listed = await postCommand(dev.url, {
+      version: 1,
+      requestId: "dev-list",
+      command: "task.list",
+    });
+    const listedResult = (
+      listed.json as { result: { total: number; tasks: Array<{ title: string }> } }
+    ).result;
     assert.equal(listed.json.ok, true);
     assert.equal(listedResult.total, 1);
     assert.equal(listedResult.tasks[0]?.title, "Prepare @todo-app launch #planning #product");
 
-    const invalid = await postCommand(dev.url, { version: 1, requestId: "dev-bad", command: "task.nope" });
+    const invalid = await postCommand(dev.url, {
+      version: 1,
+      requestId: "dev-bad",
+      command: "task.nope",
+    });
     assert.equal(invalid.status, 200);
     assert.equal(invalid.json.ok, false);
   } finally {
@@ -64,7 +86,11 @@ test("dev server serves health and the same command path as the sidecar", async 
 
 test("dev server rejects non-local origins", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-dev-origin-"));
-  const dev = await startDevServer({ port: 0, databasePath: path.join(directory, "dev.db"), legacy: true });
+  const dev = await startDevServer({
+    port: 0,
+    databasePath: path.join(directory, "dev.db"),
+    legacy: true,
+  });
 
   try {
     const rejected = await postCommand(

@@ -5,14 +5,34 @@ import { AndroidUndoError, planAndroidUndo } from "../src/legacy/platform/androi
 const now = "2026-09-10T00:00:00.000Z";
 function task(id, changes = {}) {
   return {
-    id, title: id, descriptionMarkdown: "", status: "open", priority: 2,
-    category: null, tags: [], parentId: null, dependencyIds: [], blockedByIds: [],
-    version: 1, createdAt: now, updatedAt: now, completedAt: null, canceledAt: null,
+    id,
+    title: id,
+    descriptionMarkdown: "",
+    status: "open",
+    priority: 2,
+    category: null,
+    tags: [],
+    parentId: null,
+    dependencyIds: [],
+    blockedByIds: [],
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    canceledAt: null,
     ...changes,
   };
 }
 function operation(before, after, changes = {}) {
-  return { id: "op", kind: "mutation", before: [before], after: [after], beforeOrders: [], afterOrders: [], ...changes };
+  return {
+    id: "op",
+    kind: "mutation",
+    before: [before],
+    after: [after],
+    beforeOrders: [],
+    afterOrders: [],
+    ...changes,
+  };
 }
 function fails(code, fn) {
   assert.throws(fn, (error) => error instanceof AndroidUndoError && error.code === code);
@@ -26,9 +46,20 @@ test("Android undo restores a status with a new version, not the stale old versi
   assert.equal(plan.restored.completedAt, null);
   assert.equal(plan.restored.version, 3);
   assert.equal(plan.restored.updatedAt, "later");
-  fails("OPERATION_CONFLICT", () => planAndroidUndo(operation(before, after), "op", [{ ...after, version: 3 }], "later"));
-  fails("OPERATION_CONFLICT", () => planAndroidUndo(operation(before, after), "op", [{ ...after, title: "edited elsewhere" }], "later"));
-  fails("OPERATION_UNAVAILABLE", () => planAndroidUndo(operation(before, after), "different", [after], "later"));
+  fails("OPERATION_CONFLICT", () =>
+    planAndroidUndo(operation(before, after), "op", [{ ...after, version: 3 }], "later"),
+  );
+  fails("OPERATION_CONFLICT", () =>
+    planAndroidUndo(
+      operation(before, after),
+      "op",
+      [{ ...after, title: "edited elsewhere" }],
+      "later",
+    ),
+  );
+  fails("OPERATION_UNAVAILABLE", () =>
+    planAndroidUndo(operation(before, after), "different", [after], "later"),
+  );
 });
 
 test("Android undo preserves reorder timestamps and rejects a changed sibling scope", () => {
@@ -57,14 +88,18 @@ test("Android undo rejects a dependency cycle introduced by a valid external edi
   const before = task("one", { dependencyIds: ["two"], blockedByIds: ["two"] });
   const after = task("one", { version: 2 });
   const external = task("two", { dependencyIds: ["one"], blockedByIds: ["one"] });
-  fails("OPERATION_CONFLICT", () => planAndroidUndo(operation(before, after), "op", [after, external], "later"));
+  fails("OPERATION_CONFLICT", () =>
+    planAndroidUndo(operation(before, after), "op", [after, external], "later"),
+  );
 });
 
 test("Android undo rejects a parent cycle introduced by a valid external move", () => {
   const before = task("one", { parentId: "two" });
   const after = task("one", { version: 2 });
   const external = task("two", { parentId: "one" });
-  fails("OPERATION_CONFLICT", () => planAndroidUndo(operation(before, after), "op", [after, external], "later"));
+  fails("OPERATION_CONFLICT", () =>
+    planAndroidUndo(operation(before, after), "op", [after, external], "later"),
+  );
 });
 
 test("Android undo permits an unrelated external edit when the prospective graph stays valid", () => {

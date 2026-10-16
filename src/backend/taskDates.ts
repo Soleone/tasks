@@ -6,7 +6,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function formatTaskDate(iso: string, now = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const startOfDay = (value: Date): number => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const startOfDay = (value: Date): number =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
   const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / (24 * 60 * 60 * 1000));
   if (daysAgo === 0) return "today";
   if (daysAgo === 1) return "yesterday";
@@ -28,7 +29,9 @@ export function sameTaskDay(leftIso: string, rightIso: string): boolean {
   const left = new Date(leftIso);
   const right = new Date(rightIso);
   if (Number.isNaN(left.getTime()) || Number.isNaN(right.getTime())) return false;
-  return left.getFullYear() === right.getFullYear()
-    && left.getMonth() === right.getMonth()
-    && left.getDate() === right.getDate();
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
 }

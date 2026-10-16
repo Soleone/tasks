@@ -14,14 +14,20 @@ export function getDataDirectory(
   const pathApi = platform === "win32" ? path.win32 : path.posix;
 
   if (platform === "win32") {
-    return pathApi.join(environment.APPDATA ?? pathApi.join(homeDirectory, "AppData", "Roaming"), APP_DATA_DIRECTORY);
+    return pathApi.join(
+      environment.APPDATA ?? pathApi.join(homeDirectory, "AppData", "Roaming"),
+      APP_DATA_DIRECTORY,
+    );
   }
 
   if (platform === "darwin") {
     return pathApi.join(homeDirectory, "Library", "Application Support", APP_DATA_DIRECTORY);
   }
 
-  return pathApi.join(environment.XDG_DATA_HOME ?? pathApi.join(homeDirectory, ".local", "share"), APP_DATA_DIRECTORY);
+  return pathApi.join(
+    environment.XDG_DATA_HOME ?? pathApi.join(homeDirectory, ".local", "share"),
+    APP_DATA_DIRECTORY,
+  );
 }
 
 export function getDatabasePath(

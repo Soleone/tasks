@@ -22,10 +22,7 @@
       }
     ],
     "shadcn/no-inline-styles": "error",
-    "shadcn/no-unknown-classes": [
-      "error",
-      { "allow": ["app-icon", "wrap-anywhere"] }
-    ]
+    "shadcn/no-unknown-classes": ["error", { "allow": ["app-icon", "wrap-anywhere"] }]
   },
   "overrides": [
     {

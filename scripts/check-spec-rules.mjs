@@ -19,7 +19,11 @@ function listFiles(dir, include) {
 }
 
 function cells(line) {
-  return line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
+  return line
+    .trim()
+    .replace(/^\||\|$/g, "")
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 function slugIn(cell) {
@@ -29,10 +33,14 @@ function slugIn(cell) {
 
 // Rule definitions (first "Rule" column) and citations (any later "Rule" column).
 function readSpecTables(path) {
-  const definitions = [], citations = [];
+  const definitions = [],
+    citations = [];
   let ruleColumns = null;
   for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (!line.trim().startsWith("|")) { ruleColumns = null; continue; }
+    if (!line.trim().startsWith("|")) {
+      ruleColumns = null;
+      continue;
+    }
     const row = cells(line);
     if (ruleColumns === null) {
       ruleColumns = row.flatMap((cell, index) => (cell === "Rule" ? [index] : []));
@@ -40,7 +48,11 @@ function readSpecTables(path) {
     }
     if (row.every((cell) => /^-+$/.test(cell))) continue;
     for (const index of ruleColumns) {
-      const slugs = row[index]?.split(",").map((part) => slugIn(part.trim())).filter(Boolean) ?? [];
+      const slugs =
+        row[index]
+          ?.split(",")
+          .map((part) => slugIn(part.trim()))
+          .filter(Boolean) ?? [];
       (index === 0 ? definitions : citations).push(...slugs);
     }
   }
@@ -48,14 +60,18 @@ function readSpecTables(path) {
 }
 
 const specRoot = join(root, "spec");
-const specFiles = listFiles(specRoot, (path) => path.endsWith(".md") && path !== join(specRoot, "README.md"));
+const specFiles = listFiles(
+  specRoot,
+  (path) => path.endsWith(".md") && path !== join(specRoot, "README.md"),
+);
 const rules = new Map();
 const problems = [];
 const specCitations = [];
 for (const path of specFiles) {
   const { definitions, citations } = readSpecTables(path);
   for (const slug of definitions) {
-    if (rules.has(slug)) problems.push(`duplicate rule ${slug} in ${relative(root, path)} and ${rules.get(slug)}`);
+    if (rules.has(slug))
+      problems.push(`duplicate rule ${slug} in ${relative(root, path)} and ${rules.get(slug)}`);
     else rules.set(slug, relative(root, path));
   }
   specCitations.push(...citations.map((slug) => [slug, relative(root, path)]));

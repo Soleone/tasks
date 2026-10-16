@@ -25,73 +25,193 @@ import { executeQuery, projectTasks } from "./queries.js";
 import { assertArgs, decodeEnvelope, isRecord, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 import type { Response } from "./protocol.js";
 
-const writeCommands = ["task.update", "task.create", ...STATUS_COMMANDS, ...RELATIONSHIP_COMMANDS, ...ORDER_COMMANDS, ...UNDO_COMMANDS, "task.purgeCanceled", "workspace.recovery.resume", "workspace.archive", "workspace.restore", "workspace.migrate", "workspace.init", "workspace.rebuild", "workspace.doctor.plan", "workspace.doctor.apply"];
+const writeCommands = [
+  "task.update",
+  "task.create",
+  ...STATUS_COMMANDS,
+  ...RELATIONSHIP_COMMANDS,
+  ...ORDER_COMMANDS,
+  ...UNDO_COMMANDS,
+  "task.purgeCanceled",
+  "workspace.recovery.resume",
+  "workspace.archive",
+  "workspace.restore",
+  "workspace.migrate",
+  "workspace.init",
+  "workspace.rebuild",
+  "workspace.doctor.plan",
+  "workspace.doctor.apply",
+];
 
-export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: string, writerProfile?: "windows-task-proof"): Response {
+export function executeLine(
+  bytes: Uint8Array,
+  rootPath: string,
+  cachePath: string,
+  writerProfile?: "windows-task-proof",
+): Response {
   let requestId: string | null = null;
   try {
     const envelope = decodeEnvelope(bytes);
-    if (isRecord(envelope) && typeof envelope.requestId === "string") requestId = envelope.requestId;
+    if (isRecord(envelope) && typeof envelope.requestId === "string")
+      requestId = envelope.requestId;
     const request = parseRequest(envelope);
     const writable = process.platform === "linux";
     const windowsTaskProof = process.platform === "win32" && writerProfile === "windows-task-proof";
-    const allowedWrites = windowsTaskProof ? ["task.create", "task.update", ...STATUS_COMMANDS, "task.status.undo", "workspace.archive", "workspace.restore", "workspace.recovery.resume"] : writable ? writeCommands : [];
+    const allowedWrites = windowsTaskProof
+      ? [
+          "task.create",
+          "task.update",
+          ...STATUS_COMMANDS,
+          "task.status.undo",
+          "workspace.archive",
+          "workspace.restore",
+          "workspace.recovery.resume",
+        ]
+      : writable
+        ? writeCommands
+        : [];
     if (writable && request.command === "workspace.doctor.inspect") {
       const outcome = executeDoctorInspect(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     if (allowedWrites.includes(request.command)) {
-      const outcome = request.command === "task.create" ? executeCreate(request, rootPath, cachePath)
-        : request.command === "task.purgeCanceled" ? executePurge(request, rootPath, cachePath)
-        : request.command === "workspace.doctor.plan" ? executeDoctorPlan(request, rootPath, cachePath)
-        : request.command === "workspace.doctor.apply" ? executeDoctorApply(request, rootPath, cachePath)
-        : UNDO_COMMANDS.includes(request.command) ? executeUndo(request, rootPath, cachePath, windowsTaskProof)
-        : ORDER_COMMANDS.includes(request.command) ? executeOrder(request, rootPath, cachePath)
-        : isTaskEditRequest(request) ? executeUpdate(request, rootPath, cachePath)
-        : request.command === "workspace.recovery.resume" ? resumeOperation(request, rootPath, cachePath, windowsTaskProof)
-        : request.command === "workspace.migrate" ? executeMigration(request, rootPath, cachePath)
-        : ["workspace.init", "workspace.rebuild"].includes(request.command) ? executeLifecycle(request, rootPath, cachePath)
-        : executeCopy(request, rootPath, cachePath, windowsTaskProof);
+      const outcome =
+        request.command === "task.create"
+          ? executeCreate(request, rootPath, cachePath)
+          : request.command === "task.purgeCanceled"
+            ? executePurge(request, rootPath, cachePath)
+            : request.command === "workspace.doctor.plan"
+              ? executeDoctorPlan(request, rootPath, cachePath)
+              : request.command === "workspace.doctor.apply"
+                ? executeDoctorApply(request, rootPath, cachePath)
+                : UNDO_COMMANDS.includes(request.command)
+                  ? executeUndo(request, rootPath, cachePath, windowsTaskProof)
+                  : ORDER_COMMANDS.includes(request.command)
+                    ? executeOrder(request, rootPath, cachePath)
+                    : isTaskEditRequest(request)
+                      ? executeUpdate(request, rootPath, cachePath)
+                      : request.command === "workspace.recovery.resume"
+                        ? resumeOperation(request, rootPath, cachePath, windowsTaskProof)
+                        : request.command === "workspace.migrate"
+                          ? executeMigration(request, rootPath, cachePath)
+                          : ["workspace.init", "workspace.rebuild"].includes(request.command)
+                            ? executeLifecycle(request, rootPath, cachePath)
+                            : executeCopy(request, rootPath, cachePath, windowsTaskProof);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
-    if (writeCommands.includes(request.command)) throw new CommandError("UNSUPPORTED_COMMAND", "write is unavailable in this platform/profile");
+    if (writeCommands.includes(request.command))
+      throw new CommandError(
+        "UNSUPPORTED_COMMAND",
+        "write is unavailable in this platform/profile",
+      );
     const inspection = inspectCanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
       throw new CommandError("UNSUPPORTED_SCHEMA", "task commands require canonical schema 2");
     }
-    const commands = [...QUERY_COMMANDS, ...allowedWrites, ...(writable ? ["activity.list", "workspace.doctor.inspect"] : windowsTaskProof ? ["activity.list"] : [])].sort();
+    const commands = [
+      ...QUERY_COMMANDS,
+      ...allowedWrites,
+      ...(writable
+        ? ["activity.list", "workspace.doctor.inspect"]
+        : windowsTaskProof
+          ? ["activity.list"]
+          : []),
+    ].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this build");
     }
     if (request.command === "workspace.info") assertArgs(request.args, []);
     let pending;
     let pendingIssue: { code: string; message: string } | undefined;
-    try { pending = readPending(inspection); } catch (error) {
+    try {
+      pending = readPending(inspection);
+    } catch (error) {
       if (request.command !== "workspace.info") throw error;
-      pendingIssue = { code: "RECOVERY_CONFLICT", message: "local intent evidence requires manual inspection; no automatic repair" };
+      pendingIssue = {
+        code: "RECOVERY_CONFLICT",
+        message: "local intent evidence requires manual inspection; no automatic repair",
+      };
     }
-    if (request.command !== "workspace.info" && pending) throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
+    if (request.command !== "workspace.info" && pending)
+      throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
     if (request.command !== "workspace.info" && !inspection.snapshot) {
-      throw new CommandError(inspection.issues[0]?.code ?? "INVALID_CANONICAL", "root is not a complete schema-2 collection");
+      throw new CommandError(
+        inspection.issues[0]?.code ?? "INVALID_CANONICAL",
+        "root is not a complete schema-2 collection",
+      );
     }
-    const authority = observeQueryAuthority(cachePath, inspection, pending || pendingIssue ? undefined : inspection.snapshot);
-    const result = request.command === "workspace.info" ? {
-      state: pending || pendingIssue ? "recovery_pending" : inspection.state,
-      schemaVersion: inspection.schemaVersion,
-      commands,
-      issues: [...inspection.issues, ...(pendingIssue ? [pendingIssue] : []), ...(pending?.format === "taskdb.pending-copy-target" ? [{ code: "RECOVERY_PENDING", message: `resume copy from its original selected root: ${pending.owner.rootPath}` }] : [])],
-      pendingOperationId: pending?.operationId ?? null,
-      workspaceRevision: authority.workspaceRevision,
-    } : request.command === "activity.list" ? withCacheTransaction(cachePath, inspection, database => {
-      synchronizeAuthority(database, inspection);
-      return listActivity(database, request.args, authority.writeContext);
-    }) : executeQuery(request.command, request.args, projectTasks(inspection.snapshot!.tasks, authority), authority.workspaceRevision);
-    if (request.command !== "workspace.info" && readPending(inspection)) throw new CommandError("RECOVERY_PENDING", "root changed while querying");
-    return { version: 2, requestId: request.requestId, ok: true, writeContext: authority.writeContext, result };
+    const authority = observeQueryAuthority(
+      cachePath,
+      inspection,
+      pending || pendingIssue ? undefined : inspection.snapshot,
+    );
+    const result =
+      request.command === "workspace.info"
+        ? {
+            state: pending || pendingIssue ? "recovery_pending" : inspection.state,
+            schemaVersion: inspection.schemaVersion,
+            commands,
+            issues: [
+              ...inspection.issues,
+              ...(pendingIssue ? [pendingIssue] : []),
+              ...(pending?.format === "taskdb.pending-copy-target"
+                ? [
+                    {
+                      code: "RECOVERY_PENDING",
+                      message: `resume copy from its original selected root: ${pending.owner.rootPath}`,
+                    },
+                  ]
+                : []),
+            ],
+            pendingOperationId: pending?.operationId ?? null,
+            workspaceRevision: authority.workspaceRevision,
+          }
+        : request.command === "activity.list"
+          ? withCacheTransaction(cachePath, inspection, (database) => {
+              synchronizeAuthority(database, inspection);
+              return listActivity(database, request.args, authority.writeContext);
+            })
+          : executeQuery(
+              request.command,
+              request.args,
+              projectTasks(inspection.snapshot!.tasks, authority),
+              authority.workspaceRevision,
+            );
+    if (request.command !== "workspace.info" && readPending(inspection))
+      throw new CommandError("RECOVERY_PENDING", "root changed while querying");
+    return {
+      version: 2,
+      requestId: request.requestId,
+      ok: true,
+      writeContext: authority.writeContext,
+      result,
+    };
   } catch (error) {
-    const storageError = isRecord(error) && typeof error.code === "string" && /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
-    const code = error instanceof CommandError ? error.code : storageError ? "INVALID_STORAGE" : "INTERNAL_ERROR";
-    const message = error instanceof CommandError ? error.message.slice(error.code.length + 2) : "query could not complete safely";
-    return { version: 2, requestId, ok: false, error: { code, message, ...(error instanceof Schema1MigrationSourceError || error instanceof PurgeReferencedError ? { details: error.details } : {}) } };
+    const storageError =
+      isRecord(error) &&
+      typeof error.code === "string" &&
+      /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
+    const code =
+      error instanceof CommandError
+        ? error.code
+        : storageError
+          ? "INVALID_STORAGE"
+          : "INTERNAL_ERROR";
+    const message =
+      error instanceof CommandError
+        ? error.message.slice(error.code.length + 2)
+        : "query could not complete safely";
+    return {
+      version: 2,
+      requestId,
+      ok: false,
+      error: {
+        code,
+        message,
+        ...(error instanceof Schema1MigrationSourceError || error instanceof PurgeReferencedError
+          ? { details: error.details }
+          : {}),
+      },
+    };
   }
 }

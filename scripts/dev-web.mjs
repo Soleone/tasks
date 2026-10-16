@@ -5,7 +5,11 @@ import { devWebOptions } from "./dev-web-options.mjs";
 const { backendArgs, viteArgs, legacy } = devWebOptions(process.argv.slice(2));
 const root = path.resolve(import.meta.dirname, "..");
 
-execFileSync("pnpm", ["build:backend"], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });
+execFileSync("pnpm", ["build:backend"], {
+  cwd: root,
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
 
 const backend = spawn(process.execPath, ["dist/backend/devServer.js", ...backendArgs], {
   cwd: root,

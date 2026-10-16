@@ -13,14 +13,18 @@ const cliPath = new URL("./cli.js", import.meta.url);
 test("compiled CLI creates and lists a classified task", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-cli-m1-"));
   const databasePath = path.join(directory, "cli.db");
-  const child = spawn(process.execPath, [fileURLToPath(cliPath), "--stdio", "--database", databasePath], {
-    stdio: "pipe",
-  });
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(cliPath), "--stdio", "--database", databasePath],
+    {
+      stdio: "pipe",
+    },
+  );
   const output = readline.createInterface({ input: child.stdout });
 
   async function send(request: Record<string, unknown>): Promise<Record<string, unknown>> {
     child.stdin.write(`${JSON.stringify(request)}\n`);
-    const [line] = await once(output, "line") as [string];
+    const [line] = (await once(output, "line")) as [string];
     return JSON.parse(line) as Record<string, unknown>;
   }
 
@@ -32,10 +36,15 @@ test("compiled CLI creates and lists a classified task", async () => {
       args: { title: "Prepare @todo-app launch #planning #product" },
       idempotencyKey: "cli-create-key",
     });
-    const createdResult = created.result as { task: { category: { slug: string }; tags: Array<{ slug: string }> } };
+    const createdResult = created.result as {
+      task: { category: { slug: string }; tags: Array<{ slug: string }> };
+    };
     assert.equal(created.ok, true);
     assert.equal(createdResult.task.category.slug, "todo-app");
-    assert.deepEqual(createdResult.task.tags.map((tag) => tag.slug), ["planning", "product"]);
+    assert.deepEqual(
+      createdResult.task.tags.map((tag) => tag.slug),
+      ["planning", "product"],
+    );
 
     const listed = await send({ version: 1, requestId: "cli-list", command: "task.list" });
     const listedResult = listed.result as { total: number; tasks: Array<{ title: string }> };
@@ -52,9 +61,13 @@ test("compiled CLI creates and lists a classified task", async () => {
 test("compiled CLI replays a write after restart", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-cli-"));
   const databasePath = path.join(directory, "cli.db");
-  const child = spawn(process.execPath, [fileURLToPath(cliPath), "--stdio", "--database", databasePath], {
-    stdio: "pipe",
-  });
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(cliPath), "--stdio", "--database", databasePath],
+    {
+      stdio: "pipe",
+    },
+  );
   const output = readline.createInterface({ input: child.stdout });
   const createRequest = {
     version: 1,
@@ -65,29 +78,41 @@ test("compiled CLI replays a write after restart", async () => {
   };
 
   try {
-    child.stdin.write(`${JSON.stringify({ version: 1, requestId: "cli-1", command: "runtime.probe" })}\n`);
-    const [line] = await once(output, "line") as [string];
-    const response = JSON.parse(line) as { ok: boolean; requestId: string; result?: { searchMatches: number } };
+    child.stdin.write(
+      `${JSON.stringify({ version: 1, requestId: "cli-1", command: "runtime.probe" })}\n`,
+    );
+    const [line] = (await once(output, "line")) as [string];
+    const response = JSON.parse(line) as {
+      ok: boolean;
+      requestId: string;
+      result?: { searchMatches: number };
+    };
     assert.equal(response.ok, true);
     assert.equal(response.requestId, "cli-1");
     assert.equal(response.result?.searchMatches, 1);
 
     child.stdin.write(`${JSON.stringify(createRequest)}\n`);
-    const [createdLine] = await once(output, "line") as [string];
+    const [createdLine] = (await once(output, "line")) as [string];
     const created = JSON.parse(createdLine) as { ok: boolean; result: { task: { id: string } } };
     assert.equal(created.ok, true);
 
     child.kill();
     await once(child, "close");
 
-    const restarted = spawn(process.execPath, [fileURLToPath(cliPath), "--stdio", "--database", databasePath], {
-      stdio: "pipe",
-    });
+    const restarted = spawn(
+      process.execPath,
+      [fileURLToPath(cliPath), "--stdio", "--database", databasePath],
+      {
+        stdio: "pipe",
+      },
+    );
     const restartedOutput = readline.createInterface({ input: restarted.stdout });
 
     try {
-      restarted.stdin.write(`${JSON.stringify({ version: 1, requestId: "cli-restart", command: "runtime.probe" })}\n`);
-      const [restartedLine] = await once(restartedOutput, "line") as [string];
+      restarted.stdin.write(
+        `${JSON.stringify({ version: 1, requestId: "cli-restart", command: "runtime.probe" })}\n`,
+      );
+      const [restartedLine] = (await once(restartedOutput, "line")) as [string];
       const restartedResponse = JSON.parse(restartedLine) as {
         ok: boolean;
         requestId: string;
@@ -98,14 +123,18 @@ test("compiled CLI replays a write after restart", async () => {
       assert.equal(restartedResponse.result?.databasePath, databasePath);
       assert.equal(restartedResponse.result?.searchMatches, 1);
 
-      restarted.stdin.write(`${JSON.stringify({ ...createRequest, requestId: "cli-create-replay" })}\n`);
-      const [replayLine] = await once(restartedOutput, "line") as [string];
+      restarted.stdin.write(
+        `${JSON.stringify({ ...createRequest, requestId: "cli-create-replay" })}\n`,
+      );
+      const [replayLine] = (await once(restartedOutput, "line")) as [string];
       const replay = JSON.parse(replayLine) as { ok: boolean; result: { task: { id: string } } };
       assert.equal(replay.ok, true);
       assert.equal(replay.result.task.id, created.result.task.id);
 
-      restarted.stdin.write(`${JSON.stringify({ version: 1, requestId: "cli-list-after-restart", command: "task.list" })}\n`);
-      const [listLine] = await once(restartedOutput, "line") as [string];
+      restarted.stdin.write(
+        `${JSON.stringify({ version: 1, requestId: "cli-list-after-restart", command: "task.list" })}\n`,
+      );
+      const [listLine] = (await once(restartedOutput, "line")) as [string];
       const list = JSON.parse(listLine) as { ok: boolean; result: { total: number } };
       assert.equal(list.ok, true);
       assert.equal(list.result.total, 1);

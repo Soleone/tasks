@@ -5,7 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCommand } from "../legacy/backend/commands.js";
 import { getDataDirectory, getDatabasePath } from "./paths.js";
-import { errorResponse, parseRequest as parseLegacyRequest, successResponse } from "../legacy/backend/protocol.js";
+import {
+  errorResponse,
+  parseRequest as parseLegacyRequest,
+  successResponse,
+} from "../legacy/backend/protocol.js";
 import { executeLine } from "./gateway.js";
 import { LINUX_EDITOR_COMMANDS } from "./editorCommands.js";
 import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
@@ -29,7 +33,15 @@ export type DevServerOptions = {
   legacy?: boolean;
 };
 
-type DevSelection = { version: 2; rootPath: string; databasePath: string; selectionToken: string; readOnly: false; profilePath: string; writeCommands: string[] };
+type DevSelection = {
+  version: 2;
+  rootPath: string;
+  databasePath: string;
+  selectionToken: string;
+  readOnly: false;
+  profilePath: string;
+  writeCommands: string[];
+};
 
 export type DevServer = {
   server: http.Server;
@@ -48,7 +60,12 @@ function isAllowedOrigin(origin: string): boolean {
   if (url.protocol !== "http:") {
     return false;
   }
-  return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]" || url.hostname === "::1";
+  return (
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "[::1]" ||
+    url.hostname === "::1"
+  );
 }
 
 function readBody(request: http.IncomingMessage): Promise<Buffer> {
@@ -72,19 +89,30 @@ function readBody(request: http.IncomingMessage): Promise<Buffer> {
 export function startDevServer(options: DevServerOptions = {}): Promise<DevServer> {
   if (!options.legacy) {
     if (!options.root?.trim() || !options.databasePath?.trim()) {
-      throw new Error("the dev bridge requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace (use --legacy for the old app)");
+      throw new Error(
+        "the dev bridge requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace (use --legacy for the old app)",
+      );
     }
-    if (process.platform !== "linux") throw new Error("browser editing over the dev bridge runs only on Linux");
+    if (process.platform !== "linux")
+      throw new Error("browser editing over the dev bridge runs only on Linux");
   }
   const databasePath = options.legacy
-    ? options.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath()
+    ? (options.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath())
     : path.resolve(options.databasePath!);
-  const selection: DevSelection | undefined = options.legacy ? undefined : {
-    version: 2, rootPath: path.resolve(options.root!), databasePath, selectionToken: randomUUID(), readOnly: false,
-    profilePath: path.resolve(getDataDirectory()), writeCommands: [...LINUX_EDITOR_COMMANDS],
-  };
+  const selection: DevSelection | undefined = options.legacy
+    ? undefined
+    : {
+        version: 2,
+        rootPath: path.resolve(options.root!),
+        databasePath,
+        selectionToken: randomUUID(),
+        readOnly: false,
+        profilePath: path.resolve(getDataDirectory()),
+        writeCommands: [...LINUX_EDITOR_COMMANDS],
+      };
   const host = options.host ?? "127.0.0.1";
-  const port = options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
+  const port =
+    options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
 
   const server = http.createServer((request, response) => {
     void handleRequest(request, response, databasePath, selection).catch((error: unknown) => {
@@ -93,9 +121,21 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
         return;
       }
       response.writeHead(500, { "content-type": "application/json" });
-      response.end(JSON.stringify(selection === undefined ? errorResponse("unknown", error) : {
-        version: 2, requestId: null, ok: false, error: { code: "INVALID_STORAGE", message: "the dev bridge could not complete safely" },
-      }));
+      response.end(
+        JSON.stringify(
+          selection === undefined
+            ? errorResponse("unknown", error)
+            : {
+                version: 2,
+                requestId: null,
+                ok: false,
+                error: {
+                  code: "INVALID_STORAGE",
+                  message: "the dev bridge could not complete safely",
+                },
+              },
+        ),
+      );
     });
   });
 
@@ -122,13 +162,17 @@ async function handleRequest(
   const origin = request.headers.origin;
   if (origin !== undefined && !isAllowedOrigin(origin)) {
     response.writeHead(403, { "content-type": "application/json" });
-    response.end(JSON.stringify({ ok: false, error: { code: "FORBIDDEN_ORIGIN", message: "origin is not allowed" } }));
+    response.end(
+      JSON.stringify({
+        ok: false,
+        error: { code: "FORBIDDEN_ORIGIN", message: "origin is not allowed" },
+      }),
+    );
     return;
   }
 
-  const corsHeaders: Record<string, string> = origin !== undefined
-    ? { "access-control-allow-origin": origin, vary: "Origin" }
-    : {};
+  const corsHeaders: Record<string, string> =
+    origin !== undefined ? { "access-control-allow-origin": origin, vary: "Origin" } : {};
   for (const [name, value] of Object.entries(corsHeaders)) {
     response.setHeader(name, value);
   }
@@ -145,7 +189,11 @@ async function handleRequest(
 
   if (request.method === "GET" && request.url === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify(selection === undefined ? { ok: true, databasePath } : { ok: true, ...selection }));
+    response.end(
+      JSON.stringify(
+        selection === undefined ? { ok: true, databasePath } : { ok: true, ...selection },
+      ),
+    );
     return;
   }
 
@@ -179,23 +227,64 @@ async function handleRequest(
   }
 
   response.writeHead(404, { "content-type": "application/json" });
-  response.end(JSON.stringify({ ok: false, error: { code: "NOT_FOUND", message: "use POST /command or GET /health" } }));
+  response.end(
+    JSON.stringify({
+      ok: false,
+      error: { code: "NOT_FOUND", message: "use POST /command or GET /health" },
+    }),
+  );
 }
 
-function executeDevCommand(body: Buffer, selection: DevSelection, token: string | string[] | undefined): unknown {
+function executeDevCommand(
+  body: Buffer,
+  selection: DevSelection,
+  token: string | string[] | undefined,
+): unknown {
   let requestId: string | null = null;
   try {
     const request = parseRequest(decodeEnvelope(body));
     requestId = request.requestId;
-    if (token !== selection.selectionToken || selection.profilePath !== path.resolve(getDataDirectory())) {
-      return { version: 2, requestId, ok: false, error: { code: "STALE_DEV_SELECTION", message: "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection" } };
+    if (
+      token !== selection.selectionToken ||
+      selection.profilePath !== path.resolve(getDataDirectory())
+    ) {
+      return {
+        version: 2,
+        requestId,
+        ok: false,
+        error: {
+          code: "STALE_DEV_SELECTION",
+          message:
+            "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection",
+        },
+      };
     }
-    if (!(QUERY_COMMANDS as readonly string[]).includes(request.command) && !(LINUX_EDITOR_COMMANDS as readonly string[]).includes(request.command)) {
-      return { version: 2, requestId, ok: false, error: { code: "UNSUPPORTED_COMMAND", message: "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches and backup/restore; order normalization, batch status undo and other controls remain unavailable" } };
+    if (
+      !(QUERY_COMMANDS as readonly string[]).includes(request.command) &&
+      !(LINUX_EDITOR_COMMANDS as readonly string[]).includes(request.command)
+    ) {
+      return {
+        version: 2,
+        requestId,
+        ok: false,
+        error: {
+          code: "UNSUPPORTED_COMMAND",
+          message:
+            "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches and backup/restore; order normalization, batch status undo and other controls remain unavailable",
+        },
+      };
     }
     return executeLine(body, selection.rootPath, selection.databasePath);
   } catch {
-    return { version: 2, requestId, ok: false, error: { code: "INVALID_REQUEST", message: "the dev bridge requires a valid protocol-2 request" } };
+    return {
+      version: 2,
+      requestId,
+      ok: false,
+      error: {
+        code: "INVALID_REQUEST",
+        message: "the dev bridge requires a valid protocol-2 request",
+      },
+    };
   }
 }
 
@@ -213,8 +302,10 @@ async function main(): Promise<void> {
   }
   const legacy = args.includes("--legacy");
   const root = optionValue(args, "--root");
-  if (args.includes("--root") && (root === undefined || root.startsWith("--"))) throw new Error("--root requires PATH");
-  const databasePath = optionValue(args, "--database") ?? (legacy ? process.env.TASKS_DATABASE_PATH : undefined);
+  if (args.includes("--root") && (root === undefined || root.startsWith("--")))
+    throw new Error("--root requires PATH");
+  const databasePath =
+    optionValue(args, "--database") ?? (legacy ? process.env.TASKS_DATABASE_PATH : undefined);
 
   const dev = await startDevServer({ port, databasePath, root, legacy });
   process.stdout.write(`tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`);
@@ -227,8 +318,8 @@ async function main(): Promise<void> {
   process.on("SIGTERM", shutdown);
 }
 
-const invokedDirectly = process.argv[1] !== undefined
-  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const invokedDirectly =
+  process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
   main().catch((error: unknown) => {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

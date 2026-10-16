@@ -1,14 +1,28 @@
 import { useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/themePalette";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+  literalWordScore,
+} from "@/components/ui/command";
 
 function modeLabel(mode: ThemeMode): string {
   if (mode === "system") return "Follows system";
   return mode === "dark" ? "Dark" : "Light";
 }
 
-function ThemeItem({ theme, selected, onSelect }: {
+function ThemeItem({
+  theme,
+  selected,
+  onSelect,
+}: {
   theme: ThemeRecord;
   selected: boolean;
   onSelect: (name: string) => void;
@@ -30,13 +44,15 @@ function ThemeItem({ theme, selected, onSelect }: {
       ]}
       onSelect={() => onSelect(theme.name)}
     >
-      {theme.palette.accent
-        ? <span
-            aria-hidden="true"
-            className="size-4 shrink-0 rounded-full bg-(--theme-swatch) ring-1 ring-border"
-            style={{ "--theme-swatch": theme.palette.accent } as CSSProperties}
-          />
-        : <Palette aria-hidden="true" />}
+      {theme.palette.accent ? (
+        <span
+          aria-hidden="true"
+          className="size-4 shrink-0 rounded-full bg-(--theme-swatch) ring-1 ring-border"
+          style={{ "--theme-swatch": theme.palette.accent } as CSSProperties}
+        />
+      ) : (
+        <Palette aria-hidden="true" />
+      )}
       <span className="font-medium">{theme.label}</span>
       <span className="text-muted-foreground">{theme.warnings[0] ?? modeLabel(theme.mode)}</span>
       {selected ? <CommandShortcut>Active</CommandShortcut> : null}
@@ -44,7 +60,14 @@ function ThemeItem({ theme, selected, onSelect }: {
   );
 }
 
-export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedTheme, onSelectTheme }: {
+export function ThemePalette({
+  open,
+  onOpenChange,
+  finalFocus,
+  themes,
+  selectedTheme,
+  onSelectTheme,
+}: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
@@ -70,24 +93,29 @@ export function ThemePalette({ open, onOpenChange, finalFocus, themes, selectedT
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >
-        {/* Reinitialize cmdk when the active theme arrives after an early open. */}
-        <Command
-          key={selectedTheme}
-          defaultValue={activeTheme?.name}
-          label="Search themes"
-          filter={literalWordScore}
-          loop
-        >
-          <CommandInput ref={searchInput} placeholder="Search themes…" />
-          <CommandList label="Theme results">
-            <CommandEmpty>No matching themes.</CommandEmpty>
-            <CommandGroup heading="Theme">
-              {themes.map((theme) => (
-                <ThemeItem key={theme.name} theme={theme} selected={theme.name === selectedTheme} onSelect={onSelectTheme} />
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+      {/* Reinitialize cmdk when the active theme arrives after an early open. */}
+      <Command
+        key={selectedTheme}
+        defaultValue={activeTheme?.name}
+        label="Search themes"
+        filter={literalWordScore}
+        loop
+      >
+        <CommandInput ref={searchInput} placeholder="Search themes…" />
+        <CommandList label="Theme results">
+          <CommandEmpty>No matching themes.</CommandEmpty>
+          <CommandGroup heading="Theme">
+            {themes.map((theme) => (
+              <ThemeItem
+                key={theme.name}
+                theme={theme}
+                selected={theme.name === selectedTheme}
+                onSelect={onSelectTheme}
+              />
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
     </CommandDialog>
   );
 }

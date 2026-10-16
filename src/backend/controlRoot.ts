@@ -10,12 +10,20 @@ export function readControlRoot(directory: string): RootBinding {
     return readRootDescriptor(directory);
   } catch (error) {
     const physical = readPhysicalRoot(directory);
-    const legacy = error instanceof CommandError && error.code === "UNSUPPORTED_SCHEMA" && inspectCanonicalRoot(directory).schemaVersion === 1;
+    const legacy =
+      error instanceof CommandError &&
+      error.code === "UNSUPPORTED_SCHEMA" &&
+      inspectCanonicalRoot(directory).schemaVersion === 1;
     try {
       if (readPending(physical)?.format === "taskdb.pending-init") return physical;
     } catch (pendingError) {
       // Valid schema 1 descriptor authority still permits historical migration replay before malformed pending evidence.
-      if (!legacy || !(pendingError instanceof CommandError) || pendingError.code !== "RECOVERY_CONFLICT") throw pendingError;
+      if (
+        !legacy ||
+        !(pendingError instanceof CommandError) ||
+        pendingError.code !== "RECOVERY_CONFLICT"
+      )
+        throw pendingError;
     }
     if (legacy) return readSchema1MigrationRootDescriptor(directory);
     throw error;

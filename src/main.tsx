@@ -41,8 +41,12 @@ applyStoredFontSizeIncrease();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      {legacy ? <App /> : (
-        <Suspense fallback={<p role="status">Loading Tasks...</p>}><WorkspaceSelection /></Suspense>
+      {legacy ? (
+        <App />
+      ) : (
+        <Suspense fallback={<p role="status">Loading Tasks...</p>}>
+          <WorkspaceSelection />
+        </Suspense>
       )}
     </TooltipProvider>
   </StrictMode>,

@@ -1,5 +1,15 @@
 import { createHash } from "node:crypto";
-import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+} from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
@@ -16,7 +26,10 @@ export type CanonicalSnapshot = {
 };
 
 function invalidEntry(): never {
-  throw new CommandError("INVALID_CANONICAL", "canonical tree has a missing, unexpected or escaping entry");
+  throw new CommandError(
+    "INVALID_CANONICAL",
+    "canonical tree has a missing, unexpected or escaping entry",
+  );
 }
 
 function directoryIdentity(directory: string): string {
@@ -45,7 +58,10 @@ function exactHash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function observeRoot(rootPath: string, deletedTasks: readonly CanonicalTask[] = []): CanonicalSnapshot {
+function observeRoot(
+  rootPath: string,
+  deletedTasks: readonly CanonicalTask[] = [],
+): CanonicalSnapshot {
   const rootIdentity = directoryIdentity(rootPath);
   const manifestPath = path.join(rootPath, "workspace.json");
   const taskDirectory = path.join(rootPath, "tasks");
@@ -71,32 +87,51 @@ function observeRoot(rootPath: string, deletedTasks: readonly CanonicalTask[] = 
     const bytes = readRegularFile(path.join(taskDirectory, name));
     const observation = { relativePath: `tasks/${name}`, sha256: exactHash(bytes) };
     files.push(observation);
-    if (conflict) { conflictFiles.push(observation); continue; }
+    if (conflict) {
+      conflictFiles.push(observation);
+      continue;
+    }
     tasks.push(validateTask(parseCanonicalJson(bytes), name.slice(0, -5)));
   }
-  if (deletedTasks.some(deleted => tasks.some(task => task.id === deleted.id))) invalidEntry();
+  if (deletedTasks.some((deleted) => tasks.some((task) => task.id === deleted.id))) invalidEntry();
   validateGraph([...tasks, ...deletedTasks]);
-  if (directoryIdentity(rootPath) !== rootIdentity || directoryIdentity(taskDirectory) !== taskIdentity
-    || JSON.stringify(readdirSync(taskDirectory).sort()) !== JSON.stringify(names)) {
+  if (
+    directoryIdentity(rootPath) !== rootIdentity ||
+    directoryIdentity(taskDirectory) !== taskIdentity ||
+    JSON.stringify(readdirSync(taskDirectory).sort()) !== JSON.stringify(names)
+  ) {
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
   for (const observation of files) {
-    if (exactHash(readRegularFile(path.join(rootPath, observation.relativePath))) !== observation.sha256) {
+    if (
+      exactHash(readRegularFile(path.join(rootPath, observation.relativePath))) !==
+      observation.sha256
+    ) {
       throw new CommandError("STALE_FILE", "canonical bytes changed during observation");
     }
   }
   tasks.sort((left, right) => {
     const leftParent = left.parentId ?? "";
     const rightParent = right.parentId ?? "";
-    return leftParent === rightParent ? compareTasks(left, right) : leftParent < rightParent ? -1 : 1;
+    return leftParent === rightParent
+      ? compareTasks(left, right)
+      : leftParent < rightParent
+        ? -1
+        : 1;
   });
   return { rootPath, rootIdentity, tasks, files, conflictFiles };
 }
 
 /** Only purge recovery calls this after proving each absent preimage's bound quarantine. */
-export function readCanonicalDeletionPrefix(directory: string, deletedTasks: readonly CanonicalTask[]): CanonicalSnapshot {
+export function readCanonicalDeletionPrefix(
+  directory: string,
+  deletedTasks: readonly CanonicalTask[],
+): CanonicalSnapshot {
   try {
-    return observeRoot(realpathSync(directory), deletedTasks.map(task => validateTask(task, task.id)));
+    return observeRoot(
+      realpathSync(directory),
+      deletedTasks.map((task) => validateTask(task, task.id)),
+    );
   } catch (error) {
     if (error instanceof CommandError) throw error;
     throw new CommandError("INVALID_STORAGE", "deletion prefix could not be read completely");
@@ -130,23 +165,38 @@ export function inspectCanonicalRoot(directory: string): RootInspection {
   const base = { rootPath, rootIdentity };
   let schemaVersion: number | null = null;
   try {
-    if (readdirSync(rootPath).length === 0) return { ...base, state: "empty", schemaVersion, issues: [] };
+    if (readdirSync(rootPath).length === 0)
+      return { ...base, state: "empty", schemaVersion, issues: [] };
     const manifestPath = path.join(rootPath, "workspace.json");
     if (!existsSync(manifestPath)) invalidEntry();
     const manifest = parseCanonicalJson(readRegularFile(manifestPath));
-    if (manifest !== null && typeof manifest === "object" && !Array.isArray(manifest)
-      && Number.isSafeInteger((manifest as Record<string, unknown>).schemaVersion)) {
+    if (
+      manifest !== null &&
+      typeof manifest === "object" &&
+      !Array.isArray(manifest) &&
+      Number.isSafeInteger((manifest as Record<string, unknown>).schemaVersion)
+    ) {
       schemaVersion = (manifest as { schemaVersion: number }).schemaVersion;
     }
     validateManifest(manifest);
     const snapshot = observeRoot(rootPath);
-    if (snapshot.rootIdentity !== rootIdentity) throw new CommandError("STALE_SCOPE", "root changed during inspection");
-    const issues = snapshot.conflictFiles.map(() => ({ code: "CONFLICT_COPY", message: "raw conflict copy requires reviewed repair" }));
+    if (snapshot.rootIdentity !== rootIdentity)
+      throw new CommandError("STALE_SCOPE", "root changed during inspection");
+    const issues = snapshot.conflictFiles.map(() => ({
+      code: "CONFLICT_COPY",
+      message: "raw conflict copy requires reviewed repair",
+    }));
     return { ...base, state: "ready", schemaVersion, issues, snapshot };
   } catch (error) {
     const code = error instanceof CommandError ? error.code : "INVALID_STORAGE";
-    const message = error instanceof CommandError ? error.message : "root could not be inspected completely";
-    return { ...base, state: code === "UNSUPPORTED_SCHEMA" ? "unsupported" : "incomplete", schemaVersion, issues: [{ code, message }] };
+    const message =
+      error instanceof CommandError ? error.message : "root could not be inspected completely";
+    return {
+      ...base,
+      state: code === "UNSUPPORTED_SCHEMA" ? "unsupported" : "incomplete",
+      schemaVersion,
+      issues: [{ code, message }],
+    };
   }
 }
 

@@ -1,11 +1,4 @@
-import {
-  Circle,
-  CircleCheck,
-  CirclePause,
-  RotateCw,
-  CircleX,
-  type LucideIcon,
-} from "lucide-react";
+import { Circle, CircleCheck, CirclePause, RotateCw, CircleX, type LucideIcon } from "lucide-react";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
 
@@ -47,9 +40,13 @@ export type TaskViewFilters = {
 
 /** Matches a task against the current UI view while optimistic changes settle. */
 export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters): boolean {
-  const statusOk = filters.exactStatus !== null
-    ? task.status === filters.exactStatus
-    : (filters.statusPreset === "inactive" ? INACTIVE_TASK_STATUS_SET : ACTIVE_TASK_STATUS_SET).has(task.status);
+  const statusOk =
+    filters.exactStatus !== null
+      ? task.status === filters.exactStatus
+      : (filters.statusPreset === "inactive"
+          ? INACTIVE_TASK_STATUS_SET
+          : ACTIVE_TASK_STATUS_SET
+        ).has(task.status);
   if (!statusOk) return false;
   if (filters.showUnblocked && task.blockedByIds.length > 0) return false;
   if (filters.categorySlug !== null && task.category?.slug !== filters.categorySlug) return false;
@@ -102,16 +99,24 @@ export type SortDirection = "asc" | "desc";
 /** Quiet status message for a selected sort. */
 export function sortSummary(field: SortField, direction: SortDirection): string {
   if (field === "manual") return "manual order";
-  if (field === "priority") return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
+  if (field === "priority")
+    return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
   return `by ${field}, ${direction}`;
 }
 
 /** Orders optimistic view updates until a fresh list query supplies authoritative order. */
-export function compareTasksForViewSort(a: TaskView, b: TaskView, field: SortField, direction: SortDirection): number {
+export function compareTasksForViewSort(
+  a: TaskView,
+  b: TaskView,
+  field: SortField,
+  direction: SortDirection,
+): number {
   if (field === "manual") return 0;
   if (field === "priority") {
     const priorityDirection = direction === "desc" ? 1 : -1;
-    return priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    return (
+      priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+    );
   }
   const keyA = field === "created" ? a.createdAt : a.updatedAt;
   const keyB = field === "created" ? b.createdAt : b.updatedAt;

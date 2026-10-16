@@ -77,14 +77,22 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
           { id: "updated", label: "Updated", keys: ["U"] },
           { id: "priority", label: "Priority", keys: ["P"] },
           { id: "manual", label: "Manual order", keys: ["M"] },
-          { id: "reverse", label: "Reverse sort direction", keys: ["R"] }
+          { id: "reverse", label: "Reverse sort direction", keys: ["R"] },
         ],
       },
     ],
   },
 };
 
-export function TaskListModeHelp({ mode, onDismiss, onDisableHelp }: { mode: TaskListMode; onDismiss: () => void; onDisableHelp: () => void }): ReactElement {
+export function TaskListModeHelp({
+  mode,
+  onDismiss,
+  onDisableHelp,
+}: {
+  mode: TaskListMode;
+  onDismiss: () => void;
+  onDisableHelp: () => void;
+}): ReactElement {
   const guide = MODE_GUIDES[mode];
 
   return (
@@ -96,7 +104,9 @@ export function TaskListModeHelp({ mode, onDismiss, onDisableHelp }: { mode: Tas
     >
       <PopoverTrigger
         nativeButton={false}
-        render={<span aria-hidden="true" tabIndex={-1} className="pointer-events-none absolute inset-0" />}
+        render={
+          <span aria-hidden="true" tabIndex={-1} className="pointer-events-none absolute inset-0" />
+        }
       />
       <PopoverContent
         data-shortcut-guide={mode}
@@ -140,7 +150,9 @@ export function TaskListModeHelp({ mode, onDismiss, onDisableHelp }: { mode: Tas
               data-shortcut-group={group.id}
               className={cn(groupIndex > 0 && "border-t border-border/60 pt-2.5")}
             >
-              <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
+              <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+                {group.label}
+              </p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 {group.options.map((option) => (
                   <span
@@ -150,7 +162,9 @@ export function TaskListModeHelp({ mode, onDismiss, onDisableHelp }: { mode: Tas
                   >
                     <KbdGroup>
                       {option.keys.map((key) => (
-                        <Kbd key={key} data-shortcut-key={key}>{key}</Kbd>
+                        <Kbd key={key} data-shortcut-key={key}>
+                          {key}
+                        </Kbd>
                       ))}
                     </KbdGroup>
                     <span className="truncate text-muted-foreground">{option.label}</span>

@@ -26,7 +26,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { TaskView } from "./taskView";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut, literalWordScore } from "@/components/ui/command";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  CommandShortcut,
+  literalWordScore,
+} from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 type HelpEntry = {
@@ -36,74 +47,337 @@ type HelpEntry = {
   keys?: string[];
   keywords?: string;
   /** Entries the palette runs itself, rather than explaining. */
-  action?: "open-settings" | "add-blocker" | "move-under" | "pause-task" | "new-task" | "new-child-task" | "filter-category" | "filter-status" | "filter-priority" | "filter-tags" | "filter-search" | "copy-task" | "undo-status";
+  action?:
+    | "open-settings"
+    | "add-blocker"
+    | "move-under"
+    | "pause-task"
+    | "new-task"
+    | "new-child-task"
+    | "filter-category"
+    | "filter-status"
+    | "filter-priority"
+    | "filter-tags"
+    | "filter-search"
+    | "copy-task"
+    | "undo-status";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
   {
     heading: "Task actions",
     entries: [
-      { label: "New task", hint: "Inline editor", icon: ListPlus, keys: ["C"], action: "new-task", keywords: "c create new add task capture inline" },
-      { label: "Edit active task", hint: "Inline editor", icon: FileText, keys: ["Enter"], keywords: "enter inline edit selected active task row" },
-      { label: "New child task", hint: "Use the selected task as parent", icon: CornerDownRight, keys: ["Shift", "C"], action: "new-child-task", keywords: "shift c create child subtask parent selected task capture" },
-      { label: "Set task priority", hint: "Focus Priority in the inline editor", icon: Flag, keys: ["0", "1", "2", "3", "4", "←", "→"], keywords: "inline editor create edit set choose task priority p0 p1 p2 p3 p4 arrow left right" },
-      { label: "Save the inline editor", hint: "Ctrl/⌘+Enter also saves from the description", icon: SaveCheck, keys: ["Enter"], keywords: "enter ctrl cmd save create edit title description inline" },
-      { label: "Change task status", hint: "Space forward, Shift+Space back", icon: ListChecks, keys: ["Space", "Shift+Space"], keywords: "space shift space reverse backward open in progress done status cycle complete" },
-      { label: "Pause or resume task", hint: "P pauses, again resumes", icon: CirclePause, keys: ["P"], action: "pause-task", keywords: "p pause resume sleep park soft cancel paused in progress" },
-      { label: "Copy task text", hint: "Title and description without metadata", icon: Copy, keys: ["Ctrl/⌘", "C"], action: "copy-task", keywords: "ctrl cmd c copy title description clipboard selected active task category tags metadata" },
-      { label: "Undo last change", hint: "Restore the latest task change", icon: Undo2, keys: ["Ctrl/⌘", "Z"], action: "undo-status", keywords: "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order" },
-      { label: "Set active task priority", hint: "0-4 on the list", icon: Flag, keys: ["0", "1", "2", "3", "4"], keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number" },
-      { label: "Switch active or inactive", hint: "F then S", icon: Circle, keys: ["F", "S"], action: "filter-status", keywords: "f s active inactive filter paused done canceled cancelled show hide toggle" },
-      { label: "Exact status", hint: "F then O I D P X", icon: Circle, keys: ["F", "O/I/D/P/X"], action: "filter-status", keywords: "f exact open in progress done paused canceled o i d p x status" },
-      { label: "Priority filter", hint: "F then 0-4, same key clears", icon: Flag, keys: ["F", "0-4"], action: "filter-priority", keywords: "f 0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter" },
-      { label: "Show unblocked tasks", icon: ShieldCheck, keys: ["F", "U"], keywords: "f u unblocked ready available no blockers dependency depends prerequisite" },
-      { label: "Filter by category", hint: "@ opens; F then C also works", icon: Folder, keys: ["@", "F → C"], action: "filter-category", keywords: "@ f c category folder filter" },
-      { label: "Filter by tags", hint: "# opens; F then T also works, Space picks, Enter closes", icon: Tags, keys: ["#", "F → T"], action: "filter-tags", keywords: "# f t tags filter clear multi and" },
-      { label: "Search tasks", hint: "/ opens, titles and notes", icon: Search, keys: ["/"], action: "filter-search", keywords: "slash search find title description fts query" },
-      { label: "Filter shortcuts", hint: "F focuses toolbar; F again closes", icon: ListFilter, keys: ["F"], keywords: "f filter mode preset exact status priority category tags unblocked focus close toggle" },
-      { label: "Sort tasks", hint: "S focuses toolbar; P sorts by priority", icon: ArrowDownUp, keys: ["S", "C/U/P/M/R"], keywords: "s order sort created updated priority manual reverse newest oldest direction focus close toggle" },
-      { label: "Select a task range", hint: "Shift+keys or Shift/Ctrl-click", icon: ListChecks, keys: ["Shift+↑/↓", "Shift+Home/End"], keywords: "shift selection range sibling group multiselect pointer mouse click" },
-      { label: "Move selected tasks", hint: "Manual order; Ctrl/⌘+keys", icon: ArrowDownUp, keys: ["Ctrl/⌘+↑/↓", "Ctrl/⌘+Home/End"], keywords: "manual reorder move selected group beginning end up down" },
-      { label: "Show task details", hint: "Descriptions and timestamps", icon: ListChevronsUpDown, keys: ["V"], keywords: "v view details description notes timestamps created updated time footer today yesterday date" },
-      { label: "Add blocker", icon: Link2, keys: ["B"], action: "add-blocker", keywords: "b blocked by dependency depends prerequisite" },
-      { label: "Move under…", icon: CornerDownRight, keys: ["M"], action: "move-under", keywords: "m move under parent child hierarchy subtask" },
-      { label: "Cancel task", hint: "Delete cancels immediately", icon: Trash2, keys: ["Delete"], keywords: "delete remove cancel cancelled status immediate" },
+      {
+        label: "New task",
+        hint: "Inline editor",
+        icon: ListPlus,
+        keys: ["C"],
+        action: "new-task",
+        keywords: "c create new add task capture inline",
+      },
+      {
+        label: "Edit active task",
+        hint: "Inline editor",
+        icon: FileText,
+        keys: ["Enter"],
+        keywords: "enter inline edit selected active task row",
+      },
+      {
+        label: "New child task",
+        hint: "Use the selected task as parent",
+        icon: CornerDownRight,
+        keys: ["Shift", "C"],
+        action: "new-child-task",
+        keywords: "shift c create child subtask parent selected task capture",
+      },
+      {
+        label: "Set task priority",
+        hint: "Focus Priority in the inline editor",
+        icon: Flag,
+        keys: ["0", "1", "2", "3", "4", "←", "→"],
+        keywords:
+          "inline editor create edit set choose task priority p0 p1 p2 p3 p4 arrow left right",
+      },
+      {
+        label: "Save the inline editor",
+        hint: "Ctrl/⌘+Enter also saves from the description",
+        icon: SaveCheck,
+        keys: ["Enter"],
+        keywords: "enter ctrl cmd save create edit title description inline",
+      },
+      {
+        label: "Change task status",
+        hint: "Space forward, Shift+Space back",
+        icon: ListChecks,
+        keys: ["Space", "Shift+Space"],
+        keywords: "space shift space reverse backward open in progress done status cycle complete",
+      },
+      {
+        label: "Pause or resume task",
+        hint: "P pauses, again resumes",
+        icon: CirclePause,
+        keys: ["P"],
+        action: "pause-task",
+        keywords: "p pause resume sleep park soft cancel paused in progress",
+      },
+      {
+        label: "Copy task text",
+        hint: "Title and description without metadata",
+        icon: Copy,
+        keys: ["Ctrl/⌘", "C"],
+        action: "copy-task",
+        keywords:
+          "ctrl cmd c copy title description clipboard selected active task category tags metadata",
+      },
+      {
+        label: "Undo last change",
+        hint: "Restore the latest task change",
+        icon: Undo2,
+        keys: ["Ctrl/⌘", "Z"],
+        action: "undo-status",
+        keywords:
+          "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order",
+      },
+      {
+        label: "Set active task priority",
+        hint: "0-4 on the list",
+        icon: Flag,
+        keys: ["0", "1", "2", "3", "4"],
+        keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number",
+      },
+      {
+        label: "Switch active or inactive",
+        hint: "F then S",
+        icon: Circle,
+        keys: ["F", "S"],
+        action: "filter-status",
+        keywords: "f s active inactive filter paused done canceled cancelled show hide toggle",
+      },
+      {
+        label: "Exact status",
+        hint: "F then O I D P X",
+        icon: Circle,
+        keys: ["F", "O/I/D/P/X"],
+        action: "filter-status",
+        keywords: "f exact open in progress done paused canceled o i d p x status",
+      },
+      {
+        label: "Priority filter",
+        hint: "F then 0-4, same key clears",
+        icon: Flag,
+        keys: ["F", "0-4"],
+        action: "filter-priority",
+        keywords: "f 0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter",
+      },
+      {
+        label: "Show unblocked tasks",
+        icon: ShieldCheck,
+        keys: ["F", "U"],
+        keywords: "f u unblocked ready available no blockers dependency depends prerequisite",
+      },
+      {
+        label: "Filter by category",
+        hint: "@ opens; F then C also works",
+        icon: Folder,
+        keys: ["@", "F → C"],
+        action: "filter-category",
+        keywords: "@ f c category folder filter",
+      },
+      {
+        label: "Filter by tags",
+        hint: "# opens; F then T also works, Space picks, Enter closes",
+        icon: Tags,
+        keys: ["#", "F → T"],
+        action: "filter-tags",
+        keywords: "# f t tags filter clear multi and",
+      },
+      {
+        label: "Search tasks",
+        hint: "/ opens, titles and notes",
+        icon: Search,
+        keys: ["/"],
+        action: "filter-search",
+        keywords: "slash search find title description fts query",
+      },
+      {
+        label: "Filter shortcuts",
+        hint: "F focuses toolbar; F again closes",
+        icon: ListFilter,
+        keys: ["F"],
+        keywords:
+          "f filter mode preset exact status priority category tags unblocked focus close toggle",
+      },
+      {
+        label: "Sort tasks",
+        hint: "S focuses toolbar; P sorts by priority",
+        icon: ArrowDownUp,
+        keys: ["S", "C/U/P/M/R"],
+        keywords:
+          "s order sort created updated priority manual reverse newest oldest direction focus close toggle",
+      },
+      {
+        label: "Select a task range",
+        hint: "Shift+keys or Shift/Ctrl-click",
+        icon: ListChecks,
+        keys: ["Shift+↑/↓", "Shift+Home/End"],
+        keywords: "shift selection range sibling group multiselect pointer mouse click",
+      },
+      {
+        label: "Move selected tasks",
+        hint: "Manual order; Ctrl/⌘+keys",
+        icon: ArrowDownUp,
+        keys: ["Ctrl/⌘+↑/↓", "Ctrl/⌘+Home/End"],
+        keywords: "manual reorder move selected group beginning end up down",
+      },
+      {
+        label: "Show task details",
+        hint: "Descriptions and timestamps",
+        icon: ListChevronsUpDown,
+        keys: ["V"],
+        keywords:
+          "v view details description notes timestamps created updated time footer today yesterday date",
+      },
+      {
+        label: "Add blocker",
+        icon: Link2,
+        keys: ["B"],
+        action: "add-blocker",
+        keywords: "b blocked by dependency depends prerequisite",
+      },
+      {
+        label: "Move under…",
+        icon: CornerDownRight,
+        keys: ["M"],
+        action: "move-under",
+        keywords: "m move under parent child hierarchy subtask",
+      },
+      {
+        label: "Cancel task",
+        hint: "Delete cancels immediately",
+        icon: Trash2,
+        keys: ["Delete"],
+        keywords: "delete remove cancel cancelled status immediate",
+      },
     ],
   },
   {
     heading: "Navigation",
     entries: [
-      { label: "Move backward in dialogs", icon: MoveLeft, keys: ["Shift", "Tab"], keywords: "shift tab backwards dialog fields" },
-      { label: "Move through tasks", icon: ListChecks, keys: ["↑", "↓", "Home", "End"], keywords: "arrow keys up down first last highlight list" },
-      { label: "Navigate task hierarchy or category", hint: "Left clears category filter; right filters a leaf", icon: ListChecks, keys: ["←", "→"], keywords: "left right arrow child children parent subtask hierarchy category filter" },
-      { label: "Filter a leaf by category", hint: "Right arrow when it has no children", icon: Folder, keys: ["→"], keywords: "right arrow leaf task without children category filter" },
+      {
+        label: "Move backward in dialogs",
+        icon: MoveLeft,
+        keys: ["Shift", "Tab"],
+        keywords: "shift tab backwards dialog fields",
+      },
+      {
+        label: "Move through tasks",
+        icon: ListChecks,
+        keys: ["↑", "↓", "Home", "End"],
+        keywords: "arrow keys up down first last highlight list",
+      },
+      {
+        label: "Navigate task hierarchy or category",
+        hint: "Left clears category filter; right filters a leaf",
+        icon: ListChecks,
+        keys: ["←", "→"],
+        keywords: "left right arrow child children parent subtask hierarchy category filter",
+      },
+      {
+        label: "Filter a leaf by category",
+        hint: "Right arrow when it has no children",
+        icon: Folder,
+        keys: ["→"],
+        keywords: "right arrow leaf task without children category filter",
+      },
     ],
   },
   {
     heading: "Workspace",
     entries: [
-      { label: "Settings", hint: "Storage and export", icon: Settings2, keys: ["Ctrl/⌘", ","], action: "open-settings", keywords: "ctrl cmd comma data export json sqlite database storage path" },
-      { label: "Themes", hint: "Workspace appearance", icon: Palette, keys: ["Alt", "T"], keywords: "alt theme colour color dark light accent palette" },
-      { label: "Toggle this palette", icon: CircleHelp, keys: ["Ctrl/⌘", "K"], keywords: "ctrl cmd open close help syntax" },
-      { label: "Close or go back", hint: "Esc returns from toolbar; F/S also closes it", icon: Undo2, keys: ["Esc", "F/S"], keywords: "escape palette toolbar focus title notes list edit reset clear filters mode close toggle" }
+      {
+        label: "Settings",
+        hint: "Storage and export",
+        icon: Settings2,
+        keys: ["Ctrl/⌘", ","],
+        action: "open-settings",
+        keywords: "ctrl cmd comma data export json sqlite database storage path",
+      },
+      {
+        label: "Themes",
+        hint: "Workspace appearance",
+        icon: Palette,
+        keys: ["Alt", "T"],
+        keywords: "alt theme colour color dark light accent palette",
+      },
+      {
+        label: "Toggle this palette",
+        icon: CircleHelp,
+        keys: ["Ctrl/⌘", "K"],
+        keywords: "ctrl cmd open close help syntax",
+      },
+      {
+        label: "Close or go back",
+        hint: "Esc returns from toolbar; F/S also closes it",
+        icon: Undo2,
+        keys: ["Esc", "F/S"],
+        keywords:
+          "escape palette toolbar focus title notes list edit reset clear filters mode close toggle",
+      },
     ],
   },
   {
     heading: "Syntax",
     entries: [
-      { label: "@category", hint: "One per task", icon: Folder, keywords: "@launch people mentions title description" },
-      { label: "#tags", hint: "Any number in title", icon: Tags, keywords: "#planning #calls title" },
-      { label: "Names & Markdown", hint: "Letters, numbers, _ -", icon: FileText, keywords: "case heading code backtick rendered text" },
+      {
+        label: "@category",
+        hint: "One per task",
+        icon: Folder,
+        keywords: "@launch people mentions title description",
+      },
+      {
+        label: "#tags",
+        hint: "Any number in title",
+        icon: Tags,
+        keywords: "#planning #calls title",
+      },
+      {
+        label: "Names & Markdown",
+        hint: "Letters, numbers, _ -",
+        icon: FileText,
+        keywords: "case heading code backtick rendered text",
+      },
     ],
   },
 ];
 
 /** Search text that never shows up in the row but should still find it. */
 function entryKeywords(entry: HelpEntry): string[] {
-  return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string => Boolean(part));
+  return [entry.hint, entry.keys?.join(" "), entry.keywords].filter((part): part is string =>
+    Boolean(part),
+  );
 }
 
-export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, onCreate, onCreateChild, onOpenCategoryPicker, onOpenStatusMenu, onOpenPriorityMenu, onOpenTagPicker, onOpenSearch, activeTask, onAddBlocker, onMoveUnder, onPauseTask, onCopyTask, statusUndoOnly = false, canUndoStatus, onUndoStatus }: {
+export function HelpPalette({
+  open,
+  onOpenChange,
+  finalFocus,
+  onOpenSettings,
+  onCreate,
+  onCreateChild,
+  onOpenCategoryPicker,
+  onOpenStatusMenu,
+  onOpenPriorityMenu,
+  onOpenTagPicker,
+  onOpenSearch,
+  activeTask,
+  onAddBlocker,
+  onMoveUnder,
+  onPauseTask,
+  onCopyTask,
+  statusUndoOnly = false,
+  canUndoStatus,
+  onUndoStatus,
+}: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
@@ -135,72 +409,87 @@ export function HelpPalette({ open, onOpenChange, finalFocus, onOpenSettings, on
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >
-        <Command label="Search shortcuts and syntax" filter={literalWordScore} loop>
-          <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
-          <CommandList label="Help results">
-            <CommandEmpty>No matches. Try “Tab”, “@”, or “#”.</CommandEmpty>
-            {helpGroups.map((group, groupIndex) => (
-              <Fragment key={group.heading}>
-                {groupIndex > 0 ? <CommandSeparator /> : null}
-                <CommandGroup heading={group.heading}>
-                  {group.entries.map((entry) => {
-                    const Icon = entry.icon;
-                    const label = statusUndoOnly && entry.action === "undo-status" ? "Undo last status change" : entry.label;
-                    const hint = statusUndoOnly && entry.action === "undo-status" ? "Restore the latest eligible single-task status change" : entry.hint;
-                    const onSelect = entry.action === "open-settings"
+      <Command label="Search shortcuts and syntax" filter={literalWordScore} loop>
+        <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
+        <CommandList label="Help results">
+          <CommandEmpty>No matches. Try “Tab”, “@”, or “#”.</CommandEmpty>
+          {helpGroups.map((group, groupIndex) => (
+            <Fragment key={group.heading}>
+              {groupIndex > 0 ? <CommandSeparator /> : null}
+              <CommandGroup heading={group.heading}>
+                {group.entries.map((entry) => {
+                  const Icon = entry.icon;
+                  const label =
+                    statusUndoOnly && entry.action === "undo-status"
+                      ? "Undo last status change"
+                      : entry.label;
+                  const hint =
+                    statusUndoOnly && entry.action === "undo-status"
+                      ? "Restore the latest eligible single-task status change"
+                      : entry.hint;
+                  const onSelect =
+                    entry.action === "open-settings"
                       ? onOpenSettings
                       : entry.action === "copy-task" && activeTask && onCopyTask
                         ? () => onCopyTask(activeTask)
-                      : entry.action === "undo-status"
-                        ? (canUndoStatus && onUndoStatus ? onUndoStatus : undefined)
-                      : entry.action === "new-task"
-                        ? onCreate
-                        : entry.action === "new-child-task" && activeTask && onCreateChild
-                          ? () => onCreateChild(activeTask)
-                          : entry.action === "filter-category"
-                          ? onOpenCategoryPicker
-                          : entry.action === "filter-status"
-                            ? onOpenStatusMenu
-                            : entry.action === "filter-priority"
-                              ? onOpenPriorityMenu
-                              : entry.action === "filter-tags"
-                                ? onOpenTagPicker
-                                : entry.action === "filter-search"
-                                  ? onOpenSearch
-                                  : entry.action === "add-blocker" && activeTask && onAddBlocker
-                                    ? () => onAddBlocker(activeTask)
-                                    : entry.action === "pause-task" && activeTask && onPauseTask
-                                      ? () => onPauseTask(activeTask)
-                                      : entry.action === "move-under" && activeTask && onMoveUnder
-                                      ? () => onMoveUnder(activeTask)
-                                      : undefined;
-                    return (
-                      <CommandItem
-                        key={entry.label}
-                        value={`${group.heading} ${label}`}
-                        keywords={entryKeywords(entry)}
-                        onSelect={onSelect}
-                      >
-                        <Icon aria-hidden="true" />
-                        <span className="font-medium">{label}</span>
-                        {hint ? <span className="text-muted-foreground">{hint}</span> : null}
-                        {entry.keys ? (
-                          <CommandShortcut keys>
-                            <KbdGroup>
-                              {entry.keys.map((key) => (
-                                <Kbd key={key}>{key}</Kbd>
-                              ))}
-                            </KbdGroup>
-                          </CommandShortcut>
-                        ) : null}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </Fragment>
-            ))}
-          </CommandList>
-        </Command>
+                        : entry.action === "undo-status"
+                          ? canUndoStatus && onUndoStatus
+                            ? onUndoStatus
+                            : undefined
+                          : entry.action === "new-task"
+                            ? onCreate
+                            : entry.action === "new-child-task" && activeTask && onCreateChild
+                              ? () => onCreateChild(activeTask)
+                              : entry.action === "filter-category"
+                                ? onOpenCategoryPicker
+                                : entry.action === "filter-status"
+                                  ? onOpenStatusMenu
+                                  : entry.action === "filter-priority"
+                                    ? onOpenPriorityMenu
+                                    : entry.action === "filter-tags"
+                                      ? onOpenTagPicker
+                                      : entry.action === "filter-search"
+                                        ? onOpenSearch
+                                        : entry.action === "add-blocker" &&
+                                            activeTask &&
+                                            onAddBlocker
+                                          ? () => onAddBlocker(activeTask)
+                                          : entry.action === "pause-task" &&
+                                              activeTask &&
+                                              onPauseTask
+                                            ? () => onPauseTask(activeTask)
+                                            : entry.action === "move-under" &&
+                                                activeTask &&
+                                                onMoveUnder
+                                              ? () => onMoveUnder(activeTask)
+                                              : undefined;
+                  return (
+                    <CommandItem
+                      key={entry.label}
+                      value={`${group.heading} ${label}`}
+                      keywords={entryKeywords(entry)}
+                      onSelect={onSelect}
+                    >
+                      <Icon aria-hidden="true" />
+                      <span className="font-medium">{label}</span>
+                      {hint ? <span className="text-muted-foreground">{hint}</span> : null}
+                      {entry.keys ? (
+                        <CommandShortcut keys>
+                          <KbdGroup>
+                            {entry.keys.map((key) => (
+                              <Kbd key={key}>{key}</Kbd>
+                            ))}
+                          </KbdGroup>
+                        </CommandShortcut>
+                      ) : null}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </Fragment>
+          ))}
+        </CommandList>
+      </Command>
     </CommandDialog>
   );
 }

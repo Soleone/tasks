@@ -160,9 +160,15 @@ EXAMPLES:
 }
 
 function errorMessage(error: unknown): { code: string; message: string } {
-  if (error instanceof Error && "code" in error && typeof (error as { code: unknown }).code === "string") {
+  if (
+    error instanceof Error &&
+    "code" in error &&
+    typeof (error as { code: unknown }).code === "string"
+  ) {
     const code = (error as { code: string }).code;
-    const message = error.message.startsWith(`${code}: `) ? error.message.slice(code.length + 2) : error.message;
+    const message = error.message.startsWith(`${code}: `)
+      ? error.message.slice(code.length + 2)
+      : error.message;
     return { code, message };
   }
   return { code: "UNKNOWN", message: error instanceof Error ? error.message : String(error) };
@@ -255,7 +261,11 @@ function parseArgv(argv: string[]): ParsedArgs {
   return { command, positionals, flags, globals };
 }
 
-function stringFlag(flags: Map<string, string | boolean>, name: string, allowEmpty = false): string | undefined {
+function stringFlag(
+  flags: Map<string, string | boolean>,
+  name: string,
+  allowEmpty = false,
+): string | undefined {
   const value = flags.get(name);
   if (value === undefined) return undefined;
   if (typeof value !== "string" || (!allowEmpty && value.trim() === "")) {
@@ -264,7 +274,12 @@ function stringFlag(flags: Map<string, string | boolean>, name: string, allowEmp
   return value;
 }
 
-function integerFlag(flags: Map<string, string | boolean>, name: string, min: number, max: number): number | undefined {
+function integerFlag(
+  flags: Map<string, string | boolean>,
+  name: string,
+  min: number,
+  max: number,
+): number | undefined {
   const raw = stringFlag(flags, name);
   if (raw === undefined) return undefined;
   const parsed = Number(raw);
@@ -274,10 +289,18 @@ function integerFlag(flags: Map<string, string | boolean>, name: string, min: nu
   return parsed;
 }
 
-function repeatableFlag(flags: Map<string, string | boolean>, argv: string[], name: string): string[] {
+function repeatableFlag(
+  flags: Map<string, string | boolean>,
+  argv: string[],
+  name: string,
+): string[] {
   const values: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === `--${name}` && typeof argv[i + 1] === "string" && !(argv[i + 1] as string).startsWith("--")) {
+    if (
+      argv[i] === `--${name}` &&
+      typeof argv[i + 1] === "string" &&
+      !(argv[i + 1] as string).startsWith("--")
+    ) {
       values.push(argv[i + 1] as string);
     }
   }
@@ -285,7 +308,10 @@ function repeatableFlag(flags: Map<string, string | boolean>, argv: string[], na
   if (typeof single === "string" && !values.includes(single)) {
     values.push(single);
   }
-  return values.flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
+  return values
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function ensureNoUnknownFlags(flags: Map<string, string | boolean>, allowed: string[]): void {
@@ -302,7 +328,10 @@ function currentVersion(databasePath: string, taskId: string, globals: GlobalOpt
       version: VERSION,
       requestId: randomUUID(),
       command: "task.get",
-      args: globals.sourceKey === undefined ? { id: taskId } : { ref: { sourceKey: globals.sourceKey, taskId } },
+      args:
+        globals.sourceKey === undefined
+          ? { id: taskId }
+          : { ref: { sourceKey: globals.sourceKey, taskId } },
       actor: { kind: globals.actorKind, label: globals.actorLabel },
     },
     databasePath,
@@ -314,7 +343,11 @@ function currentVersion(databasePath: string, taskId: string, globals: GlobalOpt
   return task.version;
 }
 
-function runCommand(protocolCommand: string, args: Record<string, unknown>, globals: GlobalOptions): Record<string, unknown> {
+function runCommand(
+  protocolCommand: string,
+  args: Record<string, unknown>,
+  globals: GlobalOptions,
+): Record<string, unknown> {
   const routedArgs = { ...args };
   if (globals.sourceKey !== undefined) {
     if (protocolCommand === "task.list") {
@@ -346,13 +379,28 @@ function runCommand(protocolCommand: string, args: Record<string, unknown>, glob
   return executeCommand(request, globals.databasePath);
 }
 
-function runVersioned(protocolCommand: string, taskId: string, extraArgs: Record<string, unknown>, globals: GlobalOptions): Record<string, unknown> {
-  const expectedVersion = globals.expectedVersion ?? currentVersion(globals.databasePath, taskId, globals);
-  return runCommand(protocolCommand, { id: taskId, expectedVersion, ...extraArgs }, { ...globals, expectedVersion });
+function runVersioned(
+  protocolCommand: string,
+  taskId: string,
+  extraArgs: Record<string, unknown>,
+  globals: GlobalOptions,
+): Record<string, unknown> {
+  const expectedVersion =
+    globals.expectedVersion ?? currentVersion(globals.databasePath, taskId, globals);
+  return runCommand(
+    protocolCommand,
+    { id: taskId, expectedVersion, ...extraArgs },
+    { ...globals, expectedVersion },
+  );
 }
 
 function formatTask(task: TaskRecord): string {
-  const bits = [`${task.id.slice(0, 8)}`, ...(task.ref ? [`[${task.ref.sourceKey}]`] : []), `[${task.status}]`, task.title];
+  const bits = [
+    `${task.id.slice(0, 8)}`,
+    ...(task.ref ? [`[${task.ref.sourceKey}]`] : []),
+    `[${task.status}]`,
+    task.title,
+  ];
   bits.push(`(p${task.priority})`);
   if (task.category) bits.push(`@${task.category.slug}`);
   for (const tag of task.tags) bits.push(`#${tag.slug}`);
@@ -378,7 +426,11 @@ function formatTaskDetail(task: TaskRecord): string {
   return lines.join("\n");
 }
 
-function printResult(command: string, result: Record<string, unknown>, globals: GlobalOptions): void {
+function printResult(
+  command: string,
+  result: Record<string, unknown>,
+  globals: GlobalOptions,
+): void {
   if (globals.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
@@ -400,24 +452,36 @@ function printResult(command: string, result: Record<string, unknown>, globals: 
     return;
   }
   if ("activity" in result && Array.isArray(result.activity)) {
-    const entries = result.activity as Array<{ seq: number; taskId: string; action: string; actor: { label: string }; createdAt: string }>;
+    const entries = result.activity as Array<{
+      seq: number;
+      taskId: string;
+      action: string;
+      actor: { label: string };
+      createdAt: string;
+    }>;
     if (entries.length === 0) {
       process.stdout.write("No activity.\n");
     } else {
       for (const entry of entries) {
-        process.stdout.write(`#${entry.seq} ${entry.createdAt} ${entry.taskId.slice(0, 8)} ${entry.action} (${entry.actor.label})\n`);
+        process.stdout.write(
+          `#${entry.seq} ${entry.createdAt} ${entry.taskId.slice(0, 8)} ${entry.action} (${entry.actor.label})\n`,
+        );
       }
     }
     return;
   }
   if (command === "categories" && Array.isArray((result as { categories: unknown }).categories)) {
-    const categories = (result as { categories: Array<{ slug: string; label: string; taskCount: number }> }).categories;
+    const categories = (
+      result as { categories: Array<{ slug: string; label: string; taskCount: number }> }
+    ).categories;
     if (categories.length === 0) process.stdout.write("No categories.\n");
-    for (const category of categories) process.stdout.write(`@${category.slug} (${category.taskCount})\n`);
+    for (const category of categories)
+      process.stdout.write(`@${category.slug} (${category.taskCount})\n`);
     return;
   }
   if (command === "tags" && Array.isArray((result as { tags: unknown }).tags)) {
-    const tags = (result as { tags: Array<{ slug: string; label: string; taskCount: number }> }).tags;
+    const tags = (result as { tags: Array<{ slug: string; label: string; taskCount: number }> })
+      .tags;
     if (tags.length === 0) process.stdout.write("No tags.\n");
     for (const tag of tags) process.stdout.write(`#${tag.slug} (${tag.taskCount})\n`);
     return;
@@ -425,7 +489,19 @@ function printResult(command: string, result: Record<string, unknown>, globals: 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
-const LIST_FLAGS = ["status", "priority", "category", "tag", "search", "limit", "offset", "sort", "direction", "unblocked", "include-ancestors"];
+const LIST_FLAGS = [
+  "status",
+  "priority",
+  "category",
+  "tag",
+  "search",
+  "limit",
+  "offset",
+  "sort",
+  "direction",
+  "unblocked",
+  "include-ancestors",
+];
 
 function handleList(argv: string[], parsed: ParsedArgs, globals: GlobalOptions): void {
   ensureNoUnknownFlags(parsed.flags, LIST_FLAGS);
@@ -438,7 +514,9 @@ function handleList(argv: string[], parsed: ParsedArgs, globals: GlobalOptions):
   if (category !== undefined) args.category = category;
   const tags = repeatableFlag(parsed.flags, argv, "tag");
   if (tags.length > 0) args.tags = tags;
-  const search = stringFlag(parsed.flags, "search") ?? (parsed.positionals.length > 0 ? parsed.positionals.join(" ") : undefined);
+  const search =
+    stringFlag(parsed.flags, "search") ??
+    (parsed.positionals.length > 0 ? parsed.positionals.join(" ") : undefined);
   if (search !== undefined) args.search = search;
   const limit = integerFlag(parsed.flags, "limit", 1, 100);
   if (limit !== undefined) args.limit = limit;
@@ -471,7 +549,8 @@ function main(): void {
   }
 
   const globals: GlobalOptions = {
-    databasePath: parsed.globals.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath(),
+    databasePath:
+      parsed.globals.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath(),
     sourceKey: parsed.globals.sourceKey,
     json: parsed.globals.json ?? false,
     dryRun: parsed.globals.dryRun ?? false,
@@ -517,7 +596,8 @@ function main(): void {
       }
       case "add": {
         ensureNoUnknownFlags(parsed.flags, ["description", "priority", "parent"]);
-        if (parsed.positionals.length === 0) throw new Error("usage: tasks-cli add <title...> [--description text]");
+        if (parsed.positionals.length === 0)
+          throw new Error("usage: tasks-cli add <title...> [--description text]");
         const args: Record<string, unknown> = { title: parsed.positionals.join(" ") };
         const description = stringFlag(parsed.flags, "description", true);
         if (description !== undefined) args.descriptionMarkdown = description;
@@ -531,7 +611,8 @@ function main(): void {
       case "update": {
         ensureNoUnknownFlags(parsed.flags, ["title", "description", "priority"]);
         const id = parsed.positionals[0];
-        if (!id || parsed.positionals.length !== 1) throw new Error("usage: tasks-cli update <id> [--title text]");
+        if (!id || parsed.positionals.length !== 1)
+          throw new Error("usage: tasks-cli update <id> [--title text]");
         const extra: Record<string, unknown> = {};
         const title = stringFlag(parsed.flags, "title");
         if (title !== undefined) extra.title = title;
@@ -539,7 +620,8 @@ function main(): void {
         if (description !== undefined) extra.descriptionMarkdown = description;
         const priority = integerFlag(parsed.flags, "priority", 0, 4);
         if (priority !== undefined) extra.priority = priority;
-        if (Object.keys(extra).length === 0) throw new Error("nothing to update: pass --title, --description, or --priority");
+        if (Object.keys(extra).length === 0)
+          throw new Error("nothing to update: pass --title, --description, or --priority");
         printResult("update", runVersioned("task.update", id, extra, globals), globals);
         break;
       }
@@ -551,7 +633,8 @@ function main(): void {
       case "delete": {
         ensureNoUnknownFlags(parsed.flags, []);
         const id = parsed.positionals[0];
-        if (!id || parsed.positionals.length !== 1) throw new Error(`usage: tasks-cli ${command} <id>`);
+        if (!id || parsed.positionals.length !== 1)
+          throw new Error(`usage: tasks-cli ${command} <id>`);
         printResult(command, runVersioned(`task.${command}`, id, {}, globals), globals);
         break;
       }
@@ -571,18 +654,25 @@ function main(): void {
       case "undo-operation": {
         ensureNoUnknownFlags(parsed.flags, []);
         const operationId = parsed.positionals[0];
-        if (!operationId || parsed.positionals.length !== 1) throw new Error("usage: tasks-cli undo-operation <operation-id>");
+        if (!operationId || parsed.positionals.length !== 1)
+          throw new Error("usage: tasks-cli undo-operation <operation-id>");
         printResult(command, runCommand("operation.undo", { operationId }, globals), globals);
         break;
       }
       case "move": {
         ensureNoUnknownFlags(parsed.flags, ["parent", "root"]);
         const id = parsed.positionals[0];
-        if (!id || parsed.positionals.length !== 1) throw new Error("usage: tasks-cli move <id> --parent <id> | --root");
+        if (!id || parsed.positionals.length !== 1)
+          throw new Error("usage: tasks-cli move <id> --parent <id> | --root");
         const parent = stringFlag(parsed.flags, "parent");
         const root = parsed.flags.get("root") === true;
-        if ((parent === undefined) === !root) throw new Error("usage: tasks-cli move <id> --parent <id> | --root");
-        printResult(command, runVersioned("task.move", id, { parentId: root ? null : parent }, globals), globals);
+        if ((parent === undefined) === !root)
+          throw new Error("usage: tasks-cli move <id> --parent <id> | --root");
+        printResult(
+          command,
+          runVersioned("task.move", id, { parentId: root ? null : parent }, globals),
+          globals,
+        );
         break;
       }
       case "dep-add":
@@ -592,7 +682,8 @@ function main(): void {
         if (!id || !dependsOnId || parsed.positionals.length !== 2) {
           throw new Error(`usage: tasks-cli ${command} <id> <depends-on-id>`);
         }
-        const protocolCommand = command === "dep-add" ? "task.dependency.add" : "task.dependency.remove";
+        const protocolCommand =
+          command === "dep-add" ? "task.dependency.add" : "task.dependency.remove";
         printResult(command, runVersioned(protocolCommand, id, { dependsOnId }, globals), globals);
         break;
       }

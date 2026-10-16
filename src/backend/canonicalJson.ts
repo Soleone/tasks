@@ -9,6 +9,8 @@ export function canonicalJson(value: unknown): string {
     return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
   }
 
-  const entries = Object.entries(value as JsonRecord).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+  const entries = Object.entries(value as JsonRecord).sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  );
   return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
 }

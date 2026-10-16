@@ -5,7 +5,9 @@ import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import type { TaskView } from "./taskView";
 
-const EXACT_STATUS_BY_KEY = new Map(EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]));
+const EXACT_STATUS_BY_KEY = new Map(
+  EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]),
+);
 
 // Home shortcuts work anywhere on the home surface, not only when the listbox
 // is focused. Typing targets, the inline editor, and open dialogs always win.
@@ -13,10 +15,14 @@ function isHomeTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.closest('[role="dialog"], [role="menu"], [data-slot="command"]')) return true;
   const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
-    || target.isContentEditable
-    || target.getAttribute("role") === "combobox"
-    || target.hasAttribute("cmdk-input");
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable ||
+    target.getAttribute("role") === "combobox" ||
+    target.hasAttribute("cmdk-input")
+  );
 }
 
 // Space and Enter keep their native meaning on real buttons (Retry, Load
@@ -71,7 +77,10 @@ type HomeShortcutSurface = {
   section: RefObject<HTMLElement | null>;
 };
 
-export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeShortcutSurface): void {
+export function useTaskListKeyboard(
+  actions: HomeShortcutActions,
+  surface: HomeShortcutSurface,
+): void {
   const { toolbarModeRef, composerOpenRef, list, section } = surface;
   const homeShortcutActions = useRef(actions);
   homeShortcutActions.current = actions;
@@ -84,7 +93,12 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
       const actions = homeShortcutActions.current;
       if (event.key === "Tab") {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
-        if (toolbarModeRef.current !== null || event.target === list.current || event.target === section.current) event.preventDefault();
+        if (
+          toolbarModeRef.current !== null ||
+          event.target === list.current ||
+          event.target === section.current
+        )
+          event.preventDefault();
         return;
       }
       if (document.querySelector('[role="dialog"]') || composerOpenRef.current) return;
@@ -99,13 +113,24 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
         if (actions.hasActiveFilters) actions.clearAllFilters();
         return;
       }
-      if (toolbarModeRef.current !== null && event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
+      if (
+        toolbarModeRef.current !== null &&
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.key.toLowerCase() === "t"
+      ) {
         // Let the app-level theme shortcut continue, but make its modal return
         // target the task list rather than this temporary toolbar surface.
         actions.returnToList();
         return;
       }
-      if (toolbarModeRef.current !== null && (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "k") {
+      if (
+        toolbarModeRef.current !== null &&
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        event.key.toLowerCase() === "k"
+      ) {
         // The help palette is another app-level shortcut with a modal return
         // target. Clear the toolbar first for the same reason as themes.
         actions.returnToList();
@@ -119,22 +144,28 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
         actions.undoStatus();
         return;
       }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "c") {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "c"
+      ) {
         if (event.repeat || event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
         if (actions.activeTask) void actions.copyTask(actions.activeTask);
         return;
       }
       if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
-        const moveDirection = event.key === "ArrowUp"
-          ? "up"
-          : event.key === "ArrowDown"
-            ? "down"
-            : event.key === "Home"
-              ? "start"
-              : event.key === "End"
-                ? "end"
-                : null;
+        const moveDirection =
+          event.key === "ArrowUp"
+            ? "up"
+            : event.key === "ArrowDown"
+              ? "down"
+              : event.key === "Home"
+                ? "start"
+                : event.key === "End"
+                  ? "end"
+                  : null;
         if (moveDirection !== null) {
           if (event.repeat || event.isComposing || event.keyCode === 229) return;
           event.preventDefault();
@@ -164,7 +195,14 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
           return;
         }
       }
-      if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (
+        event.isComposing ||
+        event.keyCode === 229 ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      )
+        return;
 
       // A toolbar mode owns the keyboard until an option is chosen or Escape
       // returns focus to the task list. It has no timeout or fall-through to
@@ -262,7 +300,16 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
         return;
       }
       if (event.key === "Delete") {
-        if (event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+        if (
+          event.repeat ||
+          event.isComposing ||
+          event.keyCode === 229 ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.altKey ||
+          event.shiftKey
+        )
+          return;
         event.preventDefault();
         void actions.deleteSelectedTasks();
         return;
@@ -298,7 +345,8 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
       } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
         if (event.repeat) return;
         event.preventDefault();
-        if (actions.activeTask) void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
+        if (actions.activeTask)
+          void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
       } else if (event.key.toLowerCase() === "b") {
         if (event.repeat || event.shiftKey) return;
         event.preventDefault();
@@ -315,9 +363,7 @@ export function useTaskListKeyboard(actions: HomeShortcutActions, surface: HomeS
         if (event.repeat || isNativeButtonAction(event.target)) return;
         event.preventDefault();
         if (actions.activeTask) {
-          void (event.shiftKey
-            ? actions.reverseSelectedStatus()
-            : actions.toggleSelectedStatus());
+          void (event.shiftKey ? actions.reverseSelectedStatus() : actions.toggleSelectedStatus());
         }
       } else if (event.key === "ArrowDown") {
         event.preventDefault();

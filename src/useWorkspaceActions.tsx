@@ -13,7 +13,19 @@ import { taskStatusMeta } from "@/components/taskFilters";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { EditorError } from "@/platform/editorClient";
 import type { UndoEntry } from "@/platform/undoHistory";
-import { BackendCommandError, abortReceiveWorkspace, addDependency, moveTask, prepareReceiveWorkspace, purgeCanceledTasks as purgeCanceledTasksCommand, removeDependency, transitionTask, undoOperation, undoStatusChange, type TaskMutationResult } from "@/platform/backendClient";
+import {
+  BackendCommandError,
+  abortReceiveWorkspace,
+  addDependency,
+  moveTask,
+  prepareReceiveWorkspace,
+  purgeCanceledTasks as purgeCanceledTasksCommand,
+  removeDependency,
+  transitionTask,
+  undoOperation,
+  undoStatusChange,
+  type TaskMutationResult,
+} from "@/platform/backendClient";
 import type { useWorkspaceTasks } from "./useWorkspaceTasks";
 
 type OperationUndoEntry = UndoEntry & { expectedVersion?: number };
@@ -96,14 +108,20 @@ export function useWorkspaceActions({
     const blockerTitle = blocker ? blocker.title : "blocker";
     closePicker();
     try {
-      const result = await removeDependency(current.id, blockerId, current.version, { idempotencyKey: randomUUID() });
+      const result = await removeDependency(current.id, blockerId, current.version, {
+        idempotencyKey: randomUUID(),
+      });
       updateVisibleTask(result.task);
       if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
       setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
     } catch (caught) {
-      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${current.title} changed elsewhere. Refresh and try again.`
-        : caught instanceof Error ? caught.message : String(caught));
+      setAnnouncement(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? `${current.title} changed elsewhere. Refresh and try again.`
+          : caught instanceof Error
+            ? caught.message
+            : String(caught),
+      );
       void refreshTasks();
     }
   }
@@ -115,7 +133,9 @@ export function useWorkspaceActions({
     const subjectTitle = current.title;
     closePicker();
     try {
-      const result = await moveTask(current.id, null, current.version, { idempotencyKey: randomUUID() });
+      const result = await moveTask(current.id, null, current.version, {
+        idempotencyKey: randomUUID(),
+      });
       const refreshManualOrder = result.changed !== false && sortFieldRef.current === "manual";
       if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
@@ -123,9 +143,13 @@ export function useWorkspaceActions({
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
       setAnnouncement(`${subjectTitle} is now a top-level task`);
     } catch (caught) {
-      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${current.title} changed elsewhere. Refresh and try again.`
-        : caught instanceof Error ? caught.message : String(caught));
+      setAnnouncement(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? `${current.title} changed elsewhere. Refresh and try again.`
+          : caught instanceof Error
+            ? caught.message
+            : String(caught),
+      );
       void refreshTasks();
     }
   }
@@ -136,23 +160,35 @@ export function useWorkspaceActions({
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
     closePicker();
     try {
-      const result = mode === "blocker"
-        ? await addDependency(current.id, target.id, current.version, { idempotencyKey: randomUUID() })
-        : await moveTask(current.id, target.id, current.version, { idempotencyKey: randomUUID() });
-      const refreshManualOrder = mode === "move" && result.changed !== false && sortFieldRef.current === "manual";
+      const result =
+        mode === "blocker"
+          ? await addDependency(current.id, target.id, current.version, {
+              idempotencyKey: randomUUID(),
+            })
+          : await moveTask(current.id, target.id, current.version, {
+              idempotencyKey: randomUUID(),
+            });
+      const refreshManualOrder =
+        mode === "move" && result.changed !== false && sortFieldRef.current === "manual";
       if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
       if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
       const subjectTitle = current.title;
       const targetTitle = target.title;
-      setAnnouncement(mode === "blocker"
-        ? `${subjectTitle} is now blocked by ${targetTitle}`
-        : `${subjectTitle} moved under ${targetTitle}`);
+      setAnnouncement(
+        mode === "blocker"
+          ? `${subjectTitle} is now blocked by ${targetTitle}`
+          : `${subjectTitle} moved under ${targetTitle}`,
+      );
     } catch (caught) {
-      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${current.title} changed elsewhere. Refresh and try again.`
-        : caught instanceof Error ? caught.message : String(caught));
+      setAnnouncement(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? `${current.title} changed elsewhere. Refresh and try again.`
+          : caught instanceof Error
+            ? caught.message
+            : String(caught),
+      );
       void refreshTasks();
     }
   }
@@ -162,21 +198,34 @@ export function useWorkspaceActions({
     const wasActive = taskListRef.current?.getActiveTask()?.id === current.id;
     closeHelp();
     if (current.status === "done" || current.status === "canceled") {
-      setAnnouncement(`${current.title} is ${taskStatusMeta[current.status].label.toLowerCase()}. Reopen it before pausing.`);
+      setAnnouncement(
+        `${current.title} is ${taskStatusMeta[current.status].label.toLowerCase()}. Reopen it before pausing.`,
+      );
       return;
     }
     try {
-      const result = current.status === "paused"
-        ? await transitionTask("task.start", current.id, current.version, { idempotencyKey: randomUUID() })
-        : await transitionTask("task.pause", current.id, current.version, { idempotencyKey: randomUUID() });
+      const result =
+        current.status === "paused"
+          ? await transitionTask("task.start", current.id, current.version, {
+              idempotencyKey: randomUUID(),
+            })
+          : await transitionTask("task.pause", current.id, current.version, {
+              idempotencyKey: randomUUID(),
+            });
       updateVisibleTask(result.task);
       if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
       if (result.changed !== false) handleStatusChanged(current, result.task, wasActive);
-      setAnnouncement(`${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`);
+      setAnnouncement(
+        `${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`,
+      );
     } catch (caught) {
-      setAnnouncement(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${current.title} changed elsewhere. Refresh and try again.`
-        : caught instanceof Error ? caught.message : String(caught));
+      setAnnouncement(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? `${current.title} changed elsewhere. Refresh and try again.`
+          : caught instanceof Error
+            ? caught.message
+            : String(caught),
+      );
       void refreshTasks();
     }
   }
@@ -190,43 +239,58 @@ export function useWorkspaceActions({
     if (!operationId) return;
     const previousById = new Map(previous.map((task) => [task.id, task]));
     const currentById = new Map(current.map((task) => [task.id, task]));
-    const affectedTaskIds = [...new Set([...previous, ...current].map((task) => task.id))].filter((taskId) => {
-      const before = previousById.get(taskId);
-      const after = currentById.get(taskId);
-      return before === undefined || after === undefined || before.version !== after.version;
-    });
-    const statusLike = affectedTaskIds.length > 0 && affectedTaskIds.every((taskId) => {
-      const before = previousById.get(taskId);
-      const after = currentById.get(taskId);
-      return before !== undefined && after !== undefined && before.status !== after.status;
-    });
+    const affectedTaskIds = [...new Set([...previous, ...current].map((task) => task.id))].filter(
+      (taskId) => {
+        const before = previousById.get(taskId);
+        const after = currentById.get(taskId);
+        return before === undefined || after === undefined || before.version !== after.version;
+      },
+    );
+    const statusLike =
+      affectedTaskIds.length > 0 &&
+      affectedTaskIds.every((taskId) => {
+        const before = previousById.get(taskId);
+        const after = currentById.get(taskId);
+        return before !== undefined && after !== undefined && before.status !== after.status;
+      });
     // The native route keeps single-task status undo; the Linux route records every own operation for operation.undo.
     const singleStatus = statusLike && affectedTaskIds.length === 1;
     if (workspace && !workspace.supportsOperationUndo && !singleStatus) {
       retireStatusUndo();
       return;
     }
-    const titleTask = current.find((task) => affectedTaskIds.includes(task.id)) ?? previous.find((task) => affectedTaskIds.includes(task.id));
+    const titleTask =
+      current.find((task) => affectedTaskIds.includes(task.id)) ??
+      previous.find((task) => affectedTaskIds.includes(task.id));
     const entry: OperationUndoEntry = {
       operationId,
-      ...(workspace && !workspace.supportsOperationUndo && singleStatus ? { expectedVersion: current[0].version } : {}),
+      ...(workspace && !workspace.supportsOperationUndo && singleStatus
+        ? { expectedVersion: current[0].version }
+        : {}),
       key: randomUUID(),
       affectedTaskIds,
       createdTaskIds: options.createdTaskIds ?? [],
       title: titleTask?.title ?? "task",
       statusLike,
-      wasActiveTaskId: options.wasActiveTaskId ?? (() => {
-        const activeTaskId = taskListRef.current?.getActiveTask()?.id ?? null;
-        return activeTaskId !== null && affectedTaskIds.includes(activeTaskId) ? activeTaskId : null;
-      })(),
+      wasActiveTaskId:
+        options.wasActiveTaskId ??
+        (() => {
+          const activeTaskId = taskListRef.current?.getActiveTask()?.id ?? null;
+          return activeTaskId !== null && affectedTaskIds.includes(activeTaskId)
+            ? activeTaskId
+            : null;
+        })(),
     };
     showUndo(entry);
     if (!workspace?.supportsOperationUndo) return;
     // Re-show after pushing, so a history load that resolves late cannot replace this newer entry.
-    void workspace.undoHistory().then((history) => {
-      history.push(entry);
-      showUndo(history.latest());
-    }, () => undefined);
+    void workspace.undoHistory().then(
+      (history) => {
+        history.push(entry);
+        showUndo(history.latest());
+      },
+      () => undefined,
+    );
   }
 
   function showUndo(entry: OperationUndoEntry | null): void {
@@ -242,10 +306,13 @@ export function useWorkspaceActions({
   function retireUndo(entry: OperationUndoEntry): void {
     retireStatusUndo();
     if (!workspace?.supportsOperationUndo) return;
-    void workspace.undoHistory().then((history) => {
-      history.remove(entry.operationId);
-      showUndo(history.latest());
-    }, () => undefined);
+    void workspace.undoHistory().then(
+      (history) => {
+        history.remove(entry.operationId);
+        showUndo(history.latest());
+      },
+      () => undefined,
+    );
   }
 
   function showToast(message: string, options: ToastDisplayOptions = {}): void {
@@ -261,35 +328,58 @@ export function useWorkspaceActions({
     const entry = statusUndoRef.current;
     if (!entry) return;
     try {
-      const result = entry.expectedVersion !== undefined
-        ? { tasks: [(await undoStatusChange(entry.affectedTaskIds[0], entry.expectedVersion!, { idempotencyKey: entry.key })).task], deletedTaskIds: [] }
-        : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
+      const result =
+        entry.expectedVersion !== undefined
+          ? {
+              tasks: [
+                (
+                  await undoStatusChange(entry.affectedTaskIds[0], entry.expectedVersion!, {
+                    idempotencyKey: entry.key,
+                  })
+                ).task,
+              ],
+              deletedTaskIds: [],
+            }
+          : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
       const restored = result.tasks;
       if (cancelExitTimer.current !== null) {
         window.clearTimeout(cancelExitTimer.current);
         cancelExitTimer.current = null;
       }
       setExitingTaskIds(new Set());
-      if (result.deletedTaskIds && result.deletedTaskIds.length > 0) removeVisibleTasks(result.deletedTaskIds);
+      if (result.deletedTaskIds && result.deletedTaskIds.length > 0)
+        removeVisibleTasks(result.deletedTaskIds);
       updateVisibleTasks(restored);
       if (entry.wasActiveTaskId && restored.some((task) => task.id === entry.wasActiveTaskId)) {
         requestActiveTask(entry.wasActiveTaskId);
       }
       retireUndo(entry);
-      const label = restored.length === 1 ? taskStatusMeta[restored[0].status]?.label ?? restored[0].status : null;
-      const message = entry.createdTaskIds.length > 0
-        ? `Removed: ${entry.title}`
-        : entry.statusLike && restored.length === 1
-          ? `${restored[0].title}: ${label}`
-          : restored.length === 1
-            ? `Undid change to ${restored[0].title}`
-            : `Undid changes for ${entry.affectedTaskIds.length} tasks`;
+      const label =
+        restored.length === 1
+          ? (taskStatusMeta[restored[0].status]?.label ?? restored[0].status)
+          : null;
+      const message =
+        entry.createdTaskIds.length > 0
+          ? `Removed: ${entry.title}`
+          : entry.statusLike && restored.length === 1
+            ? `${restored[0].title}: ${label}`
+            : restored.length === 1
+              ? `Undid change to ${restored[0].title}`
+              : `Undid changes for ${entry.affectedTaskIds.length} tasks`;
       setAnnouncement(message);
       showToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
-      if ((caught instanceof BackendCommandError || caught instanceof EditorError) && (caught.code === "OPERATION_CONFLICT" || caught.code === "OPERATION_UNAVAILABLE" || caught.code === "OPERATION_NOT_FOUND" || caught.code === "STALE_TASK_VERSION" || caught.code === "TASK_NOT_FOUND"
-        || (caught instanceof EditorError && (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))) {
+      if (
+        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
+        (caught.code === "OPERATION_CONFLICT" ||
+          caught.code === "OPERATION_UNAVAILABLE" ||
+          caught.code === "OPERATION_NOT_FOUND" ||
+          caught.code === "STALE_TASK_VERSION" ||
+          caught.code === "TASK_NOT_FOUND" ||
+          (caught instanceof EditorError &&
+            (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))
+      ) {
         retireUndo(entry);
         setExitingTaskIds(new Set());
         setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
@@ -308,8 +398,15 @@ export function useWorkspaceActions({
   useEffect(() => {
     if (!workspace?.supportsOperationUndo) return;
     let cancelled = false;
-    void workspace.undoHistory().then((history) => { if (!cancelled) showUndo(history.latest()); }, () => undefined);
-    return () => { cancelled = true; };
+    void workspace.undoHistory().then(
+      (history) => {
+        if (!cancelled) showUndo(history.latest());
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [workspace]);
 
   useEffect(() => {
@@ -320,10 +417,13 @@ export function useWorkspaceActions({
 
   function showOptimisticCreate(draft: TaskCreateDraft): void {
     const literal = workspace ? parseShorthand(draft.title) : null;
-    const classification = literal ? {
-      category: literal.category === null ? null : { slug: literal.category, label: literal.category },
-      tags: literal.tags.map(slug => ({ slug, label: slug })),
-    } : classifyTaskText(draft.title);
+    const classification = literal
+      ? {
+          category:
+            literal.category === null ? null : { slug: literal.category, label: literal.category },
+          tags: literal.tags.map((slug) => ({ slug, label: slug })),
+        }
+      : classifyTaskText(draft.title);
     const now = new Date().toISOString();
     const task: TaskView = {
       id: `pending-${randomUUID()}`,
@@ -358,13 +458,17 @@ export function useWorkspaceActions({
         setNewTaskId(task.id);
       }
     } else if (visible) {
-      setTasks((previous) => previous.map((existing) => existing.id === task.id ? task : existing));
+      setTasks((previous) =>
+        previous.map((existing) => (existing.id === task.id ? task : existing)),
+      );
     } else {
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
     if (!creating) requestActiveTask(task.id);
     if (result.operationId) {
-      recordOperationUndo(result.operationId, previous, [task], { createdTaskIds: creating ? [task.id] : [] });
+      recordOperationUndo(result.operationId, previous, [task], {
+        createdTaskIds: creating ? [task.id] : [],
+      });
     }
     setAnnouncement(`${creating ? "Added" : "Saved"}: ${task.title}`);
     // Creating one task returns to the list instead of reopening capture.
@@ -383,7 +487,9 @@ export function useWorkspaceActions({
     if (feedback.length === 0) return;
     const Icon = statuses.length === 1 ? taskStatusMeta[statuses[0]].Icon : undefined;
     showToast(
-      feedback.length === 1 ? feedback[0].message : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
+      feedback.length === 1
+        ? feedback[0].message
+        : `Tasks: ${feedback.map((entry) => entry.message).join("; ")}`,
       {
         ...(Icon ? { icon: Icon } : {}),
         ...(statuses.length === 1 && statuses[0] === "done" ? { completion: true } : {}),
@@ -393,19 +499,24 @@ export function useWorkspaceActions({
 
   function handleStatusChanged(previous: TaskView, current: TaskView, _wasActive: boolean): void {
     const nextTasks = visibleTasksAfterUpdate([current]);
-    const movedOutOfView = taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
+    const movedOutOfView =
+      taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
     showStatusChangeToast([current], movedOutOfView);
     if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
   }
 
-  function handleStatusBatchChanged(previous: TaskView[], current: TaskView[], _wasActiveTaskId: string | null): void {
+  function handleStatusBatchChanged(
+    previous: TaskView[],
+    current: TaskView[],
+    _wasActiveTaskId: string | null,
+  ): void {
     const nextTasks = visibleTasksAfterUpdate(current);
     const previousById = new Map(previous.map((task) => [task.id, task]));
     const movedOutOfView = current.filter((task) => {
       const before = previousById.get(task.id);
-      return before !== undefined
-        && taskIsInCurrentView(before)
-        && !taskIsInCurrentView(task, nextTasks);
+      return (
+        before !== undefined && taskIsInCurrentView(before) && !taskIsInCurrentView(task, nextTasks)
+      );
     });
     if (movedOutOfView.length > 0) {
       showStatusChangeToast(movedOutOfView, true);
@@ -421,7 +532,12 @@ export function useWorkspaceActions({
       cancelExitTimer.current = null;
     }
     const previousIds = new Set(previous.map((task) => task.id));
-    const exiting = current.filter((task) => previousIds.has(task.id) && tasks.some((existing) => existing.id === task.id) && !isCurrentViewMatch(task));
+    const exiting = current.filter(
+      (task) =>
+        previousIds.has(task.id) &&
+        tasks.some((existing) => existing.id === task.id) &&
+        !isCurrentViewMatch(task),
+    );
     const remove = (): void => {
       updateVisibleTasks(current);
       setExitingTaskIds(new Set());
@@ -434,7 +550,9 @@ export function useWorkspaceActions({
     } else {
       updateVisibleTasks(current);
     }
-    setAnnouncement(current.length === 1 ? `Canceled: ${current[0].title}` : `Canceled ${current.length} tasks`);
+    setAnnouncement(
+      current.length === 1 ? `Canceled: ${current[0].title}` : `Canceled ${current.length} tasks`,
+    );
   }
 
   async function purgeCanceledTasks(): Promise<number> {
@@ -448,9 +566,11 @@ export function useWorkspaceActions({
     setExitingTaskIds(new Set());
     requestActiveTask();
     await refreshTasks();
-    setAnnouncement(result.deletedCount === 1
-      ? "Permanently deleted 1 canceled task"
-      : `Permanently deleted ${result.deletedCount} canceled tasks`);
+    setAnnouncement(
+      result.deletedCount === 1
+        ? "Permanently deleted 1 canceled task"
+        : `Permanently deleted ${result.deletedCount} canceled tasks`,
+    );
     return result.deletedCount;
   }
 

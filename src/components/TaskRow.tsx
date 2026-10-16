@@ -23,7 +23,10 @@ export function TaskStatusDisplay({ task }: { task: Pick<TaskView, "status"> }):
   const Icon = status.Icon;
   return (
     <span
-      className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-full", status.color)}
+      className={cn(
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
+        status.color,
+      )}
       role="img"
       aria-label={`Status: ${status.label}`}
     >
@@ -47,14 +50,23 @@ function TaskPriorityDisplay({ task }: { task: TaskView }): ReactElement {
           />
         }
       />
-      <TooltipContent side="top" sideOffset={8}>Priority {meta.label}</TooltipContent>
+      <TooltipContent side="top" sideOffset={8}>
+        Priority {meta.label}
+      </TooltipContent>
     </Tooltip>
   );
 }
 
 const STATUS_FEEDBACK_DURATION_MS = 900;
 
-export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, previousLabel, onToggle }: {
+export function TaskStatusToggle({
+  task,
+  pending,
+  feedbackVersion,
+  nextLabel,
+  previousLabel,
+  onToggle,
+}: {
   task: TaskView;
   pending: boolean;
   feedbackVersion?: number;
@@ -66,11 +78,12 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
   const lastFeedbackVersion = useRef(feedbackVersion);
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
-  const pauseHint = task.status === "open" || task.status === "in_progress"
-    ? " Press P to pause."
-    : task.status === "paused"
-      ? " Press P to resume."
-      : "";
+  const pauseHint =
+    task.status === "open" || task.status === "in_progress"
+      ? " Press P to pause."
+      : task.status === "paused"
+        ? " Press P to resume."
+        : "";
 
   useEffect(() => {
     if (feedbackVersion === lastFeedbackVersion.current) return;
@@ -106,13 +119,23 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
       >
         <Icon aria-hidden="true" />
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={8}>{status.label}</TooltipContent>
+      <TooltipContent side="top" sideOffset={8}>
+        {status.label}
+      </TooltipContent>
     </Tooltip>
   );
 }
 
-function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task: TaskView; hiddenCategorySlug?: string | null; onSelectCategory?: (category: ClassificationToken) => void }): ReactElement | null {
-  const category = task.category?.slug !== hiddenCategorySlug ? task.category ?? null : null;
+function TaskRowMetadata({
+  task,
+  hiddenCategorySlug,
+  onSelectCategory,
+}: {
+  task: TaskView;
+  hiddenCategorySlug?: string | null;
+  onSelectCategory?: (category: ClassificationToken) => void;
+}): ReactElement | null {
+  const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
   if (!category && task.tags.length === 0) {
     if (!task.category) {
       return (
@@ -156,14 +179,19 @@ function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task:
         )
       ) : null}
       {task.tags.map((tag) => (
-        <Badge key={tag.slug} variant="tag">{tag.label}</Badge>
+        <Badge key={tag.slug} variant="tag">
+          {tag.label}
+        </Badge>
       ))}
     </ItemDescription>
   );
 }
 
 /** Quiet relationship context for the full row. Never color-only. */
-function TaskRowRelationships({ task, blockedByLabels }: {
+function TaskRowRelationships({
+  task,
+  blockedByLabels,
+}: {
   task: TaskView;
   blockedByLabels?: string[];
 }): ReactElement | null {
@@ -172,13 +200,14 @@ function TaskRowRelationships({ task, blockedByLabels }: {
 
   const resolved = blockedByLabels ?? [];
   const unresolvedCount = Math.max(blockerCount - resolved.length, 0);
-  const blockerText = resolved.length > 0
-    ? unresolvedCount > 0
-      ? `${resolved.join(", ")} +${unresolvedCount} more`
-      : resolved.join(", ")
-    : blockerCount === 1
-      ? "1 blocker"
-      : `${blockerCount} blockers`;
+  const blockerText =
+    resolved.length > 0
+      ? unresolvedCount > 0
+        ? `${resolved.join(", ")} +${unresolvedCount} more`
+        : resolved.join(", ")
+      : blockerCount === 1
+        ? "1 blocker"
+        : `${blockerCount} blockers`;
 
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
@@ -197,12 +226,18 @@ function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
       {showUpdated ? (
-        <span className="inline-flex min-w-0 items-center gap-1" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
+        <span
+          className="inline-flex min-w-0 items-center gap-1"
+          title={`Updated ${formatTaskDateTime(task.updatedAt)}`}
+        >
           <RotateCcwClock className="size-3.5 shrink-0" aria-hidden="true" />
           <span>Updated {formatTaskDate(task.updatedAt)}</span>
         </span>
       ) : null}
-      <span className="inline-flex min-w-0 items-center gap-1" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
+      <span
+        className="inline-flex min-w-0 items-center gap-1"
+        title={`Created ${formatTaskDateTime(task.createdAt)}`}
+      >
         <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
         <span>Created {formatTaskDate(task.createdAt)}</span>
       </span>
@@ -215,7 +250,17 @@ function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with optional details and metadata only in full mode.
  */
-export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented = false, showDetails = false, contextOnly = false, hiddenCategorySlug, onSelectCategory }: {
+export function TaskRow({
+  task,
+  variant,
+  statusSlot,
+  blockedByLabels,
+  indented = false,
+  showDetails = false,
+  contextOnly = false,
+  hiddenCategorySlug,
+  onSelectCategory,
+}: {
   task: TaskView;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
@@ -227,8 +272,19 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
   onSelectCategory?: (category: ClassificationToken) => void;
 }): ReactElement {
   return (
-    <div className={cn("flex min-w-0 flex-1 gap-2.5", variant === "compact" ? "items-center" : "items-start", indented && "pl-6")}>
-      <div className={cn("flex shrink-0 items-center justify-center gap-1.5", variant === "full" && "h-[1.375em]")}>
+    <div
+      className={cn(
+        "flex min-w-0 flex-1 gap-2.5",
+        variant === "compact" ? "items-center" : "items-start",
+        indented && "pl-6",
+      )}
+    >
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-center gap-1.5",
+          variant === "full" && "h-[1.375em]",
+        )}
+      >
         {statusSlot}
         {variant === "full" ? <TaskPriorityDisplay task={task} /> : null}
       </div>
@@ -237,12 +293,24 @@ export function TaskRow({ task, variant, statusSlot, blockedByLabels, indented =
           {task.title}
         </ItemTitle>
         {variant === "full" && showDetails && task.description ? (
-          <ItemDescription data-task-description className="wrap-anywhere">{task.description}</ItemDescription>
+          <ItemDescription data-task-description className="wrap-anywhere">
+            {task.description}
+          </ItemDescription>
         ) : null}
-        {variant === "full" ? <TaskRowMetadata task={task} hiddenCategorySlug={hiddenCategorySlug} onSelectCategory={onSelectCategory} /> : null}
-        {variant === "full" ? <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} /> : null}
+        {variant === "full" ? (
+          <TaskRowMetadata
+            task={task}
+            hiddenCategorySlug={hiddenCategorySlug}
+            onSelectCategory={onSelectCategory}
+          />
+        ) : null}
+        {variant === "full" ? (
+          <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} />
+        ) : null}
         {variant === "full" && contextOnly ? (
-          <p data-parent-context className="text-xs text-muted-foreground">{taskContextMessage(task)}</p>
+          <p data-parent-context className="text-xs text-muted-foreground">
+            {taskContextMessage(task)}
+          </p>
         ) : null}
         {variant === "full" && showDetails ? <TaskRowTimestamps task={task} /> : null}
       </div>

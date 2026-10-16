@@ -75,7 +75,12 @@ function purgeRequest(idempotencyKey, changes = {}) {
   };
 }
 
-function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null, pending = null } = {}) {
+function createBackend({
+  tasks = [],
+  canonicalFiles = null,
+  canonicalMeta = null,
+  pending = null,
+} = {}) {
   const state = {
     tasks: structuredClone(tasks),
     workspaceRevision: 1,
@@ -90,7 +95,9 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
   const events = [];
   const readRequests = [];
   const writeRequests = [];
-  const syncFolder = canonicalFiles ? { uri: "content://tasks", displayName: "Tasks", path: null } : null;
+  const syncFolder = canonicalFiles
+    ? { uri: "content://tasks", displayName: "Tasks", path: null }
+    : null;
 
   async function storage(request) {
     events.push(request.operation);
@@ -227,7 +234,8 @@ function createBackend({ tasks = [], canonicalFiles = null, canonicalMeta = null
     restore() {
       if (originalWindow === undefined) delete globalThis.window;
       else globalThis.window = originalWindow;
-      if (originalLocalStorage) Object.defineProperty(globalThis, "localStorage", originalLocalStorage);
+      if (originalLocalStorage)
+        Object.defineProperty(globalThis, "localStorage", originalLocalStorage);
       else delete globalThis.localStorage;
     },
   };
@@ -253,8 +261,18 @@ async function sha256(value) {
 
 async function canonicalRecord(record) {
   const { sync, ...content } = record;
-  const syncWithoutHash = { revision: sync.revision, modifiedBy: sync.modifiedBy, basedOnHash: sync.basedOnHash };
-  return { ...content, sync: { ...syncWithoutHash, contentHash: await sha256(canonicalJson({ ...content, sync: syncWithoutHash })) } };
+  const syncWithoutHash = {
+    revision: sync.revision,
+    modifiedBy: sync.modifiedBy,
+    basedOnHash: sync.basedOnHash,
+  };
+  return {
+    ...content,
+    sync: {
+      ...syncWithoutHash,
+      contentHash: await sha256(canonicalJson({ ...content, sync: syncWithoutHash })),
+    },
+  };
 }
 
 async function interruptedPurgeFixture() {
@@ -286,16 +304,24 @@ async function interruptedPurgeFixture() {
     sync: { revision: 1, modifiedBy: "test", basedOnHash: null, contentHash: "" },
   });
   const files = new Map([
-    ["workspace.json", writeJson({ format: "tasks.workspace", formatVersion: 1, workspaceId, schemaVersion: 1 })],
+    [
+      "workspace.json",
+      writeJson({ format: "tasks.workspace", formatVersion: 1, workspaceId, schemaVersion: 1 }),
+    ],
     [`tasks/${task.id}.json`, writeJson(taskRecord)],
     ["order/root.json", writeJson(rootOrder)],
   ]);
-  const fingerprintInput = [...files].map(([relativePath, content]) => ({ relativePath, content }))
+  const fingerprintInput = [...files]
+    .map(([relativePath, content]) => ({ relativePath, content }))
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   return {
     task,
     files,
-    meta: { workspaceId, fingerprint: await sha256(canonicalJson(fingerprintInput)), cacheVersion: "2" },
+    meta: {
+      workspaceId,
+      fingerprint: await sha256(canonicalJson(fingerprintInput)),
+      cacheVersion: "2",
+    },
   };
 }
 
@@ -315,55 +341,64 @@ test("Android task.list defaults to created/newest", async () => {
     });
 
     assert.equal(response.ok, true);
-    assert.deepEqual(response.result.tasks.map((task) => task.id), ["newest", "middle", "oldest"]);
+    assert.deepEqual(
+      response.result.tasks.map((task) => task.id),
+      ["newest", "middle", "oldest"],
+    );
   });
 });
 
 test("Android task creation reuses the sync scan and verifies only staged files", async () => {
   const fixture = await interruptedPurgeFixture();
-  await withBackend({ tasks: [fixture.task], canonicalFiles: fixture.files, canonicalMeta: fixture.meta }, async (backend) => {
-    const result = await handleAndroidRequest({
-      version: 1,
-      requestId: "create-request",
-      command: "task.create",
-      args: { title: "Created from test" },
-      actor: { kind: "human", label: "test" },
-      idempotencyKey: "create-saf",
-    });
+  await withBackend(
+    { tasks: [fixture.task], canonicalFiles: fixture.files, canonicalMeta: fixture.meta },
+    async (backend) => {
+      const result = await handleAndroidRequest({
+        version: 1,
+        requestId: "create-request",
+        command: "task.create",
+        args: { title: "Created from test" },
+        actor: { kind: "human", label: "test" },
+        idempotencyKey: "create-saf",
+      });
 
-    assert.equal(result.ok, true, JSON.stringify(result.error));
-    assert.equal(backend.readRequests.length, 2);
-    assert.equal(backend.readRequests[0], null);
-    assert.deepEqual(
-      [...new Set(backend.readRequests[1])].sort(),
-      ["workspace.json", `tasks/${result.result.task.id}.json`, "order/root.json"].sort(),
-    );
-    assert.deepEqual(backend.writeRequests, ["content://tasks"]);
-    assert.equal(backend.files.has(`tasks/${result.result.task.id}.json`), true);
-    assert.equal(backend.state.pending, null);
-  });
+      assert.equal(result.ok, true, JSON.stringify(result.error));
+      assert.equal(backend.readRequests.length, 2);
+      assert.equal(backend.readRequests[0], null);
+      assert.deepEqual(
+        [...new Set(backend.readRequests[1])].sort(),
+        ["workspace.json", `tasks/${result.result.task.id}.json`, "order/root.json"].sort(),
+      );
+      assert.deepEqual(backend.writeRequests, ["content://tasks"]);
+      assert.equal(backend.files.has(`tasks/${result.result.task.id}.json`), true);
+      assert.equal(backend.state.pending, null);
+    },
+  );
 });
 
 test("Android workspace.rebuild forces a same-fingerprint cache replacement", async () => {
   const fixture = await interruptedPurgeFixture();
   const damagedTask = { ...fixture.task, title: "Damaged derived cache" };
-  await withBackend({ tasks: [damagedTask], canonicalFiles: fixture.files, canonicalMeta: fixture.meta }, async (backend) => {
-    const response = await handleAndroidRequest({
-      version: 1,
-      requestId: "rebuild-request",
-      command: "workspace.rebuild",
-      args: {},
-      actor: { kind: "agent", label: "test" },
-    });
+  await withBackend(
+    { tasks: [damagedTask], canonicalFiles: fixture.files, canonicalMeta: fixture.meta },
+    async (backend) => {
+      const response = await handleAndroidRequest({
+        version: 1,
+        requestId: "rebuild-request",
+        command: "workspace.rebuild",
+        args: {},
+        actor: { kind: "agent", label: "test" },
+      });
 
-    assert.equal(response.ok, true);
-    assert.equal(response.result.rebuilt, true);
-    assert.equal(response.result.changed, true);
-    assert.equal(backend.state.replaceRequests.length, 1);
-    assert.equal(backend.state.replaceRequests[0].forceRebuild, true);
-    assert.equal(backend.state.tasks[0].title, fixture.task.title);
-    assert.ok(backend.state.tasks[0].version > fixture.task.version);
-  });
+      assert.equal(response.ok, true);
+      assert.equal(response.result.rebuilt, true);
+      assert.equal(response.result.changed, true);
+      assert.equal(backend.state.replaceRequests.length, 1);
+      assert.equal(backend.state.replaceRequests[0].forceRebuild, true);
+      assert.equal(backend.state.tasks[0].title, fixture.task.title);
+      assert.ok(backend.state.tasks[0].version > fixture.task.version);
+    },
+  );
 });
 
 test("Android purge returns its original receipt after the canceled tasks are gone", async () => {
@@ -384,7 +419,9 @@ test("Android purge returns its original receipt after the canceled tasks are go
 test("Android purge rejects reusing a receipt key with different request content", async () => {
   await withBackend({ tasks: [canceledTask()] }, async () => {
     assert.equal((await handleAndroidRequest(purgeRequest("purge-reuse"))).ok, true);
-    const reused = await handleAndroidRequest(purgeRequest("purge-reuse", { args: { reason: "different request" } }));
+    const reused = await handleAndroidRequest(
+      purgeRequest("purge-reuse", { args: { reason: "different request" } }),
+    );
     assert.equal(reused.ok, false);
     assert.equal(reused.error.code, "IDEMPOTENCY_KEY_REUSED");
   });
@@ -398,7 +435,9 @@ test("an Android purge with no canceled tasks records a no-op receipt", async ()
     assert.equal(events.includes("writeReceipt"), true);
     assert.equal(events.includes("purgeCanceledTasks"), false);
 
-    const reused = await handleAndroidRequest(purgeRequest("purge-empty", { args: { reason: "different request" } }));
+    const reused = await handleAndroidRequest(
+      purgeRequest("purge-empty", { args: { reason: "different request" } }),
+    );
     assert.equal(reused.ok, false);
     assert.equal(reused.error.code, "IDEMPOTENCY_KEY_REUSED");
   });
@@ -413,7 +452,14 @@ test("Android purge dry-runs and read-only calls do not read or write receipts",
       assert.equal(result.result.dryRun, true);
       assert.equal(result.result.readOnly, Boolean(flags.readOnly));
       assert.equal(events.includes("readReceipt"), false);
-      assert.equal(events.some((operation) => ["begin", "purgeCanceledTasks", "writeReceipt", "stageCanonicalWrite"].includes(operation)), false);
+      assert.equal(
+        events.some((operation) =>
+          ["begin", "purgeCanceledTasks", "writeReceipt", "stageCanonicalWrite"].includes(
+            operation,
+          ),
+        ),
+        false,
+      );
       assert.equal(state.tasks.length, 1);
     });
   }
@@ -421,21 +467,27 @@ test("Android purge dry-runs and read-only calls do not read or write receipts",
 
 test("Android purge replays its receipt after recovering an interrupted canonical write", async () => {
   const fixture = await interruptedPurgeFixture();
-  await withBackend({ tasks: [fixture.task], canonicalFiles: fixture.files, canonicalMeta: fixture.meta }, async (backend) => {
-    backend.state.failNextBegin = true;
-    const request = purgeRequest("purge-recovery");
-    const interrupted = await handleAndroidRequest(request);
-    assert.equal(interrupted.ok, false);
-    assert.equal(backend.state.pending?.idempotencyKey, "purge-recovery");
-    assert.equal(backend.files.has(`tasks/${fixture.task.id}.json`), false);
+  await withBackend(
+    { tasks: [fixture.task], canonicalFiles: fixture.files, canonicalMeta: fixture.meta },
+    async (backend) => {
+      backend.state.failNextBegin = true;
+      const request = purgeRequest("purge-recovery");
+      const interrupted = await handleAndroidRequest(request);
+      assert.equal(interrupted.ok, false);
+      assert.equal(backend.state.pending?.idempotencyKey, "purge-recovery");
+      assert.equal(backend.files.has(`tasks/${fixture.task.id}.json`), false);
 
-    const replay = await handleAndroidRequest({ ...request, requestId: "request-after-recovery" });
-    assert.equal(replay.ok, true);
-    assert.equal(replay.result.deletedCount, 1);
-    assert.deepEqual(replay.result.deletedTaskIds, [fixture.task.id]);
-    assert.equal(typeof replay.result.operationId, "string");
-    assert.equal(backend.state.pending, null);
-    assert.deepEqual(backend.state.tasks, []);
-    assert.equal(backend.events.includes("completePendingWrite"), true);
-  });
+      const replay = await handleAndroidRequest({
+        ...request,
+        requestId: "request-after-recovery",
+      });
+      assert.equal(replay.ok, true);
+      assert.equal(replay.result.deletedCount, 1);
+      assert.deepEqual(replay.result.deletedTaskIds, [fixture.task.id]);
+      assert.equal(typeof replay.result.operationId, "string");
+      assert.equal(backend.state.pending, null);
+      assert.deepEqual(backend.state.tasks, []);
+      assert.equal(backend.events.includes("completePendingWrite"), true);
+    },
+  );
 });

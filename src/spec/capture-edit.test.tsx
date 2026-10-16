@@ -2,14 +2,27 @@ import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { AppWorkspace } from "@/testing/appWorkspace";
-import { announcements, expectActive, expectListFocused, expectRows, focusedTitleField, row } from "@/testing/taskList";
+import {
+  announcements,
+  expectActive,
+  expectListFocused,
+  expectRows,
+  focusedTitleField,
+  row,
+} from "@/testing/taskList";
 
 let workspace: AppWorkspace;
-beforeEach(async () => { workspace = await AppWorkspace.start(); });
-afterEach(async () => { await workspace.stop(); });
+beforeEach(async () => {
+  workspace = await AppWorkspace.start();
+});
+afterEach(async () => {
+  await workspace.stop();
+});
 
 async function onlyTask() {
-  const { tasks } = await workspace.command<{ tasks: { id: string }[] }>("task.list", { status: [] });
+  const { tasks } = await workspace.command<{ tasks: { id: string }[] }>("task.list", {
+    status: [],
+  });
   expect(tasks).toHaveLength(1);
   return workspace.task(tasks[0].id);
 }
@@ -39,7 +52,9 @@ describe("opening and closing", () => {
     await focusedTitleField();
     await user.keyboard("Child{Enter}");
     await expectListFocused();
-    const { tasks } = await workspace.command<{ tasks: { title: string; parentId: string | null }[] }>("task.list", {});
+    const { tasks } = await workspace.command<{
+      tasks: { title: string; parentId: string | null }[];
+    }>("task.list", {});
     expect(tasks.find((task) => task.title === "Child")?.parentId).toBe(parent.id);
   });
 
@@ -81,7 +96,9 @@ describe("opening and closing", () => {
     await user.keyboard("{Enter}");
     await focusedTitleField();
     await user.keyboard("{Tab}{Tab}");
-    await waitFor(() => expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"));
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
+    );
     await user.keyboard("{Escape}");
     await focusedTitleField();
     await user.keyboard(" changed{Escape}");
@@ -104,9 +121,15 @@ describe("inside the editor", () => {
     const { user } = await workspace.render();
     await capture(user, "Task");
     await user.keyboard("{Tab}");
-    await waitFor(() => expect(document.activeElement?.getAttribute("aria-keyshortcuts")).toBe("0 1 2 3 4 ArrowLeft ArrowRight"));
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("aria-keyshortcuts")).toBe(
+        "0 1 2 3 4 ArrowLeft ArrowRight",
+      ),
+    );
     await user.keyboard("{Tab}");
-    await waitFor(() => expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"));
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
+    );
     await user.keyboard("{Shift>}{Tab}{Tab}{/Shift}");
     await focusedTitleField();
   });
@@ -128,7 +151,8 @@ describe("inside the editor", () => {
   test("edit.buttons: Save and Cancel are mouse fallbacks, not Tab stops", async () => {
     const { user } = await workspace.render();
     await capture(user, "Task");
-    for (const name of ["Add task", "Close"]) expect(within(editor()).getByRole("button", { name }).tabIndex).toBe(-1);
+    for (const name of ["Add task", "Close"])
+      expect(within(editor()).getByRole("button", { name }).tabIndex).toBe(-1);
   });
 });
 
@@ -151,14 +175,23 @@ describe("shorthand", () => {
   });
 
   test("shorthand.literal: editing shows the text as typed until the classification changes elsewhere", async () => {
-    const { task } = await workspace.command<{ task: { id: string } }>("task.create", { text: "Call #phone tomorrow @home", description: "Ask about @work #later" });
-    const { task: moved } = await workspace.command<{ task: { id: string } }>("task.create", { text: "Book #travel trip @home" });
+    const { task } = await workspace.command<{ task: { id: string } }>("task.create", {
+      text: "Call #phone tomorrow @home",
+      description: "Ask about @work #later",
+    });
+    const { task: moved } = await workspace.command<{ task: { id: string } }>("task.create", {
+      text: "Book #travel trip @home",
+    });
     await workspace.change("task.update", moved.id, { category: "work" });
     const { user } = await workspace.render();
     await user.click(row("Call tomorrow"));
     expect((await focusedTitleField()).value).toBe("Call #phone tomorrow @home");
     const saved = await workspace.task(task.id);
-    expect([saved.category, saved.tags, saved.description]).toEqual(["home", ["phone"], "Ask about @work #later"]);
+    expect([saved.category, saved.tags, saved.description]).toEqual([
+      "home",
+      ["phone"],
+      "Ask about @work #later",
+    ]);
     await user.keyboard("{Escape}");
     await user.click(row("Book trip"));
     expect((await focusedTitleField()).value).toBe("@work #travel Book trip");
@@ -167,7 +200,11 @@ describe("shorthand", () => {
   test("shorthand.empty: a title that is only shorthand is refused", async () => {
     const { user } = await workspace.render();
     await capture(user, "@home{Enter}");
-    await waitFor(() => expect(within(editor()).getByPlaceholderText("What needs doing?").getAttribute("aria-invalid")).toBe("true"));
+    await waitFor(() =>
+      expect(
+        within(editor()).getByPlaceholderText("What needs doing?").getAttribute("aria-invalid"),
+      ).toBe("true"),
+    );
     const { tasks } = await workspace.command<{ tasks: unknown[] }>("task.list", {});
     expect(tasks).toHaveLength(0);
   });
@@ -175,7 +212,9 @@ describe("shorthand", () => {
 
 describe("pickers", () => {
   function options(): string[] {
-    return within(screen.getByRole("dialog")).queryAllByRole("option").map((option) => option.textContent ?? "");
+    return within(screen.getByRole("dialog"))
+      .queryAllByRole("option")
+      .map((option) => option.textContent ?? "");
   }
 
   test("pick.parent: M then choosing a task nests the active task under it", async () => {
@@ -185,7 +224,9 @@ describe("pickers", () => {
     await expectActive("Loose #literal");
     await user.keyboard("m");
     await screen.findByRole("dialog", { name: "Move Loose #literal under…" });
-    await waitFor(() => expect(options().some((option) => option.includes("Parent @literal"))).toBe(true));
+    await waitFor(() =>
+      expect(options().some((option) => option.includes("Parent @literal"))).toBe(true),
+    );
     await user.keyboard("Parent{Enter}");
     await waitFor(async () => expect((await workspace.task(child.id)).parentId).toBe(parent.id));
   });
@@ -213,9 +254,13 @@ describe("pickers", () => {
     await user.keyboard("b");
     await screen.findByRole("dialog");
     await waitFor(() => expect(options().some((option) => option.includes("Blocker"))).toBe(true));
-    expect(options().some((option) => option.includes("Finished") || option.includes("Dropped"))).toBe(false);
+    expect(
+      options().some((option) => option.includes("Finished") || option.includes("Dropped")),
+    ).toBe(false);
     await user.keyboard("Blocker{Enter}");
-    await waitFor(async () => expect((await workspace.task(task.id)).dependencyIds).toEqual([blocker.id]));
+    await waitFor(async () =>
+      expect((await workspace.task(task.id)).dependencyIds).toEqual([blocker.id]),
+    );
   });
 
   test("pick.existing-links: an existing link to a canceled task can still be removed", async () => {

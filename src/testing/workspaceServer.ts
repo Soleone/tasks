@@ -7,7 +7,9 @@ import type { TestProject } from "vitest/node";
 import { startDevServer, type DevServer } from "../backend/devServer";
 
 declare module "vitest" {
-  export interface ProvidedContext { workspaceServerUrl: string }
+  export interface ProvidedContext {
+    workspaceServerUrl: string;
+  }
 }
 
 // Client tests run as browser code in jsdom and can't start the dev bridge
@@ -19,7 +21,11 @@ async function startWorkspace(): Promise<string> {
   const root = path.join(directory, "root");
   mkdirSync(path.join(root, "tasks"), { recursive: true });
   writeFileSync(path.join(root, "workspace.json"), JSON.stringify({ schemaVersion: 2 }));
-  const dev = await startDevServer({ port: 0, root, databasePath: path.join(directory, "cache.db") });
+  const dev = await startDevServer({
+    port: 0,
+    root,
+    databasePath: path.join(directory, "cache.db"),
+  });
   running.set(dev.url, { dev, directory });
   return dev.url;
 }
@@ -38,18 +44,29 @@ export default async function setup(project: TestProject): Promise<() => Promise
   process.env.XDG_DATA_HOME = profile;
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
-    const work = url.pathname === "/start" ? startWorkspace().then((devUrl) => ({ url: devUrl }))
-      : stopWorkspace(url.searchParams.get("url") ?? "").then(() => ({}));
-    work.then((body) => {
-      response.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
-      response.end(JSON.stringify(body));
-    }, (error: unknown) => {
-      response.writeHead(500, { "access-control-allow-origin": "*" });
-      response.end(String(error));
-    });
+    const work =
+      url.pathname === "/start"
+        ? startWorkspace().then((devUrl) => ({ url: devUrl }))
+        : stopWorkspace(url.searchParams.get("url") ?? "").then(() => ({}));
+    work.then(
+      (body) => {
+        response.writeHead(200, {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*",
+        });
+        response.end(JSON.stringify(body));
+      },
+      (error: unknown) => {
+        response.writeHead(500, { "access-control-allow-origin": "*" });
+        response.end(String(error));
+      },
+    );
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  project.provide("workspaceServerUrl", `http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  project.provide(
+    "workspaceServerUrl",
+    `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+  );
   return async () => {
     await Promise.all([...running.keys()].map(stopWorkspace));
     await new Promise<void>((resolve) => server.close(() => resolve()));

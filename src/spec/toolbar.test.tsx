@@ -4,8 +4,12 @@ import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
-beforeEach(async () => { workspace = await AppWorkspace.start(); });
-afterEach(async () => { await workspace.stop(); });
+beforeEach(async () => {
+  workspace = await AppWorkspace.start();
+});
+afterEach(async () => {
+  await workspace.stop();
+});
 
 function pressed(selector: string): string | null {
   return document.querySelector(selector)?.getAttribute("aria-pressed") ?? null;
@@ -36,7 +40,11 @@ describe("count line", () => {
     await expectRows(["Urgent", "Low"]);
     await user.keyboard("f0fu");
     await waitFor(() => expect(pressed("[data-filter=task-unblocked]")).toBe("true"));
-    const priority = screen.getAllByRole("button").find((button) => button.closest("[data-filter-summary]") && /P0/.test(button.textContent ?? ""));
+    const priority = screen
+      .getAllByRole("button")
+      .find(
+        (button) => button.closest("[data-filter-summary]") && /P0/.test(button.textContent ?? ""),
+      );
     expect(priority).toBeDefined();
     await user.click(priority!);
     await waitFor(() => expect(pressed("[data-filter=task-priority]")).toBe("false"));
@@ -50,7 +58,9 @@ describe("focus modes", () => {
     const { user } = await workspace.render();
     await expectListFocused();
     await user.keyboard("f");
-    await waitFor(() => expect(document.activeElement?.getAttribute("data-toolbar")).toBe("filters"));
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("data-toolbar")).toBe("filters"),
+    );
     await user.keyboard("u");
     await waitFor(() => expect(pressed("[data-filter=task-unblocked]")).toBe("true"));
   });
@@ -134,7 +144,11 @@ describe("filters", () => {
     const { user } = await workspace.render();
     await user.keyboard("@");
     const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(dialog.contains(document.activeElement) && document.activeElement?.tagName).toBe("INPUT"));
+    await waitFor(() =>
+      expect(dialog.contains(document.activeElement) && document.activeElement?.tagName).toBe(
+        "INPUT",
+      ),
+    );
     await user.keyboard("work{Enter}");
     await expectRows(["Work item"]);
     await expectListFocused();
@@ -203,8 +217,13 @@ describe("sort", () => {
 
   test("sort.updated: S U sorts by updated date", async () => {
     await seedSortable();
-    const { tasks } = await workspace.command<{ tasks: { id: string; title: string }[] }>("task.list", {});
-    await workspace.change("task.update", tasks.find((task) => task.title === "Oldest")!.id, { description: "touched" });
+    const { tasks } = await workspace.command<{ tasks: { id: string; title: string }[] }>(
+      "task.list",
+      {},
+    );
+    await workspace.change("task.update", tasks.find((task) => task.title === "Oldest")!.id, {
+      description: "touched",
+    });
     const { user } = await workspace.render();
     await user.keyboard("su");
     await expectRows(["Oldest", "Newest", "Middle"]);
@@ -224,19 +243,28 @@ describe("sort", () => {
     await expectRows(["Oldest", "Middle", "Newest"]);
     await user.keyboard("sm");
     await waitFor(() => expect(pressed("[data-sort=task-sort-manual]")).toBe("true"));
-    expect((document.querySelector("[data-sort=task-sort-reverse]") as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (document.querySelector("[data-sort=task-sort-reverse]") as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   test("sort.manual: S M shows the manual order shared with the CLI", async () => {
     await workspace.create("First");
     const second = await workspace.create("Second");
     await workspace.create("Third");
-    const { task } = await workspace.command<{ task: { version: number } }>("task.get", { id: second.id });
-    await workspace.command("task.reorder", { tasks: [{ id: second.id, expectedVersion: task.version }], placement: { first: true } });
+    const { task } = await workspace.command<{ task: { version: number } }>("task.get", {
+      id: second.id,
+    });
+    await workspace.command("task.reorder", {
+      tasks: [{ id: second.id, expectedVersion: task.version }],
+      placement: { first: true },
+    });
     const { user } = await workspace.render();
     await user.keyboard("sm");
     await waitFor(() => expect(pressed("[data-sort=task-sort-manual]")).toBe("true"));
-    const { tasks } = await workspace.command<{ tasks: { title: string }[] }>("task.list", { sort: "manual" });
+    const { tasks } = await workspace.command<{ tasks: { title: string }[] }>("task.list", {
+      sort: "manual",
+    });
     expect(tasks[0].title).toBe("Second");
     await expectRows(tasks.map((task) => task.title));
   });

@@ -91,7 +91,8 @@ type Rgb = { r: number; g: number; b: number };
 function parseHexColor(value: string): Rgb | null {
   if (!HEX_COLOR.test(value)) return null;
   const digits = value.slice(1);
-  const expanded = digits.length === 3 ? [...digits].map((digit) => digit + digit).join("") : digits;
+  const expanded =
+    digits.length === 3 ? [...digits].map((digit) => digit + digit).join("") : digits;
   return {
     r: Number.parseInt(expanded.slice(0, 2), 16),
     g: Number.parseInt(expanded.slice(2, 4), 16),
@@ -107,7 +108,9 @@ function requireRgb(value: string): Rgb {
 
 function toHex({ r, g, b }: Rgb): string {
   const channel = (value: number): string =>
-    Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, "0");
+    Math.round(Math.min(255, Math.max(0, value)))
+      .toString(16)
+      .padStart(2, "0");
   return `#${channel(r)}${channel(g)}${channel(b)}`;
 }
 
@@ -158,7 +161,12 @@ export function mixHex(first: string, second: string, fraction: number): string 
  * surface at `target` contrast. Palettes arrive from theme authors, so roles
  * that carry text are corrected here rather than trusted.
  */
-export function readableMix(from: string, toward: string, surfaces: string[], target: number): string {
+export function readableMix(
+  from: string,
+  toward: string,
+  surfaces: string[],
+  target: number,
+): string {
   for (let step = 0; step <= 10; step += 1) {
     const candidate = mixHex(from, toward, step / 10);
     if (surfaces.every((surface) => contrastRatio(candidate, surface) >= target)) return candidate;
@@ -170,7 +178,11 @@ export function readableMix(from: string, toward: string, surfaces: string[], ta
  * Reads the flat `key = "value"` subset of TOML that omarchy palettes use.
  * Table headers are reported and skipped because a palette file has no sections.
  */
-export function parseColorsToml(text: string): { palette: ThemePalette; mode?: ThemeMode; warnings: string[] } {
+export function parseColorsToml(text: string): {
+  palette: ThemePalette;
+  mode?: ThemeMode;
+  warnings: string[];
+} {
   const canonical: ThemePalette = {};
   const legacy: ThemePalette = {};
   const warnings: string[] = [];
@@ -225,7 +237,10 @@ function paletteValue(rawValue: string): string | undefined {
  * then fall back to the neutral ramp in `src/styles.css` for the active mode, so
  * a file with nothing but an accent is a valid theme.
  */
-export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefined): ResolvedTheme {
+export function resolveTheme(
+  raw: ThemePalette,
+  declaredMode: ThemeMode | undefined,
+): ResolvedTheme {
   const warnings: string[] = [];
   const colors: ThemePalette = {};
   for (const [key, value] of Object.entries(raw)) {
@@ -238,22 +253,28 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
 
   const background = colors.background;
   const foreground = colors.foreground;
-  const mode = declaredMode
-    ?? (background ? (relativeLuminance(background) < 0.4 ? "dark" : "light") : "system");
+  const mode =
+    declaredMode ??
+    (background ? (relativeLuminance(background) < 0.4 ? "dark" : "light") : "system");
   if (!background || !foreground) {
     if (Object.keys(raw).length > 0) {
-      warnings.push("palette has no background and foreground, so unset slots use the app's neutral ramp");
+      warnings.push(
+        "palette has no background and foreground, so unset slots use the app's neutral ramp",
+      );
     }
     return { mode, palette: colors, warnings };
   }
 
   const dark = mode === "dark";
   const accent = colors.accent ?? colors.blue ?? colors.color4 ?? foreground;
-  const darkBackground = colors.dark_background
-    ?? (dark ? mixHex(background, "#000000", 0.25) : mixHex(background, foreground, 0.05));
-  const darkerBackground = colors.darker_background
-    ?? (dark ? mixHex(background, "#000000", 0.45) : mixHex(background, foreground, 0.1));
-  const lighterBackground = colors.lighter_background ?? mixHex(background, foreground, dark ? 0.12 : 0.06);
+  const darkBackground =
+    colors.dark_background ??
+    (dark ? mixHex(background, "#000000", 0.25) : mixHex(background, foreground, 0.05));
+  const darkerBackground =
+    colors.darker_background ??
+    (dark ? mixHex(background, "#000000", 0.45) : mixHex(background, foreground, 0.1));
+  const lighterBackground =
+    colors.lighter_background ?? mixHex(background, foreground, dark ? 0.12 : 0.06);
   const brightForeground = colors.bright_foreground ?? foreground;
   const darkForeground = colors.dark_foreground ?? mixHex(foreground, background, 0.45);
   // Ink on a fill is the theme's own darkest or lightest stop, whichever reads
@@ -264,11 +285,13 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
   function inkOn(fill: string, darkStop: string, lightStop: string): string {
     return contrastRatio(fill, darkStop) >= contrastRatio(fill, lightStop) ? darkStop : lightStop;
   }
-  const onAccent = colors.on_accent
-    ?? inkOn(accent, dark ? darkerBackground : foreground, dark ? brightForeground : background);
+  const onAccent =
+    colors.on_accent ??
+    inkOn(accent, dark ? darkerBackground : foreground, dark ? brightForeground : background);
   const red = colors.red ?? colors.color1 ?? (dark ? "#f87171" : "#b91c1c");
-  const onRed = colors.on_red
-    ?? inkOn(red, dark ? darkerBackground : foreground, dark ? brightForeground : background);
+  const onRed =
+    colors.on_red ??
+    inkOn(red, dark ? darkerBackground : foreground, dark ? brightForeground : background);
 
   return {
     mode,
@@ -288,8 +311,14 @@ export function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefi
       bright_foreground: brightForeground,
       // Secondary text lands on the card, the canvas, and raised chips, and
       // omarchy's `dark_foreground` is usually too dim for all three.
-      muted_foreground: colors.muted_foreground
-        ?? readableMix(darkForeground, foreground, [background, darkBackground, lighterBackground], 4.5),
+      muted_foreground:
+        colors.muted_foreground ??
+        readableMix(
+          darkForeground,
+          foreground,
+          [background, darkBackground, lighterBackground],
+          4.5,
+        ),
       red,
     },
   };

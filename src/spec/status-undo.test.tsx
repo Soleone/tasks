@@ -4,8 +4,12 @@ import { AppWorkspace } from "@/testing/appWorkspace";
 import { announcements, expectActive, expectRows, row, selectedTitles } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
-beforeEach(async () => { workspace = await AppWorkspace.start(); });
-afterEach(async () => { await workspace.stop(); });
+beforeEach(async () => {
+  workspace = await AppWorkspace.start();
+});
+afterEach(async () => {
+  await workspace.stop();
+});
 
 async function expectStatus(id: string, status: string): Promise<void> {
   await waitFor(async () => expect((await workspace.task(id)).status).toBe(status));
@@ -18,7 +22,11 @@ describe("status", () => {
     await expectActive("Task");
     await user.keyboard(" ");
     await expectStatus(task.id, "in_progress");
-    await waitFor(() => expect(row("Task").querySelector("[data-status]")?.getAttribute("data-status")).toBe("in_progress"));
+    await waitFor(() =>
+      expect(row("Task").querySelector("[data-status]")?.getAttribute("data-status")).toBe(
+        "in_progress",
+      ),
+    );
     await user.keyboard(" ");
     await expectStatus(task.id, "done");
   });
@@ -101,15 +109,25 @@ describe("priority and copy", () => {
     await expectActive("Task");
     await user.keyboard("0");
     await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(0));
-    await waitFor(() => expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe("P0"));
+    await waitFor(() =>
+      expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe(
+        "P0",
+      ),
+    );
   });
 
   test("copy.text: Ctrl+C copies the title and description without shorthand", async () => {
-    await workspace.create("Call Sam", { description: "about the lease", category: "home", tags: ["phone"] });
+    await workspace.create("Call Sam", {
+      description: "about the lease",
+      category: "home",
+      tags: ["phone"],
+    });
     const { user } = await workspace.render();
     await expectActive("Call Sam");
     await user.keyboard("{Control>}c{/Control}");
-    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe("Call Sam about the lease"));
+    await waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("Call Sam about the lease"),
+    );
   });
 });
 
@@ -159,14 +177,22 @@ describe("undo", () => {
     const first = await workspace.render();
     await expectActive("Task");
     await first.user.keyboard("0");
-    await waitFor(() => expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe("P0"));
+    await waitFor(() =>
+      expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe(
+        "P0",
+      ),
+    );
     first.view.unmount();
 
     const second = await workspace.render();
     await expectActive("Task");
     await second.user.keyboard("{Control>}z{/Control}");
     await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(2));
-    await waitFor(() => expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe("P2"));
+    await waitFor(() =>
+      expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe(
+        "P2",
+      ),
+    );
   });
 
   test("undo.capture: undoing a capture removes the new task", async () => {

@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function SearchDialog({ open, onClose, finalFocus, initialQuery, onSelect }: {
+export function SearchDialog({
+  open,
+  onClose,
+  finalFocus,
+  initialQuery,
+  onSelect,
+}: {
   open: boolean;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
@@ -26,7 +38,12 @@ export function SearchDialog({ open, onClose, finalFocus, initialQuery, onSelect
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <DialogHeader className="sr-only">
         <DialogTitle>Search tasks</DialogTitle>
       </DialogHeader>
@@ -37,7 +54,9 @@ export function SearchDialog({ open, onClose, finalFocus, initialQuery, onSelect
         finalFocus={finalFocus}
       >
         <DialogHeader>
-          <DialogDescription>Titles and descriptions. No autocomplete; combines with every other filter.</DialogDescription>
+          <DialogDescription>
+            Titles and descriptions. No autocomplete; combines with every other filter.
+          </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(event) => {

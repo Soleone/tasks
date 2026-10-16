@@ -5,19 +5,8 @@
     "src/**/*.test.{ts,tsx}",
     "scripts/*.{mjs,ts}"
   ],
-  "project": [
-    "src/**/*.{ts,tsx,css}",
-    "scripts/**/*.{mjs,ts}"
-  ],
-  "ignore": [
-    "src/components/ui/**",
-    "src/legacy/**"
-  ],
-  "ignoreDependencies": [
-    "postject"
-  ],
-  "ignoreBinaries": [
-    "rustc",
-    "agent-browser"
-  ]
+  "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{mjs,ts}"],
+  "ignore": ["src/components/ui/**", "src/legacy/**"],
+  "ignoreDependencies": ["postject"],
+  "ignoreBinaries": ["rustc", "agent-browser"]
 }

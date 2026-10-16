@@ -49,7 +49,11 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
     return new Promise<Response>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (this.pending.has(request.requestId)) {
-          this.fail(new Error(`backend request timed out after ${this.requestTimeoutMs} ms; retry uncertain writes with the same idempotency key`));
+          this.fail(
+            new Error(
+              `backend request timed out after ${this.requestTimeoutMs} ms; retry uncertain writes with the same idempotency key`,
+            ),
+          );
         }
       }, this.requestTimeoutMs);
       this.pending.set(request.requestId, { resolve, reject, timeout });
@@ -132,7 +136,8 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
 
       try {
         const response = this.decodeResponse(JSON.parse(line));
-        const request = typeof response.requestId === "string" ? this.pending.get(response.requestId) : undefined;
+        const request =
+          typeof response.requestId === "string" ? this.pending.get(response.requestId) : undefined;
         if (!request) {
           throw new Error(`backend returned an unknown request ID: ${response.requestId}`);
         }

@@ -18,7 +18,11 @@ const hostileEnvironment = {
 function runnerEnvironment(source, name, bindings) {
   const expression = new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n\\});`).exec(source)?.[1];
   assert.ok(expression, `${name} must remain an explicit environment object`);
-  return new Function("process", "path", ...Object.keys(bindings), `return (${expression});`)({ env: hostileEnvironment }, path, ...Object.values(bindings));
+  return new Function("process", "path", ...Object.keys(bindings), `return (${expression});`)(
+    { env: hostileEnvironment },
+    path,
+    ...Object.values(bindings),
+  );
 }
 
 function assertScratchEnvironment(environment, directory, database) {
@@ -33,27 +37,40 @@ function assertScratchEnvironment(environment, directory, database) {
 
 test("UI test server and external CLI use the same explicitly isolated environment", () => {
   const scratch = path.resolve("disposable-ui-test");
-  assertScratchEnvironment(runnerEnvironment(uiRunner, "testEnvironment", { scratch }), scratch, path.join(scratch, "tasks.db"));
-  assert.match(uiRunner, /env: \{ \.\.\.testEnvironment, TASKS_DEV_BACKEND_PORT:/);
-  assert.match(uiRunner, /\{ cwd: root, env: testEnvironment, encoding: "utf8" \}/);
+  assertScratchEnvironment(
+    runnerEnvironment(uiRunner, "testEnvironment", { scratch }),
+    scratch,
+    path.join(scratch, "tasks.db"),
+  );
+  assert.match(uiRunner, /env: \{\s*\.\.\.testEnvironment,\s*TASKS_DEV_BACKEND_PORT:/);
+  assert.match(uiRunner, /\{\s*cwd: root,\s*env: testEnvironment,\s*encoding: "utf8"\s*\}/);
 });
 
 test("both bundled probes exclude inherited personal root, registry and app-data", () => {
   const probeDirectory = path.resolve("disposable-sidecar-test");
   const databasePath = path.join(probeDirectory, "probe.db");
-  assertScratchEnvironment(runnerEnvironment(sidecarRunner, "environment", { probeDirectory, databasePath }), probeDirectory, databasePath);
+  assertScratchEnvironment(
+    runnerEnvironment(sidecarRunner, "environment", { probeDirectory, databasePath }),
+    probeDirectory,
+    databasePath,
+  );
   assert.equal((sidecarRunner.match(/env: environment/g) ?? []).length, 2);
 });
 
 async function readinessCalls(backendOk = true, webOk = true) {
-  const expression = /ready = (\(await fetch[^\n]+);/.exec(uiRunner)?.[1];
+  const expression = /ready =\s*(\(await fetch[\s\S]+?\.ok);/.exec(uiRunner)?.[1];
   assert.ok(expression, "readiness must remain an explicit health/web check");
   const requests = [];
   const fetchProbe = async (url, options) => {
     requests.push({ url, options });
     return { ok: url.endsWith("/health") ? backendOk : webOk };
   };
-  const evaluate = new Function("fetch", "backendUrl", "url", `return (async () => (${expression}))();`);
+  const evaluate = new Function(
+    "fetch",
+    "backendUrl",
+    "url",
+    `return (async () => (${expression}))();`,
+  );
   const ready = await evaluate(fetchProbe, "http://backend.test", "http://web.test");
   return { ready, requests };
 }
@@ -61,15 +78,26 @@ async function readinessCalls(backendOk = true, webOk = true) {
 test("startup readiness closes both sockets and still requires healthy backend and web", async () => {
   const result = await readinessCalls();
   assert.equal(result.ready, true);
-  assert.deepEqual(result.requests.map(request => request.url), ["http://backend.test/health", "http://web.test"]);
-  assert.deepEqual(result.requests.map(request => request.options), [{ headers: { connection: "close" } }, { headers: { connection: "close" } }]);
+  assert.deepEqual(
+    result.requests.map((request) => request.url),
+    ["http://backend.test/health", "http://web.test"],
+  );
+  assert.deepEqual(
+    result.requests.map((request) => request.options),
+    [{ headers: { connection: "close" } }, { headers: { connection: "close" } }],
+  );
   assert.equal((await readinessCalls(false)).ready, false);
   assert.equal((await readinessCalls(true, false)).ready, false);
 });
 
-test("closed startup socket survives remote expiry while synchronous browser commands block Node", async t => {
+test("closed startup socket survives remote expiry while synchronous browser commands block Node", async (t) => {
   const healthOptions = (await readinessCalls()).requests[0].options;
-  const server = spawn(process.execPath, ["--input-type=module", "-e", `
+  const server = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
     import {createServer} from 'node:http';
     const server=createServer((request,response)=>{
       response.writeHead(200,{'content-type':'application/json'});
@@ -78,22 +106,32 @@ test("closed startup socket survives remote expiry while synchronous browser com
     });
     server.keepAliveTimeout=60000;
     server.listen(0,'127.0.0.1',()=>console.log(server.address().port));
-  `], { stdio: ["ignore", "pipe", "pipe"] });
+  `,
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  );
   t.after(async () => {
     if (server.exitCode !== null) return;
     server.kill("SIGTERM");
-    await new Promise(resolve => server.once("exit", resolve));
+    await new Promise((resolve) => server.once("exit", resolve));
   });
   const port = await new Promise((resolve, reject) => {
-    server.stdout.once("data", bytes => resolve(Number(bytes.toString().trim())));
+    server.stdout.once("data", (bytes) => resolve(Number(bytes.toString().trim())));
     server.once("error", reject);
     server.once("exit", () => reject(new Error("socket probe exited before readiness")));
   });
   const url = `http://127.0.0.1:${port}`;
   assert.equal((await fetch(`${url}/health`, healthOptions)).ok, true);
-  await new Promise(resolve => setImmediate(resolve));
-  execFileSync(process.execPath, ["-e", "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,500)"]);
-  const response = await fetch(`${url}/command`, { method: "POST", headers: { connection: "close" }, body: "{}" });
+  await new Promise((resolve) => setImmediate(resolve));
+  execFileSync(process.execPath, [
+    "-e",
+    "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,500)",
+  ]);
+  const response = await fetch(`${url}/command`, {
+    method: "POST",
+    headers: { connection: "close" },
+    body: "{}",
+  });
   assert.equal(response.ok, true);
   await response.text();
 });

@@ -15,7 +15,13 @@ const STARTER_SHORTCUTS = [
   { keys: ["Alt", "T"], label: "Choose a theme" },
 ];
 
-export function StarterHelp({ open, onClose }: { open: boolean; onClose: () => void }): ReactElement | null {
+export function StarterHelp({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}): ReactElement | null {
   if (!open) return null;
 
   return (
@@ -27,7 +33,9 @@ export function StarterHelp({ open, onClose }: { open: boolean; onClose: () => v
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id="starter-help-title" className="text-lg font-semibold">Getting started</h2>
+          <h2 id="starter-help-title" className="text-lg font-semibold">
+            Getting started
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">The shortcuts you need to begin.</p>
         </div>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close help">
@@ -36,10 +44,15 @@ export function StarterHelp({ open, onClose }: { open: boolean; onClose: () => v
       </div>
       <div className="mt-6 space-y-1" aria-label="Starter shortcuts">
         {STARTER_SHORTCUTS.map((shortcut) => (
-          <div key={shortcut.label} className="flex items-center justify-between gap-4 rounded-md px-2 py-2.5 text-sm">
+          <div
+            key={shortcut.label}
+            className="flex items-center justify-between gap-4 rounded-md px-2 py-2.5 text-sm"
+          >
             <span>{shortcut.label}</span>
             <KbdGroup>
-              {shortcut.keys.map((key) => <Kbd key={key}>{key}</Kbd>)}
+              {shortcut.keys.map((key) => (
+                <Kbd key={key}>{key}</Kbd>
+              ))}
             </KbdGroup>
           </div>
         ))}

@@ -55,7 +55,9 @@ function paint(theme: ThemeRecord): void {
   // Keep the declared theme-color honest: it is the canvas the regions sit on.
   const canvas = getComputedStyle(root).getPropertyValue("--background").trim();
   if (canvas !== "") {
-    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", canvas);
+    document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute("content", canvas);
   }
 }
 
@@ -82,7 +84,12 @@ export function applyStoredTheme(): void {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return;
     const theme = JSON.parse(stored) as ThemeRecord;
-    if (typeof theme?.name === "string" && typeof theme.mode === "string" && typeof theme.palette === "object" && theme.palette !== null) {
+    if (
+      typeof theme?.name === "string" &&
+      typeof theme.mode === "string" &&
+      typeof theme.palette === "object" &&
+      theme.palette !== null
+    ) {
       applyTheme(theme);
     }
   } catch {

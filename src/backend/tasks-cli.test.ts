@@ -33,9 +33,7 @@ test("tasks-cli resolves the database internally and runs add/list/show/complete
     const shown = JSON.parse(runCli(["show", id, "--json", "--database", databasePath]));
     assert.equal((shown.task as { title: string }).title, "Plan launch");
 
-    const completed = JSON.parse(
-      runCli(["complete", id, "--json", "--database", databasePath]),
-    );
+    const completed = JSON.parse(runCli(["complete", id, "--json", "--database", databasePath]));
     assert.equal((completed.task as { status: string }).status, "done");
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -45,7 +43,17 @@ test("tasks-cli resolves the database internally and runs add/list/show/complete
 test("tasks-cli can clear a description with an empty value", () => {
   const { directory, databasePath } = tempDatabase();
   try {
-    const added = JSON.parse(runCli(["add", "Clear notes", "--description", "notes", "--json", "--database", databasePath]));
+    const added = JSON.parse(
+      runCli([
+        "add",
+        "Clear notes",
+        "--description",
+        "notes",
+        "--json",
+        "--database",
+        databasePath,
+      ]),
+    );
     const id = (added.task as { id: string }).id;
     runCli(["update", id, "--description", "", "--json", "--database", databasePath]);
     runCli(["update", id, "--description", "--literal", "--json", "--database", databasePath]);
@@ -85,9 +93,22 @@ test("tasks-cli reports stale versions with a distinct exit code", () => {
     const added = JSON.parse(runCli(["add", "Versioned", "--json", "--database", databasePath]));
     const id = (added.task as { id: string }).id;
     try {
-      execFileSync(process.execPath, [cliPath, "--legacy", "complete", id, "--expected-version", "999", "--database", databasePath], {
-        encoding: "utf8",
-      });
+      execFileSync(
+        process.execPath,
+        [
+          cliPath,
+          "--legacy",
+          "complete",
+          id,
+          "--expected-version",
+          "999",
+          "--database",
+          databasePath,
+        ],
+        {
+          encoding: "utf8",
+        },
+      );
       assert.fail("expected a stale version failure");
     } catch (error) {
       const failure = error as { status?: number };

@@ -16,7 +16,8 @@ test("lists realistic Syncthing conflict copies for canonical workspace files", 
     {
       id: 1,
       canonicalPath: "order/550e8400-e29b-41d4-a716-446655440000.json",
-      sourcePath: "order/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141532-AB12CDE.json",
+      sourcePath:
+        "order/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141532-AB12CDE.json",
       kind: "order",
       status: "unresolved",
       resolutionSupported: false,
@@ -32,7 +33,8 @@ test("lists realistic Syncthing conflict copies for canonical workspace files", 
     {
       id: 3,
       canonicalPath: "tasks/550e8400-e29b-41d4-a716-446655440000.json",
-      sourcePath: "tasks/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141530-AB12CDE.json",
+      sourcePath:
+        "tasks/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141530-AB12CDE.json",
       kind: "task",
       status: "unresolved",
       resolutionSupported: false,
@@ -49,11 +51,14 @@ test("lists realistic Syncthing conflict copies for canonical workspace files", 
 });
 
 test("does not report canonical files, unrelated JSON, or malformed conflict names", () => {
-  assert.deepEqual(listAndroidSyncConflicts([
-    file("workspace.json"),
-    file("tasks/550e8400-e29b-41d4-a716-446655440000.json"),
-    file("tasks/550e8400-e29b-41d4-a716-446655440000.sync-conflict-tablet.json"),
-    file("tasks/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141530-AB12CDE.txt"),
-    file("notes/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141530-AB12CDE.json"),
-  ]), []);
+  assert.deepEqual(
+    listAndroidSyncConflicts([
+      file("workspace.json"),
+      file("tasks/550e8400-e29b-41d4-a716-446655440000.json"),
+      file("tasks/550e8400-e29b-41d4-a716-446655440000.sync-conflict-tablet.json"),
+      file("tasks/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141530-AB12CDE.txt"),
+      file("notes/550e8400-e29b-41d4-a716-446655440000.sync-conflict-20260920-141530-AB12CDE.json"),
+    ]),
+    [],
+  );
 });

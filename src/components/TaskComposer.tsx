@@ -1,10 +1,26 @@
 import { randomUUID } from "../lib/randomUUID";
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactElement,
+} from "react";
 import type { TaskPriority } from "@/backend/taskModel";
 import { inlineTaskText, type ClassificationOption, type TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
 import { parseShorthand } from "@/backend/shorthand";
-import { createTask, listCategories, listTags, updateTask, selectedMainWorkspace, BackendCommandError, type TaskMutationResult } from "@/platform/backendClient";
+import {
+  createTask,
+  listCategories,
+  listTags,
+  updateTask,
+  selectedMainWorkspace,
+  BackendCommandError,
+  type TaskMutationResult,
+} from "@/platform/backendClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -56,13 +72,25 @@ const CONTEXTUAL_HELP: Record<ContextualHelpTarget, { heading: string; text: str
   },
 };
 
-function ComposerHelpTooltip({ target, onDisableHelp }: { target: ContextualHelpTarget; onDisableHelp: () => void }): ReactElement {
+function ComposerHelpTooltip({
+  target,
+  onDisableHelp,
+}: {
+  target: ContextualHelpTarget;
+  onDisableHelp: () => void;
+}): ReactElement {
   const help = CONTEXTUAL_HELP[target];
 
   return (
     <Tooltip open>
       <TooltipTrigger
-        render={<span aria-hidden="true" tabIndex={-1} className="pointer-events-none absolute inset-x-0 top-6 bottom-0" />}
+        render={
+          <span
+            aria-hidden="true"
+            tabIndex={-1}
+            className="pointer-events-none absolute inset-x-0 top-6 bottom-0"
+          />
+        }
       />
       <TooltipContent
         data-context-help={target}
@@ -99,7 +127,17 @@ function ComposerHelpTooltip({ target, onDisableHelp }: { target: ContextualHelp
 // Shared inline create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
-export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCreatePending, onCreateFailed, onCancel, helpMode, onDisableHelp }: TaskComposerProps): ReactElement {
+export function TaskComposer({
+  task,
+  initialTitle = "",
+  parentId,
+  onSaved,
+  onCreatePending,
+  onCreateFailed,
+  onCancel,
+  helpMode,
+  onDisableHelp,
+}: TaskComposerProps): ReactElement {
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
@@ -107,7 +145,7 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
-  const initialText = task ? task.text ?? inlineTaskText(task) : "";
+  const initialText = task ? (task.text ?? inlineTaskText(task)) : "";
   const [title, setTitle] = useState(task ? initialText : initialTitle);
   const [description, setDescription] = useState(task?.description ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
@@ -117,12 +155,18 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ClassificationOption[]>([]);
   const [tags, setTags] = useState<ClassificationOption[]>([]);
-  const [suggestion, setSuggestion] = useState<{ marker: "@" | "#"; start: number; end: number; query: string } | null>(null);
+  const [suggestion, setSuggestion] = useState<{
+    marker: "@" | "#";
+    start: number;
+    end: number;
+    query: string;
+  } | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
-  const dirty = title !== initialText
-    || description !== (task?.description ?? "")
-    || priority !== (task?.priority ?? 2);
+  const dirty =
+    title !== initialText ||
+    description !== (task?.description ?? "") ||
+    priority !== (task?.priority ?? 2);
   const showContextualHelp = helpMode === "full" && !pending;
   const showPriorityHelp = helpMode === "basic" && !pending;
 
@@ -156,11 +200,14 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     };
   }, []);
 
-  const suggestionItems = suggestion?.marker === "@"
-    ? categories.filter((category) => category.label.toLowerCase().startsWith(suggestion.query.toLowerCase()))
-    : suggestion
-      ? tags.filter((tag) => tag.label.toLowerCase().startsWith(suggestion.query.toLowerCase()))
-      : [];
+  const suggestionItems =
+    suggestion?.marker === "@"
+      ? categories.filter((category) =>
+          category.label.toLowerCase().startsWith(suggestion.query.toLowerCase()),
+        )
+      : suggestion
+        ? tags.filter((tag) => tag.label.toLowerCase().startsWith(suggestion.query.toLowerCase()))
+        : [];
 
   function updateSuggestion(nextTitle: string, cursor: number): void {
     const beforeCursor = nextTitle.slice(0, cursor);
@@ -194,7 +241,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const delta = event.key === "ArrowDown" ? 1 : -1;
-      setSuggestionIndex((current) => (current + delta + suggestionItems.length) % suggestionItems.length);
+      setSuggestionIndex(
+        (current) => (current + delta + suggestionItems.length) % suggestionItems.length,
+      );
       return true;
     }
     if (event.key === "Enter" || event.key === "Tab") {
@@ -228,13 +277,25 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
       else showNotes();
       return;
     }
-    if (event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.shiftKey
+    ) {
       if (event.repeat) return;
       event.preventDefault();
       event.currentTarget.closest("form")?.requestSubmit();
       return;
     }
-    if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+    if (
+      (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.shiftKey
+    ) {
       event.preventDefault();
       const delta = event.key === "ArrowLeft" ? -1 : 1;
       setPriority((current) => Math.min(4, Math.max(0, current + delta)) as TaskPriority);
@@ -275,7 +336,13 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
       }
       return;
     }
-    if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
     }
@@ -294,7 +361,13 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     setPending(true);
     setError(null);
     // A lost reply must be retried with the same receipt, not a second write.
-    const payload = JSON.stringify([title, description, priority, task?.id ?? "new", parentId ?? null]);
+    const payload = JSON.stringify([
+      title,
+      description,
+      priority,
+      task?.id ?? "new",
+      parentId ?? null,
+    ]);
     if (receipt.current?.payload !== payload) {
       receipt.current = { payload, key: randomUUID() };
     }
@@ -319,9 +392,13 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
       receipt.current = null;
       onSaved(result);
     } catch (caught) {
-      setError(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then cancel and reopen the task."
-        : caught instanceof Error ? caught.message : String(caught));
+      setError(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then cancel and reopen the task."
+          : caught instanceof Error
+            ? caught.message
+            : String(caught),
+      );
       if (!task) {
         onCreateFailed();
         requestAnimationFrame(() => titleInput.current?.focus());
@@ -349,7 +426,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
     >
       <FieldGroup>
         <Field className="relative" data-invalid={titleError || undefined}>
-          {showContextualHelp && helpTarget === "title" ? <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} /> : null}
+          {showContextualHelp && helpTarget === "title" ? (
+            <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} />
+          ) : null}
           <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
           <Input
             ref={titleInput}
@@ -367,11 +446,19 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
             onChange={(event) => {
               setTitle(event.target.value);
               setTitleError(false);
-              updateSuggestion(event.target.value, event.target.selectionStart ?? event.target.value.length);
+              updateSuggestion(
+                event.target.value,
+                event.target.selectionStart ?? event.target.value.length,
+              );
             }}
             onFocus={() => setHelpTarget("title")}
             onKeyDown={handleTitleKeyDown}
-            onClick={(event) => updateSuggestion(event.currentTarget.value, event.currentTarget.selectionStart ?? event.currentTarget.value.length)}
+            onClick={(event) =>
+              updateSuggestion(
+                event.currentTarget.value,
+                event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+              )
+            }
           />
           {suggestion && suggestionItems.length > 0 ? (
             <div
@@ -390,8 +477,13 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => chooseSuggestion(item)}
                 >
-                  <span>{suggestion.marker}{item.label}</span>
-                  <span className="text-xs text-muted-foreground">{item.taskCount} {item.taskCount === 1 ? "task" : "tasks"}</span>
+                  <span>
+                    {suggestion.marker}
+                    {item.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.taskCount} {item.taskCount === 1 ? "task" : "tasks"}
+                  </span>
                 </button>
               ))}
             </div>
@@ -399,7 +491,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
         <Field className="relative">
-          {showContextualHelp && helpTarget === "priority" ? <ComposerHelpTooltip target="priority" onDisableHelp={onDisableHelp} /> : null}
+          {showContextualHelp && helpTarget === "priority" ? (
+            <ComposerHelpTooltip target="priority" onDisableHelp={onDisableHelp} />
+          ) : null}
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <div>
             <ButtonGroup
@@ -407,7 +501,9 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
               toolbar
               role="radiogroup"
               aria-labelledby={`${id}-priority-label`}
-              aria-describedby={showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`}
+              aria-describedby={
+                showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`
+              }
               aria-activedescendant={`${id}-priority-${priority}`}
               aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
               aria-disabled={pending || undefined}
@@ -437,18 +533,27 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
                       prioritySection.current?.focus();
                     }}
                   >
-                    <span aria-hidden="true" className={`inline-block size-2 rounded-full ${meta.dot}`} />
+                    <span
+                      aria-hidden="true"
+                      className={`inline-block size-2 rounded-full ${meta.dot}`}
+                    />
                     {meta.shortLabel}
                   </Button>
                 );
               })}
             </ButtonGroup>
           </div>
-          {showPriorityHelp ? <FieldDescription id={`${id}-priority-help`}>Focus here, then press 0–4 or ← → to choose.</FieldDescription> : null}
+          {showPriorityHelp ? (
+            <FieldDescription id={`${id}-priority-help`}>
+              Focus here, then press 0–4 or ← → to choose.
+            </FieldDescription>
+          ) : null}
         </Field>
         {notesOpen ? (
           <Field className="relative">
-            {showContextualHelp && helpTarget === "description" ? <ComposerHelpTooltip target="description" onDisableHelp={onDisableHelp} /> : null}
+            {showContextualHelp && helpTarget === "description" ? (
+              <ComposerHelpTooltip target="description" onDisableHelp={onDisableHelp} />
+            ) : null}
             <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
             <Textarea
               ref={notesInput}
@@ -462,7 +567,12 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
               onFocus={() => setHelpTarget("description")}
               onBlur={(event) => {
                 const nextFocus = event.relatedTarget;
-                if (!description.trim() && nextFocus instanceof HTMLElement && event.currentTarget.form?.contains(nextFocus)) setNotesOpen(false);
+                if (
+                  !description.trim() &&
+                  nextFocus instanceof HTMLElement &&
+                  event.currentTarget.form?.contains(nextFocus)
+                )
+                  setNotesOpen(false);
               }}
               onKeyDown={(event) => {
                 if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -492,17 +602,25 @@ export function TaskComposer({ task, initialTitle = "", parentId, onSaved, onCre
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          {!notesOpen ? <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>Add description</Button> : null}
-          <Button type="button" variant="ghost" size="sm" tabIndex={-1} disabled={pending} onClick={onCancel}>
+          {!notesOpen ? (
+            <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>
+              Add description
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            tabIndex={-1}
+            disabled={pending}
+            onClick={onCancel}
+          >
             {task ? (dirty ? "Discard changes" : "Back to tasks") : "Close"}
           </Button>
         </div>
-        <Button
-          type="submit"
-          size="sm"
-          tabIndex={-1}
-          disabled={pending}
-        >{pending ? "Saving…" : task ? "Save changes" : "Add task"}</Button>
+        <Button type="submit" size="sm" tabIndex={-1} disabled={pending}>
+          {pending ? "Saving…" : task ? "Save changes" : "Add task"}
+        </Button>
       </div>
     </form>
   );

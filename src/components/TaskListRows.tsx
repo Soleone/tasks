@@ -12,7 +12,11 @@ import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
-export type TaskOptionClick = (row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>) => void;
+export type TaskOptionClick = (
+  row: VisibleTaskRow,
+  index: number,
+  event: MouseEvent<HTMLDivElement>,
+) => void;
 
 type TaskOptionProps = {
   row: VisibleTaskRow;
@@ -52,10 +56,12 @@ export const TaskOption = memo(function TaskOption({
   onSelectCategory,
 }: TaskOptionProps): ReactElement {
   const { task } = row;
-  const blockedByLabels = task.blockedByIds.map((id) => {
-    const blocker = taskById.get(id);
-    return blocker ? blocker.title : null;
-  }).filter((label): label is string => label !== null);
+  const blockedByLabels = task.blockedByIds
+    .map((id) => {
+      const blocker = taskById.get(id);
+      return blocker ? blocker.title : null;
+    })
+    .filter((label): label is string => label !== null);
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
@@ -74,11 +80,7 @@ export const TaskOption = memo(function TaskOption({
       data-canceled-task={exitingTaskIds.has(task.id) || undefined}
       size="sm"
       variant={active && !selected ? "outline" : "default"}
-      state={selected
-        ? "selected"
-        : active
-          ? "active"
-          : row.contextOnly ? "context" : undefined}
+      state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
       onClick={(event) => onClick(row, index, event)}
     >
       <TaskRow
@@ -102,7 +104,9 @@ export const TaskOption = memo(function TaskOption({
         }
       />
       {row.hasChildren ? (
-        <span id={`task-children-${task.id}`} hidden>Children {expanded ? "expanded" : "collapsed"}.</span>
+        <span id={`task-children-${task.id}`} hidden>
+          Children {expanded ? "expanded" : "collapsed"}.
+        </span>
       ) : null}
       {row.hasChildren ? (
         <span
@@ -122,7 +126,11 @@ export const TaskOption = memo(function TaskOption({
   );
 });
 
-export function OptimisticTaskOption({ task, showDetails, hiddenCategorySlug }: {
+export function OptimisticTaskOption({
+  task,
+  showDetails,
+  hiddenCategorySlug,
+}: {
   task: TaskView;
   showDetails: boolean;
   hiddenCategorySlug: string | null;
@@ -150,7 +158,16 @@ export function OptimisticTaskOption({ task, showDetails, hiddenCategorySlug }: 
   );
 }
 
-export function InlineTaskComposer({ composer, onClose, onSaved, onCreatePending, onCreateFailed, helpMode, onDisableHelp, inList = false }: {
+export function InlineTaskComposer({
+  composer,
+  onClose,
+  onSaved,
+  onCreatePending,
+  onCreateFailed,
+  helpMode,
+  onDisableHelp,
+  inList = false,
+}: {
   composer: ComposerState;
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;

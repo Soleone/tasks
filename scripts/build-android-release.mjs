@@ -21,16 +21,22 @@ function validateSigningPropertyFile() {
   try {
     contents = readFileSync(keystorePropertiesFile, "utf8");
   } catch {
-    throw new Error("Unable to read src-tauri/gen/android/keystore.properties. Check its local file permissions.");
+    throw new Error(
+      "Unable to read src-tauri/gen/android/keystore.properties. Check its local file permissions.",
+    );
   }
 
   const presentProperties = new Set();
   for (const line of contents.split(/\r?\n/)) {
-    const match = /^\s*(storeFile|storePassword|keyAlias|keyPassword)(?:\s*[:=]\s*|\s+)(.*)$/.exec(line);
+    const match = /^\s*(storeFile|storePassword|keyAlias|keyPassword)(?:\s*[:=]\s*|\s+)(.*)$/.exec(
+      line,
+    );
     if (match && match[2].trim()) presentProperties.add(match[1]);
   }
 
-  const missingProperties = releaseSigningPropertyNames.filter((name) => !presentProperties.has(name));
+  const missingProperties = releaseSigningPropertyNames.filter(
+    (name) => !presentProperties.has(name),
+  );
   if (missingProperties.length > 0) {
     throw new Error(
       `Android release signing properties are missing or empty: ${missingProperties.join(", ")}. ` +
@@ -44,10 +50,12 @@ function releaseApks(directory = apkOutputDirectory, parentParts = []) {
 
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) return releaseApks(entryPath, [...parentParts, entry.name.toLowerCase()]);
+    if (entry.isDirectory())
+      return releaseApks(entryPath, [...parentParts, entry.name.toLowerCase()]);
 
     const isApk = entry.isFile() && entry.name.toLowerCase().endsWith(".apk");
-    const isRelease = parentParts.includes("release") || entry.name.toLowerCase().includes("release");
+    const isRelease =
+      parentParts.includes("release") || entry.name.toLowerCase().includes("release");
     return isApk && isRelease ? [entryPath] : [];
   });
 }
@@ -55,7 +63,9 @@ function releaseApks(directory = apkOutputDirectory, parentParts = []) {
 function findApksigner() {
   const sdkRoot = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
   if (!sdkRoot) {
-    throw new Error("Set ANDROID_HOME or ANDROID_SDK_ROOT to the Android SDK containing apksigner.");
+    throw new Error(
+      "Set ANDROID_HOME or ANDROID_SDK_ROOT to the Android SDK containing apksigner.",
+    );
   }
 
   const buildToolsDirectory = path.join(sdkRoot, "build-tools");
@@ -67,7 +77,9 @@ function findApksigner() {
   const versions = readdirSync(buildToolsDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort((left, right) => right.localeCompare(left, undefined, { numeric: true, sensitivity: "base" }));
+    .sort((left, right) =>
+      right.localeCompare(left, undefined, { numeric: true, sensitivity: "base" }),
+    );
 
   for (const version of versions) {
     for (const executableName of executableNames) {
@@ -81,7 +93,9 @@ function findApksigner() {
     }
   }
 
-  throw new Error(`No executable apksigner was found under ${buildToolsDirectory}. Install Android SDK Build-Tools.`);
+  throw new Error(
+    `No executable apksigner was found under ${buildToolsDirectory}. Install Android SDK Build-Tools.`,
+  );
 }
 
 function run(command, args) {

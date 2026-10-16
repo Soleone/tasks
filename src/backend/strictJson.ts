@@ -1,7 +1,10 @@
 import { CommandError } from "./errors.js";
 
 function invalidJson(): never {
-  throw new CommandError("INVALID_CANONICAL", "canonical JSON has invalid syntax, encoding or duplicate members");
+  throw new CommandError(
+    "INVALID_CANONICAL",
+    "canonical JSON has invalid syntax, encoding or duplicate members",
+  );
 }
 
 function validateUnicode(value: string): void {
@@ -27,7 +30,9 @@ function validateDecodedJson(value: unknown): void {
 // JSON.parse validates syntax but discards duplicate members, including escaped-name aliases.
 function rejectDuplicateMembers(text: string): void {
   let position = 0;
-  const whitespace = (): void => { while (/[\x20\t\r\n]/.test(text[position] ?? "x")) position += 1; };
+  const whitespace = (): void => {
+    while (/[\x20\t\r\n]/.test(text[position] ?? "x")) position += 1;
+  };
   const stringToken = (): string => {
     const start = position++;
     while (text[position] !== '"') {
@@ -39,7 +44,10 @@ function rejectDuplicateMembers(text: string): void {
   };
   const valueToken = (): void => {
     whitespace();
-    if (text[position] === '"') { stringToken(); return; }
+    if (text[position] === '"') {
+      stringToken();
+      return;
+    }
     if (text[position] === "{") {
       position += 1;
       whitespace();
@@ -52,7 +60,10 @@ function rejectDuplicateMembers(text: string): void {
         position += 1;
         valueToken();
         whitespace();
-        if (text[position] === ",") { position += 1; whitespace(); }
+        if (text[position] === ",") {
+          position += 1;
+          whitespace();
+        }
       }
       position += 1;
       return;

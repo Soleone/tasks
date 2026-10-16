@@ -19,15 +19,22 @@ function row(id, parentId = null, contextOnly = false) {
 
 test("selection and reorder calculations stay within visible sibling scopes", () => {
   const roots = [row("root-a"), row("root-context", null, true), row("root-b")];
-  const children = [row("child-a", "root-a"), row("child-b", "root-a"), row("other-child", "root-b")];
+  const children = [
+    row("child-a", "root-a"),
+    row("child-b", "root-a"),
+    row("other-child", "root-b"),
+  ];
   const rows = [...roots, ...children];
 
-  assert.deepEqual(selectableSiblingRows(children[0], rows).map(({ task }) => task.id), ["child-a", "child-b"]);
-  assert.deepEqual(selectedRowsForReorder(roots[0], rows, new Set()), [roots[0]]);
   assert.deepEqual(
-    selectedRowsForReorder(children[0], rows, new Set(["child-a", "child-b"])),
-    [children[0], children[1]],
+    selectableSiblingRows(children[0], rows).map(({ task }) => task.id),
+    ["child-a", "child-b"],
   );
+  assert.deepEqual(selectedRowsForReorder(roots[0], rows, new Set()), [roots[0]]);
+  assert.deepEqual(selectedRowsForReorder(children[0], rows, new Set(["child-a", "child-b"])), [
+    children[0],
+    children[1],
+  ]);
   assert.equal(selectedRowsForReorder(roots[0], rows, new Set(["root-a", "child-a"])), null);
   assert.equal(selectedRowsForReorder(roots[1], rows, new Set()), null);
 });

@@ -9,7 +9,7 @@ export function invalidInput(field: string): never {
 
 export function slugInput(value: unknown): string {
   if (typeof value !== "string") invalidInput("classification");
-  const slug = value.replace(/[A-Z]/g, letter => letter.toLowerCase());
+  const slug = value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
   if (!slugPattern.test(slug)) invalidInput("classification");
   return slug;
 }
@@ -51,27 +51,36 @@ export function parseShorthand(input: string): Pick<CanonicalTask, "title" | "ca
   // Escaped markers still participate in boundary checks after decoding.
   for (const match of decoded.matchAll(/(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b/g)) {
     const start = match.index + match[1].length;
-    if (protectedUnits.slice(start, start + match[2].length + match[3].length).some(Boolean)) continue;
+    if (protectedUnits.slice(start, start + match[2].length + match[3].length).some(Boolean))
+      continue;
     const slug = slugInput(match[3]);
     (match[2] === "@" ? categories : tags).add(slug);
     ranges.push({ start, end: start + 1 + match[3].length });
   }
-  if (categories.size > 1) throw new CommandError("MULTIPLE_CATEGORIES", "shorthand contains multiple categories");
+  if (categories.size > 1)
+    throw new CommandError("MULTIPLE_CATEGORIES", "shorthand contains multiple categories");
   let title = decoded;
   for (const range of ranges.reverse()) {
     // A marker between two spaces leaves one space, not two.
-    const end = title[range.start - 1] === " " && title[range.end] === " " ? range.end + 1 : range.end;
+    const end =
+      title[range.start - 1] === " " && title[range.end] === " " ? range.end + 1 : range.end;
     title = title.slice(0, range.start) + title.slice(end);
   }
   return { title: title.trim(), category: [...categories][0] ?? null, tags: [...tags].sort() };
 }
 
 /** The typed text, or null once a later change to title or classification no longer matches it. */
-export function typedText(task: Pick<CanonicalTask, "title" | "text" | "category" | "tags">): string | null {
+export function typedText(
+  task: Pick<CanonicalTask, "title" | "text" | "category" | "tags">,
+): string | null {
   if (task.text === null) return null;
   try {
     const parsed = parseShorthand(task.text);
-    return parsed.title === task.title && parsed.category === task.category && parsed.tags.join() === task.tags.join() ? task.text : null;
+    return parsed.title === task.title &&
+      parsed.category === task.category &&
+      parsed.tags.join() === task.tags.join()
+      ? task.text
+      : null;
   } catch {
     return null;
   }

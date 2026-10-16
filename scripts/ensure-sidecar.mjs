@@ -27,12 +27,15 @@ function pnpm(args) {
 const binary = targetBinary();
 const info = readInfo();
 if (
-  existsSync(binary)
-  && info?.nodeVersion === process.version
-  && statSync(binary).mtimeMs >= sidecarSourceTime(root)
+  existsSync(binary) &&
+  info?.nodeVersion === process.version &&
+  statSync(binary).mtimeMs >= sidecarSourceTime(root)
 ) {
   console.log(`Sidecar is up to date for ${process.version}; skipping the SEA rebuild.`);
 } else {
   pnpm(["build:sidecar"]);
-  writeFileSync(infoPath, `${JSON.stringify({ nodeVersion: process.version, builtAt: new Date().toISOString() }, null, 2)}\n`);
+  writeFileSync(
+    infoPath,
+    `${JSON.stringify({ nodeVersion: process.version, builtAt: new Date().toISOString() }, null, 2)}\n`,
+  );
 }

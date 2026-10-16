@@ -23,20 +23,39 @@ import type { UpdateIntent } from "./updateJournal.js";
 
 type WriteOutcome = { writeContext: string; result: TaskEditResult };
 
-export function commitUpdate(database: DatabaseSync, intent: UpdateIntent, snapshot: CanonicalSnapshot): TaskExecutionResult {
+export function commitUpdate(
+  database: DatabaseSync,
+  intent: UpdateIntent,
+  snapshot: CanonicalSnapshot,
+): TaskExecutionResult {
   const authority = synchronizeAuthority(database, intent.root, snapshot);
-  const task = projectTasks(snapshot.tasks, authority).find(task => task.id === intent.taskId)!;
+  const task = projectTasks(snapshot.tasks, authority).find((task) => task.id === intent.taskId)!;
   const before = parseCanonicalJson(Buffer.from(intent.beforeBytes, "base64"));
   const after = parseCanonicalJson(Buffer.from(intent.nextBytes, "base64"));
-  database.prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(intent.operationId, authority.writeContext, intent.taskId, intent.request.command, JSON.stringify(intent.request.actor), intent.at, JSON.stringify(before), JSON.stringify(after));
+  database
+    .prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run(
+      intent.operationId,
+      authority.writeContext,
+      intent.taskId,
+      intent.request.command,
+      JSON.stringify(intent.request.actor),
+      intent.at,
+      JSON.stringify(before),
+      JSON.stringify(after),
+    );
   const result: TaskExecutionResult = { task, changed: true, operationId: intent.operationId };
   // Cache-loss recovery may acknowledge the fixed effect, but must never restore old-context authority.
-  if (authority.writeContext === intent.request.writeContext) storeReceipt(database, intent.request, result);
+  if (authority.writeContext === intent.request.writeContext)
+    storeReceipt(database, intent.request, result);
   return result;
 }
 
-export function executeUpdate(request: TaskEditRequest, rootPath: string, cachePath: string): WriteOutcome {
+export function executeUpdate(
+  request: TaskEditRequest,
+  rootPath: string,
+  cachePath: string,
+): WriteOutcome {
   const root = readRootDescriptor(rootPath);
   return withRootWriterLock(root, () => {
     let retire = false;
@@ -48,41 +67,81 @@ export function executeUpdate(request: TaskEditRequest, rootPath: string, cacheP
       // A receipt is historical success, even when the live task/graph has since disappeared.
       const receipt = findTaskEditReceipt(database, request);
       if (receipt) return { writeContext: authority.writeContext, result: receipt };
-      if (readPending(root)) throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
+      if (readPending(root))
+        throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
       const snapshot = readCanonicalRoot(rootPath);
-      if (snapshot.rootIdentity !== root.rootIdentity) throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
+      if (snapshot.rootIdentity !== root.rootIdentity)
+        throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
       guardCopySource(snapshot);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
-      const task = snapshot.tasks.find(task => task.id === input.id);
+      const task = snapshot.tasks.find((task) => task.id === input.id);
       if (!task) throw new CommandError("TASK_NOT_FOUND", "task was not found");
-      if (authority.versions.get(task.id) !== input.expectedVersion) throw new CommandError("STALE_TASK_VERSION", "task version changed");
+      if (authority.versions.get(task.id) !== input.expectedVersion)
+        throw new CommandError("STALE_TASK_VERSION", "task version changed");
       const at = new Date().toISOString();
       let update: { task: CanonicalTask; changed: boolean };
       switch (edit.kind) {
-        case "content": update = applyUpdate(task, edit.input, at); break;
-        case "relationship": update = applyRelationship(task, edit.input, snapshot.tasks, at); break;
-        case "status": update = applyStatus(task, edit.command, at); break;
+        case "content":
+          update = applyUpdate(task, edit.input, at);
+          break;
+        case "relationship":
+          update = applyRelationship(task, edit.input, snapshot.tasks, at);
+          break;
+        case "status":
+          update = applyStatus(task, edit.command, at);
+          break;
       }
-      const projected = projectTasks([update.task, ...snapshot.tasks.filter(item => item.id !== task.id)], authority)[0];
-      if (request.readOnly || request.dryRun) return { writeContext: authority.writeContext, result: { task: projected, changed: update.changed, readOnly: request.readOnly, dryRun: request.dryRun } };
+      const projected = projectTasks(
+        [update.task, ...snapshot.tasks.filter((item) => item.id !== task.id)],
+        authority,
+      )[0];
+      if (request.readOnly || request.dryRun)
+        return {
+          writeContext: authority.writeContext,
+          result: {
+            task: projected,
+            changed: update.changed,
+            readOnly: request.readOnly,
+            dryRun: request.dryRun,
+          },
+        };
       if (!update.changed) {
         const result: TaskExecutionResult = { task: projected, changed: false };
         storeReceipt(database, request, result);
         return { writeContext: authority.writeContext, result };
       }
-      const budget = database.prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1").get()!;
-      if (!Number.isSafeInteger((budget.counter as number) + snapshot.tasks.length * 3 + 4) || !Number.isSafeInteger((budget.revision as number) + 3)) {
-        throw new CommandError("UNSUPPORTED_COMMAND", "version budget is nearly exhausted; explicit fresh-cache authority is required before this write");
+      const budget = database
+        .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
+        .get()!;
+      if (
+        !Number.isSafeInteger((budget.counter as number) + snapshot.tasks.length * 3 + 4) ||
+        !Number.isSafeInteger((budget.revision as number) + 3)
+      ) {
+        throw new CommandError(
+          "UNSUPPORTED_COMMAND",
+          "version budget is nearly exhausted; explicit fresh-cache authority is required before this write",
+        );
       }
       const beforeBytes = readRegularFile(path.join(root.rootPath, "tasks", `${task.id}.json`));
-      if (exactHash(beforeBytes) !== snapshot.files.find(file => file.relativePath === `tasks/${task.id}.json`)!.sha256) {
+      if (
+        exactHash(beforeBytes) !==
+        snapshot.files.find((file) => file.relativePath === `tasks/${task.id}.json`)!.sha256
+      ) {
         throw new CommandError("STALE_FILE", "task changed before staging");
       }
       const intent: UpdateIntent = {
-        format: "taskdb.pending-update", version: 1, root, cachePath: localPathOutsideRoot(cachePath, root.rootPath), request,
-        operationId: randomUUID(), at, taskId: task.id,
-        beforeBytes: beforeBytes.toString("base64"), nextBytes: Buffer.from(`${JSON.stringify(update.task)}\n`).toString("base64"), guards: snapshot.files,
+        format: "taskdb.pending-update",
+        version: 1,
+        root,
+        cachePath: localPathOutsideRoot(cachePath, root.rootPath),
+        request,
+        operationId: randomUUID(),
+        at,
+        taskId: task.id,
+        beforeBytes: beforeBytes.toString("base64"),
+        nextBytes: Buffer.from(`${JSON.stringify(update.task)}\n`).toString("base64"),
+        guards: snapshot.files,
       };
       guardUpdate(intent, false);
       syncDirectory(path.join(root.rootPath, "tasks"));

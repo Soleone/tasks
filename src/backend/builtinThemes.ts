@@ -650,6 +650,13 @@ magenta = "#2e2e2e"`,
 export function builtinThemes(): ThemeRecord[] {
   return BUILTIN_THEME_FILES.map(({ name, label, toml }) => {
     const resolved = parseThemeFile(toml);
-    return { name, label, source: "builtin", mode: resolved.mode, palette: resolved.palette, warnings: resolved.warnings };
+    return {
+      name,
+      label,
+      source: "builtin",
+      mode: resolved.mode,
+      palette: resolved.palette,
+      warnings: resolved.warnings,
+    };
   });
 }

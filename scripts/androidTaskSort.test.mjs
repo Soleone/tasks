@@ -4,7 +4,13 @@ import { sortAndroidTasks } from "../src/legacy/platform/androidTaskSort.ts";
 import { classifyTaskText } from "../src/backend/taskText.ts";
 
 const tasks = [
-  { id: "child", parentId: "root-a", priority: 0, createdAt: "2026-01-03", updatedAt: "2026-01-01" },
+  {
+    id: "child",
+    parentId: "root-a",
+    priority: 0,
+    createdAt: "2026-01-03",
+    updatedAt: "2026-01-01",
+  },
   { id: "root-a", parentId: null, priority: 4, createdAt: "2026-01-01", updatedAt: "2026-01-02" },
   { id: "root-b", parentId: null, priority: 2, createdAt: "2026-01-02", updatedAt: "2026-01-03" },
 ];
@@ -22,7 +28,10 @@ test("Android applies the requested date and priority sorts", () => {
 test("Android uses the desktop title-only classification rules", () => {
   const parsed = classifyTaskText("Plan @work #first");
   assert.equal(parsed.category?.slug, "work");
-  assert.deepEqual(parsed.tags.map((tag) => tag.slug), ["first"]);
+  assert.deepEqual(
+    parsed.tags.map((tag) => tag.slug),
+    ["first"],
+  );
 });
 
 test("Android manual order keeps descendants beside their parent, even when filtered", () => {

@@ -10,10 +10,14 @@ const binary = path.join(root, "src-tauri", "binaries", `tasks-backend-${target}
 const cliBinary = path.join(root, "src-tauri", "binaries", `tasks-cli-${target}${extension}`);
 
 if (!existsSync(binary)) {
-  throw new Error(`Sidecar does not exist: ${path.relative(root, binary)}. Run pnpm build:sidecar first.`);
+  throw new Error(
+    `Sidecar does not exist: ${path.relative(root, binary)}. Run pnpm build:sidecar first.`,
+  );
 }
 if (!existsSync(cliBinary)) {
-  throw new Error(`tasks-cli does not exist: ${path.relative(root, cliBinary)}. Run pnpm build:sidecar first.`);
+  throw new Error(
+    `tasks-cli does not exist: ${path.relative(root, cliBinary)}. Run pnpm build:sidecar first.`,
+  );
 }
 
 const probeDirectory = mkdtempSync(path.join(os.tmpdir(), "tasks-sidecar-check-"));
@@ -26,7 +30,10 @@ const environment = {
   XDG_DATA_HOME: path.join(probeDirectory, "local-data"),
   APPDATA: path.join(probeDirectory, "local-data"),
 };
-environment.PATH = process.platform === "win32" ? `${process.env.SystemRoot ?? "C:\\Windows"}\\System32` : "/usr/bin:/bin";
+environment.PATH =
+  process.platform === "win32"
+    ? `${process.env.SystemRoot ?? "C:\\Windows"}\\System32`
+    : "/usr/bin:/bin";
 delete environment.NODE_PATH;
 delete environment.NODE_OPTIONS;
 

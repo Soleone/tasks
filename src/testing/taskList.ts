@@ -25,7 +25,10 @@ export function activeTitle(): string | null {
 }
 
 export function selectedTitles(): string[] {
-  return screen.queryAllByRole("option").filter((option) => option.getAttribute("aria-selected") === "true").map((option) => titleOf(option) ?? "");
+  return screen
+    .queryAllByRole("option")
+    .filter((option) => option.getAttribute("aria-selected") === "true")
+    .map((option) => titleOf(option) ?? "");
 }
 
 export async function expectRows(titles: string[]): Promise<void> {
@@ -42,11 +45,16 @@ export async function expectListFocused(): Promise<void> {
 
 /** The inline editor's title field, once it has focus. */
 export async function focusedTitleField(): Promise<HTMLInputElement> {
-  await waitFor(() => expect(document.activeElement?.getAttribute("placeholder")).toBe("What needs doing?"));
+  await waitFor(() =>
+    expect(document.activeElement?.getAttribute("placeholder")).toBe("What needs doing?"),
+  );
   return document.activeElement as HTMLInputElement;
 }
 
 /** Everything announced to screen readers so far. */
 export function announcements(): string {
-  return screen.queryAllByRole("status").map((element) => element.textContent ?? "").join(" ");
+  return screen
+    .queryAllByRole("status")
+    .map((element) => element.textContent ?? "")
+    .join(" ");
 }

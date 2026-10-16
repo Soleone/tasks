@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
 import type { TaskView } from "./taskView";
 import { TaskRow, TaskStatusDisplay } from "@/components/TaskRow";
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, literalWordScore } from "@/components/ui/command";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  literalWordScore,
+} from "@/components/ui/command";
 import { getTask, listTasks } from "@/platform/backendClient";
 
 export type TaskPickerMode = "blocker" | "move";
@@ -32,18 +41,30 @@ function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMo
   const selectable = all.filter((task) => task.status !== "canceled");
   if (mode === "blocker") {
     const blocked = new Set(subject.dependencyIds);
-    return selectable.filter((task) => task.status !== "done" && task.id !== subject.id && !blocked.has(task.id));
+    return selectable.filter(
+      (task) => task.status !== "done" && task.id !== subject.id && !blocked.has(task.id),
+    );
   }
   const descendants = collectDescendantIds(all, subject.id);
-  return selectable.filter((task) =>
-    task.id !== subject.id
-    && !descendants.has(task.id)
-    && task.id !== subject.parentId
-    && task.parentId === null,
+  return selectable.filter(
+    (task) =>
+      task.id !== subject.id &&
+      !descendants.has(task.id) &&
+      task.id !== subject.parentId &&
+      task.parentId === null,
   );
 }
 
-export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect, onRemoveBlocker, onRemoveParent }: {
+export function TaskPicker({
+  open,
+  mode,
+  subject,
+  onClose,
+  finalFocus,
+  onSelect,
+  onRemoveBlocker,
+  onRemoveParent,
+}: {
   open: boolean;
   mode: TaskPickerMode;
   subject: TaskView;
@@ -66,10 +87,9 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
     // Candidate tasks exclude canceled rows at the query boundary. Fetch
     // current relationship targets separately so canceled dependencies and
     // parents remain available for removal and context.
-    const relationshipIds = [...new Set([
-      ...(subject.parentId ? [subject.parentId] : []),
-      ...subject.dependencyIds,
-    ])];
+    const relationshipIds = [
+      ...new Set([...(subject.parentId ? [subject.parentId] : []), ...subject.dependencyIds]),
+    ];
     Promise.all([
       listTasks(NON_CANCELED_TASK_STATUSES, 0),
       Promise.all(relationshipIds.map((id) => getTask(id))),
@@ -107,12 +127,18 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
     return counts;
   }, [candidates]);
 
-  const heading = mode === "blocker" ? `Blocked by: ${subject.title}` : `Move ${subject.title} under…`;
+  const heading =
+    mode === "blocker" ? `Blocked by: ${subject.title}` : `Move ${subject.title} under…`;
   const groupHeading = mode === "blocker" ? "Select blocker" : "Select new parent";
-  const emptyText = loading ? "Loading tasks…" : error ?? "No matching tasks.";
-  const showRemoveParent = mode === "move" && subject.parentId !== null && onRemoveParent !== undefined;
-  const showRemoveBlocker = mode === "blocker" && subject.dependencyIds.length > 0 && onRemoveBlocker;
-  const currentParent = subject.parentId === null ? null : fetched.find((task) => task.id === subject.parentId) ?? null;
+  const emptyText = loading ? "Loading tasks…" : (error ?? "No matching tasks.");
+  const showRemoveParent =
+    mode === "move" && subject.parentId !== null && onRemoveParent !== undefined;
+  const showRemoveBlocker =
+    mode === "blocker" && subject.dependencyIds.length > 0 && onRemoveBlocker;
+  const currentParent =
+    subject.parentId === null
+      ? null
+      : (fetched.find((task) => task.id === subject.parentId) ?? null);
   const currentParentTitle = currentParent ? currentParent.title : null;
   const blockers = useMemo(() => {
     if (!showRemoveBlocker) return [];
@@ -125,70 +151,89 @@ export function TaskPicker({ open, mode, subject, onClose, finalFocus, onSelect,
   return (
     <CommandDialog
       open={open}
-      onOpenChange={(next) => { if (!next) onClose(); }}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       title={heading}
-      description={mode === "blocker"
-        ? showRemoveBlocker
-          ? "Remove the current blocker, or search tasks and press Enter to mark this task blocked by the selected task."
-          : "Search tasks and press Enter to mark this task blocked by the selected task."
-        : showRemoveParent
-          ? "Remove the current parent, or search tasks and press Enter to move this task under the selected task."
-          : "Search tasks and press Enter to move this task under the selected task."}
+      description={
+        mode === "blocker"
+          ? showRemoveBlocker
+            ? "Remove the current blocker, or search tasks and press Enter to mark this task blocked by the selected task."
+            : "Search tasks and press Enter to mark this task blocked by the selected task."
+          : showRemoveParent
+            ? "Remove the current parent, or search tasks and press Enter to move this task under the selected task."
+            : "Search tasks and press Enter to move this task under the selected task."
+      }
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >
-        <Command label={heading} filter={literalWordScore} loop>
-          <CommandInput ref={searchInput} placeholder="Search tasks…" />
-          <CommandList label="Task results">
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            {showRemoveParent ? (
-              <CommandGroup heading="Current parent">
+      <Command label={heading} filter={literalWordScore} loop>
+        <CommandInput ref={searchInput} placeholder="Search tasks…" />
+        <CommandList label="Task results">
+          <CommandEmpty>{emptyText}</CommandEmpty>
+          {showRemoveParent ? (
+            <CommandGroup heading="Current parent">
+              <CommandItem
+                value={`Remove parent ${currentParentTitle ?? ""} ${subject.parentId ?? ""}`}
+                keywords={[
+                  "remove",
+                  "parent",
+                  "unparent",
+                  "detach",
+                  "clear",
+                  currentParentTitle ?? "",
+                ]}
+                onSelect={() => onRemoveParent?.()}
+              >
+                <Link2Off aria-hidden="true" className="text-muted-foreground" />
+                <span className="font-medium">Remove parent</span>
+                {currentParentTitle ? (
+                  <span className="truncate text-muted-foreground">{currentParentTitle}</span>
+                ) : null}
+              </CommandItem>
+            </CommandGroup>
+          ) : null}
+          {showRemoveBlocker && onRemoveBlocker ? (
+            <CommandGroup>
+              {blockers.map((blocker) => (
                 <CommandItem
-                  value={`Remove parent ${currentParentTitle ?? ""} ${subject.parentId ?? ""}`}
-                  keywords={["remove", "parent", "unparent", "detach", "clear", currentParentTitle ?? ""]}
-                  onSelect={() => onRemoveParent?.()}
+                  key={`remove-${blocker.id}`}
+                  value={`Remove blocker ${blocker.title ?? ""} ${blocker.id}`}
+                  keywords={["remove", "unblock", "clear", blocker.title ?? ""]}
+                  onSelect={() => onRemoveBlocker(blocker.id)}
                 >
                   <Link2Off aria-hidden="true" className="text-muted-foreground" />
-                  <span className="font-medium">Remove parent</span>
-                  {currentParentTitle ? <span className="truncate text-muted-foreground">{currentParentTitle}</span> : null}
+                  {blocker.task ? <TaskStatusDisplay task={blocker.task} /> : null}
+                  <span className="font-medium">Remove blocker</span>
+                  {blocker.title ? (
+                    <span className="truncate text-muted-foreground">{blocker.title}</span>
+                  ) : null}
                 </CommandItem>
-              </CommandGroup>
-            ) : null}
-            {showRemoveBlocker && onRemoveBlocker ? (
-              <CommandGroup>
-                {blockers.map((blocker) => (
-                  <CommandItem
-                    key={`remove-${blocker.id}`}
-                    value={`Remove blocker ${blocker.title ?? ""} ${blocker.id}`}
-                    keywords={["remove", "unblock", "clear", blocker.title ?? ""]}
-                    onSelect={() => onRemoveBlocker(blocker.id)}
-                  >
-                    <Link2Off aria-hidden="true" className="text-muted-foreground" />
-                    {blocker.task ? <TaskStatusDisplay task={blocker.task} /> : null}
-                    <span className="font-medium">Remove blocker</span>
-                    {blocker.title ? <span className="truncate text-muted-foreground">{blocker.title}</span> : null}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ) : null}
-            <CommandGroup heading={groupHeading}>
-              {candidates.map((task) => {
-                const displayTitle = task.title;
-                const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
-                return (
-                  <CommandItem
-                    key={task.id}
-                    value={`${displayTitle} ${task.id}`}
-                    keywords={[task.description, task.status]}
-                    onSelect={() => onSelect(task)}
-                  >
-                    <TaskRow task={task} variant={variant} statusSlot={<TaskStatusDisplay task={task} />} />
-                  </CommandItem>
-                );
-              })}
+              ))}
             </CommandGroup>
-          </CommandList>
-        </Command>
+          ) : null}
+          <CommandGroup heading={groupHeading}>
+            {candidates.map((task) => {
+              const displayTitle = task.title;
+              const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
+              return (
+                <CommandItem
+                  key={task.id}
+                  value={`${displayTitle} ${task.id}`}
+                  keywords={[task.description, task.status]}
+                  onSelect={() => onSelect(task)}
+                >
+                  <TaskRow
+                    task={task}
+                    variant={variant}
+                    statusSlot={<TaskStatusDisplay task={task} />}
+                  />
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        </CommandList>
+      </Command>
     </CommandDialog>
   );
 }

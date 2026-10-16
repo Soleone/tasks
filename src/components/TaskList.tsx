@@ -14,35 +14,62 @@ import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
 import { stripClassificationTokens } from "@/backend/taskText";
-import { EXACT_STATUS_META, PRIORITY_META, taskStatusMeta, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
+import {
+  EXACT_STATUS_META,
+  PRIORITY_META,
+  taskStatusMeta,
+  type SortDirection,
+  type SortField,
+  type StatusPreset,
+} from "@/components/taskFilters";
 import { InlineTaskComposer, OptimisticTaskOption, TaskOption } from "./TaskListRows";
 import { useTaskListKeyboard } from "./useTaskListKeyboard";
 import { useTaskListSelection, type ActiveTaskRequest } from "./useTaskListSelection";
-import { forwardStatusTransition, reverseStatusTransition, type StatusCommand, type StatusTransition } from "./taskStatusCycle";
+import {
+  forwardStatusTransition,
+  reverseStatusTransition,
+  type StatusCommand,
+  type StatusTransition,
+} from "./taskStatusCycle";
 import { TaskListToolbar } from "./TaskListToolbar";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
-import { placementForMove, placementTargetId, selectedRowsForReorder, selectionMembershipMatches, type TaskMoveDirection, type TaskMovePlacement } from "@/components/taskReordering";
+import {
+  placementForMove,
+  placementTargetId,
+  selectedRowsForReorder,
+  selectionMembershipMatches,
+  type TaskMoveDirection,
+  type TaskMovePlacement,
+} from "@/components/taskReordering";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
-import { BackendCommandError, deleteTask, reorderTasks, transitionTask, transitionTasks, updateTaskPriority, selectedMainWorkspace, type TaskMutationResult } from "@/platform/backendClient";
+import {
+  BackendCommandError,
+  deleteTask,
+  reorderTasks,
+  transitionTask,
+  transitionTasks,
+  updateTaskPriority,
+  selectedMainWorkspace,
+  type TaskMutationResult,
+} from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 
 export async function copyTaskText(task: TaskView): Promise<void> {
-  const text = [selectedMainWorkspace() ? task.title : task.text ?? task.title, task.description]
-    .map(value => selectedMainWorkspace() ? value : stripClassificationTokens(value))
+  const text = [selectedMainWorkspace() ? task.title : (task.text ?? task.title), task.description]
+    .map((value) => (selectedMainWorkspace() ? value : stripClassificationTokens(value)))
     .filter(Boolean)
     .join(" ");
   await navigator.clipboard.writeText(text);
 }
-
 
 export type TaskListHandle = {
   startIdentityPreservingRefresh: () => void;
@@ -109,7 +136,11 @@ type TaskListProps = {
   onTasksUpdated: (tasks: TaskView[]) => void;
   onOperation?: (operationId: string, previous: TaskView[], current: TaskView[]) => void;
   onStatusChanged?: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
-  onStatusBatchChanged?: (previous: TaskView[], current: TaskView[], wasActiveTaskId: string | null) => void;
+  onStatusBatchChanged?: (
+    previous: TaskView[],
+    current: TaskView[],
+    wasActiveTaskId: string | null,
+  ) => void;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
   onCanceled: (task: TaskView) => void;
@@ -131,72 +162,75 @@ type DeleteReceipt = {
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
-export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList({
-  tasks,
-  newTaskId,
-  exitingTaskIds,
-  contextTasks,
-  contextOrder,
-  total,
-  statusPreset,
-  exactStatus,
-  onToggleStatusPreset,
-  onResetStatusFilter,
-  onExactStatus,
-  onOpenStatusMenu,
-  priorityFilter,
-  onPriorityFilter,
-  onOpenPriorityMenu,
-  showUnblocked,
-  onShowUnblockedChange,
-  sortField,
-  sortDirection,
-  onSortFieldChange,
-  onReverseSort,
-  showDetails,
-  helpMode,
-  onDisableHelp,
-  onDisableComposerHelp,
-  onToggleDetails,
-  categoryFilter,
-  onCategoryFilterChange,
-  onSelectCategory,
-  onOpenCategoryPicker,
-  tagFilter,
-  onTagFilterChange,
-  onOpenTagPicker,
-  searchQuery,
-  onSearchChange,
-  onOpenSearch,
-  hasActiveFilters,
-  onClearAllFilters,
-  activeTaskRequest,
-  loading,
-  error,
-  nav,
-  onCreate,
-  composer,
-  optimisticTask,
-  onCloseComposer,
-  onComposerSaved,
-  onCreatePending,
-  onCreateFailed,
-  onRefresh,
-  onAnnounce,
-  onToast,
-  onEdit,
-  onTaskUpdated,
-  onTasksUpdated,
-  onOperation,
-  onStatusChanged,
-  onStatusBatchChanged,
-  canUndoStatus,
-  onUndoStatus,
-  onCanceled,
-  onCanceledMany,
-  onAddBlocker,
-  onMoveUnder,
-}: TaskListProps, ref): ReactElement {
+export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList(
+  {
+    tasks,
+    newTaskId,
+    exitingTaskIds,
+    contextTasks,
+    contextOrder,
+    total,
+    statusPreset,
+    exactStatus,
+    onToggleStatusPreset,
+    onResetStatusFilter,
+    onExactStatus,
+    onOpenStatusMenu,
+    priorityFilter,
+    onPriorityFilter,
+    onOpenPriorityMenu,
+    showUnblocked,
+    onShowUnblockedChange,
+    sortField,
+    sortDirection,
+    onSortFieldChange,
+    onReverseSort,
+    showDetails,
+    helpMode,
+    onDisableHelp,
+    onDisableComposerHelp,
+    onToggleDetails,
+    categoryFilter,
+    onCategoryFilterChange,
+    onSelectCategory,
+    onOpenCategoryPicker,
+    tagFilter,
+    onTagFilterChange,
+    onOpenTagPicker,
+    searchQuery,
+    onSearchChange,
+    onOpenSearch,
+    hasActiveFilters,
+    onClearAllFilters,
+    activeTaskRequest,
+    loading,
+    error,
+    nav,
+    onCreate,
+    composer,
+    optimisticTask,
+    onCloseComposer,
+    onComposerSaved,
+    onCreatePending,
+    onCreateFailed,
+    onRefresh,
+    onAnnounce,
+    onToast,
+    onEdit,
+    onTaskUpdated,
+    onTasksUpdated,
+    onOperation,
+    onStatusChanged,
+    onStatusBatchChanged,
+    canUndoStatus,
+    onUndoStatus,
+    onCanceled,
+    onCanceledMany,
+    onAddBlocker,
+    onMoveUnder,
+  }: TaskListProps,
+  ref,
+): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const filterToolbar = useRef<HTMLDivElement>(null);
@@ -218,7 +252,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   composerOpenRef.current = composer !== null;
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode | null>(null);
-  const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(null);
+  const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(
+    null,
+  );
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const [filterFeedbackOpen, setFilterFeedbackOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
@@ -231,7 +267,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const reorderPending = useRef(false);
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
-  const visibleRows = useMemo(() => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder), [tasks, expandedIds, contextTasks, contextOrder]);
+  const visibleRows = useMemo(
+    () => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder),
+    [tasks, expandedIds, contextTasks, contextOrder],
+  );
   const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
   // A pending keyboard move belongs to the view it was made in. Filter and
   // sort changes must not let that stale task override the new active index.
@@ -278,16 +317,22 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
-  useEffect(() => nav.register("list", {
-    focusLast: () => (loadMore.current ?? list.current ?? retry.current ?? section.current)?.focus(),
-  }), [nav]);
+  useEffect(
+    () =>
+      nav.register("list", {
+        focusLast: () =>
+          (loadMore.current ?? list.current ?? retry.current ?? section.current)?.focus(),
+      }),
+    [nav],
+  );
 
   useEffect(() => {
     const wasOpen = previousComposerOpenRef.current;
     previousComposerOpenRef.current = composer !== null;
     if (!wasOpen || composer !== null) return;
     const frame = requestAnimationFrame(() => {
-      if (!composerOpenRef.current) (list.current ?? (error ? retry.current : section.current))?.focus();
+      if (!composerOpenRef.current)
+        (list.current ?? (error ? retry.current : section.current))?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [composer, error]);
@@ -311,14 +356,20 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   useEffect(() => {
     if (filterFeedbackVersion === 0) return;
     setFilterFeedbackOpen(true);
-    const timeout = window.setTimeout(() => setFilterFeedbackOpen(false), TOGGLE_FEEDBACK_DURATION_MS);
+    const timeout = window.setTimeout(
+      () => setFilterFeedbackOpen(false),
+      TOGGLE_FEEDBACK_DURATION_MS,
+    );
     return () => window.clearTimeout(timeout);
   }, [filterFeedbackVersion]);
 
   useEffect(() => {
     if (unblockedFeedbackVersion === 0) return;
     setUnblockedFeedbackOpen(true);
-    const timeout = window.setTimeout(() => setUnblockedFeedbackOpen(false), TOGGLE_FEEDBACK_DURATION_MS);
+    const timeout = window.setTimeout(
+      () => setUnblockedFeedbackOpen(false),
+      TOGGLE_FEEDBACK_DURATION_MS,
+    );
     return () => window.clearTimeout(timeout);
   }, [unblockedFeedbackVersion]);
 
@@ -358,9 +409,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     clearToolbarMode();
     activateToolbarMode(mode);
     (mode === "filter" ? filterToolbar.current : sortToolbar.current)?.focus();
-    onAnnounce(mode === "filter"
-      ? "Filter toolbar focused. Choose a filter, press F again, or press Escape to return to the task list."
-      : "Sort toolbar focused. Choose a sort, press S again, or press Escape to return to the task list.");
+    onAnnounce(
+      mode === "filter"
+        ? "Filter toolbar focused. Choose a filter, press F again, or press Escape to return to the task list."
+        : "Sort toolbar focused. Choose a sort, press S again, or press Escape to return to the task list.",
+    );
   }
 
   function startFilterMode(): void {
@@ -404,7 +457,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     returnToList();
     onToggleStatusPreset();
     setFilterFeedbackVersion((previous) => previous + 1);
-    onAnnounce(statusPreset === "active" && exactStatus === null ? "Showing inactive tasks" : "Showing active tasks");
+    onAnnounce(
+      statusPreset === "active" && exactStatus === null
+        ? "Showing inactive tasks"
+        : "Showing active tasks",
+    );
   }
 
   function clearStatusFilter(): void {
@@ -511,7 +568,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
 
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
     const selected = selectedMainWorkspace();
-    if (selected && !selected.supportsOrdering) return "Reordering is not yet available in this selected workspace.";
+    if (selected && !selected.supportsOrdering)
+      return "Reordering is not yet available in this selected workspace.";
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";
@@ -531,9 +589,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     if (reorderPending.current) return;
     const sourceRows = visibleRowsRef.current;
     const sourceActiveId = activeRow?.task.id;
-    const sourceRow = sourceActiveId === undefined
-      ? sourceRows[activeIndex]
-      : sourceRows.find((candidate) => candidate.task.id === sourceActiveId);
+    const sourceRow =
+      sourceActiveId === undefined
+        ? sourceRows[activeIndex]
+        : sourceRows.find((candidate) => candidate.task.id === sourceActiveId);
     const reason = reorderDisabledReason(sourceRow);
     if (reason) {
       onAnnounce(reason);
@@ -558,7 +617,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         // refresh used to resolve the visible manual-order target.
         await waitForListRender();
         try {
-          if (!await onRefresh(0)) {
+          if (!(await onRefresh(0))) {
             onAnnounce("Could not refresh tasks. No move was made.");
             return;
           }
@@ -568,13 +627,22 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         }
         await waitForListRender();
         const refreshedRows = visibleRowsRef.current;
-        const refreshedActive = refreshedRows.find((candidate) => candidate.task.id === sourceRow.task.id);
+        const refreshedActive = refreshedRows.find(
+          (candidate) => candidate.task.id === sourceRow.task.id,
+        );
         if (!refreshedActive || refreshedActive.contextOnly) {
           onAnnounce("The selected task changed during refresh. No move was made.");
           return;
         }
-        const refreshedSelected = selectedRowsForReorder(refreshedActive, refreshedRows, selectedIdsRef.current);
-        if (!refreshedSelected || !selectionMembershipMatches(refreshedSelected, selectedIdSnapshot)) {
+        const refreshedSelected = selectedRowsForReorder(
+          refreshedActive,
+          refreshedRows,
+          selectedIdsRef.current,
+        );
+        if (
+          !refreshedSelected ||
+          !selectionMembershipMatches(refreshedSelected, selectedIdSnapshot)
+        ) {
           onAnnounce("The selected task changed during refresh. No move was made.");
           return;
         }
@@ -584,50 +652,76 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         placement = placementForMove(direction, sourceRow, sourceSelected, sourceRows);
       }
       if (!placement) {
-        const boundary = direction === "up" || direction === "start" ? "Already at the beginning." : "Already at the end.";
+        const boundary =
+          direction === "up" || direction === "start"
+            ? "Already at the beginning."
+            : "Already at the end.";
         onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
         return;
       }
 
       const currentRows = visibleRowsRef.current;
-      const currentActive = currentRows.find((candidate) => candidate.task.id === sourceRow.task.id);
+      const currentActive = currentRows.find(
+        (candidate) => candidate.task.id === sourceRow.task.id,
+      );
       if (!currentActive || currentActive.contextOnly) {
         onAnnounce("The selected task changed during refresh. No move was made.");
         return;
       }
-      const currentSelected = selectedRowsForReorder(currentActive, currentRows, selectedIdsRef.current);
+      const currentSelected = selectedRowsForReorder(
+        currentActive,
+        currentRows,
+        selectedIdsRef.current,
+      );
       if (!currentSelected || !selectionMembershipMatches(currentSelected, selectedIdSnapshot)) {
         onAnnounce("The selected task changed during refresh. No move was made.");
         return;
       }
-      const commandSelection = refreshedSelectionOrder === null
-        ? currentSelected
-        : refreshedSelectionOrder.map((row) => currentSelected.find((candidate) => candidate.task.id === row.task.id)).filter((row): row is VisibleTaskRow => row !== undefined);
+      const commandSelection =
+        refreshedSelectionOrder === null
+          ? currentSelected
+          : refreshedSelectionOrder
+              .map((row) => currentSelected.find((candidate) => candidate.task.id === row.task.id))
+              .filter((row): row is VisibleTaskRow => row !== undefined);
       if (commandSelection.length !== currentSelected.length) {
         onAnnounce("The selected task changed during refresh. No move was made.");
         return;
       }
-      const target = currentRows.find((candidate) => candidate.task.id === placementTargetId(placement));
+      const target = currentRows.find(
+        (candidate) => candidate.task.id === placementTargetId(placement),
+      );
       if (!target || target.contextOnly || target.task.parentId !== currentActive.task.parentId) {
         onAnnounce("The task or move target changed during refresh. No move was made.");
         return;
       }
-      const commandTasks = commandSelection.map((candidate) => ({ id: candidate.task.id, expectedVersion: candidate.task.version }));
+      const commandTasks = commandSelection.map((candidate) => ({
+        id: candidate.task.id,
+        expectedVersion: candidate.task.version,
+      }));
       const signature = JSON.stringify({ tasks: commandTasks, placement });
-      const receipt = reorderReceipt.current?.signature === signature
-        ? reorderReceipt.current
-        : { signature, key: randomUUID() };
+      const receipt =
+        reorderReceipt.current?.signature === signature
+          ? reorderReceipt.current
+          : { signature, key: randomUUID() };
       reorderReceipt.current = receipt;
       currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, true));
       try {
         const result = await reorderTasks(commandTasks, placement, { idempotencyKey: receipt.key });
         reorderReceipt.current = null;
         if (result.changed === false) {
-          const boundary = direction === "up" || direction === "start" ? "Already at the beginning." : "Already at the end.";
+          const boundary =
+            direction === "up" || direction === "start"
+              ? "Already at the beginning."
+              : "Already at the end.";
           onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
           return;
         }
-        if (result.operationId) onOperation?.(result.operationId, currentSelected.map((row) => row.task), result.tasks);
+        if (result.operationId)
+          onOperation?.(
+            result.operationId,
+            currentSelected.map((row) => row.task),
+            result.tasks,
+          );
         restoreSelectionAfterMove(sourceRow.task.id, selectedIdSnapshot);
         await onRefresh(0);
         await waitForListRender();
@@ -635,7 +729,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         onAnnounce(switchedToManual ? `Switched to manual order. ${move}` : move);
         list.current?.focus();
       } catch (caught) {
-        if ((caught instanceof BackendCommandError || caught instanceof EditorError) && caught.code === "STALE_TASK_VERSION") {
+        if (
+          (caught instanceof BackendCommandError || caught instanceof EditorError) &&
+          caught.code === "STALE_TASK_VERSION"
+        ) {
           reorderReceipt.current = null;
           onAnnounce("A selected task changed elsewhere. Refresh and try again.");
           void onRefresh(0);
@@ -643,7 +740,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           reorderReceipt.current = null;
           onAnnounce(caught.message);
         } else {
-          onAnnounce(`Could not move the selected task${currentSelected.length === 1 ? "" : "s"}. Try again.`);
+          onAnnounce(
+            `Could not move the selected task${currentSelected.length === 1 ? "" : "s"}. Try again.`,
+          );
         }
       } finally {
         currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, false));
@@ -669,7 +768,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
 
   function moveToParent(row: VisibleTaskRow): void {
     if (row.depth === 0 || !row.task.parentId) return;
-    const parentIndex = visibleRows.findIndex((candidate) => candidate.task.id === row.task.parentId);
+    const parentIndex = visibleRows.findIndex(
+      (candidate) => candidate.task.id === row.task.parentId,
+    );
     if (parentIndex >= 0) setActiveTaskIndex(parentIndex);
   }
 
@@ -684,7 +785,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         return;
       }
       if (activeRow.task.category) {
-        selectCategory(activeRow.task.category, activeRow.contextOnly ? undefined : activeRow.task.id);
+        selectCategory(
+          activeRow.task.category,
+          activeRow.contextOnly ? undefined : activeRow.task.id,
+        );
       } else {
         onAnnounce(`${activeRow.task.title} has no category to filter.`);
       }
@@ -737,7 +841,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     });
   }
 
-  function batchTransitionReceipt(items: readonly { id: string; expectedVersion: number; command: TaskTransitionCommand }[]): { signature: string; key: string } {
+  function batchTransitionReceipt(
+    items: readonly { id: string; expectedVersion: number; command: TaskTransitionCommand }[],
+  ): { signature: string; key: string } {
     const signature = JSON.stringify(items);
     const existing = batchTransitionReceiptRef.current;
     if (existing?.signature === signature) return existing;
@@ -749,14 +855,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   async function changeStatus(task: TaskView, transition: StatusTransition): Promise<void> {
     if (mutationPending.current.has(task.id)) return;
     const previousReceipt = statusReceipts.current.get(task.id);
-    const receipt = previousReceipt?.version === task.version && previousReceipt.target === transition.next
-      ? previousReceipt
-      : { version: task.version, target: transition.next, key: randomUUID() };
+    const receipt =
+      previousReceipt?.version === task.version && previousReceipt.target === transition.next
+        ? previousReceipt
+        : { version: task.version, target: transition.next, key: randomUUID() };
     statusReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
     const wasActive = activeTask?.id === task.id;
     try {
-      const result = await transitionTask(transition.command, task.id, task.version, { idempotencyKey: receipt.key });
+      const result = await transitionTask(transition.command, task.id, task.version, {
+        idempotencyKey: receipt.key,
+      });
       statusReceipts.current.delete(task.id);
       onTaskUpdated(result.task);
       if (result.changed !== false) {
@@ -766,9 +875,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       }
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
-      onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${task.title} changed elsewhere. Refresh and try again.`
-        : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`);
+      onAnnounce(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? `${task.title} changed elsewhere. Refresh and try again.`
+          : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
+      );
     } finally {
       setMutationPending(task.id, false);
     }
@@ -784,7 +895,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         const command = commandForTask(task);
         return command ? { id: task.id, expectedVersion: task.version, command } : null;
       })
-      .filter((item): item is { id: string; expectedVersion: number; command: TaskTransitionCommand } => item !== null);
+      .filter(
+        (item): item is { id: string; expectedVersion: number; command: TaskTransitionCommand } =>
+          item !== null,
+      );
     if (items.length === 0) return;
     const receipt = batchTransitionReceipt(items);
     const selectedIds = items.map((item) => item.id);
@@ -799,14 +913,21 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         if (result.operationId) onOperation?.(result.operationId, previous, current);
         onStatusBatchChanged?.(previous, current, activeTask?.id ?? null);
       }
-      onAnnounce(`${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`);
+      onAnnounce(
+        `${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`,
+      );
     } catch (caught) {
-      if ((caught instanceof BackendCommandError || caught instanceof EditorError) && caught.code === "STALE_TASK_VERSION") {
+      if (
+        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
+        caught.code === "STALE_TASK_VERSION"
+      ) {
         batchTransitionReceiptRef.current = null;
         onAnnounce("A selected task changed elsewhere. Refresh and try again.");
         void onRefresh(0);
       } else {
-        onAnnounce(caught instanceof Error ? caught.message : `Could not ${actionLabel} selected tasks.`);
+        onAnnounce(
+          caught instanceof Error ? caught.message : `Could not ${actionLabel} selected tasks.`,
+        );
       }
     } finally {
       setMutationPendingMany(selectedIds, false);
@@ -824,7 +945,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       await toggleStatus(selected[0]);
       return;
     }
-    await transitionSelectedTasks(selected, (task) => forwardStatusTransition[task.status].command, "updated");
+    await transitionSelectedTasks(
+      selected,
+      (task) => forwardStatusTransition[task.status].command,
+      "updated",
+    );
   }
 
   function reverseStatus(task: TaskView): Promise<void> {
@@ -838,12 +963,18 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       await reverseStatus(selected[0]);
       return;
     }
-    await transitionSelectedTasks(selected, (task) => reverseStatusTransition[task.status].command, "updated");
+    await transitionSelectedTasks(
+      selected,
+      (task) => reverseStatusTransition[task.status].command,
+      "updated",
+    );
   }
 
   function pauseTask(task: TaskView): Promise<void> {
     if (task.status === "done" || task.status === "canceled") {
-      onAnnounce(`${task.title} is ${taskStatusMeta[task.status].label.toLowerCase()}. Reopen it before pausing.`);
+      onAnnounce(
+        `${task.title} is ${taskStatusMeta[task.status].label.toLowerCase()}. Reopen it before pausing.`,
+      );
       return Promise.resolve();
     }
     const target: TaskStatus = task.status === "paused" ? "in_progress" : "paused";
@@ -858,14 +989,16 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       await pauseTask(selected[0]);
       return;
     }
-    const eligible = selected.filter((task) => task.status !== "done" && task.status !== "canceled");
+    const eligible = selected.filter(
+      (task) => task.status !== "done" && task.status !== "canceled",
+    );
     if (eligible.length === 0) {
       onAnnounce("Done and canceled tasks cannot be paused.");
       return;
     }
     await transitionSelectedTasks(
       eligible,
-      (task) => task.status === "paused" ? "task.start" : "task.pause",
+      (task) => (task.status === "paused" ? "task.start" : "task.pause"),
       "updated",
     );
   }
@@ -873,9 +1006,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   async function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
     if (task.priority === priority || mutationPending.current.has(task.id)) return;
     const previousReceipt = priorityReceipts.current.get(task.id);
-    const receipt = previousReceipt?.version === task.version
-      ? previousReceipt
-      : { version: task.version, key: randomUUID() };
+    const receipt =
+      previousReceipt?.version === task.version
+        ? previousReceipt
+        : { version: task.version, key: randomUUID() };
     priorityReceipts.current.set(task.id, receipt);
     setMutationPending(task.id, true);
     try {
@@ -886,9 +1020,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
       onAnnounce(`${task.title}: priority ${label}`);
     } catch (caught) {
-      onAnnounce(caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
-        ? `${task.title} changed elsewhere. Refresh and try again.`
-        : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`);
+      onAnnounce(
+        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+          ? `${task.title} changed elsewhere. Refresh and try again.`
+          : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
+      );
     } finally {
       setMutationPending(task.id, false);
     }
@@ -897,9 +1033,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   async function deleteTaskRecord(task: TaskView): Promise<void> {
     if (deletePending.current.has(task.id)) return;
     const previousReceipt = deleteReceipts.current.get(task.id);
-    const receipt = previousReceipt?.version === task.version
-      ? previousReceipt
-      : { version: task.version, key: randomUUID() };
+    const receipt =
+      previousReceipt?.version === task.version
+        ? previousReceipt
+        : { version: task.version, key: randomUUID() };
     deleteReceipts.current.set(task.id, receipt);
     deletePending.current.add(task.id);
     try {
@@ -914,11 +1051,16 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       setSelection([], null);
       onCanceled(result.task);
     } catch (caught) {
-      if ((caught instanceof BackendCommandError || caught instanceof EditorError) && caught.code === "STALE_TASK_VERSION") {
+      if (
+        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
+        caught.code === "STALE_TASK_VERSION"
+      ) {
         onAnnounce(`${task.title} changed elsewhere. Refresh and try again.`);
         void onRefresh();
       } else {
-        onAnnounce(`Could not cancel ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`);
+        onAnnounce(
+          `Could not cancel ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
+        );
       }
     } finally {
       deletePending.current.delete(task.id);
@@ -932,7 +1074,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       await deleteTaskRecord(selected[0]);
       return;
     }
-    const items = selected.map((task) => ({ id: task.id, expectedVersion: task.version, command: "task.delete" as const }));
+    const items = selected.map((task) => ({
+      id: task.id,
+      expectedVersion: task.version,
+      command: "task.delete" as const,
+    }));
     const receipt = batchTransitionReceipt(items);
     const selectedIds = selected.map((task) => task.id);
     selectedIds.forEach((taskId) => deletePending.current.add(taskId));
@@ -947,12 +1093,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       else result.tasks.forEach((task) => onCanceled(task));
       onAnnounce(`Canceled ${result.tasks.length} tasks`);
     } catch (caught) {
-      if ((caught instanceof BackendCommandError || caught instanceof EditorError) && caught.code === "STALE_TASK_VERSION") {
+      if (
+        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
+        caught.code === "STALE_TASK_VERSION"
+      ) {
         batchTransitionReceiptRef.current = null;
         onAnnounce("A selected task changed elsewhere. Refresh and try again.");
         void onRefresh(0);
       } else {
-        onAnnounce(caught instanceof Error ? caught.message : "Could not cancel the selected tasks.");
+        onAnnounce(
+          caught instanceof Error ? caught.message : "Could not cancel the selected tasks.",
+        );
       }
     } finally {
       selectedIds.forEach((taskId) => deletePending.current.delete(taskId));
@@ -960,7 +1111,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     }
   }
 
-  optionToggleStatusRef.current = (task) => { void toggleStatus(task); };
+  optionToggleStatusRef.current = (task) => {
+    void toggleStatus(task);
+  };
   optionToggleExpandedRef.current = toggleExpanded;
   optionSelectCategoryRef.current = selectCategory;
   const handleOptionToggleStatus = useCallback((task: TaskView): void => {
@@ -973,58 +1126,85 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     optionSelectCategoryRef.current(category);
   }, []);
 
-  useTaskListKeyboard({
-    hasActiveFilters,
-    activeTask,
-    visibleRowCount: visibleRows.length,
-    canUndoStatus: Boolean(canUndoStatus),
-    undoStatus: () => onUndoStatus?.(),
-    deleteSelectedTasks,
-    returnToList,
-    clearAllFilters: onClearAllFilters,
-    startFilterMode,
-    startSortMode,
-    applyExactStatus,
-    applySortField,
-    reverseSort,
-    toggleDetailsView: onToggleDetails,
-    setPriority: setTaskPriority,
-    openSearch,
-    createTask: onCreate,
-    toggleStatusPreset,
-    applyPriorityFilter,
-    toggleUnblockedFilter,
-    openCategoryPicker,
-    openTagPicker,
-    addBlocker: onAddBlocker,
-    moveUnder: onMoveUnder,
-    toggleSelectedStatus,
-    reverseSelectedStatus,
-    pauseSelectedTasks,
-    moveActive,
-    selectBoundary,
-    reorderSelection,
-    clearSelection,
-    handleHorizontalNavigation,
-    editTask: onEdit,
-    copyTask: copyActiveTask,
-  }, { toolbarModeRef, composerOpenRef, list, section });
+  useTaskListKeyboard(
+    {
+      hasActiveFilters,
+      activeTask,
+      visibleRowCount: visibleRows.length,
+      canUndoStatus: Boolean(canUndoStatus),
+      undoStatus: () => onUndoStatus?.(),
+      deleteSelectedTasks,
+      returnToList,
+      clearAllFilters: onClearAllFilters,
+      startFilterMode,
+      startSortMode,
+      applyExactStatus,
+      applySortField,
+      reverseSort,
+      toggleDetailsView: onToggleDetails,
+      setPriority: setTaskPriority,
+      openSearch,
+      createTask: onCreate,
+      toggleStatusPreset,
+      applyPriorityFilter,
+      toggleUnblockedFilter,
+      openCategoryPicker,
+      openTagPicker,
+      addBlocker: onAddBlocker,
+      moveUnder: onMoveUnder,
+      toggleSelectedStatus,
+      reverseSelectedStatus,
+      pauseSelectedTasks,
+      moveActive,
+      selectBoundary,
+      reorderSelection,
+      clearSelection,
+      handleHorizontalNavigation,
+      editTask: onEdit,
+      copyTask: copyActiveTask,
+    },
+    { toolbarModeRef, composerOpenRef, list, section },
+  );
 
-  const summaryTaskCount = useMemo(() => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0), [visibleRows]) + (optimisticTask ? 1 : 0);
+  const summaryTaskCount =
+    useMemo(
+      () => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0),
+      [visibleRows],
+    ) + (optimisticTask ? 1 : 0);
 
-  const isDefaultActiveEmpty = !loading && !error && composer === null && optimisticTask === null && visibleRows.length === 0 && !hasActiveFilters && total === 0;
-  const isFilteredEmpty = !loading && !error && optimisticTask === null && visibleRows.length === 0 && (hasActiveFilters || total > 0);
-  const showListSurface = (!error || optimisticTask !== null) && (optimisticTask !== null || visibleRows.length > 0 || isFilteredEmpty || listFocused || (!initialHomeFocusPending.current && loading));
+  const isDefaultActiveEmpty =
+    !loading &&
+    !error &&
+    composer === null &&
+    optimisticTask === null &&
+    visibleRows.length === 0 &&
+    !hasActiveFilters &&
+    total === 0;
+  const isFilteredEmpty =
+    !loading &&
+    !error &&
+    optimisticTask === null &&
+    visibleRows.length === 0 &&
+    (hasActiveFilters || total > 0);
+  const showListSurface =
+    (!error || optimisticTask !== null) &&
+    (optimisticTask !== null ||
+      visibleRows.length > 0 ||
+      isFilteredEmpty ||
+      listFocused ||
+      (!initialHomeFocusPending.current && loading));
   const visibleRowCount = visibleRows.length + (optimisticTask ? 1 : 0);
   const selectionCount = selectedIds.size;
   const selectionLabel = `${selectionCount} task${selectionCount === 1 ? "" : "s"} selected`;
   const moveSubjectLabel = selectionCount > 1 ? `selected tasks, ${selectionLabel}` : "active task";
   const reorderAvailabilityReason = reorderDisabledReason(activeRow);
-  const editingTaskVisible = composer?.mode === "edit" && visibleRows.some((row) => row.task.id === composer.task.id);
+  const editingTaskVisible =
+    composer?.mode === "edit" && visibleRows.some((row) => row.task.id === composer.task.id);
   const editingActiveTask = composer?.mode === "edit" && composer.task.id === activeTask?.id;
-  const listSelectionLabel = composer?.mode === "edit" && editingTaskVisible
-    ? `editing ${composer.task.title}`
-    : selectionLabel;
+  const listSelectionLabel =
+    composer?.mode === "edit" && editingTaskVisible
+      ? `editing ${composer.task.title}`
+      : selectionLabel;
 
   useEffect(() => {
     if (!optimisticTask) return;
@@ -1093,18 +1273,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         clearTagFilter={clearTagFilter}
         clearSearch={clearSearch}
       />
-      {error ? <Alert variant="destructive">
-        <AlertTitle>Could not load tasks</AlertTitle>
-        <AlertDescription>
-          <p>{error}</p>
-          <Button
-            ref={retry}
-            variant="outline"
-            size="sm"
-            onClick={() => void onRefresh()}
-          >Retry</Button>
-        </AlertDescription>
-      </Alert> : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not load tasks</AlertTitle>
+          <AlertDescription>
+            <p>{error}</p>
+            <Button ref={retry} variant="outline" size="sm" onClick={() => void onRefresh()}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {composer && (composer.mode === "create" || !editingTaskVisible) ? (
         <div hidden={optimisticTask !== null}>
           <InlineTaskComposer
@@ -1123,13 +1302,19 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           ref={list}
           id="task-list"
           role="listbox"
-          aria-label={visibleRowCount
-            ? `${APP_NAME}, ${visibleRowCount} visible task rows, ${total + (optimisticTask ? 1 : 0)} matching tasks, ${listSelectionLabel}`
-            : isDefaultActiveEmpty ? `${APP_NAME}, no active tasks` : `${APP_NAME}, no visible matches`}
+          aria-label={
+            visibleRowCount
+              ? `${APP_NAME}, ${visibleRowCount} visible task rows, ${total + (optimisticTask ? 1 : 0)} matching tasks, ${listSelectionLabel}`
+              : isDefaultActiveEmpty
+                ? `${APP_NAME}, no active tasks`
+                : `${APP_NAME}, no visible matches`
+          }
           aria-orientation="vertical"
           aria-multiselectable="true"
           aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
-          aria-activedescendant={activeTask && !editingActiveTask ? `task-option-${activeTask.id}` : undefined}
+          aria-activedescendant={
+            activeTask && !editingActiveTask ? `task-option-${activeTask.id}` : undefined
+          }
           tabIndex={0}
           className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-x-clip overflow-y-auto overscroll-y-contain outline-none"
           onFocus={() => setListFocused(true)}
@@ -1144,56 +1329,60 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               hiddenCategorySlug={categoryFilter?.slug ?? null}
             />
           ) : null}
-          {visibleRows.map((row, index) => composer?.mode === "edit" && row.task.id === composer.task.id ? (
-            <InlineTaskComposer
-              key={`edit-${row.task.id}`}
-              composer={composer}
-              onClose={onCloseComposer}
-              onSaved={onComposerSaved}
-              onCreatePending={onCreatePending}
-              onCreateFailed={onCreateFailed}
-              helpMode={helpMode}
-              onDisableHelp={onDisableComposerHelp}
-              inList
-            />
-          ) : (
-            <TaskOption
-              key={row.task.id}
-              row={row}
-              index={index}
-              active={index === activeIndex}
-              selected={selectedIds.has(row.task.id)}
-              expanded={expandedIds.has(row.task.id)}
-              pending={mutationPendingIds.has(row.task.id)}
-              feedbackVersion={statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined}
-              newTaskId={newTaskId}
-              exitingTaskIds={exitingTaskIds}
-              showDetails={showDetails}
-              hiddenCategorySlug={categoryFilter?.slug ?? null}
-              taskById={taskById}
-              onClick={handleOptionClick}
-              onToggleStatus={handleOptionToggleStatus}
-              onToggleExpanded={handleOptionToggleExpanded}
-              onSelectCategory={handleOptionSelectCategory}
-            />
-          ))}
+          {visibleRows.map((row, index) =>
+            composer?.mode === "edit" && row.task.id === composer.task.id ? (
+              <InlineTaskComposer
+                key={`edit-${row.task.id}`}
+                composer={composer}
+                onClose={onCloseComposer}
+                onSaved={onComposerSaved}
+                onCreatePending={onCreatePending}
+                onCreateFailed={onCreateFailed}
+                helpMode={helpMode}
+                onDisableHelp={onDisableComposerHelp}
+                inList
+              />
+            ) : (
+              <TaskOption
+                key={row.task.id}
+                row={row}
+                index={index}
+                active={index === activeIndex}
+                selected={selectedIds.has(row.task.id)}
+                expanded={expandedIds.has(row.task.id)}
+                pending={mutationPendingIds.has(row.task.id)}
+                feedbackVersion={
+                  statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined
+                }
+                newTaskId={newTaskId}
+                exitingTaskIds={exitingTaskIds}
+                showDetails={showDetails}
+                hiddenCategorySlug={categoryFilter?.slug ?? null}
+                taskById={taskById}
+                onClick={handleOptionClick}
+                onToggleStatus={handleOptionToggleStatus}
+                onToggleExpanded={handleOptionToggleExpanded}
+                onSelectCategory={handleOptionSelectCategory}
+              />
+            ),
+          )}
           {isDefaultActiveEmpty ? (
             <Item data-empty-state="active" size="sm" state="empty">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">No active tasks</p>
-                <p className="mt-1 text-sm text-muted-foreground">Press C or choose New task to capture.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Press C or choose New task to capture.
+                </p>
               </div>
             </Item>
           ) : null}
           {isFilteredEmpty ? (
-            <Item
-              data-empty-state="filtered"
-              size="sm"
-              state="empty"
-            >
+            <Item data-empty-state="filtered" size="sm" state="empty">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">No tasks match the current filters</p>
-                <p className="mt-1 text-sm text-muted-foreground">Try different filters or clear them.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Try different filters or clear them.
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -1203,7 +1392,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
                   onClearAllFilters();
                   list.current?.focus();
                 }}
-              >Clear filters</Button>
+              >
+                Clear filters
+              </Button>
             </Item>
           ) : null}
         </div>
@@ -1217,7 +1408,14 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       ) : null}
       <Tooltip open={filterFeedbackOpen} onOpenChange={setFilterFeedbackOpen}>
         <TooltipTrigger render={<span className="sr-only">Status filter feedback</span>} />
-        <TooltipContent anchor={statusFilterButton} side="top" sideOffset={8}>{exactStatus !== null ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus) : statusPreset === "active" ? "Active" : "Inactive"}</TooltipContent>
+        <TooltipContent anchor={statusFilterButton} side="top" sideOffset={8}>
+          {exactStatus !== null
+            ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ??
+              exactStatus)
+            : statusPreset === "active"
+              ? "Active"
+              : "Inactive"}
+        </TooltipContent>
       </Tooltip>
       {hasMore ? (
         <Button
@@ -1225,7 +1423,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           variant="ghost"
           disabled={loading}
           onClick={() => void onRefresh(tasks.length)}
-        >Load more tasks</Button>
+        >
+          Load more tasks
+        </Button>
       ) : null}
     </section>
   );

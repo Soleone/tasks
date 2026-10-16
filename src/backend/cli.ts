@@ -2,7 +2,10 @@ import { createInterface } from "node:readline";
 import path from "node:path";
 import { realpathSync } from "node:fs";
 import { executeCommand } from "../legacy/backend/commands.js";
-import { watchCanonicalWorkspace, withCanonicalRootPath } from "../legacy/backend/canonicalWorkspace.js";
+import {
+  watchCanonicalWorkspace,
+  withCanonicalRootPath,
+} from "../legacy/backend/canonicalWorkspace.js";
 import { readSourceRegistry } from "../legacy/backend/sourceRegistry.js";
 import { getDatabasePath } from "./paths.js";
 import { executeLine } from "./gateway.js";
@@ -48,17 +51,19 @@ async function runLegacyStdio(databasePath: string): Promise<void> {
       try {
         executeCommand(backgroundSyncRequest, databasePath);
       } catch (error) {
-        process.stderr.write(`background sync: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.stderr.write(
+          `background sync: ${error instanceof Error ? error.message : String(error)}\n`,
+        );
       }
     });
   };
   const registryPath = process.env.TASKS_SOURCE_REGISTRY_PATH?.trim();
   const watchers = registryPath
-    ? readSourceRegistry(registryPath).sources.map((source) => withCanonicalRootPath(
-      source.databasePath,
-      source.syncRoot,
-      () => watchCanonicalWorkspace(source.databasePath, onCanonicalChange),
-    ))
+    ? readSourceRegistry(registryPath).sources.map((source) =>
+        withCanonicalRootPath(source.databasePath, source.syncRoot, () =>
+          watchCanonicalWorkspace(source.databasePath, onCanonicalChange),
+        ),
+      )
     : [watchCanonicalWorkspace(databasePath, onCanonicalChange)];
 
   input.on("line", (line) => {
@@ -86,10 +91,14 @@ async function runLegacyStdio(databasePath: string): Promise<void> {
   await backgroundSync;
 }
 
-async function runStdio(rootPath: string, cachePath: string, writerProfile?: "windows-task-proof"): Promise<void> {
+async function runStdio(
+  rootPath: string,
+  cachePath: string,
+  writerProfile?: "windows-task-proof",
+): Promise<void> {
   let buffered = Buffer.alloc(0);
   const respond = (line: Buffer): void => {
-    if (line.every(byte => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
+    if (line.every((byte) => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
     writeResponse(executeLine(line, rootPath, cachePath, writerProfile));
   };
   // Frame bytes before UTF-8 decoding so invalid input cannot become replacement characters.
@@ -109,21 +118,39 @@ async function main(): Promise<void> {
   const windowsTaskProof = args.includes("--windows-task-proof");
   const localProfile = optionValue(args, "--local-profile");
   if (windowsTaskProof || args.includes("--local-profile")) {
-    if (!windowsTaskProof || process.platform !== "win32" || !args.includes("--root")
-      || !localProfile || !/^[A-Za-z]:[\\/]/.test(localProfile) || localProfile.includes("\u0000")) {
-      throw new Error("Windows task proof requires Windows, --root, --database and --local-profile ABSOLUTE_NTFS_PATH");
+    if (
+      !windowsTaskProof ||
+      process.platform !== "win32" ||
+      !args.includes("--root") ||
+      !localProfile ||
+      !/^[A-Za-z]:[\\/]/.test(localProfile) ||
+      localProfile.includes("\u0000")
+    ) {
+      throw new Error(
+        "Windows task proof requires Windows, --root, --database and --local-profile ABSOLUTE_NTFS_PATH",
+      );
     }
     process.env.APPDATA = path.win32.resolve(localProfile);
   }
   if (args.includes("--root")) {
     const rootPath = optionValue(args, "--root");
     const cachePath = optionValue(args, "--database");
-    if (!args.includes("--stdio") || args.includes("--probe") || !rootPath?.trim() || !cachePath?.trim()
-      || rootPath.startsWith("--") || cachePath.startsWith("--")) {
+    if (
+      !args.includes("--stdio") ||
+      args.includes("--probe") ||
+      !rootPath?.trim() ||
+      !cachePath?.trim() ||
+      rootPath.startsWith("--") ||
+      cachePath.startsWith("--")
+    ) {
       throw new Error("--root requires --stdio --root PATH --database CACHE_OUTSIDE_ROOT");
     }
     if (windowsTaskProof) {
-      if ([rootPath, cachePath].some(value => !/^[A-Za-z]:[\\/]/.test(value) || value.includes("\u0000"))) {
+      if (
+        [rootPath, cachePath].some(
+          (value) => !/^[A-Za-z]:[\\/]/.test(value) || value.includes("\u0000"),
+        )
+      ) {
         throw new Error("Windows task proof requires explicit local absolute root/cache paths");
       }
       localPathOutsideRoot(localProfile!, realpathSync(rootPath));
@@ -144,7 +171,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  process.stderr.write("Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --root PATH --database CACHE_OUTSIDE_ROOT [--windows-task-proof --local-profile ABSOLUTE_NTFS_PATH]\n");
+  process.stderr.write(
+    "Usage: tasks-backend --probe [--database PATH] | --stdio [--database PATH] | --stdio --root PATH --database CACHE_OUTSIDE_ROOT [--windows-task-proof --local-profile ABSOLUTE_NTFS_PATH]\n",
+  );
   process.exitCode = 2;
 }
 

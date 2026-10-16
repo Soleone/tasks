@@ -16,32 +16,46 @@ import { exactHash } from "./updateJournal.js";
 export function commitCopy(database: DatabaseSync, intent: CopyIntent): Record<string, unknown> {
   const result = applyCopyJournal(intent);
   const authority = synchronizeAuthority(database, intent.root);
-  if (authority.writeContext === intent.request.writeContext) storeReceipt(database, intent.request, result);
+  if (authority.writeContext === intent.request.writeContext)
+    storeReceipt(database, intent.request, result);
   return result;
 }
 
-export function executeCopy(request: Request, rootPath: string, cachePath: string, windowsAbsentDestination = false) {
+export function executeCopy(
+  request: Request,
+  rootPath: string,
+  cachePath: string,
+  windowsAbsentDestination = false,
+) {
   const root = readRootDescriptor(rootPath);
   return withRootWriterLock(root, () => {
     let completed: CopyIntent | undefined;
-    const outcome = withCacheTransaction(cachePath, root, database => {
+    const outcome = withCacheTransaction(cachePath, root, (database) => {
       const authority = synchronizeAuthority(database, root);
       requireWriteContext(request, authority);
       const input = parseCopyArgs(request);
       const receipt = findReceipt(database, request);
       if (receipt) return { writeContext: authority.writeContext, result: receipt };
-      if (readPending(root)) throw new CommandError("RECOVERY_PENDING", "selected root has an unfinished intent");
+      if (readPending(root))
+        throw new CommandError("RECOVERY_PENDING", "selected root has an unfinished intent");
       const selected = readCanonicalRoot(root.rootPath);
-      if (selected.rootIdentity !== root.rootIdentity) throw new CommandError("STALE_WRITE_CONTEXT", "selected root changed during observation");
-      const sourceRoot = request.command === "workspace.archive" ? root : readRootDescriptor(input.sourceDirectory!);
+      if (selected.rootIdentity !== root.rootIdentity)
+        throw new CommandError("STALE_WRITE_CONTEXT", "selected root changed during observation");
+      const sourceRoot =
+        request.command === "workspace.archive" ? root : readRootDescriptor(input.sourceDirectory!);
       const copy = () => {
-        if (readPending(sourceRoot)) throw new CommandError("RECOVERY_PENDING", "copy source has an unfinished intent");
+        if (readPending(sourceRoot))
+          throw new CommandError("RECOVERY_PENDING", "copy source has an unfinished intent");
         const source = readCanonicalRoot(sourceRoot.rootPath);
-        if (source.rootIdentity !== sourceRoot.rootIdentity) throw new CommandError("STALE_SCOPE", "source binding changed");
+        if (source.rootIdentity !== sourceRoot.rootIdentity)
+          throw new CommandError("STALE_SCOPE", "source binding changed");
         guardCopySource(source);
         const destination = inspectCopyDestination(source.rootPath, input.destinationDirectory);
         if (windowsAbsentDestination && destination.identity !== null) {
-          throw new CommandError("UNSUPPORTED_COMMAND", "Windows copy proof requires an absent destination; existing empty directories are not supported");
+          throw new CommandError(
+            "UNSUPPORTED_COMMAND",
+            "Windows copy proof requires an absent destination; existing empty directories are not supported",
+          );
         }
         inspectCopyDestination(root.rootPath, destination.directory);
         for (const binding of [root, sourceRoot]) {
@@ -51,18 +65,42 @@ export function executeCopy(request: Request, rootPath: string, cachePath: strin
         localPathOutsideRoot(localDomain(sourceRoot), destination.directory);
         localPathOutsideRoot(cachePath, destination.directory);
         localPathOutsideRoot(localDomain(root), destination.directory);
-        if (request.readOnly || request.dryRun) return { writeContext: authority.writeContext, result: { destinationDirectory: destination.directory, taskCount: source.tasks.length, changed: true, readOnly: request.readOnly, dryRun: request.dryRun } };
+        if (request.readOnly || request.dryRun)
+          return {
+            writeContext: authority.writeContext,
+            result: {
+              destinationDirectory: destination.directory,
+              taskCount: source.tasks.length,
+              changed: true,
+              readOnly: request.readOnly,
+              dryRun: request.dryRun,
+            },
+          };
         const operationId = randomUUID();
-        const files = source.files.map(file => {
+        const files = source.files.map((file) => {
           const bytes = readRegularFile(path.join(source.rootPath, file.relativePath));
-          if (exactHash(bytes) !== file.sha256) throw new CommandError("STALE_FILE", "source changed before fixed copy staging");
+          if (exactHash(bytes) !== file.sha256)
+            throw new CommandError("STALE_FILE", "source changed before fixed copy staging");
           return { ...file, bytes: bytes.toString("base64") };
         });
-        const intent = parseCopyIntent({
-          format: "taskdb.pending-copy", version: 1, root, source: sourceRoot,
-          cachePath: localPathOutsideRoot(cachePath, root.rootPath), request, operationId, destination,
-          stageDirectory: path.join(path.dirname(destination.directory), `.${path.basename(destination.directory)}.taskdb-copy-${operationId}.stage`), files,
-        }, root);
+        const intent = parseCopyIntent(
+          {
+            format: "taskdb.pending-copy",
+            version: 1,
+            root,
+            source: sourceRoot,
+            cachePath: localPathOutsideRoot(cachePath, root.rootPath),
+            request,
+            operationId,
+            destination,
+            stageDirectory: path.join(
+              path.dirname(destination.directory),
+              `.${path.basename(destination.directory)}.taskdb-copy-${operationId}.stage`,
+            ),
+            files,
+          },
+          root,
+        );
         guardCopySource(source);
         syncDirectory(path.dirname(destination.directory));
         persistPending(root, intent);
@@ -70,7 +108,9 @@ export function executeCopy(request: Request, rootPath: string, cachePath: strin
         completed = intent;
         return { writeContext: authority.writeContext, result };
       };
-      return sourceRoot.rootPath === root.rootPath && sourceRoot.rootIdentity === root.rootIdentity ? copy() : withRootWriterLock(sourceRoot, copy);
+      return sourceRoot.rootPath === root.rootPath && sourceRoot.rootIdentity === root.rootIdentity
+        ? copy()
+        : withRootWriterLock(sourceRoot, copy);
     });
     if (completed) retireCopy(completed);
     return outcome;

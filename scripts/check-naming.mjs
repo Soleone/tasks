@@ -27,7 +27,8 @@ function listFiles(dir) {
 function countFile(path) {
   let count = versionName.test(path) ? 1 : 0;
   if (codeExtensions.test(path)) {
-    const tokens = readFileSync(join(root, path), "utf8").replace(storedFolder, "").match(identifier) ?? [];
+    const tokens =
+      readFileSync(join(root, path), "utf8").replace(storedFolder, "").match(identifier) ?? [];
     count += tokens.filter((token) => versionName.test(token) && !storedNames.test(token)).length;
   }
   return count;

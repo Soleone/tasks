@@ -73,17 +73,24 @@ export function useTaskListSelection({
 
   // The active row is list state, not focus state, so it survives toolbar
   // clicks and empty-area focus loss. Focus stays a screen-reader concern.
-  const clampedActiveIndex = visibleRows.length ? Math.min(activeTaskIndex, visibleRows.length - 1) : 0;
-  const pendingActiveIndex = pendingActiveIdRef.current === null || pendingActiveViewRef.current !== viewIdentity
-    ? -1
-    : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
+  const clampedActiveIndex = visibleRows.length
+    ? Math.min(activeTaskIndex, visibleRows.length - 1)
+    : 0;
+  const pendingActiveIndex =
+    pendingActiveIdRef.current === null || pendingActiveViewRef.current !== viewIdentity
+      ? -1
+      : visibleRows.findIndex((row) => row.task.id === pendingActiveIdRef.current);
   // Hierarchy moves change row positions; follow the active task by identity.
-  const identityActiveIndex = activeTaskIdRef.current === null
-    ? -1
-    : visibleRows.findIndex((row) => row.task.id === activeTaskIdRef.current);
-  const activeIndex = pendingActiveIndex >= 0
-    ? pendingActiveIndex
-    : identityActiveIndex >= 0 ? identityActiveIndex : clampedActiveIndex;
+  const identityActiveIndex =
+    activeTaskIdRef.current === null
+      ? -1
+      : visibleRows.findIndex((row) => row.task.id === activeTaskIdRef.current);
+  const activeIndex =
+    pendingActiveIndex >= 0
+      ? pendingActiveIndex
+      : identityActiveIndex >= 0
+        ? identityActiveIndex
+        : clampedActiveIndex;
   const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
   const activeTask = activeRow?.task;
   visibleRowsRef.current = visibleRows;
@@ -110,7 +117,9 @@ export function useTaskListSelection({
     }
     if (activeIndex !== activeTaskIndex) setActiveTaskIndex(activeIndex);
 
-    const selectableIds = new Set(visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id));
+    const selectableIds = new Set(
+      visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id),
+    );
     const restoredActiveId = restoreActiveIdRef.current;
     if (restoredActiveId !== null) {
       const restoredIndex = visibleRows.findIndex((row) => row.task.id === restoredActiveId);
@@ -123,42 +132,66 @@ export function useTaskListSelection({
       if (!identityRefreshPendingRef.current) restoreActiveIdRef.current = null;
     }
 
-    const filterChanged = previousFilterIdentityRef.current !== null
-      && previousFilterIdentityRef.current !== filterIdentity;
+    const filterChanged =
+      previousFilterIdentityRef.current !== null &&
+      previousFilterIdentityRef.current !== filterIdentity;
     previousFilterIdentityRef.current = filterIdentity;
     const requestedSelection = filterChanged
       ? new Set<string>()
-      : restoreSelectionIdsRef.current ?? selectedIdsRef.current;
+      : (restoreSelectionIdsRef.current ?? selectedIdsRef.current);
     // Apply the new-task selection once. The highlight id remains set briefly,
     // but it must not restore the selection after the user starts another create.
     if (newTaskId == null) lastSelectedNewTaskIdRef.current = null;
-    const createdTaskId = newTaskId != null
-      && newTaskId !== lastSelectedNewTaskIdRef.current
-      && selectableIds.has(newTaskId)
-      ? newTaskId
-      : null;
+    const createdTaskId =
+      newTaskId != null &&
+      newTaskId !== lastSelectedNewTaskIdRef.current &&
+      selectableIds.has(newTaskId)
+        ? newTaskId
+        : null;
     if (createdTaskId !== null) lastSelectedNewTaskIdRef.current = createdTaskId;
-    const nextSelection = createdTaskId !== null
-      ? new Set<string>([createdTaskId])
-      : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
+    const nextSelection =
+      createdTaskId !== null
+        ? new Set<string>([createdTaskId])
+        : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
     if (createdTaskId !== null) {
       const createdTaskIndex = visibleRows.findIndex((row) => row.task.id === createdTaskId);
-      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex) setActiveTaskIndex(createdTaskIndex);
+      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex)
+        setActiveTaskIndex(createdTaskIndex);
     }
     const visibleActive = visibleRows[activeIndex];
-    if (nextSelection.size === 0 && visibleActive && !visibleActive.contextOnly && !selectionClearedRef.current) nextSelection.add(visibleActive.task.id);
-    const changed = nextSelection.size !== selectedIdsRef.current.size
-      || [...nextSelection].some((id) => !selectedIdsRef.current.has(id));
+    if (
+      nextSelection.size === 0 &&
+      visibleActive &&
+      !visibleActive.contextOnly &&
+      !selectionClearedRef.current
+    )
+      nextSelection.add(visibleActive.task.id);
+    const changed =
+      nextSelection.size !== selectedIdsRef.current.size ||
+      [...nextSelection].some((id) => !selectedIdsRef.current.has(id));
     if (changed) setSelectedIds(nextSelection);
     selectedIdsRef.current = nextSelection;
     if (createdTaskId !== null) {
       selectionClearedRef.current = false;
       selectionAnchorRef.current = createdTaskId;
-    } else if (filterChanged || selectionAnchorRef.current === null || !selectableIds.has(selectionAnchorRef.current)) {
+    } else if (
+      filterChanged ||
+      selectionAnchorRef.current === null ||
+      !selectableIds.has(selectionAnchorRef.current)
+    ) {
       selectionAnchorRef.current = [...nextSelection][0] ?? null;
     }
     if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
-  }, [activeIndex, activeTaskIndex, filterIdentity, newTaskId, onAnnounce, selectedIds, viewIdentity, visibleRows]);
+  }, [
+    activeIndex,
+    activeTaskIndex,
+    filterIdentity,
+    newTaskId,
+    onAnnounce,
+    selectedIds,
+    viewIdentity,
+    visibleRows,
+  ]);
 
   // Right-arrow category filtering keeps the task id through the async list
   // refresh; other active-task requests apply once to the current rows.
@@ -173,11 +206,13 @@ export function useTaskListSelection({
     }
 
     if (activeTaskRequest.taskId !== null) {
-      const taskDataChanged = activeTaskRequestTasksRef.current !== null
-        && activeTaskRequestTasksRef.current !== tasks;
+      const taskDataChanged =
+        activeTaskRequestTasksRef.current !== null && activeTaskRequestTasksRef.current !== tasks;
       const refreshApplied = preserveActiveTaskOnRefreshRef.current && taskDataChanged;
       if (requestChanged || refreshApplied) {
-        const requestedIndex = visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId);
+        const requestedIndex = visibleRows.findIndex(
+          (row) => row.task.id === activeTaskRequest.taskId,
+        );
         if (requestedIndex >= 0) setActiveTaskIndex(requestedIndex);
         else setActiveTaskIndex(0);
       }
@@ -188,11 +223,20 @@ export function useTaskListSelection({
       return;
     }
     if (requestChanged) setActiveTaskIndex(0);
-  }, [activeTaskRequest.key, activeTaskRequest.preserveTaskOnRefresh, activeTaskRequest.taskId, tasks, visibleRows]);
+  }, [
+    activeTaskRequest.key,
+    activeTaskRequest.preserveTaskOnRefresh,
+    activeTaskRequest.taskId,
+    tasks,
+    visibleRows,
+  ]);
 
-  useEffect(() => () => {
-    if (activeScrollFrameRef.current !== null) cancelAnimationFrame(activeScrollFrameRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (activeScrollFrameRef.current !== null) cancelAnimationFrame(activeScrollFrameRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const nextIndex = Math.min(activeTaskIndex, Math.max(visibleRows.length - 1, 0));
@@ -222,7 +266,8 @@ export function useTaskListSelection({
     }
     const scope = selectableSiblingRows(row, visibleRowsRef.current);
     const anchorId = selectionAnchorRef.current;
-    const anchorIndex = anchorId === null ? -1 : scope.findIndex((candidate) => candidate.task.id === anchorId);
+    const anchorIndex =
+      anchorId === null ? -1 : scope.findIndex((candidate) => candidate.task.id === anchorId);
     const targetIndex = scope.findIndex((candidate) => candidate.task.id === row.task.id);
     if (anchorId === null || targetIndex < 0) {
       selectOnly(row);
@@ -236,7 +281,10 @@ export function useTaskListSelection({
     const start = Math.min(anchorIndex, targetIndex);
     const end = Math.max(anchorIndex, targetIndex);
     const count = end - start + 1;
-    setSelection(scope.slice(start, end + 1).map((candidate) => candidate.task.id), anchorId);
+    setSelection(
+      scope.slice(start, end + 1).map((candidate) => candidate.task.id),
+      anchorId,
+    );
     onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
   }
 
@@ -246,7 +294,8 @@ export function useTaskListSelection({
     activeScrollFrameRef.current = requestAnimationFrame(() => {
       activeScrollFrameRef.current = null;
       const targetId = activeScrollTargetRef.current;
-      if (targetId !== null) document.getElementById(`task-option-${targetId}`)?.scrollIntoView({ block: "nearest" });
+      if (targetId !== null)
+        document.getElementById(`task-option-${targetId}`)?.scrollIntoView({ block: "nearest" });
     });
   }
 
@@ -264,9 +313,8 @@ export function useTaskListSelection({
       scheduleActiveScroll(firstTask.task.id);
       return;
     }
-    const requestedIndex = typeof next === "number"
-      ? next
-      : currentIndex + (next === "next" ? 1 : -1);
+    const requestedIndex =
+      typeof next === "number" ? next : currentIndex + (next === "next" ? 1 : -1);
     if (extend) {
       const current = visibleRows[currentIndex];
       if (!current || current.contextOnly) {
@@ -274,14 +322,20 @@ export function useTaskListSelection({
         return;
       }
       const scope = selectableSiblingRows(current, visibleRowsRef.current);
-      const currentScopeIndex = scope.findIndex((candidate) => candidate.task.id === current.task.id);
+      const currentScopeIndex = scope.findIndex(
+        (candidate) => candidate.task.id === current.task.id,
+      );
       const step = requestedIndex > currentIndex ? 1 : -1;
       const target = scope[currentScopeIndex + step];
       if (!target) {
-        onAnnounce(step > 0 ? "Selection is at the last sibling." : "Selection is at the first sibling.");
+        onAnnounce(
+          step > 0 ? "Selection is at the last sibling." : "Selection is at the first sibling.",
+        );
         return;
       }
-      const targetIndex = visibleRows.findIndex((candidate) => candidate.task.id === target.task.id);
+      const targetIndex = visibleRows.findIndex(
+        (candidate) => candidate.task.id === target.task.id,
+      );
       if (targetIndex < 0) return;
       pendingActiveIdRef.current = target.task.id;
       pendingActiveViewRef.current = viewIdentity;
@@ -340,7 +394,11 @@ export function useTaskListSelection({
     if (event.ctrlKey || event.metaKey) {
       setActiveTaskIndex(index);
       const scope = selectableSiblingRows(row, visibleRowsRef.current);
-      const sameScope = scope.length > 0 && [...selectedIdsRef.current].every((id) => scope.some((candidate) => candidate.task.id === id));
+      const sameScope =
+        scope.length > 0 &&
+        [...selectedIdsRef.current].every((id) =>
+          scope.some((candidate) => candidate.task.id === id),
+        );
       if (!sameScope) {
         selectOnly(row);
         return;
@@ -356,9 +414,12 @@ export function useTaskListSelection({
     selectOnly(row);
     onEdit(task);
   };
-  const handleOptionClick = useCallback((row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>): void => {
-    optionClickRef.current(row, index, event);
-  }, []);
+  const handleOptionClick = useCallback(
+    (row: VisibleTaskRow, index: number, event: MouseEvent<HTMLDivElement>): void => {
+      optionClickRef.current(row, index, event);
+    },
+    [],
+  );
 
   function restoreSelectionAfterMove(taskId: string, taskIds: Iterable<string>): void {
     restoreActiveIdRef.current = taskId;

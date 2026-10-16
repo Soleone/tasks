@@ -6,22 +6,41 @@ export type TaskExecutionResult =
   | { task: TaskProjection; changed: false; operationId?: never }
   | { task: TaskProjection; changed: true; operationId: string };
 export type TaskPreviewResult = {
-  task: TaskProjection; changed: boolean; readOnly: boolean; dryRun: boolean; operationId?: never;
+  task: TaskProjection;
+  changed: boolean;
+  readOnly: boolean;
+  dryRun: boolean;
+  operationId?: never;
 };
 export type TaskEditResult = TaskExecutionResult | TaskPreviewResult;
 
 function invalidTaskResult(): never {
-  throw new Error("The backend returned invalid task data; retain the original request; no legacy fallback");
+  throw new Error(
+    "The backend returned invalid task data; retain the original request; no legacy fallback",
+  );
 }
 
 export function parseTaskProjection(value: unknown): TaskProjection {
   if (!isRecord(value)) invalidTaskResult();
   const { version, blockedByIds, ...fields } = value;
-  if (typeof fields.id !== "string" || typeof version !== "number" || !Number.isSafeInteger(version) || version < 1
-    || !Array.isArray(blockedByIds)) invalidTaskResult();
+  if (
+    typeof fields.id !== "string" ||
+    typeof version !== "number" ||
+    !Number.isSafeInteger(version) ||
+    version < 1 ||
+    !Array.isArray(blockedByIds)
+  )
+    invalidTaskResult();
   const task = validateTask(fields, fields.id);
-  if (!blockedByIds.every((id, index) => typeof id === "string" && task.dependencyIds.includes(id)
-    && (index === 0 || blockedByIds[index - 1] < id))) invalidTaskResult();
+  if (
+    !blockedByIds.every(
+      (id, index) =>
+        typeof id === "string" &&
+        task.dependencyIds.includes(id) &&
+        (index === 0 || blockedByIds[index - 1] < id),
+    )
+  )
+    invalidTaskResult();
   return { ...task, version, blockedByIds };
 }
 
@@ -31,8 +50,13 @@ export function parseTaskEditResult(value: unknown, mode: "execution" | "preview
   if (!isRecord(value) || typeof value.changed !== "boolean") invalidTaskResult();
   const task = parseTaskProjection(value.task);
   if (mode === "preview") {
-    if (typeof value.readOnly !== "boolean" || typeof value.dryRun !== "boolean"
-      || (!value.readOnly && !value.dryRun) || value.operationId !== undefined) invalidTaskResult();
+    if (
+      typeof value.readOnly !== "boolean" ||
+      typeof value.dryRun !== "boolean" ||
+      (!value.readOnly && !value.dryRun) ||
+      value.operationId !== undefined
+    )
+      invalidTaskResult();
     return { task, changed: value.changed, readOnly: value.readOnly, dryRun: value.dryRun };
   }
   if (value.readOnly !== undefined || value.dryRun !== undefined) invalidTaskResult();

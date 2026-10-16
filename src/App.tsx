@@ -9,7 +9,12 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ThemeRecord } from "@/backend/themePalette";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
-import { sortSummary, type SortDirection, type SortField, type StatusPreset } from "@/components/taskFilters";
+import {
+  sortSummary,
+  type SortDirection,
+  type SortField,
+  type StatusPreset,
+} from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
@@ -33,9 +38,17 @@ import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigati
 import { listThemes, setTheme, selectMainWorkspace } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { applyTheme } from "@/theme";
-import { DEFAULT_GLOBAL_SHORTCUT, isShortcutConfigured, setGlobalShortcut } from "@/platform/globalShortcut";
+import {
+  DEFAULT_GLOBAL_SHORTCUT,
+  isShortcutConfigured,
+  setGlobalShortcut,
+} from "@/platform/globalShortcut";
 import { runtimeKind } from "@/platform/runtime";
-import { readStoredFontSizeIncrease, storeFontSizeIncrease, type FontSizeIncrease } from "@/fontSize";
+import {
+  readStoredFontSizeIncrease,
+  storeFontSizeIncrease,
+  type FontSizeIncrease,
+} from "@/fontSize";
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
@@ -75,12 +88,18 @@ function readStatusPreset(): StatusPreset {
 
 function readExactStatus(): TaskStatus | null {
   const stored = readStored(EXACT_STATUS_KEY);
-  return stored === "open" || stored === "in_progress" || stored === "paused" || stored === "done" || stored === "canceled" ? stored : null;
+  return stored === "open" ||
+    stored === "in_progress" ||
+    stored === "paused" ||
+    stored === "done" ||
+    stored === "canceled"
+    ? stored
+    : null;
 }
 
 function readPriorityFilter(): TaskPriority | null {
   const stored = readStored(PRIORITY_FILTER_KEY);
-  return stored !== null && /^[0-4]$/.test(stored) ? Number(stored) as TaskPriority : null;
+  return stored !== null && /^[0-4]$/.test(stored) ? (Number(stored) as TaskPriority) : null;
 }
 
 function readCategorySlug(): string | null {
@@ -110,7 +129,12 @@ function readSlugs(key: string): string[] {
 
 function readSortField(): SortField {
   const stored = readStored(SORT_FIELD_KEY);
-  return stored === "created" || stored === "updated" || stored === "priority" || stored === "manual" ? stored : "created";
+  return stored === "created" ||
+    stored === "updated" ||
+    stored === "priority" ||
+    stored === "manual"
+    ? stored
+    : "created";
 }
 
 function readSortDirection(): SortDirection {
@@ -136,26 +160,38 @@ function readHelpMode(): KeyboardHelpMode {
 // task editor or list.
 export default function App({ workspace }: { workspace?: MainWorkspace } = {}): ReactElement {
   // Rebind after development module reloads before the list's query effects run.
-  useEffect(() => { if (workspace) selectMainWorkspace(workspace); }, [workspace, selectMainWorkspace]);
+  useEffect(() => {
+    if (workspace) selectMainWorkspace(workspace);
+  }, [workspace, selectMainWorkspace]);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(readPriorityFilter);
   const [tagFilter, setTagFilter] = useState<ClassificationOption[]>(readInitialTagFilter);
   const [searchQuery, setSearchQuery] = useState(() => readStored(SEARCH_QUERY_KEY) ?? "");
-  const [showUnblocked, setShowUnblocked] = useState(() => readStored(UNBLOCKED_FILTER_KEY) === "true");
+  const [showUnblocked, setShowUnblocked] = useState(
+    () => readStored(UNBLOCKED_FILTER_KEY) === "true",
+  );
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [helpMode, setHelpMode] = useState(readHelpMode);
-  const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(readStoredFontSizeIncrease);
+  const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(
+    readStoredFontSizeIncrease,
+  );
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
-  const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(readInitialCategoryFilter);
+  const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(
+    readInitialCategoryFilter,
+  );
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [composer, setComposer] = useState<ComposerState | null>(null);
-  const [activeTaskRequest, setActiveTaskRequest] = useState({ key: 0, taskId: null as string | null, preserveTaskOnRefresh: false });
+  const [activeTaskRequest, setActiveTaskRequest] = useState({
+    key: 0,
+    taskId: null as string | null,
+    preserveTaskOnRefresh: false,
+  });
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [starterHelpOpen, setStarterHelpOpen] = useState(false);
@@ -164,7 +200,9 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
-  const [globalShortcut, setGlobalShortcutValue] = useState(() => readStored(GLOBAL_SHORTCUT_KEY) ?? DEFAULT_GLOBAL_SHORTCUT);
+  const [globalShortcut, setGlobalShortcutValue] = useState(
+    () => readStored(GLOBAL_SHORTCUT_KEY) ?? DEFAULT_GLOBAL_SHORTCUT,
+  );
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
   const globalShortcutRef = useRef(globalShortcut);
   const composerRef = useRef<ComposerState | null>(null);
@@ -248,9 +286,11 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   }, []);
 
   async function changeGlobalShortcut(value: string): Promise<void> {
-    if (workspace) throw new Error("Global shortcuts are not yet enabled for this selected workspace.");
+    if (workspace)
+      throw new Error("Global shortcuts are not yet enabled for this selected workspace.");
     const next = value.trim();
-    if (!isShortcutConfigured(next)) throw new Error("Use at least one modifier and a key, such as Ctrl+Alt+Space.");
+    if (!isShortcutConfigured(next))
+      throw new Error("Use at least one modifier and a key, such as Ctrl+Alt+Space.");
     await setGlobalShortcut(next, globalShortcutRef.current);
     globalShortcutRef.current = next;
     setGlobalShortcutValue(next);
@@ -287,7 +327,9 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   // every installation pay for a filesystem watcher or an event protocol.
   useEffect(() => {
     if (selectedTheme !== OMARCHY_SYSTEM_THEME_NAME) return;
-    const refresh = (): void => { void refreshThemes(true); };
+    const refresh = (): void => {
+      void refreshThemes(true);
+    };
     const interval = window.setInterval(refresh, 1500);
     return () => window.clearInterval(interval);
   }, [selectedTheme, refreshThemes]);
@@ -315,9 +357,11 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
       ...tagFilter.map((tag) => `#${tag.slug}`),
     ];
     const initialTitle = classification.length > 0 ? `${classification.join(" ")} ` : undefined;
-    setComposer(parentId
-      ? { mode: "create", parentId, ...(initialTitle ? { initialTitle } : {}) }
-      : { mode: "create", ...(initialTitle ? { initialTitle } : {}) });
+    setComposer(
+      parentId
+        ? { mode: "create", parentId, ...(initialTitle ? { initialTitle } : {}) }
+        : { mode: "create", ...(initialTitle ? { initialTitle } : {}) },
+    );
   }
 
   function openEdit(task: TaskView): void {
@@ -333,7 +377,10 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.isComposing || event.repeat) return;
       const target = event.target;
-      const typing = target instanceof HTMLElement && (target.matches("input, textarea, [contenteditable=true]") || target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
+      const typing =
+        target instanceof HTMLElement &&
+        (target.matches("input, textarea, [contenteditable=true]") ||
+          target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
       if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
         event.preventDefault();
         setStarterHelpOpen((open) => !open);
@@ -344,7 +391,12 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         setStarterHelpOpen(false);
         return;
       }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ",") {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key === ","
+      ) {
         event.preventDefault();
         if (settingsOpen) setSettingsOpen(false);
         else openSettings();
@@ -487,7 +539,9 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     setSortField(field);
     requestActiveTask();
     writeStored(SORT_FIELD_KEY, field);
-    setAnnouncement(field === "manual" ? "Sorted by manual order" : `Sorted ${sortSummary(field, sortDirection)}`);
+    setAnnouncement(
+      field === "manual" ? "Sorted by manual order" : `Sorted ${sortSummary(field, sortDirection)}`,
+    );
   }
 
   function reverseSort(): void {
@@ -509,11 +563,13 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   function changeHelpMode(mode: KeyboardHelpMode): void {
     setHelpMode(mode);
     writeStored(HELP_MODE_KEY, mode);
-    setAnnouncement(mode === "full"
-      ? "Full keyboard help enabled"
-      : mode === "basic"
-        ? "Basic keyboard help enabled"
-        : "Keyboard help disabled");
+    setAnnouncement(
+      mode === "full"
+        ? "Full keyboard help enabled"
+        : mode === "basic"
+          ? "Basic keyboard help enabled"
+          : "Keyboard help disabled",
+    );
   }
 
   function changeFontSizeIncrease(increase: FontSizeIncrease): void {
@@ -529,7 +585,10 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     requestActiveTask();
   }
 
-  function chooseStatusSelection(preset: StatusPreset | undefined, exact: TaskStatus | null | undefined): void {
+  function chooseStatusSelection(
+    preset: StatusPreset | undefined,
+    exact: TaskStatus | null | undefined,
+  ): void {
     setStatusMenuOpen(false);
     if (exact !== undefined) {
       setExactStatus(exact);
@@ -590,15 +649,19 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     setAnnouncement("Cleared all filters");
   }
 
-  const hasActiveFilters = exactStatus !== null
-    || statusPreset !== "active"
-    || priorityFilter !== null
-    || tagFilter.length > 0
-    || searchQuery.trim() !== ""
-    || categoryFilter !== null
-    || showUnblocked;
+  const hasActiveFilters =
+    exactStatus !== null ||
+    statusPreset !== "active" ||
+    priorityFilter !== null ||
+    tagFilter.length > 0 ||
+    searchQuery.trim() !== "" ||
+    categoryFilter !== null ||
+    showUnblocked;
 
-  function clearCategoryFilter(_category: ClassificationToken | null = null, activeTaskId?: string): void {
+  function clearCategoryFilter(
+    _category: ClassificationToken | null = null,
+    activeTaskId?: string,
+  ): void {
     setCategoryFilter(null);
     categoryFilterRef.current = null;
     writeStored(CATEGORY_FILTER_KEY, "");
@@ -617,15 +680,40 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   return (
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
       {workspace && <WorkspaceRequestRecovery workspace={workspace} />}
-      {receiveState?.waiting ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
-        <section aria-labelledby="receive-title" className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg">
-          <h1 id="receive-title" className="text-lg font-semibold">Waiting for workspace</h1>
-          <p className="text-sm text-muted-foreground">{APP_NAME} is locked while this device receives the existing workspace. Add the empty sync folder to Syncthing, then wait for the transfer to finish.</p>
-          {receiveState.syncRoot ? <p className="wrap-anywhere rounded bg-muted p-2 font-mono text-xs">{receiveState.syncRoot}</p> : null}
-          <p className="text-sm text-muted-foreground"><a className="underline" href="https://github.com/Soleone/tasks/blob/f762b50c8739b994629c68e4ab62a3a01142aaae/docs/syncthing.md" target="_blank" rel="noreferrer">Read the Syncthing setup guide</a></p>
-          <Button variant="outline" onClick={() => void abortReceive()}>Abort and restore backup</Button>
-        </section>
-      </div> : null}
+      {receiveState?.waiting ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
+          <section
+            aria-labelledby="receive-title"
+            className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg"
+          >
+            <h1 id="receive-title" className="text-lg font-semibold">
+              Waiting for workspace
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {APP_NAME} is locked while this device receives the existing workspace. Add the empty
+              sync folder to Syncthing, then wait for the transfer to finish.
+            </p>
+            {receiveState.syncRoot ? (
+              <p className="wrap-anywhere rounded bg-muted p-2 font-mono text-xs">
+                {receiveState.syncRoot}
+              </p>
+            ) : null}
+            <p className="text-sm text-muted-foreground">
+              <a
+                className="underline"
+                href="https://github.com/Soleone/tasks/blob/f762b50c8739b994629c68e4ab62a3a01142aaae/docs/syncthing.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Read the Syncthing setup guide
+              </a>
+            </p>
+            <Button variant="outline" onClick={() => void abortReceive()}>
+              Abort and restore backup
+            </Button>
+          </section>
+        </div>
+      ) : null}
       <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-xl flex-col gap-6 overflow-hidden">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
@@ -634,7 +722,13 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           </h1>
           <ButtonGroup
             onKeyDown={(event) => {
-              if (event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+              if (
+                event.key === "Tab" &&
+                event.shiftKey &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.altKey
+              ) {
                 event.preventDefault();
                 nav.last();
               }
@@ -656,20 +750,42 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
                 <CircleHelp aria-hidden="true" />
                 <span className="sr-only">Help</span>
               </TooltipTrigger>
-              <TooltipContent>Help <Kbd>?</Kbd></TooltipContent>
+              <TooltipContent>
+                Help <Kbd>?</Kbd>
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Alt+t" onMouseDown={preventFocusSteal} onClick={openThemes} />}
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-keyshortcuts="Alt+t"
+                    onMouseDown={preventFocusSteal}
+                    onClick={openThemes}
+                  />
+                }
               >
                 <Palette aria-hidden="true" />
                 <span className="sr-only">Themes</span>
               </TooltipTrigger>
-              <TooltipContent>Themes <Kbd>Alt T</Kbd></TooltipContent>
+              <TooltipContent>
+                Themes <Kbd>Alt T</Kbd>
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger
-                render={<Button variant="ghost" size="icon-sm" tabIndex={-1} aria-keyshortcuts="Control+, Meta+," onMouseDown={preventFocusSteal} onClick={openSettings} />}
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    tabIndex={-1}
+                    aria-keyshortcuts="Control+, Meta+,"
+                    onMouseDown={preventFocusSteal}
+                    onClick={openSettings}
+                  />
+                }
               >
                 <Settings2 aria-hidden="true" />
                 <span className="sr-only">Settings</span>
@@ -679,17 +795,28 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           </ButtonGroup>
         </header>
 
-        {runtimeKind() === "android" && unresolvedConflicts.length > 0 ? <Alert variant="destructive">
-          <AlertTitle>Syncthing conflict copies need attention</AlertTitle>
-          <AlertDescription>
-            <div className="flex flex-col gap-2">
-              <p>{unresolvedConflicts.length} conflict {unresolvedConflicts.length === 1 ? "copy was" : "copies were"} found. Android leaves them untouched. Resolve them on a desktop or CLI client, and do not delete the copies before checking the workspace.</p>
-              <ul className="max-h-24 space-y-1 overflow-auto font-mono text-xs">
-                {unresolvedConflicts.map((conflict) => <li key={conflict.sourcePath} className="break-all">{conflict.sourcePath}</li>)}
-              </ul>
-            </div>
-          </AlertDescription>
-        </Alert> : null}
+        {runtimeKind() === "android" && unresolvedConflicts.length > 0 ? (
+          <Alert variant="destructive">
+            <AlertTitle>Syncthing conflict copies need attention</AlertTitle>
+            <AlertDescription>
+              <div className="flex flex-col gap-2">
+                <p>
+                  {unresolvedConflicts.length} conflict{" "}
+                  {unresolvedConflicts.length === 1 ? "copy was" : "copies were"} found. Android
+                  leaves them untouched. Resolve them on a desktop or CLI client, and do not delete
+                  the copies before checking the workspace.
+                </p>
+                <ul className="max-h-24 space-y-1 overflow-auto font-mono text-xs">
+                  {unresolvedConflicts.map((conflict) => (
+                    <li key={conflict.sourcePath} className="break-all">
+                      {conflict.sourcePath}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <TaskList
           ref={taskListRef}
@@ -741,7 +868,9 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           nav={nav}
           onCreate={openCreate}
           composer={composer}
-          optimisticTask={optimisticCreate && isCurrentViewMatch(optimisticCreate) ? optimisticCreate : null}
+          optimisticTask={
+            optimisticCreate && isCurrentViewMatch(optimisticCreate) ? optimisticCreate : null
+          }
           onCloseComposer={closeComposer}
           onComposerSaved={taskSaved}
           onCreatePending={showOptimisticCreate}
@@ -752,7 +881,9 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           onEdit={openEdit}
           onTaskUpdated={updateVisibleTask}
           onTasksUpdated={updateVisibleTasks}
-          onOperation={(operationId, previous, current) => recordOperationUndo(operationId, previous, current)}
+          onOperation={(operationId, previous, current) =>
+            recordOperationUndo(operationId, previous, current)
+          }
           onStatusChanged={handleStatusChanged}
           onStatusBatchChanged={handleStatusBatchChanged}
           canUndoStatus={statusUndo !== null}
@@ -762,14 +893,18 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />
-        <p role="status" className="sr-only">{announcement}</p>
+        <p role="status" className="sr-only">
+          {announcement}
+        </p>
         <Toaster theme={themes.find((theme) => theme.name === selectedTheme)?.mode ?? "system"} />
       </div>
       <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
       <DisableKeyboardHelpDialog
         open={disableHelpTarget !== null}
         mode={disableHelpTarget ?? "none"}
-        onOpenChange={(open) => { if (!open) setDisableHelpTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDisableHelpTarget(null);
+        }}
         onConfirm={confirmDisableHelp}
         finalFocus={() => focusStack.restore("disable-help")}
       />
@@ -797,51 +932,63 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
           void handleUndoStatus();
         }}
       />
-      {categoryPickerOpen ? <CategoryPicker
-        open
-        onClose={closeCategoryPicker}
-        finalFocus={() => focusStack.restore("category-picker") ?? undefined}
-        onSelect={chooseCategory}
-      /> : null}
-      {statusMenuOpen ? <StatusMenu
-        open
-        onClose={() => setStatusMenuOpen(false)}
-        finalFocus={() => focusStack.restore("status-menu") ?? undefined}
-        preset={statusPreset}
-        exactStatus={exactStatus}
-        onSelect={chooseStatusSelection}
-      /> : null}
-      {priorityMenuOpen ? <PriorityMenu
-        open
-        onClose={() => setPriorityMenuOpen(false)}
-        finalFocus={() => focusStack.restore("priority-menu") ?? undefined}
-        selected={priorityFilter}
-        onSelect={choosePriority}
-      /> : null}
-      {tagPickerOpen ? <TagPicker
-        open
-        onClose={() => setTagPickerOpen(false)}
-        finalFocus={() => focusStack.restore("tag-picker") ?? undefined}
-        selected={tagFilter}
-        onChange={chooseTags}
-      /> : null}
-      {searchOpen ? <SearchDialog
-        open
-        onClose={() => setSearchOpen(false)}
-        finalFocus={() => focusStack.restore("search") ?? undefined}
-        initialQuery={searchQuery}
-        onSelect={chooseSearch}
-      /> : null}
-      {picker ? <TaskPicker
-        open
-        mode={picker.mode}
-        subject={tasks.find((task) => task.id === picker.subject.id) ?? picker.subject}
-        onClose={closePicker}
-        finalFocus={() => focusStack.restore("picker") ?? undefined}
-        onSelect={(target) => void pickerSelected(target)}
-        onRemoveBlocker={(blockerId) => void pickerRemoveBlocker(blockerId)}
-        onRemoveParent={() => void pickerRemoveParent()}
-      /> : null}
+      {categoryPickerOpen ? (
+        <CategoryPicker
+          open
+          onClose={closeCategoryPicker}
+          finalFocus={() => focusStack.restore("category-picker") ?? undefined}
+          onSelect={chooseCategory}
+        />
+      ) : null}
+      {statusMenuOpen ? (
+        <StatusMenu
+          open
+          onClose={() => setStatusMenuOpen(false)}
+          finalFocus={() => focusStack.restore("status-menu") ?? undefined}
+          preset={statusPreset}
+          exactStatus={exactStatus}
+          onSelect={chooseStatusSelection}
+        />
+      ) : null}
+      {priorityMenuOpen ? (
+        <PriorityMenu
+          open
+          onClose={() => setPriorityMenuOpen(false)}
+          finalFocus={() => focusStack.restore("priority-menu") ?? undefined}
+          selected={priorityFilter}
+          onSelect={choosePriority}
+        />
+      ) : null}
+      {tagPickerOpen ? (
+        <TagPicker
+          open
+          onClose={() => setTagPickerOpen(false)}
+          finalFocus={() => focusStack.restore("tag-picker") ?? undefined}
+          selected={tagFilter}
+          onChange={chooseTags}
+        />
+      ) : null}
+      {searchOpen ? (
+        <SearchDialog
+          open
+          onClose={() => setSearchOpen(false)}
+          finalFocus={() => focusStack.restore("search") ?? undefined}
+          initialQuery={searchQuery}
+          onSelect={chooseSearch}
+        />
+      ) : null}
+      {picker ? (
+        <TaskPicker
+          open
+          mode={picker.mode}
+          subject={tasks.find((task) => task.id === picker.subject.id) ?? picker.subject}
+          onClose={closePicker}
+          finalFocus={() => focusStack.restore("picker") ?? undefined}
+          onSelect={(target) => void pickerSelected(target)}
+          onRemoveBlocker={(blockerId) => void pickerRemoveBlocker(blockerId)}
+          onRemoveParent={() => void pickerRemoveParent()}
+        />
+      ) : null}
       <ThemePalette
         open={themesOpen}
         onOpenChange={setThemesOpen}

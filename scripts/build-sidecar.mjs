@@ -41,7 +41,9 @@ function buildBinary({ name, bundle }) {
     ),
   );
 
-  execFileSync(process.execPath, ["--experimental-sea-config", seaConfigPath], { stdio: "inherit" });
+  execFileSync(process.execPath, ["--experimental-sea-config", seaConfigPath], {
+    stdio: "inherit",
+  });
   copyFileSync(process.execPath, executablePath);
 
   if (process.platform === "win32" || process.platform === "darwin") {
@@ -55,7 +57,14 @@ function buildBinary({ name, bundle }) {
   const postjectCli = path.join(root, "node_modules", "postject", "dist", "cli.js");
   execFileSync(
     process.execPath,
-    [postjectCli, executablePath, "NODE_SEA_BLOB", blobPath, "--sentinel-fuse", "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2"],
+    [
+      postjectCli,
+      executablePath,
+      "NODE_SEA_BLOB",
+      blobPath,
+      "--sentinel-fuse",
+      "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+    ],
     { cwd: root, stdio: "inherit" },
   );
 
