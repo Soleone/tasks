@@ -10,7 +10,7 @@ import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 import { exactHash } from "./updateJournal.js";
 
-export const INIT_DESCRIPTOR = '{"schemaVersion":2}\n';
+const INIT_DESCRIPTOR = '{"schemaVersion":2}\n';
 type InitMarker = { name: string; identity: string; kind: "file" | "directory"; sha256?: string };
 export type InitBaseline = { markers: InitMarker[]; tasksIdentity: string | null };
 export type InitIntent = {

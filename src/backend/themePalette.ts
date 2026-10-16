@@ -88,7 +88,7 @@ const REGION_SLOTS = new Set([
 
 type Rgb = { r: number; g: number; b: number };
 
-export function parseHexColor(value: string): Rgb | null {
+function parseHexColor(value: string): Rgb | null {
   if (!HEX_COLOR.test(value)) return null;
   const digits = value.slice(1);
   const expanded = digits.length === 3 ? [...digits].map((digit) => digit + digit).join("") : digits;
@@ -126,7 +126,7 @@ function fromLinear(value: number): number {
   return value <= 0.0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055;
 }
 
-export function relativeLuminance(value: string): number {
+function relativeLuminance(value: string): number {
   const { r, g, b } = requireRgb(value);
   return 0.2126 * toLinear(r / 255) + 0.7152 * toLinear(g / 255) + 0.0722 * toLinear(b / 255);
 }

@@ -9,7 +9,7 @@ import { NATIVE_COMMANDS } from "./nativeSelection";
 
 export type Selection = { rootPath: string; databasePath: string };
 export type DevConnection = Selection & { version: 2; selectionToken: string; readOnly: boolean };
-export type WorkspaceState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
+type WorkspaceState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
 export type WorkspaceInfo = {
   state: WorkspaceState;
   schemaVersion: number | null;
@@ -45,6 +45,7 @@ export function validateSelection(selection: Selection): void {
   }
 }
 
+/** @public Tested from scripts/ through an esbuild bundle, which knip can't trace. */
 export function sidecarArgs(selection: Selection): string[] {
   validateSelection(selection);
   return ["--stdio", "--root", selection.rootPath, "--database", selection.databasePath];
@@ -60,6 +61,7 @@ export function parseWorkspaceInfo(result: Record<string, unknown>): WorkspaceIn
   return result as WorkspaceInfo;
 }
 
+/** @public Tested from scripts/ through an esbuild bundle, which knip can't trace. */
 export function parseTaskPage(result: Record<string, unknown>): TaskPage {
   if (!Array.isArray(result.tasks) || !Array.isArray(result.contextTasks)
     || !nonnegativeInteger(result.total) || !nonnegativeInteger(result.limit) || result.limit < 1 || result.limit > 100

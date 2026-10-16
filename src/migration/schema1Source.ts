@@ -9,7 +9,7 @@ import { GraphError, validateGraph, type TaskPriority, type TaskStatus } from ".
 
 type CanonicalSync = { revision: number; modifiedBy: string; basedOnHash: string | null; contentHash: string };
 
-export type CanonicalWorkspaceFile = { format: "tasks.workspace"; formatVersion: 1; workspaceId: string; schemaVersion: 1 };
+type CanonicalWorkspaceFile = { format: "tasks.workspace"; formatVersion: 1; workspaceId: string; schemaVersion: 1 };
 
 export type CanonicalTaskFile = {
   format: "tasks.task";
@@ -29,7 +29,7 @@ export type CanonicalTaskFile = {
   sync: CanonicalSync;
 };
 
-export type CanonicalOrderFile = {
+type CanonicalOrderFile = {
   format: "tasks.sibling-order";
   formatVersion: 1;
   workspaceId: string;

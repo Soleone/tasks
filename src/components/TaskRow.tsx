@@ -32,7 +32,7 @@ export function TaskStatusDisplay({ task }: { task: Pick<TaskView, "status"> }):
   );
 }
 
-export function TaskPriorityDisplay({ task }: { task: TaskView }): ReactElement {
+function TaskPriorityDisplay({ task }: { task: TaskView }): ReactElement {
   const meta = priorityMeta(task.priority ?? 2);
   return (
     <Tooltip>
@@ -111,7 +111,7 @@ export function TaskStatusToggle({ task, pending, feedbackVersion, nextLabel, pr
   );
 }
 
-export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task: TaskView; hiddenCategorySlug?: string | null; onSelectCategory?: (category: ClassificationToken) => void }): ReactElement | null {
+function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: { task: TaskView; hiddenCategorySlug?: string | null; onSelectCategory?: (category: ClassificationToken) => void }): ReactElement | null {
   const category = task.category?.slug !== hiddenCategorySlug ? task.category ?? null : null;
   if (!category && task.tags.length === 0) {
     if (!task.category) {
@@ -163,7 +163,7 @@ export function TaskRowMetadata({ task, hiddenCategorySlug, onSelectCategory }: 
 }
 
 /** Quiet relationship context for the full row. Never color-only. */
-export function TaskRowRelationships({ task, blockedByLabels }: {
+function TaskRowRelationships({ task, blockedByLabels }: {
   task: TaskView;
   blockedByLabels?: string[];
 }): ReactElement | null {
@@ -192,7 +192,7 @@ export function TaskRowRelationships({ task, blockedByLabels }: {
 }
 
 /** Quiet created/updated line for the time footer. Updated leads when it differs. */
-export function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
+function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">

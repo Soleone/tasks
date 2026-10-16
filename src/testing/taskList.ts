@@ -10,7 +10,7 @@ function titleOf(row: Element | null): string | null {
   return row?.querySelector("[data-slot=item-title]")?.textContent ?? null;
 }
 
-export function rowTitles(): string[] {
+function rowTitles(): string[] {
   return screen.queryAllByRole("option").map((row) => titleOf(row) ?? "");
 }
 

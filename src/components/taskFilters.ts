@@ -23,8 +23,8 @@ export const taskStatusMeta: Record<TaskStatus, TaskStatusMeta> = {
   canceled: { label: "Canceled", Icon: CircleX, color: "text-destructive" },
 };
 
-export const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress"];
-export const INACTIVE_TASK_STATUSES: TaskStatus[] = ["paused", "done", "canceled"];
+const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress"];
+const INACTIVE_TASK_STATUSES: TaskStatus[] = ["paused", "done", "canceled"];
 
 export type StatusPreset = "active" | "inactive";
 

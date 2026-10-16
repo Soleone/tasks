@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/backend/{cli,tasks-cli,devServer}.ts",
+    "src/**/*.test.{ts,tsx}",
+    "scripts/*.{mjs,ts}"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx,css}",
+    "scripts/**/*.{mjs,ts}"
+  ],
+  "ignore": [
+    "src/components/ui/**",
+    "src/legacy/**"
+  ],
+  "ignoreDependencies": [
+    "postject"
+  ],
+  "ignoreBinaries": [
+    "rustc",
+    "agent-browser"
+  ]
+}

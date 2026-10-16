@@ -3,12 +3,12 @@ import { Palette } from "lucide-react";
 import type { ThemeMode, ThemeRecord } from "@/backend/themePalette";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut, literalWordScore } from "@/components/ui/command";
 
-export function modeLabel(mode: ThemeMode): string {
+function modeLabel(mode: ThemeMode): string {
   if (mode === "system") return "Follows system";
   return mode === "dark" ? "Dark" : "Light";
 }
 
-export function ThemeItem({ theme, selected, onSelect }: {
+function ThemeItem({ theme, selected, onSelect }: {
   theme: ThemeRecord;
   selected: boolean;
   onSelect: (name: string) => void;

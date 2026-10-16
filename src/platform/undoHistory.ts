@@ -11,6 +11,7 @@ export type UndoEntry = {
 export type UndoStorage = Pick<Storage, "getItem" | "setItem">;
 type StoredHistory = { version: 1; workspaces: { scope: string; entries: UndoEntry[] }[] };
 
+/** @public Tested from scripts/ through an esbuild bundle, which knip can't trace. */
 export const UNDO_HISTORY_LIMIT = 50;
 const STORAGE_KEY = "tasks.v2UndoHistory";
 const RETAINED_WORKSPACES = 10;

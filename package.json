@@ -26,7 +26,7 @@
     "test:native:argv": "node scripts/check-native-launch-argv.mjs",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",
-    "lint": "oxlint && node scripts/check-naming.mjs && node scripts/check-spec-rules.mjs",
+    "lint": "oxlint && node scripts/check-naming.mjs && node scripts/check-spec-rules.mjs && knip --no-progress",
     "check": "tsc -p tsconfig.backend.json --noEmit && tsc -p tsconfig.web.json --noEmit"
   },
   "dependencies": {
@@ -58,6 +58,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "esbuild": "^0.28.2",
     "jsdom": "^30.1.2",
+    "knip": "^6.41.0",
     "oxlint": "^1.82.0",
     "postject": "^1.0.0-alpha.6",
     "tailwindcss": "^4.3.3",

@@ -15,7 +15,7 @@ import { parseUndo, planUndo, UNDO_COMMANDS } from "./undoPlan.js";
 import type { HistorySource, UndoPlan } from "./undoPlan.js";
 import { exactHash } from "./updateJournal.js";
 
-export type BatchFile = { taskId: string; beforeBytes: string; nextBytes: string | null };
+type BatchFile = { taskId: string; beforeBytes: string; nextBytes: string | null };
 export type BatchIntent = { format: "taskdb.pending-batch"; version: 1; root: RootBinding; cachePath: string; request: Request; operationId: string; at: string; sources: HistorySource[]; files: BatchFile[]; guards: FileObservation[] };
 function conflict(): never { throw new CommandError("RECOVERY_CONFLICT", "batch has missing, divergent or invalid evidence; preserve it for inspection"); }
 function stagePath(intent: BatchIntent, index: number): string { return path.join(intent.root.rootPath, "tasks", `.syncthing.taskdb-batch-${intent.operationId}-${index}.tmp`); }

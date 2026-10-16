@@ -15,7 +15,7 @@ import { parseOrder, planOrder, ORDER_COMMANDS } from "./taskOrdering.js";
 import type { OrderPlan } from "./taskOrdering.js";
 import { exactHash } from "./updateJournal.js";
 
-export type OrderFile = { taskId: string; beforeBytes: string; nextBytes: string };
+type OrderFile = { taskId: string; beforeBytes: string; nextBytes: string };
 export type OrderIntent = { format: "taskdb.pending-order"; version: 1; root: RootBinding; cachePath: string; request: Request; operationId: string; at: string; files: OrderFile[]; guards: FileObservation[] };
 function conflict(): never { throw new CommandError("RECOVERY_CONFLICT", "ordering has missing, divergent or invalid evidence; preserve it for inspection"); }
 function stagePath(intent: OrderIntent, index: number): string {

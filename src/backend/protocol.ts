@@ -1,8 +1,8 @@
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
 
-export type ActorKind = "human" | "agent" | "system";
-export type Actor = { kind: ActorKind; label: string };
+type ActorKind = "human" | "agent" | "system";
+type Actor = { kind: ActorKind; label: string };
 export type TaskTransitionCommand = "task.start" | "task.pause" | "task.complete" | "task.reopen" | "task.cancel" | "task.delete";
 export type TaskTransitionItem = { id: string; expectedVersion: number; command: TaskTransitionCommand };
 export type TaskReorderTask = { id: string; expectedVersion: number };

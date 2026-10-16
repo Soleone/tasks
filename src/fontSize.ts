@@ -4,7 +4,7 @@ export type FontSizeIncrease = (typeof FONT_SIZE_INCREASES)[number];
 
 const FONT_SIZE_STORAGE_KEY = "tasks.fontSizeIncrease";
 
-export function isFontSizeIncrease(value: number): value is FontSizeIncrease {
+function isFontSizeIncrease(value: number): value is FontSizeIncrease {
   return FONT_SIZE_INCREASES.includes(value as FontSizeIncrease);
 }
 
@@ -18,7 +18,7 @@ export function readStoredFontSizeIncrease(): FontSizeIncrease {
   }
 }
 
-export function applyFontSizeIncrease(increase: FontSizeIncrease): void {
+function applyFontSizeIncrease(increase: FontSizeIncrease): void {
   const root = document.documentElement;
   if (increase === 0) {
     root.style.removeProperty("font-size");

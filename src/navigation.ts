@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
  */
 export type DestinationId = "list";
 
-export type DestinationHandle = {
+type DestinationHandle = {
   /** Focus the tail of a destination. */
   focusLast: () => void;
 };

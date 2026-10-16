@@ -6,7 +6,7 @@ import type { StatusCommand } from "./taskStatus.js";
 import { parseUpdate } from "./updateInputs.js";
 import type { UpdateInput } from "./updateInputs.js";
 
-export type TaskEditCommand = "task.update" | StatusCommand | typeof RELATIONSHIP_COMMANDS[number];
+type TaskEditCommand = "task.update" | StatusCommand | typeof RELATIONSHIP_COMMANDS[number];
 export type TaskEditRequest = Request & { command: TaskEditCommand };
 export type DecodedTaskEdit =
   | { kind: "content"; input: UpdateInput }

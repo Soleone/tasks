@@ -10,7 +10,7 @@ import { validateGraph, validateManifest, validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { exactHash } from "./updateJournal.js";
 
-export type DoctorFile = { relativePath: string; beforeBytes: string; identity: string };
+type DoctorFile = { relativePath: string; beforeBytes: string; identity: string };
 export type DoctorVersion = { versionRef: string; relativePath: string; taskId: string; sha256: string; canonical: boolean; valid: boolean; task?: CanonicalTask };
 export type DoctorRecord = { taskId: string } | { versionRef: string };
 export type DoctorLink = { record: DoctorRecord; field: "parentId" | "dependencyIds"; fromId: string };
