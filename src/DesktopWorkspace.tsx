@@ -52,7 +52,7 @@ async function inspect(appData: string, folder: string) {
 export default function DesktopWorkspace(): ReactElement {
   const [paths, setPaths] = useState<DesktopPaths | null>(null);
   const [folder, setFolder] = useState("");
-  const [oldFolder, setOldFolder] = useState<string | null>(null);
+  const [oldFolder, setOldFolder] = useState("");
   const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
   const [busy, setBusy] = useState<string | null>("Opening Tasks...");
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export default function DesktopWorkspace(): ReactElement {
         if (cancelled) return;
         setPaths(found);
         setFolder(remembered ?? found.suggestedFolder);
-        setOldFolder(oldExists ? found.oldVersionFolder : null);
+        setOldFolder(oldExists ? found.oldVersionFolder : "");
       } catch (reason) {
         if (!cancelled) setError(message(reason));
       } finally {
@@ -107,8 +107,14 @@ export default function DesktopWorkspace(): ReactElement {
     }
   }
 
-  function openFolder(event: FormEvent): void {
+  // Enter imports while an old folder is filled in, so it never creates an empty folder first.
+  function submit(event: FormEvent): void {
     event.preventDefault();
+    if (oldFolder.trim()) importOldVersion();
+    else openFolder();
+  }
+
+  function openFolder(): void {
     if (!paths || !folder.trim()) return;
     const target = folder.trim();
     void run("Opening the folder...", async () => {
@@ -133,7 +139,7 @@ export default function DesktopWorkspace(): ReactElement {
   }
 
   function importOldVersion(): void {
-    if (!paths || !oldFolder || !folder.trim()) return;
+    if (!paths || !oldFolder.trim() || !folder.trim()) return;
     const target = folder.trim();
     void run("Importing your tasks...", async () => {
       if (await pathExists(target))
@@ -141,7 +147,7 @@ export default function DesktopWorkspace(): ReactElement {
           "The import creates the task folder itself. Pick a folder that doesn't exist yet.",
         );
       await createFolder(await dirname(target));
-      const setup = await FolderSetup.open(paths.appData, oldFolder);
+      const setup = await FolderSetup.open(paths.appData, oldFolder.trim());
       try {
         await setup.importInto(target);
       } finally {
@@ -165,7 +171,7 @@ export default function DesktopWorkspace(): ReactElement {
       </header>
       {busy && <p role="status">{busy}</p>}
       {paths && (
-        <form onSubmit={openFolder} className="flex flex-col gap-6">
+        <form onSubmit={submit} className="flex flex-col gap-6">
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="task-folder">Task folder</FieldLabel>
@@ -183,37 +189,31 @@ export default function DesktopWorkspace(): ReactElement {
                 A new folder starts an empty list. An existing task folder opens as it is.
               </FieldDescription>
             </Field>
-            {oldFolder !== null && (
-              <Field>
-                <FieldLabel htmlFor="old-folder">Tasks from the old version</FieldLabel>
-                <Input
-                  id="old-folder"
-                  value={oldFolder}
-                  onChange={(event) => setOldFolder(event.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={busy !== null}
-                />
-                <FieldDescription>
-                  Import copies them into the task folder, which must not exist yet. The old files
-                  are only read and stay where they are.
-                </FieldDescription>
-              </Field>
-            )}
+            <Field>
+              <FieldLabel htmlFor="old-folder">Tasks from the old version</FieldLabel>
+              <Input
+                id="old-folder"
+                value={oldFolder}
+                onChange={(event) => setOldFolder(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                disabled={busy !== null}
+              />
+              <FieldDescription>
+                The old version's task folder. Import copies its tasks into the task folder, which
+                must not exist yet. The old files are only read and stay where they are.
+              </FieldDescription>
+            </Field>
           </FieldGroup>
           <div className="flex flex-wrap gap-3">
-            {oldFolder !== null && (
-              <Button type="button" onClick={importOldVersion} disabled={busy !== null}>
-                Import and open
+            <Button type="submit" disabled={busy !== null}>
+              {oldFolder.trim() ? "Import and open" : "Open"}
+            </Button>
+            {oldFolder.trim() && (
+              <Button type="button" variant="outline" onClick={openFolder} disabled={busy !== null}>
+                Open without importing
               </Button>
             )}
-            <Button
-              type="submit"
-              variant={oldFolder !== null ? "outline" : "default"}
-              disabled={busy !== null}
-            >
-              {oldFolder !== null ? "Open without importing" : "Open"}
-            </Button>
           </div>
         </form>
       )}
