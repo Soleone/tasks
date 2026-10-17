@@ -15,7 +15,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { contentHash } from "../legacy/backend/requestHash.js";
+import { contentHash } from "./schema1Source.js";
 import type { Response } from "../backend/protocol.js";
 import type { CanonicalTask } from "../backend/taskModel.js";
 
@@ -252,34 +252,10 @@ test(
     const env = {
       ...process.env,
       XDG_DATA_HOME: path.join(directory, "profile"),
-      TASKS_SYNC_ROOT: source,
-      TASKS_SOURCE_REGISTRY_PATH: "",
-      TASKS_DATABASE_PATH: path.join(directory, "legacy.db"),
     };
     seedLegacyRoot(source);
     cpSync(source, backup, { recursive: true });
     const frozenBytes = rawTree(source);
-    const legacy = spawnSync(
-      process.execPath,
-      [cli, "--stdio", "--database", env.TASKS_DATABASE_PATH],
-      {
-        input: JSON.stringify({
-          version: 1,
-          requestId: "legacy-check",
-          command: "task.list",
-          args: { sort: "manual" },
-        }),
-        env,
-        encoding: "utf8",
-        timeout: 10_000,
-      },
-    );
-    assert.equal(legacy.status, 0, legacy.stderr);
-    const legacyResult = JSON.parse(legacy.stdout);
-    assert.equal(legacyResult.ok, true, legacy.stdout);
-    assert.equal(legacyResult.result.total, 8);
-    const legacyCacheBytes = readFileSync(env.TASKS_DATABASE_PATH);
-    assert.deepEqual(rawTree(source), frozenBytes);
     const send = (root: string, cache: string, envelope: object): Response => {
       const child = spawnSync(
         process.execPath,
@@ -381,7 +357,6 @@ test(
     assert.deepEqual(rawTree(destination), convertedBytes);
     assert.deepEqual(rawTree(source), frozenBytes);
     assert.deepEqual(rawTree(backup), frozenBytes);
-    assert.deepEqual(readFileSync(env.TASKS_DATABASE_PATH), legacyCacheBytes);
     assert.equal(
       success(send(source, controlCache, { command: "workspace.info" })).writeContext,
       control.writeContext,

@@ -1,24 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
-import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
-import {
-  exportTasks,
-  getWorkspaceInfo,
-  selectedMainWorkspace,
-  type TasksExportResult,
-} from "@/platform/backendClient";
-import {
-  clearAndroidSyncFolder,
-  getAndroidSyncFolder,
-  pickAndroidSyncFolder,
-  type AndroidDirectorySelection,
-} from "@/legacy/platform/androidWorkspace";
+import { XIcon } from "lucide-react";
+import { getWorkspaceInfo, selectedMainWorkspace } from "@/platform/backendClient";
 import { runtimeKind } from "@/platform/runtime";
 import { rememberFolder } from "@/platform/desktopWorkspace";
-import { APP_NAME } from "@/backend/branding";
 import type { ThemeRecord } from "@/backend/themePalette";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogClose,
@@ -37,14 +24,8 @@ import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { WorkspaceBackup } from "./WorkspaceBackup";
-import {
-  ConfirmationAlert,
-  ConfirmationAlertTitle,
-  ConfirmationAlertActions,
-} from "@/components/variants/alert";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { ReadableTabsTrigger } from "@/components/variants/tabs";
-import { DestructiveButton } from "@/components/variants/button";
 
 type Failure = { title: string; detail: string };
 
@@ -52,10 +33,6 @@ type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
-  onPrepareReceive: () => void;
-  onPurgeCanceled: () => Promise<number>;
-  globalShortcut: string;
-  onGlobalShortcutChange: (shortcut: string) => Promise<void>;
   helpMode: KeyboardHelpMode;
   onHelpModeChange: (mode: KeyboardHelpMode) => void;
   fontSizeIncrease: FontSizeIncrease;
@@ -96,10 +73,6 @@ export function SettingsDialog({
   open,
   onOpenChange,
   finalFocus,
-  onPrepareReceive,
-  onPurgeCanceled,
-  globalShortcut,
-  onGlobalShortcutChange,
   helpMode,
   onHelpModeChange,
   fontSizeIncrease,
@@ -108,25 +81,10 @@ export function SettingsDialog({
   selectedTheme,
   onSelectTheme,
 }: SettingsDialogProps): ReactElement {
-  const isAndroid = runtimeKind() === "android";
-  const selectedWorkspace = selectedMainWorkspace();
+  const workspace = selectedMainWorkspace();
   const settingsTab = useRef<HTMLButtonElement>(null);
-  const exporting = useRef(false);
-  const purging = useRef(false);
   const [databasePath, setDatabasePath] = useState<string | null>(null);
-  const [canceledTaskCount, setCanceledTaskCount] = useState<number | null>(null);
-  const [exported, setExported] = useState<TasksExportResult | null>(null);
-  const [purgedCount, setPurgedCount] = useState<number | null>(null);
-  const [pending, setPending] = useState(false);
-  const [purgingPending, setPurgingPending] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [copiedShortcut, setCopiedShortcut] = useState(false);
-  const [syncFolder, setSyncFolder] = useState<AndroidDirectorySelection | null>(null);
-  const [syncFolderPending, setSyncFolderPending] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
-  const [confirmReceive, setConfirmReceive] = useState(false);
-  const [shortcutDraft, setShortcutDraft] = useState(globalShortcut);
-  const isLinux = navigator.platform.toLowerCase().includes("linux");
 
   // Each opening starts fresh and reads the workspace again.
   const [wasOpen, setWasOpen] = useState(false);
@@ -134,39 +92,16 @@ export function SettingsDialog({
     setWasOpen(open);
     if (open) {
       setDatabasePath(null);
-      setCanceledTaskCount(null);
-      setExported(null);
-      setPurgedCount(null);
-      setCopied(false);
-      setCopiedShortcut(false);
       setFailure(null);
-      setConfirmReceive(false);
-      setSyncFolder(null);
-      setShortcutDraft(globalShortcut);
     }
   }
 
   useEffect(() => {
     if (!open) return;
     let stale = false;
-    if (isAndroid) {
-      getAndroidSyncFolder()
-        .then((folder) => {
-          if (!stale) setSyncFolder(folder);
-        })
-        .catch((caught: unknown) => {
-          if (!stale)
-            setFailure({
-              title: "Could not read the Android sync folder",
-              detail: caught instanceof Error ? caught.message : String(caught),
-            });
-        });
-    }
     getWorkspaceInfo()
       .then((info) => {
-        if (stale) return;
-        setDatabasePath(info.databasePath);
-        setCanceledTaskCount(info.canceledTaskCount);
+        if (!stale) setDatabasePath(info.databasePath);
       })
       .catch((caught: unknown) => {
         if (!stale)
@@ -178,134 +113,7 @@ export function SettingsDialog({
     return () => {
       stale = true;
     };
-  }, [isAndroid, open]);
-
-  async function chooseAndroidSyncFolder(): Promise<void> {
-    if (syncFolderPending) return;
-    setSyncFolderPending(true);
-    setFailure(null);
-    try {
-      setSyncFolder(await pickAndroidSyncFolder());
-      // Verify the chosen workspace now, while the user can still forget it.
-      await getWorkspaceInfo();
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : String(caught);
-      if (!message.includes("ANDROID_FOLDER_PICKER_CANCELLED")) {
-        setFailure({ title: "Could not use the Android sync folder", detail: message });
-      }
-    } finally {
-      setSyncFolderPending(false);
-    }
-  }
-
-  async function clearSelectedAndroidSyncFolder(): Promise<void> {
-    if (syncFolderPending) return;
-    setSyncFolderPending(true);
-    setFailure(null);
-    try {
-      await clearAndroidSyncFolder();
-      setSyncFolder(null);
-    } catch (caught) {
-      setFailure({
-        title: "Could not forget the Android sync folder",
-        detail: caught instanceof Error ? caught.message : String(caught),
-      });
-    } finally {
-      setSyncFolderPending(false);
-    }
-  }
-
-  async function exportNow(): Promise<void> {
-    if (exporting.current) return;
-    exporting.current = true;
-    setPending(true);
-    setExported(null);
-    setCopied(false);
-    setFailure(null);
-    try {
-      setExported(await exportTasks());
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : String(caught);
-      if (!isAndroid || !message.includes("ANDROID_EXPORT_CANCELLED")) {
-        setFailure({ title: "Could not export tasks", detail: message });
-      }
-    } finally {
-      exporting.current = false;
-      setPending(false);
-    }
-  }
-
-  async function saveShortcut(): Promise<void> {
-    setFailure(null);
-    try {
-      await onGlobalShortcutChange(shortcutDraft);
-    } catch (caught) {
-      setFailure({
-        title: "Could not register the global shortcut",
-        detail: caught instanceof Error ? caught.message : String(caught),
-      });
-    }
-  }
-
-  async function purgeCanceledNow(): Promise<void> {
-    if (purging.current) return;
-    purging.current = true;
-    setPurgingPending(true);
-    setPurgedCount(null);
-    setFailure(null);
-    try {
-      const deletedCount = await onPurgeCanceled();
-      setCanceledTaskCount(0);
-      setPurgedCount(deletedCount);
-    } catch (caught) {
-      setFailure({
-        title: "Could not delete canceled tasks",
-        detail: caught instanceof Error ? caught.message : String(caught),
-      });
-    } finally {
-      purging.current = false;
-      setPurgingPending(false);
-    }
-  }
-
-  function omarchyBinding(shortcut: string): string {
-    const parts = shortcut
-      .split("+")
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const key = parts.pop()?.toUpperCase() ?? "SPACE";
-    const keys = [...parts.map((part) => part.toUpperCase()), key].join(" + ");
-    // Tauri exposes the executable name as the Linux WM_CLASS. It is not the
-    // reverse-DNS application identifier used by the desktop bundle.
-    return `o.bind("${keys}", "Tasks", { launch = "tasks", focus = "^tasks$" })`;
-  }
-
-  async function copyShortcutBinding(): Promise<void> {
-    const binding = omarchyBinding(shortcutDraft);
-    try {
-      await navigator.clipboard.writeText(binding);
-      setCopiedShortcut(true);
-    } catch {
-      setFailure({ title: "Could not copy the Hyprland binding", detail: binding });
-    }
-  }
-
-  async function copyPath(path: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(path);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-      setFailure({
-        title: "Could not copy the path",
-        detail: "Select the path and copy it yourself.",
-      });
-    }
-  }
-
-  const exportedPath = exported?.destinationPath ?? null;
-  const exportedCount = exported?.taskCount ?? 0;
-  const exportedLocation = isAndroid ? (exported?.displayName ?? "a document") : exportedPath;
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -521,97 +329,18 @@ export function SettingsDialog({
           </TabsContent>
 
           <TabsContent value="shortcuts" tabIndex={-1}>
-            {selectedWorkspace ? (
-              <section
-                aria-labelledby="settings-shortcut"
-                className="flex flex-col gap-2 rounded-lg border p-4"
-              >
-                <h2 id="settings-shortcut" className="text-sm font-medium">
-                  Global shortcut
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Global window focus is not yet enabled for this selected workspace. In-app
-                  keyboard shortcuts remain available.
-                </p>
-              </section>
-            ) : isAndroid ? (
-              <section
-                aria-labelledby="settings-shortcut"
-                className="flex flex-col gap-2 rounded-lg border p-4"
-              >
-                <h2 id="settings-shortcut" className="text-sm font-medium">
-                  Shortcuts on Android
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  With a hardware keyboard, use the in-app task shortcuts. Android does not support
-                  the desktop global window-focus shortcut; open Tasks from the launcher instead.
-                </p>
-              </section>
-            ) : (
-              <section
-                aria-labelledby="settings-shortcut"
-                className="flex flex-col gap-4 rounded-lg border p-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 id="settings-shortcut" className="text-sm font-medium">
-                    Global shortcut
-                  </h2>
-                  <p id="settings-shortcut-description" className="text-sm text-muted-foreground">
-                    Focuses the {APP_NAME} window even when another app is active. Use modifiers
-                    plus a key, for example <code>Ctrl+Alt+Space</code>.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <label
-                      htmlFor="settings-shortcut-input"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Shortcut
-                    </label>
-                    <Input
-                      id="settings-shortcut-input"
-                      aria-describedby="settings-shortcut-description"
-                      value={shortcutDraft}
-                      onChange={(event) => setShortcutDraft(event.target.value)}
-                      placeholder="Ctrl+Alt+Space"
-                    />
-                  </div>
-                  <Button variant="outline" onClick={() => void saveShortcut()}>
-                    Save
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  This applies to the native desktop app. Wayland may require a compositor binding.
-                </p>
-                {isLinux ? (
-                  <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
-                    <p className="text-sm font-medium">Omarchy / Hyprland</p>
-                    <p className="text-sm text-muted-foreground">
-                      Wayland keeps global shortcuts in Hyprland rather than allowing applications
-                      to register them. Add this Lua binding to{" "}
-                      <code>~/.config/hypr/bindings.lua</code>, then reload Hyprland:
-                    </p>
-                    <code className="wrap-anywhere rounded bg-muted p-2 text-xs">
-                      {omarchyBinding(shortcutDraft)}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-fit"
-                      onClick={() => void copyShortcutBinding()}
-                    >
-                      {copiedShortcut ? "Copied binding" : "Copy Omarchy binding"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      This focuses the existing {APP_NAME} window and launches {APP_NAME} only when
-                      no matching window exists. It does not change your Hyprland files
-                      automatically.
-                    </p>
-                  </div>
-                ) : null}
-              </section>
-            )}
+            <section
+              aria-labelledby="settings-shortcut"
+              className="flex flex-col gap-2 rounded-lg border p-4"
+            >
+              <h2 id="settings-shortcut" className="text-sm font-medium">
+                Global shortcut
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Global window focus is not yet enabled for this selected workspace. In-app keyboard
+                shortcuts remain available.
+              </p>
+            </section>
           </TabsContent>
 
           <TabsContent value="workspace" tabIndex={-1}>
@@ -622,108 +351,29 @@ export function SettingsDialog({
               >
                 <div className="flex flex-col gap-1">
                   <h2 id="settings-sync" className="text-sm font-medium">
-                    {selectedWorkspace ? "Task folder" : "Workspace sync"}
+                    Task folder
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {selectedWorkspace
-                      ? "Each task is a file in this folder."
-                      : "Move an existing workspace to this device through Syncthing."}
+                    Each task is a file in this folder.
                   </p>
                 </div>
-                {selectedWorkspace ? (
-                  <>
-                    <code className="wrap-anywhere text-xs">
-                      {selectedWorkspace.editor.selection.rootPath}
-                    </code>
-                    {runtimeKind() === "desktop" && (
-                      <Button
-                        variant="outline"
-                        className="w-fit"
-                        onClick={() => {
-                          // Setup asks for a folder again on the next start.
-                          rememberFolder(null);
-                          window.location.reload();
-                        }}
-                      >
-                        Change folder…
-                      </Button>
-                    )}
-                  </>
-                ) : isAndroid ? (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      Choose the user-visible folder that Syncthing will share. Tasks imports
-                      canonical JSON on startup and when it returns to the foreground. If this
-                      device already has local tasks, export a portable copy to keep them safe.
-                      Android cannot replace those tasks with an existing workspace yet.
-                    </p>
-                    {syncFolder ? (
-                      <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Selected Android folder
-                        </p>
-                        <code className="wrap-anywhere text-xs">
-                          {syncFolder.path ?? syncFolder.displayName ?? syncFolder.uri}
-                        </code>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={syncFolderPending}
-                            onClick={() => void chooseAndroidSyncFolder()}
-                          >
-                            {syncFolderPending ? "Opening folder picker…" : "Change folder"}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={syncFolderPending}
-                            onClick={() => void clearSelectedAndroidSyncFolder()}
-                          >
-                            Forget folder
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="w-fit"
-                        disabled={syncFolderPending}
-                        onClick={() => void chooseAndroidSyncFolder()}
-                      >
-                        {syncFolderPending
-                          ? "Opening folder picker…"
-                          : "Choose Android sync folder…"}
-                      </Button>
-                    )}
-                  </>
-                ) : !confirmReceive ? (
+                {workspace ? (
+                  <code className="wrap-anywhere text-xs">
+                    {workspace.editor.selection.rootPath}
+                  </code>
+                ) : null}
+                {runtimeKind() === "desktop" && (
                   <Button
                     variant="outline"
                     className="w-fit"
-                    onClick={() => setConfirmReceive(true)}
+                    onClick={() => {
+                      // Setup asks for a folder again on the next start.
+                      rememberFolder(null);
+                      window.location.reload();
+                    }}
                   >
-                    Sync with another device…
+                    Change folder…
                   </Button>
-                ) : (
-                  <ConfirmationAlert>
-                    <ConfirmationAlertTitle>
-                      Replace this device’s workspace?
-                    </ConfirmationAlertTitle>
-                    <AlertDescription>
-                      Your current tasks will be backed up, then the local sync folder will be
-                      emptied. {APP_NAME} will stay locked until an existing workspace arrives
-                      through Syncthing.
-                    </AlertDescription>
-                    <ConfirmationAlertActions>
-                      <Button variant="outline" size="xs" onClick={() => setConfirmReceive(false)}>
-                        Cancel
-                      </Button>
-                      <DestructiveButton size="xs" onClick={onPrepareReceive}>
-                        Back up and continue
-                      </DestructiveButton>
-                    </ConfirmationAlertActions>
-                  </ConfirmationAlert>
                 )}
               </section>
 
@@ -736,94 +386,30 @@ export function SettingsDialog({
                     Local
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {selectedWorkspace
-                      ? "Inspect the selected task folder and local cache."
-                      : "Inspect the local workspace or create a portable export."}
+                    Inspect the selected task folder and local cache.
                   </p>
                 </div>
                 {databasePath ? (
                   <div className="flex flex-col gap-1 rounded-md border bg-muted/20 p-3">
-                    {selectedWorkspace ? (
+                    {workspace ? (
                       <>
                         <p className="text-xs font-medium text-muted-foreground">Task folder</p>
                         <p className="wrap-anywhere font-mono text-xs text-muted-foreground">
-                          {selectedWorkspace.reader.selection.rootPath}
+                          {workspace.reader.selection.rootPath}
                         </p>
                       </>
                     ) : null}
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {selectedWorkspace ? "Local cache" : "SQLite workspace"}
-                    </p>
+                    <p className="text-xs font-medium text-muted-foreground">Local cache</p>
                     <p className="wrap-anywhere font-mono text-xs text-muted-foreground">
-                      {isAndroid ? "Stored privately on this device" : databasePath}
+                      {databasePath}
                     </p>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">Reading the workspace…</p>
                 )}
-                {selectedWorkspace?.supportsBackupRestore ? null : (
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      variant="outline"
-                      className="w-fit"
-                      focusableWhenDisabled
-                      disabled={pending || selectedWorkspace !== null}
-                      onClick={() => void exportNow()}
-                    >
-                      {pending ? "Exporting…" : "Export tasks as JSON"}
-                    </Button>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedWorkspace
-                        ? "Backup and restore currently use explicit CLI controls for this selected workspace."
-                        : isAndroid
-                          ? "Choose where to save a portable JSON document. It can be opened by another app."
-                          : "Writes a readable copy into the exports folder beside the database, for another app to import."}
-                    </p>
-                  </div>
-                )}
               </section>
-
-              <section
-                aria-labelledby="settings-cleanup"
-                className="flex flex-col gap-4 rounded-lg border p-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 id="settings-cleanup" className="text-sm font-medium">
-                    Cleanup
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Permanently remove canceled tasks from this workspace.
-                  </p>
-                </div>
-                <DestructiveButton
-                  className="w-fit"
-                  disabled={
-                    selectedWorkspace !== null ||
-                    isAndroid ||
-                    purgingPending ||
-                    canceledTaskCount === null ||
-                    canceledTaskCount === 0
-                  }
-                  onClick={() => void purgeCanceledNow()}
-                >
-                  {purgingPending
-                    ? "Deleting canceled tasks…"
-                    : "Permanently delete canceled tasks"}
-                </DestructiveButton>
-                <p className="text-sm text-muted-foreground">
-                  {selectedWorkspace
-                    ? "Permanent deletion is not yet available in this selected workspace."
-                    : isAndroid
-                      ? "Permanent deletion is not available on Android yet; canceled tasks remain in the shared workspace."
-                      : canceledTaskCount === null
-                        ? "Reading canceled tasks…"
-                        : canceledTaskCount === 0
-                          ? "There are no canceled tasks to delete."
-                          : `${canceledTaskCount} canceled ${canceledTaskCount === 1 ? "task" : "tasks"} will be permanently deleted.`}
-                </p>
-              </section>
-              {open && selectedWorkspace?.supportsBackupRestore ? (
-                <WorkspaceBackup workspace={selectedWorkspace} />
+              {open && workspace?.supportsBackupRestore ? (
+                <WorkspaceBackup workspace={workspace} />
               ) : null}
             </div>
           </TabsContent>
@@ -847,36 +433,6 @@ export function SettingsDialog({
           <Alert variant="destructive">
             <AlertTitle>{failure.title}</AlertTitle>
             <AlertDescription className="wrap-anywhere">{failure.detail}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {purgedCount !== null ? (
-          <Alert>
-            <AlertTitle>
-              Permanently deleted {purgedCount} canceled {purgedCount === 1 ? "task" : "tasks"}
-            </AlertTitle>
-            <AlertDescription>This cannot be undone.</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {exportedPath ? (
-          <Alert>
-            <AlertTitle>
-              Exported {exportedCount} {exportedCount === 1 ? "task" : "tasks"}
-            </AlertTitle>
-            <AlertDescription className="wrap-anywhere">{exportedLocation}</AlertDescription>
-            {!isAndroid ? (
-              <AlertAction>
-                <Button variant="outline" size="xs" onClick={() => void copyPath(exportedPath)}>
-                  {copied ? (
-                    <CheckIcon data-icon="inline-start" />
-                  ) : (
-                    <CopyIcon data-icon="inline-start" />
-                  )}
-                  {copied ? "Copied" : "Copy path"}
-                </Button>
-              </AlertAction>
-            ) : null}
           </Alert>
         ) : null}
       </AnchoredDialogContent>

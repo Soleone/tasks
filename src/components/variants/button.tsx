@@ -18,8 +18,3 @@ export function ToggleButton({
 }: ButtonProps & { selected?: boolean }) {
   return <Button className={cn(selected && SELECTED, className)} {...props} />;
 }
-
-/** A destructive action whose label stays at normal text contrast on the tinted surface. */
-export function DestructiveButton({ className, ...props }: Omit<ButtonProps, "variant">) {
-  return <Button variant="destructive" className={cn("text-foreground", className)} {...props} />;
-}

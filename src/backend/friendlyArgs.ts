@@ -88,21 +88,12 @@ export type HumanInvocation = {
 export type HumanArgs = HumanInvocation | { help: true; json: boolean };
 
 /** Index of an actual --NAME option. A flag value or a word after -- never counts. */
-export function humanOptionIndex(
-  argv: readonly string[],
-  name: string,
-  legacyValueFlags?: ReadonlySet<string>,
-): number {
+export function humanOptionIndex(argv: readonly string[], name: string): number {
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
     if (token === "--") return -1;
     if (token === `--${name}` || token.startsWith(`--${name}=`)) return index;
-    if (
-      token.startsWith("--") &&
-      !token.includes("=") &&
-      (VALUE_FLAGS.has(token.slice(2)) || legacyValueFlags?.has(token.slice(2)))
-    )
-      index++;
+    if (token.startsWith("--") && !token.includes("=") && VALUE_FLAGS.has(token.slice(2))) index++;
   }
   return -1;
 }
@@ -196,7 +187,7 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
     cachePath = value(flags, "database");
   if (!rootPath?.trim() || !cachePath?.trim())
     usage(
-      "tasks-cli requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace (use --legacy for the old CLI)",
+      "tasks-cli requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace",
     );
   if (!verb) usage("no command; use tasks-cli --root PATH --help");
   let command: string,
@@ -414,8 +405,7 @@ export function humanUsage(): string {
 
   tasks-cli --root PATH --database CACHE_OUTSIDE_ROOT COMMAND [OPTIONS]
   No environment, registry, default database, initialization or adoption fallback.
-  tasks-cli --legacy ... runs the old CLI until cutover.
-  Linux writes only. Pause other writers/sharing before destructive work.
+  Pause other writers/sharing before destructive work.
 
 QUERIES
   info | list [SEARCH] | show ID | categories | tags
@@ -437,8 +427,8 @@ WRITES
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
   init | rebuild | archive DESTINATION | restore SOURCE DESTINATION
   migrate DESTINATION | recover OPERATION_ID
-  Copy/migration never switches selection or enables sharing. Rollback selects the
-  preserved schema 1 folder with the old client; later edits stay separate.
+  Copy/migration never switches selection or enables sharing. Migration only reads the
+  schema 1 folder; later edits in the new folder are never copied back.
   Ordering, batches and doctor remain advanced JSON-lines controls, not new verbs.
 
 OUTPUT AND RETRIES

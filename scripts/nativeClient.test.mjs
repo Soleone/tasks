@@ -58,7 +58,7 @@ const info = {
   workspaceRevision: 1,
 };
 
-function desktop(t, android = false) {
+function desktop(t) {
   const beforeWindow = Object.getOwnPropertyDescriptor(globalThis, "window"),
     beforeNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator"),
     beforeFetch = globalThis.fetch;
@@ -68,7 +68,7 @@ function desktop(t, android = false) {
   });
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
-    value: { userAgent: android ? "Android" : "Windows NT 10.0" },
+    value: { userAgent: "Windows NT 10.0" },
   });
   globalThis.fetch = () => {
     throw new Error("Native test must never use HTTP");
@@ -187,14 +187,9 @@ test("native lost reply preserves original request through same-selection proces
   assert.equal(state.launches.length, 2);
   for (const launched of state.launches) assert.deepEqual(launched, argv);
 });
-test("native Android and missing-native-session remain withheld", async (t) => {
-  desktop(t, true);
-  const state = sessionFixture(t, () => info);
-  assert.throws(() => new EditorClient(state.session, editorSelection), /unavailable on Android/);
+test("native editing without its desktop session is refused", (t) => {
+  desktop(t);
   assert.throws(() => new EditorClient("http://127.0.0.1", editorSelection), /browser-only/);
-  const reader = new WorkspaceReader(selection, undefined, state.session);
-  await assert.rejects(() => reader.workspaceInfo(), /not available on Android/);
-  assert.equal(state.launches.length, 0);
 });
 
 test("main-client presentation preserves literal text and round-trips inline classification", () => {

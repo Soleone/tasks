@@ -49,7 +49,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import {
-  BackendCommandError,
   deleteTask,
   reorderTasks,
   transitionTask,
@@ -709,14 +708,11 @@ export function TaskList({
         onAnnounce(switchedToManual ? `Switched to manual order. ${move}` : move);
         list.current?.focus();
       } catch (caught) {
-        if (
-          (caught instanceof BackendCommandError || caught instanceof EditorError) &&
-          caught.code === "STALE_TASK_VERSION"
-        ) {
+        if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
           reorderReceipt.current = null;
           onAnnounce("A selected task changed elsewhere. Refresh and try again.");
           void onRefresh(0);
-        } else if (caught instanceof BackendCommandError || caught instanceof EditorError) {
+        } else if (caught instanceof EditorError) {
           reorderReceipt.current = null;
           onAnnounce(caught.message);
         } else {
@@ -856,7 +852,7 @@ export function TaskList({
       onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
     } catch (caught) {
       onAnnounce(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? `${task.title} changed elsewhere. Refresh and try again.`
           : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
       );
@@ -897,10 +893,7 @@ export function TaskList({
         `${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`,
       );
     } catch (caught) {
-      if (
-        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
-        caught.code === "STALE_TASK_VERSION"
-      ) {
+      if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
         batchTransitionReceiptRef.current = null;
         onAnnounce("A selected task changed elsewhere. Refresh and try again.");
         void onRefresh(0);
@@ -1001,7 +994,7 @@ export function TaskList({
       onAnnounce(`${task.title}: priority ${label}`);
     } catch (caught) {
       onAnnounce(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? `${task.title} changed elsewhere. Refresh and try again.`
           : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
       );
@@ -1031,10 +1024,7 @@ export function TaskList({
       setSelection([], null);
       onCanceled(result.task);
     } catch (caught) {
-      if (
-        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
-        caught.code === "STALE_TASK_VERSION"
-      ) {
+      if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
         onAnnounce(`${task.title} changed elsewhere. Refresh and try again.`);
         void onRefresh();
       } else {
@@ -1073,10 +1063,7 @@ export function TaskList({
       else result.tasks.forEach((task) => onCanceled(task));
       onAnnounce(`Canceled ${result.tasks.length} tasks`);
     } catch (caught) {
-      if (
-        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
-        caught.code === "STALE_TASK_VERSION"
-      ) {
+      if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
         batchTransitionReceiptRef.current = null;
         onAnnounce("A selected task changed elsewhere. Refresh and try again.");
         void onRefresh(0);

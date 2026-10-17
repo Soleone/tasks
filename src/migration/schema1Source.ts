@@ -53,7 +53,8 @@ type CanonicalOrderFile = {
   sync: CanonicalSync;
 };
 
-function contentHash(value: unknown): string {
+/** The schema 1 record hash, exported so tests can sign the records they edit. */
+export function contentHash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 

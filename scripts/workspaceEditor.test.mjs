@@ -129,12 +129,12 @@ for (const argv of [
   ["--edit"],
   ["--database", "cache"],
   ["--root", "root", "--edit"],
-  ["--root", "root", "--database", "cache", "--legacy"],
+  ["--root", "root", "--database", "cache", "--edit"],
 ]) {
   test(`editor launcher refuses incomplete or mixed selection ${JSON.stringify(argv)}`, () =>
     assert.throws(() => devWebOptions(argv)));
 }
-test("an explicit root opens the editor, keeps Vite separation and never falls back to legacy", () => {
+test("an explicit root opens the editor and keeps Vite separation", () => {
   const options = devWebOptions([
     "--root",
     "root",
@@ -144,7 +144,6 @@ test("an explicit root opens the editor, keeps Vite separation and never falls b
     "--host",
     "127.0.0.1",
   ]);
-  assert.equal(options.legacy, false);
   assert.deepEqual(options.backendArgs, [
     "--root",
     path.resolve("root"),
@@ -155,7 +154,7 @@ test("an explicit root opens the editor, keeps Vite separation and never falls b
   assert.throws(() => startDevServer({}), /requires explicit/);
 });
 
-test("editor handshake refuses a legacy bridge; health creates no cache or profile", async (t) => {
+test("editor health creates no cache or profile", async (t) => {
   const selected = workspace(t),
     original = bytes(selected.root);
   const writable = await server(t, selected);
@@ -163,14 +162,6 @@ test("editor handshake refuses a legacy bridge; health creates no cache or profi
   assert.deepEqual(writable.handshake.writeCommands, linuxEditorCommands);
   assert.equal(existsSync(selected.cache), false);
   assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
-  const legacy = await startDevServer({
-    port: 0,
-    databasePath: path.join(selected.directory, "legacy.db"),
-    legacy: true,
-  });
-  t.after(() => new Promise((resolve) => legacy.server.close(resolve)));
-  await assert.rejects(readEditorSelection(legacy.url), /No legacy fallback/);
-  assert.equal(existsSync(path.join(selected.directory, "legacy.db")), false);
   assert.deepEqual(bytes(selected.root), original);
 });
 
@@ -346,7 +337,7 @@ test("no-op preview/apply retains task bytes/time/version and stores only a succ
 
 for (const failure of [
   "lost-reply",
-  "legacy-response",
+  "version-1-response",
   "wrong-correlation",
   "wrong-context",
   "missing-operation",
@@ -362,7 +353,7 @@ for (const failure of [
         const body = await response.json();
         assert.equal(body.ok, true);
         if (failure === "lost-reply") throw new TypeError("lost reply after commit");
-        if (failure === "legacy-response") body.version = 1;
+        if (failure === "version-1-response") body.version = 1;
         if (failure === "wrong-correlation") body.requestId = "another";
         if (failure === "wrong-context") body.writeContext = "other-authority";
         if (failure === "missing-operation") delete body.result.operationId;
@@ -552,7 +543,7 @@ test("lost receipt authority after a committed/lost reply refuses original creat
   assert.equal(readdirSync(path.join(selected.root, "tasks")).length, 5);
 });
 
-for (const kind of ["empty", "legacy"]) {
+for (const kind of ["empty", "schema 1"]) {
   test(`editor preparation refuses ${kind} roots without initialization/adoption/fallback`, async (t) => {
     const selected = workspace(t);
     rmSync(selected.root, { recursive: true });
@@ -565,7 +556,7 @@ for (const kind of ["empty", "legacy"]) {
   });
 }
 
-test("native editor construction is refused without launching any legacy/process", async (t) => {
+test("native editor construction is refused without launching a process", async (t) => {
   const selected = workspace(t),
     { dev, handshake } = await server(t, selected);
   const originalWindow = globalThis.window;
@@ -693,7 +684,7 @@ for (const failure of [
   "lost-reply",
   "wrong-task",
   "wrong-context",
-  "legacy-response",
+  "version-1-response",
   "missing-operation",
 ]) {
   test(`status executing ${failure} retains context/version/command and replays without negotiation`, async (t) => {
@@ -711,7 +702,7 @@ for (const failure of [
       if (failure === "lost-reply") throw new TypeError("lost status reply after commit");
       if (failure === "wrong-task") body.result.task.id = "other-task";
       if (failure === "wrong-context") body.writeContext = "other-context";
-      if (failure === "legacy-response") body.version = 1;
+      if (failure === "version-1-response") body.version = 1;
       if (failure === "missing-operation") delete body.result.operationId;
       return new Response(JSON.stringify(body));
     });

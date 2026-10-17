@@ -21,12 +21,10 @@ const noCva = {
 
 export default defineConfig({
   staged: { "*": "vp check --fix" },
-  // Fixtures and frozen evidence keep their exact bytes, legacy code is deleted at cutover, and
-  // Markdown tables stay unpadded so a spec rule edit is a one-line diff.
+  // Fixtures and frozen evidence keep their exact bytes, and Markdown tables stay unpadded so a spec rule edit is a one-line diff.
   fmt: {
     ignorePatterns: [
       ...vendored,
-      "src/legacy/**",
       "scripts/fixtures/**",
       "docs/evidence/**",
       "src-tauri/**",
@@ -101,11 +99,11 @@ export default defineConfig({
     },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],
-  // Client tests render the app in jsdom. Backend, legacy and migration tests run under node --test.
+  // Client tests render the app in jsdom. Backend and migration tests run under node --test.
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
-    exclude: ["src/backend/**", "src/legacy/**", "src/migration/**", "**/node_modules/**"],
+    exclude: ["src/backend/**", "src/migration/**", "**/node_modules/**"],
     setupFiles: ["src/testing/setup.ts"],
     globalSetup: ["src/testing/workspaceServer.ts"],
   },

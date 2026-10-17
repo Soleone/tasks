@@ -16,7 +16,6 @@ fn create_folder(path: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![path_exists, create_folder])
         .setup(|app| {
             #[cfg(target_os = "linux")]

@@ -46,7 +46,7 @@ export type UnresolvedTaskRequest = {
   preserveForReconciliation: () => void;
 };
 
-/** One explicitly selected workspace for the established UI, with no legacy transport fallback. */
+/** One explicitly selected workspace for the established UI. */
 export class MainWorkspace {
   private writing = false;
   private reconciliationRequired = false;

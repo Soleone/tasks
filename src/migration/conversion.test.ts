@@ -17,9 +17,9 @@ import os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { contentHash } from "../legacy/backend/requestHash.js";
 import { readCanonicalRoot } from "../backend/canonicalReader.js";
 import {
+  contentHash,
   normalizeSchema1MigrationTimestamp,
   readSchema1MigrationSnapshot,
   Schema1MigrationSourceError,

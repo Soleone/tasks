@@ -2,7 +2,7 @@ import { execFileSync, spawn } from "node:child_process";
 import path from "node:path";
 import { devWebOptions } from "./dev-web-options.mjs";
 
-const { backendArgs, viteArgs, legacy } = devWebOptions(process.argv.slice(2));
+const { backendArgs, viteArgs } = devWebOptions(process.argv.slice(2));
 const root = path.resolve(import.meta.dirname, "..");
 
 execFileSync("pnpm", ["build:backend"], {
@@ -23,7 +23,7 @@ const vite = spawn(
   {
     cwd: root,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, VITE_TASKS_LEGACY: legacy ? "1" : "0" },
+    env: process.env,
   },
 );
 

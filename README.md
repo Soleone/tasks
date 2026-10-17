@@ -25,7 +25,7 @@ XDG_DATA_HOME="$scratch/profile" pnpm dev:web \
 
 Open the URL Vite prints, confirm the folder, cache and profile, and the task list opens. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
 
-The cache must sit outside the task folder. There is no default workspace; `pnpm dev:web --legacy` runs the old app until cutover.
+The cache must sit outside the task folder. There is no default workspace.
 
 ## Use the CLI
 

@@ -1,9 +1,4 @@
 import type { Child, Command } from "@tauri-apps/plugin-shell";
-import {
-  parseResponse,
-  type ProtocolRequest,
-  type ProtocolResponse,
-} from "../legacy/backend/protocol";
 
 type CorrelatedResponse = { requestId: string | null };
 
@@ -179,21 +174,5 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
     } catch {
       // The process may have exited between the failure and cleanup.
     }
-  }
-}
-
-export class BackendSession extends JsonLineSession<ProtocolResponse> {
-  constructor(
-    makeCommand: () => Promise<Command<string>> = async () => {
-      const { Command } = await import("@tauri-apps/plugin-shell");
-      return Command.sidecar("binaries/tasks-backend", ["--stdio"]);
-    },
-    requestTimeoutMs = REQUEST_TIMEOUT_MS,
-  ) {
-    super(makeCommand, parseResponse, requestTimeoutMs);
-  }
-
-  override request(request: ProtocolRequest): Promise<ProtocolResponse> {
-    return super.request(request);
   }
 }

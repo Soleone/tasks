@@ -12,8 +12,6 @@
   ],
   "permissions": [
     "core:default",
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-unregister",
     "shell:allow-kill",
     "shell:allow-stdin-write",
     {

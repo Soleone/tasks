@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -21,12 +21,10 @@ if (!existsSync(cliBinary)) {
 }
 
 const probeDirectory = mkdtempSync(path.join(os.tmpdir(), "tasks-sidecar-check-"));
-const databasePath = path.join(probeDirectory, "probe.db");
+const rootPath = path.join(probeDirectory, "root");
+const databasePath = path.join(probeDirectory, "cache.db");
 const environment = {
   ...process.env,
-  TASKS_DATABASE_PATH: databasePath,
-  TASKS_SYNC_ROOT: path.join(probeDirectory, "sync"),
-  TASKS_SOURCE_REGISTRY_PATH: "",
   XDG_DATA_HOME: path.join(probeDirectory, "local-data"),
   APPDATA: path.join(probeDirectory, "local-data"),
 };
@@ -36,32 +34,23 @@ environment.PATH =
     : "/usr/bin:/bin";
 delete environment.NODE_PATH;
 delete environment.NODE_OPTIONS;
+const selection = ["--root", rootPath, "--database", databasePath];
+const run = (file, args, input) =>
+  execFileSync(file, args, { cwd: root, encoding: "utf8", env: environment, input });
 
 try {
-  const output = execFileSync(binary, ["--probe", "--database", databasePath], {
-    cwd: root,
-    encoding: "utf8",
-    env: environment,
-  });
-  const response = JSON.parse(output);
+  mkdirSync(rootPath);
+  run(cliBinary, [...selection, "init", "--json"]);
+  run(cliBinary, [...selection, "add", "Sidecar search probe", "--json"]);
+  console.log(`PASS: ${path.relative(root, cliBinary)} started a folder and added a task.`);
 
-  if (!response.ok || !response.result?.fts5Enabled || response.result.searchMatches !== 1) {
-    throw new Error(response.error?.message ?? "Sidecar probe did not pass");
-  }
-
-  console.log(`PASS: ${path.relative(root, binary)} returned an FTS5 probe result.`);
-
-  const cliOutput = execFileSync(cliBinary, ["info", "--json", "--database", databasePath], {
-    cwd: root,
-    encoding: "utf8",
-    env: environment,
-  });
-  const info = JSON.parse(cliOutput);
-  if (info.databasePath !== databasePath || typeof info.taskCount !== "number") {
-    throw new Error("tasks-cli info did not report the expected workspace");
-  }
-
-  console.log(`PASS: ${path.relative(root, cliBinary)} reported its workspace as JSON.`);
+  const request = { version: 2, command: "task.list", args: { search: "probe" } };
+  const response = JSON.parse(
+    run(binary, ["--stdio", ...selection], `${JSON.stringify(request)}\n`),
+  );
+  if (!response.ok || response.result.total !== 1)
+    throw new Error(response.error?.message ?? "Sidecar search did not find the probe task");
+  console.log(`PASS: ${path.relative(root, binary)} found the task through search.`);
 } finally {
   rmSync(probeDirectory, { recursive: true, force: true });
 }

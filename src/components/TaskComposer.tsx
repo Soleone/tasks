@@ -18,9 +18,9 @@ import {
   listTags,
   updateTask,
   selectedMainWorkspace,
-  BackendCommandError,
   type TaskMutationResult,
 } from "@/platform/backendClient";
+import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -394,7 +394,7 @@ export function TaskComposer({
       onSaved(result);
     } catch (caught) {
       setError(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? "This task changed elsewhere. Your draft is still here. Copy any changes you want to keep, then cancel and reopen the task."
           : caught instanceof Error
             ? caught.message

@@ -4,7 +4,7 @@ Read [PLAN.md](PLAN.md) for state, decisions and gates, [GUIDELINES.md](GUIDELIN
 
 ## Scope
 
-The owner is the only user. The app is moving completely to the new engine: no permanent coexistence, compatibility facades or adapter frameworks. Legacy code in `src/legacy/` ([src/LEGACY.md](src/LEGACY.md)) is deleted at cutover; don't extend it or copy its patterns. Only `src/migration/` reads schema 1.
+The owner is the only user. The old engine is deleted; don't bring back coexistence, compatibility facades or adapter frameworks. Only `src/migration/` reads schema 1, through the owner-only `pnpm migrate`.
 
 A generic "proceed" authorizes at most the next approved stage or task in PLAN.md; SQ readiness is not approval. Stop at its checkpoint or at any unresolved host, contract or tooling blocker. Don't resume deferred work because an older handoff says to.
 

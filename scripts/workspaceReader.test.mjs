@@ -132,30 +132,18 @@ function processCommand(args, launches, responses) {
   };
 }
 
-test("dev launcher requires an explicit root or --legacy and keeps Vite arguments separate", () => {
-  assert.deepEqual(devWebOptions(["--legacy"]), {
-    backendArgs: ["--legacy"],
-    viteArgs: [],
-    legacy: true,
-  });
-  assert.deepEqual(devWebOptions(["--legacy", "--", "--host", "127.0.0.1"]), {
-    backendArgs: ["--legacy"],
-    viteArgs: ["--host", "127.0.0.1"],
-    legacy: true,
-  });
+test("dev launcher requires an explicit root and keeps Vite arguments separate", () => {
   assert.deepEqual(
     devWebOptions(["--root", "fixture", "--database", "cache.db", "--", "--port", "5231"]),
     {
       backendArgs: ["--root", path.resolve("fixture"), "--database", path.resolve("cache.db")],
       viteArgs: ["--port", "5231"],
-      legacy: false,
     },
   );
 });
 for (const argv of [
   [],
   ["--", "--host", "127.0.0.1"],
-  ["--legacy", "--root", "root"],
   ["--root", "root"],
   ["--root"],
   ["--root", "--database", "cache"],
@@ -275,7 +263,7 @@ test("sidecar selection accepts explicit absolute paths and exact argv only", ()
   );
   assert.throws(
     () => new WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }),
-    /No legacy sidecar was launched/,
+    /Native launch is unavailable here/,
   );
 });
 
@@ -298,23 +286,12 @@ test("health discovers explicit selection without reading/initializing root or c
   assert.deepEqual(canonicalBytes(selected.rootPath), original);
 });
 
-test("dev bridge requires an explicit cache despite legacy environment defaults", async (t) => {
+test("dev bridge requires an explicit cache", (t) => {
   const selected = workspace(t);
-  const original = process.env.TASKS_DATABASE_PATH;
-  process.env.TASKS_DATABASE_PATH = path.join(selected.directory, "legacy-trap.db");
-  try {
-    assert.throws(
-      () => startDevServer({ port: 0, root: selected.rootPath }),
-      /no default workspace/,
-    );
-  } finally {
-    if (original === undefined) delete process.env.TASKS_DATABASE_PATH;
-    else process.env.TASKS_DATABASE_PATH = original;
-  }
-  assert.equal(existsSync(path.join(selected.directory, "legacy-trap.db")), false);
+  assert.throws(() => startDevServer({ port: 0, root: selected.rootPath }), /no default workspace/);
 });
 
-test("dev bridge refuses unconnected commands, stale/missing selection and legacy frames without effects", async (t) => {
+test("dev bridge refuses unconnected commands, stale/missing selection and version 1 frames without effects", async (t) => {
   const selected = workspace(t);
   const original = canonicalBytes(selected.rootPath);
   const { dev, selected: handshake } = await devReader(t, selected);
@@ -327,7 +304,7 @@ test("dev bridge refuses unconnected commands, stale/missing selection and legac
     [request(), "old-server", "STALE_DEV_SELECTION"],
     [request(), undefined, "STALE_DEV_SELECTION"],
     [
-      { version: 1, requestId: "legacy", command: "task.list" },
+      { version: 1, requestId: "version-1", command: "task.list" },
       handshake.selectionToken,
       "INVALID_REQUEST",
     ],
@@ -348,16 +325,8 @@ test("dev bridge refuses unconnected commands, stale/missing selection and legac
   assert.equal(existsSync(selected.databasePath), false);
 });
 
-test("browser client refuses legacy endpoints and mismatched selected paths", async (t) => {
+test("browser client refuses mismatched selected paths", async (t) => {
   const selected = workspace(t);
-  const dev = await startDevServer({
-    port: 0,
-    databasePath: path.join(selected.directory, "legacy.db"),
-    legacy: true,
-  });
-  t.after(() => new Promise((resolve) => dev.server.close(resolve)));
-  await assert.rejects(readEditorSelection(dev.url), /No legacy fallback/);
-  assert.equal(existsSync(path.join(selected.directory, "legacy.db")), false);
   const { dev: bridge, selected: handshake } = await devReader(t, selected);
   assert.throws(
     () =>
@@ -402,7 +371,7 @@ test("reader selection is a fixed private snapshot, not a mutable caller referen
   assert.ok(Object.isFrozen(reader.selection));
 });
 
-test("empty and legacy roots are inspected without initialization or fallback", async (t) => {
+test("empty and schema 1 roots are inspected without initialization or fallback", async (t) => {
   const selected = workspace(t);
   const empty = path.join(selected.directory, "empty");
   mkdirSync(empty);
@@ -423,27 +392,6 @@ test("empty and legacy roots are inspected without initialization or fallback", 
   assert.equal((await reader.workspaceInfo()).state, "unsupported");
   await assert.rejects(reader.tasks(), /UNSUPPORTED_SCHEMA/);
   assert.deepEqual(canonicalBytes(legacy), legacyBefore);
-});
-
-test("adoption refuses retained legacy cache authority without changing its database", async (t) => {
-  const selected = workspace(t);
-  const legacy = path.join(selected.directory, "legacy-source");
-  cpSync("scripts/fixtures/schema1/sync", legacy, { recursive: true });
-  const { executeCommand } = await import("../dist/legacy/backend/commands.js");
-  const { parseRequest } = await import("../dist/legacy/backend/protocol.js");
-  const { withCanonicalRootPath } = await import("../dist/legacy/backend/canonicalWorkspace.js");
-  withCanonicalRootPath(selected.databasePath, legacy, () =>
-    executeCommand(
-      parseRequest({ version: 1, requestId: "legacy-cache", command: "workspace.info" }),
-      selected.databasePath,
-    ),
-  );
-  const before = readFileSync(selected.databasePath, "base64");
-  const original = canonicalBytes(selected.rootPath);
-  const { reader } = await devReader(t, selected);
-  await assert.rejects(reader.workspaceInfo(), /INVALID_STORAGE/);
-  assert.equal(readFileSync(selected.databasePath, "base64"), before);
-  assert.deepEqual(canonicalBytes(selected.rootPath), original);
 });
 
 test("conflicts are reported separately and no alternate is silently adopted", async (t) => {

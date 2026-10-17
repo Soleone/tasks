@@ -13,9 +13,9 @@ Friendly CLI / JSON-lines CLI -------------------------------> gateway
                                                                -> canonical JSON + local SQLite authority
 ```
 
-The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms the selected root, cache and profile before opening `App`. `MainWorkspace` routes supported actions and refuses withheld ones without legacy fallback.
+The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms the selected root, cache and profile before opening `App`. `MainWorkspace` routes supported actions and refuses the rest.
 
-`pnpm dev:web` and `tasks-cli` use the current engine and require `--root`; `--legacy` reaches the old app and CLI until cutover. Native desktop and Android builds still start the legacy app. Legacy code lives in `src/legacy/` (see [src/LEGACY.md](../src/LEGACY.md)) and is deleted at cutover. Do not relabel browser checks as native acceptance.
+`pnpm dev:web`, `tasks-cli` and `tasks-backend` require `--root`; there is no default workspace. Do not relabel browser checks as native acceptance.
 
 Keep domain rules independent of React, Tauri and transport. The gateway owns validation, command execution and storage effects; clients own presentation and immutable request preparation. Reuse the existing UI instead of another workbench or a generic adapter/writer framework.
 
@@ -47,8 +47,6 @@ Confirm the displayed root/cache/profile before querying. Reload requires confir
 
 Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to `127.0.0.1:5174`; `TASKS_DEV_BACKEND_PORT` changes its port. `pnpm dev:backend` runs only the bridge. `pnpm dev` runs only Vite; `VITE_DEV_BACKEND_URL` selects a separately started bridge. The development listener and per-process selection token are not a production hosting or filesystem security boundary.
 
-For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`, `TASKS_SYNC_ROOT` and `XDG_DATA_HOME` pointing at scratch paths; without them the legacy app uses application defaults and may reach personal data.
-
 ## Validation
 
 | Command | Scope |
@@ -58,8 +56,8 @@ For a legacy regression, run `pnpm dev:web --legacy` with `TASKS_DATABASE_PATH`,
 | `pnpm test` | File-backed backend regressions, then client tests (`vp test`, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
 | `pnpm build` | Types, backend and frontend build |
 | `pnpm build:backend` | Prepare `dist/backend` for focused script tests |
-| `pnpm test:sidecar` | Bundled Node SEA probe on the actual host |
-| `pnpm test:ui` | Default legacy UI Chromium regression on disposable data |
+| `pnpm test:sidecar` | Bundled Node SEA smoke check on the actual host |
+| `pnpm test:ui` | UI Chromium regression over the dev bridge on disposable data |
 | `node --test scripts/mainClientRouting.test.mjs scripts/appearancePreferences.test.mjs` | Client routing and stored appearance checks |
 
 `pnpm build` builds the backend before Vite clears `dist/`; rebuild the backend before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.
@@ -82,13 +80,13 @@ Build on the machine the app runs on, from a local checkout (on Windows an NTFS 
 - `pnpm dev:native` builds the sidecar if needed and runs `tauri dev` with hot reload.
 - `pnpm build:tauri` builds the sidecar and the release app. The app is `src-tauri/target/release/tasks(.exe)`; installers land in `src-tauri/target/release/bundle/`.
 
-The app opens the remembered task folder and keeps one cache per folder in its app data folder (`%APPDATA%\com.soleone.tasks` on Windows, `~/.local/share/com.soleone.tasks` on Linux). The first launch asks for a folder and offers to import the old version's tasks from `sync` in that same app data folder; import only reads them. Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
+The app opens the remembered task folder and keeps one cache per folder in its app data folder (`%APPDATA%\com.soleone.tasks` on Windows, `~/.local/share/com.soleone.tasks` on Linux). The first launch asks for a folder. The old version's tasks are converted outside the app with `pnpm migrate` ([runbook](migration.md)). Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
 
-On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browser or WSLg session does not establish Omarchy desktop/global-shortcut support. Separately approve native work before pursuing it.
+On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browser or WSLg session does not establish Omarchy desktop support. Global focus is deferred; the old implementation is in git (`src/platform/globalShortcut.ts` before the legacy removal). Separately approve native work before pursuing it.
 
 ## Android
 
-Android is dropped until it is ported to the new engine. The old Android runtime in `src/legacy/platform/` is deleted at cutover; its emulator setup and release signing steps are in git history (`f568d2b:AGENTS.md`, `f568d2b:docs/development.md`).
+Android is dropped until it is ported to the new engine. The old Android runtime is deleted; its emulator setup and release signing steps are in git history (`f568d2b:AGENTS.md`, `f568d2b:docs/development.md`).
 
 ## Storage and retry safety
 

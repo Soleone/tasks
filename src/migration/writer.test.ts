@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
@@ -16,14 +15,12 @@ import { createCopyTestWorkspace } from "../backend/copyTestWorkspace.js";
 import { fail, send, success } from "../backend/copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "../backend/copyTestWorkspace.js";
 import { readCanonicalRoot } from "../backend/canonicalReader.js";
-import { readSchema1MigrationSnapshot } from "./schema1Source.js";
+import { contentHash, readSchema1MigrationSnapshot } from "./schema1Source.js";
 import { SCHEMA1_ROLLBACK_WARNING } from "./journal.js";
-import { contentHash } from "../legacy/backend/requestHash.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const v1 = path.join(fixtures, "schema1/sync");
 const golden = path.join(fixtures, "workspace/root");
-const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "workspace/cases.json"), "utf8")) as {
@@ -221,7 +218,7 @@ test(
 );
 
 test(
-  "public migration executes rollback via explicit fresh v2 selection then preserved v1 client, retaining later edits",
+  "public migration rollback keeps the schema 1 bytes in the folder and archive, and later edits only in the new folder",
   linuxOnly,
   (t) => {
     const entry = corpus.cases.find((entry) => entry.id === "rollback")!;
@@ -269,30 +266,6 @@ test(
     for (const file of recovery.files)
       writeFileSync(path.join(preserved, file.relativePath), Buffer.from(file.bytes, "base64"));
     assert.deepEqual(rawFiles(preserved), before);
-    const child = spawnSync(
-      process.execPath,
-      [cli, "--stdio", "--database", path.join(workspace.directory, "rollback-v1.db")],
-      {
-        input: JSON.stringify({
-          version: 1,
-          requestId: "rollback-v1",
-          command: "task.list",
-          args: { sort: "manual" },
-        }),
-        encoding: "utf8",
-        timeout: 10_000,
-        env: { ...process.env, TASKS_SYNC_ROOT: preserved },
-      },
-    );
-    assert.equal(child.status, 0, child.stderr);
-    const restored = JSON.parse(child.stdout);
-    assert.equal(restored.ok, true, child.stdout);
-    assert.equal(restored.result.total, 4);
-    assert.equal(
-      restored.result.tasks.find((task: { id: string }) => task.id === id).title,
-      "Plan launch @planning #product",
-    );
-    assert.deepEqual(rawFiles(preserved), before);
     assert.deepEqual(rawFiles(workspace.root), before);
     assert.equal(
       readCanonicalRoot(workspace.destination).tasks.find((task) => task.id === id)!.title,
@@ -301,35 +274,19 @@ test(
   },
 );
 
-test(
-  "migration refuses selected schema two and never imports a v1 database as control authority",
-  linuxOnly,
-  (t) => {
-    const workspace = createCopyTestWorkspace(t, v1);
-    const schema2 = path.join(workspace.directory, "schema2");
-    cpSync(golden, schema2, { recursive: true });
-    fail(
-      send(
-        { ...workspace, root: schema2 },
-        { command: "workspace.migrate", args: { destinationDirectory: workspace.destination } },
-      ),
-      "MIGRATION_INVALID_SOURCE",
-    );
-    const legacyCache = path.join(workspace.directory, "old-v1.db");
-    const child = spawnSync(process.execPath, [cli, "--stdio", "--database", legacyCache], {
-      input: JSON.stringify({ version: 1, requestId: "v1-cache", command: "task.list" }),
-      encoding: "utf8",
-      timeout: 10_000,
-      env: { ...process.env, TASKS_SYNC_ROOT: workspace.root },
-    });
-    assert.equal(child.status, 0, child.stderr);
-    fail(
-      send({ ...workspace, cache: legacyCache }, { command: "workspace.info" }),
-      "INVALID_STORAGE",
-    );
-    const request = prepare(workspace);
-    rmSync(workspace.cache);
-    fail(send(workspace, request), "STALE_WRITE_CONTEXT");
-    assert.equal(existsSync(workspace.destination), false);
-  },
-);
+test("migration refuses selected schema two and a lost cache", linuxOnly, (t) => {
+  const workspace = createCopyTestWorkspace(t, v1);
+  const schema2 = path.join(workspace.directory, "schema2");
+  cpSync(golden, schema2, { recursive: true });
+  fail(
+    send(
+      { ...workspace, root: schema2 },
+      { command: "workspace.migrate", args: { destinationDirectory: workspace.destination } },
+    ),
+    "MIGRATION_INVALID_SOURCE",
+  );
+  const request = prepare(workspace);
+  rmSync(workspace.cache);
+  fail(send(workspace, request), "STALE_WRITE_CONTEXT");
+  assert.equal(existsSync(workspace.destination), false);
+});

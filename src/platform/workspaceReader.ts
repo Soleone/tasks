@@ -10,7 +10,6 @@ import {
 import { parseTaskProjection } from "../backend/taskResults";
 import type { TaskProjection } from "../backend/queries";
 import { JsonLineSession } from "./backendSession";
-import { runtimeKind } from "./runtime";
 
 export type Selection = { rootPath: string; databasePath: string };
 export type DevConnection = Selection & { version: 2; selectionToken: string; readOnly: boolean };
@@ -35,7 +34,7 @@ type Query = (typeof QUERY_COMMANDS)[number];
 type ClientRequest = Request & { requestId: string };
 
 function invalidReply(): never {
-  throw new Error("The backend returned invalid query data; no legacy fallback.");
+  throw new Error("The backend returned invalid query data.");
 }
 
 function nonnegativeInteger(value: unknown): value is number {
@@ -158,7 +157,7 @@ export class WorkspaceReader {
     });
     this.dev = dev ? { url: dev.url, selection: Object.freeze({ ...dev.selection }) } : undefined;
     if (!dev && !native) {
-      throw new Error("Native launch is unavailable here. No legacy sidecar was launched.");
+      throw new Error("Native launch is unavailable here.");
     }
     this.session =
       dev || !native
@@ -174,7 +173,6 @@ export class WorkspaceReader {
   ): Promise<Record<string, unknown>> {
     if (!(QUERY_COMMANDS as readonly string[]).includes(command))
       throw new Error("the reader has no mutation capability");
-    if (runtimeKind() === "android") throw new Error("The reader is not available on Android.");
     const request: ClientRequest = {
       version: 2,
       requestId: randomUUID(),

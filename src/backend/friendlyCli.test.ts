@@ -41,16 +41,7 @@ function run(workspace: Workspace, argv: string[], loader?: string) {
       workspace.cache,
       ...argv,
     ],
-    {
-      encoding: "utf8",
-      timeout: 10_000,
-      env: {
-        ...process.env,
-        TASKS_SYNC_ROOT: path.join(workspace.directory, "legacy-must-not-open"),
-        TASKS_DATABASE_PATH: path.join(workspace.directory, "legacy-must-not-open.db"),
-        TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.directory, "missing-registry.json"),
-      },
-    },
+    { encoding: "utf8", timeout: 10_000 },
   );
 }
 function ok(workspace: Workspace, argv: string[]) {
@@ -315,8 +306,6 @@ test(
     assert.equal(activity.stdout.includes("undefined"), false);
     assert.equal(activity.stdout.includes("#undefined"), false);
     assert.equal(typeof ok(workspace, ["info"]).writeContext, "string");
-    for (const name of ["legacy-must-not-open", "legacy-must-not-open.db", "missing-registry.json"])
-      assert.equal(existsSync(path.join(workspace.directory, name)), false);
   },
 );
 
@@ -542,7 +531,7 @@ test(
 );
 
 test(
-  "human migration retains original legacy source and explicit legacy rollback, not reverse-converted later edits",
+  "human migration only reads the schema 1 folder, and later edits stay in the new one",
   linux,
   (t) => {
     const fixture = fileURLToPath(new URL("../../scripts/fixtures/schema1/sync/", import.meta.url)),
@@ -560,28 +549,11 @@ test(
       cache: path.join(workspace.directory, "adopted-cache.db"),
     };
     ok(adopted, ["update", parent, "--title", "Later only"]);
-    const old = spawnSync(
-      process.execPath,
-      [
-        cli,
-        "--legacy",
-        "--database",
-        path.join(workspace.directory, "rollback-legacy.db"),
-        "show",
-        parent,
-        "--json",
-      ],
-      {
-        env: { ...process.env, TASKS_SYNC_ROOT: workspace.root, TASKS_SOURCE_REGISTRY_PATH: "" },
-        encoding: "utf8",
-      },
-    );
-    assert.equal(old.status, 0, old.stderr);
-    assert.notEqual(JSON.parse(old.stdout).task.title, "Later only");
+    assert.deepEqual(raw(workspace), before);
   },
 );
 
-test("explicit friendly-mode has its own help/cache/safe errors while default legacy mode and flag-valued notes stay legacy", (t) => {
+test("the friendly CLI has its own help, needs an explicit cache and keeps literal flag values", (t) => {
   const workspace = setup(t);
   const help = run(workspace, ["--help"]);
   assert.equal(help.status, 0);
@@ -611,45 +583,8 @@ test("explicit friendly-mode has its own help/cache/safe errors while default le
   assert.equal(flagValuedNote.status, 2);
   assert.match(flagValuedNote.stderr, /^tasks-cli: INVALID_ARGUMENT:/);
   assert.equal(flagValuedNote.stderr.includes('{"ok":false'), false);
-  const legacyNote = ok(workspace, ["add", "Kept", "--description", "--legacy"])
+  const literalNote = ok(workspace, ["add", "Kept", "--description", "--json"])
     .task as TaskProjection;
-  assert.equal(legacyNote.description, "--legacy");
-  const legacyDatabase = path.join(workspace.directory, "old.db");
-  const legacyEnv = { ...process.env, TASKS_SYNC_ROOT: "", TASKS_SOURCE_REGISTRY_PATH: "" };
-  for (const literal of ["--root", "--root=literal"]) {
-    const result = spawnSync(
-      process.execPath,
-      [
-        cli,
-        "--legacy",
-        "add",
-        "Legacy",
-        "--description",
-        literal,
-        "--database",
-        legacyDatabase,
-        "--json",
-      ],
-      { env: legacyEnv, encoding: "utf8" },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout).task.descriptionMarkdown, literal);
-    assert.equal("description" in JSON.parse(result.stdout).task, false);
-  }
-  const legacyHelp = spawnSync(process.execPath, [cli, "--legacy", "--help"], { encoding: "utf8" });
-  assert.equal(legacyHelp.status, 0);
-  assert.equal(legacyHelp.stdout.includes("explicitly selected workspace folder"), false);
-  const terminated = spawnSync(
-    process.execPath,
-    [cli, "--legacy", "--database", legacyDatabase, "add", "--json", "--", "--root"],
-    { env: legacyEnv, encoding: "utf8" },
-  );
-  assert.equal(terminated.status, 0, terminated.stderr);
-  assert.equal(JSON.parse(terminated.stdout).task.title, "--root");
-  const notLegacy = spawnSync(
-    process.execPath,
-    [cli, "--database", legacyDatabase, "add", "--json", "--", "--legacy"],
-    { env: legacyEnv, encoding: "utf8" },
-  );
-  failure(notLegacy, "INVALID_ARGUMENT", 2);
+  assert.equal(literalNote.description, "--json");
+  assert.equal((ok(workspace, ["add", "--", "--root"]).task as TaskProjection).title, "--root");
 });

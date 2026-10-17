@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/backend/**/*.ts", "src/legacy/backend/**/*.ts", "src/migration/**/*.ts"]
+  "include": ["src/backend/**/*.ts", "src/migration/**/*.ts"]
 }

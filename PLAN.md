@@ -8,7 +8,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 - **One application.** One task model and command path for UI, CLI and agents. Tauri 2 and React with a bundled Node backend; MIT license.
 - **Keep the established UI.** `App`, `TaskList`, the composer, pickers, toolbar, themes, help and settings, and the keyboard, mouse and focus behavior in [the client spec](spec/client/README.md). No frontend rewrite and no second client.
-- **No coexistence.** Legacy code is deleted at cutover. Only the schema 1 reader in `src/migration/` survives, with preserved backups. No compatibility facades, dual writes or adapter frameworks.
+- **No coexistence.** The legacy engine is deleted (2026-10-16). Only the schema 1 reader in `src/migration/` survives, behind the owner-only `pnpm migrate`. No compatibility facades, dual writes or adapter frameworks.
 - **One spec.** [spec/](spec/README.md) describes the app in three layers. Evidence lives in [docs/evidence/](docs/evidence/README.md).
 - **Calm UI.** The list stays primary; technical detail goes to settings, help or the point of need. Tests alone don't establish usability.
 
@@ -23,21 +23,22 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 - Tests stay focused (2026-10-15): protect data integrity, tricky rules, process boundaries and known bugs. Prefer representative workflows over exhaustive permutations; don't add tests just to give every spec rule a citation.
 - Desktop capture writes a temp file and renames it; a duplicate after a crash between rename and receipt is accepted. Native development is `pnpm dev:native`, the release build `pnpm build:tauri`.
 - Personal data: reading, converting or selecting the owner's workspace each need explicit permission at that moment.
+- Migration is owner-only (2026-10-16): the app isn't published, so desktop setup doesn't import. `pnpm migrate OLD NEW` converts the owner's old folder ([runbook](docs/migration.md)) and goes away once that's done.
 
 ## Current state
 
 1. `pnpm dev:web --root PATH --database CACHE` runs the established UI on the current engine over a Linux dev bridge. Every agreed workflow except global focus works there; the owner reported high-level smoke success on disposable data (no case-level walkthrough).
 2. `tasks-cli --root PATH --database CACHE` is the friendly CLI on the current engine; JSON lines via `tasks-backend --stdio --root ...`. Neither has a default workspace.
-3. The desktop app starts on the current engine (2026-10-16): it opens the remembered task folder, and the first launch asks for one, starts it empty or imports the old version's tasks. Only `dev:web --legacy` and `tasks-cli --legacy` still reach the old code, which is being deleted.
-4. Code is named by responsibility. Legacy code lives in `src/legacy/` ([src/LEGACY.md](src/LEGACY.md)), migration in `src/migration/`. The shared UI derives task fields from the current model; legacy field names stay at the old transport boundary. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
+3. The desktop app starts on the current engine (2026-10-16): it opens the remembered task folder, and the first launch asks for one or starts it empty. A schema 1 folder is refused until it is converted with `pnpm migrate`.
+4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
 5. The backend allows every command on every desktop OS. On Windows Node, setup (init, import) and the formerly withheld writes were smoke-tested on disposable data. The new desktop app has not been launched by the owner yet; earlier pilot launches stopped before the main window.
-6. Import only reads the old version's files and writes a new folder. No personal data has been touched.
+6. Migration only reads the old version's files and writes a new folder. No personal data has been touched.
 7. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
 
 ## Next step
 
-1. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`. First launch imports the old tasks into a new folder.
-2. **Delete the legacy runtime** in parallel: `src/legacy/`, `--legacy`, the Android runtime, legacy tests and fixtures that aren't migration inputs; move `pnpm test:ui` to the current route; adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`.
+1. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
+2. Move `pnpm test:ui` to the current route. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`.
 3. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 
 Kit r1 adoption steps 1 to 3 and the React hook warnings are done (2026-10-16). `src/components/ui` is stock upstream, pending an owner look at the UI.
@@ -50,7 +51,7 @@ The owner uses the Windows build on their real tasks (imported, old files kept) 
 
 ### Cutover
 
-1. Delete `src/legacy/`, `--legacy`, the Android runtime and legacy fixtures that aren't migration inputs. The naming ratchet allows only `src/migration/` and stored names.
+1. Done 2026-10-16: `src/legacy/`, `--legacy` and the Android runtime are deleted. The naming ratchet allows only `src/migration/` and stored names.
 2. Adopt the `@soleone/theme` kit: use `tasks.selectedTheme` as its `storageKey` and remove `themePalette.ts` and `builtinThemes.ts` with the backend theme list. No D dark/light hotkey (owner, 2026-10-16; dropped from the registry in kit r3). Then bump `.kit.json`.
 3. Never strand pending work or discard receipts, history or retry authority. Keep the old version's files until the owner deletes them.
 

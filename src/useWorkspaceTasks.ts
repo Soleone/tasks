@@ -20,20 +20,9 @@ import {
   type SortField,
   type StatusPreset,
 } from "@/components/taskFilters";
-import {
-  closeBackendSession,
-  getWorkspaceRevision,
-  listTasks,
-  receiveWorkspaceStatus,
-  type ReceiveWorkspaceResult,
-  type TaskListResult,
-} from "@/platform/backendClient";
-import { runtimeKind } from "@/platform/runtime";
+import { closeBackendSession, getWorkspaceRevision, listTasks } from "@/platform/backendClient";
 
-// Android re-reads the whole SAF workspace on every poll (~50 IPCs for a
-// mid-size task set), so it polls far less often than desktop, where the read
-// is a cheap local-filesystem scan.
-const WORKSPACE_REVISION_POLL_MS = runtimeKind() === "android" ? 15000 : 1500;
+const WORKSPACE_REVISION_POLL_MS = 1500;
 
 type WorkspaceTasksView = {
   statusPreset: StatusPreset;
@@ -70,10 +59,6 @@ export function useWorkspaceTasks({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [receiveState, setReceiveState] = useState<ReceiveWorkspaceResult | null>(null);
-  const [unresolvedConflicts, setUnresolvedConflicts] = useState<
-    NonNullable<TaskListResult["unresolvedConflicts"]>
-  >([]);
   const querySequence = useRef(0);
   const initialLoadRetry = useRef(0);
   const statusPresetRef = useRef<StatusPreset>(statusPreset);
@@ -113,7 +98,6 @@ export function useWorkspaceTasks({
         );
         if (sequence !== querySequence.current) return false;
         workspaceRevisionRef.current = result.workspaceRevision;
-        setUnresolvedConflicts(result.unresolvedConflicts ?? []);
         if (!offset && !preserveContextOrder) setContextOrder(new Map());
         setTasks((previous) =>
           offset
@@ -223,39 +207,29 @@ export function useWorkspaceTasks({
   });
 
   // A changed view starts loading in the same render it changes in, and the
-  // query for it runs once that render commits. Waiting to receive a
-  // workspace pauses queries.
-  const viewKey = receiveState?.waiting
-    ? null
-    : JSON.stringify([
-        statusPreset,
-        exactStatus,
-        priorityFilter,
-        tagFilter.map((tag) => tag.slug),
-        searchQuery,
-        showUnblocked,
-        sortField,
-        sortDirection,
-        categoryFilter?.slug ?? null,
-      ]);
+  // query for it runs once that render commits.
+  const viewKey = JSON.stringify([
+    statusPreset,
+    exactStatus,
+    priorityFilter,
+    tagFilter.map((tag) => tag.slug),
+    searchQuery,
+    showUnblocked,
+    sortField,
+    sortDirection,
+    categoryFilter?.slug ?? null,
+  ]);
   const [loadingViewKey, setLoadingViewKey] = useState(viewKey);
   if (loadingViewKey !== viewKey) {
     setLoadingViewKey(viewKey);
-    if (viewKey !== null) {
-      setLoading(true);
-      setLoadError(null);
-    }
+    setLoading(true);
+    setLoadError(null);
   }
 
   useEffect(() => {
-    if (viewKey !== null) void fetchTasks(0, false);
+    // oxlint-disable-next-line react/set-state-in-effect -- fetchTasks sets state only after its query answers
+    void fetchTasks(0, false);
   }, [viewKey, fetchTasks]);
-
-  useEffect(() => {
-    void receiveWorkspaceStatus()
-      .then((status) => setReceiveState(status.waiting ? status : null))
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (loading || !loadError || tasks.length > 0 || initialLoadRetry.current >= 3) return;
@@ -276,7 +250,7 @@ export function useWorkspaceTasks({
   }, [taskListRef]);
 
   useEffect(() => {
-    if (loading || receiveState?.waiting) return;
+    if (loading) return;
 
     let disposed = false;
     let checking = false;
@@ -318,7 +292,7 @@ export function useWorkspaceTasks({
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshOnVisibility);
     };
-  }, [loading, receiveState?.waiting, refreshTasks, finishIdentityPreservingRefresh, taskListRef]);
+  }, [loading, refreshTasks, finishIdentityPreservingRefresh, taskListRef]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => {
@@ -457,16 +431,6 @@ export function useWorkspaceTasks({
     return nextTasks;
   }
 
-  useEffect(() => {
-    if (!receiveState?.waiting) return;
-    const timer = window.setInterval(() => {
-      void receiveWorkspaceStatus().then((status) =>
-        setReceiveState(status.waiting ? status : null),
-      );
-    }, 1500);
-    return () => window.clearInterval(timer);
-  }, [receiveState?.waiting]);
-
   return {
     tasks,
     setTasks,
@@ -475,9 +439,6 @@ export function useWorkspaceTasks({
     total,
     loading,
     loadError,
-    receiveState,
-    setReceiveState,
-    unresolvedConflicts,
     invalidateQueries,
     sortFieldRef,
     categoryFilterRef,

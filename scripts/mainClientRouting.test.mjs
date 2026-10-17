@@ -16,7 +16,7 @@ import { build } from "esbuild";
 
 const compiled = await build({
   stdin: {
-    contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport';`,
+    contents: `export * from './src/platform/backendClient';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -36,33 +36,14 @@ const withheldActions = [
   ["reorderTasks", [[{ id: "id", expectedVersion: 1 }], { first: true }, {}]],
   ["addDependency", ["id", "blocker", 1, {}]],
   ["removeDependency", ["id", "blocker", 1, {}]],
-  ["purgeCanceledTasks", [{}]],
-  ["exportTasks", []],
-  ["prepareReceiveWorkspace", []],
-  ["abortReceiveWorkspace", []],
 ];
 
-const linuxConnectedActions = new Set([
-  "transitionTasks",
-  "undoOperation",
-  "moveTask",
-  "reorderTasks",
-  "addDependency",
-  "removeDependency",
-]);
-const linuxWithheldActions = withheldActions.filter(
-  ([action]) => !linuxConnectedActions.has(action),
-);
-
-test("selected native launch can never use the legacy transport, even before registration or after reload", async () => {
-  assert.throws(() => client.getBackendTransport(), /cannot launch a legacy backend/);
-  await assert.rejects(
-    () => client.runBackendCommand("task.list"),
-    /selected workspace.*Reopen and confirm/,
-  );
+test("without an open task folder every client call refuses", async () => {
+  await assert.rejects(() => client.listTasks(), /NO_WORKSPACE/);
+  await assert.rejects(() => client.createTask("Lost", "", {}), /NO_WORKSPACE/);
 });
 
-test("main UI calls concrete selected actions; preview flags and unproven operations never fall through", async () => {
+test("main UI calls concrete selected actions; unadvertised operations never fall through", async () => {
   const calls = [];
   const workspace = {
     async save(...args) {
@@ -93,26 +74,6 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
   };
   client.selectMainWorkspace(workspace);
   await assert.rejects(
-    () => client.runBackendCommand("task.list"),
-    (error) => {
-      assert.equal(error.code, "UNSUPPORTED_COMMAND");
-      assert.equal(error.message, "This action is not yet available in the selected workspace.");
-      assert.ok(!error.message.includes("Reopen and confirm"));
-      return true;
-    },
-  );
-  for (const options of [{ dryRun: true }, { readOnly: true }]) {
-    await assert.rejects(() => client.createTask("Preview", "", options), /Nothing was sent/);
-    await assert.rejects(
-      () => client.updateTask("id", "Preview", "", 1, options),
-      /Nothing was sent/,
-    );
-    await assert.rejects(
-      () => client.transitionTask("task.start", "id", 1, options),
-      /Nothing was sent/,
-    );
-  }
-  await assert.rejects(
     () => client.createTask("Child", "", { parentId: "parent" }),
     /Child capture/,
   );
@@ -120,10 +81,9 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
     await assert.rejects(
       () => client[action](...args),
       /selected workspace/,
-      `${action} must not use the legacy transport`,
+      `${action} needs its command advertised`,
     );
   }
-  assert.deepEqual(await client.receiveWorkspaceStatus(), { waiting: false });
   assert.deepEqual(calls, []);
   await client.createTask("Inline @work", "Notes", { priority: 1, idempotencyKey: "capture-key" });
   await client.updateTask("id", "Inline @work", "Notes", 3, { idempotencyKey: "edit-key" });
@@ -150,14 +110,14 @@ test("main UI calls concrete selected actions; preview flags and unproven operat
 
 const http = await build({
   stdin: {
-    contents: `export * from './src/platform/backendClient'; export {getBackendTransport} from './src/legacy/platform/backendTransport'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`,
+    contents: `export * from './src/platform/backendClient'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
   platform: "node",
   format: "esm",
   write: false,
-  define: { "import.meta.env": JSON.stringify({ VITE_TASKS_LEGACY: "0" }) },
+  define: { "import.meta.env": JSON.stringify({}) },
 });
 const httpClient = await import(
   `data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}`
@@ -279,7 +239,7 @@ test("selected Linux themes survive bridge restart without task writes, selectio
   const restartedClient = await import(
     `data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}#preferences-restart`
   );
-  await assert.rejects(() => restartedClient.listTasks(), /selected workspace.*Reopen and confirm/);
+  await assert.rejects(() => restartedClient.listTasks(), /NO_WORKSPACE/);
   restartedClient.selectMainWorkspace(reopened);
   assert.equal((await restartedClient.listThemes()).selected, chosen.name);
   assert.deepEqual((await reopened.undoHistory()).latest(), historyBefore);
@@ -315,24 +275,11 @@ test("selected Linux themes survive bridge restart without task writes, selectio
   assert.deepEqual(writes[1], writes[0]);
 });
 
-test("selected dev:web launch refuses the legacy transport before confirmation", async () => {
-  assert.throws(() => httpClient.getBackendTransport(), /cannot launch a legacy backend/);
-  await assert.rejects(() => httpClient.listTasks(), /selected workspace.*Reopen and confirm/);
-});
-
-test("main UI over the Linux HTTP bridge persists direct actions and refuses withheld ones without any request", async (t) => {
+test("main UI over the Linux HTTP bridge persists direct actions", async (t) => {
   const { root, calls, workspace } = await selectedHttpWorkspace(t);
   httpClient.selectMainWorkspace(workspace);
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
   assert.equal(workspace.supportsRelationships, true);
-  for (const [action, args] of linuxWithheldActions) {
-    await assert.rejects(
-      () => httpClient[action](...args),
-      /selected workspace/,
-      `${action} must not reach the bridge`,
-    );
-  }
-  assert.deepEqual(calls, []);
 
   const created = await httpClient.createTask("Call @alice #home", "Notes", { priority: 0 });
   assert.deepEqual([created.task.title, created.task.priority], ["Call", 0]);

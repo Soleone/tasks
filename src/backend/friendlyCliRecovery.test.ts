@@ -54,12 +54,7 @@ function run(
       ...argv,
     ],
     {
-      env: {
-        ...process.env,
-        XDG_DATA_HOME: profile,
-        TASKS_SYNC_ROOT: path.join(workspace.directory, "legacy-trap"),
-        TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.directory, "legacy-registry-trap"),
-      },
+      env: { ...process.env, XDG_DATA_HOME: profile },
       encoding: "utf8",
       timeout: 10_000,
     },

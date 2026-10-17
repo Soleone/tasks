@@ -10,7 +10,6 @@ What runs where today. The target behavior is [the spec](../spec/README.md); wha
 | `tasks-cli --root PATH --database CACHE` (Linux) | Current | Queries, task, link, undo and purge verbs, init, rebuild, archive, restore, migrate, recover, with retry metadata | [Friendly CLI tests](../src/backend/friendlyCli.test.ts) |
 | `tasks-backend --stdio --root PATH --database CACHE` | Current | Every command in [spec/backend/commands.md](../spec/backend/commands.md), including reorder, batches and doctor. On Windows Node, init, migrate, child capture, blocker, move, reorder, status batch, undo and backup were smoke-tested on disposable data (2026-10-16) | [Gateway tests](../src/backend/gateway.test.ts), [conformance history](evidence/conformance-history.md) |
 | Desktop app (`pnpm build:tauri`, `pnpm dev:native`) | Current | The established UI on the remembered task folder; first-launch setup picks or starts a folder | [Desktop setup test](../scripts/desktopWorkspace.test.mjs); no owner launch yet |
-| `--legacy`, Android builds | Legacy | The old app and CLI, until they are deleted | Old specs in git history |
 
 ## Open blockers
 

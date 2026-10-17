@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import favicon16Url from "../assets/branding/favicon-two-color-v8-16.png";
 import favicon32Url from "../assets/branding/favicon-two-color-v8-32.png";
 import favicon48Url from "../assets/branding/favicon-two-color-v8-48.png";
-import App from "./App";
 import { APP_NAME } from "./backend/branding";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyStoredFontSizeIncrease } from "./fontSize";
@@ -13,11 +12,8 @@ import "./styles.css";
 
 const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
 const DesktopWorkspace = lazy(() => import("./DesktopWorkspace"));
-// Only `pnpm dev:web --legacy` still reaches the old app; it is deleted at cutover.
-const legacy = import.meta.env.VITE_TASKS_LEGACY === "1";
 
 document.title = APP_NAME;
-if (runtimeKind() === "android") document.documentElement.classList.add("android");
 
 const favicons = [
   [16, favicon16Url],
@@ -42,13 +38,9 @@ applyStoredFontSizeIncrease();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      {legacy ? (
-        <App />
-      ) : (
-        <Suspense fallback={<p role="status">Loading Tasks...</p>}>
-          {runtimeKind() === "desktop" ? <DesktopWorkspace /> : <WorkspaceSelection />}
-        </Suspense>
-      )}
+      <Suspense fallback={<p role="status">Loading Tasks...</p>}>
+        {runtimeKind() === "desktop" ? <DesktopWorkspace /> : <WorkspaceSelection />}
+      </Suspense>
     </TooltipProvider>
   </StrictMode>,
 );

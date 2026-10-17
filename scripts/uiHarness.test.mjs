@@ -7,9 +7,6 @@ import test from "node:test";
 const uiRunner = readFileSync(new URL("./check-ui.mjs", import.meta.url), "utf8");
 const sidecarRunner = readFileSync(new URL("./check-sidecar.mjs", import.meta.url), "utf8");
 const hostileEnvironment = {
-  TASKS_DATABASE_PATH: "/personal/cache.db",
-  TASKS_SYNC_ROOT: "/personal/tasks",
-  TASKS_SOURCE_REGISTRY_PATH: "/personal/sources.json",
   XDG_DATA_HOME: "/personal/data",
   APPDATA: "C:\\personal\\data",
   PATH: "/toolchain",
@@ -25,36 +22,27 @@ function runnerEnvironment(source, name, bindings) {
   );
 }
 
-function assertScratchEnvironment(environment, directory, database) {
-  assert.equal(environment.TASKS_DATABASE_PATH, database);
-  assert.equal(environment.TASKS_SYNC_ROOT, path.join(directory, "sync"));
-  assert.equal(environment.TASKS_SOURCE_REGISTRY_PATH, "");
+function assertScratchEnvironment(environment, directory) {
   assert.equal(environment.XDG_DATA_HOME, path.join(directory, "local-data"));
   assert.equal(environment.APPDATA, path.join(directory, "local-data"));
   assert.equal(environment.PATH, hostileEnvironment.PATH);
-  assert.equal(hostileEnvironment.TASKS_SYNC_ROOT, "/personal/tasks");
+  assert.equal(hostileEnvironment.XDG_DATA_HOME, "/personal/data");
 }
 
 test("UI test server and external CLI use the same explicitly isolated environment", () => {
   const scratch = path.resolve("disposable-ui-test");
-  assertScratchEnvironment(
-    runnerEnvironment(uiRunner, "testEnvironment", { scratch }),
-    scratch,
-    path.join(scratch, "tasks.db"),
-  );
+  assertScratchEnvironment(runnerEnvironment(uiRunner, "testEnvironment", { scratch }), scratch);
   assert.match(uiRunner, /env: \{\s*\.\.\.testEnvironment,\s*TASKS_DEV_BACKEND_PORT:/);
   assert.match(uiRunner, /\{\s*cwd: root,\s*env: testEnvironment,\s*encoding: "utf8"\s*\}/);
 });
 
-test("both bundled probes exclude inherited personal root, registry and app-data", () => {
+test("both bundled binaries run with a scratch profile instead of the inherited app data", () => {
   const probeDirectory = path.resolve("disposable-sidecar-test");
-  const databasePath = path.join(probeDirectory, "probe.db");
   assertScratchEnvironment(
-    runnerEnvironment(sidecarRunner, "environment", { probeDirectory, databasePath }),
+    runnerEnvironment(sidecarRunner, "environment", { probeDirectory }),
     probeDirectory,
-    databasePath,
   );
-  assert.equal((sidecarRunner.match(/env: environment/g) ?? []).length, 2);
+  assert.equal((sidecarRunner.match(/env: environment/g) ?? []).length, 1);
 });
 
 async function readinessCalls(backendOk = true, webOk = true) {

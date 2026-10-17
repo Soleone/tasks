@@ -29,12 +29,3 @@ export function getDataDirectory(
     APP_DATA_DIRECTORY,
   );
 }
-
-export function getDatabasePath(
-  environment: Environment = process.env,
-  platform: Platform = process.platform as Platform,
-  homeDirectory = os.homedir(),
-): string {
-  const pathApi = platform === "win32" ? path.win32 : path.posix;
-  return pathApi.join(getDataDirectory(environment, platform, homeDirectory), "tasks.db");
-}

@@ -84,9 +84,7 @@ function validateEditorSelection(value: unknown): asserts value is EditorSelecti
     value.writeCommands.length !== commands.length ||
     value.writeCommands.some((command, index) => command !== commands[index])
   ) {
-    throw new Error(
-      "This editor requires a dev bridge started with --root and --database. No legacy fallback.",
-    );
+    throw new Error("This editor requires a dev bridge started with --root and --database.");
   }
   validateSelection(value as EditorSelection);
   validateSelection({ rootPath: value.profilePath, databasePath: value.databasePath });
@@ -291,10 +289,7 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
   }
 
   private async send(preview: boolean): Promise<R> {
-    if (
-      runtimeKind() === "android" ||
-      (runtimeKind() !== "browser" && !(this.connection instanceof JsonLineSession))
-    )
+    if (runtimeKind() !== "browser" && !(this.connection instanceof JsonLineSession))
       throw new Error(
         "Native editing requires the explicitly selected desktop session; no fallback was launched.",
       );
@@ -340,8 +335,6 @@ export class EditorClient {
   ) {
     if (runtimeKind() !== "browser" && !(connection instanceof JsonLineSession))
       throw new Error("App editing is browser-only; no native sidecar was launched.");
-    if (runtimeKind() === "android")
-      throw new Error("The native task editor is unavailable on Android.");
     validateEditorSelection(selection);
     this.selection = Object.freeze({
       ...selection,

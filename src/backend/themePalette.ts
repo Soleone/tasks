@@ -20,7 +20,7 @@
 export type ThemeMode = "dark" | "light" | "system";
 
 /** Canonical omarchy slot name to color, for example `dark_background`. */
-export type ThemePalette = Record<string, string>;
+type ThemePalette = Record<string, string>;
 
 export type ResolvedTheme = {
   mode: ThemeMode;
@@ -36,9 +36,6 @@ export type ThemeRecord = ResolvedTheme & {
 
 /** The built-in theme selected when no workspace choice exists. */
 export const GILT_THEME_NAME = "gilt";
-
-/** Settings row that stores the selected theme name. */
-export const THEME_SETTING_KEY = "theme";
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const ASSIGNMENT = /^([A-Za-z0-9_.-]+)[ \t]*=[ \t]*(.*)$/;
@@ -120,7 +117,7 @@ function toHex({ r, g, b }: Rgb): string {
 }
 
 /** Expands three-digit hex so palettes reach the UI in one shape. Alpha is kept. */
-export function normalizeHex(value: string): string {
+function normalizeHex(value: string): string {
   const digits = value.slice(1);
   if (digits.length !== 3) return value.toLowerCase();
   return `#${digits
@@ -142,7 +139,7 @@ function relativeLuminance(value: string): number {
   return 0.2126 * toLinear(r / 255) + 0.7152 * toLinear(g / 255) + 0.0722 * toLinear(b / 255);
 }
 
-export function contrastRatio(first: string, second: string): number {
+function contrastRatio(first: string, second: string): number {
   const a = relativeLuminance(first);
   const b = relativeLuminance(second);
   const lighter = Math.max(a, b);
@@ -151,7 +148,7 @@ export function contrastRatio(first: string, second: string): number {
 }
 
 /** Mixes in linear light: fraction 0 returns `first`, 1 returns `second`. */
-export function mixHex(first: string, second: string, fraction: number): string {
+function mixHex(first: string, second: string, fraction: number): string {
   const left = requireRgb(first);
   const right = requireRgb(second);
   const weight = Math.min(1, Math.max(0, fraction));
@@ -169,12 +166,7 @@ export function mixHex(first: string, second: string, fraction: number): string 
  * surface at `target` contrast. Palettes arrive from theme authors, so roles
  * that carry text are corrected here rather than trusted.
  */
-export function readableMix(
-  from: string,
-  toward: string,
-  surfaces: string[],
-  target: number,
-): string {
+function readableMix(from: string, toward: string, surfaces: string[], target: number): string {
   for (let step = 0; step <= 10; step += 1) {
     const candidate = mixHex(from, toward, step / 10);
     if (surfaces.every((surface) => contrastRatio(candidate, surface) >= target)) return candidate;
@@ -186,7 +178,7 @@ export function readableMix(
  * Reads the flat `key = "value"` subset of TOML that omarchy palettes use.
  * Table headers are reported and skipped because a palette file has no sections.
  */
-export function parseColorsToml(text: string): {
+function parseColorsToml(text: string): {
   palette: ThemePalette;
   mode?: ThemeMode;
   warnings: string[];
@@ -245,10 +237,7 @@ function paletteValue(rawValue: string): string | undefined {
  * then fall back to the neutral ramp in `src/styles.css` for the active mode, so
  * a file with nothing but an accent is a valid theme.
  */
-export function resolveTheme(
-  raw: ThemePalette,
-  declaredMode: ThemeMode | undefined,
-): ResolvedTheme {
+function resolveTheme(raw: ThemePalette, declaredMode: ThemeMode | undefined): ResolvedTheme {
   const warnings: string[] = [];
   const colors: ThemePalette = {};
   for (const [key, value] of Object.entries(raw)) {

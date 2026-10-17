@@ -28,7 +28,6 @@ import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePalette } from "@/components/ThemePalette";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -38,12 +37,6 @@ import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigati
 import { listThemes, setTheme, selectMainWorkspace } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import { applyTheme } from "@/theme";
-import {
-  DEFAULT_GLOBAL_SHORTCUT,
-  isShortcutConfigured,
-  setGlobalShortcut,
-} from "@/platform/globalShortcut";
-import { runtimeKind } from "@/platform/runtime";
 import {
   readStoredFontSizeIncrease,
   storeFontSizeIncrease,
@@ -64,7 +57,6 @@ const SHOW_DETAILS_KEY = "tasks.showDetails";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const HELP_MODE_KEY = "tasks.helpMode";
 const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
-const GLOBAL_SHORTCUT_KEY = "tasks.globalShortcut";
 
 function readStored(key: string): string | null {
   try {
@@ -158,10 +150,10 @@ function readHelpMode(): KeyboardHelpMode {
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
 // task editor or list.
-export default function App({ workspace }: { workspace?: MainWorkspace } = {}): ReactElement {
+export default function App({ workspace }: { workspace: MainWorkspace }): ReactElement {
   // Rebind after development module reloads before the list's query effects run.
   useEffect(() => {
-    if (workspace) selectMainWorkspace(workspace);
+    selectMainWorkspace(workspace);
   }, [workspace]);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
@@ -200,11 +192,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
   const [selectedTheme, setSelectedTheme] = useState("");
-  const [globalShortcut, setGlobalShortcutValue] = useState(
-    () => readStored(GLOBAL_SHORTCUT_KEY) ?? DEFAULT_GLOBAL_SHORTCUT,
-  );
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
-  const globalShortcutRef = useRef(globalShortcut);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
   composerRef.current = composer;
@@ -237,8 +225,6 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     total,
     loading,
     loadError,
-    receiveState,
-    unresolvedConflicts,
     sortFieldRef,
     categoryFilterRef,
     refreshTasks,
@@ -263,9 +249,6 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     handleStatusChanged,
     handleStatusBatchChanged,
     handleCanceledMany,
-    purgeCanceledTasks,
-    beginReceiveWorkspace,
-    abortReceive,
   } = useWorkspaceActions({
     workspace,
     taskView,
@@ -277,27 +260,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
     closePicker,
     closeComposer,
     closeHelp: () => setHelpOpen(false),
-    closeSettings: () => setSettingsOpen(false),
   });
-
-  // Register the stored shortcut once at startup; later changes go through changeGlobalShortcut.
-  const registerStoredShortcut = useEffectEvent(() => {
-    if (!workspace) void setGlobalShortcut(globalShortcut, null).catch(() => undefined);
-  });
-  useEffect(() => registerStoredShortcut(), []);
-
-  async function changeGlobalShortcut(value: string): Promise<void> {
-    if (workspace)
-      throw new Error("Global shortcuts are not yet enabled for this selected workspace.");
-    const next = value.trim();
-    if (!isShortcutConfigured(next))
-      throw new Error("Use at least one modifier and a key, such as Ctrl+Alt+Space.");
-    await setGlobalShortcut(next, globalShortcutRef.current);
-    globalShortcutRef.current = next;
-    setGlobalShortcutValue(next);
-    writeStored(GLOBAL_SHORTCUT_KEY, next);
-    setAnnouncement(`Global shortcut set to ${next}`);
-  }
 
   const refreshThemes = useCallback((applySelection: boolean): Promise<void> => {
     return listThemes()
@@ -337,7 +300,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
-    if (workspace && parentId && !workspace.supportsRelationships) {
+    if (parentId && !workspace.supportsRelationships) {
       setAnnouncement("Child capture is not yet available in this selected workspace.");
       return;
     }
@@ -462,7 +425,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
   }
 
   function openPicker(mode: TaskPickerMode, subject: TaskView): void {
-    if (workspace && !workspace.supportsRelationships) {
+    if (!workspace.supportsRelationships) {
       setAnnouncement("Relationship changes are not yet available in this selected workspace.");
       return;
     }
@@ -676,41 +639,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
-      {workspace && <WorkspaceRequestRecovery workspace={workspace} />}
-      {receiveState?.waiting ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/95 p-6">
-          <section
-            aria-labelledby="receive-title"
-            className="w-full max-w-md space-y-4 rounded-lg border bg-card p-6 shadow-lg"
-          >
-            <h1 id="receive-title" className="text-lg font-semibold">
-              Waiting for workspace
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {APP_NAME} is locked while this device receives the existing workspace. Add the empty
-              sync folder to Syncthing, then wait for the transfer to finish.
-            </p>
-            {receiveState.syncRoot ? (
-              <p className="wrap-anywhere rounded bg-muted p-2 font-mono text-xs">
-                {receiveState.syncRoot}
-              </p>
-            ) : null}
-            <p className="text-sm text-muted-foreground">
-              <a
-                className="underline"
-                href="https://github.com/Soleone/tasks/blob/f762b50c8739b994629c68e4ab62a3a01142aaae/docs/syncthing.md"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Read the Syncthing setup guide
-              </a>
-            </p>
-            <Button variant="outline" onClick={() => void abortReceive()}>
-              Abort and restore backup
-            </Button>
-          </section>
-        </div>
-      ) : null}
+      <WorkspaceRequestRecovery workspace={workspace} />
       <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-xl flex-col gap-6 overflow-hidden">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
@@ -791,29 +720,6 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
             </Tooltip>
           </ButtonGroup>
         </header>
-
-        {runtimeKind() === "android" && unresolvedConflicts.length > 0 ? (
-          <Alert variant="destructive">
-            <AlertTitle>Syncthing conflict copies need attention</AlertTitle>
-            <AlertDescription>
-              <div className="flex flex-col gap-2">
-                <p>
-                  {unresolvedConflicts.length} conflict{" "}
-                  {unresolvedConflicts.length === 1 ? "copy was" : "copies were"} found. Android
-                  leaves them untouched. Resolve them on a desktop or CLI client, and do not delete
-                  the copies before checking the workspace.
-                </p>
-                <ul className="max-h-24 space-y-1 overflow-auto font-mono text-xs">
-                  {unresolvedConflicts.map((conflict) => (
-                    <li key={conflict.sourcePath} className="break-all">
-                      {conflict.sourcePath}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
 
         <TaskList
           ref={taskListRef}
@@ -922,7 +828,7 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
-        statusUndoOnly={workspace !== undefined && !workspace.supportsOperationUndo}
+        statusUndoOnly={!workspace.supportsOperationUndo}
         canUndoStatus={statusUndo !== null}
         onUndoStatus={() => {
           setHelpOpen(false);
@@ -998,10 +904,6 @@ export default function App({ workspace }: { workspace?: MainWorkspace } = {}): 
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         finalFocus={() => focusStack.restore("settings")}
-        onPrepareReceive={() => void beginReceiveWorkspace()}
-        onPurgeCanceled={purgeCanceledTasks}
-        globalShortcut={globalShortcut}
-        onGlobalShortcutChange={changeGlobalShortcut}
         helpMode={helpMode}
         onHelpModeChange={changeHelpMode}
         fontSizeIncrease={fontSizeIncrease}

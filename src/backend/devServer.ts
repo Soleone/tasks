@@ -3,13 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { executeCommand } from "../legacy/backend/commands.js";
-import { getDataDirectory, getDatabasePath } from "./paths.js";
-import {
-  errorResponse,
-  parseRequest as parseLegacyRequest,
-  successResponse,
-} from "../legacy/backend/protocol.js";
+import { getDataDirectory } from "./paths.js";
 import { executeLine } from "./gateway.js";
 import { EDITOR_COMMANDS } from "./editorCommands.js";
 import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
@@ -17,7 +11,7 @@ import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 /**
  * Dev-only HTTP bridge over the same command path as the Tauri sidecar and
  * CLI. It exists so `pnpm dev:web` can iterate on the UI in a plain browser
- * with Vite HMR against real SQLite storage. Never package or ship this;
+ * with Vite HMR against a real task folder. Never package or ship this;
  * production desktop traffic stays on the sidecar stdio bridge.
  */
 export const DEFAULT_DEV_BACKEND_PORT = 5174;
@@ -27,10 +21,8 @@ export type DevServerOptions = {
   port?: number;
   host?: string;
   databasePath?: string;
-  /** The workspace folder to edit. Required unless `legacy` is set. */
+  /** The workspace folder to edit. */
   root?: string;
-  /** Serve the legacy engine on its default database instead (removed at cutover). */
-  legacy?: boolean;
 };
 
 type DevSelection = {
@@ -87,54 +79,41 @@ function readBody(request: http.IncomingMessage): Promise<Buffer> {
 }
 
 export function startDevServer(options: DevServerOptions = {}): Promise<DevServer> {
-  if (!options.legacy) {
-    if (!options.root?.trim() || !options.databasePath?.trim()) {
-      throw new Error(
-        "the dev bridge requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace (use --legacy for the old app)",
-      );
-    }
-    if (process.platform !== "linux")
-      throw new Error("browser editing over the dev bridge runs only on Linux");
+  if (!options.root?.trim() || !options.databasePath?.trim()) {
+    throw new Error(
+      "the dev bridge requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace",
+    );
   }
-  const databasePath = options.legacy
-    ? (options.databasePath ?? process.env.TASKS_DATABASE_PATH ?? getDatabasePath())
-    : path.resolve(options.databasePath!);
-  const selection: DevSelection | undefined = options.legacy
-    ? undefined
-    : {
-        version: 2,
-        rootPath: path.resolve(options.root!),
-        databasePath,
-        selectionToken: randomUUID(),
-        readOnly: false,
-        profilePath: path.resolve(getDataDirectory()),
-        writeCommands: [...EDITOR_COMMANDS],
-      };
+  if (process.platform !== "linux")
+    throw new Error("browser editing over the dev bridge runs only on Linux");
+  const databasePath = path.resolve(options.databasePath);
+  const selection: DevSelection = {
+    version: 2,
+    rootPath: path.resolve(options.root),
+    databasePath,
+    selectionToken: randomUUID(),
+    readOnly: false,
+    profilePath: path.resolve(getDataDirectory()),
+    writeCommands: [...EDITOR_COMMANDS],
+  };
   const host = options.host ?? "127.0.0.1";
   const port =
     options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
 
   const server = http.createServer((request, response) => {
-    void handleRequest(request, response, databasePath, selection).catch((error: unknown) => {
+    void handleRequest(request, response, selection).catch(() => {
       if (response.headersSent) {
         response.destroy();
         return;
       }
       response.writeHead(500, { "content-type": "application/json" });
       response.end(
-        JSON.stringify(
-          selection === undefined
-            ? errorResponse("unknown", error)
-            : {
-                version: 2,
-                requestId: null,
-                ok: false,
-                error: {
-                  code: "INVALID_STORAGE",
-                  message: "the dev bridge could not complete safely",
-                },
-              },
-        ),
+        JSON.stringify({
+          version: 2,
+          requestId: null,
+          ok: false,
+          error: { code: "INVALID_STORAGE", message: "the dev bridge could not complete safely" },
+        }),
       );
     });
   });
@@ -156,8 +135,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
 async function handleRequest(
   request: http.IncomingMessage,
   response: http.ServerResponse,
-  databasePath: string,
-  selection: DevSelection | undefined,
+  selection: DevSelection,
 ): Promise<void> {
   const origin = request.headers.origin;
   if (origin !== undefined && !isAllowedOrigin(origin)) {
@@ -189,40 +167,15 @@ async function handleRequest(
 
   if (request.method === "GET" && request.url === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
-    response.end(
-      JSON.stringify(
-        selection === undefined ? { ok: true, databasePath } : { ok: true, ...selection },
-      ),
-    );
+    response.end(JSON.stringify({ ok: true, ...selection }));
     return;
   }
 
   if (request.method === "POST" && (request.url === "/command" || request.url === "/")) {
     const body = await readBody(request);
-    if (selection !== undefined) {
-      const result = executeDevCommand(body, selection, request.headers["x-taskdb-selection"]);
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(result));
-      return;
-    }
-    let requestId = "unknown";
-    try {
-      const parsed = JSON.parse(body.toString("utf8")) as unknown;
-      const command = parseLegacyRequest(parsed);
-      requestId = command.requestId;
-      // Run the command before writing the head: a rejected command must
-      // answer through the catch, not crash the bridge with double headers.
-      const result = executeCommand(command, databasePath);
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(successResponse(requestId, result)));
-    } catch (error) {
-      if (response.headersSent) {
-        response.destroy();
-        return;
-      }
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(errorResponse(requestId, error)));
-    }
+    const result = executeDevCommand(body, selection, request.headers["x-taskdb-selection"]);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify(result));
     return;
   }
 
@@ -300,14 +253,12 @@ async function main(): Promise<void> {
   if (port !== undefined && (!Number.isInteger(port) || port < 0)) {
     throw new Error("--port must be a non-negative integer");
   }
-  const legacy = args.includes("--legacy");
   const root = optionValue(args, "--root");
   if (args.includes("--root") && (root === undefined || root.startsWith("--")))
     throw new Error("--root requires PATH");
-  const databasePath =
-    optionValue(args, "--database") ?? (legacy ? process.env.TASKS_DATABASE_PATH : undefined);
+  const databasePath = optionValue(args, "--database");
 
-  const dev = await startDevServer({ port, databasePath, root, legacy });
+  const dev = await startDevServer({ port, databasePath, root });
   process.stdout.write(`tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`);
 
   const shutdown = (): void => {

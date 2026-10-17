@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,15 +10,13 @@ import type { Response } from "./protocol.js";
 
 const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
 const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
-type Workspace = { root: string; cache: string; trap: string };
+type Workspace = { root: string; cache: string };
 function setup(t: TestContext): Workspace {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-process-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = path.join(directory, "root");
-  const trap = path.join(directory, "legacy-must-not-open");
   cpSync(golden, root, { recursive: true });
-  mkdirSync(trap);
-  return { root, cache: path.join(directory, "cache.db"), trap };
+  return { root, cache: path.join(directory, "cache.db") };
 }
 
 function run(workspace: Workspace, bytes: Buffer): Response[] {
@@ -28,11 +26,6 @@ function run(workspace: Workspace, bytes: Buffer): Response[] {
     {
       input: bytes,
       timeout: 10_000,
-      env: {
-        ...process.env,
-        TASKS_SYNC_ROOT: workspace.trap,
-        TASKS_SOURCE_REGISTRY_PATH: path.join(workspace.trap, "missing-registry.json"),
-      },
       stdio: ["pipe", "pipe", "pipe"],
     },
   );
@@ -49,7 +42,7 @@ function lines(requests: object[]): Buffer {
   );
 }
 
-test("opt-in JSON-lines queries survive process restart without using legacy roots/registry", (t) => {
+test("JSON-lines queries survive a process restart", (t) => {
   const current = setup(t);
   const first = run(
     current,
@@ -69,8 +62,6 @@ test("opt-in JSON-lines queries survive process restart without using legacy roo
   assert.equal(restarted[0].writeContext, ctx);
   assert.deepEqual(restarted[0].result.tasks, first[1].result.tasks);
   assert.ok(tasks.every((task) => Number.isSafeInteger(task.version) && task.version > 0));
-  assert.equal(existsSync(path.join(current.trap, "workspace.json")), false);
-  assert.equal(existsSync(path.join(current.trap, "missing-registry.json")), false);
   assert.equal(
     readFileSync(path.join(current.root, "workspace.json"), "utf8"),
     '{"schemaVersion":2}\n',

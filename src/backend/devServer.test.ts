@@ -1,114 +1,52 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { startDevServer } from "./devServer.js";
 
-async function postCommand(
-  url: string,
-  body: unknown,
-  origin?: string,
-): Promise<{ status: number; json: Record<string, unknown> }> {
-  const response = await fetch(`${url}/command`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(origin === undefined ? {} : { origin }),
-    },
-    body: JSON.stringify(body),
-  });
-  return { status: response.status, json: (await response.json()) as Record<string, unknown> };
-}
-
-test("dev server serves health and the same command path as the sidecar", async () => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-dev-server-"));
-  const databasePath = path.join(directory, "dev.db");
-  const dev = await startDevServer({ port: 0, databasePath, legacy: true });
-
-  try {
-    const health = await fetch(`${dev.url}/health`);
-    assert.equal(health.status, 200);
-    const healthBody = (await health.json()) as { ok: boolean; databasePath: string };
-    assert.equal(healthBody.ok, true);
-    assert.equal(healthBody.databasePath, databasePath);
-
-    const probe = await postCommand(dev.url, {
-      version: 1,
-      requestId: "dev-probe",
-      command: "runtime.probe",
-    });
-    assert.equal(probe.status, 200);
-    assert.equal(probe.json.ok, true);
-    const probeResult = probe.json.result as {
-      databasePath: string;
-      searchMatches: number;
-      fts5Enabled: boolean;
-    };
-    assert.equal(probeResult.databasePath, databasePath);
-    assert.equal(probeResult.searchMatches, 1);
-    assert.equal(probeResult.fts5Enabled, true);
-
-    const created = await postCommand(dev.url, {
-      version: 1,
-      requestId: "dev-create",
-      command: "task.create",
-      args: { title: "Prepare @todo-app launch #planning #product" },
-      idempotencyKey: "dev-create-key",
-    });
-    assert.equal(created.status, 200);
-    assert.equal(created.json.ok, true);
-
-    const listed = await postCommand(dev.url, {
-      version: 1,
-      requestId: "dev-list",
-      command: "task.list",
-    });
-    const listedResult = (
-      listed.json as { result: { total: number; tasks: Array<{ title: string }> } }
-    ).result;
-    assert.equal(listed.json.ok, true);
-    assert.equal(listedResult.total, 1);
-    assert.equal(listedResult.tasks[0]?.title, "Prepare @todo-app launch #planning #product");
-
-    const invalid = await postCommand(dev.url, {
-      version: 1,
-      requestId: "dev-bad",
-      command: "task.nope",
-    });
-    assert.equal(invalid.status, 200);
-    assert.equal(invalid.json.ok, false);
-  } finally {
-    await new Promise<void>((resolve) => dev.server.close(() => resolve()));
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test("dev server rejects non-local origins", async () => {
+test("dev server answers only local origins, with the selected folder's token", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-dev-origin-"));
+  const previousDataHome = process.env.XDG_DATA_HOME;
+  process.env.XDG_DATA_HOME = path.join(directory, "profile");
+  mkdirSync(path.join(directory, "root"));
   const dev = await startDevServer({
     port: 0,
+    root: path.join(directory, "root"),
     databasePath: path.join(directory, "dev.db"),
-    legacy: true,
   });
+  const post = (origin: string, token?: string) =>
+    fetch(`${dev.url}/command`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin,
+        ...(token ? { "x-taskdb-selection": token } : {}),
+      },
+      body: JSON.stringify({ version: 2, command: "workspace.info", readOnly: true }),
+    });
 
   try {
-    const rejected = await postCommand(
-      dev.url,
-      { version: 1, requestId: "dev-origin", command: "runtime.probe" },
-      "https://example.com",
-    );
-    assert.equal(rejected.status, 403);
+    const health = (await (await fetch(`${dev.url}/health`)).json()) as {
+      ok: boolean;
+      rootPath: string;
+      selectionToken: string;
+    };
+    assert.equal(health.ok, true);
+    assert.equal(health.rootPath, path.join(directory, "root"));
 
-    const allowed = await postCommand(
-      dev.url,
-      { version: 1, requestId: "dev-origin-ok", command: "runtime.probe" },
-      "http://localhost:5173",
-    );
+    assert.equal((await post("https://example.com", health.selectionToken)).status, 403);
+    const allowed = await post("http://localhost:5173", health.selectionToken);
     assert.equal(allowed.status, 200);
-    assert.equal(allowed.json.ok, true);
+    assert.equal(((await allowed.json()) as { ok: boolean }).ok, true);
+    const tokenless = (await (await post("http://localhost:5173")).json()) as {
+      error: { code: string };
+    };
+    assert.equal(tokenless.error.code, "STALE_DEV_SELECTION");
   } finally {
     await new Promise<void>((resolve) => dev.server.close(() => resolve()));
+    if (previousDataHome === undefined) delete process.env.XDG_DATA_HOME;
+    else process.env.XDG_DATA_HOME = previousDataHome;
     rmSync(directory, { recursive: true, force: true });
   }
 });

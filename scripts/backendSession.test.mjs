@@ -11,7 +11,7 @@ const bundle = await build({
   write: false,
   external: ["@tauri-apps/plugin-shell"],
 });
-const { BackendSession, JsonLineSession } = await import(
+const { JsonLineSession } = await import(
   `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`
 );
 
@@ -19,7 +19,7 @@ function fakeCommand(
   shouldReply,
   onKill,
   onClose,
-  reply = (requestId) => ({ version: 1, requestId, ok: true, result: {} }),
+  reply = (requestId) => ({ version: 2, requestId, ok: true, result: {} }),
 ) {
   let receive;
   return {
@@ -50,7 +50,7 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
   let launches = 0;
   let kills = 0;
   const closeHandlers = [];
-  const session = new BackendSession(
+  const session = new JsonLineSession(
     async () =>
       fakeCommand(
         ++launches > 1,
@@ -59,10 +59,11 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
         },
         (callback) => closeHandlers.push(callback),
       ),
+    (value) => value,
     15,
   );
   try {
-    const request = { version: 1, requestId: "hung", command: "task.list" };
+    const request = { version: 2, requestId: "hung", command: "task.list" };
     await assert.rejects(session.request(request), /timed out.*same idempotency key/);
     assert.equal(kills, 1);
 
@@ -87,7 +88,7 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
 
 const { parseResponse } = await import("../dist/backend/protocol.js");
 
-test("protocol-2 framing rejects a legacy reply and restarts only the same selected command", async () => {
+test("protocol-2 framing rejects a version 1 reply and restarts only the same selected command", async () => {
   let launches = 0;
   let kills = 0;
   const session = new JsonLineSession(

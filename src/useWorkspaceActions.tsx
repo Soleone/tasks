@@ -13,12 +13,8 @@ import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { EditorError } from "@/platform/editorClient";
 import type { UndoEntry } from "@/platform/undoHistory";
 import {
-  BackendCommandError,
-  abortReceiveWorkspace,
   addDependency,
   moveTask,
-  prepareReceiveWorkspace,
-  purgeCanceledTasks as purgeCanceledTasksCommand,
   removeDependency,
   transitionTask,
   undoOperation,
@@ -53,7 +49,6 @@ type WorkspaceActionsProps = {
   closePicker: () => void;
   closeComposer: () => void;
   closeHelp: () => void;
-  closeSettings: () => void;
 };
 
 export function useWorkspaceActions({
@@ -67,14 +62,12 @@ export function useWorkspaceActions({
   closePicker,
   closeComposer,
   closeHelp,
-  closeSettings,
 }: WorkspaceActionsProps) {
   const {
     tasks,
     setTasks,
     invalidateQueries,
     sortFieldRef,
-    setReceiveState,
     refreshTasks,
     finishIdentityPreservingRefresh,
     removeVisibleTasks,
@@ -108,7 +101,7 @@ export function useWorkspaceActions({
       setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
     } catch (caught) {
       setAnnouncement(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? `${current.title} changed elsewhere. Refresh and try again.`
           : caught instanceof Error
             ? caught.message
@@ -136,7 +129,7 @@ export function useWorkspaceActions({
       setAnnouncement(`${subjectTitle} is now a top-level task`);
     } catch (caught) {
       setAnnouncement(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? `${current.title} changed elsewhere. Refresh and try again.`
           : caught instanceof Error
             ? caught.message
@@ -175,7 +168,7 @@ export function useWorkspaceActions({
       );
     } catch (caught) {
       setAnnouncement(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? `${current.title} changed elsewhere. Refresh and try again.`
           : caught instanceof Error
             ? caught.message
@@ -212,7 +205,7 @@ export function useWorkspaceActions({
       );
     } catch (caught) {
       setAnnouncement(
-        caught instanceof BackendCommandError && caught.code === "STALE_TASK_VERSION"
+        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
           ? `${current.title} changed elsewhere. Refresh and try again.`
           : caught instanceof Error
             ? caught.message
@@ -354,7 +347,7 @@ export function useWorkspaceActions({
       void refreshTasks(0, true);
     } catch (caught) {
       if (
-        (caught instanceof BackendCommandError || caught instanceof EditorError) &&
+        caught instanceof EditorError &&
         (caught.code === "OPERATION_CONFLICT" ||
           caught.code === "OPERATION_UNAVAILABLE" ||
           caught.code === "OPERATION_NOT_FOUND" ||
@@ -538,38 +531,6 @@ export function useWorkspaceActions({
     );
   }
 
-  async function purgeCanceledTasks(): Promise<number> {
-    const result = await purgeCanceledTasksCommand({ idempotencyKey: randomUUID() });
-    statusUndoRef.current = null;
-    setStatusUndo(null);
-    if (cancelExitTimer.current !== null) {
-      window.clearTimeout(cancelExitTimer.current);
-      cancelExitTimer.current = null;
-    }
-    setExitingTaskIds(new Set());
-    requestActiveTask();
-    await refreshTasks();
-    setAnnouncement(
-      result.deletedCount === 1
-        ? "Permanently deleted 1 canceled task"
-        : `Permanently deleted ${result.deletedCount} canceled tasks`,
-    );
-    return result.deletedCount;
-  }
-
-  async function beginReceiveWorkspace(): Promise<void> {
-    const prepared = await prepareReceiveWorkspace();
-    setReceiveState(prepared);
-    closeSettings();
-  }
-
-  async function abortReceive(): Promise<void> {
-    const restored = await abortReceiveWorkspace();
-    setReceiveState(null);
-    setAnnouncement(`Restored ${restored.taskCount ?? 0} tasks`);
-    void refreshTasks();
-  }
-
   return {
     optimisticCreate,
     setOptimisticCreate,
@@ -587,8 +548,5 @@ export function useWorkspaceActions({
     handleStatusChanged,
     handleStatusBatchChanged,
     handleCanceledMany,
-    purgeCanceledTasks,
-    beginReceiveWorkspace,
-    abortReceive,
   };
 }
