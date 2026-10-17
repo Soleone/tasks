@@ -83,5 +83,10 @@ run("pnpm", ["tauri", "android", "build", "--apk", "-t", "aarch64"], {
   cwd: root,
   env: { ...process.env, ANDROID_HOME: sdk, NDK_HOME: ndk },
 });
-run(path.join(buildTools, "apksigner"), ["verify", apk]);
+run(path.join(buildTools, "apksigner"), ["verify", apk], {
+  env: {
+    ...process.env,
+    PATH: `${path.join(process.env.JAVA_HOME, "bin")}${path.delimiter}${process.env.PATH}`,
+  },
+});
 console.log(`Signed APK: ${apk}`);
