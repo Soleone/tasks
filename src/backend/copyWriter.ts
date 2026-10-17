@@ -5,7 +5,7 @@ import { CommandError } from "./errors.js";
 import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
 import { applyCopyJournal, parseCopyArgs, parseCopyIntent, retireCopy } from "./copyJournal.js";
 import type { CopyIntent } from "./copyJournal.js";
-import { guardCopySource, inspectCopyDestination } from "./copyFiles.js";
+import { guardCopySource, inspectCopyDestination, releaseEmptyDestination } from "./copyFiles.js";
 import { persistPending, syncDirectory, localDomain, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import type { Request } from "./protocol.js";
@@ -45,14 +45,7 @@ export function executeCopy(request: Request, rootPath: string, cachePath: strin
         if (source.rootIdentity !== sourceRoot.rootIdentity)
           throw new CommandError("STALE_SCOPE", "source binding changed");
         guardCopySource(source);
-        const destination = inspectCopyDestination(source.rootPath, input.destinationDirectory);
-        // Windows can't rename a folder onto an existing one, even an empty one.
-        if (process.platform === "win32" && destination.identity !== null) {
-          throw new CommandError(
-            "DESTINATION_NOT_EMPTY",
-            "on Windows, copy into a folder that doesn't exist yet",
-          );
-        }
+        let destination = inspectCopyDestination(source.rootPath, input.destinationDirectory);
         inspectCopyDestination(root.rootPath, destination.directory);
         for (const binding of [root, sourceRoot]) {
           localPathOutsideRoot(cachePath, binding.rootPath);
@@ -72,6 +65,7 @@ export function executeCopy(request: Request, rootPath: string, cachePath: strin
               dryRun: request.dryRun,
             },
           };
+        destination = releaseEmptyDestination(source.rootPath, destination);
         const operationId = randomUUID();
         const files = source.files.map((file) => {
           const bytes = readRegularFile(path.join(source.rootPath, file.relativePath));

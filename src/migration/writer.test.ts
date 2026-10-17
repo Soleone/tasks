@@ -133,6 +133,18 @@ for (const caseId of [
 }
 
 test(
+  "migrate.destination: an existing empty folder becomes the migrated folder",
+  linuxOnly,
+  (t) => {
+    const workspace = createCopyTestWorkspace(t, v1);
+    const request = prepare(workspace);
+    mkdirSync(workspace.destination);
+    assert.equal(success(send(workspace, request)).result.taskCount, 4);
+    assert.deepEqual(rawFiles(workspace.destination), rawFiles(golden));
+  },
+);
+
+test(
   "public migration executes migrate-destination and overlap refusals before staging",
   linuxOnly,
   (t) => {

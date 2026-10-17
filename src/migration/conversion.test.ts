@@ -260,6 +260,20 @@ test("known physical Syncthing artifacts are excluded, not copied or parsed as t
   assert.deepEqual(tree(root), before);
 });
 
+test("migrate.source-valid: plain non-JSON files at the top are left behind, other JSON refuses", (t) => {
+  const { root } = setup(t);
+  writeFileSync(path.join(root, "tasks-saf-benchmark-report.txt"), "device benchmark report");
+  writeFileSync(path.join(root, "cache.db"), "stray cache bytes");
+  const before = tree(root);
+  assert.deepEqual(
+    planSchema1Conversion(root).files.map((file) => file.relativePath),
+    planSchema1Conversion(setup(t).root).files.map((file) => file.relativePath),
+  );
+  assert.deepEqual(tree(root), before);
+  writeFileSync(path.join(root, "notes.json"), "{}");
+  invalid(root, "notes.json", "entry");
+});
+
 const invalidEdits: [string, string, (record: RecordValue) => void, boolean?][] = [
   [
     "unknown descriptor member",
@@ -510,7 +524,6 @@ for (const [name, relativePath, edit, rehash] of invalidEdits) {
 
 for (const name of [
   "workspace.sync-conflict-device.json",
-  "cache.db",
   "unknown.json",
   "tasks/extra.txt",
   "tasks/a.sync-conflict-device.json",

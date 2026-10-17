@@ -7,7 +7,7 @@ Schema 1 is the format of the original app. `workspace.migrate` converts a schem
 | Rule | Then |
 | --- | --- |
 | `migrate.pause` | Pause sharing and other writers and keep an independent copy of the schema 1 folder |
-| `migrate.source-valid` | The source has a valid schema 1 descriptor, every task exactly once in its sibling order, no unknown fields, no duplicate JSON keys and no unresolved conflict copies. Otherwise `MIGRATION_INVALID_SOURCE` with the path, ID, field and reason |
+| `migrate.source-valid` | The source has a valid schema 1 descriptor, every task exactly once in its sibling order, no unknown fields, no duplicate JSON keys and no unresolved conflict copies. Plain files at the top that aren't JSON can't hold tasks and are left behind. Otherwise `MIGRATION_INVALID_SOURCE` with the path, ID, field and reason |
 | `migrate.no-cache-source` | The old cache never fills in missing content |
 
 ## Mapping

@@ -5,7 +5,11 @@ import { readRegularFile } from "../backend/canonicalReader.js";
 import { parseCopyArgs, parseCopyIntent, retireCopy } from "../backend/copyJournal.js";
 import type { CopyIntent } from "../backend/copyJournal.js";
 import { commitCopy } from "../backend/copyWriter.js";
-import { guardCopyDestination, inspectCopyDestination } from "../backend/copyFiles.js";
+import {
+  guardCopyDestination,
+  inspectCopyDestination,
+  releaseEmptyDestination,
+} from "../backend/copyFiles.js";
 import {
   persistPending,
   syncDirectory,
@@ -43,7 +47,7 @@ export function executeMigration(request: Request, rootPath: string, cachePath: 
           "STALE_WRITE_CONTEXT",
           "selected v1 root changed during observation",
         );
-      const destination = inspectCopyDestination(root.rootPath, input.destinationDirectory);
+      let destination = inspectCopyDestination(root.rootPath, input.destinationDirectory);
       localPathOutsideRoot(cachePath, destination.directory);
       localPathOutsideRoot(localDomain(root), destination.directory);
       if (request.readOnly || request.dryRun)
@@ -61,6 +65,7 @@ export function executeMigration(request: Request, rootPath: string, cachePath: 
             dryRun: request.dryRun,
           },
         };
+      destination = releaseEmptyDestination(root.rootPath, destination);
       const operationId = randomUUID();
       const files = plan.files.map((file) => ({
         relativePath: file.relativePath,

@@ -142,14 +142,14 @@ export default function DesktopWorkspace(): ReactElement {
     if (!paths || !oldFolder.trim() || !folder.trim()) return;
     const target = folder.trim();
     void run("Importing your tasks...", async () => {
-      if (await pathExists(target))
-        throw new Error(
-          "The import creates the task folder itself. Pick a folder that doesn't exist yet.",
-        );
       await createFolder(await dirname(target));
       const setup = await FolderSetup.open(paths.appData, oldFolder.trim());
       try {
         await setup.importInto(target);
+      } catch (reason) {
+        if (message(reason).startsWith("DESTINATION_NOT_EMPTY"))
+          throw new Error("The task folder has files in it. Import into a new or empty folder.");
+        throw reason;
       } finally {
         await setup.close();
       }
@@ -201,7 +201,7 @@ export default function DesktopWorkspace(): ReactElement {
               />
               <FieldDescription>
                 The old version's task folder. Import copies its tasks into the task folder, which
-                must not exist yet. The old files are only read and stay where they are.
+                must be new or empty. The old files are only read and stay where they are.
               </FieldDescription>
             </Field>
           </FieldGroup>

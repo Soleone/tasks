@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, realpathSync } from "node:fs";
+import { lstatSync, readdirSync, realpathSync, rmdirSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { readCanonicalRoot } from "./canonicalReader.js";
@@ -66,6 +66,27 @@ export function guardCopyDestination(sourceDirectory: string, expected: CopyDest
   ) {
     throw new CommandError("STALE_SCOPE", "copy destination binding changed");
   }
+}
+
+/**
+ * Removes an empty destination folder so the staged copy can be renamed into its place, because
+ * Windows can't rename a folder onto an existing one. rmdir refuses a folder that isn't empty.
+ */
+export function releaseEmptyDestination(
+  sourceDirectory: string,
+  destination: CopyDestination,
+): CopyDestination {
+  if (destination.identity === null) return destination;
+  guardCopyDestination(sourceDirectory, destination);
+  try {
+    rmdirSync(destination.directory);
+  } catch {
+    throw new CommandError(
+      "DESTINATION_NOT_EMPTY",
+      "copy destination must be absent or explicitly empty",
+    );
+  }
+  return inspectCopyDestination(sourceDirectory, destination.directory);
 }
 
 export function guardCopySource(expected: CanonicalSnapshot): void {

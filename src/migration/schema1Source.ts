@@ -409,14 +409,14 @@ export function readSchema1MigrationSnapshot(directory: string): Schema1Migratio
   );
   for (const name of inventories[0].names) {
     if (["workspace.json", "tasks", "order"].includes(name)) continue;
+    const stat = sourceBoundary(name, "entry", () => lstatSync(path.join(rootPath, name)));
+    // Other plain files at the top, like an old report, can't hold tasks and stay behind.
+    if (stat.isFile() && !name.toLowerCase().endsWith(".json")) continue;
     if (![".stfolder", ".stignore", ".stversions"].includes(name) && !transferTemporary(name))
       invalidSchema1Source(name, "entry", "unexpected root entry or conflict copy");
-    sourceBoundary(name, "entry", () => {
-      const stat = lstatSync(path.join(rootPath, name));
-      const isDirectoryMarker = name === ".stfolder" || name === ".stversions";
-      if (stat.isSymbolicLink() || (!stat.isFile() && !(isDirectoryMarker && stat.isDirectory())))
-        invalidSchema1Source(name, "entry", "unsafe transport artifact");
-    });
+    const isDirectoryMarker = name === ".stfolder" || name === ".stversions";
+    if (stat.isSymbolicLink() || (!stat.isFile() && !(isDirectoryMarker && stat.isDirectory())))
+      invalidSchema1Source(name, "entry", "unsafe transport artifact");
   }
   const files: FileObservation[] = [];
   const readRecord = (relativePath: string): unknown => {
