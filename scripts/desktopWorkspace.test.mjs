@@ -1,13 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -97,11 +89,10 @@ async function stateOf(folder) {
   }
 }
 
-test("desktop setup suggests a folder in Documents and finds the old version's tasks", async () => {
+test("desktop setup suggests a folder in Documents", async () => {
   const paths = await desktopPaths();
   assert.equal(paths.appData, appData);
   assert.equal(paths.suggestedFolder, path.join(scratch, "documents", "Tasks"));
-  assert.equal(paths.oldVersionFolder, path.join(appData, "sync"));
 });
 
 test("desktop setup turns an empty folder into a ready workspace", async () => {
@@ -117,37 +108,3 @@ test("desktop setup turns an empty folder into a ready workspace", async () => {
   assert.equal((await stateOf(folder)).state, "ready");
   assert.ok(existsSync(path.join(folder, "workspace.json")));
 });
-
-test("desktop import copies the old version's tasks and leaves the old files untouched", async () => {
-  const old = path.join(appData, "sync");
-  cpSync("scripts/fixtures/schema1/sync", old, { recursive: true });
-  const snapshot = () =>
-    readdirSync(old, { recursive: true })
-      .sort()
-      .map((name) => [name, readIfFile(path.join(old, name))]);
-  const before = snapshot();
-  assert.equal((await stateOf(old)).state, "unsupported");
-  const destination = path.join(scratch, "documents", "Tasks");
-  mkdirSync(path.dirname(destination), { recursive: true });
-  const setup = await FolderSetup.open(appData, old);
-  try {
-    await setup.importInto(destination);
-  } finally {
-    await setup.close();
-  }
-  assert.deepEqual(snapshot(), before);
-  assert.equal((await stateOf(destination)).state, "ready");
-  const imported = readdirSync(path.join(destination, "tasks")).filter((name) =>
-    name.endsWith(".json"),
-  );
-  const original = readdirSync(path.join(old, "tasks")).filter((name) => name.endsWith(".json"));
-  assert.equal(imported.length, original.length);
-});
-
-function readIfFile(file) {
-  try {
-    return readFileSync(file, "base64");
-  } catch {
-    return "directory";
-  }
-}

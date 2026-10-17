@@ -9,6 +9,7 @@
     "dev:web": "node scripts/dev-web.mjs",
     "dev:backend": "pnpm build:backend && node dist/backend/devServer.js",
     "tasks-cli": "pnpm build:backend && node dist/backend/tasks-cli.js",
+    "migrate": "pnpm build:backend && node scripts/migrate.mjs",
     "build": "pnpm check && pnpm build:backend && pnpm build:web",
     "build:web": "vp build",
     "build:backend": "tsc -p tsconfig.backend.json",

@@ -47,7 +47,7 @@ See [spec/ecosystem/cli.md](spec/ecosystem/cli.md) and [spec/backend/commands.md
 
 ## Desktop
 
-The desktop app runs the same UI on the current engine. It opens the remembered task folder; the first launch asks for one and can import the old version's tasks. Build it on the machine it should run on:
+The desktop app runs the same UI on the current engine. It opens the remembered task folder; the first launch asks for one. Build it on the machine it should run on:
 
 ```powershell
 pnpm install
@@ -58,7 +58,7 @@ pnpm build:tauri
 
 ## Data safety
 
-The JSON files own task state. The local SQLite cache also holds receipts, undo history and write authority, so deleting it is not a harmless rebuild. Never sync the cache. Converting an old (schema 1) workspace follows [the migration runbook](docs/migration-rehearsal.md) into a separate folder, with backups kept.
+The JSON files own task state. The local SQLite cache also holds receipts, undo history and write authority, so deleting it is not a harmless rebuild. Never sync the cache. Converting the old version's tasks is an owner-only step: `pnpm migrate OLD NEW` ([runbook](docs/migration.md)).
 
 ## Documentation
 

@@ -10,16 +10,10 @@ import { sidecarArgs } from "./workspaceReader";
 const FOLDER_KEY = "tasks.workspaceFolder";
 
 /** Where the desktop app keeps its own files, and where a first task folder is suggested. */
-export type DesktopPaths = { appData: string; suggestedFolder: string; oldVersionFolder: string };
+export type DesktopPaths = { appData: string; suggestedFolder: string };
 
 export async function desktopPaths(): Promise<DesktopPaths> {
-  const appData = await appDataDir();
-  return {
-    appData,
-    suggestedFolder: await join(await documentDir(), "Tasks"),
-    // The old version kept its task files next to its database, in the same app data folder.
-    oldVersionFolder: await join(appData, "sync"),
-  };
+  return { appData: await appDataDir(), suggestedFolder: await join(await documentDir(), "Tasks") };
 }
 
 export function rememberedFolder(): string | null {
@@ -109,17 +103,6 @@ export class FolderSetup {
     await this.send("workspace.init", {}, { writeContext, idempotencyKey: randomUUID() });
   }
 
-  /**
-   * Copies the old version's tasks into a new folder. The old folder is only read; the copy is
-   * checked in a dry run first, so a source the converter refuses changes nothing.
-   */
-  async importInto(destinationDirectory: string): Promise<void> {
-    const { writeContext } = await this.info();
-    const args = { destinationDirectory };
-    await this.send("workspace.migrate", args, { writeContext, dryRun: true });
-    await this.send("workspace.migrate", args, { writeContext, idempotencyKey: randomUUID() });
-  }
-
   close(): Promise<void> {
     return this.session.close();
   }
@@ -129,7 +112,6 @@ export class FolderSetup {
     args: Record<string, unknown>,
     options: {
       readOnly?: boolean;
-      dryRun?: boolean;
       writeContext?: string;
       idempotencyKey?: string;
     },
@@ -141,7 +123,7 @@ export class FolderSetup {
       args,
       actor: { kind: "human" as const, label: "Tasks setup" },
       readOnly: options.readOnly ?? false,
-      dryRun: options.dryRun ?? false,
+      dryRun: false,
       ...(options.writeContext ? { writeContext: options.writeContext } : {}),
       ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
     };

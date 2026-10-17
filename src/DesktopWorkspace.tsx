@@ -1,4 +1,3 @@
-import { dirname } from "@tauri-apps/api/path";
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import App from "./App";
 import { APP_NAME } from "./backend/branding";
@@ -45,14 +44,10 @@ async function inspect(appData: string, folder: string) {
   }
 }
 
-/**
- * The desktop app opens the remembered task folder. On first launch it asks for one, and offers to
- * import the old version's tasks into it.
- */
+/** The desktop app opens the remembered task folder. On first launch it asks for one. */
 export default function DesktopWorkspace(): ReactElement {
   const [paths, setPaths] = useState<DesktopPaths | null>(null);
   const [folder, setFolder] = useState("");
-  const [oldFolder, setOldFolder] = useState("");
   const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
   const [busy, setBusy] = useState<string | null>("Opening Tasks...");
   const [error, setError] = useState<string | null>(null);
@@ -73,11 +68,9 @@ export default function DesktopWorkspace(): ReactElement {
           }
           setError(`${remembered} isn't a task folder anymore (${opened.state}).`);
         }
-        const oldExists = await pathExists(found.oldVersionFolder);
         if (cancelled) return;
         setPaths(found);
         setFolder(remembered ?? found.suggestedFolder);
-        setOldFolder(oldExists ? found.oldVersionFolder : "");
       } catch (reason) {
         if (!cancelled) setError(message(reason));
       } finally {
@@ -107,14 +100,8 @@ export default function DesktopWorkspace(): ReactElement {
     }
   }
 
-  // Enter imports while an old folder is filled in, so it never creates an empty folder first.
-  function submit(event: FormEvent): void {
+  function openFolder(event: FormEvent): void {
     event.preventDefault();
-    if (oldFolder.trim()) importOldVersion();
-    else openFolder();
-  }
-
-  function openFolder(): void {
     if (!paths || !folder.trim()) return;
     const target = folder.trim();
     void run("Opening the folder...", async () => {
@@ -132,30 +119,9 @@ export default function DesktopWorkspace(): ReactElement {
       }
       throw new Error(
         found.state === "unsupported"
-          ? "This folder holds tasks from the old version. Import them into a new folder instead."
+          ? "This folder holds tasks from the old version. Convert it with pnpm migrate first."
           : "This folder has files that aren't a complete task workspace. Pick an empty or new folder.",
       );
-    });
-  }
-
-  function importOldVersion(): void {
-    if (!paths || !oldFolder.trim() || !folder.trim()) return;
-    const target = folder.trim();
-    void run("Importing your tasks...", async () => {
-      await createFolder(await dirname(target));
-      const setup = await FolderSetup.open(paths.appData, oldFolder.trim());
-      try {
-        await setup.importInto(target);
-      } catch (reason) {
-        if (message(reason).startsWith("DESTINATION_NOT_EMPTY"))
-          throw new Error("The task folder has files in it. Import into a new or empty folder.");
-        throw reason;
-      } finally {
-        await setup.close();
-      }
-      const opened = await inspect(paths.appData, target);
-      if (opened.state !== "ready") throw new Error(`The imported folder is ${opened.state}.`);
-      return opened.selection;
     });
   }
 
@@ -171,7 +137,7 @@ export default function DesktopWorkspace(): ReactElement {
       </header>
       {busy && <p role="status">{busy}</p>}
       {paths && (
-        <form onSubmit={submit} className="flex flex-col gap-6">
+        <form onSubmit={openFolder} className="flex flex-col gap-6">
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="task-folder">Task folder</FieldLabel>
@@ -189,32 +155,10 @@ export default function DesktopWorkspace(): ReactElement {
                 A new folder starts an empty list. An existing task folder opens as it is.
               </FieldDescription>
             </Field>
-            <Field>
-              <FieldLabel htmlFor="old-folder">Tasks from the old version</FieldLabel>
-              <Input
-                id="old-folder"
-                value={oldFolder}
-                onChange={(event) => setOldFolder(event.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-                disabled={busy !== null}
-              />
-              <FieldDescription>
-                The old version's task folder. Import copies its tasks into the task folder, which
-                must be new or empty. The old files are only read and stay where they are.
-              </FieldDescription>
-            </Field>
           </FieldGroup>
-          <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={busy !== null}>
-              {oldFolder.trim() ? "Import and open" : "Open"}
-            </Button>
-            {oldFolder.trim() && (
-              <Button type="button" variant="outline" onClick={openFolder} disabled={busy !== null}>
-                Open without importing
-              </Button>
-            )}
-          </div>
+          <Button type="submit" className="w-fit" disabled={busy !== null}>
+            Open
+          </Button>
         </form>
       )}
       {error && (
