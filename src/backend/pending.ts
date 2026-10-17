@@ -5,8 +5,6 @@ import { parseCanonicalJson } from "./strictJson.js";
 import { readRegularFile } from "./canonicalReader.js";
 import { parseCopyIntent } from "./copyJournal.js";
 import type { CopyIntent } from "./copyJournal.js";
-import { parseInitIntent } from "./initJournal.js";
-import type { InitIntent } from "./initJournal.js";
 import { parseOrderIntent } from "./orderJournal.js";
 import type { OrderIntent } from "./orderJournal.js";
 import { parseBatchIntent } from "./batchJournal.js";
@@ -31,7 +29,6 @@ export type PendingIntent =
   | UpdateIntent
   | CopyIntent
   | CopyTarget
-  | InitIntent
   | OrderIntent
   | BatchIntent
   | PurgeIntent
@@ -48,7 +45,6 @@ export function readPending(root: RootBinding): PendingIntent | undefined {
     const value = parseCanonicalJson(readRegularFile(file)) as PendingIntent;
     if (value.format === "taskdb.pending-update") return readUpdatePending(root);
     if (value.format === "taskdb.pending-copy") return parseCopyIntent(value, root);
-    if (value.format === "taskdb.pending-init") return parseInitIntent(value, root);
     if (value.format === "taskdb.pending-order") return parseOrderIntent(value, root);
     if (value.format === "taskdb.pending-batch") return parseBatchIntent(value, root);
     if (value.format === "taskdb.pending-purge") return parsePurgeIntent(value, root);

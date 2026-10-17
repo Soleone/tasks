@@ -15,7 +15,7 @@ Everything else (cache, receipts, undo history, journals, recovery copies) lives
 | --- | --- |
 | `data.descriptor` | Writers create `workspace.json` as exactly `{"schemaVersion":2}` plus a newline, UTF-8, no BOM. Readers accept any legal formatting but require one integer `schemaVersion` equal to 2 |
 | `data.schema-refuse` | Any other schema version is refused, never rewritten |
-| `data.init-explicit` | Only `workspace.init` on an empty folder creates the workspace. Reading never initializes. A folder with task files but no descriptor is not empty |
+| `data.init-explicit` | Only `workspace.init` on an empty folder creates the workspace. Reading never initializes. Empty allows Syncthing's own markers, an empty `tasks` folder and the leftover of an interrupted init, so init after a crash simply runs again. A folder with task files but no descriptor is not empty |
 | `data.mixed-format` | Old order files or old record fields inside a workspace are invalid |
 | `data.transport-files` | Syncthing markers, ignore files and preserved conflict copies are allowed. They are not extra copies of the truth |
 | `data.safe-entries` | Task entries are regular files inside the folder. Symlink escapes, unexpected subfolders and unrecognized task file names are reported and preserved, never silently skipped |

@@ -10,12 +10,12 @@ What runs where today. The target behavior is [the spec](../spec/README.md); wha
 | `tasks-cli --root PATH --database CACHE` (Linux) | Current | Queries, task, link, undo and purge verbs, init, rebuild, archive, restore, migrate, recover, with retry metadata | [Friendly CLI tests](../src/backend/friendlyCli.test.ts) |
 | `tasks-backend --stdio --root PATH --database CACHE` | Current | Every command in [spec/backend/commands.md](../spec/backend/commands.md), including reorder, batches and doctor. On Windows Node, init, migrate, child capture, blocker, move, reorder, status batch, undo and backup were smoke-tested on disposable data (2026-10-16) | [Gateway tests](../src/backend/gateway.test.ts), [conformance history](evidence/conformance-history.md) |
 | Desktop app (`pnpm build:tauri`, `pnpm dev:native`) | Current | The established UI on the remembered task folder; first-launch setup picks or starts a folder | [Desktop setup test](../scripts/desktopWorkspace.test.mjs); no owner launch yet |
-| Android app (`pnpm build:android`, arm64, Android 11+) | Current | The desktop UI and setup, with the backend bundled as a Node executable; the task folder is a path on shared storage | Signed release APK builds in WSL; not run on a device yet |
+| Android app (`pnpm build:android`, arm64, Android 11+) | Current | The desktop UI and setup, with the backend bundled as a Node executable; the task folder is a path on shared storage | Signed release APK builds in WSL; the backend starts on the owner's phone (2026-10-17), setup and editing not confirmed yet |
 
 ## Open blockers
 
 - **Desktop launch:** the new desktop app has not been launched on Windows or Linux yet. Earlier Windows pilot launches stopped before the main window appeared; the pilot launcher is gone, and the owner tests a release build next. Global focus is deferred.
-- **Android:** no device run yet (WSL has no emulator). Starting a new folder links `workspace.json` into place, and Android's shared storage may refuse hard links.
+- **Android:** first device runs are under way; save speed on the phone is not measured yet.
 - **Windows crash checks:** the proof-profile fault-injection checks were removed with the profile; crash recovery is tested on Linux only until they are rebuilt.
 - **Browser walkthrough:** no case-level interaction run exists for the dev:web route. The last attempt stopped before a page opened (missing `libglib-2.0.so.0` on the worker host).
 - **Owner acceptance:** no qualifying multi-day owner sessions recorded yet.

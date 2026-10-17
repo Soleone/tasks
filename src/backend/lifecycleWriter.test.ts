@@ -92,7 +92,7 @@ test(
 );
 
 test(
-  "init permits existing empty tasks and physical transport history, preserving their bytes",
+  "data.init-explicit: an empty tasks folder and Syncthing markers count as empty, and init keeps their bytes",
   linuxOnly,
   (t) => {
     const workspace = emptyWorkspace(t);
@@ -104,6 +104,7 @@ test(
       "retained transport history, not canonical data",
     );
     writeFileSync(path.join(workspace.root, ".stignore"), "// keep these rules\n");
+    assert.equal(success(send(workspace, { command: "workspace.info" })).result.state, "empty");
     const request = prepared(workspace, "workspace.init");
     success(send(workspace, request));
     assert.equal(

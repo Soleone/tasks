@@ -87,7 +87,7 @@ for (const command of ["archive", "restore"])
           assert.equal(existsSync(workspace.destination), false);
           assert.equal(
             inspectCanonicalRoot(intent.stageDirectory).state,
-            cut === "prefix-5" ? "ready" : "incomplete",
+            cut === "prefix-5" ? "ready" : cut === "prefix-0" ? "empty" : "incomplete",
           );
           assert.equal(
             existsSync(

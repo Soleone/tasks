@@ -33,12 +33,12 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
 5. The backend allows every command on every desktop OS. On Windows Node, setup (init, import) and the formerly withheld writes were smoke-tested on disposable data. The new desktop app has not been launched by the owner yet; earlier pilot launches stopped before the main window.
 6. Migration only reads the old version's files and writes a new folder. No personal data has been touched.
-7. Android (2026-10-17): `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. Not run on any device yet; WSL has no emulator. Starting a new folder publishes `workspace.json` with a hard link, which Android's shared storage may refuse; opening an existing folder doesn't need one.
+7. Android (2026-10-17): `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. First phone runs found two blockers, both fixed: the backend needed the C++ runtime, and Android's shared storage refuses hard links. Hard links are gone (owner, 2026-10-17): init is a plain retryable step that renames `workspace.json` into place, and doctor renames its stages. WSL has no emulator.
 8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
 
 ## Next step
 
-1. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work.
+1. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work, then measure save speed on the phone; slim the save path only if it isn't instant.
 2. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
 3. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`. `pnpm test:ui` runs on the current route (2026-10-16).
 4. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).

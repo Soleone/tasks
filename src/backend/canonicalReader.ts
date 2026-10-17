@@ -150,6 +150,38 @@ export function readRootDescriptor(directory: string): { rootPath: string; rootI
   return root;
 }
 
+// Syncthing never syncs `.syncthing.*.tmp`, so a stage left by a crash stays on this device.
+export const INIT_STAGE = ".syncthing.taskdb-init.tmp";
+const transportMarkers = new Set([".stfolder", ".stignore", ".stversions"]);
+
+function notInitRoot(message: string): never {
+  throw new CommandError("INVALID_CANONICAL", message);
+}
+
+/**
+ * Accepts only an empty root: Syncthing's own markers, an empty `tasks` folder and the stage of
+ * an interrupted init, so retrying after a crash just runs init again.
+ */
+export function assertInitRoot(rootPath: string): void {
+  for (const name of readdirSync(rootPath)) {
+    const stat = lstatSync(path.join(rootPath, name));
+    if (name === "tasks") {
+      if (!stat.isDirectory() || readdirSync(path.join(rootPath, name)).length !== 0)
+        notInitRoot("initialization refuses existing records or partial transfers");
+    } else if (name === INIT_STAGE) {
+      if (!stat.isFile()) notInitRoot("initialization found an unexpected stage");
+    } else if (
+      !transportMarkers.has(name) ||
+      stat.isSymbolicLink() ||
+      (name === ".stignore" ? !stat.isFile() : !stat.isDirectory() && !stat.isFile()) ||
+      (name === ".stversions" && !stat.isDirectory())
+    )
+      notInitRoot(
+        "initialization requires an uninitialized empty root, with only physical transport markers",
+      );
+  }
+}
+
 export type RootInspection = {
   rootPath: string;
   rootIdentity: string;
@@ -165,10 +197,11 @@ export function inspectCanonicalRoot(directory: string): RootInspection {
   const base = { rootPath, rootIdentity };
   let schemaVersion: number | null = null;
   try {
-    if (readdirSync(rootPath).length === 0)
-      return { ...base, state: "empty", schemaVersion, issues: [] };
     const manifestPath = path.join(rootPath, "workspace.json");
-    if (!existsSync(manifestPath)) invalidEntry();
+    if (!existsSync(manifestPath)) {
+      assertInitRoot(rootPath);
+      return { ...base, state: "empty", schemaVersion, issues: [] };
+    }
     const manifest = parseCanonicalJson(readRegularFile(manifestPath));
     if (
       manifest !== null &&

@@ -142,7 +142,8 @@ for (const [kind, count, cleanups] of [
     ...Array.from({ length: cleanups }, (_, n) => `cleanup-${n + 1}`),
     "beforeCommit",
     "afterCommit",
-    "retirement-1",
+    // Retirement deletes quarantined conflict copies; a dangling repair quarantines none.
+    ...(cleanups ? ["retirement-1"] : []),
     "retired",
   ];
   for (const cut of cuts)
@@ -305,9 +306,18 @@ for (const fault of [
     linux,
     (t) => {
       const { w, request } = scenario(t),
-        afterOutput = fault.startsWith("stage-") || fault.startsWith("target-"),
         cleaned = fault.startsWith("quarantine-") || fault === "reintroduced-conflict";
-      kill(w, request, cleaned ? "cleanup-1" : afterOutput ? "prefix-1" : "intent");
+      kill(
+        w,
+        request,
+        cleaned
+          ? "cleanup-1"
+          : fault.startsWith("stage-")
+            ? "stage-bound"
+            : fault.startsWith("target-")
+              ? "prefix-1"
+              : "intent",
+      );
       const intent = pending(w),
         domain = path.dirname(pendingIntentPath(readRootDescriptor(w.root))),
         archive = path.join(domain, `doctor-${intent.plan.planId}.recovery.json`),
@@ -548,16 +558,20 @@ test(
     const { w, request } = scenario(t);
     kill(w, request, "afterCommit");
     const intent = pending(w),
-      stage = path.join(w.root, "tasks", `.syncthing.taskdb-doctor-${intent.operationId}-0.tmp`),
-      bytes = readFileSync(stage),
+      quarantine = path.join(
+        w.root,
+        "tasks",
+        `.syncthing.taskdb-doctor-conflict-${intent.operationId}-0.tmp`,
+      ),
+      bytes = readFileSync(quarantine),
       recovery = resume(w, intent);
-    writeFileSync(stage, "{}");
+    writeFileSync(quarantine, "{}");
     const before = raw(w);
     fail(response(w, recovery), "RECOVERY_CONFLICT");
     success(response(w, recovery));
     assert.ok(existsSync(pendingIntentPath(readRootDescriptor(w.root))));
     assert.deepEqual(raw(w), before);
-    writeFileSync(stage, bytes);
+    writeFileSync(quarantine, bytes);
     success(response(w, recovery));
     assert.equal(existsSync(pendingIntentPath(readRootDescriptor(w.root))), false);
     assert.equal(

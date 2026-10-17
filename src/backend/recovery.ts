@@ -4,8 +4,6 @@ import { CommandError } from "./errors.js";
 import { readControlRoot } from "./controlRoot.js";
 import { retireCopy } from "./copyJournal.js";
 import { commitCopy } from "./copyWriter.js";
-import { retireInit } from "./initJournal.js";
-import { commitInit } from "./lifecycleWriter.js";
 import { retireBatchStages } from "./batchJournal.js";
 import { commitUndo } from "./undoWriter.js";
 import { retirePurgeQuarantines } from "./purgeJournal.js";
@@ -100,8 +98,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
                 return recover();
               });
       }
-      if (!originalResult && intent.format === "taskdb.pending-init")
-        originalResult = commitInit(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-order")
         originalResult = commitOrder(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-batch")
@@ -121,9 +117,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
         switch (completed.format) {
           case "taskdb.pending-copy":
             retireCopy(completed);
-            break;
-          case "taskdb.pending-init":
-            retireInit(completed);
             break;
           case "taskdb.pending-update":
             retirePending(root);

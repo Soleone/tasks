@@ -1,13 +1,15 @@
-import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { readCanonicalRoot, readPhysicalRoot, readRootDescriptor } from "./canonicalReader.js";
+import {
+  assertInitRoot,
+  readCanonicalRoot,
+  readPhysicalRoot,
+  readRootDescriptor,
+} from "./canonicalReader.js";
 import { guardCopySource } from "./copyFiles.js";
-import { applyInitJournal, inspectInitRoot, parseInitIntent, retireInit } from "./initJournal.js";
-import type { InitIntent } from "./initJournal.js";
-import { persistPending, withRootWriterLock } from "./localDomain.js";
+import { withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { assertArgs } from "./protocol.js";
 import type { Request } from "./protocol.js";
@@ -18,6 +20,7 @@ import {
   withCacheTransaction,
 } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
+import { initRoot } from "./workspaceInit.js";
 
 function requireInitAuthorityBudget(database: DatabaseSync): void {
   const state = database
@@ -34,16 +37,6 @@ function requireInitAuthorityBudget(database: DatabaseSync): void {
   }
 }
 
-export function commitInit(database: DatabaseSync, intent: InitIntent): Record<string, unknown> {
-  requireInitAuthorityBudget(database);
-  const snapshot = applyInitJournal(intent);
-  const authority = synchronizeAuthority(database, intent.root, snapshot);
-  const result = { schemaVersion: 2, changed: true };
-  if (authority.writeContext === intent.request.writeContext)
-    storeReceipt(database, intent.request, result);
-  return result;
-}
-
 export function executeLifecycle(request: Request, rootPath: string, cachePath: string) {
   const initializing = request.command === "workspace.init";
   const root = initializing ? readPhysicalRoot(rootPath) : readRootDescriptor(rootPath);
@@ -53,9 +46,8 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
     lstatSync(path.join(root.rootPath, "workspace.json"), { throwIfNoEntry: false })
   )
     readRootDescriptor(root.rootPath);
-  return withRootWriterLock(root, () => {
-    let completed: InitIntent | undefined;
-    const outcome = withCacheTransaction(cachePath, root, (database) => {
+  return withRootWriterLock(root, () =>
+    withCacheTransaction(cachePath, root, (database) => {
       const authority = synchronizeAuthority(database, root);
       requireWriteContext(request, authority);
       assertArgs(request.args, []);
@@ -64,7 +56,7 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
       if (readPending(root))
         throw new CommandError("RECOVERY_PENDING", "selected root has an unfinished intent");
       if (initializing) {
-        const baseline = inspectInitRoot(root);
+        assertInitRoot(root.rootPath);
         if (request.readOnly || request.dryRun)
           return {
             writeContext: authority.writeContext,
@@ -75,24 +67,12 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
               dryRun: request.dryRun,
             },
           };
-        const intent = parseInitIntent(
-          {
-            format: "taskdb.pending-init",
-            version: 1,
-            root,
-            cachePath: localPathOutsideRoot(cachePath, root.rootPath),
-            request,
-            operationId: randomUUID(),
-            baseline,
-          },
-          root,
-        );
-        if (JSON.stringify(inspectInitRoot(root)) !== JSON.stringify(baseline))
-          throw new CommandError("STALE_SCOPE", "empty root changed before initialization");
+        localPathOutsideRoot(cachePath, root.rootPath);
         requireInitAuthorityBudget(database);
-        persistPending(root, intent);
-        const result = commitInit(database, intent);
-        completed = intent;
+        const initialized = synchronizeAuthority(database, root, initRoot(root));
+        const result = { schemaVersion: 2, changed: true };
+        if (initialized.writeContext === request.writeContext)
+          storeReceipt(database, request, result);
         return { writeContext: authority.writeContext, result };
       }
       const snapshot = readCanonicalRoot(root.rootPath);
@@ -119,8 +99,6 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
       };
       storeReceipt(database, request, result);
       return { writeContext: rebuilt.writeContext, result };
-    });
-    if (completed) retireInit(completed);
-    return outcome;
-  });
+    }),
+  );
 }

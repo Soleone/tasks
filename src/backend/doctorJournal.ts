@@ -1,4 +1,4 @@
-import { linkSync, lstatSync, renameSync, unlinkSync } from "node:fs";
+import { lstatSync, renameSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { canonicalJson } from "./canonicalJson.js";
 import { CommandError } from "./errors.js";
@@ -46,13 +46,6 @@ function stagePath(intent: DoctorIntent, index: number): string {
     intent.root.rootPath,
     "tasks",
     `.syncthing.taskdb-doctor-${intent.operationId}-${index}.tmp`,
-  );
-}
-function publicationPath(intent: DoctorIntent, index: number): string {
-  return path.join(
-    intent.root.rootPath,
-    "tasks",
-    `.syncthing.taskdb-doctor-publish-${intent.operationId}-${index}.tmp`,
   );
 }
 function quarantinePath(intent: DoctorIntent, index: number): string {
@@ -140,10 +133,7 @@ export function parseDoctorIntent(value: unknown, root: RootBinding): DoctorInte
       conflict();
     const plan = parseRetainedDoctorPlan(intent.plan, root);
     const privateNames = intent.writes
-      ?.flatMap((_, index) => [
-        path.basename(stagePath(intent, index)),
-        path.basename(publicationPath(intent, index)),
-      ])
+      ?.map((_, index) => path.basename(stagePath(intent, index)))
       .concat(
         plan.removedConflictPaths.map((_, index) => path.basename(quarantinePath(intent, index))),
       );
@@ -207,21 +197,20 @@ function saveProgress(intent: DoctorIntent, progress: Progress): void {
   renameSync(`${file}.preparing`, file);
   syncDirectory(localDomain(intent.root));
 }
+/** A bound stage stays until its publication starts; publishing renames it into the task file. */
 function verifyPrivateStages(intent: DoctorIntent, progress: Progress): void {
   for (const [index, write] of intent.writes.entries()) {
-    const state = progress.writes[index];
-    for (const file of [stagePath(intent, index), publicationPath(intent, index)]) {
-      if (!lstatSync(file, { throwIfNoEntry: false })) {
-        if (file === stagePath(intent, index) && state.stageIdentity !== null) conflict();
-        continue;
-      }
-      if (
-        !readRegularFile(file).equals(Buffer.from(write.nextBytes, "base64")) ||
-        (state.stageIdentity !== null && fileIdentity(file) !== state.stageIdentity) ||
-        (file === publicationPath(intent, index) && !state.started)
-      )
-        conflict();
+    const state = progress.writes[index],
+      stage = stagePath(intent, index);
+    if (!lstatSync(stage, { throwIfNoEntry: false })) {
+      if (state.stageIdentity !== null && !state.started) conflict();
+      continue;
     }
+    if (
+      !readRegularFile(stage).equals(Buffer.from(write.nextBytes, "base64")) ||
+      (state.stageIdentity !== null && fileIdentity(stage) !== state.stageIdentity)
+    )
+      conflict();
   }
 }
 function verifyQuarantine(intent: DoctorIntent, index: number): void {
@@ -254,10 +243,7 @@ function guardDoctor(
   )
     conflict();
   const allowedPrivate = intent.writes
-    .flatMap((_, index) => [
-      path.basename(stagePath(intent, index)),
-      path.basename(publicationPath(intent, index)),
-    ])
+    .map((_, index) => path.basename(stagePath(intent, index)))
     .concat(
       intent.plan.removedConflictPaths.map((_, index) =>
         path.basename(quarantinePath(intent, index)),
@@ -355,17 +341,11 @@ export function applyDoctorJournal(intent: DoctorIntent): CanonicalSnapshot {
         state.started = true;
         saveProgress(intent, progress);
         guardDoctor(intent, progress, index);
-        if (write.beforeBytes === null) linkSync(stage, target);
-        else {
-          linkSync(stage, publicationPath(intent, index));
-          renameSync(publicationPath(intent, index), target);
-        }
+        renameSync(stage, target);
         syncDirectory(path.dirname(target));
       } else if (write.beforeBytes !== null && fileIdentity(target) !== state.stageIdentity) {
         guardDoctor(intent, progress);
-        if (!lstatSync(publicationPath(intent, index), { throwIfNoEntry: false }))
-          linkSync(stage, publicationPath(intent, index));
-        renameSync(publicationPath(intent, index), target);
+        renameSync(stage, target);
         syncDirectory(path.dirname(target));
       }
       guardDoctor(intent, progress);
@@ -393,24 +373,18 @@ export function retireDoctorStages(intent: DoctorIntent): void {
     const hasProgress = lstatSync(progressPath(intent), { throwIfNoEntry: false });
     if (lstatSync(`${progressPath(intent)}.preparing`, { throwIfNoEntry: false })) conflict();
     const progress = hasProgress ? readProgress(intent) : undefined;
-    const stages = intent.writes.flatMap((write, index) =>
-      [stagePath(intent, index), publicationPath(intent, index)]
-        .filter((file) => lstatSync(file, { throwIfNoEntry: false }))
-        .map((file) => {
-          if (
-            !progress?.writes[index].published ||
-            fileIdentity(file) !== progress.writes[index].stageIdentity ||
-            !readRegularFile(file).equals(Buffer.from(write.nextBytes, "base64"))
-          )
-            conflict();
-          return file;
-        }),
-    );
+    // Publishing renamed every stage into its task file, so a stage left here is not ours.
+    if (
+      intent.writes.some((_, index) =>
+        lstatSync(stagePath(intent, index), { throwIfNoEntry: false }),
+      )
+    )
+      conflict();
     const quarantines = intent.plan.removedConflictPaths
       .map((_, index) => index)
       .filter((index) => lstatSync(quarantinePath(intent, index), { throwIfNoEntry: false }));
     for (const index of quarantines) verifyQuarantine(intent, index);
-    for (const file of [...stages, ...quarantines.map((index) => quarantinePath(intent, index))]) {
+    for (const file of quarantines.map((index) => quarantinePath(intent, index))) {
       unlinkSync(file);
       syncDirectory(path.dirname(file));
     }
