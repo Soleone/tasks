@@ -129,6 +129,38 @@ for (const cut of cuts) {
   );
 }
 
+for (const orderArrives of [false, true]) {
+  test(
+    `migrate.source-valid: migration without an order directory ${orderArrives ? "refuses a later directory arrival" : "recovers fixed generated ordering"}`,
+    linuxOnly,
+    (t) => {
+      const workspace = setup(t, sourceFixture);
+      const orderDirectory = path.join(workspace.root, "order");
+      rmSync(orderDirectory, { recursive: true });
+      const before = readSchema1MigrationSnapshot(workspace.root).files;
+      const { intent, pending } = crash(workspace, "prefix-2");
+      if (orderArrives) {
+        mkdirSync(orderDirectory);
+        fail(recover(workspace, intent.operationId), "MIGRATION_CONFLICT");
+        assert.equal(existsSync(pending), true);
+      } else {
+        assert.equal(success(recover(workspace, intent.operationId)).result.outcome, "complete");
+        assert.equal(existsSync(pending), false);
+        assert.equal(existsSync(orderDirectory), false);
+        assert.deepEqual(
+          readCanonicalRoot(workspace.destination)
+            .tasks.map((task) => task.id)
+            .sort(),
+          readSchema1MigrationSnapshot(workspace.root)
+            .tasks.map((task) => task.id)
+            .sort(),
+        );
+      }
+      assert.deepEqual(readSchema1MigrationSnapshot(workspace.root).files, before);
+    },
+  );
+}
+
 for (const fault of [
   "source-bytes",
   "source-missing",

@@ -39,7 +39,7 @@ export function parseMigrationEvidence(
     invalidEvidence();
   const evidence = value as unknown as MigrationEvidence;
   if (
-    evidence.directories.length !== 3 ||
+    ![2, 3].includes(evidence.directories.length) ||
     evidence.directories.some(
       (directory, index) =>
         directory.relativePath !== [".", "tasks", "order"][index] ||
@@ -51,7 +51,8 @@ export function parseMigrationEvidence(
   if (
     new Set(evidence.files.map((file) => file.relativePath)).size !== evidence.files.length ||
     !evidence.files.some((file) => file.relativePath === "workspace.json") ||
-    !evidence.files.some((file) => file.relativePath === "order/root.json")
+    (evidence.directories.length === 2 &&
+      evidence.files.some((file) => file.relativePath.startsWith("order/")))
   )
     invalidEvidence();
   for (const file of evidence.files) {

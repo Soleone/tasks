@@ -25,6 +25,7 @@ import {
   Schema1MigrationSourceError,
 } from "./schema1Source.js";
 import { planSchema1Conversion } from "./conversion.js";
+import { compareTasks } from "../backend/taskModel.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/", import.meta.url));
 const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
@@ -223,6 +224,54 @@ test("migration keeps all inactive siblings, exact legacy IDs, edge membership a
   ]);
   assert.ok(legacy.files.some((file) => file.relativePath === "tasks/Legacy_ID-7.json"));
 });
+
+test("migrate.source-valid: stale ordering keeps valid positions and appends every missing sibling", (t) => {
+  const { root } = setup(t);
+  const baseline = planSchema1Conversion(root);
+  patch(root, "order/root.json", (record) => {
+    record.taskIds = [parentId, "missing-task", childId];
+  });
+  rmSync(path.join(root, `order/${parentId}.json`));
+  const before = tree(root);
+  const plan = planSchema1Conversion(root);
+  const remaining = baseline.tasks
+    .filter((task) => task.parentId === null && task.id !== parentId)
+    .map((task) => task.id)
+    .sort();
+  assert.deepEqual(
+    plan.tasks
+      .filter((task) => task.parentId === null)
+      .sort(compareTasks)
+      .map((task) => task.id),
+    [parentId, ...remaining],
+  );
+  assert.deepEqual(
+    plan.tasks.map(({ orderKey: _key, ...task }) => task),
+    baseline.tasks.map(({ orderKey: _key, ...task }) => task),
+  );
+  assert.deepEqual(plan.files, planSchema1Conversion(root).files);
+  assert.deepEqual(tree(root), before);
+});
+
+for (const missing of ["order/root.json", "order"]) {
+  test(`migrate.source-valid: absent ${missing} uses deterministic sibling ordering`, (t) => {
+    const { root } = setup(t);
+    rmSync(path.join(root, missing), { recursive: true });
+    const before = tree(root);
+    const plan = planSchema1Conversion(root);
+    assert.equal(plan.tasks.length, 4);
+    assert.deepEqual(
+      plan.tasks
+        .filter((task) => task.parentId === null)
+        .sort(compareTasks)
+        .map((task) => task.id),
+      ["62f159c1-22a7-45cb-89a0-c0c35aaeb1ed", parentId, doneId],
+    );
+    assert.equal(plan.tasks.find((task) => task.id === childId)!.parentId, parentId);
+    assert.deepEqual(plan.files, planSchema1Conversion(root).files);
+    assert.deepEqual(tree(root), before);
+  });
+}
 
 test("empty source and valid empty leaf scope convert without inventing tasks", (t) => {
   const { root } = setup(t);
@@ -456,24 +505,10 @@ const invalidEdits: [string, string, (record: RecordValue) => void, boolean?][] 
     },
   ],
   [
-    "missing sibling member",
-    "order/root.json",
-    (record) => {
-      record.taskIds = [parentId];
-    },
-  ],
-  [
     "duplicate sibling member",
     "order/root.json",
     (record) => {
       record.taskIds = [parentId, parentId];
-    },
-  ],
-  [
-    "foreign sibling member",
-    "order/root.json",
-    (record) => {
-      record.taskIds = [parentId, doneId, childId];
     },
   ],
   [
@@ -536,14 +571,7 @@ for (const name of [
   });
 }
 
-for (const name of [
-  "workspace.json",
-  "tasks",
-  "order",
-  "order/root.json",
-  `order/${parentId}.json`,
-  `tasks/${childId}.json`,
-]) {
+for (const name of ["workspace.json", "tasks", taskPath]) {
   test(`strict v1 source refuses incomplete inventory missing ${name}`, (t) => {
     const { root } = setup(t);
     rmSync(path.join(root, name), { recursive: true });

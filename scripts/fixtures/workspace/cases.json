@@ -2550,7 +2550,8 @@
         }
       },
       "expect": {
-        "error": "MIGRATION_INVALID_SOURCE",
+        "taskCount": 4,
+        "fields": {},
         "selectionUnchanged": true
       }
     },

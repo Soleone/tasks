@@ -62,13 +62,31 @@ function convertSchema1Task(task: CanonicalTaskFile, orderKey: string): Canonica
   return validateTask(converted, task.id);
 }
 
-/** Validate a complete v1 root and return deterministic bytes in memory. Never publish or select. */
+function schema1SiblingSequences(source: Schema1MigrationSnapshot): Map<string | null, string[]> {
+  const siblings = new Map<string | null, Set<string>>();
+  for (const task of source.tasks) {
+    if (!siblings.has(task.parentId)) siblings.set(task.parentId, new Set());
+    siblings.get(task.parentId)!.add(task.id);
+  }
+  const saved = new Map(source.orders.map((order) => [order.parentId, order.taskIds]));
+  const sequences = new Map<string | null, string[]>();
+  for (const [parentId, members] of siblings) {
+    // Order records are optional hints; only task files own sibling membership.
+    const sequence = (saved.get(parentId) ?? []).filter((id) => members.delete(id));
+    sequence.push(...[...members].sort());
+    sequences.set(parentId, sequence);
+  }
+  return sequences;
+}
+
+/** Validate a v1 root and return deterministic bytes in memory. Never publish or select. */
 export function planSchema1Conversion(sourceDirectory: string): Schema1ConversionPlan {
   const source = readSchema1MigrationSnapshot(sourceDirectory);
+  const sequences = schema1SiblingSequences(source);
   const orderKeys = new Map<string, string>();
-  for (const order of source.orders) {
-    const keys = generateNKeysBetween(null, null, order.taskIds.length);
-    for (const [index, id] of order.taskIds.entries()) orderKeys.set(id, keys[index]);
+  for (const sequence of sequences.values()) {
+    const keys = generateNKeysBetween(null, null, sequence.length);
+    for (const [index, id] of sequence.entries()) orderKeys.set(id, keys[index]);
   }
   const tasks = source.tasks.map((task) => convertSchema1Task(task, orderKeys.get(task.id)!));
   const byScope = new Map<string | null, CanonicalTask[]>();
@@ -76,13 +94,13 @@ export function planSchema1Conversion(sourceDirectory: string): Schema1Conversio
     if (!byScope.has(task.parentId)) byScope.set(task.parentId, []);
     byScope.get(task.parentId)!.push(task);
   }
-  for (const order of source.orders) {
-    const sequence = (byScope.get(order.parentId) ?? []).sort(compareTasks).map((task) => task.id);
-    if (JSON.stringify(sequence) !== JSON.stringify(order.taskIds))
+  for (const [parentId, expected] of sequences) {
+    const sequence = (byScope.get(parentId) ?? []).sort(compareTasks).map((task) => task.id);
+    if (JSON.stringify(sequence) !== JSON.stringify(expected))
       invalidSchema1Source(
-        `order/${order.parentId ?? "root"}.json`,
+        `order/${parentId ?? "root"}.json`,
         "taskIds",
-        "mapped sequence differs from source",
+        "mapped sequence differs from planned sibling order",
       );
   }
   const files = tasks.map((task) => ({

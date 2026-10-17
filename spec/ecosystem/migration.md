@@ -7,7 +7,7 @@ Schema 1 is the format of the original app. `workspace.migrate` converts a schem
 | Rule | Then |
 | --- | --- |
 | `migrate.pause` | Pause sharing and other writers and keep an independent copy of the schema 1 folder |
-| `migrate.source-valid` | The source has a valid schema 1 descriptor, every task exactly once in its sibling order, no unknown fields, no duplicate JSON keys and no unresolved conflict copies. Plain files at the top that aren't JSON can't hold tasks and are left behind. Otherwise `MIGRATION_INVALID_SOURCE` with the path, ID, field and reason |
+| `migrate.source-valid` | The source has a valid schema 1 descriptor and task records, no unknown fields, no duplicate JSON keys and no unresolved conflict copies. Sibling order files and the order directory are optional. Present order records must have valid fields, hashes and unique IDs; only task records determine sibling membership. Plain files at the top that aren't JSON can't hold tasks and are left behind. Otherwise `MIGRATION_INVALID_SOURCE` with the path, ID, field and reason |
 | `migrate.no-cache-source` | The old cache never fills in missing content |
 
 ## Mapping
@@ -21,7 +21,7 @@ Schema 1 is the format of the original app. `workspace.migrate` converts a schem
 | `descriptionMarkdown` | `description`, unchanged |
 | `createdAt`, `updatedAt` | Kept as instants, even where `updatedAt` reflects a status change |
 | `completedAt` (done) or `canceledAt` (canceled) | `closedAt`. Active tasks get `null`. Inconsistent closure data refuses |
-| Sibling order | `generateNKeysBetween(null, null, n)` per sibling set, including inactive tasks |
+| Sibling order | Keep saved sibling positions, discard references outside the sibling set and append missing siblings sorted by ID, including inactive tasks. With no saved order, sort siblings by ID. Assign `generateNKeysBetween(null, null, n)` per complete sibling set |
 | `format`, `formatVersion`, `workspaceId`, `sync` | Dropped. They stay in the source copy |
 | Cache versions, receipts, history, settings | Not migrated |
 

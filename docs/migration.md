@@ -9,7 +9,7 @@ The app isn't published, so converting old (schema 1) task folders is an owner-o
    pnpm migrate "$env:APPDATA\com.soleone.tasks\sync" D:\data\donedb
    ```
 
-   The old folder is only read. The new folder must be absent or empty. Top-level files that aren't JSON stay behind; anything else unexpected stops the conversion before it writes.
+   The old folder is only read. The new folder must be absent or empty. Saved manual order is kept where possible: stale references are discarded and missing siblings appended by ID. Missing order files or the entire order directory are fine; no tasks are dropped to match an order file. Top-level files that aren't JSON stay behind; anything else unexpected stops the conversion before it writes.
 3. **Open it.** Start the desktop app and choose the new folder in setup, or in Settings → Data → Change folder.
 
 ## If it stops

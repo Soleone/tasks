@@ -312,11 +312,6 @@ function verifySchema1Relationships(tasks: CanonicalTaskFile[]): void {
 
 function verifySchema1Scopes(tasks: CanonicalTaskFile[], orders: CanonicalOrderFile[]): void {
   const byId = new Map(tasks.map((task) => [task.id, task]));
-  const members = new Map<string | null, Set<string>>([[null, new Set()]]);
-  for (const task of tasks) {
-    if (!members.has(task.parentId)) members.set(task.parentId, new Set());
-    members.get(task.parentId)!.add(task.id);
-  }
   const byScope = new Map(orders.map((order) => [order.parentId, order]));
   if (byScope.size !== orders.length)
     invalidSchema1Source("order", "parentId", "duplicate sibling scopes");
@@ -324,21 +319,6 @@ function verifySchema1Scopes(tasks: CanonicalTaskFile[], orders: CanonicalOrderF
     const relativePath = `order/${order.parentId ?? "root"}.json`;
     if (order.parentId !== null && !byId.has(order.parentId))
       invalidSchema1Source(relativePath, "parentId", "missing referenced parent");
-    const expected = members.get(order.parentId) ?? new Set<string>();
-    if (order.taskIds.length !== expected.size || order.taskIds.some((id) => !expected.has(id)))
-      invalidSchema1Source(
-        relativePath,
-        "taskIds",
-        "sequence must contain every sibling exactly once, including inactive tasks",
-      );
-  }
-  for (const parentId of members.keys()) {
-    if (!byScope.has(parentId))
-      invalidSchema1Source(
-        `order/${parentId ?? "root"}.json`,
-        "taskIds",
-        "missing complete sibling sequence",
-      );
   }
 }
 
@@ -405,9 +385,9 @@ export function readSchema1MigrationRootDescriptor(directory: string): {
 /** Strict read-only observation, not a writer lock, pinned filesystem snapshot or migration. */
 export function readSchema1MigrationSnapshot(directory: string): Schema1MigrationSnapshot {
   const rootPath = sourceBoundary(".", "directory", () => realpathSync(directory));
-  const inventories = [".", "tasks", "order"].map((relativePath) =>
-    directoryInventory(rootPath, relativePath),
-  );
+  const inventories = [directoryInventory(rootPath, "."), directoryInventory(rootPath, "tasks")];
+  if (inventories[0].names.includes("order"))
+    inventories.push(directoryInventory(rootPath, "order"));
   for (const name of inventories[0].names) {
     if (["workspace.json", "tasks", "order"].includes(name)) continue;
     const stat = sourceBoundary(name, "entry", () => lstatSync(path.join(rootPath, name)));
