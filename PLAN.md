@@ -38,7 +38,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 ## Next step
 
 1. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
-2. Move `pnpm test:ui` to the current route. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`.
+2. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`. `pnpm test:ui` runs on the current route (2026-10-16).
 3. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 
 Kit r1 adoption steps 1 to 3 and the React hook warnings are done (2026-10-16). `src/components/ui` is stock upstream, pending an owner look at the UI.

@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { setTimeout as delay } from "node:timers/promises";
 
-// Requires agent-browser with Linux Chromium installed. All writes use a scratch database.
+// Requires agent-browser with Linux Chromium installed. All writes use a scratch task folder.
 const root = path.resolve(import.meta.dirname, "..");
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-ui-check-"));
-mkdirSync(path.join(scratch, "themes"), { recursive: true });
+const taskFolder = path.join(scratch, "root");
+const cachePath = path.join(scratch, "cache.db");
 const session = `tasks-ui-check-${process.pid}`;
 const server = createServer();
 async function freePort() {
@@ -25,17 +25,38 @@ const url = `http://127.0.0.1:${webPort}`;
 const backendUrl = `http://127.0.0.1:${backendPort}`;
 const testEnvironment = {
   ...process.env,
-  TASKS_DATABASE_PATH: path.join(scratch, "tasks.db"),
-  TASKS_SYNC_ROOT: path.join(scratch, "sync"),
-  TASKS_SOURCE_REGISTRY_PATH: "",
   XDG_DATA_HOME: path.join(scratch, "local-data"),
   APPDATA: path.join(scratch, "local-data"),
 };
+// The external CLI is a second writer on this device, so it shares the app's cache.
+function tasksCli(...args) {
+  return JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        path.join(root, "dist/backend/tasks-cli.js"),
+        "--root",
+        taskFolder,
+        "--database",
+        cachePath,
+        ...args,
+        "--json",
+      ],
+      { cwd: root, env: testEnvironment, encoding: "utf8" },
+    ),
+  );
+}
+mkdirSync(taskFolder);
+execFileSync("pnpm", ["-s", "build:backend"], { cwd: root, stdio: "inherit" });
+tasksCli("init");
 const app = spawn(
   process.execPath,
   [
     "scripts/dev-web.mjs",
-    "--legacy",
+    "--root",
+    taskFolder,
+    "--database",
+    cachePath,
     "--",
     "--host",
     "127.0.0.1",
@@ -146,22 +167,64 @@ function printFailureDiagnostics() {
   }
   console.error("Dev-server output:\n" + serverLog);
 }
-async function command(command, args = {}) {
+const QUERIES = new Set(["task.list", "task.get", "category.list", "tag.list", "workspace.info"]);
+let selectionToken = null;
+async function send(request) {
   const response = await fetch(`${backendUrl}/command`, {
     method: "POST",
-    headers: { "content-type": "application/json", connection: "close" },
+    headers: {
+      "content-type": "application/json",
+      connection: "close",
+      "x-taskdb-selection": selectionToken,
+    },
     body: JSON.stringify({
-      version: 1,
+      version: 2,
       requestId: crypto.randomUUID(),
-      idempotencyKey: crypto.randomUUID(),
       actor: { kind: "agent", label: "UI check" },
-      command,
-      args,
+      ...request,
     }),
   });
   const result = await response.json();
   assert.equal(result.ok, true, JSON.stringify(result));
-  return result.result;
+  return result;
+}
+// Writes go through the same bridge as the app, under the folder's current write context.
+async function command(command, args = {}) {
+  if (QUERIES.has(command)) return (await send({ command, args, readOnly: true })).result;
+  const { writeContext } = await send({ command: "workspace.info", readOnly: true });
+  return (await send({ command, args, writeContext, idempotencyKey: crypto.randomUUID() })).result;
+}
+// Task files own their timestamps, so an older task is an edit to its file.
+function stampTask(title, createdAt, updatedAt) {
+  const directory = path.join(taskFolder, "tasks");
+  for (const name of readdirSync(directory)) {
+    const file = path.join(directory, name);
+    const record = JSON.parse(readFileSync(file, "utf8"));
+    if (record.title !== title) continue;
+    writeFileSync(file, `${JSON.stringify({ ...record, createdAt, updatedAt }, null, 2)}\n`);
+    return;
+  }
+  throw new Error(`no task titled ${title}`);
+}
+const { builtinThemes } = await import("../dist/backend/builtinThemes.js");
+// Themes are a browser-profile preference.
+function selectedTheme() {
+  return evaluate('localStorage.getItem("tasks.selectedTheme") ?? "gilt"');
+}
+async function versionOf(id) {
+  return (await command("task.get", { id })).task.version;
+}
+// Every page load asks to confirm the dev bridge's folder before the list opens.
+function openTasks() {
+  waitFor(
+    '[...document.querySelectorAll("button")].some((b) => b.textContent === "Open Tasks" && !b.disabled)',
+  );
+  browser("find", "role", "button", "click", "--name", "Open Tasks");
+  waitFor('document.querySelector("[aria-label=\\"Saved tasks\\"]") !== null');
+}
+function reload() {
+  browser("reload");
+  openTasks();
 }
 
 try {
@@ -180,7 +243,11 @@ try {
     await delay(100);
   }
   assert.ok(ready, serverLog);
+  selectionToken = (
+    await (await fetch(`${backendUrl}/health`, { headers: { connection: "close" } })).json()
+  ).selectionToken;
   browser("open", url);
+  openTasks();
   browser("snapshot", "-i");
   // The task list is home: no dialog opens and the empty list shell owns focus.
   waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
@@ -371,7 +438,7 @@ try {
   // Hold one create reply open to assert the optimistic task appears before persistence finishes.
   evaluate(`window.originalFetch = window.fetch; window.delayCreateReply = true; window.fetch = async (...args) => {
     const response = await window.originalFetch(...args);
-    if (window.delayCreateReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create") {
+    if (window.delayCreateReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create" && !JSON.parse(args[1].body).dryRun) {
       window.delayCreateReply = false;
       await new Promise((resolve) => setTimeout(resolve, 350));
     }
@@ -389,9 +456,9 @@ try {
   waitFor('document.activeElement?.getAttribute("role") === "listbox"');
   let saved = (await command("task.list")).tasks;
   assert.equal(saved.length, 1);
-  assert.equal(saved[0].descriptionMarkdown, "## Shortlist\n- Ask about accessibility");
-  assert.equal(saved[0].category.slug, "launch");
-  assert.equal(saved[0].tags[0].slug, "planning");
+  assert.equal(saved[0].description, "## Shortlist\n- Ask about accessibility");
+  assert.equal(saved[0].category, "launch");
+  assert.deepEqual(saved[0].tags, ["planning"]);
   waitFor(
     'document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"',
   );
@@ -801,26 +868,15 @@ try {
     "document.querySelector('form[aria-label=\"Edit task\"] input') === document.activeElement",
   );
   browser("fill", 'form[aria-label="Edit task"] input', "My unsaved title");
-  const externalEdit = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        path.join(root, "dist/backend/tasks-cli.js"),
-        "--legacy",
-        "update",
-        saved[0].id,
-        "--title",
-        "Agent updated title",
-        "--expected-version",
-        String(saved[0].version),
-        "--idempotency-key",
-        "ui-external-editor-conflict",
-        "--database",
-        path.join(scratch, "tasks.db"),
-        "--json",
-      ],
-      { cwd: root, env: testEnvironment, encoding: "utf8" },
-    ),
+  const externalEdit = tasksCli(
+    "update",
+    saved[0].id,
+    "--text",
+    "Agent updated title",
+    "--expected-version",
+    String(saved[0].version),
+    "--write-context",
+    tasksCli("info").writeContext,
   );
   assert.equal(externalEdit.task.title, "Agent updated title");
   evaluate('window.dispatchEvent(new Event("focus")); true');
@@ -837,7 +893,7 @@ try {
   browser("fill", 'form[aria-label="New task"] input', "Next capture draft");
   evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.fetch = async (...args) => {
     const response = await window.originalFetch(...args);
-    if (window.loseReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create") {
+    if (window.loseReply && args[1]?.body && JSON.parse(args[1].body).command === "task.create" && !JSON.parse(args[1].body).dryRun) {
       window.loseReply = false;
       await new Promise((resolve) => setTimeout(resolve, 350));
       throw new TypeError("Lost reply");
@@ -848,16 +904,11 @@ try {
   waitFor(
     'document.querySelector("[data-optimistic-task]")?.textContent.includes("Next capture draft")',
   );
-  waitFor('document.body.textContent.includes("Could not save")');
-  check('document.querySelector("[data-optimistic-task]") === null');
-  check("document.querySelector('form[aria-label=\"New task\"]')?.parentElement?.hidden === false");
-  check(
-    'document.querySelector(\'form[aria-label="New task"] input\').value === "Next capture draft"',
-  );
-  waitFor(
-    "document.activeElement === document.querySelector('form[aria-label=\"New task\"] input')",
-  );
+  // The unanswered request is kept, and only the same request can be retried.
+  waitFor('document.body.textContent.includes("Workspace request needs attention")');
+  waitFor('document.activeElement?.textContent === "Retry same request"');
   browser("press", "Enter");
+  waitFor('!document.body.textContent.includes("Workspace request needs attention")');
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
   assert.equal((await command("task.list")).tasks.length, 2);
   evaluate("window.fetch = window.originalFetch; true");
@@ -866,19 +917,19 @@ try {
   waitFor("document.querySelector('form[aria-label=\"New task\"]') !== null");
   browser("fill", 'form[aria-label="New task"] input', "Ambiguous @work @home");
   browser("press", "Enter");
-  waitFor('document.body.textContent.includes("only one @category")');
+  waitFor('document.body.textContent.includes("multiple categories")');
   check(
     'document.querySelector(\'form[aria-label="New task"] input\').value === "Ambiguous @work @home"',
   );
   browser("fill", 'form[aria-label="New task"] input', "Call the venue");
   browser("press", "Enter");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
-  browser("reload");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 3');
   check('document.querySelector("[data-filter-summary]")?.textContent === "3 active tasks"');
 
   // Themes: the dedicated picker drives the regions, and the choice persists.
-  const themeCount = (await command("theme.list")).themes.length;
+  const themeCount = builtinThemes().length;
   browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
   check('document.querySelectorAll("[cmdk-group]").length === 1');
@@ -913,11 +964,7 @@ try {
   waitFor(
     '[...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task")) && getComputedStyle([...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task"))).backgroundColor === "rgb(125, 174, 163)"',
   );
-  assert.equal(
-    (await command("theme.list")).selected,
-    "gruvbox",
-    "the workspace stores the choice",
-  );
+  assert.equal(selectedTheme(), "gruvbox", "the browser profile stores the choice");
   const themeAudit = JSON.parse(browser("--json", "a11y"));
   assert.equal(themeAudit.data.violations.length, 0, JSON.stringify(themeAudit.data.violations));
 
@@ -932,7 +979,7 @@ try {
   waitFor(
     '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.activeElement === window.themeOpenerFocus',
   );
-  browser("reload");
+  reload();
   waitFor(
     'getComputedStyle(document.body).backgroundColor === "rgb(30, 30, 30)" && document.querySelectorAll("[role=option]").length === 3',
   );
@@ -945,11 +992,7 @@ try {
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false])")');
 
-  // A light palette drops the dark class, and a file beside the database joins the picker.
-  writeFileSync(
-    path.join(scratch, "themes", "sunset.toml"),
-    'mode = "light"\naccent = "#c2410c"\nbackground = "#fff7ed"\ndark_background = "#ffedd5"\nforeground = "#431407"\n',
-  );
+  // A light palette drops the dark class.
   browser("press", "Alt+t");
   try {
     waitFor('document.activeElement.matches("[cmdk-input]")');
@@ -974,21 +1017,6 @@ try {
   );
   waitFor('getComputedStyle(document.body).backgroundColor === "rgb(227, 228, 232)"');
   check('!document.documentElement.classList.contains("dark")');
-  browser("press", "Alt+t");
-  waitFor('document.activeElement.matches("[cmdk-input]")');
-  browser("fill", 'input[role="combobox"]', "sunset");
-  waitFor(
-    '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.offsetParent !== null && item.textContent.startsWith("Sunset"))',
-  );
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=command-item]")].find((item) => item.textContent.startsWith("Sunset")).click(); true',
-  );
-  waitFor('getComputedStyle(document.body).backgroundColor === "rgb(255, 237, 213)"');
-  waitFor(
-    'getComputedStyle([...document.querySelectorAll("button")].find((b) => b.textContent.includes("New task"))).backgroundColor === "rgb(194, 65, 12)"',
-  );
-  assert.equal((await command("theme.list")).selected, "sunset");
-
   // Gilt is the built-in fallback and remains explicitly selectable.
   browser("press", "Alt+t");
   waitFor('document.activeElement.matches("[cmdk-input]")');
@@ -996,12 +1024,11 @@ try {
   waitFor('document.querySelectorAll("[data-slot=command-item]").length === 1');
   browser("press", "Enter");
   waitFor('getComputedStyle(document.body).backgroundColor === "rgb(9, 10, 12)"');
-  assert.equal((await command("theme.list")).selected, "gilt");
-  browser("reload");
+  assert.equal(selectedTheme(), "gilt");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 3');
 
-  // Settings: the header icon opens a larger, two-column dialog. Its Local
-  // section writes a portable JSON file beside the scratch database.
+  // Settings: the header icon opens a larger, two-column dialog.
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor(
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
@@ -1035,16 +1062,17 @@ try {
   check(
     'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
   );
-  check('document.querySelector("[role=tabpanel] #settings-shortcut-input") !== null');
+  check(
+    'document.querySelector("[role=tabpanel]")?.textContent.includes("Global window focus is not yet enabled")',
+  );
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   check(
     'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
   );
   check('document.body.textContent.includes("Local")');
-  check('document.body.textContent.includes("SQLite workspace")');
-  check('document.body.textContent.includes("Permanently delete canceled tasks")');
-  check('document.body.textContent.includes("There are no canceled tasks to delete.")');
+  waitFor('document.body.textContent.includes("Local cache")');
+  check(`document.body.textContent.includes(${JSON.stringify(cachePath)})`);
   check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');
   focus("[role=tab][aria-selected=true]");
   browser("press", "ArrowLeft");
@@ -1052,7 +1080,7 @@ try {
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
   // The Settings selector offers the same palettes as the picker and saves a
   // light choice without closing Settings. Restore Gilt for the remaining checks.
-  const settingsThemeCount = (await command("theme.list")).themes.length;
+  const settingsThemeCount = builtinThemes().length;
   browser("click", "[data-theme-control]");
   waitFor('document.querySelectorAll("[data-slot=select-item]").length > 0');
   check(
@@ -1064,7 +1092,7 @@ try {
   waitFor(
     'document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "catppuccin-latte" && !document.documentElement.classList.contains("dark")',
   );
-  assert.equal((await command("theme.list")).selected, "catppuccin-latte");
+  assert.equal(selectedTheme(), "catppuccin-latte");
   browser("click", "[data-theme-control]");
   waitFor('document.querySelectorAll("[data-slot=select-item]").length > 0');
   evaluate(
@@ -1073,7 +1101,7 @@ try {
   waitFor(
     'document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "gilt" && document.documentElement.classList.contains("dark")',
   );
-  assert.equal((await command("theme.list")).selected, "gilt");
+  assert.equal(selectedTheme(), "gilt");
   // Full help is the default. The dropdown also keeps the old basic mode
   // available while adding a separate option for no automatic guidance.
   check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
@@ -1182,23 +1210,6 @@ try {
     '[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Data").click(); true',
   );
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
-  evaluate(
-    '[...document.querySelectorAll("[role=dialog]:not([aria-modal=false]) button")].find((button) => button.textContent === "Export tasks as JSON").click(); true',
-  );
-  waitFor('document.body.textContent.includes("Exported 3 tasks")');
-  const exportedPath = evaluate(
-    'document.querySelector("[data-slot=alert-description]").textContent',
-  );
-  const exportedFile = JSON.parse(readFileSync(exportedPath, "utf8"));
-  assert.equal(exportedFile.format, "tasks.tasks-export");
-  assert.equal(exportedFile.formatVersion, 2);
-  assert.equal(exportedFile.taskCount, 3);
-  assert.ok(
-    exportedFile.tasks.every((row) => Number.isInteger(row.siblingOrder) && row.siblingOrder >= 0),
-  );
-  assert.ok(
-    exportedFile.tasks.every((row) => typeof row.title === "string" && Array.isArray(row.tags)),
-  );
   evaluate(
     '[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "General").click(); true',
   );
@@ -1354,10 +1365,10 @@ try {
   );
 
   await command("task.create", {
-    title: "Check ".repeat(60),
-    descriptionMarkdown: "Long notes ".repeat(100),
+    text: "Check ".repeat(60),
+    description: "Long notes ".repeat(100),
   });
-  browser("reload");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 4');
   for (const width of [1280, 390, 320]) {
     browser("set", "viewport", String(width), "844");
@@ -1449,18 +1460,16 @@ try {
   evaluate(`window.originalFetch = window.fetch; window.loseReply = true; window.deleteKeys = []; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
     const response = await window.originalFetch(...args);
-    if (payload.command === "task.delete") {
+    if (payload?.command === "task.delete" && !payload.dryRun) {
       window.deleteKeys.push(payload.idempotencyKey);
       if (window.loseReply) { window.loseReply = false; throw new TypeError("Lost delete reply"); }
     }
     return response;
   }; true`);
   browser("press", "Delete");
-  waitFor('document.body.textContent.includes("Could not cancel")');
-  check(
-    '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 4',
-  );
-  browser("press", "Delete");
+  waitFor('document.body.textContent.includes("Workspace request needs attention")');
+  waitFor('document.activeElement?.textContent === "Retry same request"');
+  browser("press", "Enter");
   waitFor(
     '!document.querySelector("[role=dialog]:not([aria-modal=false])") && document.querySelectorAll("[role=option]").length === 3',
   );
@@ -1485,7 +1494,7 @@ try {
   waitFor(
     'document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("[role=option]").length === 4',
   );
-  browser("reload");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 4');
   check('document.querySelectorAll(`[data-status="open"]`).length === 4');
   check('document.activeElement?.getAttribute("role") === "listbox"');
@@ -1493,20 +1502,20 @@ try {
 
   // The outline is intentionally shallow in the UI. A grandchild remains
   // visible at one indentation level rather than creating recursive nesting.
-  const treeParent = (await command("task.create", { title: "Release parent" })).task;
-  const treeChild = (await command("task.create", { title: "Package child" })).task;
-  const treeGrandchild = (await command("task.create", { title: "Deep child" })).task;
+  const treeParent = (await command("task.create", { text: "Release parent" })).task;
+  const treeChild = (await command("task.create", { text: "Package child" })).task;
+  const treeGrandchild = (await command("task.create", { text: "Deep child" })).task;
   await command("task.move", {
     id: treeChild.id,
     parentId: treeParent.id,
-    expectedVersion: treeChild.version,
+    expectedVersion: await versionOf(treeChild.id),
   });
   await command("task.move", {
     id: treeGrandchild.id,
     parentId: treeChild.id,
-    expectedVersion: treeGrandchild.version,
+    expectedVersion: await versionOf(treeGrandchild.id),
   });
-  browser("reload");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 5');
   check('!document.body.textContent.includes("Package child")');
   evaluate(`(() => {
@@ -1547,14 +1556,14 @@ try {
 
   // The unblocked filter ignores canceled dependency targets and can be
   // toggled from the focused list with F then U.
-  const blocker = (await command("task.create", { title: "Release blocker" })).task;
-  const blocked = (await command("task.create", { title: "Blocked task" })).task;
+  const blocker = (await command("task.create", { text: "Release blocker" })).task;
+  const blocked = (await command("task.create", { text: "Blocked task" })).task;
   await command("task.dependency.add", {
     id: blocked.id,
     dependsOnId: blocker.id,
-    expectedVersion: blocked.version,
+    expectedVersion: await versionOf(blocked.id),
   });
-  browser("reload");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 7');
   check(
     'document.querySelector("[data-filter=task-unblocked]").getAttribute("aria-pressed") === "false"',
@@ -1615,9 +1624,9 @@ try {
 
   // F then C opens the category selector. Choosing a category enables the Folder
   // filter button; clicking it again clears the category filter.
-  await command("task.create", { title: "Roadmap task @roadmap" });
-  await command("task.create", { title: "Launch follow-up @launch" });
-  browser("reload");
+  await command("task.create", { text: "Roadmap task @roadmap" });
+  await command("task.create", { text: "Launch follow-up @launch" });
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 9');
   check(
     'document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"',
@@ -1796,9 +1805,9 @@ try {
   // no-op and bumps nothing.
   await command("task.update", {
     id: priorityId,
-    expectedVersion: priorityBefore.version + 1,
+    expectedVersion: await versionOf(priorityId),
     title: `${priorityBefore.title} (agent edit)`,
-    descriptionMarkdown: priorityBefore.descriptionMarkdown,
+    description: priorityBefore.description,
   });
   browser("press", "3");
   waitFor('document.body.textContent.includes("changed elsewhere")');
@@ -1845,14 +1854,14 @@ try {
   browser("press", "Control+Enter");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
   assert.equal((await command("task.list", { priority: 0 })).total, 1);
-  browser("reload");
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 10');
 
   // Tags: F then T opens a multi-select picker with AND semantics; the
   // picker's Clear tags row empties the filter.
-  await command("task.create", { title: "Tag cockpit #planning #product" });
-  await command("task.create", { title: "Planning only #planning" });
-  browser("reload");
+  await command("task.create", { text: "Tag cockpit #planning #product" });
+  await command("task.create", { text: "Planning only #planning" });
+  reload();
   waitFor('document.querySelectorAll("[role=option]").length === 12');
   focus("[role=listbox]");
   browser("press", "f");
@@ -2003,17 +2012,9 @@ try {
   const updatedAt = new Date();
   updatedAt.setDate(updatedAt.getDate() - 2);
   updatedAt.setHours(12, 0, 0, 0);
-  const stampDb = new DatabaseSync(path.join(scratch, "tasks.db"));
-  stampDb
-    .prepare("UPDATE tasks SET created_at = ?, updated_at = ? WHERE title LIKE 'Tag cockpit%'")
-    .run("2026-01-05T12:00:00.000Z", updatedAt.toISOString());
-  stampDb
-    .prepare(
-      "UPDATE tasks SET created_at = ?, updated_at = ? WHERE title = 'Planning only #planning'",
-    )
-    .run("2026-01-06T12:00:00.000Z", updatedAt.toISOString());
-  stampDb.close();
-  browser("reload");
+  stampTask("Tag cockpit", "2026-01-05T12:00:00.000Z", updatedAt.toISOString());
+  stampTask("Planning only", "2026-01-06T12:00:00.000Z", updatedAt.toISOString());
+  reload();
   waitFor(
     'document.querySelectorAll("[role=option]").length === 12 && document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"',
   );
@@ -2150,11 +2151,11 @@ try {
 
   // M opens a move picker. Nested tasks can remove their parent from a
   // separate group above the new-parent results.
-  const detachParent = (await command("task.create", { title: "Detach parent" })).task;
+  const detachParent = (await command("task.create", { text: "Detach parent" })).task;
   const detachChild = (
-    await command("task.create", { title: "Detach child", parentId: detachParent.id })
+    await command("task.create", { text: "Detach child", parentId: detachParent.id })
   ).task;
-  browser("reload");
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Detach parent"))',
   );
@@ -2190,8 +2191,8 @@ try {
 
   // Status undo: immediate removal, Ctrl+Z restore, palette path, replacement,
   // typing guards, conflict, and lost-reply retry. Only a post-success toast appears.
-  const undoTask = (await command("task.create", { title: "Undo me status" })).task;
-  browser("reload");
+  const undoTask = (await command("task.create", { text: "Undo me status" })).task;
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo me status"))',
   );
@@ -2246,10 +2247,10 @@ try {
   waitFor(`${hasToastWithText("Open")}`);
   assert.equal((await command("task.get", { id: undoTask.id })).task.status, "open");
   await new Promise((resolve) => setTimeout(resolve, 4000));
-  // A newer task change replaces the previous undo entry.
-  const undoFirst = (await command("task.create", { title: "Undo first entry" })).task;
-  const undoSecond = (await command("task.create", { title: "Undo second entry" })).task;
-  browser("reload");
+  // Undo walks back this window's changes, newest first.
+  const undoFirst = (await command("task.create", { text: "Undo first entry" })).task;
+  const undoSecond = (await command("task.create", { text: "Undo second entry" })).task;
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo second entry"))',
   );
@@ -2261,7 +2262,7 @@ try {
   );
   // Select the first entry (now at the top after the second left Active).
   browser("press", "Home");
-  // The top row should now be the first entry; complete it to replace the undo slot.
+  // The top row should now be the first entry; cancel it too.
   evaluate(
     '(() => { const row = [...document.querySelectorAll("[role=option]")].find((e) => e.textContent.includes("Undo first entry")); if (row) { row.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true })); } return true; })()',
   );
@@ -2285,12 +2286,14 @@ try {
   assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
   assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
   await new Promise((resolve) => setTimeout(resolve, 4000));
-  // The entry is consumed: a second Ctrl+Z does nothing.
+  // The next Ctrl+Z undoes the earlier cancel.
   browser("press", "Control+z");
-  await delay(500);
-  check('document.querySelectorAll("[data-slot=toast]").length === 0');
+  waitFor(
+    '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo second entry"))',
+  );
   assert.equal((await command("task.get", { id: undoFirst.id })).task.status, "open");
-  assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "canceled");
+  assert.equal((await command("task.get", { id: undoSecond.id })).task.status, "open");
+  await new Promise((resolve) => setTimeout(resolve, 4000));
   // Undo does not fire inside the composer.
   focus("[role=listbox]");
   browser("press", "Home");
@@ -2327,8 +2330,8 @@ try {
   );
   await new Promise((resolve) => setTimeout(resolve, 4000));
   // Undo after an unrelated external edit restores the affected field and keeps the edit.
-  const conflictTask = (await command("task.create", { title: "Undo conflict task" })).task;
-  browser("reload");
+  const conflictTask = (await command("task.create", { text: "Undo conflict task" })).task;
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo conflict task"))',
   );
@@ -2351,7 +2354,7 @@ try {
     id: conflictTask.id,
     expectedVersion: conflictCommitted.version,
     title: "Undo conflict task (agent edit)",
-    descriptionMarkdown: conflictCommitted.descriptionMarkdown,
+    description: conflictCommitted.description,
   });
   browser("press", "Control+z");
   waitFor('document.body.textContent.includes("Undo status change to Open")');
@@ -2361,8 +2364,8 @@ try {
     "Undo conflict task (agent edit)",
   );
   // A lost undo response can be retried with the same key and commits once.
-  const lostUndo = (await command("task.create", { title: "Undo lost reply" })).task;
-  browser("reload");
+  const lostUndo = (await command("task.create", { text: "Undo lost reply" })).task;
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))',
   );
@@ -2384,38 +2387,37 @@ try {
   evaluate(`window.originalFetch = window.fetch; window.loseUndoReply = true; window.undoKeys = []; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
     const response = await window.originalFetch(...args);
-    if (payload.command === "operation.undo") {
+    if (payload?.command === "operation.undo" && !payload.dryRun) {
       window.undoKeys.push(payload.idempotencyKey);
       if (window.loseUndoReply) { window.loseUndoReply = false; throw new TypeError("Lost undo reply"); }
     }
     return response;
   }; true`);
   browser("press", "Control+z");
-  await delay(800);
-  // First attempt lost its reply; the row is still gone and no toast shows yet.
+  // The lost reply keeps the undo request for an exact retry; the row stays gone until then.
+  waitFor('document.activeElement?.textContent === "Retry same request"');
   check(
     '![...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))',
   );
-  browser("press", "Control+z");
+  browser("press", "Enter");
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Undo lost reply"))',
   );
-  waitFor(`${hasToastWithText("Open")}`);
   check("window.undoKeys.length === 2 && window.undoKeys[0] === window.undoKeys[1]");
   evaluate("window.fetch = window.originalFetch; true");
   const lostRestored = (await command("task.get", { id: lostUndo.id })).task;
   assert.equal(lostRestored.status, "open");
-  assert.equal(lostRestored.version, lostCommitted.version + 1);
+  assert.ok(lostRestored.version > lostCommitted.version);
   await new Promise((resolve) => setTimeout(resolve, 4000));
 
   // Completing a parent keeps it as muted context when its active children
   // remain in the current view. The context row stays expandable and is not
   // counted as an active task.
-  const contextParent = (await command("task.create", { title: "Completed context parent" })).task;
-  const otherContextParent = (await command("task.create", { title: "Other context parent" })).task;
-  await command("task.create", { title: "Other context child", parentId: otherContextParent.id });
-  await command("task.create", { title: "Active context child", parentId: contextParent.id });
-  browser("reload");
+  const contextParent = (await command("task.create", { text: "Completed context parent" })).task;
+  const otherContextParent = (await command("task.create", { text: "Other context parent" })).task;
+  await command("task.create", { text: "Other context child", parentId: otherContextParent.id });
+  await command("task.create", { text: "Active context child", parentId: contextParent.id });
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Completed context parent"))',
   );
@@ -2461,25 +2463,25 @@ try {
 
   // Canceled parents use the same context treatment as completed parents,
   // including during the refresh needed to update canceled relationships.
-  const canceledContextParent = (await command("task.create", { title: "Canceled context parent" }))
+  const canceledContextParent = (await command("task.create", { text: "Canceled context parent" }))
     .task;
   await command("task.create", {
-    title: "Active canceled-context child",
+    text: "Active canceled-context child",
     parentId: canceledContextParent.id,
   });
   const otherCanceledParent = (
-    await command("task.create", { title: "Other canceled context parent" })
+    await command("task.create", { text: "Other canceled context parent" })
   ).task;
   await command("task.create", {
-    title: "Other canceled-context child",
+    text: "Other canceled-context child",
     parentId: otherCanceledParent.id,
   });
   await command("task.update", {
     id: canceledContextParent.id,
-    expectedVersion: canceledContextParent.version,
+    expectedVersion: await versionOf(canceledContextParent.id),
     title: "Canceled context parent updated",
   });
-  browser("reload");
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Canceled context parent updated"))',
   );
@@ -2530,9 +2532,9 @@ try {
     );
   }
   for (const title of ["Manual A", "Manual B", "Manual C", "Manual D"]) {
-    await command("task.create", { title: `${title} @manual-order-ui` });
+    await command("task.create", { text: `${title} @manual-order-ui` });
   }
-  browser("reload");
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual A"))',
   );
@@ -2739,7 +2741,7 @@ try {
   evaluate(`window.originalFetchForRefreshFailure = window.fetch; window.failedRefreshReorders = 0; window.failTaskListRefresh = true; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
     if (payload?.command === "task.list" && window.failTaskListRefresh) throw new TypeError("forced refresh failure");
-    if (payload?.command === "task.reorder") window.failedRefreshReorders += 1;
+    if (payload?.command === "task.reorder" && !payload.dryRun) window.failedRefreshReorders += 1;
     return window.originalFetchForRefreshFailure(...args);
   }; true`);
   browser("press", "Control+ArrowDown");
@@ -2750,7 +2752,7 @@ try {
   evaluate(
     "window.failTaskListRefresh = false; window.fetch = window.originalFetchForRefreshFailure; true",
   );
-  browser("reload");
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual A"))',
   );
@@ -2764,13 +2766,13 @@ try {
 
   // A root move carries its expanded child, while a child move remains inside
   // its actual parent scope.
-  const manualParent = (await command("task.create", { title: "Manual parent @manual-order-ui" }))
+  const manualParent = (await command("task.create", { text: "Manual parent @manual-order-ui" }))
     .task;
   await command("task.create", {
-    title: "Manual child @manual-order-ui",
+    text: "Manual child @manual-order-ui",
     parentId: manualParent.id,
   });
-  browser("reload");
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual parent"))',
   );
@@ -2796,10 +2798,10 @@ try {
   check(`${childRowIndex} > ${parentRowIndex}`);
   check('document.querySelectorAll("[data-depth=\\"1\\"]").length >= 1');
   await command("task.create", {
-    title: "Manual child two @manual-order-ui",
+    text: "Manual child two @manual-order-ui",
     parentId: manualParent.id,
   });
-  browser("reload");
+  reload();
   filterManualCategory();
   focus("[role=listbox]");
   browser("press", "Home");
@@ -2829,16 +2831,16 @@ try {
   // Parent moves refresh the authoritative manual tree and keep the active
   // task stable through both picker paths.
   const parentMoveTarget = (
-    await command("task.create", { title: "Manual move target @manual-order-ui" })
+    await command("task.create", { text: "Manual move target @manual-order-ui" })
   ).task;
   await command("task.create", {
-    title: "Manual move existing child @manual-order-ui",
+    text: "Manual move existing child @manual-order-ui",
     parentId: parentMoveTarget.id,
   });
   const parentMoveSubject = (
-    await command("task.create", { title: "Manual move subject @manual-order-ui" })
+    await command("task.create", { text: "Manual move subject @manual-order-ui" })
   ).task;
-  browser("reload");
+  reload();
   waitFor(
     '[...document.querySelectorAll("[role=option]")].some((item) => item.textContent.includes("Manual move subject"))',
   );
@@ -2930,18 +2932,18 @@ try {
   // A hidden sibling must not become an implicit boundary target. The visible
   // first root stays put on Ctrl+Up even when an excluded sibling follows it.
   const hiddenManual = (
-    await command("task.create", { title: "Manual hidden @manual-hidden-order" })
+    await command("task.create", { text: "Manual hidden @manual-hidden-order" })
   ).task;
   const allManualBeforeHiddenPlacement = (await command("task.list", { sort: "manual" })).tasks;
   const firstVisibleManualRoot = allManualBeforeHiddenPlacement.find(
-    (task) => task.parentId === null && task.category?.slug === "manual-order-ui",
+    (task) => task.parentId === null && task.category === "manual-order-ui",
   );
   assert.ok(firstVisibleManualRoot);
   await command("task.reorder", {
-    tasks: [{ id: hiddenManual.id, expectedVersion: hiddenManual.version }],
+    tasks: [{ id: hiddenManual.id, expectedVersion: await versionOf(hiddenManual.id) }],
     placement: { afterId: firstVisibleManualRoot.id },
   });
-  browser("reload");
+  reload();
   waitFor(
     'document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"',
   );
@@ -2968,7 +2970,7 @@ try {
   waitFor(
     `JSON.stringify([...document.querySelectorAll("[role=option] [data-slot=item-title]")].map((title) => title.textContent).slice(0, 2)) === JSON.stringify(${JSON.stringify(visibleManualBeforeBoundary.slice(0, 2).reverse())})`,
   );
-  browser("reload");
+  reload();
   waitFor(
     'document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"',
   );
@@ -3095,27 +3097,14 @@ try {
 
   // An external CLI write should appear without a reload while the window stays visible.
   const externalTitle = "CLI refresh probe @manual-order-ui";
-  const externalOutput = execFileSync(
-    process.execPath,
-    [
-      path.join(root, "dist/backend/tasks-cli.js"),
-      "--legacy",
-      "add",
-      externalTitle,
-      "--json",
-      "--database",
-      path.join(scratch, "tasks.db"),
-    ],
-    { cwd: root, env: testEnvironment, encoding: "utf8" },
-  );
-  const externalTask = JSON.parse(externalOutput).task;
-  assert.equal(externalTask.title, externalTitle);
+  const externalTask = tasksCli("add", externalTitle).task;
+  assert.equal(externalTask.text, externalTitle);
   waitFor(
     `([...document.querySelectorAll("[role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`,
   );
   assert.equal(browser("errors").trim(), "");
   console.log(
-    "UI checks passed: inline capture/editing, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, task undo with toast/replacement/field guards/retry, settings export and font size, conflicts, receipt retry, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, left-side contextual tooltips/responsive overflow, list-only scrolling, external CLI refresh, and axe.",
+    "UI checks passed: inline capture/editing, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, multi-step task undo with toasts/field guards/retry, settings and font size, conflicts, same-request retry after lost replies, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, left-side contextual tooltips/responsive overflow, list-only scrolling, external CLI refresh, and axe.",
   );
 } catch (error) {
   printFailureDiagnostics();
