@@ -72,8 +72,10 @@ function androidNode() {
       '$1 android"',
     ),
   );
-  // Tools that run during the build must be compiled for this machine, not for Android.
-  const env = { ...process.env, CC_host: "gcc", CXX_host: "g++" };
+  // Tools that run during the build must be compiled for this machine, not for Android. The C++
+  // runtime is linked in because Android doesn't ship it and the app's library folder isn't on the
+  // executable's search path.
+  const env = { ...process.env, CC_host: "gcc", CXX_host: "g++", LDFLAGS: "-static-libstdc++" };
   run("./android-configure", [ndk, NODE_ANDROID_API, "arm64"], { cwd: source, env });
   run("make", [`-j${availableParallelism()}`], { cwd: source, env });
   return binary;
