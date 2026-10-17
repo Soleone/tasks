@@ -1193,7 +1193,7 @@ export function TaskList({
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
-      className="flex min-h-0 flex-1 flex-col gap-4"
+      className="flex min-h-0 flex-1 flex-col gap-4 outline-none"
       onMouseDown={(event) => {
         if (!(event.target instanceof HTMLElement)) return;
         const mouseOnlyControl = event.target.closest('[tabindex="-1"]');
