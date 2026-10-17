@@ -62,6 +62,16 @@ function androidNode() {
     zlib,
     readFileSync(zlib, "utf8").replaceAll("'ARMV8_OS_ANDROID'", "'ARMV8_OS_LINUX'"),
   );
+  // V8's build tools run here on an arm64 simulator, which needs the trap handler sources
+  // that v8.gyp only adds when the OS isn't Android.
+  const v8 = path.join(source, "tools", "v8_gypfiles", "v8.gyp");
+  writeFileSync(
+    v8,
+    readFileSync(v8, "utf8").replaceAll(
+      /(_toolset=="host" and host_arch=="x64" or _toolset=="target" and target_arch=="x64"\) and \(OS in "linux mac (?:win )?openharmony)"/g,
+      '$1 android"',
+    ),
+  );
   // Tools that run during the build must be compiled for this machine, not for Android.
   const env = { ...process.env, CC_host: "gcc", CXX_host: "g++" };
   run("./android-configure", [ndk, NODE_ANDROID_API, "arm64"], { cwd: source, env });
