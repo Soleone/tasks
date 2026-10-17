@@ -1,4 +1,4 @@
-import { render, screen, waitFor, type RenderResult } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, type RenderResult } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { expect, inject } from "vite-plus/test";
 import App from "@/App";
@@ -115,6 +115,8 @@ export class AppWorkspace {
   }
 
   async stop(): Promise<void> {
+    // Unmount first so the app closes its reader while the workspace is still selected.
+    cleanup();
     closeMainWorkspace();
     await fetch(`${inject("workspaceServerUrl")}/stop?url=${encodeURIComponent(this.url)}`);
   }
