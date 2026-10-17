@@ -268,13 +268,20 @@
   }
 }
 
+/* The Android shell draws edge to edge and reports its system bars as --android-safe-area-*. */
 .app-shell {
-  padding: 1rem;
+  padding: max(1rem, var(--android-safe-area-top, 0px), env(safe-area-inset-top, 0px))
+    max(1rem, var(--android-safe-area-right, 0px), env(safe-area-inset-right, 0px))
+    max(1rem, var(--android-safe-area-bottom, 0px), env(safe-area-inset-bottom, 0px))
+    max(1rem, var(--android-safe-area-left, 0px), env(safe-area-inset-left, 0px));
 }
 
 @media (min-width: 768px) {
   .app-shell {
-    padding: 2rem;
+    padding: max(2rem, var(--android-safe-area-top, 0px), env(safe-area-inset-top, 0px))
+      max(2rem, var(--android-safe-area-right, 0px), env(safe-area-inset-right, 0px))
+      max(2rem, var(--android-safe-area-bottom, 0px), env(safe-area-inset-bottom, 0px))
+      max(2rem, var(--android-safe-area-left, 0px), env(safe-area-inset-left, 0px));
   }
 }
 

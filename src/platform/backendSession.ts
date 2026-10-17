@@ -1,4 +1,19 @@
-import type { Child, Command } from "@tauri-apps/plugin-shell";
+/** A started backend: Tauri's shell child on desktop, the app's own runner on Android. */
+export type BackendProcess = {
+  write(data: string): Promise<void>;
+  kill(): Promise<void>;
+};
+
+/** The parts of a shell command the session uses to start and watch a backend. */
+export type BackendCommand = {
+  stdout: { on(event: "data", listener: (data: string | Uint8Array) => void): unknown };
+  on(event: "error", listener: (message: string) => void): unknown;
+  on(
+    event: "close",
+    listener: (payload: { code: number | null; signal: number | null }) => void,
+  ): unknown;
+  spawn(): Promise<BackendProcess>;
+};
 
 type CorrelatedResponse = { requestId: string | null };
 
@@ -19,13 +34,13 @@ function asError(value: unknown): Error {
 }
 
 export class JsonLineSession<Response extends CorrelatedResponse> {
-  private child: Child | null = null;
+  private child: BackendProcess | null = null;
   private starting: Promise<void> | null = null;
   private stdoutBuffer = "";
   private readonly pending = new Map<string, PendingRequest<Response>>();
 
   constructor(
-    private readonly makeCommand: () => Promise<Command<string>>,
+    private readonly makeCommand: () => Promise<BackendCommand>,
     private readonly decodeResponse: (value: unknown) => Response,
     private readonly requestTimeoutMs = REQUEST_TIMEOUT_MS,
   ) {}
@@ -90,7 +105,7 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
 
   private async spawnBackend(): Promise<void> {
     const command = await this.makeCommand();
-    let spawnedChild: Child | null = null;
+    let spawnedChild: BackendProcess | null = null;
     const isCurrent = () => spawnedChild !== null && this.child === spawnedChild;
 
     command.stdout.on("data", (data) => {
@@ -151,7 +166,7 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
     void this.kill(child);
   }
 
-  private rejectPending(value: unknown): Child | null {
+  private rejectPending(value: unknown): BackendProcess | null {
     const error = asError(value);
     const child = this.child;
     this.child = null;
@@ -165,7 +180,7 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
     return child;
   }
 
-  private async kill(child: Child | null): Promise<void> {
+  private async kill(child: BackendProcess | null): Promise<void> {
     if (!child) {
       return;
     }

@@ -362,7 +362,7 @@ export function SettingsDialog({
                     {workspace.editor.selection.rootPath}
                   </code>
                 ) : null}
-                {runtimeKind() === "desktop" && (
+                {runtimeKind() === "native" && (
                   <Button
                     variant="outline"
                     className="w-fit"

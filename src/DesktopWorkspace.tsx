@@ -128,7 +128,7 @@ export default function DesktopWorkspace(): ReactElement {
   if (workspace) return <App workspace={workspace} />;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <main className="app-shell mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="font-heading text-xl font-semibold">Set up {APP_NAME}</h1>
         <p className="text-sm text-muted-foreground">

@@ -5,6 +5,8 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 !src-tauri/gen/
+!src-tauri/gen/android/
+!src-tauri/gen/android/**
 src-tauri/binaries/*
 !src-tauri/binaries/.gitkeep
 .env

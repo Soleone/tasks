@@ -12,7 +12,7 @@ Use disposable data and the commands in [README.md](README.md). Never read, conv
 
 ## Spec
 
-[spec/](spec/README.md) has three layers: backend, ecosystem and client. Desktop and web are one client; their differences live only in `spec/client/platforms.md`. Each behavior is a table row with a slug like `capture.open`. Tests cite a rule by starting their title with `slug:`, and `scripts/check-spec-rules.mjs` rejects duplicate or unknown slugs. Change a rule and the tests that cite it together. The spec describes the target; it doesn't authorize building all of it. No status, evidence or counts in the spec.
+[spec/](spec/README.md) has three layers: backend, ecosystem and client. Desktop, Android and web are one client; their differences live only in `spec/client/platforms.md`. Each behavior is a table row with a slug like `capture.open`. Tests cite a rule by starting their title with `slug:`, and `scripts/check-spec-rules.mjs` rejects duplicate or unknown slugs. Change a rule and the tests that cite it together. The spec describes the target; it doesn't authorize building all of it. No status, evidence or counts in the spec.
 
 Don't read `docs/evidence/` unless asked; it is frozen history.
 

@@ -86,7 +86,26 @@ On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browse
 
 ## Android
 
-Android is dropped until it is ported to the new engine. The old Android runtime is deleted; its emulator setup and release signing steps are in git history (`f568d2b:AGENTS.md`, `f568d2b:docs/development.md`).
+The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (about half an hour, cached in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per task folder (`src-tauri/src/android_backend.rs`).
+
+Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. Then:
+
+Release APKs are signed with your own key, so each build installs over the last. Create the key once, in a private place, and enter the passwords when `keytool` asks (never on the command line):
+
+```bash
+keytool -genkeypair -v -keystore "$HOME/.android/tasks-release.jks" \
+  -alias tasks-release -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then create `src-tauri/gen/android/keystore.properties` (ignored by git) with `storeFile` (absolute, or relative to `src-tauri/gen/android/app`), `storePassword`, `keyAlias` and `keyPassword`, and `chmod 600` it. Back the keystore up somewhere safe: an APK signed with a different key won't install over the old one. Then:
+
+```bash
+pnpm build:android
+```
+
+The script verifies the signature with `apksigner` and prints the APK path (`src-tauri/gen/android/app/build/outputs/apk/universal/release/`). It targets arm64 phones on Android 11 or later. On first launch the app asks for all files access, because the task folder is a plain path on shared storage that the backend and Syncthing both use. Keep the cache out of synced folders; the app keeps it in its private storage.
+
+WSL has no emulator (no KVM). Install the APK on a phone, or use the emulator steps in git history (`f568d2b:AGENTS.md`).
 
 ## Storage and retry safety
 

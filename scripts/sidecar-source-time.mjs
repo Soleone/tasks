@@ -7,6 +7,7 @@ export function sidecarSourceTime(root) {
   const filenames = [
     backend,
     "scripts/build-sidecar.mjs",
+    "scripts/sea.mjs",
     "package.json",
     "pnpm-lock.yaml",
     "tsconfig.backend.json",

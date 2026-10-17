@@ -39,7 +39,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
       <Suspense fallback={<p role="status">Loading Tasks...</p>}>
-        {runtimeKind() === "desktop" ? <DesktopWorkspace /> : <WorkspaceSelection />}
+        {runtimeKind() === "native" ? <DesktopWorkspace /> : <WorkspaceSelection />}
       </Suspense>
     </TooltipProvider>
   </StrictMode>,

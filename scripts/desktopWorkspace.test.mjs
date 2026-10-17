@@ -14,6 +14,7 @@ const cli = path.resolve("dist/backend/cli.js");
 const tauri = {
   "@tauri-apps/api/core": `
     import { existsSync, mkdirSync } from "node:fs";
+    export class Channel {}
     export async function invoke(command, { path }) {
       if (command === "path_exists") return existsSync(path);
       if (command === "create_folder") return void mkdirSync(path, { recursive: true });

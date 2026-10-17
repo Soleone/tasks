@@ -14,6 +14,7 @@ test("sidecar source freshness works without Git and includes nested sources, de
     "src/backend/cli.ts",
     "src/backend/nested/model.ts",
     "scripts/build-sidecar.mjs",
+    "scripts/sea.mjs",
     "package.json",
     "pnpm-lock.yaml",
     "tsconfig.backend.json",

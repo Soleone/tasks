@@ -1,3 +1,6 @@
+#[cfg(target_os = "android")]
+mod android_backend;
+
 #[cfg(any(target_os = "linux", debug_assertions))]
 use tauri::Manager;
 
@@ -13,10 +16,27 @@ fn create_folder(path: String) -> Result<(), String> {
     std::fs::create_dir_all(&path).map_err(|error| error.to_string())
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![path_exists, create_folder])
+        .invoke_handler(tauri::generate_handler![path_exists, create_folder]);
+
+    #[cfg(target_os = "android")]
+    let builder = builder
+        .manage(android_backend::Backends::default())
+        .invoke_handler(tauri::generate_handler![
+            path_exists,
+            create_folder,
+            android_backend::backend_start,
+            android_backend::backend_write,
+            android_backend::backend_kill,
+        ]);
+
+    builder
         .setup(|app| {
             #[cfg(target_os = "linux")]
             app.get_webview_window("main")

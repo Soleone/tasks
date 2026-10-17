@@ -1,5 +1,4 @@
 import { randomUUID } from "../lib/randomUUID";
-import type { Command } from "@tauri-apps/plugin-shell";
 import {
   isRecord,
   parseResponse,
@@ -9,7 +8,7 @@ import {
 } from "../backend/protocol";
 import { parseTaskProjection } from "../backend/taskResults";
 import type { TaskProjection } from "../backend/queries";
-import { JsonLineSession } from "./backendSession";
+import { JsonLineSession, type BackendCommand } from "./backendSession";
 
 export type Selection = { rootPath: string; databasePath: string };
 export type DevConnection = Selection & { version: 2; selectionToken: string; readOnly: boolean };
@@ -139,7 +138,7 @@ export class WorkspaceReader {
   constructor(
     selection: Selection,
     dev?: { url: string; selection: DevConnection },
-    native?: (() => Promise<Command<string>>) | JsonLineSession<Response>,
+    native?: (() => Promise<BackendCommand>) | JsonLineSession<Response>,
   ) {
     validateSelection(selection);
     if (dev && native)

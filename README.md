@@ -54,7 +54,7 @@ pnpm install
 pnpm build:tauri
 ```
 
-`pnpm dev:native` runs it in development. Setup is in [docs/development.md](docs/development.md#desktop-development). Android is dropped until it is ported to the new engine.
+`pnpm dev:native` runs it in development. Setup is in [docs/development.md](docs/development.md#desktop-development). The Android app runs the same UI and backend; `pnpm build:android` builds it ([details](docs/development.md#android)).
 
 ## Data safety
 

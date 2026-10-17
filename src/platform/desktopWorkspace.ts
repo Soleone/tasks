@@ -3,8 +3,10 @@ import { appDataDir, documentDir, join } from "@tauri-apps/api/path";
 import { randomUUID } from "@/lib/randomUUID";
 import { parseResponse, type Response } from "@/backend/protocol";
 import { EDITOR_COMMANDS } from "@/backend/editorCommands";
+import { androidBackend } from "./androidBackend";
 import { JsonLineSession } from "./backendSession";
 import type { EditorSelection } from "./editorClient";
+import { isAndroid } from "./runtime";
 import { sidecarArgs } from "./workspaceReader";
 
 const FOLDER_KEY = "tasks.workspaceFolder";
@@ -12,8 +14,12 @@ const FOLDER_KEY = "tasks.workspaceFolder";
 /** Where the desktop app keeps its own files, and where a first task folder is suggested. */
 export type DesktopPaths = { appData: string; suggestedFolder: string };
 
+// Android's document folder API points at the app's own storage, which Syncthing can't reach.
+const ANDROID_DOCUMENTS = "/storage/emulated/0/Documents";
+
 export async function desktopPaths(): Promise<DesktopPaths> {
-  return { appData: await appDataDir(), suggestedFolder: await join(await documentDir(), "Tasks") };
+  const documents = isAndroid() ? ANDROID_DOCUMENTS : await documentDir();
+  return { appData: await appDataDir(), suggestedFolder: await join(documents, "Tasks") };
 }
 
 export function rememberedFolder(): string | null {
@@ -64,8 +70,10 @@ async function folderSelection(appData: string, folder: string): Promise<EditorS
 
 export function folderSession(selection: EditorSelection): JsonLineSession<Response> {
   return new JsonLineSession(async () => {
+    const args = sidecarArgs(selection); // Validates the selection on both routes.
+    if (isAndroid()) return androidBackend(selection.rootPath, selection.databasePath);
     const { Command } = await import("@tauri-apps/plugin-shell");
-    return Command.sidecar("binaries/tasks-backend", sidecarArgs(selection));
+    return Command.sidecar("binaries/tasks-backend", args);
   }, parseResponse);
 }
 

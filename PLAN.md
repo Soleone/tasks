@@ -16,7 +16,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 - Daily-use scope (2026-10-14): capture, edit, complete, delete; classification and priority; filters and search; parents and blockers (done blockers still block, canceled don't); persistent manual order; all-or-nothing bulk status; about 50 steps of same-client undo kept across reopen; backup and restore; global focus shortcut (desktop only); preferences kept across restarts. No new sharing feature. No workflow losses agreed.
 - Move completely to the new engine (2026-10-14). Legacy runtime is deleted; schema 1 survives only in the migration tool.
-- **Android is dropped until ported** (2026-10-14). The old Android runtime is deleted at cutover; Android returns later as its own project on the new engine.
+- **Android returns on the shared backend** (2026-10-17, replaces "dropped until ported" from 2026-10-14): the app bundles Node built for Android and runs the same backend bundle as desktop, so there is still one engine. The task folder is a plain path on shared storage (all files access, sideloaded only). Builds run in WSL and are release-signed with the owner's key (owner, 2026-10-17); the owner checks on a phone.
 - **Switch everything as soon as possible** (2026-10-16, replaces "Windows parity before cutover" from 2026-10-14). No Windows proof gate: the desktop app moves to the new engine on every OS, the legacy runtime is deleted, and the owner tests the Windows build once it is ready. Global focus is deferred. Windows 11 is the first release platform.
 - Themes (2026-10-15): ship the built-in palettes only for now; custom theme imports may come later. The candidate model and its Syncthing probe are dropped (2026-10-15).
 - Typed text is kept (2026-10-15): tasks store the shorthand as typed in `text` next to the parsed title, category and tags, so editing shows it unchanged. Changing classification any other way clears it. Schema 2 gains the field without a version bump because no real workspace uses schema 2 yet.
@@ -33,13 +33,15 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
 5. The backend allows every command on every desktop OS. On Windows Node, setup (init, import) and the formerly withheld writes were smoke-tested on disposable data. The new desktop app has not been launched by the owner yet; earlier pilot launches stopped before the main window.
 6. Migration only reads the old version's files and writes a new folder. No personal data has been touched.
-7. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
+7. Android (2026-10-17): `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. Not run on any device yet; WSL has no emulator. Starting a new folder publishes `workspace.json` with a hard link, which Android's shared storage may refuse; opening an existing folder doesn't need one.
+8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
 
 ## Next step
 
-1. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
-2. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`. `pnpm test:ui` runs on the current route (2026-10-16).
-3. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
+1. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work.
+2. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
+3. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`. `pnpm test:ui` runs on the current route (2026-10-16).
+4. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 
 Kit r1 adoption steps 1 to 3 and the React hook warnings are done (2026-10-16). `src/components/ui` is stock upstream, pending an owner look at the UI.
 
@@ -52,7 +54,7 @@ The owner uses the Windows build on their real tasks (imported, old files kept) 
 ### Cutover
 
 1. Done 2026-10-16: `src/legacy/`, `--legacy` and the Android runtime are deleted. The naming ratchet allows only `src/migration/` and stored names.
-2. Adopt the `@soleone/theme` kit: use `tasks.selectedTheme` as its `storageKey` and remove `themePalette.ts` and `builtinThemes.ts` with the backend theme list. No D dark/light hotkey (owner, 2026-10-16; dropped from the registry in kit r3). Then bump `.kit.json`.
+3. Adopt the `@soleone/theme` kit: use `tasks.selectedTheme` as its `storageKey` and remove `themePalette.ts` and `builtinThemes.ts` with the backend theme list. No D dark/light hotkey (owner, 2026-10-16; dropped from the registry in kit r3). Then bump `.kit.json`.
 3. Never strand pending work or discard receipts, history or retry authority. Keep the old version's files until the owner deletes them.
 
 ### Publication
