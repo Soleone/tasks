@@ -26,7 +26,9 @@ if (options.real) {
   process.stdout.write(`[dev:web] disposable workspace in ${scratch}\n`);
 }
 if (copy) {
+  // The backend finds its profile through XDG_DATA_HOME on Linux and APPDATA on Windows.
   env.XDG_DATA_HOME = copy.profile;
+  env.APPDATA = copy.profile;
   backendArgs = ["--root", copy.root, "--database", copy.database];
   // The UI asks before opening a folder picked by hand; copies made here open directly.
   viteEnv = { ...process.env, VITE_DEV_WORKSPACE_COPY: "1" };

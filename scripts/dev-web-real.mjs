@@ -16,12 +16,11 @@ const testData = path.join(import.meta.dirname, "fixtures/workspace/root");
 
 /**
  * Keeps one copy of the owner's real task folder for `pnpm dev:web:real`. The
- * copy and its cache live under $DATA/apps/tasks, outside any Syncthing folder,
+ * copy and its cache live in local app data, outside any Syncthing folder,
  * so dev edits never reach the real tasks. `--refresh` asks again and replaces the copy.
  */
 export async function realSnapshot(refresh) {
-  if (!process.env.DATA) throw new Error("dev:web:real keeps its copy under $DATA; set DATA");
-  const home = path.join(process.env.DATA, "apps", "tasks");
+  const home = snapshotHome();
   const configFile = path.join(home, "dev-web-real.json");
   const snapshot = path.join(home, "dev-web-real");
   // A saved null means the test data, so the choice survives the worktree it was made in.
@@ -59,13 +58,31 @@ async function askSource(saved) {
         `Real task folder to copy (Enter for ${describe(fallback)}): `,
       );
       if (!answer.trim()) return fallback;
-      const source = path.resolve(answer.trim().replace(/^~(?=$|\/)/, homedir()));
+      const source = path.resolve(answer.trim().replace(/^~(?=$|[\\/])/, homedir()));
       if (isFolder(source)) return source;
       process.stdout.write(`${source} is not a folder.\n`);
     }
   } finally {
     prompt.close();
   }
+}
+
+/** $DATA/apps/tasks where the owner's shell sets DATA, else the OS's local (never roaming) app data. */
+function snapshotHome() {
+  if (process.env.DATA) return path.join(process.env.DATA, "apps", "tasks");
+  if (process.platform === "win32") {
+    return path.join(
+      process.env.LOCALAPPDATA ?? path.join(homedir(), "AppData", "Local"),
+      "tasks-dev",
+    );
+  }
+  if (process.platform === "darwin") {
+    return path.join(homedir(), "Library", "Application Support", "tasks-dev");
+  }
+  return path.join(
+    process.env.XDG_DATA_HOME ?? path.join(homedir(), ".local", "share"),
+    "tasks-dev",
+  );
 }
 
 /** The desktop app suggests Documents/Tasks; under WSL that is usually on the Windows side. */
@@ -81,6 +98,11 @@ function describe(source) {
   return source === null || source === testData ? "test data" : source;
 }
 
+/** A folder this user may not read, such as another Windows account's, counts as missing. */
 function isFolder(file) {
-  return statSync(file, { throwIfNoEntry: false })?.isDirectory() === true;
+  try {
+    return statSync(file, { throwIfNoEntry: false })?.isDirectory() === true;
+  } catch {
+    return false;
+  }
 }
