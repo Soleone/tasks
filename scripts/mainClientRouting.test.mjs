@@ -62,15 +62,6 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
       calls.push(["revision"]);
       return 7;
     },
-    async info() {
-      calls.push(["info"]);
-      return {
-        databasePath: "C:\\workspace",
-        taskCount: 4,
-        canceledTaskCount: 2,
-        workspaceRevision: 7,
-      };
-    },
   };
   client.selectMainWorkspace(workspace);
   await assert.rejects(
@@ -91,12 +82,6 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
   await client.transitionTask("task.start", "id", 3, { idempotencyKey: "status-key" });
   await client.undoStatusChange("id", 4, { idempotencyKey: "undo-key" });
   assert.equal(await client.getWorkspaceRevision(), 7);
-  assert.deepEqual(await client.getWorkspaceInfo(), {
-    databasePath: "C:\\workspace",
-    taskCount: 4,
-    canceledTaskCount: 2,
-    workspaceRevision: 7,
-  });
   assert.deepEqual(calls, [
     ["save", "Inline @work", "Notes", 1, "capture-key"],
     ["save", "Inline @work", "Notes", undefined, "edit-key", "id", 3],
@@ -104,7 +89,6 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
     ["status", "task.start", "id", 3, "status-key"],
     ["status", "task.status.undo", "id", 4, "undo-key"],
     ["revision"],
-    ["info"],
   ]);
 });
 

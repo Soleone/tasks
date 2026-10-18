@@ -40,6 +40,12 @@ test("settings.tabs: Left and Right switch sections", async () => {
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.keyboard("{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Shortcuts"));
+  await user.keyboard("{ArrowRight}");
+  await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
+  const panel = within(screen.getByRole("tabpanel"));
+  panel.getByRole("heading", { name: "Task folder" });
+  expect(panel.queryByRole("heading", { name: "Local" })).toBeNull();
+  expect(panel.queryByText("Local cache", { exact: true })).toBeNull();
 });
 
 test("help.palette: Ctrl+K opens a searchable palette of shortcuts", async () => {

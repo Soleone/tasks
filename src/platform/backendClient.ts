@@ -83,12 +83,6 @@ export type TaskListFilters = {
 
 export type CategoryListResult = { categories: ClassificationOption[] };
 export type TagListResult = { tags: ClassificationOption[] };
-export type WorkspaceInfoResult = {
-  databasePath: string;
-  taskCount: number;
-  canceledTaskCount: number;
-  workspaceRevision: number;
-};
 export type CommandOptions = { idempotencyKey?: string };
 
 export type TaskMutationResult = {
@@ -311,10 +305,6 @@ export async function removeDependency(
       writeKey(options),
     ),
   );
-}
-
-export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {
-  return selected().info();
 }
 
 export async function getWorkspaceRevision(): Promise<number> {

@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useRef, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
-import { getWorkspaceInfo, selectedMainWorkspace } from "@/platform/backendClient";
+import { selectedMainWorkspace } from "@/platform/backendClient";
 import { runtimeKind } from "@/platform/runtime";
 import { rememberFolder } from "@/platform/desktopWorkspace";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,8 +24,6 @@ import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { WorkspaceBackup } from "./WorkspaceBackup";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { ReadableTabsTrigger } from "@/components/variants/tabs";
-
-type Failure = { title: string; detail: string };
 
 type SettingsDialogProps = {
   open: boolean;
@@ -63,8 +60,6 @@ function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
   });
 }
 
-// Storage is read every time the dialog opens: the workspace can differ
-// between launches, and a stale path would misreport where data lives.
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -76,37 +71,6 @@ export function SettingsDialog({
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
   const settingsTab = useRef<HTMLButtonElement>(null);
-  const [databasePath, setDatabasePath] = useState<string | null>(null);
-  const [failure, setFailure] = useState<Failure | null>(null);
-
-  // Each opening starts fresh and reads the workspace again.
-  const [wasOpen, setWasOpen] = useState(false);
-  if (wasOpen !== open) {
-    setWasOpen(open);
-    if (open) {
-      setDatabasePath(null);
-      setFailure(null);
-    }
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    let stale = false;
-    getWorkspaceInfo()
-      .then((info) => {
-        if (!stale) setDatabasePath(info.databasePath);
-      })
-      .catch((caught: unknown) => {
-        if (!stale)
-          setFailure({
-            title: "Could not read the workspace",
-            detail: caught instanceof Error ? caught.message : String(caught),
-          });
-      });
-    return () => {
-      stale = true;
-    };
-  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -327,37 +291,6 @@ export function SettingsDialog({
                 )}
               </section>
 
-              <section
-                aria-labelledby="settings-data"
-                className="flex flex-col gap-4 rounded-lg border p-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 id="settings-data" className="text-sm font-medium">
-                    Local
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Inspect the selected task folder and local cache.
-                  </p>
-                </div>
-                {databasePath ? (
-                  <div className="flex flex-col gap-1 rounded-md border bg-muted/20 p-3">
-                    {workspace ? (
-                      <>
-                        <p className="text-xs font-medium text-muted-foreground">Task folder</p>
-                        <p className="wrap-anywhere font-mono text-xs text-muted-foreground">
-                          {workspace.reader.selection.rootPath}
-                        </p>
-                      </>
-                    ) : null}
-                    <p className="text-xs font-medium text-muted-foreground">Local cache</p>
-                    <p className="wrap-anywhere font-mono text-xs text-muted-foreground">
-                      {databasePath}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Reading the workspace…</p>
-                )}
-              </section>
               {open && workspace?.supportsBackupRestore ? (
                 <WorkspaceBackup workspace={workspace} />
               ) : null}
@@ -378,13 +311,6 @@ export function SettingsDialog({
           <XIcon aria-hidden="true" />
           <span className="sr-only">Close</span>
         </DialogClose>
-
-        {failure ? (
-          <Alert variant="destructive">
-            <AlertTitle>{failure.title}</AlertTitle>
-            <AlertDescription className="wrap-anywhere">{failure.detail}</AlertDescription>
-          </Alert>
-        ) : null}
       </AnchoredDialogContent>
     </Dialog>
   );
