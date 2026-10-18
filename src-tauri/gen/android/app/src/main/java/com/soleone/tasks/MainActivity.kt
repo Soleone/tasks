@@ -5,8 +5,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.webkit.WebView
+import android.view.View
 import androidx.activity.enableEdgeToEdge
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -14,32 +15,18 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    // The page sits inside the system bars, so no screen or dialog can draw under them.
+    val bars = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(android.R.id.content)) { content, insets ->
+      val inset = insets.getInsets(bars)
+      content.setPadding(inset.left, inset.top, inset.right, inset.bottom)
+      WindowInsetsCompat.Builder(insets).setInsets(bars, Insets.NONE).build()
+    }
     // The backend reads and writes the task folder with plain file calls, which needs all files access.
     if (!Environment.isExternalStorageManager()) {
       startActivity(
         Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")),
       )
     }
-  }
-
-  override fun onWebViewCreate(webView: WebView) {
-    super.onWebViewCreate(webView)
-    ViewCompat.setOnApplyWindowInsetsListener(webView) { _, insets ->
-      val statusBars = insets.getInsets(
-        WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout(),
-      )
-      val navigationBars = insets.getInsets(
-        WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.displayCutout(),
-      )
-      webView.evaluateJavascript(
-        "document.documentElement.style.setProperty('--android-safe-area-top', '${statusBars.top}px');" +
-          "document.documentElement.style.setProperty('--android-safe-area-right', '${maxOf(statusBars.right, navigationBars.right)}px');" +
-          "document.documentElement.style.setProperty('--android-safe-area-bottom', '${navigationBars.bottom}px');" +
-          "document.documentElement.style.setProperty('--android-safe-area-left', '${maxOf(statusBars.left, navigationBars.left)}px');",
-        null,
-      )
-      insets
-    }
-    ViewCompat.requestApplyInsets(webView)
   }
 }
