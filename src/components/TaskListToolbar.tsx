@@ -242,20 +242,22 @@ export function TaskListToolbar({
 
   return (
     <div className="flex shrink-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          size="sm"
-          tabIndex={-1}
-          aria-keyshortcuts="C"
-          disabled={composerOpen}
-          onClick={() => onCreate()}
-        >
-          <Plus aria-hidden="true" />
-          New task
-        </Button>
-        {/* On a phone every icon shares one row below New task. A screen too narrow for that
-            scrolls the row sideways instead of wrapping it. */}
-        <div className="flex basis-full items-center gap-0.5 overflow-x-auto sm:basis-auto sm:gap-1 sm:overflow-visible">
+      {/* On a phone the toolbar is two rows on a grid of icon-wide columns: New task spans four
+          and a divider one, so the icons line up and larger text wraps whole cells. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1">
+        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
+          <div className="w-28 sm:mr-auto sm:w-auto">
+            <Button
+              size="sm"
+              tabIndex={-1}
+              aria-keyshortcuts="C"
+              disabled={composerOpen}
+              onClick={() => onCreate()}
+            >
+              <Plus aria-hidden="true" />
+              New task
+            </Button>
+          </div>
           <div className="relative">
             {toolbarMode === "filter" && helpMode !== "none" ? (
               <TaskListModeHelp
@@ -453,7 +455,9 @@ export function TaskListToolbar({
               </Tooltip>
             </ToolbarGroup>
           </div>
-          <Separator orientation="vertical" className="h-7" />
+        </div>
+        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
+          <Separator orientation="vertical" className="hidden h-7 sm:block" />
           <div className="relative">
             {toolbarMode === "sort" && helpMode !== "none" ? (
               <TaskListModeHelp
@@ -623,7 +627,9 @@ export function TaskListToolbar({
               </Tooltip>
             </ToolbarGroup>
           </div>
-          <Separator orientation="vertical" className="h-7" />
+          <div className="flex w-7 justify-center sm:contents">
+            <Separator orientation="vertical" className="h-7" />
+          </div>
           <ButtonGroup aria-label="Task list view">
             <Tooltip>
               <TooltipTrigger
