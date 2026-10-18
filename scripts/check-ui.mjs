@@ -1314,9 +1314,16 @@ try {
   });
   reload();
   waitFor('document.querySelectorAll("#task-list [role=option]").length === 4');
+  // toolbar.layout: keep the New task column empty beneath it on narrow screens.
   for (const width of [1280, 390, 320]) {
     browser("set", "viewport", String(width), "844");
     check("document.documentElement.scrollWidth <= innerWidth");
+    check('document.querySelector("[title=Actions]") !== null');
+    if (width < 640) {
+      check(
+        '(() => { const filter = document.querySelector("[title=Filter]").getBoundingClientRect(); const sort = document.querySelector("[title=Sort]").getBoundingClientRect(); return Math.abs(filter.left - sort.left) < 1 && sort.top > filter.top; })()',
+      );
+    }
   }
   check(
     '(() => { const title = [...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].find((entry) => entry.textContent.startsWith("Check Check")); if (!title || title.textContent.length <= 100) return false; const style = getComputedStyle(title); return style.whiteSpace !== "nowrap" && title.scrollWidth <= title.clientWidth + 1; })()',

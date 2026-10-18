@@ -8,6 +8,10 @@ One compact row above the list, in this order:
 
 Each button shows its value through its pressed state, label and tooltip. Filters, search and sort are remembered between launches.
 
+| Rule | When | Then |
+| --- | --- | --- |
+| `toolbar.layout` | Space is narrow | Filter and Sort headers align in the same column, leaving space below New task. Groups wrap intact without horizontal overflow. The group containing Details and Move is named Actions |
+
 ## Touch feedback
 
 | Rule | When | Then |

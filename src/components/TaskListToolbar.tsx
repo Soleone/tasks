@@ -351,23 +351,21 @@ export function TaskListToolbar({
         setTouchFeedback({ key: button.dataset.toolbarFeedback! });
       }}
     >
-      {/* On a phone the toolbar is two rows on a grid of icon-wide columns: New task spans four,
-          each group glyph one and the gap before View one, so the icons line up. A glyph and its
-          group form one cell, so larger text wraps them together. Wider screens use one row. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
-        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
-          <div className="w-28 sm:mr-auto sm:w-auto">
-            <Button
-              size="sm"
-              tabIndex={-1}
-              aria-keyshortcuts="C"
-              disabled={composerOpen}
-              onClick={() => onCreate()}
-            >
-              <Plus aria-hidden="true" />
-              New task
-            </Button>
-          </div>
+      {/* Keep wrapped groups in one column beside New task when space allows. */}
+      <div className="flex flex-wrap items-start gap-y-2 sm:items-center sm:gap-x-3">
+        <div className="w-26 shrink-0 sm:mr-auto sm:w-auto">
+          <Button
+            size="sm"
+            tabIndex={-1}
+            aria-keyshortcuts="C"
+            disabled={composerOpen}
+            onClick={() => onCreate()}
+          >
+            <Plus aria-hidden="true" />
+            New task
+          </Button>
+        </div>
+        <div className="flex flex-1 flex-wrap items-center gap-y-2 sm:contents">
           <div className="flex">
             <ToolbarGroupGlyph icon={Funnel} label="Filter" />
             <div className="relative">
@@ -576,8 +574,6 @@ export function TaskListToolbar({
               </ToolbarGroup>
             </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
           <div className="flex">
             <ToolbarGroupGlyph icon={ArrowDownWideNarrow} label="Sort" />
             <div className="relative">
@@ -760,9 +756,9 @@ export function TaskListToolbar({
               </ToolbarGroup>
             </div>
           </div>
-          <div className="ml-7 flex sm:ml-0">
-            <ToolbarGroupGlyph icon={Eye} label="View" />
-            <ButtonGroup aria-label="Task list view">
+          <div className="flex">
+            <ToolbarGroupGlyph icon={Eye} label="Actions" />
+            <ButtonGroup aria-label="Task list actions">
               <Tooltip {...feedbackTooltip("details")}>
                 <TooltipTrigger
                   id={`${tooltipId}-details`}
