@@ -1130,6 +1130,8 @@ export function TaskList({
       [visibleRows],
     ) + (optimisticTask ? 1 : 0);
 
+  const captureHint =
+    helpMode === "none" ? "Choose New task to capture." : "Press C or choose New task to capture.";
   const isDefaultActiveEmpty =
     !loading &&
     !error &&
@@ -1329,9 +1331,7 @@ export function TaskList({
             <TaskItem data-empty-state="active" size="sm" state="empty">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">No active tasks</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Press C or choose New task to capture.
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{captureHint}</p>
               </div>
             </TaskItem>
           ) : null}
@@ -1361,7 +1361,7 @@ export function TaskList({
         <Empty>
           <EmptyHeader>
             <EmptyTitle>No active tasks</EmptyTitle>
-            <EmptyDescription>Press C or choose New task to capture.</EmptyDescription>
+            <EmptyDescription>{captureHint}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}

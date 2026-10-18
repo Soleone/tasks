@@ -43,6 +43,7 @@ import {
   type FontSizeIncrease,
 } from "@/fontSize";
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
+import { isAndroid } from "@/platform/runtime";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
 const EXACT_STATUS_KEY = "tasks.exactStatus";
@@ -144,7 +145,7 @@ function readHelpMode(): KeyboardHelpMode {
   // while disabled left the task-list shortcut guides available.
   if (stored === "true") return "full";
   if (stored === "false") return "basic";
-  return "full";
+  return isAndroid() ? "none" : "full";
 }
 
 // The list is the default surface. Create and edit use an inline editor opened
