@@ -50,8 +50,6 @@ const KNOWN_COMMANDS = [
   "task.status.undoMany",
   "task.transitionMany",
   "task.update",
-  "theme.list",
-  "theme.set",
   "workspace.archive",
   "workspace.backup",
   "workspace.conflict.list",

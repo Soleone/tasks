@@ -1,13 +1,12 @@
 import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
-import type { ThemeRecord } from "@/backend/themePalette";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
 import {
   sortSummary,
@@ -25,7 +24,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
 import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
-import { ThemePalette } from "@/components/ThemePalette";
+import { ThemePicker } from "@/components/soleone/theme-picker";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
@@ -34,9 +33,8 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
-import { listThemes, setTheme, selectMainWorkspace } from "@/platform/backendClient";
+import { selectMainWorkspace } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
-import { applyTheme } from "@/theme";
 import {
   readStoredFontSizeIncrease,
   storeFontSizeIncrease,
@@ -57,7 +55,6 @@ const SORT_DIRECTION_KEY = "tasks.sortDirection";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const HELP_MODE_KEY = "tasks.helpMode";
-const OMARCHY_SYSTEM_THEME_NAME = "omarchy-system";
 
 function readStored(key: string): string | null {
   try {
@@ -191,8 +188,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [disableHelpTarget, setDisableHelpTarget] = useState<"basic" | "none" | null>(null);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [themes, setThemes] = useState<ThemeRecord[]>([]);
-  const [selectedTheme, setSelectedTheme] = useState("");
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
@@ -262,42 +257,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     closeComposer,
     closeHelp: () => setHelpOpen(false),
   });
-
-  const refreshThemes = useCallback((applySelection: boolean): Promise<void> => {
-    return listThemes()
-      .then((result) => {
-        setThemes(result.themes);
-        setSelectedTheme(result.selected);
-        if (!applySelection) return;
-        const selected = result.themes.find((theme) => theme.name === result.selected);
-        if (selected) applyTheme(selected);
-      })
-      .catch(() => {
-        // The neutral ramp in styles.css stays applied without a workspace theme.
-      });
-  }, []);
-
-  useEffect(() => {
-    void refreshThemes(true);
-  }, [refreshThemes]);
-
-  // Theme files can appear or disappear while the app runs, so theme surfaces
-  // re-read them every time they open.
-  useEffect(() => {
-    if (helpOpen || themesOpen) void refreshThemes(false);
-  }, [helpOpen, themesOpen, refreshThemes]);
-
-  // Omarchy replaces its current palette outside this process. When the live
-  // theme is selected, refresh often enough to feel immediate without making
-  // every installation pay for a filesystem watcher or an event protocol.
-  useEffect(() => {
-    if (selectedTheme !== OMARCHY_SYSTEM_THEME_NAME) return;
-    const refresh = (): void => {
-      void refreshThemes(true);
-    };
-    const interval = window.setInterval(refresh, 1500);
-    return () => window.clearInterval(interval);
-  }, [selectedTheme, refreshThemes]);
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
@@ -381,18 +340,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  async function chooseTheme(name: string): Promise<void> {
-    setThemesOpen(false);
-    try {
-      const result = await setTheme(name);
-      applyTheme(result.theme);
-      setSelectedTheme(result.selected);
-      setAnnouncement(`Theme: ${result.theme.label}`);
-    } catch (caught) {
-      setAnnouncement(caught instanceof Error ? caught.message : String(caught));
-    }
-  }
-
   function openHelp(): void {
     focusStack.push("help");
     setHelpOpen(true);
@@ -410,7 +357,9 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   }
 
   function openThemes(): void {
-    focusStack.push("themes");
+    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+    focusStack.push("themes", fromPalette);
+    setHelpOpen(false);
     setThemesOpen(true);
   }
 
@@ -817,6 +766,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         onOpenChange={setHelpOpen}
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
+        onOpenThemes={openThemes}
         onCreate={openCreate}
         onCreateChild={(task) => openCreate(task.id)}
         onOpenCategoryPicker={openCategoryPicker}
@@ -893,13 +843,13 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onRemoveParent={() => void pickerRemoveParent()}
         />
       ) : null}
-      <ThemePalette
+      <ThemePicker
         open={themesOpen}
         onOpenChange={setThemesOpen}
+        trigger={null}
+        shortcut={false}
         finalFocus={() => focusStack.restore("themes")}
-        themes={themes}
-        selectedTheme={selectedTheme}
-        onSelectTheme={(name) => void chooseTheme(name)}
+        tagline={{ text: "Capture quickly,", highlight: "choose what matters" }}
       />
       <SettingsDialog
         open={settingsOpen}

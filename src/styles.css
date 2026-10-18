@@ -2,115 +2,18 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "./components/soleone/theme/theme.css";
+@import "./components/soleone/material/material.css";
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Palette slots, named after the omarchy colors.toml keys a theme file carries.
- * Applying a theme (src/theme/applyTheme.ts) sets these inline on <html>, so the
- * ramp below is the pre-theme fallback while the workspace theme loads.
- */
+/* Task-specific roles extend the shared semantic theme tokens. */
 :root {
-  --om-accent: #2563eb;
-  --om-on-accent: oklch(1 0 0);
-  --om-background: oklch(1 0 0);
-  --om-dark-background: oklch(0.985 0 0);
-  --om-darker-background: oklch(0.955 0 0);
-  --om-lighter-background: oklch(0.97 0 0);
-  --om-selection: oklch(0.93 0.02 259);
-  --om-muted: oklch(0.922 0 0);
-  --om-foreground: oklch(0.145 0 0);
-  --om-dark-foreground: oklch(0.62 0 0);
-  --om-light-foreground: oklch(0.33 0 0);
-  --om-bright-foreground: oklch(0.145 0 0);
-  --om-muted-foreground: oklch(0.5 0 0);
-  --om-red: oklch(0.577 0.245 27.325);
-  --om-on-red: oklch(1 0 0);
-  --om-orange: oklch(0.646 0.222 41.116);
-  --om-yellow: oklch(0.681 0.162 75.298);
-  --om-green: oklch(0.627 0.194 149.214);
-  --om-cyan: oklch(0.6 0.118 184.704);
-  --om-blue: oklch(0.546 0.245 262.881);
-  --om-magenta: oklch(0.606 0.25 297.177);
-  --om-brown: oklch(0.553 0.131 56.8);
-  color-scheme: light;
-}
-
-.dark {
-  --om-accent: #60a5fa;
-  --om-on-accent: oklch(0.145 0 0);
-  --om-background: oklch(0.205 0 0);
-  --om-dark-background: oklch(0.145 0 0);
-  --om-darker-background: oklch(0.12 0 0);
-  --om-lighter-background: oklch(0.269 0 0);
-  --om-selection: oklch(0.32 0.03 259);
-  --om-muted: oklch(1 0 0 / 12%);
-  --om-foreground: oklch(0.985 0 0);
-  --om-dark-foreground: oklch(0.55 0 0);
-  --om-light-foreground: oklch(0.85 0 0);
-  --om-bright-foreground: oklch(0.985 0 0);
-  --om-muted-foreground: oklch(0.708 0 0);
-  --om-red: oklch(0.704 0.191 22.216);
-  --om-on-red: oklch(0.145 0 0);
-  --om-orange: oklch(0.705 0.213 47.604);
-  --om-yellow: oklch(0.828 0.189 84.429);
-  --om-green: oklch(0.723 0.219 149.579);
-  --om-cyan: oklch(0.715 0.143 215.221);
-  --om-blue: oklch(0.707 0.165 254.624);
-  --om-magenta: oklch(0.714 0.203 305.504);
-  --om-brown: oklch(0.63 0.13 60);
-  color-scheme: dark;
-}
-
-/*
- * Regions. Components use only these tokens; a theme never has to know they
- * exist. Two names collide with omarchy and are mapped deliberately: their
- * `accent` is the brand color, so it becomes our primary and focus ring, while
- * shadcn's `--accent` is a quiet hover surface and takes their `selection`.
- * Their `muted` is a de-emphasized ink, so it becomes dividers and input edges.
- * Hues forward directly: green/yellow/cyan become success/warning/info and
- * chart-1..5, so every omarchy hue has somewhere visible to land.
- */
-:root {
-  --background: var(--om-dark-background);
-  --foreground: var(--om-foreground);
-  --card: var(--om-background);
-  --card-foreground: var(--om-foreground);
-  --popover: var(--om-background);
-  --popover-foreground: var(--om-foreground);
-  --primary: var(--om-accent);
-  --primary-foreground: var(--om-on-accent);
-  --secondary: var(--om-lighter-background);
-  --secondary-foreground: var(--om-bright-foreground);
-  --muted: var(--om-lighter-background);
-  --muted-foreground: var(--om-muted-foreground);
-  --accent: var(--om-selection);
-  --accent-foreground: var(--om-bright-foreground);
-  --destructive: var(--om-red);
-  --destructive-foreground: var(--om-on-red);
-  --success: var(--om-green);
   --warning: var(--om-yellow);
   --info: var(--om-cyan);
   --classification-category: var(--om-green);
   --classification-tag: var(--om-foreground);
   --classification-foreground: var(--om-darker-background);
-  --border: var(--om-muted);
-  --input: var(--om-muted);
-  --ring: var(--om-accent);
-  --chart-1: var(--om-cyan);
-  --chart-2: var(--om-green);
-  --chart-3: var(--om-yellow);
-  --chart-4: var(--om-magenta);
-  --chart-5: var(--om-blue);
-  --sidebar: var(--om-background);
-  --sidebar-foreground: var(--om-foreground);
-  --sidebar-primary: var(--om-accent);
-  --sidebar-primary-foreground: var(--om-on-accent);
-  --sidebar-accent: var(--om-selection);
-  --sidebar-accent-foreground: var(--om-bright-foreground);
-  --sidebar-border: var(--om-muted);
-  --sidebar-ring: var(--om-accent);
-  --radius: 0.625rem;
 }
 
 @theme inline {

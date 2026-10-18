@@ -5,10 +5,7 @@ import { taskView, type ClassificationOption, type TaskView } from "@/components
 import type { TaskPriority } from "@/backend/taskModel";
 import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
 import type { SortField } from "@/components/taskFilters";
-import type { ThemeRecord } from "@/backend/themePalette";
 import { parseTaskProjection } from "../backend/taskResults";
-import { builtinThemes } from "../backend/builtinThemes";
-import { GILT_THEME_NAME } from "../backend/themePalette";
 
 let mainWorkspace: MainWorkspace | null = null;
 
@@ -92,8 +89,6 @@ export type WorkspaceInfoResult = {
   canceledTaskCount: number;
   workspaceRevision: number;
 };
-export type ThemeListResult = { themes: ThemeRecord[]; selected: string };
-export type ThemeSetResult = { theme: ThemeRecord; selected: string };
 export type CommandOptions = { idempotencyKey?: string };
 
 export type TaskMutationResult = {
@@ -324,23 +319,6 @@ export async function getWorkspaceInfo(): Promise<WorkspaceInfoResult> {
 
 export async function getWorkspaceRevision(): Promise<number> {
   return selected().revision();
-}
-
-// Themes are a per-device preference, kept in the browser profile rather than the task folder.
-export async function listThemes(): Promise<ThemeListResult> {
-  const themes = builtinThemes();
-  const stored = localStorage.getItem("tasks.selectedTheme");
-  return {
-    themes,
-    selected: themes.some((theme) => theme.name === stored) ? stored! : GILT_THEME_NAME,
-  };
-}
-
-export async function setTheme(name: string): Promise<ThemeSetResult> {
-  const theme = builtinThemes().find((theme) => theme.name === name);
-  if (!theme) throw new EditorError("THEME_NOT_FOUND", "Choose an available built-in theme.");
-  localStorage.setItem("tasks.selectedTheme", name);
-  return { theme, selected: name };
 }
 
 export async function closeBackendSession(): Promise<void> {

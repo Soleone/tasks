@@ -3,6 +3,9 @@ import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { expect, inject } from "vite-plus/test";
 import App from "@/App";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/soleone/theme";
+import { themeOptions } from "virtual:theme-options";
+import { THEME_STORAGE_KEY } from "@/theme/config";
 import { closeMainWorkspace, selectMainWorkspace } from "@/platform/backendClient";
 import { EditorClient, readEditorSelection, type EditorSelection } from "@/platform/editorClient";
 import { MainWorkspace } from "@/platform/mainWorkspace";
@@ -100,9 +103,11 @@ export class AppWorkspace {
     selectMainWorkspace(workspace);
     const user = userEvent.setup();
     const view = render(
-      <TooltipProvider>
-        <App workspace={workspace} />
-      </TooltipProvider>,
+      <ThemeProvider themes={themeOptions} storageKey={THEME_STORAGE_KEY}>
+        <TooltipProvider>
+          <App workspace={workspace} />
+        </TooltipProvider>
+      </ThemeProvider>,
     );
     await waitFor(
       () =>

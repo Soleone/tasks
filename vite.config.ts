@@ -2,11 +2,13 @@ import { fileURLToPath } from "node:url";
 import { defineConfig, lazyPlugins } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { themePlugin } from "./src/components/soleone/theme-vite";
+import { THEME_CONFIG } from "./src/theme/config";
 
 const host = process.env.TAURI_DEV_HOST;
 
-// Vendored shadcn primitives. They carry local fixes until those move into wrappers; see PLAN.md.
-const vendored = ["src/components/ui/**"];
+// Registry internals stay upstream; application code uses their high-level components.
+const vendored = ["src/components/ui/**", "src/components/soleone/**"];
 
 const noBaseUi = {
   group: ["@base-ui/react", "@base-ui/react/*"],
@@ -79,7 +81,7 @@ export default defineConfig({
       },
     ],
   },
-  plugins: lazyPlugins(() => [react(), tailwindcss()]),
+  plugins: lazyPlugins(() => [react(), tailwindcss(), themePlugin(THEME_CONFIG)]),
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

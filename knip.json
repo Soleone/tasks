@@ -6,7 +6,7 @@
     "scripts/*.{mjs,ts}"
   ],
   "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{mjs,ts}"],
-  "ignore": ["src/components/ui/**"],
+  "ignore": ["src/components/ui/**", "src/components/soleone/**"],
   "ignoreDependencies": ["postject"],
   "ignoreBinaries": ["rustc", "agent-browser"]
 }

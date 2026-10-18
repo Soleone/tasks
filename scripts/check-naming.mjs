@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const baselinePath = join(root, "scripts/naming-baseline.json");
 const scannedDirs = ["src", "scripts"];
-const allowedPrefixes = ["src/migration/", "scripts/check-naming.mjs"];
+// Registry preview copy (for example a sample version badge) is not application architecture.
+const allowedPrefixes = ["src/migration/", "src/components/soleone/", "scripts/check-naming.mjs"];
 const codeExtensions = /\.(ts|tsx|js|mjs|cjs)$/;
 const versionName = /v[12](?!\d)/i;
 // Names already persisted on users' machines: cache tables, a browser storage key and the

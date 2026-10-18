@@ -1,6 +1,6 @@
 # Tasks: roadmap
 
-Updated 2026-10-16. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
+Updated 2026-10-17. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
 
 ## Direction
 
@@ -35,15 +35,15 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 6. Migration only reads the old version's files and writes a new folder. No personal data has been touched.
 7. Android (2026-10-17): `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. First phone runs found two blockers, both fixed: the backend needed the C++ runtime, and Android's shared storage refuses hard links. Hard links are gone (owner, 2026-10-17): init is a plain retryable step that renames `workspace.json` into place, and doctor renames its stages. WSL has no emulator.
 8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
+9. Shared theme kit adopted (2026-10-17): theme/provider, Vite pre-paint head and the ring picker come from `shadcn-components`. Tasks keeps Gilt, `tasks.selectedTheme`, Alt+T, header/help entry points and focus return. Theme selection stays outside Settings. Duplicate theme logic and the backend theme list are deleted. The shared picker gained host integration hooks in its source repository; publish that local commit before future GitHub updates ([details](docs/themes.md)). Browser checks are not native acceptance.
 
 ## Next step
 
 1. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work, then measure save speed on the phone; slim the save path only if it isn't instant.
 2. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
-3. Adopt the `@soleone/theme` kit (no D hotkey, kit r3) and bump `.kit.json`. `pnpm test:ui` runs on the current route (2026-10-16).
-4. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
+3. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 
-Kit r1 adoption steps 1 to 3 and the React hook warnings are done (2026-10-16). `src/components/ui` is stock upstream, pending an owner look at the UI.
+Kit adoption is at r3 (2026-10-17). `src/components/ui` and `src/components/soleone` are stock registry sources, pending an owner look at the UI.
 
 ## Gates
 
@@ -54,7 +54,7 @@ The owner uses the Windows build on their real tasks (imported, old files kept) 
 ### Cutover
 
 1. Done 2026-10-16: `src/legacy/`, `--legacy` and the Android runtime are deleted. The naming ratchet allows only `src/migration/` and stored names.
-3. Adopt the `@soleone/theme` kit: use `tasks.selectedTheme` as its `storageKey` and remove `themePalette.ts` and `builtinThemes.ts` with the backend theme list. No D dark/light hotkey (owner, 2026-10-16; dropped from the registry in kit r3). Then bump `.kit.json`.
+2. Done 2026-10-17: adopt the shared theme framework and picker with `tasks.selectedTheme`, no D or plain T theme hotkey, and `.kit.json` at r3. Remove the old parser, built-in list, theme application and polling.
 3. Never strand pending work or discard receipts, history or retry authority. Keep the old version's files until the owner deletes them.
 
 ### Publication

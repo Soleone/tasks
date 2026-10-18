@@ -48,6 +48,7 @@ type HelpEntry = {
   /** Entries the palette runs itself, rather than explaining. */
   action?:
     | "open-settings"
+    | "open-themes"
     | "add-blocker"
     | "move-under"
     | "pause-task"
@@ -303,7 +304,8 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Themes",
-        hint: "Workspace appearance",
+        hint: "Choose appearance",
+        action: "open-themes",
         icon: Palette,
         keys: ["Alt", "T"],
         keywords: "alt theme colour color dark light accent palette",
@@ -361,6 +363,7 @@ export function HelpPalette({
   onOpenChange,
   finalFocus,
   onOpenSettings,
+  onOpenThemes,
   onCreate,
   onCreateChild,
   onOpenCategoryPicker,
@@ -381,6 +384,7 @@ export function HelpPalette({
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
+  onOpenThemes: () => void;
   onCreate: () => void;
   onCreateChild?: (task: TaskView) => void;
   onOpenCategoryPicker: () => void;
@@ -427,41 +431,43 @@ export function HelpPalette({
                       ? "Restore the latest eligible single-task status change"
                       : entry.hint;
                   const onSelect =
-                    entry.action === "open-settings"
-                      ? onOpenSettings
-                      : entry.action === "copy-task" && activeTask && onCopyTask
-                        ? () => onCopyTask(activeTask)
-                        : entry.action === "undo-status"
-                          ? canUndoStatus && onUndoStatus
-                            ? onUndoStatus
-                            : undefined
-                          : entry.action === "new-task"
-                            ? onCreate
-                            : entry.action === "new-child-task" && activeTask && onCreateChild
-                              ? () => onCreateChild(activeTask)
-                              : entry.action === "filter-category"
-                                ? onOpenCategoryPicker
-                                : entry.action === "filter-status"
-                                  ? onOpenStatusMenu
-                                  : entry.action === "filter-priority"
-                                    ? onOpenPriorityMenu
-                                    : entry.action === "filter-tags"
-                                      ? onOpenTagPicker
-                                      : entry.action === "filter-search"
-                                        ? onOpenSearch
-                                        : entry.action === "add-blocker" &&
-                                            activeTask &&
-                                            onAddBlocker
-                                          ? () => onAddBlocker(activeTask)
-                                          : entry.action === "pause-task" &&
+                    entry.action === "open-themes"
+                      ? onOpenThemes
+                      : entry.action === "open-settings"
+                        ? onOpenSettings
+                        : entry.action === "copy-task" && activeTask && onCopyTask
+                          ? () => onCopyTask(activeTask)
+                          : entry.action === "undo-status"
+                            ? canUndoStatus && onUndoStatus
+                              ? onUndoStatus
+                              : undefined
+                            : entry.action === "new-task"
+                              ? onCreate
+                              : entry.action === "new-child-task" && activeTask && onCreateChild
+                                ? () => onCreateChild(activeTask)
+                                : entry.action === "filter-category"
+                                  ? onOpenCategoryPicker
+                                  : entry.action === "filter-status"
+                                    ? onOpenStatusMenu
+                                    : entry.action === "filter-priority"
+                                      ? onOpenPriorityMenu
+                                      : entry.action === "filter-tags"
+                                        ? onOpenTagPicker
+                                        : entry.action === "filter-search"
+                                          ? onOpenSearch
+                                          : entry.action === "add-blocker" &&
                                               activeTask &&
-                                              onPauseTask
-                                            ? () => onPauseTask(activeTask)
-                                            : entry.action === "move-under" &&
+                                              onAddBlocker
+                                            ? () => onAddBlocker(activeTask)
+                                            : entry.action === "pause-task" &&
                                                 activeTask &&
-                                                onMoveUnder
-                                              ? () => onMoveUnder(activeTask)
-                                              : undefined;
+                                                onPauseTask
+                                              ? () => onPauseTask(activeTask)
+                                              : entry.action === "move-under" &&
+                                                  activeTask &&
+                                                  onMoveUnder
+                                                ? () => onMoveUnder(activeTask)
+                                                : undefined;
                   return (
                     <CommandItem
                       key={entry.label}

@@ -1,20 +1,24 @@
 # Themes
 
-Choose a built-in palette in **Settings → General → Appearance**, with `Alt+T`, or through `Ctrl/⌘+K` → **Themes**. Gilt is the default; built-in dark/light palettes ship with the app.
+Choose a built-in palette with `Alt+T`, the header's **Themes** button, or `Ctrl/⌘+K` → **Themes**. Theme selection stays in the dedicated picker, not Settings. Gilt is the default.
 
-On the selected replacement route, theme selection uses the existing client-local preferences. Linux dev:web retains it at the same origin (scheme, host and port) in the same browser profile. Another origin/profile or cleared storage starts with defaults. Theme changes do not select a task folder, modify canonical tasks or preserve unresolved requests. Custom filesystem themes and live Omarchy following are not supplied on this route.
+The shared picker shows a ring of preview cards. Drag, scroll or use the arrow keys to browse; type to filter by name or dark/light mode. Browsing does not change the page. Enter or clicking the front card confirms; Escape clears a filter first, then closes. Focus returns to the opener. Tasks keeps `Alt+T`, with no plain T or D theme shortcut.
 
-The Windows disposable native launcher gives each launch fresh WebView storage. Durable preferences on the final native route still need proof; browser persistence is not native acceptance. [Current support](support.md) owns the platform limits.
+## Shared implementation
 
-## Palette format and preview
+Themes come from the [`@soleone` registry](https://github.com/Soleone/shadcn-components), maintained at `$SRC/js/shadcn-components`:
 
-Palettes use the [Omarchy `colors.toml` format](https://omarchy.org). Components consume semantic region tokens, not theme-specific classes. A palette can specify only the slots it needs; unset values fall back to the neutral ramp for its mode:
+- `src/components/soleone/theme/`: palettes, parser, semantic tokens, provider and reveal.
+- `src/components/soleone/theme-vite/`: builds palette CSS and restores the saved choice in `index.html` before paint. Only theme options, not TOML or the parser, enter the client bundle.
+- `src/components/soleone/theme-picker/` and `material/`: the picker and its preview materials.
+- `src/theme/config.ts`: Tasks' public built-in palette list, Gilt default and `tasks.selectedTheme` storage key. Hidden portfolio themes are excluded.
 
-```toml
-mode = "dark"
-accent = "#7aa2f7"
-background = "#1a1b26"
-foreground = "#c0caf5"
-```
+Registry sources stay upstream. Tasks only supplies opening, shortcut and focus-return behavior, plus its task-specific CSS roles. There is no backend theme list, filesystem theme loading or live Omarchy following.
 
-Palette text roles are adjusted toward readability while retaining the author's accent when it cannot meet the normal text contrast floor. This is not universal custom-theme accessibility acceptance.
+The shared picker supports controlled `open`/`onOpenChange`, an optional `trigger`, `shortcut={false}` and `finalFocus`. These hooks and the denied-storage fallback were added in local shared commit `f3a38a0` for this adoption. Publish that commit before pulling future registry updates from GitHub; installing an older picker would remove those hooks. `kit check` was run against the local registry built from that commit; the configured GitHub registry will not match until it is published.
+
+## Persistence and validation
+
+Selection stays in the same browser/WebView profile. For Linux dev:web this also requires the same origin (scheme, host and port). A fresh profile, cleared storage, unavailable storage or an unknown stored name falls back to Gilt. Theme changes do not select a task folder or modify tasks, history or pending requests. Custom theme imports remain out of scope.
+
+Validation covers shared pre-paint restoration and denied storage, controlled and default picker entry points, selection, focus return, hidden-dialog keyboard guards, Settings, browser reload and unchanged task files. Desktop and mobile-width Linux Chromium captures were inspected; the browser regression suite includes axe checks. This is not Windows WebView or Android device acceptance. [Current support](support.md) owns platform limits.

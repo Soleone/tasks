@@ -6,7 +6,9 @@ import favicon48Url from "../assets/branding/favicon-two-color-v8-48.png";
 import { APP_NAME } from "./backend/branding";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyStoredFontSizeIncrease } from "./fontSize";
-import { applyStoredTheme } from "./theme";
+import { ThemeProvider } from "@/components/soleone/theme";
+import { themeOptions } from "virtual:theme-options";
+import { THEME_STORAGE_KEY } from "./theme/config";
 import { runtimeKind } from "./platform/runtime";
 import { revealScrollbarsWhileScrolling } from "./scrollbars";
 import "./styles.css";
@@ -31,18 +33,17 @@ for (const [size, href] of favicons) {
   document.head.append(link);
 }
 
-// Paint the remembered theme before React renders so a launch does not flash
-// the neutral ramp; the workspace selection reconciles it right after.
-applyStoredTheme();
 applyStoredFontSizeIncrease();
 revealScrollbarsWhileScrolling();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <TooltipProvider>
-      <Suspense fallback={null}>
-        {runtimeKind() === "native" ? <DesktopWorkspace /> : <WorkspaceSelection />}
-      </Suspense>
-    </TooltipProvider>
+    <ThemeProvider themes={themeOptions} storageKey={THEME_STORAGE_KEY}>
+      <TooltipProvider>
+        <Suspense fallback={null}>
+          {runtimeKind() === "native" ? <DesktopWorkspace /> : <WorkspaceSelection />}
+        </Suspense>
+      </TooltipProvider>
+    </ThemeProvider>
   </StrictMode>,
 );

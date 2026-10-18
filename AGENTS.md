@@ -31,7 +31,7 @@ Crash tests inject faults by matching source or bundle text (`registerHooks` loa
 The project follows the `web` template of `kit` (`.kit.json` records the revision; `kit upgrade` lists what changed since).
 
 - shadcn on Base UI (`base-nova`). App code uses `src/components/ui`; direct `@base-ui/react` imports are lint errors.
-- `src/components/ui` is vendored and stays byte for byte upstream, so `pnpm dlx shadcn@latest add <item> --overwrite` can update it. Don't edit it; `kit check` fails when it drifts.
+- `src/components/ui` and `src/components/soleone` are vendored and stay upstream (with configured import aliases), so registry updates can replace them. Don't patch them locally; `kit check` fails when they drift. Shared components may own raw primitives internally; app code uses their high-level exports. Theme configuration lives in `src/theme/config.ts`; see [docs/themes.md](docs/themes.md).
 - Style through tokens and component props, never raw colors, arbitrary values or className overrides on primitives. The lint rules in `vite.config.ts` enforce this.
 - A look the stock variants don't have is a wrapper in `src/components/variants/` (for example `ToggleButton` around `Button`), named for its job and with a one-line reason. That folder is the only place allowed to restyle primitives or import `class-variance-authority`. Behavior that isn't styling, such as the palette search scorer in `components/commandFilter.ts`, lives outside both folders.
 

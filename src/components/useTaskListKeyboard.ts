@@ -79,7 +79,7 @@ type HomeShortcutSurface = {
 
 /** Whether a dialog holds the keyboard. Toasts are non-modal dialogs and leave it to the list. */
 export function isDialogOpen(): boolean {
-  return document.querySelector('[role="dialog"]:not([aria-modal="false"])') !== null;
+  return document.querySelector('[role="dialog"]:not([aria-modal="false"]):not([hidden])') !== null;
 }
 
 export function useTaskListKeyboard(

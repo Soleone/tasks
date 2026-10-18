@@ -66,27 +66,71 @@ test("help.starter: ? opens the starter help panel", async () => {
   await screen.findByRole("button", { name: "Close help" });
 });
 
-test("theme.picker: Alt+T opens the theme picker", async () => {
-  await workspace.create("Task");
+test("theme.picker: Alt+T opens the shared ring, selection persists and focus returns", async () => {
+  const task = await workspace.create("Task");
   const { user } = await workspace.render();
+  await expectListFocused();
+  await user.keyboard("td");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.documentElement.dataset.theme).toBe("gilt");
   await user.keyboard("{Alt>}t{/Alt}");
-  await screen.findByRole("dialog", { name: "Themes" });
+  const ring = await screen.findByRole("listbox", { name: "Themes" });
+  await waitFor(() => expect(document.activeElement).toBe(ring));
+  expect(ring.getAttribute("aria-activedescendant")).toBe("theme-card-gilt");
+  await user.keyboard("latte");
+  expect(document.documentElement.dataset.theme).toBe("gilt");
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(document.documentElement.dataset.theme).toBe("catppuccin-latte"));
+  expect(localStorage.getItem("tasks.selectedTheme")).toBe("catppuccin-latte");
+  expect(document.documentElement.classList.contains("dark")).toBe(false);
+  await expectListFocused();
+  expect(await workspace.task(task.id)).toEqual(task);
+  await user.keyboard("{Alt>}t{/Alt}");
+  await screen.findByRole("listbox", { name: "Themes" });
+  expect(ring.getAttribute("aria-activedescendant")).toBe("theme-card-catppuccin-latte");
+  await user.keyboard("{Escape}");
+  await expectListFocused();
 });
 
-test("theme.select: the dedicated picker applies a theme and remembers it across reloads", async () => {
+test("theme.select: the dedicated picker remembers the selection across reloads", async () => {
+  await workspace.create("Task");
   const first = await workspace.render();
   await first.user.click(screen.getByRole("button", { name: "Themes" }));
-  const picker = within(await screen.findByRole("dialog", { name: "Themes" }));
-  await first.user.type(picker.getByRole("combobox"), "Catppuccin Latte");
-  await first.user.click(await picker.findByRole("option", { name: /Catppuccin Latte/ }));
+  const ring = await screen.findByRole("listbox", { name: "Themes" });
+  await waitFor(() => expect(document.activeElement).toBe(ring));
+  await first.user.keyboard("latte{Enter}");
   await waitFor(() => expect(localStorage.getItem("tasks.selectedTheme")).toBe("catppuccin-latte"));
   expect(document.documentElement.classList.contains("dark")).toBe(false);
+  await expectListFocused();
   first.view.unmount();
   const second = await workspace.render();
   await second.user.keyboard("{Alt>}t{/Alt}");
-  const reopened = within(await screen.findByRole("dialog", { name: "Themes" }));
-  await reopened.findByRole("option", { name: /Catppuccin Latte.*Active/ });
+  const reopened = await screen.findByRole("listbox", { name: "Themes" });
+  await waitFor(() =>
+    expect(reopened.getAttribute("aria-activedescendant")).toBe("theme-card-catppuccin-latte"),
+  );
   expect(document.documentElement.classList.contains("dark")).toBe(false);
+});
+
+test("theme.picker: help opens the ring without losing the list return target", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  await expectListFocused();
+  await user.keyboard("{Control>}k{/Control}themes{Enter}");
+  await screen.findByRole("listbox", { name: "Themes" });
+  await user.keyboard("{Escape}");
+  await expectListFocused();
+});
+
+test("home.dialog-return: the prewarmed hidden theme dialog does not block capture", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  await expectListFocused();
+  await waitFor(() => expect(document.querySelector('[role="dialog"][hidden]')).not.toBeNull(), {
+    timeout: 5000,
+  });
+  await user.keyboard("c");
+  await screen.findByRole("form", { name: "New task" });
 });
 
 test("prefs.remembered: sort and Details survive a reload", async () => {
