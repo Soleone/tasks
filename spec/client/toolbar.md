@@ -10,7 +10,7 @@ Each button shows its value through its pressed state, label and tooltip. Filter
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `toolbar.layout` | Arranging the toolbar | New task, Filters, Sort and Actions pack together without an expanding spacer or a reserved column. At the default text size they fit one toolbar row on desktop; at phone width (390px) New task and Filters share the first row, Sort and Actions the second. Groups wrap intact at narrower widths without horizontal overflow. Actions contains Details, Reorder, Undo and Task actions |
+| `toolbar.layout` | Arranging the toolbar | At the default text size New task, Filters, Sort and Actions fit one packed toolbar row on desktop, without an expanding spacer. On phones New task is top-aligned with Filters and occupies four icon columns with the space beneath it empty; Filter, Sort and Actions headers align in the column beside it. At 390px each group gets its own row, keeping every button visible and icons aligned across rows. At narrower widths groups wrap intact without horizontal overflow. Actions contains Details, Reorder, Undo and Task actions |
 
 ## Task actions
 

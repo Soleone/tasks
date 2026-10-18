@@ -1314,14 +1314,19 @@ try {
   });
   reload();
   waitFor('document.querySelectorAll("#task-list [role=option]").length === 4');
-  // toolbar.layout: one packed desktop row, two phone rows, no reserved New task column.
+  // toolbar.layout: one desktop row; phone groups align beside the empty capture column.
   for (const width of [1280, 390, 320]) {
     browser("set", "viewport", String(width), "844");
     check("document.documentElement.scrollWidth <= innerWidth");
     check('document.querySelector("[title=Actions]") !== null');
+    if (width === 390) {
+      check(
+        '(() => { const origin = document.querySelector("[title=Sort]").getBoundingClientRect().left; const step = document.querySelector("[title=Filter]").getBoundingClientRect().width; const buttons = document.querySelectorAll("[data-toolbar] button, [aria-label=\\"Task list actions\\"] button"); return [...buttons].every((button) => { const column = (button.getBoundingClientRect().left - origin) / step; return Math.abs(column - Math.round(column)) < 0.01; }); })()',
+      );
+    }
     if (width >= 390) {
       check(
-        '(() => { const capture = document.querySelector("button[aria-keyshortcuts=C]").getBoundingClientRect(); const filter = document.querySelector("[title=Filter]").getBoundingClientRect(); const sort = document.querySelector("[title=Sort]").getBoundingClientRect(); const actions = document.querySelector("[title=Actions]").getBoundingClientRect(); const sameRow = (a, b) => Math.abs(a.top - b.top) < 2; return sameRow(capture, filter) && sameRow(sort, actions) && (innerWidth >= 640 ? sameRow(filter, sort) : sort.top > filter.bottom); })()',
+        '(() => { const capture = document.querySelector("button[aria-keyshortcuts=C]").getBoundingClientRect(); const filter = document.querySelector("[title=Filter]").getBoundingClientRect(); const sort = document.querySelector("[title=Sort]").getBoundingClientRect(); const actions = document.querySelector("[title=Actions]").getBoundingClientRect(); const sameRow = (a, b) => Math.abs(a.top - b.top) < 2; return sameRow(capture, filter) && (innerWidth >= 640 ? sameRow(filter, sort) && sameRow(sort, actions) : Math.abs(filter.left - sort.left) < 1 && Math.abs(sort.left - actions.left) < 1 && filter.left - capture.left >= filter.width * 4 && sort.top > filter.bottom && actions.top > sort.bottom); })()',
       );
     }
   }

@@ -343,8 +343,8 @@ export function TaskListToolbar({
       }}
     >
       {/* Group glyphs provide separation; extra gaps would push Actions onto another row. */}
-      <div className="flex flex-wrap items-center gap-y-2">
-        <div className="shrink-0">
+      <div className="flex flex-wrap items-start gap-y-2 sm:items-center">
+        <div className="w-28 shrink-0 sm:w-auto">
           <Button
             size="sm"
             tabIndex={-1}
@@ -356,7 +356,7 @@ export function TaskListToolbar({
             New task
           </Button>
         </div>
-        <div className="contents">
+        <div className="flex flex-1 flex-wrap items-center gap-y-2 sm:contents">
           <div className="flex">
             <ToolbarGroupGlyph icon={Funnel} label="Filter" />
             <div className="relative">
