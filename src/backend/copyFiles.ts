@@ -89,15 +89,18 @@ export function releaseEmptyDestination(
   return inspectCopyDestination(sourceDirectory, destination.directory);
 }
 
-export function guardCopySource(expected: CanonicalSnapshot): void {
-  if (
-    readdirSync(expected.rootPath).some((name) => /^workspace\.sync-conflict-.+\.json$/.test(name))
-  ) {
+/** Writers that observed the root a moment ago need only this part of the copy-source guard. */
+export function refuseDescriptorConflicts(rootPath: string): void {
+  if (readdirSync(rootPath).some((name) => /^workspace\.sync-conflict-.+\.json$/.test(name))) {
     throw new CommandError(
       "INVALID_CANONICAL",
       "descriptor conflict copies require explicit inspection before staging",
     );
   }
+}
+
+export function guardCopySource(expected: CanonicalSnapshot): void {
+  refuseDescriptorConflicts(expected.rootPath);
   const current = readCanonicalRoot(expected.rootPath);
   if (
     current.rootIdentity !== expected.rootIdentity ||

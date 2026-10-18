@@ -58,6 +58,28 @@ function exactHash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+// Parsing costs as much as reading. Equal bytes always parse to the same task, so the latest
+// scan's task is reused only for a file whose exact bytes hash as before. Frozen because scans share it.
+let parsedTasks = new Map<string, CanonicalTask>();
+
+function parseTask(
+  scan: Map<string, CanonicalTask>,
+  filePath: string,
+  sha256: string,
+  bytes: Buffer,
+): CanonicalTask {
+  const key = `${filePath}\0${sha256}`;
+  let task = parsedTasks.get(key);
+  if (!task) {
+    task = validateTask(parseCanonicalJson(bytes), path.basename(filePath, ".json"));
+    Object.freeze(task.tags);
+    Object.freeze(task.dependencyIds);
+    Object.freeze(task);
+  }
+  scan.set(key, task);
+  return task;
+}
+
 function observeRoot(
   rootPath: string,
   deletedTasks: readonly CanonicalTask[] = [],
@@ -78,6 +100,7 @@ function observeRoot(
   const files = [{ relativePath: "workspace.json", sha256: exactHash(manifestBytes) }];
   const conflictFiles: FileObservation[] = [];
   const tasks: CanonicalTask[] = [];
+  const parsed = new Map<string, CanonicalTask>();
   const names = readdirSync(taskDirectory).sort();
   for (const name of names) {
     // Syncthing transfer temporaries are not published task documents.
@@ -91,10 +114,12 @@ function observeRoot(
       conflictFiles.push(observation);
       continue;
     }
-    tasks.push(validateTask(parseCanonicalJson(bytes), name.slice(0, -5)));
+    tasks.push(parseTask(parsed, path.join(taskDirectory, name), observation.sha256, bytes));
   }
   if (deletedTasks.some((deleted) => tasks.some((task) => task.id === deleted.id))) invalidEntry();
   validateGraph([...tasks, ...deletedTasks]);
+  // Bytes are read once. A file rewritten after its read is no different from one rewritten just
+  // after the scan: every writer guards its replacements against these hashes again.
   if (
     directoryIdentity(rootPath) !== rootIdentity ||
     directoryIdentity(taskDirectory) !== taskIdentity ||
@@ -102,14 +127,12 @@ function observeRoot(
   ) {
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
-  for (const observation of files) {
-    if (
-      exactHash(readRegularFile(path.join(rootPath, observation.relativePath))) !==
-      observation.sha256
-    ) {
-      throw new CommandError("STALE_FILE", "canonical bytes changed during observation");
-    }
-  }
+  parsedTasks = parsed;
+  sortTasks(tasks);
+  return { rootPath, rootIdentity, tasks, files, conflictFiles };
+}
+
+function sortTasks(tasks: CanonicalTask[]): void {
   tasks.sort((left, right) => {
     const leftParent = left.parentId ?? "";
     const rightParent = right.parentId ?? "";
@@ -119,7 +142,25 @@ function observeRoot(
         ? -1
         : 1;
   });
-  return { rootPath, rootIdentity, tasks, files, conflictFiles };
+}
+
+/** The snapshot after one task file was replaced and its new bytes were read back. */
+export function withReplacedTask(
+  snapshot: CanonicalSnapshot,
+  task: CanonicalTask,
+  sha256: string,
+): CanonicalSnapshot {
+  const relativePath = `tasks/${task.id}.json`;
+  const tasks = snapshot.tasks.map((current) => (current.id === task.id ? task : current));
+  validateGraph(tasks);
+  sortTasks(tasks);
+  return {
+    ...snapshot,
+    tasks,
+    files: snapshot.files.map((file) =>
+      file.relativePath === relativePath ? { relativePath, sha256 } : file,
+    ),
+  };
 }
 
 /** Only purge recovery calls this after proving each absent preimage's bound quarantine. */

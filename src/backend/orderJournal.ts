@@ -195,10 +195,14 @@ export function guardOrder(intent: OrderIntent, recovery: boolean): CanonicalSna
   }
 }
 
-export function applyOrderJournal(intent: OrderIntent): CanonicalSnapshot {
+/** `observed` is the caller's latest guard of this intent; each replacement is guarded again. */
+export function applyOrderJournal(
+  intent: OrderIntent,
+  observed: CanonicalSnapshot,
+): CanonicalSnapshot {
   const plan = orderIntentPlan(intent);
+  let snapshot = observed;
   for (const [index, task] of plan.writes.entries()) {
-    const snapshot = guardOrder(intent, true);
     const file = intent.files.find((file) => file.taskId === task.id)!;
     if (
       snapshot.files.find((file) => file.relativePath === `tasks/${task.id}.json`)!.sha256 ===
@@ -211,11 +215,11 @@ export function applyOrderJournal(intent: OrderIntent): CanonicalSnapshot {
     if (existsSync(temporary)) {
       if (!readRegularFile(temporary).equals(next)) conflict();
     } else writeDurableFile(temporary, next);
-    guardOrder(intent, true);
+    snapshot = guardOrder(intent, true);
     renameSync(temporary, target);
     syncDirectory(path.dirname(target));
   }
-  const snapshot = guardOrder(intent, true);
+  snapshot = guardOrder(intent, true);
   for (const file of intent.files)
     if (
       snapshot.files.find((actual) => actual.relativePath === `tasks/${file.taskId}.json`)!

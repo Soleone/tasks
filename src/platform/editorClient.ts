@@ -360,22 +360,26 @@ export class EditorClient {
           ? "This workspace operation has no single task baseline; no query was sent."
           : "Select an existing task for this operation; no query was sent.",
       );
+    if (taskId !== undefined) {
+      // One round trip per edit: task.get already refuses a root that isn't ready.
+      const response = await this.query("task.get", { id: taskId });
+      const task = parseTaskProjection(response.result.task);
+      if (task.id !== taskId)
+        throw new Error("The editor returned another task; no mutation was sent.");
+      for (const values of [task.tags, task.dependencyIds, task.blockedByIds])
+        Object.freeze(values);
+      return Object.freeze({ writeContext: response.writeContext, task: Object.freeze(task) });
+    }
+    const commands =
+      mode === "operation"
+        ? ["operation.undo"]
+        : mode === "batch"
+          ? ["task.transitionMany"]
+          : mode === "copy"
+            ? ["workspace.archive", "workspace.restore"]
+            : ["task.create"];
     const info = await this.query("workspace.info", {});
     const workspace = parseWorkspaceInfo(info.result);
-    const commands =
-      mode === "status"
-        ? statusActions
-        : mode === "relationship"
-          ? RELATIONSHIP_COMMANDS
-          : mode === "order"
-            ? ["task.reorder"]
-            : mode === "operation"
-              ? ["operation.undo"]
-              : mode === "batch"
-                ? ["task.transitionMany"]
-                : mode === "copy"
-                  ? ["workspace.archive", "workspace.restore"]
-                  : [taskId === undefined ? "task.create" : "task.update"];
     if (workspace.state !== "ready")
       throw new EditorError(
         workspace.state === "recovery_pending" ? "RECOVERY_PENDING" : "UNSUPPORTED_SCHEMA",
@@ -386,18 +390,7 @@ export class EditorClient {
         "UNSUPPORTED_COMMAND",
         "This platform does not advertise the selected task operation.",
       );
-    if (taskId === undefined) return Object.freeze({ writeContext: info.writeContext, task: null });
-    const response = await this.query("task.get", { id: taskId });
-    if (response.writeContext !== info.writeContext)
-      throw new EditorError(
-        "STALE_WRITE_CONTEXT",
-        "Context changed during preparation; no mutation was sent.",
-      );
-    const task = parseTaskProjection(response.result.task);
-    if (task.id !== taskId)
-      throw new Error("The editor returned another task; no mutation was sent.");
-    for (const values of [task.tags, task.dependencyIds, task.blockedByIds]) Object.freeze(values);
-    return Object.freeze({ writeContext: response.writeContext, task: Object.freeze(task) });
+    return Object.freeze({ writeContext: info.writeContext, task: null });
   }
 
   prepare(baseline: EditBaseline, content: LiteralContent): PreparedEdit {

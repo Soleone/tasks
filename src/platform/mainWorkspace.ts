@@ -122,7 +122,6 @@ export class MainWorkspace {
   }
 
   async tasks(args: Record<string, unknown>) {
-    await this.ready();
     // The UI's priority "desc" means most important (P0) first; the engine sorts the number.
     const direction =
       args.sort === "priority" && args.direction !== undefined
@@ -130,10 +129,13 @@ export class MainWorkspace {
           ? "asc"
           : "desc"
         : args.direction;
-    const page = await this.reader.tasks({
-      ...args,
-      ...(direction !== undefined ? { direction } : {}),
-    });
+    // A list refuses a root that isn't ready, so readiness costs a round trip only to explain a failure.
+    const page = await this.reader
+      .tasks({ ...args, ...(direction !== undefined ? { direction } : {}) })
+      .catch(async (error: unknown) => {
+        await this.ready();
+        throw error;
+      });
     return {
       ...page,
       tasks: page.tasks.map(taskView),

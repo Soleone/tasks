@@ -248,6 +248,18 @@ export function TaskList({
   const deletePending = useRef(new Set<string>());
   const priorityReceipts = useRef(new Map<string, { version: number; key: string }>());
   const mutationPending = useRef(new Set<string>());
+  const taskWrites = useRef(new Map<string, { confirmed: TaskView; tail: Promise<TaskView> }>());
+  // Replies land after later renders; these reach the handlers of the latest one.
+  const showTaskUpdate = useStableHandler(onTaskUpdated);
+  const announce = useStableHandler(onAnnounce);
+  const recordOperation = useStableHandler(
+    (operationId: string, previous: TaskView[], current: TaskView[]) =>
+      onOperation?.(operationId, previous, current),
+  );
+  const statusChanged = useStableHandler(
+    (previous: TaskView, current: TaskView, wasActive: boolean) =>
+      onStatusChanged?.(previous, current, wasActive),
+  );
   const toolbarModeRef = useRef<ToolbarMode | null>(null);
   const [listFocused, setListFocused] = useState(false);
   const composerOpenRef = useRef(composer !== null);
@@ -828,37 +840,76 @@ export function TaskList({
     return receipt;
   }
 
-  async function changeStatus(task: TaskView, transition: StatusTransition): Promise<void> {
-    if (mutationPending.current.has(task.id)) return;
-    const previousReceipt = statusReceipts.current.get(task.id);
-    const receipt =
-      previousReceipt?.version === task.version && previousReceipt.target === transition.next
-        ? previousReceipt
-        : { version: task.version, target: transition.next, key: randomUUID() };
-    statusReceipts.current.set(task.id, receipt);
-    setMutationPending(task.id, true);
+  // Status and priority show at once and the write follows. Writes to one task chain, so each
+  // sends the version its predecessor confirmed; a failure puts back the last confirmed task.
+  function writeOptimistically(
+    task: TaskView,
+    shown: TaskView,
+    send: (confirmed: TaskView) => Promise<TaskMutationResult>,
+    confirm: (previous: TaskView, result: TaskMutationResult) => void,
+  ): Promise<void> {
+    const chain = taskWrites.current.get(task.id) ?? {
+      confirmed: task,
+      tail: Promise.resolve(task),
+    };
+    const tail = chain.tail.then(async (previous) => {
+      const result = await send(previous);
+      chain.confirmed = result.task;
+      confirm(previous, result);
+      return result.task;
+    });
+    chain.tail = tail;
+    taskWrites.current.set(task.id, chain);
+    showTaskUpdate(shown);
+    return tail.then(
+      (current) => {
+        if (chain.tail !== tail) return;
+        taskWrites.current.delete(task.id);
+        showTaskUpdate(current);
+      },
+      (caught: unknown) => {
+        // Writes queued behind a failed one fail with it; the last one reports.
+        if (chain.tail !== tail) return;
+        taskWrites.current.delete(task.id);
+        showTaskUpdate(chain.confirmed);
+        announce(
+          caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
+            ? `${task.title} changed elsewhere. Refresh and try again.`
+            : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
+        );
+      },
+    );
+  }
+
+  function changeStatus(task: TaskView, transition: StatusTransition): Promise<void> {
+    if (mutationPending.current.has(task.id)) return Promise.resolve();
     const wasActive = activeTask?.id === task.id;
-    try {
-      const result = await transitionTask(transition.command, task.id, task.version, {
-        idempotencyKey: receipt.key,
-      });
-      statusReceipts.current.delete(task.id);
-      onTaskUpdated(result.task);
-      if (result.changed !== false) {
-        if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
-        onStatusChanged?.(task, result.task, wasActive);
-        setStatusFeedback({ taskId: task.id, version: result.task.version });
-      }
-      onAnnounce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
-    } catch (caught) {
-      onAnnounce(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${task.title} changed elsewhere. Refresh and try again.`
-          : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
-      );
-    } finally {
-      setMutationPending(task.id, false);
-    }
+    return writeOptimistically(
+      task,
+      { ...task, status: transition.next },
+      async (confirmed) => {
+        const previousReceipt = statusReceipts.current.get(task.id);
+        const receipt =
+          previousReceipt?.version === confirmed.version &&
+          previousReceipt.target === transition.next
+            ? previousReceipt
+            : { version: confirmed.version, target: transition.next, key: randomUUID() };
+        statusReceipts.current.set(task.id, receipt);
+        const result = await transitionTask(transition.command, task.id, confirmed.version, {
+          idempotencyKey: receipt.key,
+        });
+        statusReceipts.current.delete(task.id);
+        return result;
+      },
+      (previous, result) => {
+        if (result.changed !== false) {
+          if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
+          statusChanged(previous, result.task, wasActive);
+          setStatusFeedback({ taskId: task.id, version: result.task.version });
+        }
+        announce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
+      },
+    );
   }
 
   async function transitionSelectedTasks(
@@ -976,31 +1027,32 @@ export function TaskList({
     );
   }
 
-  async function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
-    if (task.priority === priority || mutationPending.current.has(task.id)) return;
-    const previousReceipt = priorityReceipts.current.get(task.id);
-    const receipt =
-      previousReceipt?.version === task.version
-        ? previousReceipt
-        : { version: task.version, key: randomUUID() };
-    priorityReceipts.current.set(task.id, receipt);
-    setMutationPending(task.id, true);
-    try {
-      const result = await updateTaskPriority(task, priority, { idempotencyKey: receipt.key });
-      priorityReceipts.current.delete(task.id);
-      onTaskUpdated(result.task);
-      if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
-      const label = PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
-      onAnnounce(`${task.title}: priority ${label}`);
-    } catch (caught) {
-      onAnnounce(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${task.title} changed elsewhere. Refresh and try again.`
-          : `Could not change ${task.title}: ${caught instanceof Error ? caught.message : String(caught)}`,
-      );
-    } finally {
-      setMutationPending(task.id, false);
-    }
+  function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
+    if (task.priority === priority || mutationPending.current.has(task.id))
+      return Promise.resolve();
+    return writeOptimistically(
+      task,
+      { ...task, priority },
+      async (confirmed) => {
+        const previousReceipt = priorityReceipts.current.get(task.id);
+        const receipt =
+          previousReceipt?.version === confirmed.version
+            ? previousReceipt
+            : { version: confirmed.version, key: randomUUID() };
+        priorityReceipts.current.set(task.id, receipt);
+        const result = await updateTaskPriority(confirmed, priority, {
+          idempotencyKey: receipt.key,
+        });
+        priorityReceipts.current.delete(task.id);
+        return result;
+      },
+      (previous, result) => {
+        if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
+        const label =
+          PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
+        announce(`${task.title}: priority ${label}`);
+      },
+    );
   }
 
   async function deleteTaskRecord(task: TaskView): Promise<void> {
@@ -1124,11 +1176,8 @@ export function TaskList({
     { toolbarModeRef, composerOpenRef, list, section },
   );
 
-  const summaryTaskCount =
-    useMemo(
-      () => visibleRows.reduce((count, row) => count + (row.contextOnly ? 0 : 1), 0),
-      [visibleRows],
-    ) + (optimisticTask ? 1 : 0);
+  // Matching tasks, including those under a collapsed row; context ancestors don't count.
+  const summaryTaskCount = total + (optimisticTask ? 1 : 0);
 
   const captureHint =
     helpMode === "none" ? "Choose New task to capture." : "Press C or choose New task to capture.";

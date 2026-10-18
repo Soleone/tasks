@@ -245,10 +245,14 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
   }
 }
 
-export function applyBatchJournal(intent: BatchIntent): CanonicalSnapshot {
+/** `observed` is the caller's latest guard of this intent; each replacement is guarded again. */
+export function applyBatchJournal(
+  intent: BatchIntent,
+  observed: CanonicalSnapshot,
+): CanonicalSnapshot {
+  let snapshot = observed;
   for (const [index, file] of intent.files.entries()) {
     if (file.beforeBytes === file.nextBytes) continue;
-    const snapshot = guardBatch(intent, true);
     const actual = snapshot.files.find(
       (actual) => actual.relativePath === `tasks/${file.taskId}.json`,
     );
@@ -263,12 +267,13 @@ export function applyBatchJournal(intent: BatchIntent): CanonicalSnapshot {
       continue;
     }
     if (file.nextBytes === null) {
+      snapshot = guardBatch(intent, true);
       unlinkSync(target);
     } else {
       const temporary = stagePath(intent, index),
         next = Buffer.from(file.nextBytes, "base64");
       if (!existsSync(temporary)) writeDurableFile(temporary, next);
-      guardBatch(intent, true);
+      snapshot = guardBatch(intent, true);
       renameSync(temporary, target);
     }
     syncDirectory(path.dirname(target));

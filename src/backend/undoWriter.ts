@@ -13,7 +13,7 @@ import {
 } from "./batchJournal.js";
 import type { BatchIntent } from "./batchJournal.js";
 import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
-import { guardCopySource } from "./copyFiles.js";
+import { refuseDescriptorConflicts } from "./copyFiles.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import type { Request } from "./protocol.js";
@@ -58,9 +58,9 @@ function undoResult(
 
 export function commitUndo(database: DatabaseSync, intent: BatchIntent): Record<string, unknown> {
   const plan = batchIntentPlan(intent);
-  guardBatch(intent, true);
+  const guarded = guardBatch(intent, true);
   requireUndoBudget(database, intent.files.length);
-  const snapshot = applyBatchJournal(intent);
+  const snapshot = applyBatchJournal(intent, guarded);
   const remove = database.prepare("DELETE FROM v2_query_tasks WHERE id = ?");
   for (const id of plan.affectedIds) remove.run(id);
   const authority = synchronizeAuthority(database, intent.root, snapshot);
@@ -116,7 +116,7 @@ export function executeUndo(request: Request, rootPath: string, cachePath: strin
       const snapshot = readCanonicalRoot(root.rootPath);
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
-      guardCopySource(snapshot);
+      refuseDescriptorConflicts(snapshot.rootPath);
       if (!request.readOnly && !request.dryRun) requireUndoBudget(database, snapshot.tasks.length);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);

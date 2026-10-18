@@ -5,7 +5,7 @@ import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
 import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
-import { guardCopySource } from "./copyFiles.js";
+import { refuseDescriptorConflicts } from "./copyFiles.js";
 import { persistPending, retirePending, syncDirectory, withRootWriterLock } from "./localDomain.js";
 import { projectTasks } from "./queries.js";
 import { decodeTaskEdit } from "./taskEditRequest.js";
@@ -72,7 +72,7 @@ export function executeUpdate(
       const snapshot = readCanonicalRoot(rootPath);
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
-      guardCopySource(snapshot);
+      refuseDescriptorConflicts(snapshot.rootPath);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
       const task = snapshot.tasks.find((task) => task.id === input.id);
@@ -143,11 +143,11 @@ export function executeUpdate(
         nextBytes: Buffer.from(`${JSON.stringify(update.task)}\n`).toString("base64"),
         guards: snapshot.files,
       };
-      guardUpdate(intent, false);
+      const guarded = guardUpdate(intent, false);
       syncDirectory(path.join(root.rootPath, "tasks"));
       // Publish fixed request/bytes/time before any canonical replacement; failures leave this intent intact.
       persistPending(root, intent);
-      const verified = applyJournal(intent);
+      const verified = applyJournal(intent, guarded);
       const result = commitUpdate(database, intent, verified);
       retire = true;
       return { writeContext: authority.writeContext, result };

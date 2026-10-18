@@ -42,6 +42,16 @@ function relationshipWorkspace(): MainWorkspace {
   return workspace;
 }
 
+// The workspace runs one write at a time and refuses a second. The UI queues instead, so changes
+// made faster than the disk keeps up apply in order rather than failing.
+let writeQueue: Promise<unknown> = Promise.resolve();
+
+function queued<T>(write: () => Promise<T>): Promise<T> {
+  const next = writeQueue.then(write, write);
+  writeQueue = next.catch(() => undefined);
+  return next;
+}
+
 function writeKey(options: CommandOptions): string {
   return options.idempotencyKey ?? randomUUID();
 }
@@ -143,19 +153,21 @@ export async function createTask(
   description: string,
   options: CommandOptions & { parentId?: string; priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
-  const workspace = selected();
-  if (options.parentId) {
-    if (!workspace.supportsRelationships)
-      throw unsupported("Child capture is not yet available in the selected workspace.");
-    return workspace.createChild(
-      options.parentId,
-      title,
-      description,
-      options.priority ?? 2,
-      writeKey(options),
-    );
-  }
-  return workspace.save(title, description, options.priority ?? 2, writeKey(options));
+  return queued(async () => {
+    const workspace = selected();
+    if (options.parentId) {
+      if (!workspace.supportsRelationships)
+        throw unsupported("Child capture is not yet available in the selected workspace.");
+      return workspace.createChild(
+        options.parentId,
+        title,
+        description,
+        options.priority ?? 2,
+        writeKey(options),
+      );
+    }
+    return workspace.save(title, description, options.priority ?? 2, writeKey(options));
+  });
 }
 
 export async function updateTask(
@@ -165,13 +177,8 @@ export async function updateTask(
   expectedVersion: number,
   options: CommandOptions & { priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
-  return selected().save(
-    title,
-    description,
-    options.priority,
-    writeKey(options),
-    id,
-    expectedVersion,
+  return queued(() =>
+    selected().save(title, description, options.priority, writeKey(options), id, expectedVersion),
   );
 }
 
@@ -180,7 +187,7 @@ export async function updateTaskPriority(
   priority: TaskPriority,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return selected().priority(task.id, task.version, priority, writeKey(options));
+  return queued(() => selected().priority(task.id, task.version, priority, writeKey(options)));
 }
 
 export async function deleteTask(
@@ -188,7 +195,7 @@ export async function deleteTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return selected().status("task.delete", id, expectedVersion, writeKey(options));
+  return queued(() => selected().status("task.delete", id, expectedVersion, writeKey(options)));
 }
 
 export async function transitionTask(
@@ -197,19 +204,21 @@ export async function transitionTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return selected().status(command, id, expectedVersion, writeKey(options));
+  return queued(() => selected().status(command, id, expectedVersion, writeKey(options)));
 }
 
 export async function transitionTasks(
   tasks: TaskTransitionItem[],
   options: CommandOptions,
 ): Promise<TaskTransitionManyResult> {
-  const workspace = selected();
-  if (!workspace.supportsStatusBatch)
-    throw unsupported(
-      "Changing several tasks at once is not yet available in this selected workspace.",
-    );
-  return workspace.transitionMany(tasks, writeKey(options));
+  return queued(async () => {
+    const workspace = selected();
+    if (!workspace.supportsStatusBatch)
+      throw unsupported(
+        "Changing several tasks at once is not yet available in this selected workspace.",
+      );
+    return workspace.transitionMany(tasks, writeKey(options));
+  });
 }
 
 export async function undoStatusChange(
@@ -217,18 +226,22 @@ export async function undoStatusChange(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return selected().status("task.status.undo", id, expectedVersion, writeKey(options));
+  return queued(() =>
+    selected().status("task.status.undo", id, expectedVersion, writeKey(options)),
+  );
 }
 
 export async function undoOperation(
   operationId: string,
   options: CommandOptions,
 ): Promise<OperationUndoResult> {
-  const workspace = selected();
-  if (!workspace.supportsOperationUndo)
-    throw unsupported("Undo is limited to status changes in this selected workspace.");
-  const { removedIds, ...result } = await workspace.undo(operationId, writeKey(options));
-  return { ...result, undoneOperationId: operationId, deletedTaskIds: removedIds };
+  return queued(async () => {
+    const workspace = selected();
+    if (!workspace.supportsOperationUndo)
+      throw unsupported("Undo is limited to status changes in this selected workspace.");
+    const { removedIds, ...result } = await workspace.undo(operationId, writeKey(options));
+    return { ...result, undoneOperationId: operationId, deletedTaskIds: removedIds };
+  });
 }
 
 export async function moveTask(
@@ -237,12 +250,14 @@ export async function moveTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return relationshipWorkspace().relationship(
-    "task.move",
-    id,
-    expectedVersion,
-    parentId,
-    writeKey(options),
+  return queued(() =>
+    relationshipWorkspace().relationship(
+      "task.move",
+      id,
+      expectedVersion,
+      parentId,
+      writeKey(options),
+    ),
   );
 }
 
@@ -251,10 +266,12 @@ export async function reorderTasks(
   placement: TaskReorderPlacement,
   options: CommandOptions,
 ): Promise<TaskReorderResult> {
-  const workspace = selected();
-  if (!workspace.supportsOrdering)
-    throw unsupported("Reordering is not yet available in this selected workspace.");
-  return workspace.reorder(tasks, placement, writeKey(options));
+  return queued(async () => {
+    const workspace = selected();
+    if (!workspace.supportsOrdering)
+      throw unsupported("Reordering is not yet available in this selected workspace.");
+    return workspace.reorder(tasks, placement, writeKey(options));
+  });
 }
 
 export async function addDependency(
@@ -263,12 +280,14 @@ export async function addDependency(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return relationshipWorkspace().relationship(
-    "task.dependency.add",
-    id,
-    expectedVersion,
-    dependsOnId,
-    writeKey(options),
+  return queued(() =>
+    relationshipWorkspace().relationship(
+      "task.dependency.add",
+      id,
+      expectedVersion,
+      dependsOnId,
+      writeKey(options),
+    ),
   );
 }
 
@@ -278,12 +297,14 @@ export async function removeDependency(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return relationshipWorkspace().relationship(
-    "task.dependency.remove",
-    id,
-    expectedVersion,
-    dependsOnId,
-    writeKey(options),
+  return queued(() =>
+    relationshipWorkspace().relationship(
+      "task.dependency.remove",
+      id,
+      expectedVersion,
+      dependsOnId,
+      writeKey(options),
+    ),
   );
 }
 

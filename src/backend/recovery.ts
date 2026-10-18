@@ -81,7 +81,7 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
             "UNSUPPORTED_COMMAND",
             "explicit fresh-cache authority is required before recovery",
           );
-        const verified = applyJournal(intent);
+        const verified = applyJournal(intent, guarded);
         originalResult = commitUpdate(database, intent, verified);
       }
       if (!originalResult && intent.format === "taskdb.pending-copy") {

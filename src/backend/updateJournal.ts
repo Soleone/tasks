@@ -12,7 +12,7 @@ import {
   RELATIONSHIP_COMMANDS,
 } from "./taskRelationships.js";
 import { parseCanonicalJson } from "./strictJson.js";
-import { readCanonicalRoot, readRegularFile } from "./canonicalReader.js";
+import { readCanonicalRoot, readRegularFile, withReplacedTask } from "./canonicalReader.js";
 import type { CanonicalSnapshot, FileObservation } from "./canonicalReader.js";
 import { pendingIntentPath, syncDirectory, writeDurableFile } from "./localDomain.js";
 import { parseRequest } from "./protocol.js";
@@ -201,18 +201,15 @@ export function guardUpdate(intent: UpdateIntent, recovery: boolean): CanonicalS
   return snapshot;
 }
 
-export function applyJournal(intent: UpdateIntent): CanonicalSnapshot {
-  let snapshot: CanonicalSnapshot;
-  try {
-    snapshot = guardUpdate(intent, true);
-  } catch {
-    return recoveryConflict();
-  }
+/** `observed` is the caller's latest guard of this intent; the replacement is guarded again. */
+export function applyJournal(intent: UpdateIntent, observed: CanonicalSnapshot): CanonicalSnapshot {
+  let snapshot = observed;
   const bytes = Buffer.from(intent.nextBytes, "base64");
+  const nextHash = exactHash(bytes);
   const target = path.join(intent.root.rootPath, "tasks", `${intent.taskId}.json`);
   if (
     snapshot.files.find((file) => file.relativePath === `tasks/${intent.taskId}.json`)!.sha256 !==
-    exactHash(bytes)
+    nextHash
   ) {
     const temporary = path.join(
       intent.root.rootPath,
@@ -224,16 +221,20 @@ export function applyJournal(intent: UpdateIntent): CanonicalSnapshot {
       unlinkSync(temporary);
     }
     writeDurableFile(temporary, bytes);
-    guardUpdate(intent, true);
+    snapshot = guardUpdate(intent, true);
     renameSync(temporary, target);
   }
   // Recovery may see next bytes after a process died between rename and directory flush.
   syncDirectory(path.dirname(target));
-  snapshot = guardUpdate(intent, true);
-  if (
-    snapshot.files.find((file) => file.relativePath === `tasks/${intent.taskId}.json`)!.sha256 !==
-    exactHash(bytes)
-  )
-    recoveryConflict();
-  return snapshot;
+  // The guard just verified every other file; only the replaced one needs reading back.
+  try {
+    if (exactHash(readRegularFile(target)) !== nextHash) recoveryConflict();
+    return withReplacedTask(
+      snapshot,
+      validateTask(parseCanonicalJson(bytes), intent.taskId),
+      nextHash,
+    );
+  } catch {
+    return recoveryConflict();
+  }
 }

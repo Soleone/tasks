@@ -3,7 +3,7 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
-import { guardCopySource } from "./copyFiles.js";
+import { refuseDescriptorConflicts } from "./copyFiles.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import {
   applyOrderJournal,
@@ -61,7 +61,7 @@ export function commitOrder(database: DatabaseSync, intent: OrderIntent): Record
   const plan = orderIntentPlan(intent);
   const guarded = guardOrder(intent, true);
   requireOrderBudget(database, guarded.tasks.length);
-  const snapshot = applyOrderJournal(intent);
+  const snapshot = applyOrderJournal(intent, guarded);
   // Logical selected moves can retain exact bytes. Reissue the complete affected scope conservatively.
   const remove = database.prepare("DELETE FROM v2_query_tasks WHERE id = ?");
   for (const task of plan.before) remove.run(task.id);
@@ -117,7 +117,7 @@ export function executeOrder(request: Request, rootPath: string, cachePath: stri
       const snapshot = readCanonicalRoot(root.rootPath);
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
-      guardCopySource(snapshot);
+      refuseDescriptorConflicts(snapshot.rootPath);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
       for (const reference of input.tasks) {

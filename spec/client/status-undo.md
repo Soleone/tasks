@@ -20,7 +20,8 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | `status.cancel` | `Delete` | The task is canceled at once. It is not erased |
 | `status.batch` | A status key with several tasks selected | One batch. If any task is ineligible or changed elsewhere, nothing changes and the app says why |
 | `status.batch-pause` | `P` with done or canceled tasks in the selection | They are skipped; the rest pause or resume |
-| `status.stale` | The task changed elsewhere since it was shown | Nothing changes. The app says to refresh and try again |
+| `status.immediate` | A status or priority key on one task | The row shows the change at once and saves it behind the scenes. Repeated keys apply in order |
+| `status.stale` | The task changed elsewhere since it was shown | Nothing is saved, the row goes back, and the app says to refresh and try again |
 | `status.feedback` | A status changes | The row confirms it briefly and a screen reader hears the new status |
 
 ## Priority and copy

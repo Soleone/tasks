@@ -138,13 +138,15 @@ export function synchronizeAuthority(
       "SELECT binding, context, counter, revision, fingerprint FROM v2_query_state WHERE singleton = 1",
     )
     .get() as CacheState | undefined;
-  const state = previous ?? {
-    binding,
-    context: randomUUID(),
-    counter: 0,
-    revision: 0,
-    fingerprint: "",
-  };
+  const state = previous
+    ? { ...previous }
+    : {
+        binding,
+        context: randomUUID(),
+        counter: 0,
+        revision: 0,
+        fingerprint: "",
+      };
   if (
     ![state.counter, state.revision].every((value) => Number.isSafeInteger(value) && value >= 0) ||
     typeof state.context !== "string" ||
@@ -186,10 +188,12 @@ export function synchronizeAuthority(
       const old = cached.get(id);
       // Old schema-5 fingerprints contain sibling arrays, not signatures. The first complete
       // observation reissues their versions atomically, retaining context, receipts and history.
-      const version = old?.fingerprint === fingerprint ? old.version : ++state.counter;
+      const unchanged = old?.fingerprint === fingerprint;
+      const version = unchanged ? old.version : ++state.counter;
       if (!Number.isSafeInteger(version) || version <= 0 || version > state.counter)
         throw new CommandError("INVALID_STORAGE", "task authority is corrupt");
-      upsert.run(id, fingerprint, version);
+      // Rewriting identical rows would turn every read into a synced commit.
+      if (!unchanged) upsert.run(id, fingerprint, version);
       versions.set(id, version);
     }
     const remove = database.prepare("DELETE FROM v2_query_tasks WHERE id = ?");
@@ -200,11 +204,17 @@ export function synchronizeAuthority(
       state.fingerprint = fingerprint;
     }
   }
-  database
-    .prepare(
-      "INSERT INTO v2_query_state VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(singleton) DO UPDATE SET binding = excluded.binding, context = excluded.context, counter = excluded.counter, revision = excluded.revision, fingerprint = excluded.fingerprint",
+  if (
+    !previous ||
+    (["binding", "context", "counter", "revision", "fingerprint"] as const).some(
+      (field) => previous[field] !== state[field],
     )
-    .run(state.binding, state.context, state.counter, state.revision, state.fingerprint);
+  )
+    database
+      .prepare(
+        "INSERT INTO v2_query_state VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(singleton) DO UPDATE SET binding = excluded.binding, context = excluded.context, counter = excluded.counter, revision = excluded.revision, fingerprint = excluded.fingerprint",
+      )
+      .run(state.binding, state.context, state.counter, state.revision, state.fingerprint);
   return { writeContext: state.context, workspaceRevision: state.revision, versions };
 }
 

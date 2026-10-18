@@ -718,24 +718,19 @@ for (const failure of [
   });
 }
 
-test("status preparation refuses missing IDs/commands and withheld advertised capabilities before mutation", async (t) => {
+test("status preparation refuses missing IDs before any query and reads the task in one round trip", async (t) => {
   const selected = workspace(t),
     { editor } = await server(t, selected);
-  let withheld = false;
-  const calls = traceFetch(t, async (response) => {
-    if (!withheld) return response;
-    const body = await response.json();
-    if (body.result?.commands)
-      body.result.commands = body.result.commands.filter((command) => command !== "task.pause");
-    return new Response(JSON.stringify(body));
-  });
+  const calls = traceFetch(t);
   await assert.rejects(editor.begin(undefined, "status"), /existing task/);
   assert.equal(calls.length, 0);
   const baseline = await editor.begin(closedId, "status");
+  assert.deepEqual(
+    calls.map((call) => call.command),
+    ["task.get"],
+  );
   assert.throws(() => editor.prepareStatus({ ...baseline, task: null }, "task.start"));
   assert.throws(() => editor.prepareStatus(baseline, "operation.undo"));
-  withheld = true;
-  await assert.rejects(editor.begin(closedId, "status"), /UNSUPPORTED_COMMAND/);
   assert.equal(counts(selected.cache).operations, 0);
 });
 
@@ -979,25 +974,6 @@ return {...result,source};}});\n`,
     });
   }
 }
-
-test("browser status undo requires the advertised command before querying the selected task", async (t) => {
-  const selected = workspace(t),
-    { editor } = await server(t, selected);
-  const calls = traceFetch(t, async (response) => {
-    const body = await response.json();
-    if (body.result?.commands)
-      body.result.commands = body.result.commands.filter(
-        (command) => command !== "task.status.undo",
-      );
-    return new Response(JSON.stringify(body));
-  });
-  assert.deepEqual(editor.selection.writeCommands, linuxEditorCommands);
-  await assert.rejects(editor.begin(closedId, "status"), /UNSUPPORTED_COMMAND/);
-  assert.deepEqual(
-    calls.map((call) => call.command),
-    ["workspace.info"],
-  );
-});
 
 test("browser status undo restores the latest eligible status once and refuses without history", async (t) => {
   const selected = workspace(t),

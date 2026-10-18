@@ -11,6 +11,10 @@ afterEach(async () => {
   await workspace.stop();
 });
 
+function rowStatus(title: string): string | null | undefined {
+  return row(title).querySelector("[data-status]")?.getAttribute("data-status");
+}
+
 async function expectStatus(id: string, status: string): Promise<void> {
   await waitFor(async () => expect((await workspace.task(id)).status).toBe(status));
 }
@@ -99,6 +103,22 @@ describe("status", () => {
     await user.keyboard(" ");
     await waitFor(() => expect(announcements()).toMatch(/refresh|changed/i));
     expect((await workspace.task(task.id)).status).toBe("open");
+    expect(rowStatus("Task")).toBe("open");
+  });
+
+  test("status.immediate: the row changes before the save and quick repeats apply in order", async () => {
+    const task = await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    await user.keyboard(" ");
+    expect(rowStatus("Task")).toBe("in_progress");
+    await user.keyboard("0");
+    expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe("P0");
+    await waitFor(async () => {
+      const saved = await workspace.task(task.id);
+      expect([saved.status, saved.priority]).toEqual(["in_progress", 0]);
+    });
+    await waitFor(() => expect(announcements()).toMatch(/priority/));
   });
 });
 
