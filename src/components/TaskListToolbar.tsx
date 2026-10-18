@@ -342,9 +342,9 @@ export function TaskListToolbar({
         setTouchFeedback({ key: button.dataset.toolbarFeedback! });
       }}
     >
-      {/* Keep wrapped groups in one column beside New task when space allows. */}
-      <div className="flex flex-wrap items-start gap-y-2 sm:items-center sm:gap-x-3">
-        <div className="w-26 shrink-0 sm:mr-auto sm:w-auto">
+      {/* Group glyphs provide separation; extra gaps would push Actions onto another row. */}
+      <div className="flex flex-wrap items-center gap-y-2">
+        <div className="shrink-0">
           <Button
             size="sm"
             tabIndex={-1}
@@ -356,7 +356,7 @@ export function TaskListToolbar({
             New task
           </Button>
         </div>
-        <div className="flex flex-1 flex-wrap items-center gap-y-2 sm:contents">
+        <div className="contents">
           <div className="flex">
             <ToolbarGroupGlyph icon={Funnel} label="Filter" />
             <div className="relative">

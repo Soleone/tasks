@@ -1314,14 +1314,14 @@ try {
   });
   reload();
   waitFor('document.querySelectorAll("#task-list [role=option]").length === 4');
-  // toolbar.layout: keep the New task column empty beneath it on narrow screens.
+  // toolbar.layout: one packed desktop row, two phone rows, no reserved New task column.
   for (const width of [1280, 390, 320]) {
     browser("set", "viewport", String(width), "844");
     check("document.documentElement.scrollWidth <= innerWidth");
     check('document.querySelector("[title=Actions]") !== null');
-    if (width < 640) {
+    if (width >= 390) {
       check(
-        '(() => { const filter = document.querySelector("[title=Filter]").getBoundingClientRect(); const sort = document.querySelector("[title=Sort]").getBoundingClientRect(); return Math.abs(filter.left - sort.left) < 1 && sort.top > filter.top; })()',
+        '(() => { const capture = document.querySelector("button[aria-keyshortcuts=C]").getBoundingClientRect(); const filter = document.querySelector("[title=Filter]").getBoundingClientRect(); const sort = document.querySelector("[title=Sort]").getBoundingClientRect(); const actions = document.querySelector("[title=Actions]").getBoundingClientRect(); const sameRow = (a, b) => Math.abs(a.top - b.top) < 2; return sameRow(capture, filter) && sameRow(sort, actions) && (innerWidth >= 640 ? sameRow(filter, sort) : sort.top > filter.bottom); })()',
       );
     }
   }
