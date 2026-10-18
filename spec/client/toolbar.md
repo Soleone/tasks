@@ -44,7 +44,7 @@ Each button shows its value through its pressed state, label and tooltip. Filter
 | `filter.priority` | `F` then `0`–`4` | Shows only that priority. The same key again clears it |
 | `filter.unblocked` | `F` `U` | Hides tasks with any blocker. A done blocker still blocks; a canceled one doesn't |
 | `filter.category` | `@`, or `F` `C` | Category picker with its search focused. One category at a time. Categories used only by canceled tasks are left out |
-| `filter.tags` | `#`, or `F` `T` | Tag picker. Tags combine with AND. `Space` toggles, `Enter` picks the highlighted tag when none is picked, then closes. A Clear tags row empties the filter. Tags used only by canceled tasks are left out |
+| `filter.tags` | `#`, or `F` `T` | Tag picker. Tags combine with AND. `Space` toggles, `Enter` picks the highlighted tag when none is picked, then closes. A Clear tags row empties the filter; `Enter` activates it even when tags are selected. Tags used only by canceled tasks are left out |
 | `filter.search` | `/` | Search over titles and descriptions. The query stays applied after the dialog closes |
 | `filter.escape` | `Escape` on the list with one or no task selected | All filters and search reset. Sort and Details stay |
 

@@ -30,6 +30,7 @@ export function TagPicker({
   onChange: (tags: ClassificationOption[]) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
+  const clearTagsItem = useRef<HTMLDivElement>(null);
   const { value, loading, error } = useLoadOnOpen(open, listTags);
   const tags = value?.tags ?? [];
 
@@ -52,7 +53,7 @@ export function TagPicker({
     if (event.key === "Enter") {
       event.preventDefault();
       if (
-        selected.length === 0 &&
+        (selected.length === 0 || activeItem === clearTagsItem.current) &&
         activeItem &&
         activeItem.getAttribute("aria-disabled") !== "true"
       ) {
@@ -73,7 +74,7 @@ export function TagPicker({
         if (!next) onClose();
       }}
       title="Filter by tags"
-      description={`Select any number of tags. ${APP_NAME} must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter.`}
+      description={`Select any number of tags. ${APP_NAME} must contain all selected tags. Space selects the highlighted tag; Enter selects it first when none are selected, then closes. F then T opens; Clear tags empties the filter, including with Enter.`}
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >
@@ -117,6 +118,7 @@ export function TagPicker({
             })}
             {selected.length > 0 ? (
               <CommandItem
+                ref={clearTagsItem}
                 value="Clear tags"
                 keywords={["clear reset all"]}
                 onSelect={() => onChange([])}

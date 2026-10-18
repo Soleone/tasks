@@ -256,6 +256,33 @@ describe("filters", () => {
     await expectRows(["Both"]);
   });
 
+  test.each(["Enter", "Space", "click"])(
+    "filter.tags: Clear tags empties the filter with %s",
+    async (action) => {
+      await workspace.create("Only x", { tags: ["x"] });
+      await workspace.create("Both", { tags: ["x", "y"] });
+      const { user } = await workspace.render();
+      await user.keyboard("#");
+      await screen.findByRole("dialog");
+      await user.keyboard("x ");
+      await user.clear(document.activeElement as HTMLInputElement);
+      await user.keyboard("y {Escape}");
+      await expectRows(["Both"]);
+
+      await user.keyboard("#");
+      await screen.findByRole("dialog");
+      await user.keyboard("clear");
+      const clearTags = await screen.findByRole("option", { name: "Clear tags" });
+      await waitFor(() => expect(clearTags.getAttribute("aria-selected")).toBe("true"));
+      if (action === "click") await user.click(clearTags);
+      else await user.keyboard(action === "Enter" ? "{Enter}" : " ");
+      if (action !== "Enter") await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await expectRows(["Both", "Only x"]);
+      await expectListFocused();
+    },
+  );
+
   test("filter.search: / searches titles and descriptions and the query stays applied", async () => {
     await workspace.create("Groceries");
     await workspace.create("Plain", { description: "mentions groceries too" });
