@@ -1045,16 +1045,9 @@ try {
   check(
     'document.body.textContent.includes("Use the Left and Right Arrow keys to switch sections.")',
   );
-  waitFor(
-    'document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "gilt"',
-  );
-  check('document.querySelector("[data-theme-control]")?.textContent.includes("Gilt")');
-  browser("press", "Tab");
-  waitFor('document.activeElement.matches("[data-theme-control]")');
+  check('document.querySelector("[data-theme-control]") === null');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[data-font-size-control]")');
-  browser("press", "Shift+Tab");
-  waitFor('document.activeElement.matches("[data-theme-control]")');
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "ArrowRight");
@@ -1078,30 +1071,6 @@ try {
   browser("press", "ArrowLeft");
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
-  // The Settings selector offers the same palettes as the picker and saves a
-  // light choice without closing Settings. Restore Gilt for the remaining checks.
-  const settingsThemeCount = builtinThemes().length;
-  browser("click", "[data-theme-control]");
-  waitFor('document.querySelectorAll("[data-slot=select-item]").length > 0');
-  check(
-    `[...document.querySelectorAll("[data-slot=select-item]")].length === ${settingsThemeCount}`,
-  );
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.includes("Catppuccin Latte")).click(); true',
-  );
-  waitFor(
-    'document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "catppuccin-latte" && !document.documentElement.classList.contains("dark")',
-  );
-  assert.equal(selectedTheme(), "catppuccin-latte");
-  browser("click", "[data-theme-control]");
-  waitFor('document.querySelectorAll("[data-slot=select-item]").length > 0');
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.includes("Gilt")).click(); true',
-  );
-  waitFor(
-    'document.querySelector("[data-theme-control]")?.getAttribute("data-theme-control") === "gilt" && document.documentElement.classList.contains("dark")',
-  );
-  assert.equal(selectedTheme(), "gilt");
   // Full help is the default. The dropdown also keeps the old basic mode
   // available while adding a separate option for no automatic guidance.
   check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');

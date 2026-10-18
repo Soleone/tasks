@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
 import { getWorkspaceInfo, selectedMainWorkspace } from "@/platform/backendClient";
 import { runtimeKind } from "@/platform/runtime";
 import { rememberFolder } from "@/platform/desktopWorkspace";
-import type { ThemeRecord } from "@/backend/themePalette";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +36,6 @@ type SettingsDialogProps = {
   onHelpModeChange: (mode: KeyboardHelpMode) => void;
   fontSizeIncrease: FontSizeIncrease;
   onFontSizeIncreaseChange: (increase: FontSizeIncrease) => void;
-  themes: ThemeRecord[];
-  selectedTheme: string;
-  onSelectTheme: (name: string) => void;
 };
 
 function fontSizeLabel(increase: FontSizeIncrease): string {
@@ -77,9 +73,6 @@ export function SettingsDialog({
   onHelpModeChange,
   fontSizeIncrease,
   onFontSizeIncreaseChange,
-  themes,
-  selectedTheme,
-  onSelectTheme,
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
   const settingsTab = useRef<HTMLButtonElement>(null);
@@ -187,49 +180,6 @@ export function SettingsDialog({
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     Tune the interface for comfortable reading.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span id="settings-theme-label" className="text-sm font-medium">
-                      Theme
-                    </span>
-                    <Select
-                      value={selectedTheme || null}
-                      onValueChange={(value) => {
-                        if (value !== null) onSelectTheme(value);
-                      }}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="max-w-[70%]"
-                        data-theme-control={selectedTheme}
-                        disabled={themes.length === 0}
-                        aria-labelledby="settings-theme-label"
-                        aria-describedby="settings-theme-description"
-                      >
-                        <SelectValue>
-                          {themes.find((theme) => theme.name === selectedTheme)?.label ??
-                            "Loading themes…"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent align="end">
-                        {themes.map((theme) => (
-                          <SelectItem key={theme.name} value={theme.name}>
-                            <span
-                              aria-hidden="true"
-                              className="size-3 shrink-0 rounded-full bg-(--theme-swatch) ring-1 ring-border"
-                              style={{ "--theme-swatch": theme.palette.accent } as CSSProperties}
-                            />
-                            <span>{theme.label}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p id="settings-theme-description" className="text-sm text-muted-foreground">
-                    Choose from {themes.length} dark and light palettes. Changes apply immediately
-                    and are saved locally.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">

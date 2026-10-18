@@ -4,7 +4,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Shortcuts, Data |
+| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Shortcuts, Data. Theme selection is only in the dedicated theme picker, not Settings |
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 
@@ -12,7 +12,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `theme.select` | Choosing a theme in General | Applies one of the built-in themes at once and remembers it |
+| `theme.select` | Choosing a theme in the dedicated theme picker | Applies one of the built-in themes at once and remembers it |
 | `theme.picker` | `Alt+T` | The theme picker opens directly |
 | `font.size` | The font size slider | Default, +10%, +25%, +33% or +40%. Applies at once and is remembered |
 | `help.mode` | Keyboard help display | Full shows all hints, Basic only filter and sort hints, None hides automatic hints |

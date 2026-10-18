@@ -284,8 +284,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   // Theme files can appear or disappear while the app runs, so theme surfaces
   // re-read them every time they open.
   useEffect(() => {
-    if (helpOpen || themesOpen || settingsOpen) void refreshThemes(false);
-  }, [helpOpen, themesOpen, settingsOpen, refreshThemes]);
+    if (helpOpen || themesOpen) void refreshThemes(false);
+  }, [helpOpen, themesOpen, refreshThemes]);
 
   // Omarchy replaces its current palette outside this process. When the live
   // theme is selected, refresh often enough to feel immediate without making
@@ -909,9 +909,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         onHelpModeChange={changeHelpMode}
         fontSizeIncrease={fontSizeIncrease}
         onFontSizeIncreaseChange={changeFontSizeIncrease}
-        themes={themes}
-        selectedTheme={selectedTheme}
-        onSelectTheme={(name) => void chooseTheme(name)}
       />
     </main>
   );
