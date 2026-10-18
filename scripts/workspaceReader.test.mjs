@@ -132,7 +132,7 @@ function processCommand(args, launches, responses) {
   };
 }
 
-test("dev launcher requires an explicit root and keeps Vite arguments separate", () => {
+test("dev launcher passes an explicit root and keeps Vite arguments separate", () => {
   assert.deepEqual(
     devWebOptions(["--root", "fixture", "--database", "cache.db", "--", "--port", "5231"]),
     {
@@ -141,9 +141,13 @@ test("dev launcher requires an explicit root and keeps Vite arguments separate",
     },
   );
 });
+test("dev launcher without a selection leaves the workspace to the disposable fixture", () => {
+  assert.deepEqual(devWebOptions(["--", "--host", "127.0.0.1"]), {
+    backendArgs: [],
+    viteArgs: ["--host", "127.0.0.1"],
+  });
+});
 for (const argv of [
-  [],
-  ["--", "--host", "127.0.0.1"],
   ["--root", "root"],
   ["--root"],
   ["--root", "--database", "cache"],

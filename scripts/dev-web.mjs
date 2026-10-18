@@ -1,9 +1,29 @@
 import { execFileSync, spawn } from "node:child_process";
+import { cpSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { devWebOptions } from "./dev-web-options.mjs";
 
-const { backendArgs, viteArgs } = devWebOptions(process.argv.slice(2));
+const options = devWebOptions(process.argv.slice(2));
+const { viteArgs } = options;
 const root = path.resolve(import.meta.dirname, "..");
+const env = { ...process.env };
+let backendArgs = options.backendArgs;
+// Without a selection, run on a fresh copy of the fixture so the real workspace is never opened.
+if (backendArgs.length === 0) {
+  const scratch = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
+  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(scratch, "root"), {
+    recursive: true,
+  });
+  env.XDG_DATA_HOME = path.join(scratch, "profile");
+  backendArgs = [
+    "--root",
+    path.join(scratch, "root"),
+    "--database",
+    path.join(scratch, "cache.db"),
+  ];
+  process.stdout.write(`[dev:web] disposable workspace in ${scratch}\n`);
+}
 
 execFileSync("pnpm", ["build:backend"], {
   cwd: root,
@@ -14,7 +34,7 @@ execFileSync("pnpm", ["build:backend"], {
 const backend = spawn(process.execPath, ["dist/backend/devServer.js", ...backendArgs], {
   cwd: root,
   stdio: ["ignore", "pipe", "pipe"],
-  env: process.env,
+  env,
 });
 // Vite directly, not the vp wrapper: vp exits on SIGTERM without stopping its Vite child.
 const vite = spawn(

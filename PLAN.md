@@ -27,7 +27,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Current state
 
-1. `pnpm dev:web --root PATH --database CACHE` runs the established UI on the current engine over a Linux dev bridge. Every agreed workflow except global focus works there; the owner reported high-level smoke success on disposable data (no case-level walkthrough).
+1. `pnpm dev:web` (a fresh fixture copy, or `--root PATH --database CACHE`) runs the established UI on the current engine over a Linux dev bridge. Every agreed workflow except global focus works there; the owner reported high-level smoke success on disposable data (no case-level walkthrough).
 2. `tasks-cli --root PATH --database CACHE` is the friendly CLI on the current engine; JSON lines via `tasks-backend --stdio --root ...`. Neither has a default workspace.
 3. The desktop app starts on the current engine (2026-10-16): it opens the remembered task folder, and the first launch asks for one or starts it empty. A schema 1 folder is refused until it is converted with `pnpm migrate`.
 4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.

@@ -17,19 +17,20 @@ Use disposable data while developing. Nothing below touches your personal worksp
 ## Run the app
 
 ```bash
-scratch=$(mktemp -d)
-cp -R scripts/fixtures/workspace/root "$scratch/root"
-XDG_DATA_HOME="$scratch/profile" pnpm dev:web \
-  --root "$scratch/root" --database "$scratch/cache.db"
+pnpm dev:web
 ```
 
-Open the URL Vite prints, confirm the folder, cache and profile, and the task list opens. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
+This copies the fixture into a fresh temp folder and prints where it is. Open the URL Vite prints, confirm the folder, cache and profile, and the task list opens. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
 
-The cache must sit outside the task folder. There is no default workspace.
+To keep data between runs, pick the folder yourself: `pnpm dev:web --root PATH --database CACHE`. The cache must sit outside the task folder.
 
 ## Use the CLI
 
+The CLI has no default workspace, so give it a scratch copy:
+
 ```bash
+scratch=$(mktemp -d)
+cp -R scripts/fixtures/workspace/root "$scratch/root"
 pnpm build:backend
 XDG_DATA_HOME="$scratch/profile" node dist/backend/tasks-cli.js \
   --root "$scratch/root" --database "$scratch/cache.db" list --sort manual

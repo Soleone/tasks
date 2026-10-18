@@ -18,10 +18,8 @@ export function devWebOptions(argv) {
       throw new Error(usage);
     values.set(name, path.resolve(value));
   }
-  if (!values.has("--root") || !values.has("--database")) {
-    throw new Error(
-      "dev:web requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace",
-    );
+  if (values.size === 1) {
+    throw new Error("dev:web takes --root PATH and --database CACHE_OUTSIDE_ROOT together");
   }
   return { backendArgs: [...values].flat(), viteArgs };
 }
