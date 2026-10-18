@@ -16,7 +16,8 @@ Each button shows its value through its pressed state, label and tooltip. Filter
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `toolbar.touch-feedback` | Tapping Unblocked, a sort option, Reverse or Details with touch | The action runs immediately and a tooltip above the button confirms the resulting state for 1.5 seconds. The next interaction dismisses or replaces it, without taking focus. Disabled controls do not show feedback. Desktop hover is unchanged; buttons that open menus or pickers do not add tap feedback |
+| `toolbar.tooltips` | Hovering toolbar buttons | Only one toolbar tooltip is open at a time. Moving to another button replaces it; leaving the trigger and tooltip dismisses it |
+| `toolbar.touch-feedback` | Tapping Unblocked, a sort option, Reverse or Details with touch | The action runs immediately and a tooltip above the button uses the same short text as desktop hover for 1.5 seconds. The next interaction dismisses or replaces it, without taking focus. Disabled controls do not show feedback. Buttons that open menus or pickers do not add tap feedback |
 
 ## Count line
 

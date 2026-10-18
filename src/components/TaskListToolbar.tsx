@@ -19,7 +19,6 @@ import {
   ChevronDown,
   Circle,
   Clock3,
-  Eye,
   Flag,
   Folder,
   Funnel,
@@ -27,6 +26,7 @@ import {
   ListOrdered,
   type LucideIcon,
   Plus,
+  Pointer,
   RotateCcwClock,
   Search,
   ShieldCheck,
@@ -239,9 +239,9 @@ export function TaskListToolbar({
       disableHoverablePopup: touchFeedback !== null,
       open: touchFeedback
         ? touchFeedback.key === key
-        : key === "unblocked"
-          ? unblockedFeedbackOpen
-          : hoveredTooltip === key,
+        : hoveredTooltip !== null
+          ? hoveredTooltip === key
+          : key === "unblocked" && unblockedFeedbackOpen,
       onOpenChange: (open, details) => {
         // Touch generates press and hover-end events after the click. Neither should
         // dismiss the feedback that click just opened.
@@ -252,9 +252,9 @@ export function TaskListToolbar({
           details.cancel();
           return;
         }
-        setHoveredTooltip(open ? key : null);
-        if (key === "unblocked") setUnblockedFeedbackOpen(open);
-        if (!open && touchFeedback?.key === key) setTouchFeedback(null);
+        setHoveredTooltip((previous) => (open ? key : previous === key ? null : previous));
+        if (open || key === "unblocked") setUnblockedFeedbackOpen(false);
+        if (open || touchFeedback?.key === key) setTouchFeedback(null);
       },
     };
   }
@@ -277,18 +277,6 @@ export function TaskListToolbar({
   // Descending is the default direction. The toggle is highlighted only
   // after reversing that default to ascending order.
   const reverseActive = sortField !== "manual" && sortDirection === "asc";
-  const sortFeedback =
-    sortField === "manual"
-      ? "Sorted by manual order"
-      : `Sorted by ${sortField === "priority" ? "priority" : `${sortField} date`}, ${
-          sortField === "priority"
-            ? sortDirection === "desc"
-              ? "highest first"
-              : "lowest first"
-            : sortDirection === "desc"
-              ? "newest first"
-              : "oldest first"
-        }`;
   const summaryStatus = statusLabel.toLowerCase();
   const summaryTags =
     tagFilter.length > 2
@@ -389,8 +377,9 @@ export function TaskListToolbar({
                   if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
                 }}
               >
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("category")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-category`}
                     render={
                       <ToggleButton
                         variant={categoryFilter ? "outline" : "ghost"}
@@ -423,8 +412,9 @@ export function TaskListToolbar({
                     {categoryFilter ? categoryFilter.label : "Category"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("status")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-status`}
                     render={
                       <ToggleButton
                         ref={statusFilterButton}
@@ -451,8 +441,9 @@ export function TaskListToolbar({
                     {statusLabel}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("priority-filter")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-priority-filter`}
                     render={
                       <ToggleButton
                         variant={priorityFilter !== null ? "outline" : "ghost"}
@@ -478,8 +469,9 @@ export function TaskListToolbar({
                     {priorityLabel}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("tags")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-tags`}
                     render={
                       <ToggleButton
                         variant={tagFilter.length > 0 ? "outline" : "ghost"}
@@ -533,17 +525,12 @@ export function TaskListToolbar({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {touchFeedback?.key === "unblocked"
-                      ? showUnblocked
-                        ? "Showing unblocked tasks"
-                        : "Showing all tasks"
-                      : showUnblocked
-                        ? "Unblocked"
-                        : "All tasks"}
+                    {showUnblocked ? "Unblocked" : "All tasks"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("search")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-search`}
                     render={
                       <ToggleButton
                         variant={searchActive ? "outline" : "ghost"}
@@ -619,7 +606,7 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by created</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {touchFeedback?.key === "created" ? sortFeedback : "Created"}
+                    Created
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip {...feedbackTooltip("updated")}>
@@ -644,7 +631,7 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by updated</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {touchFeedback?.key === "updated" ? sortFeedback : "Updated"}
+                    Updated
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip {...feedbackTooltip("priority")}>
@@ -669,7 +656,7 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by priority</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {touchFeedback?.key === "priority" ? sortFeedback : "Priority"}
+                    Priority
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip {...feedbackTooltip("manual")}>
@@ -694,7 +681,7 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by manual order</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {touchFeedback?.key === "manual" ? "Sorted by manual order" : "Manual order"}
+                    Manual order
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip {...feedbackTooltip("reverse")}>
@@ -757,7 +744,7 @@ export function TaskListToolbar({
             </div>
           </div>
           <div className="flex">
-            <ToolbarGroupGlyph icon={Eye} label="Actions" />
+            <ToolbarGroupGlyph icon={Pointer} label="Actions" />
             <ButtonGroup aria-label="Task list actions">
               <Tooltip {...feedbackTooltip("details")}>
                 <TooltipTrigger
@@ -789,18 +776,13 @@ export function TaskListToolbar({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={8}>
-                  {touchFeedback?.key === "details"
-                    ? showDetails
-                      ? "Details shown"
-                      : "Details hidden"
-                    : showDetails
-                      ? "Hide details"
-                      : "Show details"}
+                  {showDetails ? "Hide details" : "Show details"}
                 </TooltipContent>
               </Tooltip>
               <Popover open={moveControlsOpen} onOpenChange={setMoveControlsOpen}>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("move")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-move`}
                     render={
                       <PopoverTrigger
                         render={

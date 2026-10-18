@@ -53,6 +53,28 @@ describe("count line", () => {
 });
 
 describe("touch feedback", () => {
+  test("toolbar.tooltips: moving across filter, sort and action buttons replaces and dismisses hover tooltips", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    for (const selector of [
+      "[data-filter=task-unblocked]",
+      "[data-sort=task-sort-created]",
+      "[data-filter=task-category]",
+      "[data-view=task-details]",
+      "[data-filter=task-unblocked]",
+    ]) {
+      const button = document.querySelector<HTMLButtonElement>(selector)!;
+      await user.hover(button);
+      await waitFor(() => {
+        const open = document.querySelectorAll(tooltip.selector);
+        expect(open).toHaveLength(1);
+        expect(button.hasAttribute("data-popup-open")).toBe(true);
+      });
+    }
+    await user.unhover(document.querySelector("[data-filter=task-unblocked]")!);
+    await waitFor(() => expect(document.querySelector(tooltip.selector)).toBeNull());
+  });
+
   const tooltip = { selector: "[data-slot=tooltip-content][data-open]" };
   async function tap(
     selector: string,
@@ -67,27 +89,27 @@ describe("touch feedback", () => {
     const { user } = await workspace.render();
     await tap("[data-sort=task-sort-priority]", user);
     expect(pressed("[data-sort=task-sort-priority]")).toBe("true");
-    await screen.findByText("Sorted by priority, highest first", tooltip);
+    await screen.findByText("Priority", tooltip);
     // Chromium emits a synthetic hover-end after completing a touch click.
     fireEvent.mouseLeave(document.querySelector("[data-sort=task-sort-priority]")!);
-    expect(screen.getByText("Sorted by priority, highest first", tooltip)).toBeDefined();
+    expect(screen.getByText("Priority", tooltip)).toBeDefined();
     await expectListFocused();
 
     await tap("[data-sort=task-sort-reverse]", user);
     await screen.findByText("Lowest priority first", tooltip);
-    expect(screen.queryByText("Sorted by priority, highest first", tooltip)).toBeNull();
+    expect(screen.queryByText("Priority", tooltip)).toBeNull();
 
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Details shown", tooltip);
+    await screen.findByText("Hide details", tooltip);
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Details hidden", tooltip);
+    await screen.findByText("Show details", tooltip);
     await expectListFocused();
 
     await tap("[data-filter=task-unblocked]", user);
-    await screen.findByText("Showing unblocked tasks", tooltip);
+    await screen.findByText("Unblocked", tooltip);
     await tap("[data-filter=task-unblocked]", user);
-    await screen.findByText("Showing all tasks", tooltip);
-    await waitFor(() => expect(screen.queryByText("Showing all tasks", tooltip)).toBeNull(), {
+    await screen.findByText("All tasks", tooltip);
+    await waitFor(() => expect(screen.queryByText("All tasks", tooltip)).toBeNull(), {
       timeout: 2000,
     });
   });
@@ -103,16 +125,16 @@ describe("touch feedback", () => {
     await waitFor(() => expect(screen.queryByText("Created", tooltip)).toBeNull());
 
     await tap("[data-sort=task-sort-manual]", user);
-    await screen.findByText("Sorted by manual order", tooltip);
+    await screen.findByText("Manual order", tooltip);
     await tap("[data-sort=task-sort-reverse]", user);
-    await waitFor(() => expect(screen.queryByText("Sorted by manual order", tooltip)).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Manual order", tooltip)).toBeNull());
     expect(document.querySelector(tooltip.selector)).toBeNull();
 
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Details shown", tooltip);
+    await screen.findByText("Hide details", tooltip);
     await tap("[data-filter=task-priority]", user);
     await screen.findByRole("dialog");
-    expect(screen.queryByText("Details shown", tooltip)).toBeNull();
+    expect(screen.queryByText("Hide details", tooltip)).toBeNull();
     expect(document.querySelector(tooltip.selector)).toBeNull();
     await user.keyboard("{Escape}");
   });
