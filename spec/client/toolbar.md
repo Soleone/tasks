@@ -3,14 +3,20 @@
 One compact row above the list, in this order:
 
 ```text
-[ Category ] [ Status ] [ Priority ] [ Tags ] [ Unblocked ] [ Search ]  [ Created Updated Priority Manual Reverse ]  [ Details Move ]
+[ Category ] [ Status ] [ Priority ] [ Tags ] [ Unblocked ] [ Search ]  [ Created Updated Priority Manual Reverse ]  [ Details Reorder ]  [ Undo ] [ Task actions ]
 ```
 
 Each button shows its value through its pressed state, label and tooltip. Filters, search and sort are remembered between launches.
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `toolbar.layout` | Space is narrow | Filter and Sort headers align in the same column, leaving space below New task. Groups wrap intact without horizontal overflow. The group containing Details and Move is named Actions |
+| `toolbar.layout` | Space is narrow | Filter and Sort headers align in the same column, leaving space below New task. Groups wrap intact without horizontal overflow. The group containing Details, Reorder, Undo and Task actions is named Actions |
+
+## Task actions
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `toolbar.task-actions` | Clicking the Task actions icon in Actions | A menu offers Blockers, Move under, New child, Copy text and Pause/resume with their shortcuts. Undo and Task actions use the same compact icon buttons and tooltips as their neighbors. Task-specific entries act on the active task; Pause/resume uses the selection like `P`. The button is disabled without an active task; both action buttons are disabled while the editor is open. Closing the menu returns focus to the list unless an editor or dialog opened |
 
 ## Touch feedback
 

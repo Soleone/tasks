@@ -1328,6 +1328,28 @@ export function TaskList({
         clearToolbarMode={clearToolbarMode}
         composerOpen={composer !== null}
         onCreate={onCreate}
+        taskActions={{
+          activeTask,
+          disabled: composer !== null,
+          canUndo: Boolean(canUndoStatus),
+          onUndo: () => onUndoStatus?.(),
+          onAddBlocker: (task) => {
+            returnToList();
+            onAddBlocker(task);
+          },
+          onMoveUnder: (task) => {
+            returnToList();
+            onMoveUnder(task);
+          },
+          onCreateChild: (task) => {
+            returnToList();
+            onCreate(task.id);
+          },
+          onCopy: (task) => void copyActiveTask(task),
+          onPause: () => void pauseSelectedTasks(),
+          finalFocus: () =>
+            composerOpenRef.current || isDialogOpen() ? false : (list.current ?? section.current),
+        }}
         categoryFilter={categoryFilter}
         toggleCategoryFilter={toggleCategoryFilter}
         exactStatus={exactStatus}

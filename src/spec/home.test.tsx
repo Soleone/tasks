@@ -404,10 +404,10 @@ describe("reorder", () => {
     reorder.mockRestore();
   });
 
-  test("reorder.mouse: the Move button opens move controls, closed by default", async () => {
+  test("reorder.mouse: the Reorder button opens move controls, closed by default", async () => {
     await seed("A", "B");
     const { user } = await workspace.render();
-    const toggle = document.querySelector("[data-move-controls-toggle]") as HTMLElement;
+    const toggle = screen.getByRole("button", { name: "Reorder" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     await user.click(toggle);
     for (const name of ["Move up", "Move down", "Move to beginning", "Move to end"])

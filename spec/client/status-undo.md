@@ -16,7 +16,7 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | --- | --- | --- |
 | `status.forward` | `Space` | Moves to the next status in the table |
 | `status.back` | `Shift+Space` | Moves to the previous status in the table |
-| `status.pause` | `P` | Pauses or resumes per the table, through the same commands as the palette entry |
+| `status.pause` | `P`, or Pause/resume in Task actions | Pauses or resumes per the table, through the same commands as the palette entry |
 | `status.cancel` | `Delete` | The task is canceled at once. It is not erased |
 | `status.batch` | A status key with several tasks selected | One batch. If any task is ineligible or changed elsewhere, nothing changes and the app says why |
 | `status.batch-pause` | `P` with done or canceled tasks in the selection | They are skipped; the rest pause or resume |
@@ -29,13 +29,13 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | Rule | When | Then |
 | --- | --- | --- |
 | `priority.set` | `0`–`4` on the list | Sets the active task's priority. The row shows it as a colored dot with a label and tooltip |
-| `copy.text` | `Ctrl/⌘+C` on the list | Copies the active task's title and description, without `@category` or `#tags` |
+| `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description, without `@category` or `#tags` |
 
 ## Undo
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `undo.latest` | `Ctrl/⌘+Z` | Undoes this client's latest change and a toast confirms it. Pressing again walks further back. There is no redo |
+| `undo.latest` | `Ctrl/⌘+Z`, or Undo in the toolbar (disabled when unavailable) | Undoes this client's latest change and a toast confirms it. Pressing again walks further back. There is no redo |
 | `undo.scope` | Any change | Status, capture, edit, priority, parent, blocker and order changes made from this client are undoable. Changes from the CLI, agents or other devices are never offered |
 | `undo.batch` | Undoing a batch | One step restores every task in it |
 | `undo.depth` | History | About the last 50 changes, kept for this workspace and survives reload |

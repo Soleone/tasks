@@ -71,7 +71,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | `reorder.switch-sort` | The first reorder while another sort is active | The list switches to Manual order |
 | `reorder.allowed-view` | Reordering outside the default Active view (optionally narrowed to one category) | Nothing moves. A message names the filter to clear |
 | `reorder.children-follow` | A root task moves | Its children move with it. A child never leaves its parent by reordering |
-| `reorder.mouse` | The Move button beside Details | A popover below the toolbar offers Move up, Move down, Move to beginning and Move to end. It is closed by default and never reflows the page |
+| `reorder.mouse` | The Reorder button beside Details | A popover below the toolbar offers Move up, Move down, Move to beginning and Move to end. It is closed by default and never reflows the page |
 
 ## Hierarchy in a filtered list
 

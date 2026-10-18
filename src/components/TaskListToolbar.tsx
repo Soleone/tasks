@@ -44,6 +44,7 @@ import {
 } from "./taskFilters";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
+import { TaskActions } from "./TaskActions";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb";
 import { Button } from "./ui/button";
 import { ButtonGroup } from "./ui/button-group";
@@ -127,6 +128,7 @@ type TaskListToolbarProps = {
   clearToolbarMode: () => void;
   composerOpen: boolean;
   onCreate: () => void;
+  taskActions: Omit<ComponentProps<typeof TaskActions>, "tooltipFor">;
   categoryFilter: ClassificationToken | null;
   toggleCategoryFilter: () => void;
   exactStatus: TaskStatus | null;
@@ -173,6 +175,7 @@ export function TaskListToolbar({
   clearToolbarMode,
   composerOpen,
   onCreate,
+  taskActions,
   categoryFilter,
   toggleCategoryFilter,
   exactStatus,
@@ -791,9 +794,7 @@ export function TaskListToolbar({
                             selected={moveControlsOpen}
                             size="icon-sm"
                             tabIndex={-1}
-                            aria-label={
-                              moveControlsOpen ? "Hide move controls" : "Show move controls"
-                            }
+                            aria-label={moveControlsOpen ? "Hide reorder controls" : "Reorder"}
                             aria-pressed={moveControlsOpen}
                             data-move-controls-toggle
                             onMouseDown={preventFocusSteal}
@@ -804,11 +805,11 @@ export function TaskListToolbar({
                   >
                     <ArrowDownUp aria-hidden="true" />
                     <span className="sr-only">
-                      {moveControlsOpen ? "Hide move controls" : "Show move controls"}
+                      {moveControlsOpen ? "Hide reorder controls" : "Reorder"}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {moveControlsOpen ? "Hide move controls" : "Show move controls"}
+                    {moveControlsOpen ? "Hide reorder controls" : "Reorder"}
                   </TooltipContent>
                 </Tooltip>
                 <CompactPopoverContent
@@ -917,6 +918,7 @@ export function TaskListToolbar({
                   </div>
                 </CompactPopoverContent>
               </Popover>
+              <TaskActions {...taskActions} tooltipFor={feedbackTooltip} />
             </ButtonGroup>
           </div>
         </div>

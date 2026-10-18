@@ -7,7 +7,7 @@ Capture and edit use the same inline editor. It has three stops: title, priority
 | Rule | When | Then |
 | --- | --- | --- |
 | `capture.open` | `C`, the palette, or the New task button | The editor opens above the list with the title focused |
-| `capture.child` | `Shift+C` on a task | The editor opens under the active task and saves the new task as its child |
+| `capture.child` | `Shift+C` on a task, or New child in Task actions | The editor opens under the active task and saves the new task as its child |
 | `capture.child-canceled` | `Shift+C` on a canceled task | Refused with a message. Canceled tasks can't take new children |
 | `edit.inline` | `Enter`, or clicking a row | The editor replaces that row with the title focused |
 | `edit.save` | `Enter` in the title, or `Ctrl/⌘+Enter` anywhere | Saves. Focus returns to the list on the saved task |
@@ -37,8 +37,8 @@ Capture and edit use the same inline editor. It has three stops: title, priority
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `pick.parent` | `M` | The move picker opens. Choosing a task nests the selection under it |
+| `pick.parent` | `M`, or Move under in Task actions | The move picker opens. Choosing a task nests the selection under it |
 | `pick.remove-parent` | `M` on a child | A Remove parent action sits in its own group above the results |
-| `pick.blocker` | `B` | The blocker picker adds a blocker, or removes an existing one. Done and canceled tasks aren't offered as new blockers |
+| `pick.blocker` | `B`, or Blockers in Task actions | The blocker picker adds a blocker, or removes an existing one. Done and canceled tasks aren't offered as new blockers |
 | `pick.refusals` | Choosing a canceled task, or a choice that would create a cycle | Refused before anything is sent |
 | `pick.existing-links` | A task already links to a canceled task | The link can still be removed |
