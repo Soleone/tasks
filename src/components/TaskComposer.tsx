@@ -615,7 +615,7 @@ export function TaskComposer({
             disabled={pending}
             onClick={onCancel}
           >
-            {task ? (dirty ? "Discard changes" : "Back to tasks") : "Close"}
+            {task ? (dirty ? "Discard changes" : "Cancel") : "Close"}
           </Button>
         </div>
         <Button type="submit" size="sm" tabIndex={-1} disabled={pending}>
