@@ -12,7 +12,12 @@ import {
   undoRecoveryLocation,
 } from "./batchJournal.js";
 import type { BatchIntent } from "./batchJournal.js";
-import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
+import {
+  readCanonicalRoot,
+  readRegularFile,
+  readRootDescriptor,
+  exactHash,
+} from "./canonicalReader.js";
 import { refuseDescriptorConflicts } from "./copyFiles.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
@@ -25,7 +30,6 @@ import type { CanonicalTask } from "./taskModel.js";
 import { selectUndoHistory } from "./undoHistory.js";
 import { parseUndo, planUndo } from "./undoPlan.js";
 import type { UndoPlan } from "./undoPlan.js";
-import { exactHash } from "./updateJournal.js";
 
 function requireUndoBudget(database: DatabaseSync, count: number): void {
   const state = database

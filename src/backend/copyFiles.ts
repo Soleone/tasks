@@ -99,7 +99,7 @@ export function refuseDescriptorConflicts(rootPath: string): void {
   }
 }
 
-export function guardCopySource(expected: CanonicalSnapshot): void {
+export function guardObservedRoot(expected: CanonicalSnapshot): void {
   refuseDescriptorConflicts(expected.rootPath);
   const current = readCanonicalRoot(expected.rootPath);
   if (

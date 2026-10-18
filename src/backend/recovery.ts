@@ -16,9 +16,7 @@ import type { PendingIntent } from "./pending.js";
 import { assertArgs } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
-import { findReceipt, findTaskEditReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
-import { applyJournal, guardUpdate } from "./updateJournal.js";
-import { commitUpdate } from "./updateWriter.js";
+import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 
 export function resumeOperation(request: Request, rootPath: string, cachePath: string) {
   const root = readControlRoot(rootPath);
@@ -61,29 +59,10 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
           "RECOVERY_CONFLICT",
           "resume requires the original cache location, or manual reconciliation",
         );
-      const originalReceipt =
+      let originalResult =
         authority.writeContext !== intent.request.writeContext
           ? undefined
-          : intent.format === "taskdb.pending-update"
-            ? findTaskEditReceipt(database, intent.request)
-            : findReceipt(database, intent.request);
-      let originalResult = originalReceipt;
-      if (!originalResult && intent.format === "taskdb.pending-update") {
-        const guarded = guardUpdate(intent, true);
-        const budget = database
-          .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-          .get()!;
-        if (
-          !Number.isSafeInteger((budget.counter as number) + guarded.tasks.length * 3 + 4) ||
-          !Number.isSafeInteger((budget.revision as number) + 3)
-        )
-          throw new CommandError(
-            "UNSUPPORTED_COMMAND",
-            "explicit fresh-cache authority is required before recovery",
-          );
-        const verified = applyJournal(intent, guarded);
-        originalResult = commitUpdate(database, intent, verified);
-      }
+          : findReceipt(database, intent.request);
       if (!originalResult && intent.format === "taskdb.pending-copy") {
         const recover = () => commitCopy(database, intent);
         originalResult =
@@ -117,9 +96,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
         switch (completed.format) {
           case "taskdb.pending-copy":
             retireCopy(completed);
-            break;
-          case "taskdb.pending-update":
-            retirePending(root);
             break;
           case "taskdb.pending-order":
             retireOrderStages(completed);

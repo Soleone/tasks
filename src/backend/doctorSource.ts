@@ -2,13 +2,12 @@ import { lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
-import { readPhysicalRoot, readRegularFile } from "./canonicalReader.js";
+import { readPhysicalRoot, readRegularFile, exactHash } from "./canonicalReader.js";
 import { directoryIdentity } from "./copyFiles.js";
 import type { RootBinding } from "./queryCache.js";
 import { isRecord } from "./protocol.js";
 import { validateGraph, validateManifest, validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
-import { exactHash } from "./updateJournal.js";
 
 type DoctorFile = { relativePath: string; beforeBytes: string; identity: string };
 export type DoctorVersion = {

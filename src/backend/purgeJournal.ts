@@ -6,6 +6,7 @@ import {
   readCanonicalDeletionPrefix,
   readCanonicalRoot,
   readRegularFile,
+  exactHash,
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { directoryIdentity } from "./copyFiles.js";
@@ -17,7 +18,6 @@ import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 import { isTimestamp, validateGraph, validateManifest, validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
-import { exactHash } from "./updateJournal.js";
 
 export type PurgeFile = { relativePath: string; beforeBytes: string; identity: string };
 export type PurgeIntent = {

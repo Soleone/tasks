@@ -1,14 +1,13 @@
 import { existsSync, renameSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "../backend/errors.js";
-import { readRegularFile } from "../backend/canonicalReader.js";
+import { readRegularFile, exactHash } from "../backend/canonicalReader.js";
 import type { CanonicalSnapshot } from "../backend/canonicalReader.js";
 import type { CopyFile, CopyIntent } from "../backend/copyJournal.js";
 import { syncDirectory, localDomain, writeDurableFile } from "../backend/localDomain.js";
 import { isRecord } from "../backend/protocol.js";
 import type { RootBinding } from "../backend/queryCache.js";
 import { compareTasks } from "../backend/taskModel.js";
-import { exactHash } from "../backend/updateJournal.js";
 import { planSchema1Conversion } from "./conversion.js";
 
 export type MigrationEvidence = {

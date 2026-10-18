@@ -2,12 +2,17 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, renameSync, unlinkSync }
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
-import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
+import {
+  readCanonicalRoot,
+  readRegularFile,
+  readRootDescriptor,
+  exactHash,
+} from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import {
   directoryIdentity,
   guardCopyDestination,
-  guardCopySource,
+  guardObservedRoot,
   verifyCopyStage,
 } from "./copyFiles.js";
 import type { CopyDestination } from "./copyFiles.js";
@@ -25,7 +30,6 @@ import type { Request } from "./protocol.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 import { validateGraph, validateManifest, validateTask } from "./taskModel.js";
-import { exactHash } from "./updateJournal.js";
 import {
   guardMigrationSource,
   migrationCompletion,
@@ -274,7 +278,7 @@ function guardSource(intent: CopyIntent): CanonicalSnapshot {
       JSON.stringify(intent.files.map(({ relativePath, sha256 }) => ({ relativePath, sha256 })))
   )
     conflict();
-  guardCopySource(source);
+  guardObservedRoot(source);
   return source;
 }
 

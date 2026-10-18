@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { CommandError } from "../backend/errors.js";
-import { readRegularFile } from "../backend/canonicalReader.js";
+import { readRegularFile, exactHash } from "../backend/canonicalReader.js";
 import { parseCopyArgs, parseCopyIntent, retireCopy } from "../backend/copyJournal.js";
 import type { CopyIntent } from "../backend/copyJournal.js";
 import { commitCopy } from "../backend/copyWriter.js";
@@ -26,7 +26,6 @@ import {
   withCacheTransaction,
 } from "../backend/queryCache.js";
 import { findReceipt, requireWriteContext } from "../backend/receipts.js";
-import { exactHash } from "../backend/updateJournal.js";
 import { planSchema1Conversion } from "./conversion.js";
 
 export function executeMigration(request: Request, rootPath: string, cachePath: string) {

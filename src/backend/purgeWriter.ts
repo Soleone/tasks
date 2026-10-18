@@ -2,8 +2,13 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
-import { directoryIdentity, guardCopySource } from "./copyFiles.js";
+import {
+  readCanonicalRoot,
+  readRegularFile,
+  readRootDescriptor,
+  exactHash,
+} from "./canonicalReader.js";
+import { directoryIdentity, guardObservedRoot } from "./copyFiles.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { assertArgs } from "./protocol.js";
@@ -23,7 +28,6 @@ import { planPurge } from "./purgePlan.js";
 import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { invalidatePurgeUndo } from "./undoHistory.js";
-import { exactHash } from "./updateJournal.js";
 
 function requirePurgeBudget(database: DatabaseSync, count: number): void {
   const state = database
@@ -84,7 +88,7 @@ export function executePurge(request: Request, rootPath: string, cachePath: stri
       const snapshot = readCanonicalRoot(root.rootPath);
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
-      guardCopySource(snapshot);
+      guardObservedRoot(snapshot);
       const purgedIds = planPurge(snapshot.tasks);
       if (purgedIds.length && !request.readOnly && !request.dryRun)
         requirePurgeBudget(database, snapshot.tasks.length);

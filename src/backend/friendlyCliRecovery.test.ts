@@ -113,7 +113,7 @@ function loaderFor(workspace: Workspace, cut: string): string {
     loader,
     `import {registerHooks,syncBuiltinESMExports} from 'node:module';import fs from 'node:fs';import {DatabaseSync} from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pending)}, cache=${JSON.stringify(workspace.cache)}, task=${JSON.stringify(path.join(workspace.root, "tasks", `${parent}.json`))};
-if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
+if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.staged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.staged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
 if(['metadata-failure','metadata-short','metadata-zero'].includes(cut)){const write=fs.writeSync;fs.writeSync=function(fd,buffer,offset,length){if(fd===2&&Buffer.isBuffer(buffer)&&buffer.toString().startsWith('tasks-cli retry: ')){if(cut==='metadata-failure')throw Object.assign(Error('private failing sink'),{code:'EIO'});if(cut==='metadata-zero')return 0;return write.call(this,fd,buffer,offset,Math.min(length,7));}return write.call(this,fd,buffer,offset,length);};syncBuiltinESMExports();}
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();function replace(needle,value){if(source.split(needle).length!==2)throw Error('cut must be unique: '+needle);source=source.replace(needle,value);}
 if(url.endsWith('/friendlyCli.js')){
@@ -124,9 +124,10 @@ if(url.endsWith('/friendlyCli.js')){
  if(['context-race','version-race'].includes(cut))source='import fs from "node:fs";const cache='+JSON.stringify(cache)+',task='+JSON.stringify(task)+';'+source;
 }
 if(url.endsWith('/createWriter.js')){
- replace('writeDurableFile(stage, bytes);','writeDurableFile(stage, bytes);globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
+ replace('writeDurableFile(stage, bytes);','writeDurableFile(stage, bytes);globalThis.staged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
  if(cut==='published')replace('renameSync(stage, target);','renameSync(stage, target);process.kill(process.pid,"SIGKILL");');
 }
+if(url.endsWith('/updateWriter.js'))replace('writeDurableFile(stage, bytes);','writeDurableFile(stage, bytes);globalThis.staged=true;');
 return {...result,source};}});`,
   );
   return loader;
@@ -333,18 +334,22 @@ for (const cut of ["prepared", "beforeCommit", "afterCommit", "lostReply"]) {
       const result = run(workspace, argv, loaderFor(workspace, cut));
       assert.equal(result.signal, "SIGKILL", result.stderr);
       assert.ok(metadata(result).expectedVersion);
-      const pending = pendingIntentPath(readRootDescriptor(workspace.root));
-      const intent = existsSync(pending) ? JSON.parse(readFileSync(pending, "utf8")) : undefined;
-      if (intent)
-        assert.equal(intent.request.args.expectedVersion, metadata(result).expectedVersion);
+      assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), false);
       const replay = run(workspace, [...argv, ...retained(result)]);
-      if (cut === "beforeCommit") fail(replay, "RECOVERY_PENDING");
-      else assert.equal(replay.status, 0, replay.stderr);
-      if (intent) ok(run(workspace, ["recover", intent.operationId, "--json"]));
+      if (cut === "beforeCommit") {
+        // The edit is on disk without its receipt, so the retained request is now stale.
+        fail(replay, "STALE_TASK_VERSION", 3);
+        const saved = JSON.parse(
+          readFileSync(path.join(workspace.root, "tasks", `${parent}.json`), "utf8"),
+        );
+        assert.equal(saved.title, "Fixed literal @a");
+        assert.equal(ok(run(workspace, ["activity", "--json"])).activity.length, 0);
+        return;
+      }
+      assert.equal(replay.status, 0, replay.stderr);
       const final = ok(run(workspace, [...argv, ...retained(result)]));
       assert.equal(final.task.title, "Fixed literal @a");
       assert.equal(final.task.description, "Fixed Markdown");
-      if (intent) assert.equal(final.operationId, intent.operationId);
       assert.equal(ok(run(workspace, ["activity", "--json"])).activity.length, 1);
     },
   );

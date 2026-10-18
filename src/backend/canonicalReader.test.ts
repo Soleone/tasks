@@ -272,3 +272,16 @@ test("model handles year zero, rejects direct unpaired text and validates deep g
   tasks[0].parentId = "t9999";
   assert.throws(() => validateGraph(tasks), { code: "INVALID_CANONICAL" });
 });
+
+test("observe.bytes: a settled file rewritten in place with the same size is hashed again", async (t) => {
+  const root = scratchRoot(t);
+  const file = path.join(root, "tasks", "a.json");
+  const write = (title: string) =>
+    writeFileSync(file, `${JSON.stringify({ ...corpus.taskTemplate, id: "a", title })}\n`);
+  write("First");
+  // Past the racy window, the first read trusts the file's identity, size and times.
+  await new Promise((resolve) => setTimeout(resolve, 3_200));
+  assert.equal(readCanonicalRoot(root).tasks[0].title, "First");
+  write("Other");
+  assert.equal(readCanonicalRoot(root).tasks[0].title, "Other");
+});

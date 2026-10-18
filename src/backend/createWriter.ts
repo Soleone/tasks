@@ -8,6 +8,7 @@ import {
   readPhysicalRoot,
   readRegularFile,
   readRootDescriptor,
+  exactHash,
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { directoryIdentity } from "./copyFiles.js";
@@ -19,7 +20,6 @@ import type { Request } from "./protocol.js";
 import { synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { compareTasks } from "./taskModel.js";
-import { exactHash } from "./updateJournal.js";
 
 function requireCreateBudget(database: DatabaseSync, taskCount: number): number {
   const budget = database

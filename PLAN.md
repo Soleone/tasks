@@ -1,6 +1,6 @@
 # Tasks: roadmap
 
-Updated 2026-10-17. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
+Updated 2026-10-18. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
 
 ## Direction
 
@@ -22,6 +22,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 - Typed text is kept (2026-10-15): tasks store the shorthand as typed in `text` next to the parsed title, category and tags, so editing shows it unchanged. Changing classification any other way clears it. Schema 2 gains the field without a version bump because no real workspace uses schema 2 yet.
 - Tests stay focused (2026-10-15): protect data integrity, tricky rules, process boundaries and known bugs. Prefer representative workflows over exhaustive permutations; don't add tests just to give every spec rule a citation.
 - Desktop capture writes a temp file and renames it; a duplicate after a crash between rename and receipt is accepted. Native development is `pnpm dev:native`, the release build `pnpm build:tauri`.
+- Saves stay cheap (owner, 2026-10-18): reads skip files whose identity, size and times are unchanged (git's racy rule re-hashes recent ones), single-task edits skip the pending journal like capture (a crash between rename and receipt leaves the edit applied and its retry stale), and the list shows status and priority changes before they are saved. Journals remain for multi-file changes.
 - Personal data: reading, converting or selecting the owner's workspace each need explicit permission at that moment.
 - Migration is owner-only (2026-10-16): the app isn't published, so desktop setup doesn't import. `pnpm migrate OLD NEW` converts the owner's old folder ([runbook](docs/migration.md)) and goes away once that's done.
 
@@ -39,9 +40,10 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 ## Next step
 
-1. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work, then measure save speed on the phone; slim the save path only if it isn't instant.
-2. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
-3. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
+1. **Owner tries the faster save path** in the desktop app (status, priority and description edits) and reports whether it feels instant.
+2. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work.
+3. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
+4. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 
 Kit adoption is at r3 (2026-10-17). `src/components/ui` and `src/components/soleone` are stock registry sources, pending an owner look at the UI.
 

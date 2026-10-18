@@ -15,8 +15,6 @@ import { parseDoctorIntent } from "./doctorJournal.js";
 import type { DoctorIntent } from "./doctorJournal.js";
 import { pendingIntentPath } from "./localDomain.js";
 import type { RootBinding } from "./queryCache.js";
-import { readPending as readUpdatePending } from "./updateJournal.js";
-import type { UpdateIntent } from "./updateJournal.js";
 
 type CopyTarget = {
   format: "taskdb.pending-copy-target";
@@ -26,7 +24,6 @@ type CopyTarget = {
   operationId: string;
 };
 export type PendingIntent =
-  | UpdateIntent
   | CopyIntent
   | CopyTarget
   | OrderIntent
@@ -43,7 +40,6 @@ export function readPending(root: RootBinding): PendingIntent | undefined {
   }
   try {
     const value = parseCanonicalJson(readRegularFile(file)) as PendingIntent;
-    if (value.format === "taskdb.pending-update") return readUpdatePending(root);
     if (value.format === "taskdb.pending-copy") return parseCopyIntent(value, root);
     if (value.format === "taskdb.pending-order") return parseOrderIntent(value, root);
     if (value.format === "taskdb.pending-batch") return parseBatchIntent(value, root);

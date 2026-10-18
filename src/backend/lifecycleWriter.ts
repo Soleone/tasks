@@ -8,7 +8,7 @@ import {
   readPhysicalRoot,
   readRootDescriptor,
 } from "./canonicalReader.js";
-import { guardCopySource } from "./copyFiles.js";
+import { guardObservedRoot } from "./copyFiles.js";
 import { withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { assertArgs } from "./protocol.js";
@@ -78,7 +78,7 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
       const snapshot = readCanonicalRoot(root.rootPath);
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "selected root changed during observation");
-      guardCopySource(snapshot);
+      guardObservedRoot(snapshot);
       if (request.readOnly || request.dryRun)
         return {
           writeContext: authority.writeContext,
@@ -91,7 +91,7 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
           },
         };
       const rebuilt = rebuildQueryAuthority(database, root, snapshot);
-      guardCopySource(snapshot);
+      guardObservedRoot(snapshot);
       const result = {
         taskCount: snapshot.tasks.length,
         changed: true,

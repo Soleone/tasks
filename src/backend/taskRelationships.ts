@@ -1,5 +1,4 @@
 import { generateKeyBetween } from "fractional-indexing";
-import { canonicalJson } from "./canonicalJson.js";
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import { compareTasks, isOrderKey, validateGraph, validateTask, GraphError } from "./taskModel.js";
@@ -59,25 +58,6 @@ function relationshipPatch(
         ? [...task.dependencyIds, input.dependsOnId].sort()
         : task.dependencyIds.filter((id) => id !== input.dependsOnId),
   };
-}
-
-/** Validate fixed local effects without requiring live files for pending inspection or historical replay. */
-export function matchesRelationshipEffect(
-  before: CanonicalTask,
-  next: CanonicalTask,
-  input: RelationshipInput,
-  at: string,
-): boolean {
-  const patch = relationshipPatch(before, input);
-  if (!patch) return false;
-  const expected = {
-    ...before,
-    ...patch,
-    updatedAt: at,
-    ...(input.kind === "parent" ? { orderKey: next.orderKey } : {}),
-  };
-  // Guarded execution must independently reproduce the recorded allocation from the original graph.
-  return canonicalJson(expected) === canonicalJson(next);
 }
 
 export function applyRelationship(

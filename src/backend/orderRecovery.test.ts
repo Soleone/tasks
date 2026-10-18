@@ -467,7 +467,7 @@ for (const id of ["scope-arrival", "scope-delete", "scope-formatting"]) {
       const loader = path.join(w.directory, "ordering-guard-loader.mjs");
       writeFileSync(
         loader,
-        `import{registerHooks}from'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith(${JSON.stringify(update ? "/updateWriter.js" : "/orderWriter.js")}))return result;let source=result.source.toString();const n=${JSON.stringify(update ? "guardUpdate(intent, false);" : "guardOrder(intent, false);")};if(source.split(n).length!==2)throw Error('unique guard cut required');source='import{writeFileSync as faultWrite,rmSync as faultRemove,appendFileSync as faultAppend}from"node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return{...result,source};}});`,
+        `import{registerHooks}from'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith(${JSON.stringify(update ? "/updateWriter.js" : "/orderWriter.js")}))return result;let source=result.source.toString();const n=${JSON.stringify(update ? "guardObservedRoot(snapshot);" : "guardOrder(intent, false);")};if(source.split(n).length!==2)throw Error('unique guard cut required');source='import{writeFileSync as faultWrite,rmSync as faultRemove,appendFileSync as faultAppend}from"node:fs";'+source.replace(n,${JSON.stringify(mutation)}+n);return{...result,source};}});`,
       );
       const child = run(w, req, loader);
       assert.equal(child.status, 0, child.stderr);

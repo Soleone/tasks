@@ -54,30 +54,48 @@ export function readRegularFile(filePath: string): Buffer {
   }
 }
 
-function exactHash(bytes: Uint8Array): string {
+export function exactHash(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-// Parsing costs as much as reading. Equal bytes always parse to the same task, so the latest
-// scan's task is reused only for a file whose exact bytes hash as before. Frozen because scans share it.
-let parsedTasks = new Map<string, CanonicalTask>();
+type ObservedFile = { stamp: string; sha256: string; task: CanonicalTask | null };
 
-function parseTask(
-  scan: Map<string, CanonicalTask>,
+// Reading and hashing every file on every command made each one cost the whole folder. A file
+// whose identity, size and times match the previous scan keeps that scan's hash and task. Writes
+// within a few seconds of a read can share coarse timestamps, so such files are read again
+// (git's "racy" rule). Tasks are frozen because scans share them.
+const RACY_MS = 3_000n;
+const MAX_REMEMBERED_FOLDERS = 8;
+const previousScans = new Map<string, Map<string, ObservedFile>>();
+
+function observeTaskFile(
+  previous: Map<string, ObservedFile> | undefined,
   filePath: string,
-  sha256: string,
-  bytes: Buffer,
-): CanonicalTask {
-  const key = `${filePath}\0${sha256}`;
-  let task = parsedTasks.get(key);
-  if (!task) {
+  conflict: boolean,
+): ObservedFile {
+  const stat = lstatSync(filePath, { bigint: true });
+  if (!stat.isFile()) invalidEntry();
+  const stamp = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+  const known = previous?.get(filePath);
+  if (known && known.stamp === stamp) return known;
+  const bytes = readRegularFile(filePath);
+  const changedNs = stat.mtimeNs > stat.ctimeNs ? stat.mtimeNs : stat.ctimeNs;
+  const settled = BigInt(Date.now()) - changedNs / 1_000_000n > RACY_MS;
+  let task: CanonicalTask | null = null;
+  if (!conflict) {
     task = validateTask(parseCanonicalJson(bytes), path.basename(filePath, ".json"));
     Object.freeze(task.tags);
     Object.freeze(task.dependencyIds);
     Object.freeze(task);
   }
-  scan.set(key, task);
-  return task;
+  return { stamp: settled ? stamp : "", sha256: exactHash(bytes), task };
+}
+
+function rememberScan(taskDirectory: string, scan: Map<string, ObservedFile>): void {
+  previousScans.delete(taskDirectory);
+  previousScans.set(taskDirectory, scan);
+  if (previousScans.size > MAX_REMEMBERED_FOLDERS)
+    previousScans.delete(previousScans.keys().next().value!);
 }
 
 function observeRoot(
@@ -100,26 +118,26 @@ function observeRoot(
   const files = [{ relativePath: "workspace.json", sha256: exactHash(manifestBytes) }];
   const conflictFiles: FileObservation[] = [];
   const tasks: CanonicalTask[] = [];
-  const parsed = new Map<string, CanonicalTask>();
+  const previous = previousScans.get(taskDirectory);
+  const scan = new Map<string, ObservedFile>();
   const names = readdirSync(taskDirectory).sort();
   for (const name of names) {
     // Syncthing transfer temporaries are not published task documents.
     if (name.startsWith(".syncthing.") && name.endsWith(".tmp")) continue;
     const conflict = /^[A-Za-z0-9_-]+\.sync-conflict-.+\.json$/.test(name);
     if (!conflict && !/^[A-Za-z0-9_-]+\.json$/.test(name)) invalidEntry();
-    const bytes = readRegularFile(path.join(taskDirectory, name));
-    const observation = { relativePath: `tasks/${name}`, sha256: exactHash(bytes) };
+    const filePath = path.join(taskDirectory, name);
+    const file = observeTaskFile(previous, filePath, conflict);
+    scan.set(filePath, file);
+    const observation = { relativePath: `tasks/${name}`, sha256: file.sha256 };
     files.push(observation);
-    if (conflict) {
-      conflictFiles.push(observation);
-      continue;
-    }
-    tasks.push(parseTask(parsed, path.join(taskDirectory, name), observation.sha256, bytes));
+    if (file.task) tasks.push(file.task);
+    else conflictFiles.push(observation);
   }
   if (deletedTasks.some((deleted) => tasks.some((task) => task.id === deleted.id))) invalidEntry();
   validateGraph([...tasks, ...deletedTasks]);
-  // Bytes are read once. A file rewritten after its read is no different from one rewritten just
-  // after the scan: every writer guards its replacements against these hashes again.
+  // A file rewritten after its read is no different from one rewritten just after the scan:
+  // every writer guards its replacements against these hashes again.
   if (
     directoryIdentity(rootPath) !== rootIdentity ||
     directoryIdentity(taskDirectory) !== taskIdentity ||
@@ -127,7 +145,7 @@ function observeRoot(
   ) {
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
-  parsedTasks = parsed;
+  rememberScan(taskDirectory, scan);
   tasks.sort((left, right) => {
     const leftParent = left.parentId ?? "";
     const rightParent = right.parentId ?? "";

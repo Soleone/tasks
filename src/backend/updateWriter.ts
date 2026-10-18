@@ -1,65 +1,37 @@
 import { randomUUID } from "node:crypto";
+import { renameSync, unlinkSync } from "node:fs";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { parseCanonicalJson } from "./strictJson.js";
-import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
-import type { CanonicalSnapshot } from "./canonicalReader.js";
-import { refuseDescriptorConflicts } from "./copyFiles.js";
-import { persistPending, retirePending, syncDirectory, withRootWriterLock } from "./localDomain.js";
+import { exactHash, readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
+import { guardObservedRoot, refuseDescriptorConflicts } from "./copyFiles.js";
+import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDomain.js";
 import { projectTasks } from "./queries.js";
 import { decodeTaskEdit } from "./taskEditRequest.js";
 import type { TaskEditRequest } from "./taskEditRequest.js";
 import type { TaskEditResult, TaskExecutionResult } from "./taskResults.js";
 import type { CanonicalTask } from "./taskModel.js";
-import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import { synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findTaskEditReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { applyUpdate } from "./updateInputs.js";
 import { applyStatus } from "./taskStatus.js";
 import { applyRelationship } from "./taskRelationships.js";
 import { readPending } from "./pending.js";
-import { applyJournal, exactHash, guardUpdate } from "./updateJournal.js";
-import type { UpdateIntent } from "./updateJournal.js";
 
 type WriteOutcome = { writeContext: string; result: TaskEditResult };
 
-export function commitUpdate(
-  database: DatabaseSync,
-  intent: UpdateIntent,
-  snapshot: CanonicalSnapshot,
-): TaskExecutionResult {
-  const authority = synchronizeAuthority(database, intent.root, snapshot);
-  const task = projectTasks(snapshot.tasks, authority).find((task) => task.id === intent.taskId)!;
-  const before = parseCanonicalJson(Buffer.from(intent.beforeBytes, "base64"));
-  const after = parseCanonicalJson(Buffer.from(intent.nextBytes, "base64"));
-  database
-    .prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(
-      intent.operationId,
-      authority.writeContext,
-      intent.taskId,
-      intent.request.command,
-      JSON.stringify(intent.request.actor),
-      intent.at,
-      JSON.stringify(before),
-      JSON.stringify(after),
-    );
-  const result: TaskExecutionResult = { task, changed: true, operationId: intent.operationId };
-  // Cache-loss recovery may acknowledge the fixed effect, but must never restore old-context authority.
-  if (authority.writeContext === intent.request.writeContext)
-    storeReceipt(database, intent.request, result);
-  return result;
-}
-
+/**
+ * One task file changes, so like capture this needs no pending journal: the new bytes are staged,
+ * the folder is checked to be exactly as observed, and an atomic rename publishes them. A crash
+ * after the rename but before the receipt commits leaves the edit applied without a receipt.
+ */
 export function executeUpdate(
   request: TaskEditRequest,
   rootPath: string,
   cachePath: string,
 ): WriteOutcome {
   const root = readRootDescriptor(rootPath);
-  return withRootWriterLock(root, () => {
-    let retire = false;
-    const outcome = withCacheTransaction(cachePath, root, (database): WriteOutcome => {
+  return withRootWriterLock(root, () =>
+    withCacheTransaction(cachePath, root, (database): WriteOutcome => {
       let authority = synchronizeAuthority(database, root);
       requireWriteContext(request, authority);
       const edit = decodeTaskEdit(request);
@@ -123,37 +95,46 @@ export function executeUpdate(
           "version budget is nearly exhausted; explicit fresh-cache authority is required before this write",
         );
       }
-      const beforeBytes = readRegularFile(path.join(root.rootPath, "tasks", `${task.id}.json`));
-      if (
-        exactHash(beforeBytes) !==
-        snapshot.files.find((file) => file.relativePath === `tasks/${task.id}.json`)!.sha256
-      ) {
-        throw new CommandError("STALE_FILE", "task changed before staging");
+      const operationId = randomUUID();
+      const bytes = Buffer.from(`${JSON.stringify(update.task)}\n`);
+      const target = path.join(root.rootPath, "tasks", `${task.id}.json`);
+      const stage = path.join(root.rootPath, "tasks", `.syncthing.taskdb-${operationId}.tmp`);
+      writeDurableFile(stage, bytes);
+      // The edit was derived from the whole graph, so every file must still be as observed.
+      try {
+        guardObservedRoot(snapshot);
+      } catch (error) {
+        unlinkSync(stage);
+        throw error;
       }
-      const intent: UpdateIntent = {
-        format: "taskdb.pending-update",
-        version: 1,
-        root,
-        cachePath: localPathOutsideRoot(cachePath, root.rootPath),
-        request,
-        operationId: randomUUID(),
-        at,
-        taskId: task.id,
-        beforeBytes: beforeBytes.toString("base64"),
-        nextBytes: Buffer.from(`${JSON.stringify(update.task)}\n`).toString("base64"),
-        guards: snapshot.files,
+      renameSync(stage, target);
+      syncDirectory(path.dirname(target));
+      const published = readCanonicalRoot(root.rootPath);
+      if (
+        published.files.find((file) => file.relativePath === `tasks/${task.id}.json`)?.sha256 !==
+        exactHash(bytes)
+      )
+        throw new CommandError("STALE_FILE", "task changed during publication");
+      authority = synchronizeAuthority(database, root, published);
+      database
+        .prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(
+          operationId,
+          authority.writeContext,
+          task.id,
+          request.command,
+          JSON.stringify(request.actor),
+          at,
+          JSON.stringify(task),
+          JSON.stringify(update.task),
+        );
+      const result: TaskExecutionResult = {
+        task: projectTasks(published.tasks, authority).find((item) => item.id === task.id)!,
+        changed: true,
+        operationId,
       };
-      const guarded = guardUpdate(intent, false);
-      syncDirectory(path.join(root.rootPath, "tasks"));
-      // Publish fixed request/bytes/time before any canonical replacement; failures leave this intent intact.
-      persistPending(root, intent);
-      const verified = applyJournal(intent, guarded);
-      const result = commitUpdate(database, intent, verified);
-      retire = true;
+      storeReceipt(database, request, result);
       return { writeContext: authority.writeContext, result };
-    });
-    // The transaction's COMMIT has completed. Never retire evidence from inside that transaction.
-    if (retire) retirePending(root);
-    return outcome;
-  });
+    }),
+  );
 }

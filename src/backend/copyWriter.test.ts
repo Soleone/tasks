@@ -15,8 +15,7 @@ import test from "node:test";
 import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
-import { parseRequest } from "./protocol.js";
-import { pendingIntentPath, persistPending, withRootWriterLock } from "./localDomain.js";
+import { pendingIntentPath, withRootWriterLock } from "./localDomain.js";
 
 const fixtures = fileURLToPath(new URL("../../scripts/fixtures/workspace/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtures, "cases.json"), "utf8")) as {
@@ -322,7 +321,7 @@ test(
 
 for (const command of ["workspace.archive", "workspace.restore"]) {
   test(
-    `${command} refuses pending source updates without copying unfinished state`,
+    `${command} refuses a source with unfinished local work without copying it`,
     linuxOnly,
     (t) => {
       const workspace = setup(t);
@@ -336,34 +335,10 @@ for (const command of ["workspace.archive", "workspace.restore"]) {
       });
       const source = readCanonicalRoot(sourceDirectory);
       const root = readRootDescriptor(sourceDirectory);
-      const task = source.tasks.find((task) => task.id === id)!;
-      const beforeBytes = readFileSync(path.join(sourceDirectory, "tasks", `${id}.json`));
-      const at = "2026-10-02T12:00:00.000Z";
-      withRootWriterLock(root, () =>
-        persistPending(root, {
-          format: "taskdb.pending-update",
-          version: 1,
-          root,
-          cachePath: workspace.cache,
-          request: parseRequest({
-            version: 2,
-            command: "task.update",
-            writeContext: request.writeContext,
-            idempotencyKey: "pending-edit",
-            args: { id, expectedVersion: 1, title: "Pending edit" },
-          }),
-          operationId: "00000000-0000-4000-8000-000000000000",
-          at,
-          taskId: id,
-          beforeBytes: beforeBytes.toString("base64"),
-          nextBytes: Buffer.from(
-            `${JSON.stringify({ ...task, title: "Pending edit", text: null, updatedAt: at })}\n`,
-          ).toString("base64"),
-          guards: source.files,
-        }),
-      );
+      // Unreadable evidence of unfinished work must stop a copy just like readable evidence.
+      withRootWriterLock(root, () => writeFileSync(pendingIntentPath(root), '{"format":'));
       const pending = readFileSync(pendingIntentPath(root));
-      fail(send(workspace, request), "RECOVERY_PENDING");
+      fail(send(workspace, request), "RECOVERY_CONFLICT");
       assert.deepEqual(readCanonicalRoot(sourceDirectory).files, source.files);
       assert.deepEqual(readFileSync(pendingIntentPath(root)), pending);
       assert.equal(existsSync(workspace.destination), false);

@@ -2,16 +2,20 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
+import {
+  readCanonicalRoot,
+  readRegularFile,
+  readRootDescriptor,
+  exactHash,
+} from "./canonicalReader.js";
 import { applyCopyJournal, parseCopyArgs, parseCopyIntent, retireCopy } from "./copyJournal.js";
 import type { CopyIntent } from "./copyJournal.js";
-import { guardCopySource, inspectCopyDestination, releaseEmptyDestination } from "./copyFiles.js";
+import { guardObservedRoot, inspectCopyDestination, releaseEmptyDestination } from "./copyFiles.js";
 import { persistPending, syncDirectory, localDomain, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import type { Request } from "./protocol.js";
 import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
-import { exactHash } from "./updateJournal.js";
 
 export function commitCopy(database: DatabaseSync, intent: CopyIntent): Record<string, unknown> {
   const result = applyCopyJournal(intent);
@@ -44,7 +48,7 @@ export function executeCopy(request: Request, rootPath: string, cachePath: strin
         const source = readCanonicalRoot(sourceRoot.rootPath);
         if (source.rootIdentity !== sourceRoot.rootIdentity)
           throw new CommandError("STALE_SCOPE", "source binding changed");
-        guardCopySource(source);
+        guardObservedRoot(source);
         let destination = inspectCopyDestination(source.rootPath, input.destinationDirectory);
         inspectCopyDestination(root.rootPath, destination.directory);
         for (const binding of [root, sourceRoot]) {
@@ -91,7 +95,7 @@ export function executeCopy(request: Request, rootPath: string, cachePath: strin
           },
           root,
         );
-        guardCopySource(source);
+        guardObservedRoot(source);
         syncDirectory(path.dirname(destination.directory));
         persistPending(root, intent);
         const result = commitCopy(database, intent);

@@ -3,7 +3,7 @@ import path from "node:path";
 import { canonicalJson } from "./canonicalJson.js";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
-import { readCanonicalRoot, readRegularFile } from "./canonicalReader.js";
+import { readCanonicalRoot, readRegularFile, exactHash } from "./canonicalReader.js";
 import type { CanonicalSnapshot, FileObservation } from "./canonicalReader.js";
 import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
 import { isRecord, parseRequest } from "./protocol.js";
@@ -13,7 +13,6 @@ import type { RootBinding } from "./queryCache.js";
 import { isTimestamp, validateGraph, validateTask } from "./taskModel.js";
 import { parseUndo, planUndo, UNDO_COMMANDS } from "./undoPlan.js";
 import type { HistorySource, UndoPlan } from "./undoPlan.js";
-import { exactHash } from "./updateJournal.js";
 
 type BatchFile = { taskId: string; beforeBytes: string; nextBytes: string | null };
 export type BatchIntent = {

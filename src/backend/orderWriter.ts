@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { readCanonicalRoot, readRegularFile, readRootDescriptor } from "./canonicalReader.js";
+import {
+  readCanonicalRoot,
+  readRegularFile,
+  readRootDescriptor,
+  exactHash,
+} from "./canonicalReader.js";
 import { refuseDescriptorConflicts } from "./copyFiles.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import {
@@ -22,7 +27,6 @@ import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { parseOrder, planOrder } from "./taskOrdering.js";
 import type { CanonicalTask } from "./taskModel.js";
 import type { OrderPlan } from "./taskOrdering.js";
-import { exactHash } from "./updateJournal.js";
 
 function orderResult(
   plan: OrderPlan,

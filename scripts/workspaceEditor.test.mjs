@@ -857,9 +857,7 @@ function manualLine(selected, envelope) {
 }
 
 for (const command of ["task.create", "task.update", ...statusCommands]) {
-  for (const cut of command === "task.create"
-    ? ["stage-written", "published", "beforeCommit", "afterCommit", "lostReply"]
-    : ["intent", "published", "beforeCommit", "afterCommit", "lostReply"]) {
+  for (const cut of ["stage-written", "published", "beforeCommit", "afterCommit", "lostReply"]) {
     test(`actual editor HTTP ${command} crash at ${cut} preserves original request for explicit recovery/manual replay`, async (t) => {
       const selected = workspace(t);
       const originalTask = JSON.parse(
@@ -882,14 +880,12 @@ for (const command of ["task.create", "task.update", ...statusCommands]) {
         loader,
         `import { registerHooks } from 'node:module'; import fs from 'node:fs'; import { DatabaseSync } from 'node:sqlite';
 const cut=${JSON.stringify(cut)}, pending=${JSON.stringify(pendingPath)}, command=${JSON.stringify(command)};
-if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec; DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL'); const result=exec.call(this,sql); if(sql==='COMMIT'&&(fs.existsSync(pending)||globalThis.createStaged)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL'); return result;};}
+if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec; DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&globalThis.staged&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL'); const result=exec.call(this,sql); if(sql==='COMMIT'&&globalThis.staged&&cut==='afterCommit')process.kill(process.pid,'SIGKILL'); return result;};}
 registerHooks({load(url,context,next){const result=next(url,context); if(!result.source)return result; let source=String(result.source); function replace(marker){if(source.split(marker).length!==2)throw Error('fault marker not unique: '+marker); source=source.replace(marker,marker+'\\nprocess.kill(process.pid,"SIGKILL");');}
-if(cut==='intent'&&url.endsWith('/localDomain.js'))replace('renameSync(temporary, pending);');
-if(command==='task.create'&&url.endsWith('/createWriter.js')){
- const marker='writeDurableFile(stage, bytes);';if(source.split(marker).length!==2)throw Error('unique stage marker required');source=source.replace(marker,marker+'globalThis.createStaged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
+if(url.endsWith(command==='task.create'?'/createWriter.js':'/updateWriter.js')){
+ const marker='writeDurableFile(stage, bytes);';if(source.split(marker).length!==2)throw Error('unique stage marker required');source=source.replace(marker,marker+'globalThis.staged=true;'+(cut==='stage-written'?'process.kill(process.pid,"SIGKILL");':''));
  if(cut==='published')replace('renameSync(stage, target);');
 }
-if(cut==='published'&&command!=='task.create'&&url.endsWith('/updateJournal.js'))replace('renameSync(temporary, target);');
 if(cut==='lostReply'&&url.endsWith('/devServer.js')){const marker='const result = executeDevCommand(body, selection, request.headers["x-taskdb-selection"]);';if(source.split(marker).length!==2)throw Error('HTTP fault marker missing');source=source.replace(marker,marker+'\\nif(JSON.parse(body).command===command&&!JSON.parse(body).dryRun&&!JSON.parse(body).readOnly)process.kill(process.pid,"SIGKILL");'.replace('===command','==='+JSON.stringify(command)));}
 return {...result,source};}});\n`,
       );
@@ -915,34 +911,15 @@ return {...result,source};}});\n`,
       const restarted = await processDev(t, selected, undefined, initial.port);
       await readEditorSelection(restarted.url);
       await assert.rejects(prepared.execute(), /STALE_DEV_SELECTION/);
-      let fixedId;
-      if (existsSync(pendingPath)) {
-        const intent = JSON.parse(readFileSync(pendingPath, "utf8"));
-        assert.deepEqual(intent.request, JSON.parse(originalRequest));
-        fixedId = intent.taskId;
-        if (["intent", "published", "beforeCommit"].includes(cut))
-          assert.equal(manualLine(selected, originalRequest).error.code, "RECOVERY_PENDING");
-        const recovered = JSON.parse(
-          execFileSync(
-            process.execPath,
-            [
-              "dist/backend/tasks-cli.js",
-              "--root",
-              selected.root,
-              "--database",
-              selected.cache,
-              "recover",
-              intent.operationId,
-              "--json",
-            ],
-            { env: process.env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-          ),
-        );
-        assert.equal(recovered.outcome, "complete");
-      }
+      assert.equal(existsSync(pendingPath), false);
       const replay = manualLine(selected, originalRequest);
+      if (command !== "task.create" && ["published", "beforeCommit"].includes(cut)) {
+        // The edit is on disk without its receipt, so the original request is now stale.
+        assert.equal(replay.error.code, "STALE_TASK_VERSION");
+        assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+        return;
+      }
       assert.equal(replay.ok, true, JSON.stringify(replay));
-      if (fixedId) assert.equal(replay.result.task.id, fixedId);
       assert.equal(
         replay.result.task.title,
         statusCommands.includes(command) ? originalTask.title : literal.title,
@@ -952,20 +929,16 @@ return {...result,source};}});\n`,
         assert.equal(replay.result.task.createdAt, originalTask.createdAt);
       }
       const names = readdirSync(path.join(selected.root, "tasks"));
-      if (command === "task.create") {
-        assert.equal(
-          names.filter((name) => name.endsWith(".json")).length,
-          ["published", "beforeCommit"].includes(cut) ? 6 : 5,
-        );
-        assert.equal(
-          names.filter((name) => name.startsWith(".syncthing.taskdb-create-")).length,
-          cut === "stage-written" ? 1 : 0,
-        );
-      } else assert.equal(names.length, 4);
-      assert.deepEqual(counts(selected.cache), {
-        receipts: command === "task.create" || cut === "lostReply" ? 1 : 2,
-        operations: 1,
-      });
+      assert.equal(
+        names.filter((name) => name.endsWith(".json")).length,
+        command !== "task.create" ? 4 : ["published", "beforeCommit"].includes(cut) ? 6 : 5,
+      );
+      // A stage left by a crash is never adopted or removed automatically.
+      assert.equal(
+        names.filter((name) => name.startsWith(".syncthing.taskdb-")).length,
+        cut === "stage-written" ? 1 : 0,
+      );
+      assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 1 });
       const canonical = bytes(selected.root);
       assert.deepEqual(manualLine(selected, originalRequest).result, replay.result);
       assert.deepEqual(bytes(selected.root), canonical);

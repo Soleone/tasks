@@ -13,70 +13,10 @@ import {
 } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath, localDomain } from "./localDomain.js";
-import { STATUS_COMMANDS } from "./taskStatus.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const linuxOnly = { skip: process.platform !== "linux" };
-for (const command of STATUS_COMMANDS)
-  for (const cut of ["intent", "replaced", "beforeCommit", "afterCommit"]) {
-    test(
-      `${command} CLI SIGKILL ${cut} retains fixed status/closure and one activity group`,
-      linuxOnly,
-      (t) => {
-        const workspace = setup(t);
-        const taskId =
-          command === "task.reopen"
-            ? "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed"
-            : command === "task.delete"
-              ? "f3e5499b-402e-4d7d-8b61-eefc4409ca32"
-              : id;
-        const read = success(send(workspace, { command: "task.get", args: { id: taskId } }));
-        const before = read.result.task as CanonicalTask & { version: number };
-        const request = {
-          version: 2,
-          command,
-          args: { id: taskId, expectedVersion: before.version },
-          writeContext: read.writeContext,
-          idempotencyKey: "original-status",
-        };
-        const pending = pendingIntentPath(readRootDescriptor(workspace.root));
-        const loader = path.join(workspace.directory, "status-kill-loader.mjs");
-        writeFileSync(
-          loader,
-          `import {registerHooks} from 'node:module';import {existsSync} from 'node:fs';import {DatabaseSync} from 'node:sqlite';const cut=${JSON.stringify(cut)},pending=${JSON.stringify(pending)};
-if(cut==='beforeCommit'||cut==='afterCommit'){const exec=DatabaseSync.prototype.exec;DatabaseSync.prototype.exec=function(sql){if(sql==='COMMIT'&&existsSync(pending)&&cut==='beforeCommit')process.kill(process.pid,'SIGKILL');const result=exec.call(this,sql);if(sql==='COMMIT'&&existsSync(pending)&&cut==='afterCommit')process.kill(process.pid,'SIGKILL');return result;};}
-registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();const module=cut==='intent'?'updateWriter.js':cut==='replaced'?'updateJournal.js':'';if(!url.endsWith('/'+module))return result;const n=cut==='intent'?'persistPending(root, intent);':'renameSync(temporary, target);';if(source.split(n).length!==2)throw Error('unique status cut required');return {...result,source:source.replace(n,n+'process.kill(process.pid,"SIGKILL");')};}});`,
-        );
-        const child = run(workspace, request, loader);
-        assert.equal(child.signal, "SIGKILL", child.stderr);
-        const intent = JSON.parse(readFileSync(pending, "utf8"));
-        const retry = send(workspace, request);
-        if (cut === "afterCommit") success(retry);
-        else fail(retry, "RECOVERY_PENDING");
-        const resumed = success(recover(workspace, intent.operationId));
-        const replay = success(send(workspace, request));
-        assert.deepEqual(replay.result, resumed.result.originalResult);
-        const task = replay.result.task as CanonicalTask;
-        assert.equal(task.updatedAt, before.updatedAt);
-        assert.equal(task.createdAt, before.createdAt);
-        assert.equal(
-          task.closedAt,
-          task.status === "done" || task.status === "canceled" ? intent.at : null,
-        );
-        assert.equal(task.orderKey, before.orderKey);
-        const rows = success(send(workspace, { command: "activity.list" })).result.activity as {
-          command: string;
-          createdAt: string;
-        }[];
-        assert.equal(rows.length, 1);
-        assert.equal(rows[0].command, command);
-        assert.equal(rows[0].createdAt, intent.at);
-        assert.equal(existsSync(pending), false);
-      },
-    );
-  }
-
 for (const collision of ["canonical", "conflict"]) {
   test(
     `capture refuses generated-ID ${collision} collision before staging instead of silently replacing it`,
@@ -126,56 +66,6 @@ for (const collision of ["canonical", "conflict"]) {
       const explicit = run(workspace, { ...request, idempotencyKey: "explicit-new-plan" });
       assert.equal(explicit.status, 0, explicit.stderr);
       success(JSON.parse(explicit.stdout));
-    },
-  );
-}
-
-for (const fault of ["missing-target", "divergent-target", "invalid-at", "wrong-next-time"]) {
-  test(
-    `status recovery preserves and refuses ${fault} rather than refreshing closure or resurrecting`,
-    linuxOnly,
-    (t) => {
-      const workspace = setup(t);
-      const read = success(send(workspace, { command: "task.get", args: { id } }));
-      const pending = pendingIntentPath(readRootDescriptor(workspace.root));
-      const request = {
-        version: 2,
-        command: "task.complete",
-        args: { id, expectedVersion: (read.result.task as { version: number }).version },
-        writeContext: read.writeContext,
-        idempotencyKey: "fixed-complete",
-      };
-      const loader = path.join(workspace.directory, "status-evidence-loader.mjs");
-      writeFileSync(
-        loader,
-        `import {registerHooks} from 'node:module';registerHooks({load(url,context,next){const result=next(url,context);if(!url.endsWith('/updateWriter.js'))return result;const source=result.source.toString(),n='persistPending(root, intent);';if(source.split(n).length!==2)throw Error('unique intent cut required');return {...result,source:source.replace(n,n+'process.kill(process.pid,"SIGKILL");')};}});`,
-      );
-      assert.equal(run(workspace, request, loader).signal, "SIGKILL");
-      const intent = JSON.parse(readFileSync(pending, "utf8"));
-      const target = path.join(workspace.root, "tasks", `${id}.json`);
-      if (fault === "missing-target") rmSync(target);
-      if (fault === "divergent-target")
-        writeFileSync(
-          target,
-          JSON.stringify({
-            ...JSON.parse(readFileSync(target, "utf8")),
-            title: "Preserve external title",
-          }),
-        );
-      if (fault === "invalid-at") {
-        intent.at = "not an instant";
-        writeFileSync(pending, JSON.stringify(intent));
-      }
-      if (fault === "wrong-next-time") {
-        const next = JSON.parse(Buffer.from(intent.nextBytes, "base64").toString());
-        next.updatedAt = intent.at;
-        intent.nextBytes = Buffer.from(JSON.stringify(next)).toString("base64");
-        writeFileSync(pending, JSON.stringify(intent));
-      }
-      const before = existsSync(target) ? readFileSync(target) : null;
-      fail(recover(workspace, intent.operationId), "RECOVERY_CONFLICT");
-      assert.equal(existsSync(pending), true);
-      assert.deepEqual(existsSync(target) ? readFileSync(target) : null, before);
     },
   );
 }

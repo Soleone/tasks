@@ -7,7 +7,7 @@ Tasks never pretends a write succeeded, never invents data to fill a gap, and ne
 | Rule | Then |
 | --- | --- |
 | `observe.complete` | A read lists every task file, parses all of them and checks the whole graph. Anything less is incomplete and grants no write authority |
-| `observe.bytes` | Change detection hashes the exact file bytes (SHA-256). Size and modified time alone are not enough. Reformatting counts as a change |
+| `observe.bytes` | Change detection hashes the exact file bytes (SHA-256). A file whose identity, size, modified and change times all match the previous read keeps that read's hash; anything else, and any file changed within a few seconds of being read, is hashed again. Reformatting counts as a change |
 | `observe.no-resurrect` | A file that disappears is gone from the cache too. Reading never recreates it |
 | `observe.stale-view` | After an incomplete read, a client may show the last good view, clearly marked stale, but can't write from it |
 
@@ -17,7 +17,7 @@ Tasks never pretends a write succeeded, never invents data to fill a gap, and ne
 | --- | --- |
 | `write.lock` | Writers on one device share a lock for the folder. Syncthing and text editors don't, so a racing external edit can be overwritten; preserved conflict copies and backups cover that |
 | `write.validate-first` | All effects are checked before the first file changes |
-| `write.journal` | Before changing files (except a plain create), the writer saves a pending record outside the folder with the old and new bytes, fixed IDs, keys and times |
+| `write.journal` | Before changing several files, the writer saves a pending record outside the folder with the old and new bytes, fixed IDs, keys and times. Creating or editing one task needs none: its rename is atomic |
 | `write.guard` | Each replacement first checks the file and its sibling set are still as observed |
 | `write.verify` | Final bytes and the graph are verified before the receipt is stored and success is returned |
 | `write.copy-first` | Anything destructive copies the original outside the folder first |
@@ -31,6 +31,13 @@ Tasks never pretends a write succeeded, never invents data to fill a gap, and ne
 | `create.duplicate-window` | If the process dies after the rename but before the receipt is stored, retrying the same request can create a duplicate. This is accepted |
 | `create.orphan-stage` | A leftover temp file is never adopted, resumed or deleted automatically |
 | `create.unrelated-changes` | Unrelated edits during capture don't abort it |
+
+## Editing a task
+
+| Rule | Then |
+| --- | --- |
+| `edit.stage-rename` | An edit writes a hidden temp file in `tasks/`, checks that the folder is still exactly as observed, then renames it over the task file |
+| `edit.receipt-window` | If the process dies after the rename but before the receipt is stored, the edit stays applied without a receipt or undo entry, and retrying the same request fails `STALE_TASK_VERSION`. This is accepted |
 
 ## Unfinished work
 
