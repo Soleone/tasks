@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows } from "@/testing/taskList";
@@ -49,6 +49,72 @@ describe("count line", () => {
     await user.click(priority!);
     await waitFor(() => expect(pressed("[data-filter=task-priority]")).toBe("false"));
     expect(pressed("[data-filter=task-unblocked]")).toBe("true");
+  });
+});
+
+describe("touch feedback", () => {
+  const tooltip = { selector: "[data-slot=tooltip-content][data-open]" };
+  async function tap(
+    selector: string,
+    user: Awaited<ReturnType<AppWorkspace["render"]>>["user"],
+  ): Promise<void> {
+    const target = document.querySelector<HTMLButtonElement>(selector)!;
+    await user.pointer({ keys: "[TouchA]", target });
+  }
+
+  test("toolbar.touch-feedback: taps act immediately, confirm the result and replace feedback without taking focus", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    await tap("[data-sort=task-sort-priority]", user);
+    expect(pressed("[data-sort=task-sort-priority]")).toBe("true");
+    await screen.findByText("Sorted by priority, highest first", tooltip);
+    // Chromium emits a synthetic hover-end after completing a touch click.
+    fireEvent.mouseLeave(document.querySelector("[data-sort=task-sort-priority]")!);
+    expect(screen.getByText("Sorted by priority, highest first", tooltip)).toBeDefined();
+    await expectListFocused();
+
+    await tap("[data-sort=task-sort-reverse]", user);
+    await screen.findByText("Lowest priority first", tooltip);
+    expect(screen.queryByText("Sorted by priority, highest first", tooltip)).toBeNull();
+
+    await tap("[data-view=task-details]", user);
+    await screen.findByText("Details shown", tooltip);
+    await tap("[data-view=task-details]", user);
+    await screen.findByText("Details hidden", tooltip);
+    await expectListFocused();
+
+    await tap("[data-filter=task-unblocked]", user);
+    await screen.findByText("Showing unblocked tasks", tooltip);
+    await tap("[data-filter=task-unblocked]", user);
+    await screen.findByText("Showing all tasks", tooltip);
+    await waitFor(() => expect(screen.queryByText("Showing all tasks", tooltip)).toBeNull(), {
+      timeout: 2000,
+    });
+  });
+
+  test("toolbar.touch-feedback: menus dismiss feedback, disabled reverse stays silent and mouse hover still works", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    const created = document.querySelector<HTMLButtonElement>("[data-sort=task-sort-created]")!;
+    await user.hover(created);
+    await screen.findByText("Created", tooltip);
+    expect(screen.queryByText("Sorted by created date, newest first", tooltip)).toBeNull();
+    await user.unhover(created);
+    await waitFor(() => expect(screen.queryByText("Created", tooltip)).toBeNull());
+
+    await tap("[data-sort=task-sort-manual]", user);
+    await screen.findByText("Sorted by manual order", tooltip);
+    await tap("[data-sort=task-sort-reverse]", user);
+    await waitFor(() => expect(screen.queryByText("Sorted by manual order", tooltip)).toBeNull());
+    expect(document.querySelector(tooltip.selector)).toBeNull();
+
+    await tap("[data-view=task-details]", user);
+    await screen.findByText("Details shown", tooltip);
+    await tap("[data-filter=task-priority]", user);
+    await screen.findByRole("dialog");
+    expect(screen.queryByText("Details shown", tooltip)).toBeNull();
+    expect(document.querySelector(tooltip.selector)).toBeNull();
+    await user.keyboard("{Escape}");
   });
 });
 

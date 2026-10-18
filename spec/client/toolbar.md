@@ -8,6 +8,12 @@ One compact row above the list, in this order:
 
 Each button shows its value through its pressed state, label and tooltip. Filters, search and sort are remembered between launches.
 
+## Touch feedback
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `toolbar.touch-feedback` | Tapping Unblocked, a sort option, Reverse or Details with touch | The action runs immediately and a tooltip above the button confirms the resulting state for 1.5 seconds. The next interaction dismisses or replaces it, without taking focus. Disabled controls do not show feedback. Desktop hover is unchanged; buttons that open menus or pickers do not add tap feedback |
+
 ## Count line
 
 | Rule | When | Then |

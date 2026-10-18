@@ -1,4 +1,15 @@
-import { Fragment, type ReactElement, type ReactNode, type RefObject } from "react";
+import {
+  Fragment,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   ArrowDown,
   ArrowDownUp,
@@ -195,6 +206,59 @@ export function TaskListToolbar({
   clearTagFilter,
   clearSearch,
 }: TaskListToolbarProps): ReactElement {
+  const tooltipId = useId();
+  const touchTarget = useRef<HTMLButtonElement | null>(null);
+  const [touchFeedback, setTouchFeedback] = useState<{ key: string } | null>(null);
+  const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
+  const dismissFeedback = useEffectEvent((event: PointerEvent | KeyboardEvent) => {
+    touchTarget.current =
+      "pointerType" in event && event.pointerType === "touch" && event.target instanceof Element
+        ? event.target.closest<HTMLButtonElement>("button[data-toolbar-feedback]")
+        : null;
+    setTouchFeedback(null);
+    setHoveredTooltip(null);
+    setUnblockedFeedbackOpen(false);
+  });
+  useEffect(() => {
+    document.addEventListener("pointerdown", dismissFeedback, true);
+    document.addEventListener("keydown", dismissFeedback, true);
+    return () => {
+      document.removeEventListener("pointerdown", dismissFeedback, true);
+      document.removeEventListener("keydown", dismissFeedback, true);
+    };
+  }, []);
+  useEffect(() => {
+    if (!touchFeedback) return;
+    const timeout = window.setTimeout(() => setTouchFeedback(null), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [touchFeedback]);
+
+  function feedbackTooltip(key: string): ComponentProps<typeof Tooltip> {
+    return {
+      triggerId: `${tooltipId}-${key}`,
+      disableHoverablePopup: touchFeedback !== null,
+      open: touchFeedback
+        ? touchFeedback.key === key
+        : key === "unblocked"
+          ? unblockedFeedbackOpen
+          : hoveredTooltip === key,
+      onOpenChange: (open, details) => {
+        // Touch generates press and hover-end events after the click. Neither should
+        // dismiss the feedback that click just opened.
+        if (
+          touchFeedback?.key === key &&
+          (details.reason === "trigger-press" || details.reason === "trigger-hover")
+        ) {
+          details.cancel();
+          return;
+        }
+        setHoveredTooltip(open ? key : null);
+        if (key === "unblocked") setUnblockedFeedbackOpen(open);
+        if (!open && touchFeedback?.key === key) setTouchFeedback(null);
+      },
+    };
+  }
+
   const statusActive = exactStatus !== null || statusPreset === "inactive";
   const statusLabel =
     exactStatus !== null
@@ -213,6 +277,18 @@ export function TaskListToolbar({
   // Descending is the default direction. The toggle is highlighted only
   // after reversing that default to ascending order.
   const reverseActive = sortField !== "manual" && sortDirection === "asc";
+  const sortFeedback =
+    sortField === "manual"
+      ? "Sorted by manual order"
+      : `Sorted by ${sortField === "priority" ? "priority" : `${sortField} date`}, ${
+          sortField === "priority"
+            ? sortDirection === "desc"
+              ? "highest first"
+              : "lowest first"
+            : sortDirection === "desc"
+              ? "newest first"
+              : "oldest first"
+        }`;
   const summaryStatus = statusLabel.toLowerCase();
   const summaryTags =
     tagFilter.length > 2
@@ -265,7 +341,16 @@ export function TaskListToolbar({
     .join(" · ");
 
   return (
-    <div className="flex shrink-0 flex-col gap-4">
+    <div
+      className="flex shrink-0 flex-col gap-4"
+      onClickCapture={(event) => {
+        const button = touchTarget.current;
+        touchTarget.current = null;
+        if (!button || button.disabled || !button.contains(event.target as Node)) return;
+        setHoveredTooltip(null);
+        setTouchFeedback({ key: button.dataset.toolbarFeedback! });
+      }}
+    >
       {/* On a phone the toolbar is two rows on a grid of icon-wide columns: New task spans four,
           each group glyph one and the gap before View one, so the icons line up. A glyph and its
           group form one cell, so larger text wraps them together. Wider screens use one row. */}
@@ -422,8 +507,9 @@ export function TaskListToolbar({
                     {tagFilter.length > 0 ? tagFilter.map((tag) => tag.label).join(", ") : "Tags"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
+                <Tooltip {...feedbackTooltip("unblocked")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-unblocked`}
                     render={
                       <ToggleButton
                         variant={showUnblocked ? "outline" : "ghost"}
@@ -438,6 +524,7 @@ export function TaskListToolbar({
                         aria-pressed={showUnblocked}
                         aria-keyshortcuts="U"
                         data-filter="task-unblocked"
+                        data-toolbar-feedback="unblocked"
                         onClick={toggleUnblockedFilter}
                       />
                     }
@@ -448,7 +535,13 @@ export function TaskListToolbar({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    {showUnblocked ? "Unblocked" : "All tasks"}
+                    {touchFeedback?.key === "unblocked"
+                      ? showUnblocked
+                        ? "Showing unblocked tasks"
+                        : "Showing all tasks"
+                      : showUnblocked
+                        ? "Unblocked"
+                        : "All tasks"}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -508,8 +601,9 @@ export function TaskListToolbar({
                   if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
                 }}
               >
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("created")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-created`}
                     render={
                       <ToggleButton
                         variant={sortField === "created" ? "outline" : "ghost"}
@@ -520,6 +614,7 @@ export function TaskListToolbar({
                         aria-pressed={sortField === "created"}
                         aria-keyshortcuts="C"
                         data-sort="task-sort-created"
+                        data-toolbar-feedback="created"
                         onClick={() => applySortField("created")}
                       />
                     }
@@ -528,11 +623,12 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by created</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    Created
+                    {touchFeedback?.key === "created" ? sortFeedback : "Created"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("updated")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-updated`}
                     render={
                       <ToggleButton
                         variant={sortField === "updated" ? "outline" : "ghost"}
@@ -543,6 +639,7 @@ export function TaskListToolbar({
                         aria-pressed={sortField === "updated"}
                         aria-keyshortcuts="U"
                         data-sort="task-sort-updated"
+                        data-toolbar-feedback="updated"
                         onClick={() => applySortField("updated")}
                       />
                     }
@@ -551,11 +648,12 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by updated</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    Updated
+                    {touchFeedback?.key === "updated" ? sortFeedback : "Updated"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("priority")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-priority`}
                     render={
                       <ToggleButton
                         variant={sortField === "priority" ? "outline" : "ghost"}
@@ -566,6 +664,7 @@ export function TaskListToolbar({
                         aria-pressed={sortField === "priority"}
                         aria-keyshortcuts="P"
                         data-sort="task-sort-priority"
+                        data-toolbar-feedback="priority"
                         onClick={() => applySortField("priority")}
                       />
                     }
@@ -574,11 +673,12 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by priority</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    Priority
+                    {touchFeedback?.key === "priority" ? sortFeedback : "Priority"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("manual")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-manual`}
                     render={
                       <ToggleButton
                         variant={sortField === "manual" ? "outline" : "ghost"}
@@ -589,6 +689,7 @@ export function TaskListToolbar({
                         aria-pressed={sortField === "manual"}
                         aria-keyshortcuts="M"
                         data-sort="task-sort-manual"
+                        data-toolbar-feedback="manual"
                         onClick={() => applySortField("manual")}
                       />
                     }
@@ -597,11 +698,12 @@ export function TaskListToolbar({
                     <span className="sr-only">Sort by manual order</span>
                   </TooltipTrigger>
                   <TooltipContent side="top" sideOffset={8}>
-                    Manual order
+                    {touchFeedback?.key === "manual" ? "Sorted by manual order" : "Manual order"}
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
+                <Tooltip {...feedbackTooltip("reverse")}>
                   <TooltipTrigger
+                    id={`${tooltipId}-reverse`}
                     render={
                       <ToggleButton
                         variant={reverseActive ? "outline" : "ghost"}
@@ -623,6 +725,7 @@ export function TaskListToolbar({
                         }
                         aria-keyshortcuts="R"
                         data-sort="task-sort-reverse"
+                        data-toolbar-feedback="reverse"
                         onClick={reverseSort}
                       />
                     }
@@ -660,8 +763,9 @@ export function TaskListToolbar({
           <div className="ml-7 flex sm:ml-0">
             <ToolbarGroupGlyph icon={Eye} label="View" />
             <ButtonGroup aria-label="Task list view">
-              <Tooltip>
+              <Tooltip {...feedbackTooltip("details")}>
                 <TooltipTrigger
+                  id={`${tooltipId}-details`}
                   render={
                     <ToggleButton
                       variant={showDetails ? "outline" : "ghost"}
@@ -676,6 +780,7 @@ export function TaskListToolbar({
                       aria-pressed={showDetails}
                       aria-keyshortcuts="V"
                       data-view="task-details"
+                      data-toolbar-feedback="details"
                       onClick={onToggleDetails}
                     />
                   }
@@ -688,7 +793,13 @@ export function TaskListToolbar({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={8}>
-                  {showDetails ? "Hide details" : "Show details"}
+                  {touchFeedback?.key === "details"
+                    ? showDetails
+                      ? "Details shown"
+                      : "Details hidden"
+                    : showDetails
+                      ? "Hide details"
+                      : "Show details"}
                 </TooltipContent>
               </Tooltip>
               <Popover open={moveControlsOpen} onOpenChange={setMoveControlsOpen}>
