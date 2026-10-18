@@ -128,7 +128,7 @@ export default function DesktopWorkspace(): ReactElement | null {
   if (!paths && !error) return null;
 
   return (
-    <main className="app-shell mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6">
+    <main className="app-shell mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="font-heading text-xl font-semibold">Set up {APP_NAME}</h1>
         <p className="text-sm text-muted-foreground">

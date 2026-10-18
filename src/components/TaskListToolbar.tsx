@@ -266,12 +266,12 @@ export function TaskListToolbar({
 
   return (
     <div className="flex shrink-0 flex-col gap-4">
-      {/* The toolbar is two rows on a grid of icon-wide columns: New task spans four, each group
-          glyph one and the gap before View one, so the icons line up. A glyph and its group form
-          one cell, so larger text wraps them together. */}
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-y-2">
-          <div className="w-28">
+      {/* On a phone the toolbar is two rows on a grid of icon-wide columns: New task spans four,
+          each group glyph one and the gap before View one, so the icons line up. A glyph and its
+          group form one cell, so larger text wraps them together. Wider screens use one row. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
+          <div className="w-28 sm:mr-auto sm:w-auto">
             <Button
               size="sm"
               tabIndex={-1}
@@ -484,7 +484,7 @@ export function TaskListToolbar({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-y-2">
+        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
           <div className="flex">
             <ToolbarGroupGlyph icon={ArrowDownWideNarrow} label="Sort" />
             <div className="relative">
@@ -657,7 +657,7 @@ export function TaskListToolbar({
               </ToolbarGroup>
             </div>
           </div>
-          <div className="ml-7 flex">
+          <div className="ml-7 flex sm:ml-0">
             <ToolbarGroupGlyph icon={Eye} label="View" />
             <ButtonGroup aria-label="Task list view">
               <Tooltip>

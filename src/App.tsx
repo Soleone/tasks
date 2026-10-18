@@ -641,7 +641,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   return (
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
       <WorkspaceRequestRecovery workspace={workspace} />
-      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-xl flex-col gap-6 overflow-hidden">
+      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-6 overflow-hidden">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
             <AppIcon className="size-8 shrink-0" />
