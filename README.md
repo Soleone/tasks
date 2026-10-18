@@ -22,7 +22,7 @@ pnpm dev:web
 
 This copies the fixture into a fresh temp folder, prints where it is, and opens the task list at the URL Vite prints. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
 
-To try changes on your real tasks without touching them, run `pnpm dev:web:real`. The first run asks for your real task folder and copies it to `$DATA/apps/tasks/dev-web-real/`; later runs reuse that copy with everything you changed in it. `pnpm dev:web:real --refresh` replaces the copy with your current tasks. Nothing is written back, and the copy sits outside Syncthing. Agents never run it.
+To try changes on your real tasks without touching them, run `pnpm dev:web:real`. The first run asks which folder to copy to `$DATA/apps/tasks/dev-web-real/`; Enter takes the suggestion (a `Documents/Tasks` folder if one exists, otherwise the test data). Later runs reuse that copy with everything you changed in it. `pnpm dev:web:real --refresh` asks again, with your last choice as the default, and replaces the copy. Nothing is written back, and the copy sits outside Syncthing. Agents never run it.
 
 To keep data between runs in a folder of your own, pick it yourself: `pnpm dev:web --root PATH --database CACHE`. The cache must sit outside the task folder, and the window asks before opening it.
 
