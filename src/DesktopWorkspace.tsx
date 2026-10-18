@@ -45,11 +45,11 @@ async function inspect(appData: string, folder: string) {
 }
 
 /** The desktop app opens the remembered task folder. On first launch it asks for one. */
-export default function DesktopWorkspace(): ReactElement {
+export default function DesktopWorkspace(): ReactElement | null {
   const [paths, setPaths] = useState<DesktopPaths | null>(null);
   const [folder, setFolder] = useState("");
   const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
-  const [busy, setBusy] = useState<string | null>("Opening Tasks...");
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
 
@@ -73,8 +73,6 @@ export default function DesktopWorkspace(): ReactElement {
         setFolder(remembered ?? found.suggestedFolder);
       } catch (reason) {
         if (!cancelled) setError(message(reason));
-      } finally {
-        if (!cancelled) setBusy(null);
       }
     })();
     return () => {
@@ -126,6 +124,8 @@ export default function DesktopWorkspace(): ReactElement {
   }
 
   if (workspace) return <App workspace={workspace} />;
+  // Opening the remembered folder shows nothing, so setup appears only when it is needed.
+  if (!paths && !error) return null;
 
   return (
     <main className="app-shell mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-6">

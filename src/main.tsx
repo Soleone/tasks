@@ -38,7 +38,7 @@ applyStoredFontSizeIncrease();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider>
-      <Suspense fallback={<p role="status">Loading Tasks...</p>}>
+      <Suspense fallback={null}>
         {runtimeKind() === "native" ? <DesktopWorkspace /> : <WorkspaceSelection />}
       </Suspense>
     </TooltipProvider>
