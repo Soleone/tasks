@@ -88,3 +88,9 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |
 | `details.footer` | Details is on | One quiet last row shows Created, and Updated first when it falls on a different day |
 | `details.relative-dates` | A date in the footer | Reads `today`, `yesterday` or `2 days ago`; older dates read `Sep 8`, or `Dec 10, 2025` outside the current year. Hover shows the full local time |
+
+## Scrolling
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `home.quiet-scrollbar` | A list, dialog or panel overflows | Its scrollbar thumb shows only while the pointer is over it or it is scrolling, by mouse or keyboard, and hides shortly after it rests |

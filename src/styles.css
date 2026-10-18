@@ -284,6 +284,14 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  /* A thumb shows only under the pointer or while scrolling (src/scrollbars.ts), like overlay scrollbars. */
+  :hover,
+  [data-scrolling] {
+    scrollbar-color: var(--border) transparent;
   }
 
   button:not(:disabled),

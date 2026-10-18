@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyStoredFontSizeIncrease } from "./fontSize";
 import { applyStoredTheme } from "./theme";
 import { runtimeKind } from "./platform/runtime";
+import { revealScrollbarsWhileScrolling } from "./scrollbars";
 import "./styles.css";
 
 const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
@@ -34,6 +35,7 @@ for (const [size, href] of favicons) {
 // the neutral ramp; the workspace selection reconciles it right after.
 applyStoredTheme();
 applyStoredFontSizeIncrease();
+revealScrollbarsWhileScrolling();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

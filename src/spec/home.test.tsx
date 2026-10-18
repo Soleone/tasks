@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import { revealScrollbarsWhileScrolling } from "@/scrollbars";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import {
   activeTitle,
@@ -366,5 +367,28 @@ describe("details", () => {
     await waitFor(() =>
       expect(row("Task").querySelector("[title^=Created]")?.textContent).toMatch(/today/),
     );
+  });
+});
+
+describe("scrolling", () => {
+  test("home.quiet-scrollbar: a scrolling element is marked until it rests", () => {
+    vi.useFakeTimers();
+    const stop = revealScrollbarsWhileScrolling();
+    const panel = document.createElement("div");
+    document.body.append(panel);
+    try {
+      fireEvent.scroll(panel);
+      expect(panel.hasAttribute("data-scrolling")).toBe(true);
+      vi.advanceTimersByTime(500);
+      fireEvent.scroll(panel);
+      vi.advanceTimersByTime(500);
+      expect(panel.hasAttribute("data-scrolling")).toBe(true);
+      vi.advanceTimersByTime(500);
+      expect(panel.hasAttribute("data-scrolling")).toBe(false);
+    } finally {
+      stop();
+      panel.remove();
+      vi.useRealTimers();
+    }
   });
 });
