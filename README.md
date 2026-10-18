@@ -20,9 +20,11 @@ Use disposable data while developing. Nothing below touches your personal worksp
 pnpm dev:web
 ```
 
-This copies the fixture into a fresh temp folder and prints where it is. Open the URL Vite prints, confirm the folder, cache and profile, and the task list opens. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
+This copies the fixture into a fresh temp folder, prints where it is, and opens the task list at the URL Vite prints. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
 
-To keep data between runs, pick the folder yourself: `pnpm dev:web --root PATH --database CACHE`. The cache must sit outside the task folder.
+To try changes on your real tasks without touching them, run `pnpm dev:web:real`. The first run asks for your real task folder and copies it to `$DATA/apps/tasks/dev-web-real/`; later runs reuse that copy with everything you changed in it. `pnpm dev:web:real --refresh` replaces the copy with your current tasks. Nothing is written back, and the copy sits outside Syncthing. Agents never run it.
+
+To keep data between runs in a folder of your own, pick it yourself: `pnpm dev:web --root PATH --database CACHE`. The cache must sit outside the task folder, and the window asks before opening it.
 
 ## Use the CLI
 

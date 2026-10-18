@@ -10,7 +10,20 @@ import { Field, FieldGroup, FieldLabel } from "./components/ui/field";
 import { devBackendUrl, WorkspaceReader } from "./platform/workspaceReader";
 import { readEditorSelection, EditorClient, type EditorSelection } from "./platform/editorClient";
 
-/** Shows the dev bridge's folder, cache and profile, and opens Tasks only after explicit confirmation. */
+// dev:web sets this when it made the folder itself (the fixture or the kept copy of the real tasks).
+const openCopyDirectly = import.meta.env.VITE_DEV_WORKSPACE_COPY === "1";
+
+function openWorkspace(selection: EditorSelection): MainWorkspace {
+  const url = devBackendUrl();
+  const workspace = new MainWorkspace(
+    new WorkspaceReader(selection, { url, selection }),
+    new EditorClient(url, selection),
+  );
+  selectMainWorkspace(workspace);
+  return workspace;
+}
+
+/** Opens the dev bridge's folder: a copy directly, a folder picked by hand after confirmation. */
 export default function WorkspaceSelection(): ReactElement {
   const [selection, setSelection] = useState<EditorSelection | null>(null);
   const [workspace, setWorkspace] = useState<MainWorkspace | undefined>(undefined);
@@ -23,7 +36,9 @@ export default function WorkspaceSelection(): ReactElement {
     let cancelled = false;
     void readEditorSelection(devBackendUrl())
       .then((selected) => {
-        if (!cancelled) setSelection(selected);
+        if (cancelled) return;
+        setSelection(selected);
+        if (openCopyDirectly) setWorkspace(openWorkspace(selected));
       })
       .catch((reason: unknown) => {
         if (!cancelled)
@@ -54,28 +69,21 @@ export default function WorkspaceSelection(): ReactElement {
     event.preventDefault();
     if (!selection) return;
     try {
-      const url = devBackendUrl();
-      const selected = new MainWorkspace(
-        new WorkspaceReader(selection, { url, selection }),
-        new EditorClient(url, selection),
-      );
-      selectMainWorkspace(selected);
-      setWorkspace(selected);
+      setWorkspace(openWorkspace(selection));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not select this folder.");
     }
   }
 
   if (workspace) return <App workspace={workspace} />;
+  if (openCopyDirectly && !error) return <p role="status">Loading Tasks...</p>;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header>
-        <h1 className="font-heading text-xl font-semibold">{APP_NAME}: select a folder</h1>
+        <h1 className="font-heading text-xl font-semibold">Open this task folder?</h1>
       </header>
-      <p className="text-sm text-muted-foreground">
-        Confirm this workspace before opening Tasks. Nothing is read until you confirm.
-      </p>
+      <p className="text-sm text-muted-foreground">{APP_NAME} reads nothing until you open it.</p>
       <form onSubmit={confirm} className="flex flex-col gap-4">
         <FieldGroup>
           <Field>
@@ -89,28 +97,12 @@ export default function WorkspaceSelection(): ReactElement {
               placeholder="Absolute path to the selected folder"
             />
           </Field>
-          <Field>
-            <FieldLabel htmlFor="workspace-cache">Local cache outside the task folder</FieldLabel>
-            <Input
-              id="workspace-cache"
-              value={selection?.databasePath ?? ""}
-              readOnly
-              required
-              autoComplete="off"
-              placeholder="Absolute path to the selected SQLite cache"
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="workspace-profile">Dedicated local profile</FieldLabel>
-            <Input
-              id="workspace-profile"
-              value={selection?.profilePath ?? ""}
-              readOnly
-              required
-              autoComplete="off"
-            />
-          </Field>
         </FieldGroup>
+        {selection && (
+          <p className="text-sm break-all text-muted-foreground">
+            Local data, never synced: {selection.databasePath} and {selection.profilePath}
+          </p>
+        )}
         <div>
           <Button ref={confirmRef} type="submit" disabled={!selection}>
             Open Tasks
@@ -126,10 +118,6 @@ export default function WorkspaceSelection(): ReactElement {
           </Button>
         </Alert>
       )}
-      <p className="text-sm text-muted-foreground">
-        Keep this profile, folder and cache during pending or uncertain work. Retry state lives only
-        in this page. No selection is saved across reloads.
-      </p>
     </main>
   );
 }

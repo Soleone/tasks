@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vp dev",
     "dev:web": "node scripts/dev-web.mjs",
+    "dev:web:real": "node scripts/dev-web.mjs --real",
     "dev:backend": "pnpm build:backend && node dist/backend/devServer.js",
     "tasks-cli": "pnpm build:backend && node dist/backend/tasks-cli.js",
     "migrate": "pnpm build:backend && node scripts/migrate.mjs",

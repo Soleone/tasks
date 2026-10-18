@@ -8,7 +8,7 @@ The owner is the only user. The old engine is deleted; don't bring back coexiste
 
 A generic "proceed" authorizes at most the next approved stage or task in PLAN.md; SQ readiness is not approval. Stop at its checkpoint or at any unresolved host, contract or tooling blocker. Don't resume deferred work because an older handoff says to.
 
-Use disposable data and the commands in [README.md](README.md). Never read, convert or select the owner's personal workspace without explicit permission. Browser checks are not desktop validation; record native blockers instead.
+Use disposable data and the commands in [README.md](README.md). Never read, convert or select the owner's personal workspace without explicit permission. `pnpm dev:web:real` copies it, so only the owner runs that. Browser checks are not desktop validation; record native blockers instead.
 
 ## Spec
 

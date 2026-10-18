@@ -3,26 +3,33 @@ import { cpSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { devWebOptions } from "./dev-web-options.mjs";
+import { realSnapshot } from "./dev-web-real.mjs";
 
 const options = devWebOptions(process.argv.slice(2));
 const { viteArgs } = options;
 const root = path.resolve(import.meta.dirname, "..");
 const env = { ...process.env };
 let backendArgs = options.backendArgs;
-// Without a selection, run on a fresh copy of the fixture so the real workspace is never opened.
-if (backendArgs.length === 0) {
+let viteEnv = process.env;
+let copy;
+if (options.real) {
+  copy = await realSnapshot(options.refresh);
+} else if (backendArgs.length === 0) {
+  // Without a selection, run on a fresh copy of the fixture so the real workspace is never opened.
   const scratch = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
-  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(scratch, "root"), {
-    recursive: true,
-  });
-  env.XDG_DATA_HOME = path.join(scratch, "profile");
-  backendArgs = [
-    "--root",
-    path.join(scratch, "root"),
-    "--database",
-    path.join(scratch, "cache.db"),
-  ];
+  copy = {
+    root: path.join(scratch, "root"),
+    database: path.join(scratch, "cache.db"),
+    profile: path.join(scratch, "profile"),
+  };
+  cpSync(path.join(root, "scripts/fixtures/workspace/root"), copy.root, { recursive: true });
   process.stdout.write(`[dev:web] disposable workspace in ${scratch}\n`);
+}
+if (copy) {
+  env.XDG_DATA_HOME = copy.profile;
+  backendArgs = ["--root", copy.root, "--database", copy.database];
+  // The UI asks before opening a folder picked by hand; copies made here open directly.
+  viteEnv = { ...process.env, VITE_DEV_WORKSPACE_COPY: "1" };
 }
 
 execFileSync("pnpm", ["build:backend"], {
@@ -43,7 +50,7 @@ const vite = spawn(
   {
     cwd: root,
     stdio: ["ignore", "pipe", "pipe"],
-    env: process.env,
+    env: viteEnv,
   },
 );
 

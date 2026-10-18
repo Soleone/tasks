@@ -138,6 +138,8 @@ test("dev launcher passes an explicit root and keeps Vite arguments separate", (
     {
       backendArgs: ["--root", path.resolve("fixture"), "--database", path.resolve("cache.db")],
       viteArgs: ["--port", "5231"],
+      real: false,
+      refresh: false,
     },
   );
 });
@@ -145,6 +147,16 @@ test("dev launcher without a selection leaves the workspace to the disposable fi
   assert.deepEqual(devWebOptions(["--", "--host", "127.0.0.1"]), {
     backendArgs: [],
     viteArgs: ["--host", "127.0.0.1"],
+    real: false,
+    refresh: false,
+  });
+});
+test("dev launcher asks for the kept copy of the real folder", () => {
+  assert.deepEqual(devWebOptions(["--real", "--refresh"]), {
+    backendArgs: [],
+    viteArgs: [],
+    real: true,
+    refresh: true,
   });
 });
 for (const argv of [
@@ -154,6 +166,9 @@ for (const argv of [
   ["--root", "root", "--database", "cache", "--root", "other"],
   ["--root", "root", "--database", ""],
   ["--root", "root", "--database", "cache", "--unknown", "value"],
+  ["--refresh"],
+  ["--real", "--real"],
+  ["--real", "--root", "root", "--database", "cache"],
 ]) {
   test(`dev launcher refuses ambiguous selection ${JSON.stringify(argv)}`, () =>
     assert.throws(() => devWebOptions(argv)));
