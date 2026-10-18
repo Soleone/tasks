@@ -65,6 +65,46 @@ export function placementForMove(
   return next ? { afterId: next.task.id } : null;
 }
 
+/** Keep roots and their visible descendants together while a move is being saved. */
+export function orderedTaskRows(
+  rows: readonly VisibleTaskRow[],
+  order: ReadonlyMap<string, number>,
+): VisibleTaskRow[] {
+  const groups: VisibleTaskRow[][] = [];
+  for (const row of rows) {
+    if (row.depth === 0 || groups.length === 0) groups.push([row]);
+    else groups[groups.length - 1].push(row);
+  }
+  const rank = (row: VisibleTaskRow) => order.get(row.task.id) ?? Number.MAX_SAFE_INTEGER;
+  groups.sort((left, right) => rank(left[0]) - rank(right[0]));
+  return groups.flatMap(([root, ...children]) => [
+    root,
+    ...children.sort((left, right) => rank(left) - rank(right)),
+  ]);
+}
+
+export function movedTaskRows(
+  rows: readonly VisibleTaskRow[],
+  selected: readonly VisibleTaskRow[],
+  placement: TaskMovePlacement,
+): VisibleTaskRow[] {
+  const ids = new Set(selected.map((row) => row.task.id));
+  const moving: VisibleTaskRow[] = [];
+  const remaining: VisibleTaskRow[] = [];
+  let movingRoot = false;
+  for (const row of rows) {
+    if (row.depth === 0) movingRoot = ids.has(row.task.id);
+    (movingRoot || ids.has(row.task.id) ? moving : remaining).push(row);
+  }
+  let index = remaining.findIndex((row) => row.task.id === placementTargetId(placement));
+  if ("afterId" in placement) {
+    const targetDepth = remaining[index].depth;
+    index++;
+    if (targetDepth === 0) while (index < remaining.length && remaining[index].depth > 0) index++;
+  }
+  return [...remaining.slice(0, index), ...moving, ...remaining.slice(index)];
+}
+
 export function selectionMembershipMatches(
   rows: readonly VisibleTaskRow[],
   ids: readonly string[],

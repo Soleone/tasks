@@ -2,6 +2,8 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { revealScrollbarsWhileScrolling } from "@/scrollbars";
 import { AppWorkspace } from "@/testing/appWorkspace";
+import { selectedMainWorkspace } from "@/platform/backendClient";
+import { EditorError } from "@/platform/editorClient";
 import {
   activeTitle,
   announcements,
@@ -240,6 +242,93 @@ describe("reorder", () => {
     await expectListFocused();
   });
 
+  test("reorder.step: repeated keys move immediately through slow saves and survive refresh", async () => {
+    await seed("A", "B", "C", "D");
+    const { user } = await workspace.render();
+    await user.keyboard("sm");
+    const before = await manualTitles();
+    await expectRows(before);
+    const original = globalThis.fetch;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    globalThis.fetch = async (...args) => {
+      const body = typeof args[1]?.body === "string" ? JSON.parse(args[1].body) : null;
+      if (body?.command === "task.reorder" && ++writes === 1) await held;
+      return original(...args);
+    };
+    try {
+      // All three keydowns arrive before React commits or the first write answers.
+      act(() => {
+        fireEvent.keyDown(taskList(), { key: "ArrowDown", ctrlKey: true });
+        fireEvent.keyDown(taskList(), { key: "ArrowDown", ctrlKey: true, repeat: true });
+        fireEvent.keyDown(taskList(), { key: "ArrowUp", ctrlKey: true });
+      });
+      await expectRows([before[1], before[0], before[2], before[3]]);
+      await expectActive(before[0]);
+      await waitFor(() => expect(writes).toBe(1));
+      expect(await manualTitles()).toEqual(before);
+      // Refreshing an unchanged workspace must not erase the pending moves.
+      act(() => window.dispatchEvent(new Event("focus")));
+      await user.keyboard("{End}");
+      await expectActive(before[3]);
+      await expectRows([before[1], before[0], before[2], before[3]]);
+    } finally {
+      release();
+      globalThis.fetch = original;
+    }
+    const expected = [before[1], before[0], before[2], before[3]];
+    await waitFor(async () => expect(await manualTitles()).toEqual(expected));
+    await waitFor(() => expect(announcements()).toMatch(/moved up/));
+    await expectRows(expected);
+    await expectActive(before[3]);
+    expect(selectedTitles()).toEqual([before[3]]);
+    // Every accepted step still has its own undo operation.
+    await user.keyboard("{Control>}z{/Control}");
+    await waitFor(async () =>
+      expect(await manualTitles()).toEqual([before[1], before[2], before[0], before[3]]),
+    );
+  });
+
+  test("reorder.step: a refused save drops queued moves and restores confirmed order", async () => {
+    await seed("A", "B", "C");
+    const { user } = await workspace.render();
+    await user.keyboard("sm");
+    const before = await manualTitles();
+    await expectRows(before);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const reorder = vi
+      .spyOn(selectedMainWorkspace()!, "reorder")
+      .mockImplementationOnce(async () => {
+        await held;
+        throw new EditorError("STALE_TASK_VERSION", "changed elsewhere");
+      });
+    try {
+      act(() => {
+        fireEvent.keyDown(taskList(), { key: "ArrowDown", ctrlKey: true });
+        fireEvent.keyDown(taskList(), { key: "ArrowDown", ctrlKey: true, repeat: true });
+      });
+      await expectRows([before[1], before[2], before[0]]);
+      await waitFor(() => expect(reorder).toHaveBeenCalledTimes(1));
+    } finally {
+      release();
+    }
+    await waitFor(() => expect(announcements()).toMatch(/changed elsewhere/));
+    await expectRows(before);
+    expect(await manualTitles()).toEqual(before);
+    expect(reorder).toHaveBeenCalledTimes(1);
+    reorder.mockRestore();
+    await user.keyboard("{Control>}{ArrowDown}{/Control}");
+    await waitFor(async () =>
+      expect(await manualTitles()).toEqual([before[1], before[0], before[2]]),
+    );
+  });
+
   test("reorder.edge: Ctrl+End moves the selection to the end of its scope", async () => {
     await seed("A", "B", "C");
     const { user } = await workspace.render();
@@ -277,26 +366,42 @@ describe("reorder", () => {
     expect(await manualTitles()).toEqual(before);
   });
 
-  test("reorder.children-follow: a moved root keeps its children", async () => {
+  test("reorder.children-follow: a moved root keeps its expanded children before and after saving", async () => {
     const parent = await workspace.create("Parent");
-    await workspace.create("Child", { parentId: parent.id });
+    const child = await workspace.create("Child", { parentId: parent.id });
     await workspace.create("Other");
     const { user } = await workspace.render();
-    await user.keyboard("sm");
-    await expectActive((await manualTitles())[0]);
-    await user.keyboard("{Home}");
-    const first = activeTitle();
-    await user.keyboard("{Control>}{End}{/Control}");
-    await waitFor(async () => expect((await manualTitles())[0]).not.toBe(first));
-    expect(
-      (
-        await workspace.task(
-          (
-            await workspace.command<{ tasks: { id: string; title: string }[] }>("task.list", {})
-          ).tasks.find((task) => task.title === "Child")!.id,
-        )
-      ).parentId,
-    ).toBe(parent.id);
+    await user.keyboard("sm{Home}");
+    const parentFirst = activeTitle() === "Parent";
+    if (!parentFirst) await user.keyboard("{ArrowDown}");
+    await expectActive("Parent");
+    await user.keyboard("{ArrowRight}");
+    await expectRows(parentFirst ? ["Parent", "Child", "Other"] : ["Other", "Parent", "Child"]);
+    const selected = selectedMainWorkspace()!;
+    const original = selected.reorder.bind(selected);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const reorder = vi.spyOn(selected, "reorder").mockImplementationOnce(async (...args) => {
+      await held;
+      return original(...args);
+    });
+    const expected = parentFirst ? ["Other", "Parent", "Child"] : ["Parent", "Child", "Other"];
+    try {
+      await user.keyboard(
+        parentFirst ? "{Control>}{ArrowDown}{/Control}" : "{Control>}{ArrowUp}{/Control}",
+      );
+      await expectRows(expected);
+      await expectActive("Parent");
+      await waitFor(() => expect(reorder).toHaveBeenCalledTimes(1));
+    } finally {
+      release();
+    }
+    await waitFor(async () => expect(await manualTitles()).toEqual(expected));
+    await expectRows(expected);
+    expect((await workspace.task(child.id)).parentId).toBe(parent.id);
+    reorder.mockRestore();
   });
 
   test("reorder.mouse: the Move button opens move controls, closed by default", async () => {

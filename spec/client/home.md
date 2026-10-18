@@ -66,7 +66,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `reorder.step` | `Ctrl/⌘+Up` / `Ctrl/⌘+Down` | The selected group moves one visible sibling slot |
+| `reorder.step` | `Ctrl/⌘+Up` / `Ctrl/⌘+Down`, including key repeats | The selected group moves one visible sibling slot immediately in Manual order. Repeated presses update the list while earlier moves save in sequence; a failed move stops the unsaved sequence and restores the confirmed order |
 | `reorder.edge` | `Ctrl/⌘+Home` / `Ctrl/⌘+End` | The selected group moves to the start or end of its sibling scope |
 | `reorder.switch-sort` | The first reorder while another sort is active | The list switches to Manual order |
 | `reorder.allowed-view` | Reordering outside the default Active view (optionally narrowed to one category) | Nothing moves. A message names the filter to clear |

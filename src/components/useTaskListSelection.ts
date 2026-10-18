@@ -375,11 +375,6 @@ export function useTaskListSelection({
     onEdit(task);
   });
 
-  function restoreSelectionAfterMove(taskId: string, taskIds: Iterable<string>): void {
-    restoreActiveIdRef.current = taskId;
-    restoreSelectionIdsRef.current = new Set(taskIds);
-  }
-
   return {
     activeIndex,
     activeRow,
@@ -394,7 +389,6 @@ export function useTaskListSelection({
     selectBoundary,
     clearSelection,
     handleOptionClick,
-    restoreSelectionAfterMove,
     handle: {
       startIdentityPreservingRefresh: () => {
         identityRefreshPendingRef.current = true;

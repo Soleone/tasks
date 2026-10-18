@@ -165,7 +165,7 @@ export function useTaskListKeyboard(
                 ? "end"
                 : null;
       if (moveDirection !== null) {
-        if (event.repeat || event.isComposing || event.keyCode === 229) return;
+        if (event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
         void actions.reorderSelection(moveDirection);
         return;

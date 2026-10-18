@@ -36,12 +36,12 @@ import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import {
+  movedTaskRows,
+  orderedTaskRows,
   placementForMove,
-  placementTargetId,
   selectedRowsForReorder,
   selectionMembershipMatches,
   type TaskMoveDirection,
-  type TaskMovePlacement,
 } from "@/components/taskReordering";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -279,6 +279,13 @@ export function TaskList({
   const unblockedFeedback = useFlashTooltip(unblockedFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [moveControlsOpen, setMoveControlsOpen] = useState(false);
   const reorderPending = useRef(false);
+  const reorderQueue = useRef<
+    { direction: TaskMoveDirection; activeId: string; selectedIds: string[]; filter: string }[]
+  >([]);
+  const [pendingRowOrder, setPendingRowOrder] = useState<{
+    filter: string;
+    ranks: ReadonlyMap<string, number>;
+  } | null>(null);
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
   // A pending status or priority change stays on screen through list refreshes until it settles.
@@ -290,12 +297,11 @@ export function TaskList({
         : queriedTasks.map((task) => pendingTasks.get(task.id) ?? task),
     [queriedTasks, pendingTasks],
   );
-  const visibleRows = useMemo(
+  const savedRows = useMemo(
     () => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder),
     [tasks, expandedIds, contextTasks, contextOrder],
   );
-  const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
-  // A filter change resets the selection.
+  // A filter change resets the selection and hides any previous reorder preview.
   const filterIdentity = [
     statusPreset,
     exactStatus ?? "",
@@ -305,6 +311,30 @@ export function TaskList({
     showUnblocked ? "1" : "0",
     categoryFilter?.slug ?? "",
   ].join("|");
+  const visibleRows = useMemo(
+    () =>
+      pendingRowOrder === null ||
+      pendingRowOrder.filter !== filterIdentity ||
+      sortField !== "manual"
+        ? savedRows
+        : orderedTaskRows(savedRows, pendingRowOrder.ranks),
+    [savedRows, pendingRowOrder, sortField, filterIdentity],
+  );
+  const savedRowsRef = useRef(savedRows);
+  useLayoutEffect(() => {
+    savedRowsRef.current = savedRows;
+  });
+  const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
+  const reorderFilterRef = useRef(filterIdentity);
+  useLayoutEffect(() => {
+    reorderFilterRef.current = filterIdentity;
+  });
+  useEffect(
+    () => () => {
+      reorderQueue.current = [];
+    },
+    [],
+  );
   const hasMore = tasks.length < total;
   const {
     activeIndex,
@@ -320,7 +350,6 @@ export function TaskList({
     selectBoundary,
     clearSelection,
     handleOptionClick,
-    restoreSelectionAfterMove,
     handle: selectionHandle,
   } = useTaskListSelection({
     tasks,
@@ -581,171 +610,210 @@ export function TaskList({
     return null;
   }
 
+  function setMutationPending(taskId: string, pending: boolean): void {
+    if (pending) mutationPending.current.add(taskId);
+    else mutationPending.current.delete(taskId);
+    setMutationPendingIds((previous) => {
+      const next = new Set(previous);
+      if (pending) next.add(taskId);
+      else next.delete(taskId);
+      return next;
+    });
+  }
+
   function waitForListRender(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
   }
 
-  async function reorderSelection(direction: TaskMoveDirection): Promise<void> {
-    if (reorderPending.current) return;
-    const sourceRows = visibleRowsRef.current;
-    const sourceActiveId = activeRow?.task.id;
-    const sourceRow =
-      sourceActiveId === undefined
-        ? sourceRows[activeIndex]
-        : sourceRows.find((candidate) => candidate.task.id === sourceActiveId);
+  async function performReorder(
+    direction: TaskMoveDirection,
+    activeId: string,
+    selection: readonly string[],
+    filter: string,
+  ): Promise<boolean> {
+    if (filter !== reorderFilterRef.current) return false;
+    const sourceRows = savedRowsRef.current;
+    const sourceRow = sourceRows.find((candidate) => candidate.task.id === activeId);
     const reason = reorderDisabledReason(sourceRow);
     if (reason) {
       onAnnounce(reason);
-      return;
+      return false;
     }
-    if (!sourceRow) return;
-    const sourceSelected = selectedRowsForReorder(sourceRow, sourceRows, selectedIdsRef.current);
+    if (!sourceRow) return false;
+    const sourceSelected = selectedRowsForReorder(sourceRow, sourceRows, new Set(selection));
     if (!sourceSelected) {
-      setSelection([], sourceRow.contextOnly ? null : sourceRow.task.id);
       onAnnounce("Selection is limited to one visible sibling scope.");
-      return;
+      return false;
     }
-    const selectedIdSnapshot = sourceSelected.map((candidate) => candidate.task.id);
     const switchedToManual = sortField !== "manual";
-    reorderPending.current = true;
-    try {
-      let placement: TaskMovePlacement | null = null;
-      let refreshedSelectionOrder: VisibleTaskRow[] | null = null;
-      if (switchedToManual) {
-        onSortFieldChange("manual");
-        // Let the sort-change effect start before issuing the authoritative
-        // refresh used to resolve the visible manual-order target.
-        await waitForListRender();
-        try {
-          if (!(await onRefresh(0))) {
-            onAnnounce("Could not refresh tasks. No move was made.");
-            return;
-          }
-        } catch {
-          onAnnounce("Could not refresh tasks. No move was made.");
-          return;
-        }
-        await waitForListRender();
-        const refreshedRows = visibleRowsRef.current;
-        const refreshedActive = refreshedRows.find(
-          (candidate) => candidate.task.id === sourceRow.task.id,
-        );
-        if (!refreshedActive || refreshedActive.contextOnly) {
-          onAnnounce("The selected task changed during refresh. No move was made.");
-          return;
-        }
-        const refreshedSelected = selectedRowsForReorder(
-          refreshedActive,
-          refreshedRows,
-          selectedIdsRef.current,
-        );
-        if (
-          !refreshedSelected ||
-          !selectionMembershipMatches(refreshedSelected, selectedIdSnapshot)
-        ) {
-          onAnnounce("The selected task changed during refresh. No move was made.");
-          return;
-        }
-        refreshedSelectionOrder = refreshedSelected;
-        placement = placementForMove(direction, refreshedActive, refreshedSelected, refreshedRows);
-      } else {
-        placement = placementForMove(direction, sourceRow, sourceSelected, sourceRows);
+    if (switchedToManual) {
+      onSortFieldChange("manual");
+      // Resolve the first move against the saved manual order, not the previous sort.
+      await waitForListRender();
+      if (!(await onRefresh(0))) {
+        onAnnounce("Could not refresh tasks. No move was made.");
+        return false;
       }
-      if (!placement) {
+      await waitForListRender();
+    }
+    if (filter !== reorderFilterRef.current) return false;
+    const currentRows = savedRowsRef.current;
+    const currentActive = currentRows.find((row) => row.task.id === activeId);
+    const currentSelected =
+      currentActive && selectedRowsForReorder(currentActive, currentRows, new Set(selection));
+    if (!currentSelected || !selectionMembershipMatches(currentSelected, selection)) {
+      onAnnounce("The selected task changed during refresh. No move was made.");
+      return false;
+    }
+    const placement = placementForMove(direction, currentSelected[0], currentSelected, currentRows);
+    if (!placement) {
+      const boundary =
+        direction === "up" || direction === "start"
+          ? "Already at the beginning."
+          : "Already at the end.";
+      onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
+      return true;
+    }
+    if (switchedToManual) {
+      let preview = movedTaskRows(currentRows, currentSelected, placement);
+      for (const next of reorderQueue.current) {
+        if (next.filter !== filter) break;
+        const active = preview.find((row) => row.task.id === next.activeId);
+        const selected =
+          active && selectedRowsForReorder(active, preview, new Set(next.selectedIds));
+        if (!selected) break;
+        const target = placementForMove(next.direction, selected[0], selected, preview);
+        if (target) preview = movedTaskRows(preview, selected, target);
+      }
+      visibleRowsRef.current = preview;
+      setPendingRowOrder({
+        filter,
+        ranks: new Map(preview.map((row, index) => [row.task.id, index])),
+      });
+    }
+    const commandTasks = currentSelected.map((candidate) => ({
+      id: candidate.task.id,
+      expectedVersion: candidate.task.version,
+    }));
+    const signature = JSON.stringify({ tasks: commandTasks, placement });
+    const receipt =
+      reorderReceipt.current?.signature === signature
+        ? reorderReceipt.current
+        : { signature, key: randomUUID() };
+    reorderReceipt.current = receipt;
+    currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, true));
+    try {
+      const result = await reorderTasks(commandTasks, placement, { idempotencyKey: receipt.key });
+      reorderReceipt.current = null;
+      if (result.changed === false) {
         const boundary =
           direction === "up" || direction === "start"
             ? "Already at the beginning."
             : "Already at the end.";
         onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
-        return;
+        return true;
       }
-
-      const currentRows = visibleRowsRef.current;
-      const currentActive = currentRows.find(
-        (candidate) => candidate.task.id === sourceRow.task.id,
-      );
-      if (!currentActive || currentActive.contextOnly) {
-        onAnnounce("The selected task changed during refresh. No move was made.");
-        return;
+      if (result.operationId)
+        recordOperation(
+          result.operationId,
+          currentSelected.map((row) => row.task),
+          result.tasks,
+        );
+      if (!(await onRefresh(0))) {
+        onAnnounce(
+          "The move was saved, but tasks could not be refreshed. Refresh before moving again.",
+        );
+        return false;
       }
-      const currentSelected = selectedRowsForReorder(
-        currentActive,
-        currentRows,
-        selectedIdsRef.current,
-      );
-      if (!currentSelected || !selectionMembershipMatches(currentSelected, selectedIdSnapshot)) {
-        onAnnounce("The selected task changed during refresh. No move was made.");
-        return;
-      }
-      const commandSelection =
-        refreshedSelectionOrder === null
-          ? currentSelected
-          : refreshedSelectionOrder
-              .map((row) => currentSelected.find((candidate) => candidate.task.id === row.task.id))
-              .filter((row): row is VisibleTaskRow => row !== undefined);
-      if (commandSelection.length !== currentSelected.length) {
-        onAnnounce("The selected task changed during refresh. No move was made.");
-        return;
-      }
-      const target = currentRows.find(
-        (candidate) => candidate.task.id === placementTargetId(placement),
-      );
-      if (!target || target.contextOnly || target.task.parentId !== currentActive.task.parentId) {
-        onAnnounce("The task or move target changed during refresh. No move was made.");
-        return;
-      }
-      const commandTasks = commandSelection.map((candidate) => ({
-        id: candidate.task.id,
-        expectedVersion: candidate.task.version,
-      }));
-      const signature = JSON.stringify({ tasks: commandTasks, placement });
-      const receipt =
-        reorderReceipt.current?.signature === signature
-          ? reorderReceipt.current
-          : { signature, key: randomUUID() };
-      reorderReceipt.current = receipt;
-      currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, true));
-      try {
-        const result = await reorderTasks(commandTasks, placement, { idempotencyKey: receipt.key });
+      await waitForListRender();
+      const move = `${currentSelected.length} task${currentSelected.length === 1 ? "" : "s"} moved ${direction === "start" ? "to the beginning" : direction === "end" ? "to the end" : direction}.`;
+      onAnnounce(switchedToManual ? `Switched to manual order. ${move}` : move);
+      return true;
+    } catch (caught) {
+      if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
         reorderReceipt.current = null;
-        if (result.changed === false) {
-          const boundary =
-            direction === "up" || direction === "start"
-              ? "Already at the beginning."
-              : "Already at the end.";
-          onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
-          return;
-        }
-        if (result.operationId)
-          onOperation?.(
-            result.operationId,
-            currentSelected.map((row) => row.task),
-            result.tasks,
-          );
-        restoreSelectionAfterMove(sourceRow.task.id, selectedIdSnapshot);
-        await onRefresh(0);
-        await waitForListRender();
-        const move = `${currentSelected.length} task${currentSelected.length === 1 ? "" : "s"} moved ${direction === "start" ? "to the beginning" : direction === "end" ? "to the end" : direction}.`;
-        onAnnounce(switchedToManual ? `Switched to manual order. ${move}` : move);
-        list.current?.focus();
-      } catch (caught) {
-        if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
-          reorderReceipt.current = null;
-          onAnnounce("A selected task changed elsewhere. Refresh and try again.");
-          void onRefresh(0);
-        } else if (caught instanceof EditorError) {
-          reorderReceipt.current = null;
-          onAnnounce(caught.message);
-        } else {
-          onAnnounce(
-            `Could not move the selected task${currentSelected.length === 1 ? "" : "s"}. Try again.`,
-          );
-        }
-      } finally {
-        currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, false));
+        onAnnounce("A selected task changed elsewhere. Refresh and try again.");
+      } else if (caught instanceof EditorError) {
+        reorderReceipt.current = null;
+        onAnnounce(caught.message);
+      } else {
+        onAnnounce(
+          `Could not move the selected task${currentSelected.length === 1 ? "" : "s"}. Try again.`,
+        );
       }
     } finally {
+      currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, false));
+    }
+    return false;
+  }
+
+  const performReorderRef = useRef<typeof performReorder | null>(null);
+  useLayoutEffect(() => {
+    performReorderRef.current = performReorder;
+  });
+
+  async function reorderSelection(direction: TaskMoveDirection): Promise<void> {
+    const rows = visibleRowsRef.current;
+    const active = rows.find((row) => row.task.id === selectionHandle.getActiveTask()?.id);
+    const reason = reorderDisabledReason(active);
+    if (reason) {
+      onAnnounce(reason);
+      return;
+    }
+    if (!active) return;
+    const selected = selectedRowsForReorder(active, rows, selectedIdsRef.current);
+    if (!selected) {
+      onAnnounce("Selection is limited to one visible sibling scope.");
+      return;
+    }
+    if (sortField === "manual") {
+      const placement = placementForMove(direction, active, selected, rows);
+      if (!placement) {
+        onAnnounce(
+          direction === "up" || direction === "start"
+            ? "Already at the beginning."
+            : "Already at the end.",
+        );
+        return;
+      }
+      const preview = movedTaskRows(rows, selected, placement);
+      // Repeated keydown events can arrive before React commits this preview.
+      visibleRowsRef.current = preview;
+      setPendingRowOrder({
+        filter: filterIdentity,
+        ranks: new Map(preview.map((row, index) => [row.task.id, index])),
+      });
+    }
+    reorderQueue.current.push({
+      direction,
+      activeId: active.task.id,
+      selectedIds: selected.map((row) => row.task.id),
+      filter: filterIdentity,
+    });
+    if (reorderPending.current) return;
+    reorderPending.current = true;
+    try {
+      while (reorderQueue.current.length > 0) {
+        const next = reorderQueue.current.shift()!;
+        if (
+          !(await performReorderRef.current!(
+            next.direction,
+            next.activeId,
+            next.selectedIds,
+            next.filter,
+          ))
+        ) {
+          reorderQueue.current = [];
+          await onRefresh(0);
+          break;
+        }
+      }
+    } catch {
+      reorderQueue.current = [];
+      announce("Could not refresh tasks. Refresh before moving again.");
+    } finally {
       reorderPending.current = false;
+      setPendingRowOrder(null);
     }
   }
 
@@ -810,17 +878,6 @@ export function TaskList({
       .filter((row) => !row.contextOnly && selectedIdsRef.current.has(row.task.id))
       .map((row) => row.task);
     return selected.length > 0 ? selected : activeTask ? [activeTask] : [];
-  }
-
-  function setMutationPending(taskId: string, pending: boolean): void {
-    if (pending) mutationPending.current.add(taskId);
-    else mutationPending.current.delete(taskId);
-    setMutationPendingIds((previous) => {
-      const next = new Set(previous);
-      if (pending) next.add(taskId);
-      else next.delete(taskId);
-      return next;
-    });
   }
 
   function setMutationPendingMany(taskIds: readonly string[], pending: boolean): void {
