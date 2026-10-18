@@ -242,7 +242,9 @@ export function TaskListToolbar({
 
   return (
     <div className="flex shrink-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {/* On a phone the view buttons share the first row with New task, and filters and sort
+          take the full second row. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-1 gap-y-2">
         <Button
           size="sm"
           tabIndex={-1}
@@ -253,7 +255,7 @@ export function TaskListToolbar({
           <Plus aria-hidden="true" />
           New task
         </Button>
-        <div className="flex flex-wrap items-center justify-end gap-1">
+        <div className="order-last flex basis-full items-center justify-between gap-1 sm:order-none sm:ml-auto sm:basis-auto">
           <div className="relative">
             {toolbarMode === "filter" && helpMode !== "none" ? (
               <TaskListModeHelp
@@ -621,7 +623,9 @@ export function TaskListToolbar({
               </Tooltip>
             </ToolbarGroup>
           </div>
-          <Separator orientation="vertical" className="h-7" />
+        </div>
+        <div className="flex items-center gap-1">
+          <Separator orientation="vertical" className="hidden h-7 sm:block" />
           <ButtonGroup aria-label="Task list view">
             <Tooltip>
               <TooltipTrigger
