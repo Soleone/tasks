@@ -2,14 +2,19 @@ import { Fragment, type ReactElement, type ReactNode, type RefObject } from "rea
 import {
   ArrowDown,
   ArrowDownUp,
+  ArrowDownWideNarrow,
   ArrowUp,
+  ChartNoAxesColumnIncreasing,
   ChevronDown,
   Circle,
   Clock3,
+  Eye,
   Flag,
   Folder,
+  Funnel,
   ListChevronsUpDown,
   ListOrdered,
+  type LucideIcon,
   Plus,
   RotateCcwClock,
   Search,
@@ -32,7 +37,6 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb
 import { Button } from "./ui/button";
 import { ButtonGroup } from "./ui/button-group";
 import { Popover, PopoverTrigger } from "./ui/popover";
-import { Separator } from "./ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
@@ -76,6 +80,26 @@ function FilterSummaryAction({
     >
       {children}
     </button>
+  );
+}
+
+// Names a toolbar group at a glance; the group's aria-label already names it for screen readers.
+function ToolbarGroupGlyph({
+  icon: Icon,
+  label,
+}: {
+  icon: LucideIcon;
+  label: string;
+}): ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      title={label}
+      onMouseDown={preventFocusSteal}
+      className="flex size-7 shrink-0 items-center justify-center text-muted-foreground/60"
+    >
+      <Icon className="size-3.5" />
+    </span>
   );
 }
 
@@ -242,11 +266,12 @@ export function TaskListToolbar({
 
   return (
     <div className="flex shrink-0 flex-col gap-4">
-      {/* On a phone the toolbar is two rows on a grid of icon-wide columns: New task spans four
-          and a divider one, so the icons line up and larger text wraps whole cells. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1">
-        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
-          <div className="w-28 sm:mr-auto sm:w-auto">
+      {/* The toolbar is two rows on a grid of icon-wide columns: New task spans four, each group
+          glyph one and the gap before View one, so the icons line up. A glyph and its group form
+          one cell, so larger text wraps them together. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-y-2">
+          <div className="w-28">
             <Button
               size="sm"
               tabIndex={-1}
@@ -258,548 +283,553 @@ export function TaskListToolbar({
               New task
             </Button>
           </div>
-          <div className="relative">
-            {toolbarMode === "filter" && helpMode !== "none" ? (
-              <TaskListModeHelp
-                mode="filter"
-                onDismiss={returnToList}
-                onDisableHelp={onDisableHelp}
-              />
-            ) : null}
-            <ToolbarGroup
-              ref={filterToolbar}
-              aria-label="Task list filters"
-              aria-keyshortcuts="F S O I D P X 0 1 2 3 4 C T U /"
-              tabIndex={-1}
-              data-toolbar="filters"
-              data-toolbar-active={toolbarMode === "filter" || undefined}
-              active={toolbarMode === "filter"}
-              onFocus={() => activateToolbarMode("filter")}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={categoryFilter ? "outline" : "ghost"}
-                      selected={categoryFilter !== null}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={
-                        categoryFilter
-                          ? `Clear category filter: ${categoryFilter.label}`
-                          : "Filter by category. Press @ or F then C."
-                      }
-                      aria-pressed={categoryFilter !== null}
-                      aria-keyshortcuts="@ C"
-                      data-filter="task-category"
-                      onClick={toggleCategoryFilter}
+          <div className="flex">
+            <ToolbarGroupGlyph icon={Funnel} label="Filter" />
+            <div className="relative">
+              {toolbarMode === "filter" && helpMode !== "none" ? (
+                <TaskListModeHelp
+                  mode="filter"
+                  onDismiss={returnToList}
+                  onDisableHelp={onDisableHelp}
+                />
+              ) : null}
+              <ToolbarGroup
+                ref={filterToolbar}
+                aria-label="Task list filters"
+                aria-keyshortcuts="F S O I D P X 0 1 2 3 4 C T U /"
+                tabIndex={-1}
+                data-toolbar="filters"
+                data-toolbar-active={toolbarMode === "filter" || undefined}
+                active={toolbarMode === "filter"}
+                onFocus={() => activateToolbarMode("filter")}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={categoryFilter ? "outline" : "ghost"}
+                        selected={categoryFilter !== null}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={
+                          categoryFilter
+                            ? `Clear category filter: ${categoryFilter.label}`
+                            : "Filter by category. Press @ or F then C."
+                        }
+                        aria-pressed={categoryFilter !== null}
+                        aria-keyshortcuts="@ C"
+                        data-filter="task-category"
+                        onClick={toggleCategoryFilter}
+                      />
+                    }
+                  >
+                    <Folder
+                      className={categoryFilter ? "text-success" : undefined}
+                      aria-hidden="true"
                     />
-                  }
-                >
-                  <Folder
-                    className={categoryFilter ? "text-success" : undefined}
-                    aria-hidden="true"
-                  />
-                  <span className="sr-only">
-                    {categoryFilter
-                      ? `Clear category filter: ${categoryFilter.label}`
-                      : "Filter by category"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {categoryFilter ? categoryFilter.label : "Category"}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      ref={statusFilterButton}
-                      variant={statusActive ? "outline" : "ghost"}
-                      selected={statusActive}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={
-                        exactStatus !== null
-                          ? `Status filter: ${statusLabel}. Open status menu.`
-                          : `Status filter: ${statusLabel}. Open status menu or press F then S to toggle.`
-                      }
-                      aria-pressed={statusActive}
-                      aria-keyshortcuts="S"
-                      data-filter="task-status"
-                      onClick={openStatusMenu}
-                    />
-                  }
-                >
-                  <Circle aria-hidden="true" />
-                  <span className="sr-only">{`Status: ${statusLabel}`}</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {statusLabel}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={priorityFilter !== null ? "outline" : "ghost"}
-                      selected={priorityFilter !== null}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={
-                        priorityFilter !== null
-                          ? `Priority filter: ${priorityLabel}. Open priority menu or press F then a number.`
-                          : "Filter by priority. Press F then 0-4."
-                      }
-                      aria-pressed={priorityFilter !== null}
-                      aria-keyshortcuts="0 1 2 3 4"
-                      data-filter="task-priority"
-                      onClick={openPriorityMenu}
-                    />
-                  }
-                >
-                  <Flag aria-hidden="true" />
-                  <span className="sr-only">{`Priority: ${priorityLabel}`}</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {priorityLabel}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={tagFilter.length > 0 ? "outline" : "ghost"}
-                      selected={tagFilter.length > 0}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={
-                        tagFilter.length > 0
-                          ? `Tag filter: ${tagFilter.map((tag) => tag.label).join(", ")}. Open tag picker.`
-                          : "Filter by tags. Press # or F then T."
-                      }
-                      aria-pressed={tagFilter.length > 0}
-                      aria-keyshortcuts="# T"
-                      data-filter="task-tags"
-                      onClick={openTagPicker}
-                    />
-                  }
-                >
-                  <Tags aria-hidden="true" />
-                  <span className="sr-only">{`Tags: ${tagLabel}`}</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {tagFilter.length > 0 ? tagFilter.map((tag) => tag.label).join(", ") : "Tags"}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={showUnblocked ? "outline" : "ghost"}
-                      selected={showUnblocked}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={
-                        showUnblocked
-                          ? "Show all tasks. Press F then U."
-                          : "Show unblocked tasks. Press F then U."
-                      }
-                      aria-pressed={showUnblocked}
-                      aria-keyshortcuts="U"
-                      data-filter="task-unblocked"
-                      onClick={toggleUnblockedFilter}
-                    />
-                  }
-                >
-                  <ShieldCheck aria-hidden="true" />
-                  <span className="sr-only">
-                    {showUnblocked ? "Show all tasks" : "Show unblocked tasks"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {showUnblocked ? "Unblocked" : "All tasks"}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={searchActive ? "outline" : "ghost"}
-                      selected={searchActive}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={
-                        searchActive
-                          ? `Search: ${searchQuery.trim()}. Open search or clear.`
-                          : "Search tasks"
-                      }
-                      aria-pressed={searchActive}
-                      aria-keyshortcuts="/"
-                      data-filter="task-search"
-                      onClick={openSearch}
-                    />
-                  }
-                >
-                  <Search aria-hidden="true" />
-                  <span className="sr-only">
-                    {searchActive ? `Search: ${searchQuery.trim()}` : "Search"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {searchActive ? searchQuery.trim() : "Search"}
-                </TooltipContent>
-              </Tooltip>
-            </ToolbarGroup>
+                    <span className="sr-only">
+                      {categoryFilter
+                        ? `Clear category filter: ${categoryFilter.label}`
+                        : "Filter by category"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {categoryFilter ? categoryFilter.label : "Category"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        ref={statusFilterButton}
+                        variant={statusActive ? "outline" : "ghost"}
+                        selected={statusActive}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={
+                          exactStatus !== null
+                            ? `Status filter: ${statusLabel}. Open status menu.`
+                            : `Status filter: ${statusLabel}. Open status menu or press F then S to toggle.`
+                        }
+                        aria-pressed={statusActive}
+                        aria-keyshortcuts="S"
+                        data-filter="task-status"
+                        onClick={openStatusMenu}
+                      />
+                    }
+                  >
+                    <Circle aria-hidden="true" />
+                    <span className="sr-only">{`Status: ${statusLabel}`}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {statusLabel}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={priorityFilter !== null ? "outline" : "ghost"}
+                        selected={priorityFilter !== null}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={
+                          priorityFilter !== null
+                            ? `Priority filter: ${priorityLabel}. Open priority menu or press F then a number.`
+                            : "Filter by priority. Press F then 0-4."
+                        }
+                        aria-pressed={priorityFilter !== null}
+                        aria-keyshortcuts="0 1 2 3 4"
+                        data-filter="task-priority"
+                        onClick={openPriorityMenu}
+                      />
+                    }
+                  >
+                    <Flag aria-hidden="true" />
+                    <span className="sr-only">{`Priority: ${priorityLabel}`}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {priorityLabel}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={tagFilter.length > 0 ? "outline" : "ghost"}
+                        selected={tagFilter.length > 0}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={
+                          tagFilter.length > 0
+                            ? `Tag filter: ${tagFilter.map((tag) => tag.label).join(", ")}. Open tag picker.`
+                            : "Filter by tags. Press # or F then T."
+                        }
+                        aria-pressed={tagFilter.length > 0}
+                        aria-keyshortcuts="# T"
+                        data-filter="task-tags"
+                        onClick={openTagPicker}
+                      />
+                    }
+                  >
+                    <Tags aria-hidden="true" />
+                    <span className="sr-only">{`Tags: ${tagLabel}`}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {tagFilter.length > 0 ? tagFilter.map((tag) => tag.label).join(", ") : "Tags"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip open={unblockedFeedbackOpen} onOpenChange={setUnblockedFeedbackOpen}>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={showUnblocked ? "outline" : "ghost"}
+                        selected={showUnblocked}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={
+                          showUnblocked
+                            ? "Show all tasks. Press F then U."
+                            : "Show unblocked tasks. Press F then U."
+                        }
+                        aria-pressed={showUnblocked}
+                        aria-keyshortcuts="U"
+                        data-filter="task-unblocked"
+                        onClick={toggleUnblockedFilter}
+                      />
+                    }
+                  >
+                    <ShieldCheck aria-hidden="true" />
+                    <span className="sr-only">
+                      {showUnblocked ? "Show all tasks" : "Show unblocked tasks"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {showUnblocked ? "Unblocked" : "All tasks"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={searchActive ? "outline" : "ghost"}
+                        selected={searchActive}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={
+                          searchActive
+                            ? `Search: ${searchQuery.trim()}. Open search or clear.`
+                            : "Search tasks"
+                        }
+                        aria-pressed={searchActive}
+                        aria-keyshortcuts="/"
+                        data-filter="task-search"
+                        onClick={openSearch}
+                      />
+                    }
+                  >
+                    <Search aria-hidden="true" />
+                    <span className="sr-only">
+                      {searchActive ? `Search: ${searchQuery.trim()}` : "Search"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {searchActive ? searchQuery.trim() : "Search"}
+                  </TooltipContent>
+                </Tooltip>
+              </ToolbarGroup>
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-y-2 sm:contents">
-          <Separator orientation="vertical" className="hidden h-7 sm:block" />
-          <div className="relative">
-            {toolbarMode === "sort" && helpMode !== "none" ? (
-              <TaskListModeHelp
-                mode="sort"
-                onDismiss={returnToList}
-                onDisableHelp={onDisableHelp}
-              />
-            ) : null}
-            <ToolbarGroup
-              ref={sortToolbar}
-              aria-label="Task list sort"
-              aria-keyshortcuts="S C U M R"
-              tabIndex={-1}
-              data-toolbar="sort"
-              data-toolbar-active={toolbarMode === "sort" || undefined}
-              active={toolbarMode === "sort"}
-              onFocus={() => activateToolbarMode("sort")}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={sortField === "created" ? "outline" : "ghost"}
-                      selected={sortField === "created"}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={`Sort by created date. Press S then C.`}
-                      aria-pressed={sortField === "created"}
-                      aria-keyshortcuts="C"
-                      data-sort="task-sort-created"
-                      onClick={() => applySortField("created")}
-                    />
-                  }
-                >
-                  <Clock3 aria-hidden="true" />
-                  <span className="sr-only">Sort by created</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  Created
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={sortField === "updated" ? "outline" : "ghost"}
-                      selected={sortField === "updated"}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label={`Sort by updated date. Press S then U.`}
-                      aria-pressed={sortField === "updated"}
-                      aria-keyshortcuts="U"
-                      data-sort="task-sort-updated"
-                      onClick={() => applySortField("updated")}
-                    />
-                  }
-                >
-                  <RotateCcwClock aria-hidden="true" />
-                  <span className="sr-only">Sort by updated</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  Updated
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={sortField === "priority" ? "outline" : "ghost"}
-                      selected={sortField === "priority"}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label="Sort by priority. Press S then P."
-                      aria-pressed={sortField === "priority"}
-                      aria-keyshortcuts="P"
-                      data-sort="task-sort-priority"
-                      onClick={() => applySortField("priority")}
-                    />
-                  }
-                >
-                  <Flag aria-hidden="true" />
-                  <span className="sr-only">Sort by priority</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  Priority
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={sortField === "manual" ? "outline" : "ghost"}
-                      selected={sortField === "manual"}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      aria-label="Sort by manual order. Press S then M."
-                      aria-pressed={sortField === "manual"}
-                      aria-keyshortcuts="M"
-                      data-sort="task-sort-manual"
-                      onClick={() => applySortField("manual")}
-                    />
-                  }
-                >
-                  <ListOrdered aria-hidden="true" />
-                  <span className="sr-only">Sort by manual order</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  Manual order
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <ToggleButton
-                      variant={reverseActive ? "outline" : "ghost"}
-                      selected={reverseActive}
-                      size="icon-sm"
-                      tabIndex={-1}
-                      disabled={sortField === "manual"}
-                      aria-pressed={reverseActive}
-                      aria-label={
-                        sortField === "manual"
-                          ? "Reverse is unavailable for manual order."
-                          : sortField === "priority"
-                            ? sortDirection === "desc"
-                              ? "Highest priority first. Activate to show lowest priority first. Press S then R."
-                              : "Lowest priority first. Activate to show highest priority first. Press S then R."
-                            : sortDirection === "desc"
-                              ? "Newest first. Activate to show oldest first. Press S then R."
-                              : "Oldest first. Activate to show newest first. Press S then R."
-                      }
-                      aria-keyshortcuts="R"
-                      data-sort="task-sort-reverse"
-                      onClick={reverseSort}
-                    />
-                  }
-                >
-                  {sortDirection === "desc" ? (
-                    <ArrowDown aria-hidden="true" />
-                  ) : (
-                    <ArrowUp aria-hidden="true" />
-                  )}
-                  <span className="sr-only">
-                    {sortField === "priority"
-                      ? sortDirection === "desc"
-                        ? "Highest priority first"
-                        : "Lowest priority first"
-                      : sortDirection === "desc"
-                        ? "Newest first"
-                        : "Oldest first"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8}>
-                  {sortField === "manual"
-                    ? "Unavailable for manual order"
-                    : sortField === "priority"
-                      ? sortDirection === "desc"
-                        ? "Highest priority first"
-                        : "Lowest priority first"
-                      : sortDirection === "desc"
-                        ? "Newest first"
-                        : "Oldest first"}
-                </TooltipContent>
-              </Tooltip>
-            </ToolbarGroup>
-          </div>
-          <div className="flex w-7 justify-center sm:contents">
-            <Separator orientation="vertical" className="h-7" />
-          </div>
-          <ButtonGroup aria-label="Task list view">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <ToggleButton
-                    variant={showDetails ? "outline" : "ghost"}
-                    selected={showDetails}
-                    size="icon-sm"
-                    tabIndex={-1}
-                    aria-label={
-                      showDetails
-                        ? "Hide descriptions and timestamps. Press V."
-                        : "Show descriptions and timestamps. Press V."
+        <div className="flex flex-wrap items-center gap-y-2">
+          <div className="flex">
+            <ToolbarGroupGlyph icon={ArrowDownWideNarrow} label="Sort" />
+            <div className="relative">
+              {toolbarMode === "sort" && helpMode !== "none" ? (
+                <TaskListModeHelp
+                  mode="sort"
+                  onDismiss={returnToList}
+                  onDisableHelp={onDisableHelp}
+                />
+              ) : null}
+              <ToolbarGroup
+                ref={sortToolbar}
+                aria-label="Task list sort"
+                aria-keyshortcuts="S C U M R"
+                tabIndex={-1}
+                data-toolbar="sort"
+                data-toolbar-active={toolbarMode === "sort" || undefined}
+                active={toolbarMode === "sort"}
+                onFocus={() => activateToolbarMode("sort")}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={sortField === "created" ? "outline" : "ghost"}
+                        selected={sortField === "created"}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={`Sort by created date. Press S then C.`}
+                        aria-pressed={sortField === "created"}
+                        aria-keyshortcuts="C"
+                        data-sort="task-sort-created"
+                        onClick={() => applySortField("created")}
+                      />
                     }
-                    aria-pressed={showDetails}
-                    aria-keyshortcuts="V"
-                    data-view="task-details"
-                    onClick={onToggleDetails}
-                  />
-                }
-              >
-                <ListChevronsUpDown aria-hidden="true" />
-                <span className="sr-only">
-                  {showDetails
-                    ? "Hide descriptions and timestamps"
-                    : "Show descriptions and timestamps"}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={8}>
-                {showDetails ? "Hide details" : "Show details"}
-              </TooltipContent>
-            </Tooltip>
-            <Popover open={moveControlsOpen} onOpenChange={setMoveControlsOpen}>
+                  >
+                    <Clock3 aria-hidden="true" />
+                    <span className="sr-only">Sort by created</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    Created
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={sortField === "updated" ? "outline" : "ghost"}
+                        selected={sortField === "updated"}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label={`Sort by updated date. Press S then U.`}
+                        aria-pressed={sortField === "updated"}
+                        aria-keyshortcuts="U"
+                        data-sort="task-sort-updated"
+                        onClick={() => applySortField("updated")}
+                      />
+                    }
+                  >
+                    <RotateCcwClock aria-hidden="true" />
+                    <span className="sr-only">Sort by updated</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    Updated
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={sortField === "priority" ? "outline" : "ghost"}
+                        selected={sortField === "priority"}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label="Sort by priority. Press S then P."
+                        aria-pressed={sortField === "priority"}
+                        aria-keyshortcuts="P"
+                        data-sort="task-sort-priority"
+                        onClick={() => applySortField("priority")}
+                      />
+                    }
+                  >
+                    <ChartNoAxesColumnIncreasing aria-hidden="true" />
+                    <span className="sr-only">Sort by priority</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    Priority
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={sortField === "manual" ? "outline" : "ghost"}
+                        selected={sortField === "manual"}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        aria-label="Sort by manual order. Press S then M."
+                        aria-pressed={sortField === "manual"}
+                        aria-keyshortcuts="M"
+                        data-sort="task-sort-manual"
+                        onClick={() => applySortField("manual")}
+                      />
+                    }
+                  >
+                    <ListOrdered aria-hidden="true" />
+                    <span className="sr-only">Sort by manual order</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    Manual order
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <ToggleButton
+                        variant={reverseActive ? "outline" : "ghost"}
+                        selected={reverseActive}
+                        size="icon-sm"
+                        tabIndex={-1}
+                        disabled={sortField === "manual"}
+                        aria-pressed={reverseActive}
+                        aria-label={
+                          sortField === "manual"
+                            ? "Reverse is unavailable for manual order."
+                            : sortField === "priority"
+                              ? sortDirection === "desc"
+                                ? "Highest priority first. Activate to show lowest priority first. Press S then R."
+                                : "Lowest priority first. Activate to show highest priority first. Press S then R."
+                              : sortDirection === "desc"
+                                ? "Newest first. Activate to show oldest first. Press S then R."
+                                : "Oldest first. Activate to show newest first. Press S then R."
+                        }
+                        aria-keyshortcuts="R"
+                        data-sort="task-sort-reverse"
+                        onClick={reverseSort}
+                      />
+                    }
+                  >
+                    {sortDirection === "desc" ? (
+                      <ArrowDown aria-hidden="true" />
+                    ) : (
+                      <ArrowUp aria-hidden="true" />
+                    )}
+                    <span className="sr-only">
+                      {sortField === "priority"
+                        ? sortDirection === "desc"
+                          ? "Highest priority first"
+                          : "Lowest priority first"
+                        : sortDirection === "desc"
+                          ? "Newest first"
+                          : "Oldest first"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {sortField === "manual"
+                      ? "Unavailable for manual order"
+                      : sortField === "priority"
+                        ? sortDirection === "desc"
+                          ? "Highest priority first"
+                          : "Lowest priority first"
+                        : sortDirection === "desc"
+                          ? "Newest first"
+                          : "Oldest first"}
+                  </TooltipContent>
+                </Tooltip>
+              </ToolbarGroup>
+            </div>
+          </div>
+          <div className="ml-7 flex">
+            <ToolbarGroupGlyph icon={Eye} label="View" />
+            <ButtonGroup aria-label="Task list view">
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <PopoverTrigger
-                      render={
-                        <ToggleButton
-                          variant={moveControlsOpen ? "outline" : "ghost"}
-                          selected={moveControlsOpen}
-                          size="icon-sm"
-                          tabIndex={-1}
-                          aria-label={
-                            moveControlsOpen ? "Hide move controls" : "Show move controls"
-                          }
-                          aria-pressed={moveControlsOpen}
-                          data-move-controls-toggle
-                          onMouseDown={preventFocusSteal}
-                        />
+                    <ToggleButton
+                      variant={showDetails ? "outline" : "ghost"}
+                      selected={showDetails}
+                      size="icon-sm"
+                      tabIndex={-1}
+                      aria-label={
+                        showDetails
+                          ? "Hide descriptions and timestamps. Press V."
+                          : "Show descriptions and timestamps. Press V."
                       }
+                      aria-pressed={showDetails}
+                      aria-keyshortcuts="V"
+                      data-view="task-details"
+                      onClick={onToggleDetails}
                     />
                   }
                 >
-                  <ArrowDownUp aria-hidden="true" />
+                  <ListChevronsUpDown aria-hidden="true" />
                   <span className="sr-only">
-                    {moveControlsOpen ? "Hide move controls" : "Show move controls"}
+                    {showDetails
+                      ? "Hide descriptions and timestamps"
+                      : "Show descriptions and timestamps"}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={8}>
-                  {moveControlsOpen ? "Hide move controls" : "Show move controls"}
+                  {showDetails ? "Hide details" : "Show details"}
                 </TooltipContent>
               </Tooltip>
-              <CompactPopoverContent
-                data-move-controls
-                side="bottom"
-                align="end"
-                sideOffset={8}
-                initialFocus={false}
-                finalFocus={false}
-              >
-                <p className="sr-only">Move {moveSubjectLabel} in manual order.</p>
-                <div
-                  role="toolbar"
-                  aria-label={
-                    reorderAvailabilityReason
-                      ? `Move ${moveSubjectLabel}. ${reorderAvailabilityReason}`
-                      : `Move ${moveSubjectLabel}`
-                  }
-                  aria-controls="task-list"
-                  className="flex items-center gap-1"
+              <Popover open={moveControlsOpen} onOpenChange={setMoveControlsOpen}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <PopoverTrigger
+                        render={
+                          <ToggleButton
+                            variant={moveControlsOpen ? "outline" : "ghost"}
+                            selected={moveControlsOpen}
+                            size="icon-sm"
+                            tabIndex={-1}
+                            aria-label={
+                              moveControlsOpen ? "Hide move controls" : "Show move controls"
+                            }
+                            aria-pressed={moveControlsOpen}
+                            data-move-controls-toggle
+                            onMouseDown={preventFocusSteal}
+                          />
+                        }
+                      />
+                    }
+                  >
+                    <ArrowDownUp aria-hidden="true" />
+                    <span className="sr-only">
+                      {moveControlsOpen ? "Hide move controls" : "Show move controls"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8}>
+                    {moveControlsOpen ? "Hide move controls" : "Show move controls"}
+                  </TooltipContent>
+                </Tooltip>
+                <CompactPopoverContent
+                  data-move-controls
+                  side="bottom"
+                  align="end"
+                  sideOffset={8}
+                  initialFocus={false}
+                  finalFocus={false}
                 >
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          tabIndex={-1}
-                          aria-label="Move up"
-                          aria-disabled={reorderAvailabilityReason !== null || undefined}
-                          data-reorder-action="up"
-                          onMouseDown={preventFocusSteal}
-                          onClick={() => void reorderSelection("up")}
-                        />
-                      }
-                    >
-                      <ArrowUp aria-hidden="true" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8}>
-                      {reorderAvailabilityReason ?? "Move up"}
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          tabIndex={-1}
-                          aria-label="Move down"
-                          aria-disabled={reorderAvailabilityReason !== null || undefined}
-                          data-reorder-action="down"
-                          onMouseDown={preventFocusSteal}
-                          onClick={() => void reorderSelection("down")}
-                        />
-                      }
-                    >
-                      <ArrowDown aria-hidden="true" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8}>
-                      {reorderAvailabilityReason ?? "Move down"}
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          tabIndex={-1}
-                          aria-label="Move to beginning"
-                          aria-disabled={reorderAvailabilityReason !== null || undefined}
-                          data-reorder-action="start"
-                          onMouseDown={preventFocusSteal}
-                          onClick={() => void reorderSelection("start")}
-                        />
-                      }
-                    >
-                      <ChevronDown aria-hidden="true" className="rotate-180" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8}>
-                      {reorderAvailabilityReason ?? "Move to beginning"}
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          tabIndex={-1}
-                          aria-label="Move to end"
-                          aria-disabled={reorderAvailabilityReason !== null || undefined}
-                          data-reorder-action="end"
-                          onMouseDown={preventFocusSteal}
-                          onClick={() => void reorderSelection("end")}
-                        />
-                      }
-                    >
-                      <ChevronDown aria-hidden="true" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8}>
-                      {reorderAvailabilityReason ?? "Move to end"}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </CompactPopoverContent>
-            </Popover>
-          </ButtonGroup>
+                  <p className="sr-only">Move {moveSubjectLabel} in manual order.</p>
+                  <div
+                    role="toolbar"
+                    aria-label={
+                      reorderAvailabilityReason
+                        ? `Move ${moveSubjectLabel}. ${reorderAvailabilityReason}`
+                        : `Move ${moveSubjectLabel}`
+                    }
+                    aria-controls="task-list"
+                    className="flex items-center gap-1"
+                  >
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            tabIndex={-1}
+                            aria-label="Move up"
+                            aria-disabled={reorderAvailabilityReason !== null || undefined}
+                            data-reorder-action="up"
+                            onMouseDown={preventFocusSteal}
+                            onClick={() => void reorderSelection("up")}
+                          />
+                        }
+                      >
+                        <ArrowUp aria-hidden="true" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={8}>
+                        {reorderAvailabilityReason ?? "Move up"}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            tabIndex={-1}
+                            aria-label="Move down"
+                            aria-disabled={reorderAvailabilityReason !== null || undefined}
+                            data-reorder-action="down"
+                            onMouseDown={preventFocusSteal}
+                            onClick={() => void reorderSelection("down")}
+                          />
+                        }
+                      >
+                        <ArrowDown aria-hidden="true" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={8}>
+                        {reorderAvailabilityReason ?? "Move down"}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            tabIndex={-1}
+                            aria-label="Move to beginning"
+                            aria-disabled={reorderAvailabilityReason !== null || undefined}
+                            data-reorder-action="start"
+                            onMouseDown={preventFocusSteal}
+                            onClick={() => void reorderSelection("start")}
+                          />
+                        }
+                      >
+                        <ChevronDown aria-hidden="true" className="rotate-180" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={8}>
+                        {reorderAvailabilityReason ?? "Move to beginning"}
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            tabIndex={-1}
+                            aria-label="Move to end"
+                            aria-disabled={reorderAvailabilityReason !== null || undefined}
+                            data-reorder-action="end"
+                            onMouseDown={preventFocusSteal}
+                            onClick={() => void reorderSelection("end")}
+                          />
+                        }
+                      >
+                        <ChevronDown aria-hidden="true" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={8}>
+                        {reorderAvailabilityReason ?? "Move to end"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </CompactPopoverContent>
+              </Popover>
+            </ButtonGroup>
+          </div>
         </div>
       </div>
       <Breadcrumb
