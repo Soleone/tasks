@@ -120,6 +120,36 @@ describe("status", () => {
     });
     await waitFor(() => expect(announcements()).toMatch(/priority/));
   });
+
+  test("status.immediate: a refresh during a save keeps the change and the next key builds on it", async () => {
+    const task = await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    const original = globalThis.fetch;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    globalThis.fetch = async (...args) => {
+      const response = await original(...args);
+      const body = typeof args[1]?.body === "string" ? JSON.parse(args[1].body) : null;
+      if (body?.command === "task.start") await held;
+      return response;
+    };
+    try {
+      await user.keyboard(" ");
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("in_progress"));
+      // The refresh has answered with the saved state by now; the row still shows the change.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(rowStatus("Task")).toBe("in_progress");
+      await user.keyboard(" ");
+    } finally {
+      release();
+      globalThis.fetch = original;
+    }
+    await expectStatus(task.id, "done");
+  });
 });
 
 describe("priority and copy", () => {

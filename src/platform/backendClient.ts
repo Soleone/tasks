@@ -35,20 +35,30 @@ function unsupported(message: string): EditorError {
   return new EditorError("UNSUPPORTED_COMMAND", message);
 }
 
-function relationshipWorkspace(): MainWorkspace {
-  const workspace = selected();
+function relationshipWorkspace(workspace: MainWorkspace): MainWorkspace {
   if (!workspace.supportsRelationships)
     throw unsupported("Relationship changes are not yet available in this selected workspace.");
   return workspace;
 }
 
-// The workspace runs one write at a time and refuses a second. The UI queues instead, so changes
-// made faster than the disk keeps up apply in order rather than failing.
-let writeQueue: Promise<unknown> = Promise.resolve();
+// A workspace runs one write at a time and refuses a second. The UI queues instead, so changes
+// made faster than the disk keeps up apply in order. A write belongs to the workspace selected
+// when it was requested and is dropped unsent if that workspace closes first.
+const writeQueues = new WeakMap<MainWorkspace, Promise<unknown>>();
 
-function queued<T>(write: () => Promise<T>): Promise<T> {
-  const next = writeQueue.then(write, write);
-  writeQueue = next.catch(() => undefined);
+function queued<T>(write: (workspace: MainWorkspace) => Promise<T>): Promise<T> {
+  const workspace = selected();
+  const send = () =>
+    mainWorkspace === workspace
+      ? write(workspace)
+      : Promise.reject(
+          new EditorError("NO_WORKSPACE", "The task folder closed before this change was sent."),
+        );
+  const next = (writeQueues.get(workspace) ?? Promise.resolve()).then(send, send);
+  writeQueues.set(
+    workspace,
+    next.catch(() => undefined),
+  );
   return next;
 }
 
@@ -153,8 +163,7 @@ export async function createTask(
   description: string,
   options: CommandOptions & { parentId?: string; priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
-  return queued(async () => {
-    const workspace = selected();
+  return queued(async (workspace) => {
     if (options.parentId) {
       if (!workspace.supportsRelationships)
         throw unsupported("Child capture is not yet available in the selected workspace.");
@@ -177,8 +186,8 @@ export async function updateTask(
   expectedVersion: number,
   options: CommandOptions & { priority?: TaskPriority },
 ): Promise<TaskMutationResult> {
-  return queued(() =>
-    selected().save(title, description, options.priority, writeKey(options), id, expectedVersion),
+  return queued((workspace) =>
+    workspace.save(title, description, options.priority, writeKey(options), id, expectedVersion),
   );
 }
 
@@ -187,7 +196,9 @@ export async function updateTaskPriority(
   priority: TaskPriority,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() => selected().priority(task.id, task.version, priority, writeKey(options)));
+  return queued((workspace) =>
+    workspace.priority(task.id, task.version, priority, writeKey(options)),
+  );
 }
 
 export async function deleteTask(
@@ -195,7 +206,9 @@ export async function deleteTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() => selected().status("task.delete", id, expectedVersion, writeKey(options)));
+  return queued((workspace) =>
+    workspace.status("task.delete", id, expectedVersion, writeKey(options)),
+  );
 }
 
 export async function transitionTask(
@@ -204,15 +217,14 @@ export async function transitionTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() => selected().status(command, id, expectedVersion, writeKey(options)));
+  return queued((workspace) => workspace.status(command, id, expectedVersion, writeKey(options)));
 }
 
 export async function transitionTasks(
   tasks: TaskTransitionItem[],
   options: CommandOptions,
 ): Promise<TaskTransitionManyResult> {
-  return queued(async () => {
-    const workspace = selected();
+  return queued(async (workspace) => {
     if (!workspace.supportsStatusBatch)
       throw unsupported(
         "Changing several tasks at once is not yet available in this selected workspace.",
@@ -226,8 +238,8 @@ export async function undoStatusChange(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() =>
-    selected().status("task.status.undo", id, expectedVersion, writeKey(options)),
+  return queued((workspace) =>
+    workspace.status("task.status.undo", id, expectedVersion, writeKey(options)),
   );
 }
 
@@ -235,8 +247,7 @@ export async function undoOperation(
   operationId: string,
   options: CommandOptions,
 ): Promise<OperationUndoResult> {
-  return queued(async () => {
-    const workspace = selected();
+  return queued(async (workspace) => {
     if (!workspace.supportsOperationUndo)
       throw unsupported("Undo is limited to status changes in this selected workspace.");
     const { removedIds, ...result } = await workspace.undo(operationId, writeKey(options));
@@ -250,8 +261,8 @@ export async function moveTask(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() =>
-    relationshipWorkspace().relationship(
+  return queued((workspace) =>
+    relationshipWorkspace(workspace).relationship(
       "task.move",
       id,
       expectedVersion,
@@ -266,8 +277,7 @@ export async function reorderTasks(
   placement: TaskReorderPlacement,
   options: CommandOptions,
 ): Promise<TaskReorderResult> {
-  return queued(async () => {
-    const workspace = selected();
+  return queued(async (workspace) => {
     if (!workspace.supportsOrdering)
       throw unsupported("Reordering is not yet available in this selected workspace.");
     return workspace.reorder(tasks, placement, writeKey(options));
@@ -280,8 +290,8 @@ export async function addDependency(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() =>
-    relationshipWorkspace().relationship(
+  return queued((workspace) =>
+    relationshipWorkspace(workspace).relationship(
       "task.dependency.add",
       id,
       expectedVersion,
@@ -297,8 +307,8 @@ export async function removeDependency(
   expectedVersion: number,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued(() =>
-    relationshipWorkspace().relationship(
+  return queued((workspace) =>
+    relationshipWorkspace(workspace).relationship(
       "task.dependency.remove",
       id,
       expectedVersion,

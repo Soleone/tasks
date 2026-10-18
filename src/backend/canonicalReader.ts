@@ -128,11 +128,6 @@ function observeRoot(
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
   parsedTasks = parsed;
-  sortTasks(tasks);
-  return { rootPath, rootIdentity, tasks, files, conflictFiles };
-}
-
-function sortTasks(tasks: CanonicalTask[]): void {
   tasks.sort((left, right) => {
     const leftParent = left.parentId ?? "";
     const rightParent = right.parentId ?? "";
@@ -142,25 +137,7 @@ function sortTasks(tasks: CanonicalTask[]): void {
         ? -1
         : 1;
   });
-}
-
-/** The snapshot after one task file was replaced and its new bytes were read back. */
-export function withReplacedTask(
-  snapshot: CanonicalSnapshot,
-  task: CanonicalTask,
-  sha256: string,
-): CanonicalSnapshot {
-  const relativePath = `tasks/${task.id}.json`;
-  const tasks = snapshot.tasks.map((current) => (current.id === task.id ? task : current));
-  validateGraph(tasks);
-  sortTasks(tasks);
-  return {
-    ...snapshot,
-    tasks,
-    files: snapshot.files.map((file) =>
-      file.relativePath === relativePath ? { relativePath, sha256 } : file,
-    ),
-  };
+  return { rootPath, rootIdentity, tasks, files, conflictFiles };
 }
 
 /** Only purge recovery calls this after proving each absent preimage's bound quarantine. */

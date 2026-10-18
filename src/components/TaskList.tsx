@@ -166,7 +166,7 @@ const TOGGLE_FEEDBACK_DURATION_MS = 900;
 
 export function TaskList({
   ref,
-  tasks,
+  tasks: queriedTasks,
   newTaskId,
   exitingTaskIds,
   contextTasks,
@@ -281,6 +281,15 @@ export function TaskList({
   const reorderPending = useRef(false);
   const reorderReceipt = useRef<{ signature: string; key: string } | null>(null);
 
+  // A pending status or priority change stays on screen through list refreshes until it settles.
+  const [pendingTasks, setPendingTasks] = useState<ReadonlyMap<string, TaskView>>(() => new Map());
+  const tasks = useMemo(
+    () =>
+      pendingTasks.size === 0
+        ? queriedTasks
+        : queriedTasks.map((task) => pendingTasks.get(task.id) ?? task),
+    [queriedTasks, pendingTasks],
+  );
   const visibleRows = useMemo(
     () => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder),
     [tasks, expandedIds, contextTasks, contextOrder],
@@ -860,18 +869,21 @@ export function TaskList({
     });
     chain.tail = tail;
     taskWrites.current.set(task.id, chain);
+    showPending(task.id, shown);
     showTaskUpdate(shown);
+    const settle = (current: TaskView) => {
+      taskWrites.current.delete(task.id);
+      showPending(task.id, null);
+      showTaskUpdate(current);
+    };
     return tail.then(
       (current) => {
-        if (chain.tail !== tail) return;
-        taskWrites.current.delete(task.id);
-        showTaskUpdate(current);
+        if (chain.tail === tail) settle(current);
       },
       (caught: unknown) => {
         // Writes queued behind a failed one fail with it; the last one reports.
         if (chain.tail !== tail) return;
-        taskWrites.current.delete(task.id);
-        showTaskUpdate(chain.confirmed);
+        settle(chain.confirmed);
         announce(
           caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
             ? `${task.title} changed elsewhere. Refresh and try again.`
@@ -879,6 +891,15 @@ export function TaskList({
         );
       },
     );
+  }
+
+  function showPending(taskId: string, shown: TaskView | null): void {
+    setPendingTasks((previous) => {
+      const next = new Map(previous);
+      if (shown) next.set(taskId, shown);
+      else next.delete(taskId);
+      return next;
+    });
   }
 
   function changeStatus(task: TaskView, transition: StatusTransition): Promise<void> {

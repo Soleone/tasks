@@ -167,6 +167,50 @@ test(
 );
 
 test(
+  "write.verify: an outside deletion after the replacement keeps the journal and stores no receipt",
+  { skip: process.platform !== "linux" },
+  (t) => {
+    const workspace = setup(t);
+    const read = success(send(workspace, { command: "task.get", args: { id } }));
+    const request = {
+      version: 2,
+      command: "task.update",
+      args: {
+        id,
+        expectedVersion: (read.result.task as { version: number }).version,
+        title: "Verified edit",
+      },
+      writeContext: read.writeContext,
+      idempotencyKey: "verified",
+    };
+    const outside = path.join(workspace.root, "tasks", "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed.json");
+    const loader = path.join(workspace.directory, "outside-delete.mjs");
+    // The deletion lands between the replacement and the final verification.
+    writeFileSync(
+      loader,
+      `import {registerHooks} from 'node:module';
+registerHooks({load(url,context,next){const result=next(url,context);let source=result.source?.toString();
+if(!url.endsWith('/updateJournal.js')||!source)return result;
+const needle='syncDirectory(path.dirname(target));';if(source.split(needle).length!==2)throw Error('flush must be unique');
+return {...result,source:'import {rmSync as outsideRemove} from "node:fs";'+source.replace(needle,'outsideRemove(${JSON.stringify(outside)});'+needle)};}});`,
+    );
+    const child = spawnSync(
+      process.execPath,
+      ["--import", loader, cli, "--stdio", "--root", workspace.root, "--database", workspace.cache],
+      { input: JSON.stringify(request), timeout: 10_000 },
+    );
+    assert.equal(child.status, 0, child.stderr.toString());
+    const refused = JSON.parse(child.stdout.toString());
+    assert.equal(refused.ok, false);
+    assert.equal(refused.error.code, "RECOVERY_CONFLICT");
+    assert.equal(existsSync(pendingIntentPath(readRootDescriptor(workspace.root))), true);
+    const database = new DatabaseSync(workspace.cache);
+    assert.equal(database.prepare("SELECT count(*) AS n FROM v2_receipts").get()!.n, 0);
+    database.close();
+  },
+);
+
+test(
   "already-replaced recovery requires directory flush before committing receipts or retiring evidence",
   { skip: process.platform !== "linux" },
   (t) => {

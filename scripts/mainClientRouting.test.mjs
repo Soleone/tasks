@@ -108,6 +108,47 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
   ]);
 });
 
+test("queued writes stay with the folder selected when they were made", async () => {
+  client.closeMainWorkspace();
+  const calls = [];
+  let finish;
+  const first = {
+    async status(...args) {
+      calls.push(["first", ...args]);
+      await new Promise((resolve) => {
+        finish = resolve;
+      });
+      return {};
+    },
+    async save(...args) {
+      calls.push(["first-save", ...args]);
+      return {};
+    },
+  };
+  const second = {
+    async save(...args) {
+      calls.push(["second-save", ...args]);
+      return {};
+    },
+  };
+  client.selectMainWorkspace(first);
+  const started = client.transitionTask("task.start", "id", 1, { idempotencyKey: "start" });
+  await new Promise((resolve) => setImmediate(resolve));
+  const capture = client.createTask("Queued", "", { idempotencyKey: "capture" });
+  client.closeMainWorkspace();
+  client.selectMainWorkspace(second);
+  const nextCapture = client.createTask("Next", "", { idempotencyKey: "next" });
+  finish();
+  await started;
+  await assert.rejects(capture, /NO_WORKSPACE/);
+  await nextCapture;
+  assert.deepEqual(calls, [
+    ["first", "task.start", "id", 1, "start"],
+    ["second-save", "Next", "", 2, "next"],
+  ]);
+  client.closeMainWorkspace();
+});
+
 const http = await build({
   stdin: {
     contents: `export * from './src/platform/backendClient'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`,
