@@ -21,9 +21,17 @@ import {
   undoStatusChange,
   type TaskMutationResult,
 } from "@/platform/backendClient";
+import { useRowExits } from "./useRowExits";
 import type { useWorkspaceTasks } from "./useWorkspaceTasks";
 
 type OperationUndoEntry = UndoEntry & { expectedVersion?: number };
+
+/** How long a row a status change moves out of view keeps showing its new status before sliding out. */
+const STATUS_EXIT_LINGER_MS = 250;
+
+function statusExitLinger(): number {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : STATUS_EXIT_LINGER_MS;
+}
 
 type StatusChangeFeedback = {
   message: string;
@@ -80,9 +88,8 @@ export function useWorkspaceActions({
   const [optimisticCreate, setOptimisticCreate] = useState<TaskView | null>(null);
   const [statusUndo, setStatusUndo] = useState<OperationUndoEntry | null>(null);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
-  const [exitingTaskIds, setExitingTaskIds] = useState<Set<string>>(() => new Set());
+  const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(updateVisibleTasks);
   const statusUndoRef = useRef<OperationUndoEntry | null>(null);
-  const cancelExitTimer = useRef<number | null>(null);
 
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
     if (!picker) return;
@@ -318,11 +325,7 @@ export function useWorkspaceActions({
             }
           : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
       const restored = result.tasks;
-      if (cancelExitTimer.current !== null) {
-        window.clearTimeout(cancelExitTimer.current);
-        cancelExitTimer.current = null;
-      }
-      setExitingTaskIds(new Set());
+      stopRowExits();
       if (result.deletedTaskIds && result.deletedTaskIds.length > 0)
         removeVisibleTasks(result.deletedTaskIds);
       updateVisibleTasks(restored);
@@ -357,7 +360,7 @@ export function useWorkspaceActions({
             (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))
       ) {
         retireUndo(entry);
-        setExitingTaskIds(new Set());
+        stopRowExits();
         setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
         void refreshTasks();
         return;
@@ -501,12 +504,31 @@ export function useWorkspaceActions({
     showStatusChangeToast(current);
   }
 
+  function showInPlace(updated: readonly TaskView[]): void {
+    const byId = new Map(updated.map((task) => [task.id, task]));
+    setTasks((previous) => previous.map((existing) => byId.get(existing.id) ?? existing));
+  }
+
+  /**
+   * Status and priority changes from the list. A row they move out of view
+   * shows its new status long enough for the glyph to play, then slides out.
+   */
+  function showTaskUpdates(updated: TaskView[]): void {
+    const nextTasks = visibleTasksAfterUpdate(updated);
+    const leaving = updated.filter(
+      (task) =>
+        tasks.some((existing) => existing.id === task.id) && !taskIsInCurrentView(task, nextTasks),
+    );
+    const staying = updated.filter((task) => !leaving.includes(task));
+    stopRowExits(staying.map((task) => task.id));
+    updateVisibleTasks(staying);
+    if (leaving.length === 0) return;
+    showInPlace(leaving);
+    exitRows(leaving, statusExitLinger());
+  }
+
   function handleCanceledMany(previous: TaskView[], current: TaskView[]): void {
     invalidateQueries();
-    if (cancelExitTimer.current !== null) {
-      window.clearTimeout(cancelExitTimer.current);
-      cancelExitTimer.current = null;
-    }
     const previousIds = new Set(previous.map((task) => task.id));
     const exiting = current.filter(
       (task) =>
@@ -514,15 +536,10 @@ export function useWorkspaceActions({
         tasks.some((existing) => existing.id === task.id) &&
         !isCurrentViewMatch(task),
     );
-    const remove = (): void => {
-      updateVisibleTasks(current);
-      setExitingTaskIds(new Set());
-      cancelExitTimer.current = null;
-      void refreshTasks(0, true);
-    };
     if (exiting.length > 0) {
-      setExitingTaskIds(new Set(exiting.map((task) => task.id)));
-      cancelExitTimer.current = window.setTimeout(remove, 150);
+      showInPlace(exiting);
+      exitRows(exiting, statusExitLinger(), () => void refreshTasks(0, true));
+      updateVisibleTasks(current.filter((task) => !exiting.includes(task)));
     } else {
       updateVisibleTasks(current);
     }
@@ -548,5 +565,6 @@ export function useWorkspaceActions({
     handleStatusChanged,
     handleStatusBatchChanged,
     handleCanceledMany,
+    showTaskUpdates,
   };
 }

@@ -241,8 +241,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     sortFieldRef,
     categoryFilterRef,
     refreshTasks,
-    updateVisibleTask,
-    updateVisibleTasks,
     isCurrentViewMatch,
   } = taskView;
   const {
@@ -262,6 +260,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     handleStatusChanged,
     handleStatusBatchChanged,
     handleCanceledMany,
+    showTaskUpdates,
   } = useWorkspaceActions({
     workspace,
     taskView,
@@ -779,8 +778,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onAnnounce={setAnnouncement}
           onToast={(message) => showTaskToast(message)}
           onEdit={openEdit}
-          onTaskUpdated={updateVisibleTask}
-          onTasksUpdated={updateVisibleTasks}
+          onTaskUpdated={(task) => showTaskUpdates([task])}
+          onTasksUpdated={showTaskUpdates}
           onOperation={(operationId, previous, current) =>
             recordOperationUndo(operationId, previous, current)
           }

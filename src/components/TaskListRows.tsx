@@ -78,7 +78,7 @@ export const TaskOption = memo(function TaskOption({
       data-context-parent={row.contextOnly || undefined}
       data-depth={row.depth}
       data-new-task={task.id === newTaskId || undefined}
-      data-canceled-task={exitingTaskIds.has(task.id) || undefined}
+      data-exiting-task={exitingTaskIds.has(task.id) || undefined}
       size="sm"
       variant={active && !selected ? "outline" : "default"}
       state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
