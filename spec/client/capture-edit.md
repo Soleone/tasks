@@ -21,7 +21,7 @@ Capture and edit use the same inline editor. It has three stops: title, priority
 | `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description. `Tab` from priority opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
 | `edit.priority` | `0`–`4` or `Left`/`Right` on the priority stop | Sets the priority. New tasks start at P2 |
 | `edit.description-button` | Add description | Opens the description for the mouse |
-| `edit.buttons` | Save and Cancel buttons | Mouse fallbacks, not Tab stops |
+| `edit.buttons` | Save and Cancel buttons | Mouse fallbacks, not Tab stops. The dismissal button always says Cancel and sits before Add description |
 | `edit.help-tooltip` | Full keyboard help is on | A compact tooltip points at the focused field |
 
 ## Shorthand

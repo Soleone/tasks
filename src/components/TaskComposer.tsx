@@ -214,12 +214,6 @@ export function TaskComposer({
   const [suggestion, setSuggestion] = useState<PartialToken | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
-  const dirty =
-    title.trim() !== initialDraft.text.trim() ||
-    classification.category !== initialDraft.classification.category ||
-    classification.tags.join() !== initialDraft.classification.tags.join() ||
-    description !== (task?.description ?? "") ||
-    priority !== (task?.priority ?? 2);
   const showContextualHelp = helpMode === "full" && !pending;
   const showPriorityHelp = helpMode === "basic" && !pending;
 
@@ -747,11 +741,6 @@ export function TaskComposer({
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          {!notesOpen ? (
-            <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>
-              Add description
-            </Button>
-          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -760,8 +749,13 @@ export function TaskComposer({
             disabled={pending}
             onClick={onCancel}
           >
-            {task ? (dirty ? "Discard changes" : "Cancel") : "Close"}
+            Cancel
           </Button>
+          {!notesOpen ? (
+            <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>
+              Add description
+            </Button>
+          ) : null}
         </div>
         <Button type="submit" size="sm" tabIndex={-1} disabled={pending}>
           {pending ? "Saving…" : task ? "Save changes" : "Add task"}

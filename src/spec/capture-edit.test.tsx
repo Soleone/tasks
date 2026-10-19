@@ -148,11 +148,26 @@ describe("inside the editor", () => {
     await screen.findByPlaceholderText("Write in Markdown…");
   });
 
-  test("edit.buttons: Save and Cancel are mouse fallbacks, not Tab stops", async () => {
+  test("edit.buttons: Cancel precedes Add description and stays labeled Cancel when editing", async () => {
+    await workspace.create("Existing task");
     const { user } = await workspace.render();
     await capture(user, "Task");
-    for (const name of ["Add task", "Close"])
+    const cancel = within(editor()).getByRole("button", { name: "Cancel" });
+    const description = within(editor()).getByRole("button", { name: "Add description" });
+    expect(
+      cancel.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    for (const name of ["Add task", "Cancel", "Add description"])
       expect(within(editor()).getByRole("button", { name }).tabIndex).toBe(-1);
+    await user.click(cancel);
+    await expectListFocused();
+    await user.click(row("Existing task"));
+    await focusedTitleField();
+    expect(within(editor()).getByRole("button", { name: "Cancel" }).tabIndex).toBe(-1);
+    await user.keyboard(" changed");
+    await user.click(within(editor()).getByRole("button", { name: "Cancel" }));
+    await expectListFocused();
+    await expectRows(["Existing task"]);
   });
 });
 
