@@ -1,6 +1,6 @@
 # Tasks: roadmap
 
-Updated 2026-10-18. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
+Updated 2026-10-19. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
 
 ## Direction
 
@@ -20,6 +20,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 - **Switch everything as soon as possible** (2026-10-16, replaces "Windows parity before cutover" from 2026-10-14). No Windows proof gate: the desktop app moves to the new engine on every OS, the legacy runtime is deleted, and the owner tests the Windows build once it is ready. Global focus is deferred. Windows 11 is the first release platform.
 - Themes (2026-10-15): ship the built-in palettes only for now; custom theme imports may come later. The candidate model and its Syncthing probe are dropped (2026-10-15).
 - Typed text is kept (2026-10-15): tasks store the shorthand as typed in `text` next to the parsed title, category and tags, so editing shows it unchanged. Changing classification any other way clears it. Schema 2 gains the field without a version bump because no real workspace uses schema 2 yet.
+- **Shorthand lifts into pills** (owner, 2026-10-19; replaces the editor half of "Typed text is kept"): typing stays the same, but a finished `@category` or `#tag` leaves the title for a pill under it, and editing shows the title plus pills rather than the typed text. Typing a pill again, Backspace right after a lift, or a click removes it; suggestions say what Enter does. The composer saves the composed shorthand (markers first), so `text` holds that; the CLI keeps what was typed. Rules are `shorthand.*` in the client spec.
 - Tests stay focused (2026-10-15): protect data integrity, tricky rules, process boundaries and known bugs. Prefer representative workflows over exhaustive permutations; don't add tests just to give every spec rule a citation.
 - Desktop capture writes a temp file and renames it; a duplicate after a crash between rename and receipt is accepted. Native development is `pnpm dev:native`, the release build `pnpm build:tauri`.
 - Saves stay cheap (owner, 2026-10-18): reads skip files whose identity, size and times are unchanged (git's racy rule re-hashes recent ones), single-task edits skip the pending journal like capture (a crash between rename and receipt leaves the edit applied and its retry stale), and the list shows status and priority changes before they are saved. Journals remain for multi-file changes.

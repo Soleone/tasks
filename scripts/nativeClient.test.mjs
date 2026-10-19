@@ -5,7 +5,7 @@ import { build } from "esbuild";
 
 const bundle = await build({
   stdin: {
-    contents: `export * from './src/platform/workspaceReader';export * from './src/platform/editorClient';export * from './src/backend/editorCommands';export {JsonLineSession} from './src/platform/backendSession';export {parseResponse} from './src/backend/protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView,inlineTaskText} from './src/components/taskView';export {parseShorthand} from './src/backend/shorthand';`,
+    contents: `export * from './src/platform/workspaceReader';export * from './src/platform/editorClient';export * from './src/backend/editorCommands';export {JsonLineSession} from './src/platform/backendSession';export {parseResponse} from './src/backend/protocol';export {MainWorkspace} from './src/platform/mainWorkspace';export {taskView} from './src/components/taskView';export {liftAll,shorthandText,shorthandTitle} from './src/components/composerShorthand';export {parseShorthand} from './src/backend/shorthand';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -24,7 +24,9 @@ const {
   parseResponse,
   MainWorkspace,
   taskView,
-  inlineTaskText,
+  liftAll,
+  shorthandText,
+  shorthandTitle,
   parseShorthand,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`
@@ -208,7 +210,11 @@ test("main-client presentation preserves literal text and round-trips inline cla
     const view = taskView(canonical);
     assert.equal(view.title, title);
     assert.equal(view.text, canonical.text);
-    assert.deepEqual(parseShorthand(inlineTaskText(view)), {
+    const field = shorthandTitle(view.title);
+    const pills = { category: "work", tags: ["alpha", "todo"] };
+    // Nothing in the escaped title lifts, so saving it unchanged keeps the title literal.
+    assert.deepEqual(liftAll(field, pills), { text: field, classification: pills });
+    assert.deepEqual(parseShorthand(shorthandText(field, pills)), {
       title,
       category: "work",
       tags: ["alpha", "todo"],

@@ -2,6 +2,7 @@ import { randomUUID } from "../lib/randomUUID";
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -9,15 +10,30 @@ import {
   type ReactElement,
 } from "react";
 import type { TaskPriority } from "@/backend/taskModel";
-import { inlineTaskText, type ClassificationOption, type TaskView } from "./taskView";
+import type { ClassificationOption, TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { parseShorthand } from "@/backend/shorthand";
+import {
+  enterAction,
+  liftAll,
+  liftFinished,
+  liftToken,
+  shorthandText,
+  shorthandTitle,
+  suggestionRows,
+  tokenBeforeCaret,
+  type Classification,
+  type Lift,
+  type Marker,
+  type PartialToken,
+  type SuggestionRow,
+  type TitleDraft,
+} from "./composerShorthand";
+import { ClassificationPills, type PillLanding } from "./ClassificationPills";
 import {
   createTask,
   listCategories,
   listTags,
   updateTask,
-  selectedMainWorkspace,
   type TaskMutationResult,
 } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
@@ -61,7 +77,7 @@ type ContextualHelpTarget = "title" | "description" | "priority";
 const CONTEXTUAL_HELP: Record<ContextualHelpTarget, { heading: string; text: string }> = {
   title: {
     heading: "Title",
-    text: "Type the task title. Press Tab to choose a priority, or Enter to save.",
+    text: "Type the task title; @category and #tags become pills. Tab completes a suggestion or moves to priority, and Enter saves.",
   },
   description: {
     heading: "Description",
@@ -125,6 +141,29 @@ function ComposerHelpTooltip({
   );
 }
 
+// The highlighted row says what Enter does; the others only mark a new name or a pill to remove.
+function SuggestionNote({
+  row,
+  action,
+}: {
+  row: SuggestionRow;
+  action: "select" | "save" | "remove" | null;
+}): ReactElement | null {
+  if (action)
+    return (
+      <span
+        className={
+          action === "remove" ? "text-xs text-destructive" : "text-xs text-muted-foreground"
+        }
+      >
+        ↵ {action}
+      </span>
+    );
+  if (row.kind === "remove") return <span className="text-xs text-destructive">remove</span>;
+  if (row.kind === "new") return <span className="text-xs text-muted-foreground">new</span>;
+  return null;
+}
+
 // Shared inline create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
@@ -146,8 +185,24 @@ export function TaskComposer({
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
-  const initialText = task ? (task.text ?? inlineTaskText(task)) : "";
-  const [title, setTitle] = useState(task ? initialText : initialTitle);
+  const [initialDraft] = useState(() =>
+    task
+      ? {
+          text: shorthandTitle(task.title),
+          classification: {
+            category: task.category?.slug ?? null,
+            tags: task.tags.map((tag) => tag.slug),
+          },
+        }
+      : liftAll(initialTitle, { category: null, tags: [] }),
+  );
+  const [title, setTitle] = useState(initialDraft.text);
+  const [classification, setClassification] = useState<Classification>(initialDraft.classification);
+  const [landing, setLanding] = useState<PillLanding | null>(null);
+  // The caret to restore after a lift rewrites the title.
+  const pendingCaret = useRef<number | null>(null);
+  // The latest lift, so a Backspace right after it can put the token back.
+  const lastLift = useRef<{ before: TitleDraft; lift: Lift } | null>(null);
   const [description, setDescription] = useState(task?.description ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
@@ -156,16 +211,13 @@ export function TaskComposer({
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ClassificationOption[]>([]);
   const [tags, setTags] = useState<ClassificationOption[]>([]);
-  const [suggestion, setSuggestion] = useState<{
-    marker: "@" | "#";
-    start: number;
-    end: number;
-    query: string;
-  } | null>(null);
+  const [suggestion, setSuggestion] = useState<PartialToken | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
   const dirty =
-    title !== initialText ||
+    title !== initialDraft.text ||
+    classification.category !== initialDraft.classification.category ||
+    classification.tags.join() !== initialDraft.classification.tags.join() ||
     description !== (task?.description ?? "") ||
     priority !== (task?.priority ?? 2);
   const showContextualHelp = helpMode === "full" && !pending;
@@ -184,6 +236,12 @@ export function TaskComposer({
     }
   }, [notesOpen]);
 
+  useLayoutEffect(() => {
+    if (pendingCaret.current === null) return;
+    titleInput.current?.setSelectionRange(pendingCaret.current, pendingCaret.current);
+    pendingCaret.current = null;
+  }, [title]);
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([listCategories(), listTags()])
@@ -201,44 +259,80 @@ export function TaskComposer({
     };
   }, []);
 
-  const suggestionItems =
-    suggestion?.marker === "@"
-      ? categories.filter((category) =>
-          category.label.toLowerCase().startsWith(suggestion.query.toLowerCase()),
+  const suggestionItems: SuggestionRow[] = suggestion
+    ? suggestion.marker === "@"
+      ? suggestionRows(
+          suggestion.query,
+          categories,
+          classification.category === null ? [] : [classification.category],
         )
-      : suggestion
-        ? tags.filter((tag) => tag.label.toLowerCase().startsWith(suggestion.query.toLowerCase()))
-        : [];
+      : suggestionRows(suggestion.query, tags, classification.tags)
+    : [];
 
   function updateSuggestion(nextTitle: string, cursor: number): void {
-    const beforeCursor = nextTitle.slice(0, cursor);
-    const match = beforeCursor.match(/(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)?$/);
-    if (!match) {
-      setSuggestion(null);
-      return;
-    }
-    const marker = match[2] as "@" | "#";
-    const query = match[3] ?? "";
-    const start = cursor - query.length - 1;
-    setSuggestion({ marker, start, end: cursor, query });
+    setSuggestion(tokenBeforeCaret(nextTitle, cursor));
     setSuggestionIndex(0);
   }
 
-  function chooseSuggestion(item: ClassificationOption): void {
-    if (!suggestion) return;
-    const replacement = `${suggestion.marker}${item.label} `;
-    const nextTitle = `${title.slice(0, suggestion.start)}${replacement}${title.slice(suggestion.end)}`;
-    const cursor = suggestion.start + replacement.length;
-    setTitle(nextTitle);
-    setSuggestion(null);
-    requestAnimationFrame(() => {
-      titleInput.current?.focus();
-      titleInput.current?.setSelectionRange(cursor, cursor);
+  function commitTitle(draft: TitleDraft): void {
+    setTitle(draft.text);
+    setClassification(draft.classification);
+    pendingCaret.current = draft.caret;
+    updateSuggestion(draft.text, draft.caret);
+  }
+
+  function commitLift(before: TitleDraft, lift: Lift): void {
+    commitTitle(lift.draft);
+    lastLift.current = { before, lift };
+    if (lift.change === "added" || lift.change === "replaced")
+      setLanding({ marker: lift.token.marker, slug: lift.token.slug, at: lift.token.start });
+  }
+
+  // The row's name replaces the partial one, as text.
+  function completeSuggestion(partial: PartialToken, row: SuggestionRow): TitleDraft {
+    const replacement = `${partial.marker}${row.slug}`;
+    return {
+      text: `${title.slice(0, partial.start)}${replacement}${title.slice(partial.end)}`,
+      caret: partial.start + replacement.length,
+      classification,
+    };
+  }
+
+  function chooseSuggestion(partial: PartialToken, row: SuggestionRow): void {
+    const completed = completeSuggestion(partial, row);
+    const token = {
+      marker: partial.marker,
+      slug: row.slug,
+      start: partial.start,
+      end: completed.caret,
+    };
+    commitLift(completed, liftToken(completed, token, true));
+  }
+
+  // Backspace right after a lift: the token goes back into the title, without the space that lifted it.
+  function undoLift({ before, lift }: { before: TitleDraft; lift: Lift }): void {
+    lastLift.current = null;
+    const typed = before.text.slice(lift.token.start, lift.token.end);
+    const at = lift.token.start;
+    commitTitle({
+      text: `${lift.draft.text.slice(0, at)}${typed}${lift.draft.text.slice(at)}`,
+      caret: at + typed.length,
+      classification: before.classification,
     });
+  }
+
+  function removePill(marker: Marker, slug: string): void {
+    lastLift.current = null;
+    setClassification((current) =>
+      marker === "@"
+        ? { ...current, category: null }
+        : { ...current, tags: current.tags.filter((tag) => tag !== slug) },
+    );
   }
 
   function handleSuggestionKeyDown(event: KeyboardEvent<HTMLInputElement>): boolean {
     if (!suggestion || suggestionItems.length === 0) return false;
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const delta = event.key === "ArrowDown" ? 1 : -1;
@@ -247,9 +341,20 @@ export function TaskComposer({
       );
       return true;
     }
-    if (event.key === "Enter" || event.key === "Tab") {
+    const row = suggestionItems[suggestionIndex];
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      chooseSuggestion(suggestionItems[suggestionIndex]);
+      if (enterAction(row, suggestion.query) === "save") event.currentTarget.form?.requestSubmit();
+      else chooseSuggestion(suggestion, row);
+      return true;
+    }
+    if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault();
+      if (row.slug === suggestion.query) chooseSuggestion(suggestion, row);
+      else {
+        lastLift.current = null;
+        commitTitle(completeSuggestion(suggestion, row));
+      }
       return true;
     }
     return false;
@@ -315,10 +420,27 @@ export function TaskComposer({
       return;
     }
     if (handleSuggestionKeyDown(event)) return;
-    if (event.key === "Escape" && suggestion && suggestionItems.length > 0) {
+    const input = event.currentTarget;
+    const lifted = lastLift.current;
+    if (
+      event.key === "Backspace" &&
+      lifted?.lift.draft.text === title &&
+      input.selectionStart === lifted.lift.draft.caret &&
+      input.selectionEnd === input.selectionStart
+    ) {
+      event.preventDefault();
+      undoLift(lifted);
+      return;
+    }
+    if (event.key === "Escape" && suggestion) {
       event.preventDefault();
       event.stopPropagation();
-      setSuggestion(null);
+      lastLift.current = null;
+      commitTitle({
+        text: `${title.slice(0, suggestion.start)}${title.slice(suggestion.end)}`,
+        caret: suggestion.start,
+        classification,
+      });
       return;
     }
     if (event.key === "Escape") {
@@ -352,18 +474,24 @@ export function TaskComposer({
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (saving.current) return;
-    if (!title.trim()) {
+    // A marker still in the title counts on save, but never removes a pill.
+    const lifted = liftAll(title, classification);
+    setTitle(lifted.text);
+    setClassification(lifted.classification);
+    setSuggestion(null);
+    if (!lifted.text.trim()) {
       setTitleError(true);
       titleInput.current?.focus();
       return;
     }
+    const text = shorthandText(lifted.text, lifted.classification);
 
     saving.current = true;
     setPending(true);
     setError(null);
     // A lost reply must be retried with the same receipt, not a second write.
     const payload = JSON.stringify([
-      title,
+      text,
       description,
       priority,
       task?.id ?? "new",
@@ -374,22 +502,17 @@ export function TaskComposer({
     }
     const options = { idempotencyKey: receipt.current.key };
     try {
-      if (selectedMainWorkspace() && !parseShorthand(title).title) {
-        setTitleError(true);
-        titleInput.current?.focus();
-        return;
-      }
       if (!task) {
         onCreatePending({
-          title: title.trim(),
+          title: text,
           description,
           priority,
           ...(parentId ? { parentId } : {}),
         });
       }
       const result = task
-        ? await updateTask(task.id, title, description, task.version, { ...options, priority })
-        : await createTask(title, description, { ...options, parentId, priority });
+        ? await updateTask(task.id, text, description, task.version, { ...options, priority })
+        : await createTask(text, description, { ...options, parentId, priority });
       receipt.current = null;
       onSaved(result);
     } catch (caught) {
@@ -431,64 +554,85 @@ export function TaskComposer({
             <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} />
           ) : null}
           <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
-          <Input
-            ref={titleInput}
-            id={`${id}-title`}
-            name="title"
-            autoComplete="off"
-            placeholder="What needs doing?"
-            value={title}
-            readOnly={pending}
-            required
-            aria-invalid={titleError || undefined}
-            aria-describedby={titleError ? `${id}-error` : undefined}
-            aria-expanded={suggestion !== null && suggestionItems.length > 0}
-            aria-autocomplete="list"
-            onChange={(event) => {
-              setTitle(event.target.value);
-              setTitleError(false);
-              updateSuggestion(
-                event.target.value,
-                event.target.selectionStart ?? event.target.value.length,
-              );
-            }}
-            onFocus={() => setHelpTarget("title")}
-            onKeyDown={handleTitleKeyDown}
-            onClick={(event) =>
-              updateSuggestion(
-                event.currentTarget.value,
-                event.currentTarget.selectionStart ?? event.currentTarget.value.length,
-              )
-            }
+          {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
+          <div className="relative">
+            <Input
+              ref={titleInput}
+              id={`${id}-title`}
+              name="title"
+              autoComplete="off"
+              placeholder="What needs doing?"
+              value={title}
+              readOnly={pending}
+              required
+              aria-invalid={titleError || undefined}
+              aria-describedby={titleError ? `${id}-error` : undefined}
+              aria-expanded={suggestion !== null && suggestionItems.length > 0}
+              aria-autocomplete="list"
+              onChange={(event) => {
+                setTitleError(false);
+                lastLift.current = null;
+                const draft = {
+                  text: event.target.value,
+                  caret: event.target.selectionStart ?? event.target.value.length,
+                  classification,
+                };
+                // Pasted text adds what it names; only typing a pill again takes it off.
+                const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
+                const lift = liftFinished(draft, toggle);
+                if (lift) commitLift(draft, lift);
+                else {
+                  setTitle(draft.text);
+                  updateSuggestion(draft.text, draft.caret);
+                }
+              }}
+              onFocus={() => setHelpTarget("title")}
+              onKeyDown={handleTitleKeyDown}
+              onClick={(event) =>
+                updateSuggestion(
+                  event.currentTarget.value,
+                  event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+                )
+              }
+            />
+            {suggestion && suggestionItems.length > 0 ? (
+              <div
+                role="listbox"
+                aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
+                className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+              >
+                {suggestionItems.map((item, index) => (
+                  <button
+                    key={item.slug}
+                    type="button"
+                    role="option"
+                    aria-selected={index === suggestionIndex}
+                    tabIndex={-1}
+                    className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => chooseSuggestion(suggestion, item)}
+                  >
+                    <span>
+                      {suggestion.marker}
+                      {item.label}
+                    </span>
+                    <SuggestionNote
+                      row={item}
+                      action={
+                        index === suggestionIndex ? enterAction(item, suggestion.query) : null
+                      }
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <ClassificationPills
+            classification={classification}
+            landing={landing}
+            titleInput={titleInput}
+            onRemove={removePill}
           />
-          {suggestion && suggestionItems.length > 0 ? (
-            <div
-              role="listbox"
-              aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
-              className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-            >
-              {suggestionItems.map((item, index) => (
-                <button
-                  key={item.slug}
-                  type="button"
-                  role="option"
-                  aria-selected={index === suggestionIndex}
-                  tabIndex={-1}
-                  className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => chooseSuggestion(item)}
-                >
-                  <span>
-                    {suggestion.marker}
-                    {item.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.taskCount} {item.taskCount === 1 ? "task" : "tasks"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
         <Field className="relative">

@@ -157,15 +157,61 @@ describe("inside the editor", () => {
 });
 
 describe("shorthand", () => {
-  test("shorthand.category: @word sets the category; two categories refuse the save", async () => {
+  function titleField(): HTMLInputElement {
+    return within(editor()).getByPlaceholderText("What needs doing?");
+  }
+
+  function pills(): string[] {
+    return within(within(editor()).getByRole("list", { name: "Category and tags" }))
+      .queryAllByRole("listitem")
+      .map((item) => item.textContent ?? "");
+  }
+
+  async function suggestion(name: RegExp): Promise<HTMLElement> {
+    const list = await screen.findByRole("listbox", { name: "Tags autocomplete" });
+    return within(list).findByRole("option", { name });
+  }
+
+  async function createTagged(text: string): Promise<string> {
+    const { task } = await workspace.command<{ task: { id: string } }>("task.create", { text });
+    return task.id;
+  }
+
+  async function taskTitled(title: string) {
+    const { tasks } = await workspace.command<{ tasks: { id: string; title: string }[] }>(
+      "task.list",
+      {},
+    );
+    const found = tasks.find((task) => task.title === title);
+    expect(found).toBeDefined();
+    return workspace.task(found!.id);
+  }
+
+  test("shorthand.lift: a finished marker leaves the title for a pill; escapes stay text", async () => {
     const { user } = await workspace.render();
-    await capture(user, "Call @home and @work{Enter}");
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    expect((await workspace.command<{ tasks: unknown[] }>("task.list", {})).tasks).toHaveLength(0);
-    const title = within(editor()).getByPlaceholderText("What needs doing?");
-    await user.clear(title);
-    await user.keyboard("Call @home{Enter}");
-    await waitFor(async () => expect((await onlyTask()).category).toBe("home"));
+    await capture(user, "Fix \\#one #bug on @work login ");
+    expect(titleField().value).toBe("Fix \\#one on login ");
+    expect(pills()).toEqual(["work", "bug"]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => {
+      const task = await onlyTask();
+      expect([task.title, task.category, task.tags]).toEqual([
+        "Fix #one on login",
+        "work",
+        ["bug"],
+      ]);
+    });
+  });
+
+  test("shorthand.category: a second category replaces the first", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Call @home @work ");
+    expect(pills()).toEqual(["work"]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => {
+      const task = await onlyTask();
+      expect([task.title, task.category]).toEqual(["Call", "work"]);
+    });
   });
 
   test("shorthand.tags: #word adds tags", async () => {
@@ -174,37 +220,104 @@ describe("shorthand", () => {
     await waitFor(async () => expect((await onlyTask()).tags).toEqual(["books", "later"]));
   });
 
-  test("shorthand.literal: editing shows the text as typed until the classification changes elsewhere", async () => {
+  test("shorthand.toggle: typing a pill again removes it", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read #books #later #books ");
+    expect(pills()).toEqual(["later"]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await onlyTask()).tags).toEqual(["later"]));
+  });
+
+  test("shorthand.unlift: Backspace right after a lift puts the marker back to fix", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read #bokos ");
+    expect(pills()).toEqual(["bokos"]);
+    await user.keyboard("{Backspace}");
+    expect(titleField().value).toBe("Read #bokos");
+    expect(pills()).toEqual([]);
+    await user.keyboard("{Backspace}{Backspace}{Backspace}{Backspace}ooks ");
+    expect(pills()).toEqual(["books"]);
+  });
+
+  test("shorthand.pill-click: clicking a pill removes it and keeps the title focused", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read #books ");
+    await user.click(within(editor()).getByRole("button", { name: "Remove tag books" }));
+    expect(pills()).toEqual([]);
+    await focusedTitleField();
+  });
+
+  test("shorthand.enter: Enter on a pill the task already has removes it", async () => {
+    const id = await createTagged("Old #errand");
+    const { user } = await workspace.render();
+    await user.click(row("Old"));
+    await focusedTitleField();
+    await user.keyboard("{End} #e");
+    await suggestion(/errand.*remove/);
+    await user.keyboard("{Enter}");
+    expect(pills()).toEqual([]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await workspace.task(id)).tags).toEqual([]));
+  });
+
+  test("shorthand.tab: Tab completes a suggestion as text, then Enter saves it", async () => {
+    await createTagged("Old #errand");
+    const { user } = await workspace.render();
+    await capture(user, "Buy #e");
+    await suggestion(/errand/);
+    await user.keyboard("{Tab}");
+    expect(titleField().value).toBe("Buy #errand");
+    expect(pills()).toEqual([]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await taskTitled("Buy")).tags).toEqual(["errand"]));
+  });
+
+  test("shorthand.escape: Escape drops the marker being typed and keeps the editor open", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Buy #er{Escape}");
+    expect(titleField().value).toBe("Buy ");
+    await user.keyboard("milk{Enter}");
+    await waitFor(async () => expect((await onlyTask()).title).toBe("Buy milk"));
+  });
+
+  test("shorthand.save: a marker left in the title counts on save but never removes a pill", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read #later #soon #later{Control>}{Enter}{/Control}");
+    await waitFor(async () => {
+      const task = await onlyTask();
+      expect([task.title, task.tags]).toEqual(["Read", ["later", "soon"]]);
+    });
+  });
+
+  test("shorthand.literal: editing shows the title without markers and the classification as pills", async () => {
     const { task } = await workspace.command<{ task: { id: string } }>("task.create", {
       text: "Call #phone tomorrow @home",
       description: "Ask about @work #later",
     });
-    const { task: moved } = await workspace.command<{ task: { id: string } }>("task.create", {
-      text: "Book #travel trip @home",
-    });
-    await workspace.change("task.update", moved.id, { category: "work" });
+    await workspace.command("task.create", { title: "Ping @alice" });
     const { user } = await workspace.render();
     await user.click(row("Call tomorrow"));
-    expect((await focusedTitleField()).value).toBe("Call #phone tomorrow @home");
-    const saved = await workspace.task(task.id);
-    expect([saved.category, saved.tags, saved.description]).toEqual([
-      "home",
-      ["phone"],
-      "Ask about @work #later",
-    ]);
-    await user.keyboard("{Escape}");
-    await user.click(row("Book trip"));
-    expect((await focusedTitleField()).value).toBe("@work #travel Book trip");
+    expect((await focusedTitleField()).value).toBe("Call tomorrow");
+    expect(pills()).toEqual(["home", "phone"]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => {
+      const saved = await workspace.task(task.id);
+      expect([saved.title, saved.category, saved.tags, saved.description]).toEqual([
+        "Call tomorrow",
+        "home",
+        ["phone"],
+        "Ask about @work #later",
+      ]);
+    });
+    await expectListFocused();
+    await user.click(row("Ping @alice"));
+    expect((await focusedTitleField()).value).toBe("Ping \\@alice");
   });
 
   test("shorthand.empty: a title that is only shorthand is refused", async () => {
     const { user } = await workspace.render();
     await capture(user, "@home{Enter}");
-    await waitFor(() =>
-      expect(
-        within(editor()).getByPlaceholderText("What needs doing?").getAttribute("aria-invalid"),
-      ).toBe("true"),
-    );
+    await waitFor(() => expect(titleField().getAttribute("aria-invalid")).toBe("true"));
     const { tasks } = await workspace.command<{ tasks: unknown[] }>("task.list", {});
     expect(tasks).toHaveLength(0);
   });

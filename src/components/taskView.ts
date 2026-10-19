@@ -9,34 +9,6 @@ export type TaskView = Omit<TaskProjection, "orderKey" | "category" | "tags"> & 
 
 export type ClassificationOption = ClassificationToken & { taskCount: number };
 
-export function inlineTaskText(task: Pick<TaskView, "title" | "category" | "tags">): string {
-  let escaped = "";
-  for (let index = 0; index < task.title.length;) {
-    const marker = task.title.startsWith("```", index)
-      ? "```"
-      : task.title[index] === "`"
-        ? "`"
-        : null;
-    if (marker) {
-      const close = task.title.indexOf(marker, index + marker.length);
-      const protectedEnd = close < 0 ? task.title.length : close + marker.length;
-      if (marker === "```" || (close >= 0 && !task.title.slice(index, close).includes("\n"))) {
-        escaped += task.title.slice(index, protectedEnd);
-        index = protectedEnd;
-        continue;
-      }
-    }
-    const character = task.title[index++];
-    escaped += ["\\", "@", "#"].includes(character) ? `\\${character}` : character;
-  }
-  const classification = [
-    task.category ? `@${task.category.slug}` : "",
-    ...task.tags.map((tag) => `#${tag.slug}`),
-  ].filter(Boolean);
-  // Prefix classification so an unclosed code fence in the literal title cannot swallow it.
-  return [...classification, escaped].join(" ");
-}
-
 export function taskView(task: TaskProjection): TaskView {
   return {
     ...task,
