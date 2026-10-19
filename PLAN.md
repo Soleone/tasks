@@ -49,7 +49,8 @@ Remaining follow-ups, each requiring its own go-ahead:
 1. Gather detailed daily-use feedback, including faster saves and repeated keyboard reorder; high-level native success does not establish every workflow or multi-day acceptance.
 2. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 3. Investigate the web bundle's chunk-size warning if load performance warrants it; do not hide it by raising the warning limit.
-4. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
+4. Launch speed (owner, 2026-10-19: measure first). Launch now starts the backend once instead of twice. Settings → Data → Launch time keeps the last five launches split into steps; the owner sends a few from a Windows build (one right after a reboot) before anything else changes. Showing the last list before the backend answers is the candidate fix for felt speed, not yet approved.
+5. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
 
 Kit adoption is at r4. `src/components/ui` and `src/components/soleone` match stock registry sources.
 

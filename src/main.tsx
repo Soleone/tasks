@@ -11,11 +11,13 @@ import { themeOptions } from "virtual:theme-options";
 import { THEME_STORAGE_KEY } from "./theme/config";
 import { runtimeKind } from "./platform/runtime";
 import { revealScrollbarsWhileScrolling } from "./scrollbars";
+import { markScript } from "./launchTiming";
 import "./styles.css";
 
 const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
 const DesktopWorkspace = lazy(() => import("./DesktopWorkspace"));
 
+markScript();
 document.title = APP_NAME;
 
 const favicons = [

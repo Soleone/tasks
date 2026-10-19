@@ -22,6 +22,7 @@ import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { WorkspaceBackup } from "./WorkspaceBackup";
+import { LaunchTimes } from "./LaunchTimes";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { ReadableTabsTrigger } from "@/components/variants/tabs";
 
@@ -294,6 +295,8 @@ export function SettingsDialog({
               {open && workspace?.supportsBackupRestore ? (
                 <WorkspaceBackup workspace={workspace} />
               ) : null}
+
+              {open && runtimeKind() === "native" ? <LaunchTimes /> : null}
             </div>
           </TabsContent>
         </Tabs>
