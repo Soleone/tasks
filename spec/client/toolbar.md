@@ -50,7 +50,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 | `filter.mode` | `F` | The filter group takes focus with a visible ring. The next key picks a filter |
 | `sort.mode` | `S` | The sort group takes focus. The next key picks a sort |
 | `toolbar.mode-exit` | Choosing an option, pressing the same key again, `Escape`, leaving the app or hiding the page | Focus returns to the list. There is no timeout |
-| `toolbar.dialog-return` | A category, tag or search dialog opened from a mode closes | Focus returns to the list |
+| `toolbar.dialog-return` | A category or tag dialog, or inline search opened from a mode, closes | Focus returns to the list |
 
 ## Filters
 
@@ -62,7 +62,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 | `filter.unblocked` | `F` `U` | Hides tasks with any blocker. A done blocker still blocks; a canceled one doesn't |
 | `filter.category` | `@`, or `F` `C` | Category picker with its search focused. One category at a time. Categories used only by canceled tasks are left out |
 | `filter.tags` | `#`, or `F` `T` | Tag picker. Tags combine with AND. `Space` toggles, `Enter` picks the highlighted tag when none is picked, then closes. A Clear tags row empties the filter; `Enter` activates it even when tags are selected. Tags used only by canceled tasks are left out |
-| `filter.search` | `/` | Search over titles and descriptions. The query stays applied after the dialog closes |
+| `filter.search` | `/` or the Search toolbar button | A focused search input opens inline between the toolbar controls and count line, without a popup, explanatory text or action row. Enter applies the query over titles and descriptions and closes the input; the query stays applied. Escape dismisses an edited draft without changing the applied query; Escape on an empty input or its embedded Clear search × clears the search and closes the input. Closing returns focus to the list |
 | `filter.escape` | `Escape` on the list with one or no task selected | All filters and search reset. Sort and Details stay |
 
 ## Sort

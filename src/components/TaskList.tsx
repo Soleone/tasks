@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ReactElement,
+  type ReactNode,
   type Ref,
 } from "react";
 import { flushSync } from "react-dom";
@@ -120,6 +121,7 @@ type TaskListProps = {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onOpenSearch: () => void;
+  searchInput: ReactNode;
   hasActiveFilters: boolean;
   onClearAllFilters: () => void;
   activeTaskRequest: ActiveTaskRequest;
@@ -207,6 +209,7 @@ export function TaskList({
   searchQuery,
   onSearchChange,
   onOpenSearch,
+  searchInput,
   hasActiveFilters,
   onClearAllFilters,
   activeTaskRequest,
@@ -1372,6 +1375,7 @@ export function TaskList({
         unblockedFeedbackOpen={unblockedFeedback.open}
         setUnblockedFeedbackOpen={unblockedFeedback.onOpenChange}
         searchQuery={searchQuery}
+        searchInput={searchInput}
         openSearch={openSearch}
         sortField={sortField}
         sortDirection={sortDirection}

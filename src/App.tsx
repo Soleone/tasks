@@ -18,7 +18,7 @@ import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
 import { TagPicker } from "@/components/TagPicker";
-import { SearchDialog } from "@/components/SearchDialog";
+import { InlineSearch } from "@/components/InlineSearch";
 import type { ComposerState } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
@@ -188,6 +188,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [composer, setComposer] = useState<ComposerState | null>(null);
   const [activeTaskRequest, setActiveTaskRequest] = useState({
     key: 0,
@@ -207,6 +208,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
 
   const nav = useFocusNavigation(["list"]);
   const focusStack = useFocusStack();
+
+  useEffect(() => {
+    if (searchOpen && !helpOpen) searchInput.current?.focus();
+  }, [helpOpen, searchOpen]);
 
   function requestActiveTask(taskId: string | null = null, preserveTaskOnRefresh = false): void {
     setActiveTaskRequest((previous) => ({ key: previous.key + 1, taskId, preserveTaskOnRefresh }));
@@ -437,9 +442,18 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
 
   function openSearch(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("search", fromPalette ?? undefined);
     setHelpOpen(false);
+    if (searchOpen) {
+      searchInput.current?.focus();
+      return;
+    }
+    focusStack.push("search", fromPalette ?? undefined);
     setSearchOpen(true);
+  }
+
+  function closeSearch(): void {
+    setSearchOpen(false);
+    focusStack.restore("search")?.focus();
   }
 
   function toggleStatusPreset(): void {
@@ -553,7 +567,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   }
 
   function chooseSearch(query: string): void {
-    setSearchOpen(false);
+    if (searchOpen) closeSearch();
     const next = query.trim();
     setSearchQuery(next);
     writeStored(SEARCH_QUERY_KEY, next);
@@ -736,6 +750,16 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           searchQuery={searchQuery}
           onSearchChange={chooseSearch}
           onOpenSearch={openSearch}
+          searchInput={
+            searchOpen ? (
+              <InlineSearch
+                ref={searchInput}
+                initialQuery={searchQuery}
+                onSelect={chooseSearch}
+                onClose={closeSearch}
+              />
+            ) : null
+          }
           hasActiveFilters={hasActiveFilters}
           onClearAllFilters={clearAllFilters}
           activeTaskRequest={activeTaskRequest}
@@ -843,15 +867,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           finalFocus={() => focusStack.restore("tag-picker") ?? undefined}
           selected={tagFilter}
           onChange={chooseTags}
-        />
-      ) : null}
-      {searchOpen ? (
-        <SearchDialog
-          open
-          onClose={() => setSearchOpen(false)}
-          finalFocus={() => focusStack.restore("search") ?? undefined}
-          initialQuery={searchQuery}
-          onSelect={chooseSearch}
         />
       ) : null}
       {picker ? (

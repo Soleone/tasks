@@ -390,12 +390,74 @@ describe("filters", () => {
     await workspace.create("Unrelated");
     const { user } = await workspace.render();
     await user.keyboard("/");
-    await screen.findByRole("dialog");
+    const input = await screen.findByRole("textbox", { name: "Search query" });
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    const search = screen.getByRole("search", { name: "Search tasks" });
+    const toolbar = document.querySelector("[data-filter=task-search]")!;
+    const count = document.querySelector("[data-filter-summary]")!;
+    expect(toolbar.closest("section")).toBe(search.closest("section"));
+    expect(toolbar.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(search.compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText(/Titles and descriptions/)).toBeNull();
+    expect(search.querySelectorAll("button").length).toBe(1);
+    expect(screen.getByRole("button", { name: /^Clear search$/ }).textContent).toBe("");
     await user.keyboard("groceries{Enter}");
     await expectRows(["Plain", "Groceries"]);
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("search")).toBeNull();
+    await expectListFocused();
+
+    await user.click(document.querySelector("[data-filter=task-search]")!);
+    const reopened = await screen.findByRole("textbox", { name: "Search query" });
+    expect((reopened as HTMLInputElement).value).toBe("groceries");
+    await user.clear(reopened);
+    await user.type(reopened, "unrelated");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("search")).toBeNull();
     await expectRows(["Plain", "Groceries"]);
+    await expectListFocused();
   });
+
+  test("filter.search: the palette opens or refocuses inline search without leaving a dialog", async () => {
+    await workspace.create("Task");
+    const { user } = await workspace.render();
+    for (const draft of ["", "draft"]) {
+      await user.keyboard("{Control>}k{/Control}");
+      await screen.findByRole("dialog", { name: "Shortcuts and syntax" });
+      await user.keyboard("search tasks{Enter}");
+      const input = await screen.findByRole("textbox", { name: "Search query" });
+      await waitFor(() => expect(document.activeElement).toBe(input));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect((input as HTMLInputElement).value).toBe(draft);
+      if (draft === "") await user.type(input, "draft");
+    }
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("search")).toBeNull();
+    await expectListFocused();
+  });
+
+  test.each(["clear button", "empty Escape"])(
+    "filter.search: %s clears the applied search and returns focus from filter mode",
+    async (action) => {
+      await workspace.create("Groceries");
+      await workspace.create("Unrelated");
+      const { user } = await workspace.render();
+      await user.keyboard("/groceries{Enter}");
+      await expectRows(["Groceries"]);
+      await user.keyboard("f/");
+      const input = await screen.findByRole("textbox", { name: "Search query" });
+      await waitFor(() => expect(document.activeElement).toBe(input));
+      if (action === "clear button") {
+        await user.click(screen.getByRole("button", { name: /^Clear search$/ }));
+      } else {
+        await user.clear(input);
+        await user.keyboard("{Escape}");
+      }
+      expect(screen.queryByRole("search")).toBeNull();
+      await expectRows(["Unrelated", "Groceries"]);
+      await expectListFocused();
+    },
+  );
 
   test("filter.escape: Escape with one task selected resets filters but keeps sort and Details", async () => {
     await workspace.create("Low", { priority: 4 });

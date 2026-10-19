@@ -185,6 +185,7 @@ type TaskListToolbarProps = {
   unblockedFeedbackOpen: boolean;
   setUnblockedFeedbackOpen: (open: boolean) => void;
   searchQuery: string;
+  searchInput: ReactNode;
   openSearch: () => void;
   sortField: SortField;
   sortDirection: SortDirection;
@@ -234,6 +235,7 @@ export function TaskListToolbar({
   unblockedFeedbackOpen,
   setUnblockedFeedbackOpen,
   searchQuery,
+  searchInput,
   openSearch,
   sortField,
   sortDirection,
@@ -854,6 +856,7 @@ export function TaskListToolbar({
           </FoldableGroup>
         </div>
       </div>
+      {searchInput}
       <Breadcrumb
         data-filter-summary="true"
         aria-live="polite"
