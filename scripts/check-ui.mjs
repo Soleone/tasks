@@ -1417,6 +1417,16 @@ try {
     check(toolbarGridExpression(rows));
   }
   browser("set", "viewport", "1280", "844");
+  // toolbar.fold: an open glyph's mark is as wide as its icon, centered under it and clear of it; a folded glyph has none.
+  const glyphMarks =
+    '[...document.querySelectorAll("[data-toolbar-glyph]")].every((glyph) => { const icon = glyph.querySelector("svg:not(.hidden)").getBoundingClientRect(); const mark = glyph.querySelector("[data-toolbar-glyph-mark]")?.getBoundingClientRect(); if (glyph.getAttribute("aria-expanded") === "false") return !mark; return mark && Math.abs(mark.width - icon.width) < 0.5 && Math.abs(mark.left + mark.width / 2 - (icon.left + icon.width / 2)) < 0.5 && mark.top >= icon.bottom + 1.5; })';
+  check(glyphMarks);
+  const sortGlyph = 'document.querySelector("[data-toolbar-glyph=sort]")';
+  evaluate(`${sortGlyph}.click()`);
+  waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "false"`);
+  check(glyphMarks);
+  evaluate(`${sortGlyph}.click()`);
+  waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "true"`);
   // On a wide window the top bar's buttons share the toolbar's columns.
   check(
     `(() => { const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect(); const buttons = [...document.querySelectorAll("header button")].map((button) => button.getBoundingClientRect()); return buttons.length === 3 && buttons.every((box) => Math.abs(box.width - capture.width) < 0.5 && Math.abs(((box.left - capture.left) / capture.width) % 1) < 0.01); })()`,

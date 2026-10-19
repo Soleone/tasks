@@ -53,10 +53,12 @@ export function ToolbarCommand({
 }
 
 /**
- * Names a group and folds it. Open, it reads as a label: a smaller muted icon, quieter than the
- * group's buttons. Folded, a dashed outline marks it as a stub for hidden buttons rather than one
- * more button of the group beside it. Hover swaps in the fold direction, and the dot keeps a
- * pressed button inside a folded group visible.
+ * Names a group and folds it. Open, it reads as a label: a muted icon, quieter than the group's
+ * buttons, underlined by a mark as wide as the icon so the group's start is findable without
+ * spending a cell. The icon keeps the buttons' size so spacing stays even across the row. Folded,
+ * a dashed outline replaces the mark and reads as a stub for hidden buttons rather than one more
+ * button of the group beside it. Hover swaps in the fold direction, and the dot keeps
+ * a pressed button inside a folded group visible.
  */
 export function ToolbarGlyph({
   icon: Icon,
@@ -79,8 +81,15 @@ export function ToolbarGlyph({
       )}
       {...props}
     >
-      <Icon aria-hidden="true" className="size-3.5 group-hover/button:hidden" />
-      <Fold aria-hidden="true" className="hidden size-3.5 group-hover/button:block" />
+      <Icon aria-hidden="true" className="group-hover/button:hidden" />
+      <Fold aria-hidden="true" className="hidden group-hover/button:block" />
+      {open ? (
+        <span
+          aria-hidden="true"
+          data-toolbar-glyph-mark
+          className="absolute inset-x-0 bottom-0.25 mx-auto h-0.5 w-4 rounded-full bg-muted-foreground/60"
+        />
+      ) : null}
       {active ? (
         <span
           aria-hidden="true"

@@ -19,7 +19,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `toolbar.fold` | Clicking a group's glyph | The group folds to its glyph, or unfolds. Folded groups are remembered between launches. The count line still reports every active filter. At rest an open group's glyph reads as a quiet label, smaller and dimmer than its buttons; hovering it shows the fold direction. A folded glyph has a dashed outline, so it reads as a stub for hidden buttons rather than part of the group beside it |
+| `toolbar.fold` | Clicking a group's glyph | The group folds to its glyph, or unfolds. Folded groups are remembered between launches. The count line still reports every active filter. At rest an open group's glyph reads as a quiet label, dimmer than its buttons but the same size; hovering it shows the fold direction. While the group is open, a short line as wide as the glyph's icon sits under it, so each group's start is easy to find. A folded glyph drops the line for a dashed outline, so it reads as a stub for hidden buttons rather than part of the group beside it |
 | `toolbar.fold-indicator` | A folded group has a pressed button | Its glyph shows a small dot |
 | `toolbar.fold-mode` | `F` or `S` while Filters or Sort is folded | The group unfolds for the focus mode and folds again when the mode exits. Shortcuts work the same folded or not |
 
