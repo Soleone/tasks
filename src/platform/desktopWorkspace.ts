@@ -68,7 +68,7 @@ async function folderSelection(appData: string, folder: string): Promise<EditorS
   };
 }
 
-export function folderSession(selection: EditorSelection): JsonLineSession<Response> {
+function folderSession(selection: EditorSelection): JsonLineSession<Response> {
   return new JsonLineSession(async () => {
     const args = sidecarArgs(selection); // Validates the selection on both routes.
     if (isAndroid()) return androidBackend(selection.rootPath, selection.databasePath);
@@ -77,13 +77,16 @@ export function folderSession(selection: EditorSelection): JsonLineSession<Respo
   }, parseResponse);
 }
 
-type FolderState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
+export type FolderState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
 
-/** One backend conversation about a folder that isn't open in the app yet. */
+/**
+ * One backend conversation about a folder that isn't open in the app yet. When the folder
+ * opens, the app takes over the session, so launch starts the backend only once.
+ */
 export class FolderSetup {
   private constructor(
     readonly selection: EditorSelection,
-    private readonly session: JsonLineSession<Response>,
+    readonly session: JsonLineSession<Response>,
   ) {}
 
   static async open(appData: string, folder: string): Promise<FolderSetup> {

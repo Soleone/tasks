@@ -9,19 +9,19 @@ import { selectMainWorkspace } from "./platform/backendClient";
 import {
   createFolder,
   desktopPaths,
-  folderSession,
   FolderSetup,
+  type FolderState,
   pathExists,
   rememberedFolder,
   rememberFolder,
   type DesktopPaths,
 } from "./platform/desktopWorkspace";
-import { EditorClient, type EditorSelection } from "./platform/editorClient";
+import { EditorClient } from "./platform/editorClient";
 import { MainWorkspace } from "./platform/mainWorkspace";
 import { WorkspaceReader } from "./platform/workspaceReader";
 
-function openWorkspace(selection: EditorSelection): MainWorkspace {
-  const session = folderSession(selection);
+/** The app keeps talking to the backend that checked the folder. */
+function openWorkspace({ selection, session }: FolderSetup): MainWorkspace {
   const workspace = new MainWorkspace(
     new WorkspaceReader(selection, undefined, session),
     new EditorClient(session, selection),
@@ -34,13 +34,18 @@ function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-/** Checks a folder with the backend, then closes that conversation before the app opens its own. */
+function opens(state: FolderState): boolean {
+  return state === "ready" || state === "recovery_pending";
+}
+
+/** Checks a folder with the backend. The caller opens the app on the setup or closes it. */
 async function inspect(appData: string, folder: string) {
   const setup = await FolderSetup.open(appData, folder);
   try {
-    return { selection: setup.selection, ...(await setup.info()) };
-  } finally {
+    return { setup, state: (await setup.info()).state };
+  } catch (reason) {
     await setup.close();
+    throw reason;
   }
 }
 
@@ -60,13 +65,14 @@ export default function DesktopWorkspace(): ReactElement | null {
         const found = await desktopPaths();
         const remembered = rememberedFolder();
         if (remembered && (await pathExists(remembered))) {
-          const opened = await inspect(found.appData, remembered);
-          if (cancelled) return;
-          if (opened.state === "ready" || opened.state === "recovery_pending") {
-            setWorkspace(openWorkspace(opened.selection));
+          const { setup, state } = await inspect(found.appData, remembered);
+          if (!cancelled && opens(state)) {
+            setWorkspace(openWorkspace(setup));
             return;
           }
-          setError(`${remembered} isn't a task folder anymore (${opened.state}).`);
+          await setup.close();
+          if (cancelled) return;
+          setError(`${remembered} isn't a task folder anymore (${state}).`);
         }
         if (cancelled) return;
         setPaths(found);
@@ -84,13 +90,13 @@ export default function DesktopWorkspace(): ReactElement | null {
     if (paths && !busy) folderRef.current?.focus();
   }, [paths, busy]);
 
-  async function run(label: string, action: () => Promise<EditorSelection>): Promise<void> {
+  async function run(label: string, action: () => Promise<FolderSetup>): Promise<void> {
     setBusy(label);
     setError(null);
     try {
-      const selection = await action();
-      rememberFolder(selection.rootPath);
-      setWorkspace(openWorkspace(selection));
+      const setup = await action();
+      rememberFolder(setup.selection.rootPath);
+      setWorkspace(openWorkspace(setup));
     } catch (reason) {
       setError(message(reason));
     } finally {
@@ -104,22 +110,20 @@ export default function DesktopWorkspace(): ReactElement | null {
     const target = folder.trim();
     void run("Opening the folder...", async () => {
       if (!(await pathExists(target))) await createFolder(target);
-      const found = await inspect(paths.appData, target);
-      if (found.state === "ready" || found.state === "recovery_pending") return found.selection;
-      if (found.state === "empty") {
-        const setup = await FolderSetup.open(paths.appData, target);
-        try {
-          await setup.init();
-        } finally {
-          await setup.close();
-        }
-        return found.selection;
+      const { setup, state } = await inspect(paths.appData, target);
+      try {
+        if (state === "empty") await setup.init();
+        else if (!opens(state))
+          throw new Error(
+            state === "unsupported"
+              ? "This folder holds tasks from the old version. Convert it with pnpm migrate first."
+              : "This folder has files that aren't a complete task workspace. Pick an empty or new folder.",
+          );
+        return setup;
+      } catch (reason) {
+        await setup.close();
+        throw reason;
       }
-      throw new Error(
-        found.state === "unsupported"
-          ? "This folder holds tasks from the old version. Convert it with pnpm migrate first."
-          : "This folder has files that aren't a complete task workspace. Pick an empty or new folder.",
-      );
     });
   }
 
