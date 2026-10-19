@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
-import { expectListFocused, expectRows } from "@/testing/taskList";
+import { expectListFocused, expectRows, focusedTitleField } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
@@ -28,6 +28,42 @@ describe("count line", () => {
     await user.keyboard("sp");
     await waitFor(() => expect(pressed("[data-sort=task-sort-priority]")).toBe("true"));
     expect(countLine()).toBe("2 active tasks");
+  });
+
+  test("count.line: a refresh that lands while a new task saves doesn't count it twice", async () => {
+    const { user } = await workspace.render();
+    const original = globalThis.fetch;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    globalThis.fetch = async (...args) => {
+      const response = await original(...args);
+      const body = typeof args[1]?.body === "string" ? JSON.parse(args[1].body) : null;
+      if (body?.command === "task.create" && !body.dryRun) await held;
+      return response;
+    };
+    try {
+      await user.keyboard("c");
+      await focusedTitleField();
+      await user.keyboard("B{Enter}");
+      await waitFor(async () =>
+        expect((await workspace.command<{ total: number }>("task.list")).total).toBe(1),
+      );
+      // The refresh lists the saved task beside its optimistic row before the save replies.
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(() =>
+        expect(
+          document.querySelector("#task-list [role=option]:not([data-optimistic-task])"),
+        ).not.toBeNull(),
+      );
+    } finally {
+      release();
+      globalThis.fetch = original;
+    }
+    await expectListFocused();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(countLine()).toBe("1 active task");
   });
 
   test("count.clear-one: clicking a filter in the count line resets only that filter", async () => {

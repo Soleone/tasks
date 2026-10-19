@@ -72,6 +72,9 @@ export function useWorkspaceTasks({
   const categoryFilterRef = useRef<string | null>(categoryFilter?.slug ?? null);
   const restoredMetadataRef = useRef(false);
   const workspaceRevisionRef = useRef<number | null>(null);
+  // Saves reply after later renders; their count changes must compare against the current list.
+  const tasksRef = useRef(tasks);
+  const contextTasksRef = useRef(contextTasks);
 
   // Runs the current query. Callers mark the list as loading first.
   const fetchTasks = useCallback(
@@ -204,6 +207,8 @@ export function useWorkspaceTasks({
     sortFieldRef.current = sortField;
     sortDirectionRef.current = sortDirection;
     categoryFilterRef.current = categoryFilter?.slug ?? null;
+    tasksRef.current = tasks;
+    contextTasksRef.current = contextTasks;
   });
 
   // A changed view starts loading in the same render it changes in, and the
@@ -325,6 +330,8 @@ export function useWorkspaceTasks({
   }
 
   function removeVisibleTasks(taskIds: string[]): void {
+    const tasks = tasksRef.current;
+    const contextTasks = contextTasksRef.current;
     const ids = new Set(taskIds);
     const nextTasks = tasks.filter((task) => !ids.has(task.id));
     const removed = tasks.length - nextTasks.length;
@@ -351,6 +358,8 @@ export function useWorkspaceTasks({
 
   function updateVisibleTasks(updatedTasks: TaskView[]): void {
     if (updatedTasks.length === 0) return;
+    const tasks = tasksRef.current;
+    const contextTasks = contextTasksRef.current;
     const updates = new Map(updatedTasks.map((task) => [task.id, task]));
     let nextTasks = tasks;
     let totalDelta = 0;
