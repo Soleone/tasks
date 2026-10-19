@@ -1417,14 +1417,15 @@ try {
     check(toolbarGridExpression(rows));
   }
   browser("set", "viewport", "1280", "844");
-  // toolbar.fold: an open glyph's mark is as wide as its icon, centered under it and clear of it; a folded glyph has none.
+  // toolbar.fold: an open glyph's mark is as wide as its icon, centered under it and clear of it. A folded glyph has none,
+  // and its dashed outline lies inside the border, where filled buttons paint.
   const glyphMarks =
-    '[...document.querySelectorAll("[data-toolbar-glyph]")].every((glyph) => { const icon = glyph.querySelector("svg:not(.hidden)").getBoundingClientRect(); const mark = glyph.querySelector("[data-toolbar-glyph-mark]")?.getBoundingClientRect(); if (glyph.getAttribute("aria-expanded") === "false") return !mark; return mark && Math.abs(mark.width - icon.width) < 0.5 && Math.abs(mark.left + mark.width / 2 - (icon.left + icon.width / 2)) < 0.5 && mark.top >= icon.bottom + 1.5; })';
+    '[...document.querySelectorAll("[data-toolbar-glyph]")].every((glyph) => { const icon = glyph.querySelector("svg:not(.hidden)").getBoundingClientRect(); const mark = glyph.querySelector("[data-toolbar-glyph-mark]")?.getBoundingClientRect(); const style = getComputedStyle(glyph); if (glyph.getAttribute("aria-expanded") === "false") return !mark && style.outlineStyle === "dashed" && parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth) <= -parseFloat(style.borderTopWidth); return mark && Math.abs(mark.width - icon.width) < 0.5 && Math.abs(mark.left + mark.width / 2 - (icon.left + icon.width / 2)) < 0.5 && mark.top >= icon.bottom + 1.5; })';
   check(glyphMarks);
   const sortGlyph = 'document.querySelector("[data-toolbar-glyph=sort]")';
   evaluate(`${sortGlyph}.click()`);
-  waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "false"`);
-  check(glyphMarks);
+  // The button's transition eases the outline in, so wait for it to settle.
+  waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "false" && ${glyphMarks}`);
   evaluate(`${sortGlyph}.click()`);
   waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "true"`);
   // On a wide window the top bar's buttons share the toolbar's columns.

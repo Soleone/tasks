@@ -57,8 +57,9 @@ export function ToolbarCommand({
  * buttons, underlined by a mark as wide as the icon so the group's start is findable without
  * spending a cell. The icon keeps the buttons' size so spacing stays even across the row. Folded,
  * a dashed outline replaces the mark and reads as a stub for hidden buttons rather than one more
- * button of the group beside it. Hover swaps in the fold direction, and the dot keeps
- * a pressed button inside a folded group visible.
+ * button of the group beside it. The outline sits inside the transparent border, where filled
+ * buttons paint, so a stub is as big as its neighbors and keeps the same gap to them. Hover swaps
+ * in the fold direction, and the dot keeps a pressed button inside a folded group visible.
  */
 export function ToolbarGlyph({
   icon: Icon,
@@ -76,7 +77,7 @@ export function ToolbarGlyph({
     <ToolbarCommand
       className={cn(
         "relative text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground hover:aria-expanded:bg-muted hover:aria-expanded:text-foreground",
-        !open && "border-dashed border-border",
+        !open && "outline outline-dashed outline-border -outline-offset-2",
         className,
       )}
       {...props}
