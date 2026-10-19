@@ -46,6 +46,8 @@ import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { preventFocusSteal } from "@/navigation";
 import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
 import { QuietInput, QuietTextarea } from "@/components/variants/input";
+import { isAndroid } from "@/platform/runtime";
+import { KeyboardBar, moveCaret, type Arrow } from "./KeyboardBar";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -70,9 +72,9 @@ type TaskComposerProps = {
   onDisableHelp: () => void;
 };
 
-type ContextualHelpTarget = "title" | "description" | "priority";
+type ComposerField = "title" | "description" | "priority";
 
-const CONTEXTUAL_HELP: Record<ContextualHelpTarget, { heading: string; text: string }> = {
+const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> = {
   title: {
     heading: "Title",
     text: "Type the task title; @category and #tags become pills. Tab completes a suggestion or moves to priority, and Enter saves.",
@@ -91,7 +93,7 @@ function ComposerHelpTooltip({
   target,
   onDisableHelp,
 }: {
-  target: ContextualHelpTarget;
+  target: ComposerField;
   onDisableHelp: () => void;
 }): ReactElement {
   const help = CONTEXTUAL_HELP[target];
@@ -213,7 +215,7 @@ export function TaskComposer({
   const [tags, setTags] = useState<ClassificationOption[]>([]);
   const [suggestion, setSuggestion] = useState<PartialToken | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
-  const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
+  const [activeField, setActiveField] = useState<ComposerField>("title");
   const showContextualHelp = helpMode === "full" && !pending;
   const showPriorityHelp = helpMode === "basic" && !pending;
 
@@ -333,10 +335,7 @@ export function TaskComposer({
     if (event.ctrlKey || event.metaKey || event.altKey) return false;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      const delta = event.key === "ArrowDown" ? 1 : -1;
-      setSuggestionIndex(
-        (current) => (current + delta + suggestionItems.length) % suggestionItems.length,
-      );
+      moveSuggestion(event.key === "ArrowDown" ? 1 : -1);
       return true;
     }
     const row = suggestionItems[suggestionIndex];
@@ -348,14 +347,25 @@ export function TaskComposer({
     }
     if (event.key === "Tab" && !event.shiftKey) {
       event.preventDefault();
-      if (row.slug === suggestion.query) chooseSuggestion(suggestion, row);
-      else {
-        lastLift.current = null;
-        commitTitle(completeSuggestion(suggestion, row));
-      }
+      tabSuggestion(suggestion, row);
       return true;
     }
     return false;
+  }
+
+  function moveSuggestion(delta: -1 | 1): void {
+    setSuggestionIndex(
+      (current) => (current + delta + suggestionItems.length) % suggestionItems.length,
+    );
+  }
+
+  // The first Tab completes the name as text; a second one chooses it.
+  function tabSuggestion(partial: PartialToken, row: SuggestionRow): void {
+    if (row.slug === partial.query) chooseSuggestion(partial, row);
+    else {
+      lastLift.current = null;
+      commitTitle(completeSuggestion(partial, row));
+    }
   }
 
   function showNotes(): void {
@@ -367,6 +377,57 @@ export function TaskComposer({
     prioritySection.current?.focus();
   }
 
+  function stepPriority(delta: -1 | 1): void {
+    setPriority((current) => Math.min(4, Math.max(0, current + delta)) as TaskPriority);
+  }
+
+  // Tab order: title, priority, description. Tab from priority opens a closed description.
+  function focusAfter(field: ComposerField, backward: boolean): void {
+    if (field === "title") {
+      if (backward && notesOpen) notesInput.current?.focus();
+      else focusPrioritySection();
+    } else if (field === "priority") {
+      if (backward) titleInput.current?.focus();
+      else if (notesOpen) notesInput.current?.focus();
+      else showNotes();
+    } else if (backward) focusPrioritySection();
+    else titleInput.current?.focus();
+  }
+
+  // The keyboard bar's Tab: the same as the key in the field that has focus.
+  function pressTab(backward: boolean): void {
+    const row = suggestionItems[suggestionIndex];
+    if (activeField === "title" && !backward && suggestion && row) tabSuggestion(suggestion, row);
+    else focusAfter(activeField, backward);
+  }
+
+  // The keyboard bar's arrows: the same as the keys in the field that has focus.
+  function pressArrow(arrow: Arrow): void {
+    const delta = arrow === "up" || arrow === "left" ? -1 : 1;
+    const vertical = arrow === "up" || arrow === "down";
+    if (activeField === "priority") {
+      if (!vertical) stepPriority(delta);
+    } else if (activeField === "title" && vertical) {
+      if (suggestion && suggestionItems.length > 0) moveSuggestion(delta);
+    } else {
+      const field = activeField === "title" ? titleInput.current : notesInput.current;
+      if (field) moveCaret(field, delta, vertical);
+    }
+  }
+
+  // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
+  // description keeps it as text; from priority it goes to the title.
+  function insertMarker(marker: Marker): void {
+    const field = activeField === "description" ? notesInput.current : titleInput.current;
+    if (!field) return;
+    field.focus();
+    const end = field.selectionEnd ?? field.value.length;
+    field.setRangeText(marker, field.selectionStart ?? end, end, "end");
+    field.dispatchEvent(
+      new InputEvent("input", { bubbles: true, inputType: "insertText", data: marker }),
+    );
+  }
+
   function handlePriorityKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
     if (event.key === "Escape") {
@@ -376,9 +437,7 @@ export function TaskComposer({
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      if (event.shiftKey) titleInput.current?.focus();
-      else if (notesOpen) notesInput.current?.focus();
-      else showNotes();
+      focusAfter("priority", event.shiftKey);
       return;
     }
     if (
@@ -401,8 +460,7 @@ export function TaskComposer({
       !event.shiftKey
     ) {
       event.preventDefault();
-      const delta = event.key === "ArrowLeft" ? -1 : 1;
-      setPriority((current) => Math.min(4, Math.max(0, current + delta)) as TaskPriority);
+      stepPriority(event.key === "ArrowLeft" ? -1 : 1);
       return;
     }
     if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
@@ -449,12 +507,7 @@ export function TaskComposer({
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
-      if (event.shiftKey) {
-        if (notesOpen) notesInput.current?.focus();
-        else focusPrioritySection();
-      } else {
-        focusPrioritySection();
-      }
+      focusAfter("title", event.shiftKey);
       return;
     }
     if (
@@ -548,7 +601,7 @@ export function TaskComposer({
     >
       <FieldGroup>
         <Field className="relative" data-invalid={titleError || undefined}>
-          {showContextualHelp && helpTarget === "title" ? (
+          {showContextualHelp && activeField === "title" ? (
             <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} />
           ) : null}
           <FieldLabel htmlFor={`${id}-title`}>Title</FieldLabel>
@@ -584,7 +637,7 @@ export function TaskComposer({
                   updateSuggestion(draft.text, draft.caret);
                 }
               }}
-              onFocus={() => setHelpTarget("title")}
+              onFocus={() => setActiveField("title")}
               onKeyDown={handleTitleKeyDown}
               onClick={(event) =>
                 updateSuggestion(
@@ -634,7 +687,7 @@ export function TaskComposer({
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
         <Field className="relative">
-          {showContextualHelp && helpTarget === "priority" ? (
+          {showContextualHelp && activeField === "priority" ? (
             <ComposerHelpTooltip target="priority" onDisableHelp={onDisableHelp} />
           ) : null}
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
@@ -651,7 +704,7 @@ export function TaskComposer({
               aria-disabled={pending || undefined}
               tabIndex={0}
               data-priority-section
-              onFocus={() => setHelpTarget("priority")}
+              onFocus={() => setActiveField("priority")}
               onKeyDown={handlePriorityKeyDown}
             >
               {PRIORITY_META.map((meta) => {
@@ -690,7 +743,7 @@ export function TaskComposer({
         </Field>
         {notesOpen ? (
           <Field className="relative">
-            {showContextualHelp && helpTarget === "description" ? (
+            {showContextualHelp && activeField === "description" ? (
               <ComposerHelpTooltip target="description" onDisableHelp={onDisableHelp} />
             ) : null}
             <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
@@ -703,7 +756,7 @@ export function TaskComposer({
               value={description}
               readOnly={pending}
               onChange={(event) => setDescription(event.target.value)}
-              onFocus={() => setHelpTarget("description")}
+              onFocus={() => setActiveField("description")}
               onBlur={(event) => {
                 const nextFocus = event.relatedTarget;
                 if (
@@ -717,8 +770,7 @@ export function TaskComposer({
                 if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                 if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
                   event.preventDefault();
-                  if (event.shiftKey) focusPrioritySection();
-                  else titleInput.current?.focus();
+                  focusAfter("description", event.shiftKey);
                   return;
                 }
                 if (event.key === "Escape") {
@@ -761,6 +813,14 @@ export function TaskComposer({
           {pending ? "Saving…" : task ? "Save changes" : "Add task"}
         </Button>
       </div>
+      {isAndroid() ? (
+        <KeyboardBar
+          disabled={pending}
+          onMarker={insertMarker}
+          onTab={pressTab}
+          onArrow={pressArrow}
+        />
+      ) : null}
     </form>
   );
 }

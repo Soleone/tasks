@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import {
   announcements,
@@ -285,6 +285,81 @@ describe("shorthand", () => {
     expect(pills()).toEqual([]);
     await user.keyboard("{Enter}");
     await waitFor(async () => expect((await taskTitled("Buy")).tags).toEqual(["errand"]));
+  });
+
+  describe("on Android", () => {
+    beforeEach(() => {
+      vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Linux; Android 16)");
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function barKey(user: UserEvent, name: string): Promise<void> {
+      const bar = screen.getByRole("toolbar", { name: "Keyboard keys" });
+      return user.click(within(bar).getByRole("button", { name }));
+    }
+
+    function prioritySection(): Element | null {
+      const active = document.activeElement;
+      return active?.hasAttribute("data-priority-section") ? active : null;
+    }
+
+    test("platform.keyboard-bar: the bar types markers and tabs like the keys", async () => {
+      await createTagged("Old #errand");
+      const { user } = await workspace.render();
+      await capture(user, "Buy ");
+      await barKey(user, "#");
+      await user.keyboard("e");
+      await suggestion(/errand/);
+      await barKey(user, "Tab");
+      expect(titleField().value).toBe("Buy #errand");
+      await barKey(user, "Tab");
+      expect(pills()).toEqual(["errand"]);
+      await focusedTitleField();
+      await barKey(user, "Tab");
+      expect(prioritySection()).not.toBeNull();
+      await barKey(user, "@");
+      expect(titleField().value).toBe("Buy @");
+      await focusedTitleField();
+      await barKey(user, "Shift+Tab");
+      expect(prioritySection()).not.toBeNull();
+    });
+
+    test("platform.keyboard-bar: the arrows move the caret, suggestions and priority", async () => {
+      await createTagged("Old #errand #email");
+      const { user } = await workspace.render();
+      await capture(user, "Buy #e");
+      await suggestion(/errand/);
+      const highlighted = () => screen.getByRole("option", { selected: true }).textContent;
+      const first = highlighted();
+      await barKey(user, "Down");
+      expect(highlighted()).not.toBe(first);
+      await barKey(user, "Up");
+      expect(highlighted()).toBe(first);
+      await barKey(user, "Left");
+      expect(titleField().selectionStart).toBe(5);
+      await barKey(user, "Right");
+      expect(titleField().selectionStart).toBe(6);
+      await user.keyboard("{Shift>}{Tab}{/Shift}");
+      await barKey(user, "Left");
+      expect(prioritySection()?.getAttribute("aria-activedescendant")).toMatch(/priority-1$/);
+      await user.keyboard("{Tab}");
+      const notes =
+        within(editor()).getByPlaceholderText<HTMLTextAreaElement>("Write in Markdown…");
+      await waitFor(() => expect(document.activeElement).toBe(notes));
+      await user.keyboard("ab{Enter}cd");
+      await barKey(user, "Up");
+      expect(notes.selectionStart).toBe(2);
+      await barKey(user, "Down");
+      expect(notes.selectionStart).toBe(5);
+    });
+  });
+
+  test("platform.keyboard-bar: desktop has no keyboard bar", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Buy ");
+    expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
   });
 
   test("shorthand.escape: Escape drops the marker being typed and keeps the editor open", async () => {
