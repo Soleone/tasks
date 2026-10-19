@@ -210,6 +210,71 @@ describe("focus modes", () => {
   });
 });
 
+describe("button kinds and folding", () => {
+  function folded(group: string): boolean {
+    return document.querySelector(`[data-toolbar=${group}]`)?.closest("[hidden]") !== null;
+  }
+
+  test("toolbar.button-kinds: state buttons report pressed, commands report only expanded", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    expect(pressed("[data-filter=task-unblocked]")).toBe("false");
+    expect(pressed("[data-view=task-details]")).toBe("false");
+    for (const name of ["New task", "Undo", "Reorder", "Task actions"])
+      expect(screen.getByRole("button", { name }).hasAttribute("aria-pressed")).toBe(false);
+    const actions = screen.getByRole("button", { name: "Task actions" });
+    await user.click(actions);
+    await screen.findByRole("menu");
+    expect(actions.getAttribute("aria-expanded")).toBe("true");
+    expect(actions.hasAttribute("aria-pressed")).toBe(false);
+  });
+
+  test("toolbar.fold: a group's glyph folds it to the glyph, remembered between launches", async () => {
+    await workspace.create("A");
+    const first = await workspace.render();
+    const glyph = screen.getByRole("button", { name: "Filters" });
+    expect(glyph.getAttribute("aria-expanded")).toBe("true");
+    await first.user.click(glyph);
+    await waitFor(() => expect(folded("filters")).toBe(true));
+    expect(glyph.getAttribute("aria-expanded")).toBe("false");
+    first.view.unmount();
+    const second = await workspace.render();
+    expect(folded("filters")).toBe(true);
+    await second.user.click(screen.getByRole("button", { name: "Filters" }));
+    await waitFor(() => expect(folded("filters")).toBe(false));
+  });
+
+  test("toolbar.fold-indicator: a folded glyph marks a group with a pressed button", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    const dot = () =>
+      document.querySelector("[data-toolbar-glyph=sort] [data-toolbar-glyph-active]");
+    await user.click(screen.getByRole("button", { name: "Sort" }));
+    await waitFor(() => expect(folded("sort")).toBe(true));
+    expect(dot()).toBeNull();
+    await user.keyboard("sp");
+    await waitFor(() => expect(pressed("[data-sort=task-sort-priority]")).toBe("true"));
+    expect(folded("sort")).toBe(true);
+    expect(dot()).not.toBeNull();
+  });
+
+  test("toolbar.fold-mode: F opens folded Filters for the mode and refolds when it exits", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await waitFor(() => expect(folded("filters")).toBe(true));
+    await expectListFocused();
+    await user.keyboard("f");
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("data-toolbar")).toBe("filters"),
+    );
+    expect(folded("filters")).toBe(false);
+    await user.keyboard("{Escape}");
+    await expectListFocused();
+    await waitFor(() => expect(folded("filters")).toBe(true));
+  });
+});
+
 describe("filters", () => {
   async function seedStatuses(): Promise<void> {
     await workspace.create("Open one");

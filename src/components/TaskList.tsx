@@ -9,6 +9,7 @@ import {
   type ReactElement,
   type Ref,
 } from "react";
+import { flushSync } from "react-dom";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskTransitionCommand } from "@/backend/protocol";
@@ -31,7 +32,7 @@ import {
   type StatusCommand,
   type StatusTransition,
 } from "./taskStatusCycle";
-import { TaskListToolbar } from "./TaskListToolbar";
+import { TaskListToolbar, type ToolbarFoldGroup } from "./TaskListToolbar";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
@@ -107,6 +108,8 @@ type TaskListProps = {
   onDisableHelp: () => void;
   onDisableComposerHelp: () => void;
   onToggleDetails: () => void;
+  foldedToolbarGroups: readonly ToolbarFoldGroup[];
+  onToolbarGroupFoldedChange: (group: ToolbarFoldGroup, folded: boolean) => void;
   categoryFilter: ClassificationToken | null;
   onCategoryFilterChange: (category: ClassificationToken | null, activeTaskId?: string) => void;
   onSelectCategory: (category: ClassificationToken, activeTaskId?: string) => void;
@@ -192,6 +195,8 @@ export function TaskList({
   onDisableHelp,
   onDisableComposerHelp,
   onToggleDetails,
+  foldedToolbarGroups,
+  onToolbarGroupFoldedChange,
   categoryFilter,
   onCategoryFilterChange,
   onSelectCategory,
@@ -436,7 +441,8 @@ export function TaskList({
 
   function startToolbarMode(mode: ToolbarMode): void {
     clearToolbarMode();
-    activateToolbarMode(mode);
+    // A folded group opens for its mode; it must render before it can take focus.
+    flushSync(() => activateToolbarMode(mode));
     (mode === "filter" ? filterToolbar.current : sortToolbar.current)?.focus();
     onAnnounce(
       mode === "filter"
@@ -1326,6 +1332,8 @@ export function TaskList({
         statusFilterButton={statusFilterButton}
         activateToolbarMode={activateToolbarMode}
         clearToolbarMode={clearToolbarMode}
+        foldedGroups={foldedToolbarGroups}
+        setGroupFolded={onToolbarGroupFoldedChange}
         composerOpen={composer !== null}
         onCreate={onCreate}
         taskActions={{

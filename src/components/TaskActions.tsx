@@ -1,9 +1,8 @@
-import { useState, type ComponentProps, type ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { CirclePause, Copy, CornerDownRight, Ellipsis, Link2, Undo2 } from "lucide-react";
 import type { TaskView } from "./taskView";
-import { Button } from "./ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { ToggleButton } from "./variants/button";
+import type { Tooltip } from "./ui/tooltip";
+import { ToolbarCommand, ToolbarTooltip } from "./variants/toolbar";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -41,60 +40,41 @@ export function TaskActions({
   finalFocus,
   tooltipFor,
 }: TaskActionsProps): ReactElement {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const undoTooltip = tooltipFor("undo");
-  const menuTooltip = tooltipFor("task-actions");
   return (
     <>
-      <Tooltip {...undoTooltip}>
-        <TooltipTrigger
-          id={undoTooltip.triggerId ?? undefined}
+      <ToolbarTooltip
+        tooltip={tooltipFor("undo")}
+        hint="Undo (Ctrl/⌘+Z)"
+        render={
+          <ToolbarCommand
+            disabled={disabled || !canUndo}
+            aria-label="Undo"
+            aria-keyshortcuts="Control+z Meta+z"
+            onMouseDown={preventFocusSteal}
+            onClick={onUndo}
+          />
+        }
+      >
+        <Undo2 aria-hidden="true" />
+      </ToolbarTooltip>
+      <DropdownMenu>
+        <ToolbarTooltip
+          tooltip={tooltipFor("task-actions")}
+          hint="Task actions"
           render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              tabIndex={-1}
-              disabled={disabled || !canUndo}
-              aria-label="Undo"
-              aria-keyshortcuts="Control+z Meta+z"
-              onMouseDown={preventFocusSteal}
-              onClick={onUndo}
+            <DropdownMenuTrigger
+              render={
+                <ToolbarCommand
+                  aria-label="Task actions"
+                  disabled={disabled || !activeTask}
+                  onMouseDown={preventFocusSteal}
+                />
+              }
             />
           }
         >
-          <Undo2 aria-hidden="true" />
-        </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={8}>
-          Undo (Ctrl/⌘+Z)
-        </TooltipContent>
-      </Tooltip>
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <Tooltip {...menuTooltip}>
-          <TooltipTrigger
-            id={menuTooltip.triggerId ?? undefined}
-            render={
-              <DropdownMenuTrigger
-                render={
-                  <ToggleButton
-                    variant={menuOpen ? "outline" : "ghost"}
-                    selected={menuOpen}
-                    size="icon-sm"
-                    tabIndex={-1}
-                    aria-label="Task actions"
-                    aria-pressed={menuOpen}
-                    disabled={disabled || !activeTask}
-                    onMouseDown={preventFocusSteal}
-                  />
-                }
-              />
-            }
-          >
-            <Ellipsis aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>
-            Task actions
-          </TooltipContent>
-        </Tooltip>
+          <Ellipsis aria-hidden="true" />
+        </ToolbarTooltip>
 
         <TaskActionsMenuContent align="end" finalFocus={finalFocus}>
           {activeTask ? (

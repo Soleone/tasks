@@ -120,11 +120,107 @@ function hasToastWithText(message) {
 function expandedTaskOptionExpression(title, selector = "#task-list [role=option]") {
   return `[...document.querySelectorAll(${JSON.stringify(selector)})].find((row) => row.textContent.includes(${JSON.stringify(title)}) && document.getElementById(row.getAttribute("aria-describedby"))?.textContent === "Children expanded.")`;
 }
+// The Active view's count: open and in-progress tasks, collapsed children included.
+async function activeTaskCount() {
+  return (await command("task.list", { status: ["open", "in_progress"] })).total;
+}
 function summaryBaseExpression() {
   return 'document.querySelector("[data-filter-summary] [data-slot=breadcrumb-list] > [data-slot=breadcrumb-item]")?.textContent.trim()';
 }
 function summaryFilterExpression(filter) {
   return `document.querySelector('[data-filter-summary] [data-filter-remove=${JSON.stringify(filter)}]')?.textContent.trim()`;
+}
+// toolbar.layout and platform.toolbar-cell: cells are one size (28px, or 32px on touch, scaled with
+// the text size), sit on integer columns from New task, groups never split, and rows after the
+// first start one cell in.
+function toolbarGridExpression(rows) {
+  return `(() => {
+    const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect();
+    const cell = capture.width;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const sized = Math.abs(cell - (matchMedia("(pointer: coarse)").matches ? 2 : 1.75) * rem) < 0.5;
+    const cells = [...document.querySelectorAll("[data-toolbar-cell]")].filter((element) => !element.closest("[hidden]"));
+    const columnOf = (box) => (box.left - capture.left) / cell;
+    const boxes = cells.map((element) => element.getBoundingClientRect());
+    const onGrid = boxes.every((box) => Math.abs(box.width - cell) < 0.5 && Math.abs(box.height - cell) < 0.5 && Math.abs(columnOf(box) - Math.round(columnOf(box))) < 0.01);
+    const whole = [...document.querySelectorAll("[data-slot=collapsible]")].every((group) => new Set([...group.querySelectorAll("[data-toolbar-cell]")].filter((element) => !element.closest("[hidden]")).map((element) => Math.round(element.getBoundingClientRect().top))).size === 1);
+    const tops = [...new Set(boxes.map((box) => Math.round(box.top)))].sort((a, b) => a - b);
+    const starts = tops.map((top) => Math.min(...boxes.filter((box) => Math.round(box.top) === top).map((box) => Math.round(columnOf(box)))));
+    return document.documentElement.scrollWidth <= innerWidth && sized && onGrid && whole && tops.length === ${rows} && starts.every((start, row) => start === (row === 0 ? 0 : 1));
+  })()`;
+}
+// The browser CLI can't emulate a coarse pointer, and CDP emulation lasts only while its session
+// stays attached, so these expressions run inside one emulated session.
+async function evaluateWithCoarsePointer(expressions) {
+  const socket = new WebSocket(browser("get", "cdp-url").trim());
+  const replies = new Map();
+  let nextId = 0;
+  socket.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+    replies.get(message.id)?.(message);
+  };
+  const send = (method, params = {}, sessionId) =>
+    new Promise((resolve) => {
+      const id = ++nextId;
+      replies.set(id, resolve);
+      socket.send(JSON.stringify({ id, method, params, sessionId }));
+    });
+  await new Promise((resolve) => (socket.onopen = resolve));
+  try {
+    const targets = (await send("Target.getTargets")).result.targetInfos;
+    const page = targets.find((target) => target.type === "page" && target.url.startsWith(url));
+    const { sessionId } = (
+      await send("Target.attachToTarget", { targetId: page.targetId, flatten: true })
+    ).result;
+    await send(
+      "Emulation.setTouchEmulationEnabled",
+      { enabled: true, maxTouchPoints: 5 },
+      sessionId,
+    );
+    await send(
+      "Emulation.setDeviceMetricsOverride",
+      { width: 390, height: 844, deviceScaleFactor: 3, mobile: true },
+      sessionId,
+    );
+    await send(
+      "Emulation.setEmulatedMedia",
+      {
+        features: [
+          { name: "pointer", value: "coarse" },
+          { name: "hover", value: "none" },
+        ],
+      },
+      sessionId,
+    );
+    // Media queries match before the page restyles; wait until a cell has grown.
+    assert.equal(
+      (
+        await send(
+          "Runtime.evaluate",
+          {
+            expression:
+              'new Promise((resolve) => { const started = performance.now(); const tick = () => { const grown = matchMedia("(pointer: coarse)").matches && document.querySelector("[data-toolbar-cell]").getBoundingClientRect().width > 30; if (grown || performance.now() - started > 3000) resolve(grown); else setTimeout(tick, 50); }; tick(); })',
+            awaitPromise: true,
+            returnByValue: true,
+          },
+          sessionId,
+        )
+      ).result.result.value,
+      true,
+    );
+    const results = [];
+    for (const expression of expressions) {
+      const reply = await send(
+        "Runtime.evaluate",
+        { expression, awaitPromise: true, returnByValue: true },
+        sessionId,
+      );
+      results.push(reply.result.result.value);
+    }
+    return results;
+  } finally {
+    socket.close();
+  }
 }
 function focus(selector) {
   const expression = `(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!element) return false; element.focus(); return document.activeElement === element; })()`;
@@ -1035,9 +1131,8 @@ try {
   check(
     'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
   );
-  check('document.body.textContent.includes("Local")');
-  waitFor('document.body.textContent.includes("Local cache")');
-  check(`document.body.textContent.includes(${JSON.stringify(cachePath)})`);
+  check('document.querySelector("[role=tabpanel]")?.textContent.includes("Task folder")');
+  check(`!document.body.textContent.includes(${JSON.stringify(cachePath)})`);
   check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');
   focus("[role=tab][aria-selected=true]");
   browser("press", "ArrowLeft");
@@ -1073,7 +1168,7 @@ try {
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   check(
-    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] > [data-side]").getBoundingClientRect(); const title = document.querySelector("form[aria-label=\\"New task\\"] input").getBoundingClientRect(); return shell.width <= 600 && help.width < 320 && help.left >= 0 && help.right < title.left && arrow.right > help.right && arrow.right < title.left && Math.abs((arrow.top + arrow.height / 2) - (title.top + title.height / 2)) < 3; })()',
+    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] > [data-side]").getBoundingClientRect(); const title = document.querySelector("form[aria-label=\\"New task\\"] input").getBoundingClientRect(); return shell.width <= 680 && help.width < 320 && help.left >= 0 && help.right < title.left && arrow.right > help.right && arrow.right < title.left && Math.abs((arrow.top + arrow.height / 2) - (title.top + title.height / 2)) < 3; })()',
   );
   check(
     'document.querySelector("[data-context-help] [aria-label=\\"Use basic keyboard help\\"]") !== null',
@@ -1199,9 +1294,7 @@ try {
   waitFor('document.activeElement.getAttribute("role") === "listbox"');
   check('document.querySelector("[role=listbox]").getAttribute("aria-activedescendant") === null');
   check('document.querySelectorAll("#task-list [role=option][aria-selected=true]").length === 0');
-  check(
-    '[...document.querySelectorAll("button")].find((button) => button.textContent.includes("New task"))?.tabIndex === -1',
-  );
+  check("document.querySelector('button[aria-label=\"New task\"]')?.tabIndex === -1");
   evaluate("window.beforeNav = document.activeElement; true");
   browser("press", "Escape");
   waitFor("document.activeElement === window.beforeNav");
@@ -1314,22 +1407,20 @@ try {
   });
   reload();
   waitFor('document.querySelectorAll("#task-list [role=option]").length === 4');
-  // toolbar.layout: one desktop row; phone groups align beside the empty capture column.
-  for (const width of [1280, 390, 320]) {
+  // toolbar.layout: every visible cell sits on the column grid that starts at New task.
+  for (const [width, rows] of [
+    [1280, 1],
+    [390, 2],
+    [320, 3],
+  ]) {
     browser("set", "viewport", String(width), "844");
-    check("document.documentElement.scrollWidth <= innerWidth");
-    check('document.querySelector("[title=Actions]") !== null');
-    if (width === 390) {
-      check(
-        '(() => { const origin = document.querySelector("[title=Sort]").getBoundingClientRect().left; const step = document.querySelector("[title=Filter]").getBoundingClientRect().width; const buttons = document.querySelectorAll("[data-toolbar] button, [aria-label=\\"Task list actions\\"] button"); return [...buttons].every((button) => { const column = (button.getBoundingClientRect().left - origin) / step; return Math.abs(column - Math.round(column)) < 0.01; }); })()',
-      );
-    }
-    if (width >= 390) {
-      check(
-        '(() => { const capture = document.querySelector("button[aria-keyshortcuts=C]").getBoundingClientRect(); const filter = document.querySelector("[title=Filter]").getBoundingClientRect(); const sort = document.querySelector("[title=Sort]").getBoundingClientRect(); const actions = document.querySelector("[title=Actions]").getBoundingClientRect(); const sameRow = (a, b) => Math.abs(a.top - b.top) < 2; return sameRow(capture, filter) && (innerWidth >= 640 ? sameRow(filter, sort) && sameRow(sort, actions) : Math.abs(filter.left - sort.left) < 1 && Math.abs(sort.left - actions.left) < 1 && filter.left - capture.left >= filter.width * 4 && sort.top > filter.bottom && actions.top > sort.bottom); })()',
-      );
-    }
+    check(toolbarGridExpression(rows));
   }
+  browser("set", "viewport", "1280", "844");
+  // On a wide window the top bar's buttons share the toolbar's columns.
+  check(
+    `(() => { const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect(); const buttons = [...document.querySelectorAll("header button")].map((button) => button.getBoundingClientRect()); return buttons.length === 3 && buttons.every((box) => Math.abs(box.width - capture.width) < 0.5 && Math.abs(((box.left - capture.left) / capture.width) % 1) < 0.01); })()`,
+  );
   check(
     '(() => { const title = [...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].find((entry) => entry.textContent.startsWith("Check Check")); if (!title || title.textContent.length <= 100) return false; const style = getComputedStyle(title); return style.whiteSpace !== "nowrap" && title.scrollWidth <= title.clientWidth + 1; })()',
   );
@@ -1865,6 +1956,8 @@ try {
   waitFor(
     '!document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])") && document.querySelectorAll("#task-list [role=option]").length === 12',
   );
+  // Twelve top-level rows; the count also includes their collapsed children.
+  const allActive = `${await activeTaskCount()} active tasks`;
   // With no selection, Enter picks the highlighted tag before closing the picker.
   const planningCount = (await command("task.list", { tags: ["planning"] })).total;
   focus("[role=listbox]");
@@ -1884,7 +1977,7 @@ try {
   );
   browser("click", '[data-filter-remove="tags"]');
   waitFor(
-    'document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("#task-list [role=option]").length === 12 && document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"',
+    `document.querySelector("[data-filter=task-tags]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("#task-list [role=option]").length === 12 && document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`,
   );
   // # opens the tag picker directly with its search field ready for typing.
   focus("[role=listbox]");
@@ -1923,7 +2016,7 @@ try {
   );
   browser("click", '[data-filter-remove="search"]');
   waitFor(
-    'document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("#task-list [role=option]").length === 12 && document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"',
+    `document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("#task-list [role=option]").length === 12 && document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`,
   );
   // A query with no matches shows the filtered empty state with Clear filters.
   focus("[role=listbox]");
@@ -1940,7 +2033,7 @@ try {
   waitFor(
     'document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("#task-list [role=option]").length === 12',
   );
-  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  check(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   // Task details and sorting: V toggles descriptions plus the time footer,
   // S drives the sort, and both survive a reload through localStorage.
   check(
@@ -1982,7 +2075,7 @@ try {
   check(
     '[...document.querySelectorAll("#task-list [role=option]")].filter((row) => row.querySelector("[title^=\\"Updated\\"]")).every((row) => { const timestamps = [...row.querySelectorAll("[title^=\\"Updated\\"], [title^=\\"Created\\"]")]; return timestamps[0]?.title.startsWith("Updated") && timestamps[1]?.title.startsWith("Created"); })',
   );
-  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  check(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   // Sort by created, then reverse; the stamped rows pin the order. S focuses
   // the whole sort toolbar and a choice returns focus to the list.
   focus("[role=listbox]");
@@ -2021,7 +2114,7 @@ try {
   waitFor(
     'document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")',
   );
-  check('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  check(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   waitFor(
     'JSON.stringify([...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].slice(-2).map((title) => title.textContent)) === JSON.stringify(["Planning only", "Tag cockpit"])',
   );
@@ -2031,7 +2124,7 @@ try {
   );
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
   waitFor(
-    'document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks" && document.querySelector("#task-list [role=option] [data-slot=item-title]")?.textContent === "Tag cockpit"',
+    `document.querySelector("[data-filter-summary]")?.textContent === "${allActive}" && document.querySelector("#task-list [role=option] [data-slot=item-title]")?.textContent === "Tag cockpit"`,
   );
   check(
     'document.querySelector("#task-list [role=option] [data-slot=item-title]").textContent === "Tag cockpit"',
@@ -2039,13 +2132,13 @@ try {
   // Back to updated/newest, details off; mouse covers the same controls.
   browser("press", "s");
   browser("press", "u");
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   browser("press", "s");
   waitFor(
     'document.activeElement.matches("[data-toolbar=sort]") && document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")',
   );
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   browser("press", "v");
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null',
@@ -2056,11 +2149,11 @@ try {
   );
   check('document.activeElement.getAttribute("role") === "listbox"');
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   evaluate('document.querySelector("[data-sort=task-sort-updated]").click(); true');
-  waitFor('document.querySelector("[data-filter-summary]")?.textContent === "12 active tasks"');
+  waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   evaluate('document.querySelector("[data-view=task-details]").click(); true');
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true" && document.querySelector("[data-task-description]") !== null && document.querySelector("[title^=\\"Created\\"]") !== null',
@@ -2397,9 +2490,8 @@ try {
   waitFor(
     `Boolean(${expandedTaskOptionExpression("Completed context parent", "#task-list [role=option][data-context-parent]")})`,
   );
-  const contextVisibleCount = evaluate(
-    'document.querySelectorAll("#task-list [role=option]:not([data-context-parent])").length',
-  );
+  // The done context parent isn't counted.
+  const contextMatchCount = await activeTaskCount();
   const contextAfterIndex = evaluate(
     '[...document.querySelectorAll("#task-list [role=option]")].findIndex((item) => item.textContent.includes("Completed context parent"))',
   );
@@ -2414,7 +2506,7 @@ try {
     '(() => { const context = document.querySelector("#task-list [role=option][data-context-parent]"); if (!context) return false; const contextStyle = getComputedStyle(context); if (contextStyle.backgroundColor === "rgba(0, 0, 0, 0)" || contextStyle.backgroundColor === "transparent") return false; const plain = [...document.querySelectorAll("#task-list [role=option]")].find((entry) => !entry.hasAttribute("data-context-parent") && !entry.hasAttribute("data-active") && entry.getAttribute("aria-selected") !== "true"); if (!plain) return true; const plainStyle = getComputedStyle(plain); return contextStyle.backgroundColor !== plainStyle.backgroundColor || contextStyle.color !== plainStyle.color; })()',
   );
   check(
-    `document.querySelector("[data-filter-summary]")?.textContent === "${contextVisibleCount} active task${contextVisibleCount === 1 ? "" : "s"}"`,
+    `document.querySelector("[data-filter-summary]")?.textContent === "${contextMatchCount} active task${contextMatchCount === 1 ? "" : "s"}"`,
   );
 
   // Canceled parents use the same context treatment as completed parents,
@@ -2648,11 +2740,12 @@ try {
   );
   browser("click", "[data-move-controls-toggle]");
   waitFor(
-    'document.querySelector("[data-move-controls]") !== null && document.querySelector("[data-move-controls-toggle]").getAttribute("aria-pressed") === "true"',
+    'document.querySelector("[data-move-controls]") !== null && document.querySelector("[data-move-controls-toggle]").getAttribute("aria-expanded") === "true"',
   );
   browser("hover", "[role=listbox]");
+  // toolbar.button-kinds: an open Reorder shows as expanded, never with the pressed accent.
   waitFor(
-    '(() => { const move = document.querySelector("[data-move-controls-toggle]"); const manual = document.querySelector("[data-sort=task-sort-manual]"); if (!move || !manual) return false; const moveStyle = getComputedStyle(move); const manualStyle = getComputedStyle(manual); return moveStyle.backgroundColor === manualStyle.backgroundColor && moveStyle.color === manualStyle.color; })()',
+    '(() => { const move = document.querySelector("[data-move-controls-toggle]"); const manual = document.querySelector("[data-sort=task-sort-manual]"); if (!move || !manual || manual.getAttribute("aria-pressed") !== "true") return false; return getComputedStyle(move).backgroundColor !== getComputedStyle(manual).backgroundColor; })()',
   );
   check(
     'Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.manualListTop) < 0.5',
@@ -3064,6 +3157,15 @@ try {
   waitFor(
     `([...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`,
   );
+  // platform.toolbar-cell: touch gets larger cells; folding Actions saves a row at phone width.
+  browser("set", "viewport", "390", "844");
+  const [touchOpen, touchFolded] = await evaluateWithCoarsePointer([
+    toolbarGridExpression(3),
+    `(async () => { document.querySelector("[data-toolbar-glyph=actions]").click(); await new Promise((resolve) => setTimeout(resolve, 300)); const result = ${toolbarGridExpression(2)}; document.querySelector("[data-toolbar-glyph=actions]").click(); return result; })()`,
+  ]);
+  assert.equal(touchOpen, true, "touch toolbar at 390px: three aligned rows");
+  assert.equal(touchFolded, true, "touch toolbar at 390px with Actions folded: two aligned rows");
+  browser("set", "viewport", "1280", "844");
   assert.equal(browser("errors").trim(), "");
   console.log(
     "UI checks passed: inline capture/editing, Markdown, keyboard/focus, help, F/S modes, sort and task details, forward and reverse Space status changes plus P pause/resume, priority quick-set, unblocked, category, tags, search, filtered empty states, relationships, shallow child outline, completed/canceled-parent context, move-parent removal, manual sorting and persistence, keyboard and pointer selection/movement, hidden siblings, disabled reorder filters, multi-step task undo with toasts/field guards/retry, settings and font size, conflicts, same-request retry after lost replies, deletion/cancellation, theme switching and persistence, empty-list focus, validation, persistence, left-side contextual tooltips/responsive overflow, list-only scrolling, external CLI refresh, and axe.",

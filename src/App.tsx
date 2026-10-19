@@ -27,6 +27,7 @@ import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { ThemePicker } from "@/components/soleone/theme-picker";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
+import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -53,6 +54,7 @@ const CATEGORY_FILTER_KEY = "tasks.categoryFilter";
 const SORT_FIELD_KEY = "tasks.sortField";
 const SORT_DIRECTION_KEY = "tasks.sortDirection";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
+const FOLDED_TOOLBAR_GROUPS_KEY = "tasks.foldedToolbarGroups";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const HELP_MODE_KEY = "tasks.helpMode";
 
@@ -135,6 +137,15 @@ function readShowDetails(): boolean {
   return (readStored(SHOW_DETAILS_KEY) ?? readStored(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true";
 }
 
+function readFoldedToolbarGroups(): ToolbarFoldGroup[] {
+  try {
+    const stored: unknown = JSON.parse(readStored(FOLDED_TOOLBAR_GROUPS_KEY) ?? "[]");
+    return TOOLBAR_FOLD_GROUPS.filter((group) => Array.isArray(stored) && stored.includes(group));
+  } catch {
+    return [];
+  }
+}
+
 function readHelpMode(): KeyboardHelpMode {
   const stored = readStored(HELP_MODE_KEY);
   if (isKeyboardHelpMode(stored)) return stored;
@@ -162,6 +173,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     () => readStored(UNBLOCKED_FILTER_KEY) === "true",
   );
   const [showDetails, setShowDetails] = useState(readShowDetails);
+  const [foldedToolbarGroups, setFoldedToolbarGroups] = useState(readFoldedToolbarGroups);
   const [helpMode, setHelpMode] = useState(readHelpMode);
   const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(
     readStoredFontSizeIncrease,
@@ -470,6 +482,14 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setAnnouncement(next ? "Showing task details" : "Hiding task details");
   }
 
+  function setToolbarGroupFolded(group: ToolbarFoldGroup, folded: boolean): void {
+    const next = TOOLBAR_FOLD_GROUPS.filter((entry) =>
+      entry === group ? folded : foldedToolbarGroups.includes(entry),
+    );
+    setFoldedToolbarGroups(next);
+    writeStored(FOLDED_TOOLBAR_GROUPS_KEY, JSON.stringify(next));
+  }
+
   function changeHelpMode(mode: KeyboardHelpMode): void {
     setHelpMode(mode);
     writeStored(HELP_MODE_KEY, mode);
@@ -590,7 +610,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   return (
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
       <WorkspaceRequestRecovery workspace={workspace} />
-      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col gap-6 overflow-hidden">
+      {/* 680px less the 32px gutters is 22 toolbar cells, so the top bar's buttons sit on the toolbar grid. */}
+      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-170 flex-col gap-6 overflow-hidden">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center gap-1 font-semibold">
             <AppIcon className="size-8 shrink-0" />
@@ -703,6 +724,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onDisableHelp={() => openDisableHelpDialog("none")}
           onDisableComposerHelp={() => openDisableHelpDialog("basic")}
           onToggleDetails={toggleDetails}
+          foldedToolbarGroups={foldedToolbarGroups}
+          onToolbarGroupFoldedChange={setToolbarGroupFolded}
           categoryFilter={categoryFilter}
           onCategoryFilterChange={clearCategoryFilter}
           onSelectCategory={chooseCategory}
