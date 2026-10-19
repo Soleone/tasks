@@ -10,6 +10,7 @@ import { ItemDescription } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClassificationBadge } from "@/components/variants/badge";
 import { TaskItemMetadata, TaskItemTitle } from "@/components/variants/item";
+import { useChangedAfterMount } from "./useChangedAfterMount";
 import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
@@ -39,15 +40,19 @@ export function TaskStatusDisplay({ task }: { task: Pick<TaskView, "status"> }):
 
 function TaskPriorityDisplay({ task }: { task: TaskView }): ReactElement {
   const meta = priorityMeta(task.priority ?? 2);
+  const changed = useChangedAfterMount(meta.shortLabel);
   return (
     <Tooltip>
+      {/* Keyed so a new priority remounts the dot and replays its entrance. */}
       <TooltipTrigger
+        key={meta.shortLabel}
         render={
           <span
             className={`inline-block size-2 shrink-0 rounded-full ${meta.dot}`}
             role="img"
             aria-label={`Priority ${meta.label}`}
             data-priority={meta.shortLabel}
+            data-priority-enter={changed || undefined}
             tabIndex={-1}
           />
         }
@@ -77,6 +82,7 @@ export function TaskStatusToggle({
   onToggle: (task: TaskView) => void;
 }): ReactElement {
   const feedback = useFlashTooltip(feedbackVersion, STATUS_FEEDBACK_DURATION_MS);
+  const statusChanged = useChangedAfterMount(task.status);
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
   const pauseHint =
@@ -109,7 +115,12 @@ export function TaskStatusToggle({
           />
         }
       >
-        <Icon aria-hidden="true" />
+        {/* Keyed so each new status remounts the glyph and plays its entrance once. */}
+        <Icon
+          key={task.status}
+          aria-hidden="true"
+          data-status-enter={statusChanged ? task.status : undefined}
+        />
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
         {status.label}
