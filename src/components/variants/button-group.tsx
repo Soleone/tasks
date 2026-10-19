@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
+import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 
 /**
@@ -18,6 +19,39 @@ export function ToolbarGroup({
         active && "ring-3 ring-ring/50",
         className,
       )}
+      {...props}
+    />
+  );
+}
+
+/** The composer's priority radios. No ring: focus shows as the checked radio taking the accent. */
+export function PriorityGroup({ className, ...props }: ComponentProps<typeof ButtonGroup>) {
+  return (
+    <ButtonGroup
+      className={cn(
+        "group/priority rounded-lg outline-none [&>[data-slot]~[data-slot]]:border-l!",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+const FOCUSED_CHECKED =
+  "group-focus/priority:border-primary/50 group-focus/priority:bg-primary/10 group-focus/priority:text-primary dark:group-focus/priority:border-primary/60 dark:group-focus/priority:bg-primary/20";
+
+/** A radio inside `PriorityGroup`: checked is a muted outline until the group has focus. */
+export function PriorityRadio({
+  checked,
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, "variant" | "role"> & { checked: boolean }) {
+  return (
+    <Button
+      role="radio"
+      aria-checked={checked}
+      variant={checked ? "outline" : "ghost"}
+      className={cn(checked && FOCUSED_CHECKED, className)}
       {...props}
     />
   );

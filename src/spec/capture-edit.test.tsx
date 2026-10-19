@@ -72,7 +72,7 @@ describe("opening and closing", () => {
     await workspace.create("Click me");
     const { user } = await workspace.render();
     await user.click(row("Click me"));
-    expect((await focusedTitleField()).value).toBe("Click me");
+    expect((await focusedTitleField()).value).toBe("Click me ");
   });
 
   test("edit.save: Enter saves and focus returns to the list on the saved task", async () => {
@@ -297,21 +297,21 @@ describe("shorthand", () => {
     await workspace.command("task.create", { title: "Ping @alice" });
     const { user } = await workspace.render();
     await user.click(row("Call tomorrow"));
-    expect((await focusedTitleField()).value).toBe("Call tomorrow");
+    expect((await focusedTitleField()).value).toBe("Call tomorrow ");
     expect(pills()).toEqual(["home", "phone"]);
-    await user.keyboard("{Enter}");
+    await user.keyboard("#later {Enter}");
     await waitFor(async () => {
       const saved = await workspace.task(task.id);
       expect([saved.title, saved.category, saved.tags, saved.description]).toEqual([
         "Call tomorrow",
         "home",
-        ["phone"],
+        ["later", "phone"],
         "Ask about @work #later",
       ]);
     });
     await expectListFocused();
     await user.click(row("Ping @alice"));
-    expect((await focusedTitleField()).value).toBe("Ping \\@alice");
+    expect((await focusedTitleField()).value).toBe("Ping \\@alice ");
   });
 
   test("shorthand.empty: a title that is only shorthand is refused", async () => {

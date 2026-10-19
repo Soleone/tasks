@@ -168,7 +168,7 @@ describe("moving around", () => {
     const { user } = await workspace.render();
     await expectActive("Edit me");
     await user.keyboard("{Enter}");
-    expect((await focusedTitleField()).value).toBe("Edit me");
+    expect((await focusedTitleField()).value).toBe("Edit me ");
   });
 });
 

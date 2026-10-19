@@ -40,14 +40,12 @@ import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { X } from "lucide-react";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { preventFocusSteal } from "@/navigation";
-import { ToolbarGroup } from "@/components/variants/button-group";
-import { ToggleButton } from "@/components/variants/button";
+import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
+import { QuietInput, QuietTextarea } from "@/components/variants/input";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -141,7 +139,8 @@ function ComposerHelpTooltip({
   );
 }
 
-// The highlighted row says what Enter does; the others only mark a new name or a pill to remove.
+// The highlighted row says what Enter does ("save task", so it reads as more than the name); the
+// others only mark a new name or a pill to remove.
 function SuggestionNote({
   row,
   action,
@@ -156,7 +155,7 @@ function SuggestionNote({
           action === "remove" ? "text-xs text-destructive" : "text-xs text-muted-foreground"
         }
       >
-        ↵ {action}
+        ↵ {action === "save" ? "save task" : action}
       </span>
     );
   if (row.kind === "remove") return <span className="text-xs text-destructive">remove</span>;
@@ -188,7 +187,8 @@ export function TaskComposer({
   const [initialDraft] = useState(() =>
     task
       ? {
-          text: shorthandTitle(task.title),
+          // The trailing space lets a marker follow straight away.
+          text: `${shorthandTitle(task.title)} `,
           classification: {
             category: task.category?.slug ?? null,
             tags: task.tags.map((tag) => tag.slug),
@@ -215,7 +215,7 @@ export function TaskComposer({
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [helpTarget, setHelpTarget] = useState<"title" | "description" | "priority">("title");
   const dirty =
-    title !== initialDraft.text ||
+    title.trim() !== initialDraft.text.trim() ||
     classification.category !== initialDraft.classification.category ||
     classification.tags.join() !== initialDraft.classification.tags.join() ||
     description !== (task?.description ?? "") ||
@@ -224,7 +224,11 @@ export function TaskComposer({
   const showPriorityHelp = helpMode === "basic" && !pending;
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => titleInput.current?.focus());
+    const frame = requestAnimationFrame(() => {
+      const input = titleInput.current;
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
     return () => cancelAnimationFrame(frame);
   }, [task?.id]);
 
@@ -553,10 +557,10 @@ export function TaskComposer({
           {showContextualHelp && helpTarget === "title" ? (
             <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} />
           ) : null}
-          <FieldLabel htmlFor={`${id}-title`}>{task ? "Edit title" : "Title"}</FieldLabel>
+          <FieldLabel htmlFor={`${id}-title`}>Title</FieldLabel>
           {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
           <div className="relative">
-            <Input
+            <QuietInput
               ref={titleInput}
               id={`${id}-title`}
               name="title"
@@ -641,7 +645,7 @@ export function TaskComposer({
           ) : null}
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <div>
-            <ToolbarGroup
+            <PriorityGroup
               ref={prioritySection}
               role="radiogroup"
               aria-labelledby={`${id}-priority-label`}
@@ -659,14 +663,11 @@ export function TaskComposer({
               {PRIORITY_META.map((meta) => {
                 const selected = priority === meta.value;
                 return (
-                  <ToggleButton
+                  <PriorityRadio
                     key={meta.value}
                     id={`${id}-priority-${meta.value}`}
                     type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    variant={selected ? "outline" : "ghost"}
-                    selected={selected}
+                    checked={selected}
                     size="sm"
                     tabIndex={-1}
                     aria-label={`${meta.shortLabel}: ${meta.label}`}
@@ -682,10 +683,10 @@ export function TaskComposer({
                       className={`inline-block size-2 rounded-full ${meta.dot}`}
                     />
                     {meta.shortLabel}
-                  </ToggleButton>
+                  </PriorityRadio>
                 );
               })}
-            </ToolbarGroup>
+            </PriorityGroup>
           </div>
           {showPriorityHelp ? (
             <FieldDescription id={`${id}-priority-help`}>
@@ -699,7 +700,7 @@ export function TaskComposer({
               <ComposerHelpTooltip target="description" onDisableHelp={onDisableHelp} />
             ) : null}
             <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
-            <Textarea
+            <QuietTextarea
               ref={notesInput}
               id={`${id}-description`}
               name="description"

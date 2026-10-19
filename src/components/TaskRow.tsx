@@ -156,7 +156,7 @@ function TaskRowMetadata({
               event.stopPropagation();
               onSelectCategory(category);
             }}
-            className="cursor-pointer rounded-full"
+            className="flex cursor-pointer rounded-full"
           >
             <ClassificationBadge kind="category">
               <Folder data-icon="inline-start" aria-hidden="true" />

@@ -41,7 +41,7 @@ Typing stays the same as the CLI's shorthand, but the title field keeps only the
 | `shorthand.tab` | `Tab` with suggestions open | Completes the highlighted name as text. A second `Tab` chooses it |
 | `shorthand.escape` | `Escape` while typing a marker | Drops that marker and name. The editor stays open |
 | `shorthand.save` | Saving with a marker still in the title | It counts as a pill. Saving never removes a pill |
-| `shorthand.literal` | Editing a saved task | The title field shows the title without markers, and the category and tags as pills. Literal `@` and `#` show escaped. The description is Markdown and never sets category or tags |
+| `shorthand.literal` | Editing a saved task | The title field shows the title without markers, and the category and tags as pills. Literal `@` and `#` show escaped. The title ends in a space with the caret after it, so `@` or `#` can be typed at once. The description is Markdown and never sets category or tags |
 | `shorthand.empty` | A title that is only shorthand | Refused before saving |
 
 ## Pickers

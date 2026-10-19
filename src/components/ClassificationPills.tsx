@@ -65,13 +65,13 @@ export function ClassificationPills({
       ref={row}
       role="list"
       aria-label="Category and tags"
-      className="flex min-h-5 flex-wrap items-center gap-1.5"
+      className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5"
     >
       {category === null && tags.length === 0 ? (
-        <span className="text-xs text-muted-foreground">@category · #tags</span>
+        <span className="text-xs text-muted-foreground">@category #tags</span>
       ) : null}
       {category === null ? null : (
-        <span role="listitem">
+        <span role="listitem" className="flex">
           <ClassificationBadge
             kind="category"
             data-pill={pillKey("@", category)}
@@ -92,7 +92,7 @@ export function ClassificationPills({
         </span>
       )}
       {tags.map((tag) => (
-        <span key={tag} role="listitem">
+        <span key={tag} role="listitem" className="flex">
           <ClassificationBadge
             kind="tag"
             data-pill={pillKey("#", tag)}
