@@ -2,7 +2,7 @@
 
 A local-first, keyboard-first task list for one person and their agents. Tasks live as plain JSON files in a folder you choose, one file per task, so they can be synced, backed up and edited by scripts. A React app, a CLI and a JSON-lines interface for agents all share one TypeScript backend; the desktop shell is Tauri with a bundled Node runtime.
 
-The move to the new engine is under way. `pnpm dev:web` and `tasks-cli` already use it; native desktop builds still start the old app until cutover. [PLAN.md](PLAN.md) has the state and the gates.
+The web, desktop and Android apps and `tasks-cli` share the current engine. The owner confirmed the native Windows 11 and Android apps work (2026-10-19). [PLAN.md](PLAN.md) has the state and remaining gates.
 
 ## Install and check
 

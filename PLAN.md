@@ -33,21 +33,25 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 2. `tasks-cli --root PATH --database CACHE` is the friendly CLI on the current engine; JSON lines via `tasks-backend --stdio --root ...`. Neither has a default workspace.
 3. The desktop app starts on the current engine (2026-10-16): it opens the remembered task folder, and the first launch asks for one or starts it empty. A schema 1 folder is refused until it is converted with `pnpm migrate`.
 4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
-5. The backend allows every command on every desktop OS. On Windows Node, setup (init, import) and the formerly withheld writes were smoke-tested on disposable data. The new desktop app has not been launched by the owner yet; earlier pilot launches stopped before the main window.
+5. The backend allows every command on every desktop OS. On Windows Node, setup (init, import) and the formerly withheld writes were smoke-tested on disposable data. The owner confirmed the native Windows 11 app works (2026-10-19). This is high-level owner confirmation, not a case-level walkthrough or Windows crash-recovery proof.
 6. Migration only reads the old version's files and writes a new folder. No personal data has been touched.
-7. Android (2026-10-17): `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. First phone runs found two blockers, both fixed: the backend needed the C++ runtime, and Android's shared storage refuses hard links. Hard links are gone (owner, 2026-10-17): init is a plain retryable step that renames `workspace.json` into place, and doctor renames its stages. WSL has no emulator.
+7. Android: `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. First phone runs found two blockers, both fixed: the backend needed the C++ runtime, and Android's shared storage refuses hard links. Hard links are gone (owner, 2026-10-17): init is a plain retryable step that renames `workspace.json` into place, and doctor renames its stages. The owner confirmed the Android app works (2026-10-19); no case-level walkthrough or save-speed measurement was reported. WSL has no emulator.
 8. Spec rules are slugged and checked by `scripts/check-spec-rules.mjs`. Client tests in `src/spec/` render the app over a disposable workspace. Uncited rules are information, not a blanket test backlog.
 9. Shared theme kit adopted (2026-10-17): theme/provider, Vite pre-paint head and the ring picker come from `shadcn-components`. Tasks keeps Gilt, `tasks.selectedTheme`, Alt+T, header/help entry points and focus return. Theme selection stays outside Settings. Duplicate theme logic and the backend theme list are deleted. The shared picker gained host integration hooks in its source repository; publish that local commit before future GitHub updates ([details](docs/themes.md)). Browser checks are not native acceptance.
-10. Keyboard reorder changes are uncommitted (2026-10-18): Manual order previews moves immediately, including held-key repeats, and saves each step sequentially with its own undo. Refused saves discard queued moves and restore confirmed order. Delayed-save, refresh, selection, expanded-child and undo client tests pass; `pnpm check`, `pnpm lint` and `pnpm test` pass. `kit check` blocks completion because untouched `src/components/soleone/theme/head.ts`, `theme/provider.tsx` and `theme-picker/picker.tsx` differ from upstream. No vendored files were changed; resolve that drift separately before committing. Desktop responsiveness remains owner-unverified.
+10. Keyboard reorder previews moves immediately, including held-key repeats, and saves each step sequentially with its own undo. Refused saves discard queued moves and restore confirmed order. Changes are committed; the working tree was clean at the 2026-10-19 health check. `pnpm check`, `pnpm lint`, `pnpm test` and `kit check` pass, with no vendored drift or dead-code findings (1,444 tests passed, one skipped). The web build passes with a chunk-size warning: `mainWorkspace` is about 601 kB minified (190 kB gzip). Native apps work according to the owner; detailed reorder responsiveness was not separately reported.
 
 ## Next step
 
-1. **Resolve the recorded kit drift, then owner tries the faster save path and keyboard reorder** in the desktop app (status, priority, description edits and repeated Ctrl/⌘+arrows) and reports whether it feels instant.
-2. **Owner installs the Android APK** on a phone with a throwaway folder and reports whether setup, capture, edit and reopen work.
-3. **Owner tests the Windows build** (`pnpm build:tauri`), after backing up `%APPDATA%\com.soleone.tasks`, and converts the old tasks with `pnpm migrate`.
-4. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
+Windows 11 and Android native smoke checks are owner-confirmed (2026-10-19), and the recorded kit drift is resolved. No implementation stage is newly authorized by that confirmation.
 
-Kit adoption is at r3 (2026-10-17). `src/components/ui` and `src/components/soleone` are stock registry sources, pending an owner look at the UI.
+Remaining follow-ups, each requiring its own go-ahead:
+
+1. Gather detailed daily-use feedback, including faster saves and repeated keyboard reorder; high-level native success does not establish every workflow or multi-day acceptance.
+2. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
+3. Investigate the web bundle's chunk-size warning if load performance warrants it; do not hide it by raising the warning limit.
+4. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
+
+Kit adoption is at r4. `src/components/ui` and `src/components/soleone` match stock registry sources.
 
 ## Gates
 
