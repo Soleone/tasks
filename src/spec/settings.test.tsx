@@ -17,7 +17,7 @@ test("settings.open: Ctrl+, opens Settings with focus on its tabs", async () => 
   await expectListFocused();
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.getAttribute("role")).toBe("tab"));
-  for (const name of ["General", "Shortcuts", "Data"]) screen.getByRole("tab", { name });
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["General", "Data"]);
   const settings = within(screen.getByRole("dialog", { name: "Settings" }));
   expect(settings.queryByText("Theme", { exact: true })).toBeNull();
   expect(settings.queryByRole("combobox", { name: /theme/i })).toBeNull();
@@ -39,13 +39,20 @@ test("settings.tabs: Left and Right switch sections", async () => {
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.keyboard("{ArrowRight}");
-  await waitFor(() => expect(document.activeElement?.textContent).toBe("Shortcuts"));
-  await user.keyboard("{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   const panel = within(screen.getByRole("tabpanel"));
   panel.getByRole("heading", { name: "Task folder" });
+  panel.getByRole("button", { name: "Create backup…" });
+  panel.getByRole("button", { name: "Restore to new folder…" });
+  expect(panel.queryByRole("heading", { name: "Launch time" })).toBeNull();
   expect(panel.queryByRole("heading", { name: "Local" })).toBeNull();
   expect(panel.queryByText("Local cache", { exact: true })).toBeNull();
+  await user.keyboard("{ArrowLeft}");
+  await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByRole("slider", { name: "Font size" }));
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(screen.getByRole("tab", { name: "General" }));
 });
 
 test("help.palette: Ctrl+K opens a searchable palette of shortcuts", async () => {

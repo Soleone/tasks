@@ -21,7 +21,6 @@ import {
   type StatusPreset,
 } from "@/components/taskFilters";
 import { closeBackendSession, getWorkspaceRevision, listTasks } from "@/platform/backendClient";
-import { markFirstList, markRowsShown } from "@/launchTiming";
 
 const WORKSPACE_REVISION_POLL_MS = 1500;
 
@@ -101,7 +100,6 @@ export function useWorkspaceTasks({
           },
         );
         if (sequence !== querySequence.current) return false;
-        markFirstList();
         workspaceRevisionRef.current = result.workspaceRevision;
         if (!offset && !preserveContextOrder) setContextOrder(new Map());
         setTasks((previous) =>
@@ -237,10 +235,6 @@ export function useWorkspaceTasks({
     // oxlint-disable-next-line react/set-state-in-effect -- fetchTasks sets state only after its query answers
     void fetchTasks(0, false);
   }, [viewKey, fetchTasks]);
-
-  useEffect(() => {
-    if (!loading) markRowsShown();
-  }, [loading]);
 
   useEffect(() => {
     if (loading || !loadError || tasks.length > 0 || initialLoadRetry.current >= 3) return;

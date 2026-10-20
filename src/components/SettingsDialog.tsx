@@ -22,7 +22,6 @@ import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { WorkspaceBackup } from "./WorkspaceBackup";
-import { LaunchTimes } from "./LaunchTimes";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { ReadableTabsTrigger } from "@/components/variants/tabs";
 
@@ -104,7 +103,9 @@ export function SettingsDialog({
         <div className="pr-8">
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>Adjust appearance, shortcuts, and workspace data.</DialogDescription>
+            <DialogDescription>
+              Adjust appearance, keyboard help, and workspace data.
+            </DialogDescription>
           </DialogHeader>
         </div>
 
@@ -118,7 +119,6 @@ export function SettingsDialog({
               <ReadableTabsTrigger ref={settingsTab} value="general">
                 General
               </ReadableTabsTrigger>
-              <ReadableTabsTrigger value="shortcuts">Shortcuts</ReadableTabsTrigger>
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
             </TabsList>
             <span id="settings-tabs-help" className="sr-only">
@@ -243,21 +243,6 @@ export function SettingsDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="shortcuts" tabIndex={-1}>
-            <section
-              aria-labelledby="settings-shortcut"
-              className="flex flex-col gap-2 rounded-lg border p-4"
-            >
-              <h2 id="settings-shortcut" className="text-sm font-medium">
-                Global shortcut
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Global window focus is not yet enabled for this selected workspace. In-app keyboard
-                shortcuts remain available.
-              </p>
-            </section>
-          </TabsContent>
-
           <TabsContent value="workspace" tabIndex={-1}>
             <div className="grid gap-4 md:grid-cols-2">
               <section
@@ -295,8 +280,6 @@ export function SettingsDialog({
               {open && workspace?.supportsBackupRestore ? (
                 <WorkspaceBackup workspace={workspace} />
               ) : null}
-
-              {open && runtimeKind() === "native" ? <LaunchTimes /> : null}
             </div>
           </TabsContent>
         </Tabs>

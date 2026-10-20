@@ -4,7 +4,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Shortcuts, Data. Theme selection is only in the dedicated theme picker, not Settings |
+| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General and Data. Theme selection is only in the dedicated theme picker, not Settings |
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 
@@ -19,12 +19,6 @@
 | `help.starter` | `?` | The starter help panel opens on the right |
 | `help.palette` | `Ctrl/⌘+K` | A searchable palette lists every shortcut and the shorthand syntax |
 
-## Shortcuts
-
-| Rule | When | Then |
-| --- | --- | --- |
-| `settings.global-shortcut` | Shortcuts tab | Shows and changes the global focus shortcut where the platform has one |
-
 ## Data
 
 | Rule | When | Then |
@@ -33,7 +27,6 @@
 | `backup.restore` | Restore to new folder | Copies a backup into a new folder. The current workspace is untouched; the new folder must be opened separately |
 | `backup.confirm` | Either action | Shows source and destination, then asks for a separate confirmation |
 | `backup.contents` | Any copy | Includes tasks and conflict originals. The local cache and undo history are not copied |
-| `settings.launch-time` | Data tab, after a launch that opened the remembered folder directly | Lists the last five launches, newest first: the time to the first rows on screen, split into window, page, app load, mount, documents, app data, folder path, backend, first list and rows. App load covers loading the desktop module; mount ends when path lookup starts; documents, app data and folder path cover the sequential native path calls. First launches and the setup form aren't timed |
 
 ## Preferences
 

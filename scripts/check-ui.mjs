@@ -1102,7 +1102,7 @@ try {
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
   );
   check('document.activeElement.matches("[role=tab][aria-selected=true]")');
-  check('document.querySelectorAll("[role=tab]").length === 3');
+  check('document.querySelectorAll("[role=tab]").length === 2');
   check(
     'document.querySelector("[data-slot=dialog-content]")?.getBoundingClientRect().width >= 700',
   );
@@ -1119,23 +1119,15 @@ try {
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "ArrowRight");
-  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Shortcuts"');
-  check(
-    'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
-  );
-  check(
-    'document.querySelector("[role=tabpanel]")?.textContent.includes("Global window focus is not yet enabled")',
-  );
-  browser("press", "ArrowRight");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   check(
     'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
   );
   check('document.querySelector("[role=tabpanel]")?.textContent.includes("Task folder")');
+  check('!document.querySelector("[role=tabpanel]")?.textContent.includes("Launch time")');
   check(`!document.body.textContent.includes(${JSON.stringify(cachePath)})`);
   check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');
   focus("[role=tab][aria-selected=true]");
-  browser("press", "ArrowLeft");
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
   // Full help is the default. The dropdown also keeps the old basic mode

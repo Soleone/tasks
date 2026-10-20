@@ -13,7 +13,6 @@ Android runs the desktop app's UI and the same backend, bundled in the app.
 | `platform.keyboard-help` | Keyboard help starts at Full | Keyboard help starts at None, since a phone has no keyboard to hint at. Settings can still turn it on | As desktop |
 | `platform.keyboard-bar` | No bar | While the editor is open, a bar on top of the soft keyboard has `@`, `#`, `Shift+Tab`, `Tab` and the four arrows. Each acts like that key in the field with focus, and the keyboard stays open. `@` and `#` from priority go to the title. Up and down move between suggestions in the title and between lines in the description | As desktop |
 | `platform.toolbar-cell` | Toolbar cells are 28px with a mouse | Cells are 32px for touch | Cells follow the primary pointer: 28px for a mouse, 32px for touch |
-| `platform.launch-time` | Launch time is measured from the app process start | As desktop | Not shown |
 | `platform.prefs-scope` | Preferences belong to the app profile | As desktop | Preferences belong to the browser origin (scheme, host, port) and browser profile |
 
 ## Not yet built

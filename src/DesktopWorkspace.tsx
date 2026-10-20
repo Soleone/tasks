@@ -5,7 +5,6 @@ import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./components/ui/field";
 import { Input } from "./components/ui/input";
-import { markBackendReady, markStartupStep, startLaunchTiming } from "./launchTiming";
 import { selectMainWorkspace } from "./platform/backendClient";
 import {
   createFolder,
@@ -20,8 +19,6 @@ import {
 import { EditorClient } from "./platform/editorClient";
 import { MainWorkspace } from "./platform/mainWorkspace";
 import { WorkspaceReader } from "./platform/workspaceReader";
-
-markStartupStep("desktop");
 
 /** The app keeps talking to the backend that checked the folder. */
 function openWorkspace({ selection, session }: FolderSetup): MainWorkspace {
@@ -67,11 +64,9 @@ export default function DesktopWorkspace(): ReactElement | null {
       try {
         const found = await desktopPaths();
         const remembered = rememberedFolder();
-        if (remembered) void startLaunchTiming();
         if (remembered && (await pathExists(remembered))) {
           const { setup, state } = await inspect(found.appData, remembered);
           if (!cancelled && opens(state)) {
-            markBackendReady();
             setWorkspace(openWorkspace(setup));
             return;
           }
