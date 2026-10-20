@@ -55,6 +55,7 @@ describe("status", () => {
     await expectActive("Task");
     await user.keyboard("p");
     await expectStatus(task.id, "paused");
+    await screen.findByText("Task marked as paused");
     await user.keyboard("fs");
     await expectRows(["Task"]);
     // The Active view's pending exit must not remove the task from Inactive.
@@ -260,6 +261,9 @@ describe("undo", () => {
     await user.keyboard("c");
     await user.keyboard("Captured{Enter}");
     await expectRows(["Captured"]);
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Undo" }).disabled).toBe(false),
+    );
     await user.keyboard("{Control>}z{/Control}");
     await expectRows([]);
   });

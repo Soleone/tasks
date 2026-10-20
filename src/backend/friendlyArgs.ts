@@ -296,7 +296,8 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       args.id = positionals[0];
       break;
     case "undo-operation":
-      command = "operation.undo";
+    case "redo-operation":
+      command = verb === "redo-operation" ? "operation.redo" : "operation.undo";
       requirePositionals(positionals, 1, verb);
       args.operationId = positionals[0];
       break;
@@ -422,7 +423,7 @@ WRITES
                    --clear-category, --tag SLUG (repeat), --clear-tags
     add also allows --parent ID. Shorthand cannot mix classification overrides.
   start|pause|complete|reopen|cancel|delete|undo ID
-  undo-operation OPERATION_ID | purge-canceled
+  undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled
   move ID --parent ID | move ID --no-parent
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
   init | rebuild | archive DESTINATION | restore SOURCE DESTINATION

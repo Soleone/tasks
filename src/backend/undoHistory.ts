@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
-import { historyAffected, historyTasks } from "./undoPlan.js";
+import { historyAffected, historyOrigin, historyTasks } from "./undoPlan.js";
 import { isRecord } from "./protocol.js";
 import type { HistorySource, UndoInput } from "./undoPlan.js";
 import type { CanonicalTask } from "./taskModel.js";
@@ -68,12 +68,12 @@ export function selectUndoHistory(
 ): HistorySource[] {
   if (input.kind === "transition") return [];
   const code = input.kind === "status" ? "UNDO_UNAVAILABLE" : "OPERATION_UNAVAILABLE";
-  const unavailable = (): never => {
+  const unavailable: () => never = () => {
     throw new CommandError(code, "eligible retained undo history is unavailable");
   };
   try {
     const rows =
-      input.kind === "operation"
+      input.kind === "operation" || input.kind === "redo"
         ? [
             database
               .prepare("SELECT * FROM v2_operations WHERE context = ? AND id = ?")
@@ -82,12 +82,48 @@ export function selectUndoHistory(
         : input.tasks.map((task) => latest(database, context, task.id));
     return rows.map((row, index) => {
       if (!row) return unavailable();
-      const source = {
+      const source: HistorySource = {
         id: row.id,
         command: row.command,
         before: parseCanonicalJson(Buffer.from(row.before_record)),
         after: parseCanonicalJson(Buffer.from(row.after_record)),
       };
+      if (["operation.undo", "operation.redo"].includes(source.command)) {
+        if (!isRecord(source.before) || typeof source.before.originId !== "string") unavailable();
+        const origin = database
+          .prepare("SELECT * FROM v2_operations WHERE context = ? AND id = ?")
+          .get(context, source.before.originId) as HistoryRow | undefined;
+        if (!origin) unavailable();
+        source.origin = {
+          id: origin.id,
+          command: origin.command,
+          before: parseCanonicalJson(Buffer.from(origin.before_record)),
+          after: parseCanonicalJson(Buffer.from(origin.after_record)),
+        };
+        historyOrigin(source);
+        const claims = source.before.undoOf as { operationId: string; taskId: string }[];
+        const previous = database
+          .prepare("SELECT * FROM v2_operations WHERE context = ? AND id = ?")
+          .get(context, claims[0].operationId) as HistoryRow | undefined;
+        if (!previous) unavailable();
+        const previousBefore = parseCanonicalJson(Buffer.from(previous.before_record));
+        if (
+          (source.command === "operation.redo"
+            ? previous.command !== "operation.undo"
+            : previous.id !== origin.id && previous.command !== "operation.redo") ||
+          (previous.id !== origin.id &&
+            (!isRecord(previousBefore) || previousBefore.originId !== origin.id)) ||
+          claims.some(
+            (claim) =>
+              database
+                .prepare(
+                  "SELECT undo_id FROM v2_undo_claims WHERE operation_id = ? AND task_id = ?",
+                )
+                .get(claim.operationId, claim.taskId)?.undo_id !== source.id,
+          )
+        )
+          unavailable();
+      }
       const ids = input.kind === "status" ? [input.tasks[index].id] : historyAffected(source);
       if (
         ids.length === 0 ||
@@ -98,8 +134,9 @@ export function selectUndoHistory(
         )
       )
         unavailable();
-      if (source.command === "task.create") {
-        const created = historyTasks(source.after)[0];
+      const origin = historyOrigin(source);
+      if (origin.command === "task.create" && source.command !== "operation.undo") {
+        const created = historyTasks(origin.after)[0];
         if (
           ids.length !== 1 ||
           latest(database, context, created.id)?.id !== source.id ||

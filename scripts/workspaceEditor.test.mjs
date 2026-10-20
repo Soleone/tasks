@@ -55,6 +55,7 @@ const linuxEditorCommands = [
   "task.dependency.remove",
   "task.reorder",
   "operation.undo",
+  "operation.redo",
   "task.transitionMany",
   "workspace.archive",
   "workspace.restore",

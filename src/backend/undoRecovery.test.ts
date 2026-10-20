@@ -58,7 +58,25 @@ function prepared(w: Workspace, command: string, args: Record<string, unknown>) 
     },
   };
 }
-function scenario(t: TestContext, kind: string) {
+function scenario(
+  t: TestContext,
+  kind: string,
+): { w: Workspace; request: ReturnType<typeof prepared>; groupsBefore: number } {
+  if (kind === "redo-create" || kind === "redoMany") {
+    const initial = scenario(t, kind === "redo-create" ? "create" : "transition");
+    if (kind === "redoMany") {
+      const forward = success(send(initial.w, initial.request));
+      initial.request = prepared(initial.w, "operation.undo", {
+        operationId: forward.result.operationId,
+      });
+    }
+    const undone = success(send(initial.w, initial.request));
+    return {
+      w: initial.w,
+      request: prepared(initial.w, "operation.redo", { operationId: undone.result.operationId }),
+      groupsBefore: 2,
+    };
+  }
   const w = setup(t);
   for (const file of readdirSync(path.join(w.root, "tasks")))
     rmSync(path.join(w.root, "tasks", file));
@@ -204,6 +222,8 @@ for (const [kind, writes] of [
   ["status", 1],
   ["create", 1],
   ["content", 1],
+  ["redo-create", 1],
+  ["redoMany", 3],
 ] as const) {
   const cuts = [
     "intent",
@@ -216,7 +236,7 @@ for (const [kind, writes] of [
   ];
   for (const cut of cuts)
     test(
-      `${kind} actual CLI ${cut} retains fixed group/time/claims/bytes without replaying applied effects`,
+      `redo.claims: ${kind} actual CLI ${cut} retains fixed group/time/claims/bytes without replaying effects`,
       linux,
       (t) => {
         const { w, request, groupsBefore } = scenario(t, kind);
@@ -400,6 +420,7 @@ for (const fault of [
         fault === "target-divergent" || fault === "new-child" ? "intent" : "prefix-1",
       );
       const removed = intent!.files.find((file) => file.nextBytes === null)!;
+      assert.ok(removed.beforeBytes);
       const archive = undoRecoveryLocation(intent!)!;
       if (fault === "archive-missing") rmSync(archive);
       if (fault === "archive-partial") writeFileSync(archive, "{");
@@ -582,6 +603,39 @@ for (const fault of ["arrival", "formatting", "delete", "budget", "claims"]) {
         "done",
       );
       if (fault === "delete") assert.equal(existsSync(target), false);
+    },
+  );
+}
+
+for (const fault of ["reappeared", "applied-edit", "archive-missing"]) {
+  test(
+    `redo.create: interrupted capture restoration refuses ${fault} without overwriting evidence`,
+    linux,
+    (t) => {
+      const { w, request } = scenario(t, "redo-create");
+      const { pending, intent } = crash(
+        w,
+        request,
+        fault === "applied-edit" ? "prefix-1" : "intent",
+      );
+      assert.ok(intent);
+      const restored = intent.files.find((file) => file.beforeBytes === null)!;
+      assert.ok(restored.nextBytes);
+      if (fault === "archive-missing")
+        rmSync(path.join(path.dirname(pending), `undo-${intent.sources[0].id}.recovery.json`));
+      else
+        writeFileSync(
+          path.join(w.root, "tasks", `${restored.taskId}.json`),
+          JSON.stringify({
+            ...JSON.parse(Buffer.from(restored.nextBytes, "base64").toString()),
+            description: "Preserve external bytes",
+          }),
+        );
+      const bytes = raw(w),
+        evidence = readFileSync(pending);
+      fail(recover(w, intent.operationId), "RECOVERY_CONFLICT");
+      assert.deepEqual(raw(w), bytes);
+      assert.deepEqual(readFileSync(pending), evidence);
     },
   );
 }

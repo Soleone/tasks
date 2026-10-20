@@ -10,6 +10,7 @@ export const EDITOR_COMMANDS = [
   ...RELATIONSHIP_COMMANDS,
   "task.reorder",
   "operation.undo",
+  "operation.redo",
   "task.transitionMany",
   "workspace.archive",
   "workspace.restore",

@@ -199,7 +199,7 @@ function hasExpectedVersions(request: Request): boolean {
         (typeof request.args.sourceDirectory === "string" &&
           request.args.sourceDirectory.trim() !== ""))
     );
-  if (request.command === "operation.undo")
+  if (request.command === "operation.undo" || request.command === "operation.redo")
     return typeof request.args.operationId === "string" && request.args.operationId !== "";
   if (request.command !== "task.reorder" && request.command !== "task.transitionMany")
     return positive(request.args.expectedVersion);
@@ -314,7 +314,8 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
         throw new Error("The editor returned different authority; retain the original request.");
       if (request.command === "task.reorder" || request.command === "task.transitionMany")
         return groupResult(response.result, request, preview) as R;
-      if (request.command === "operation.undo") return undoResult(response.result, preview) as R;
+      if (request.command === "operation.undo" || request.command === "operation.redo")
+        return undoResult(response.result, preview) as R;
       if (request.command === "workspace.archive" || request.command === "workspace.restore")
         return copyResult(response.result, preview) as R;
       const result = editorResult(response.result, preview);
@@ -538,6 +539,16 @@ export class EditorClient {
     if (baseline.task || !operationId)
       throw new Error("An operation ID without a task baseline is required.");
     return this.prepareTaskRequest(baseline, "operation.undo", { operationId }, key);
+  }
+
+  prepareOperationRedo(
+    baseline: EditBaseline,
+    operationId: string,
+    key: string,
+  ): PreparedEdit<UndoResult> {
+    if (baseline.task || !operationId)
+      throw new Error("An operation ID without a task baseline is required.");
+    return this.prepareTaskRequest(baseline, "operation.redo", { operationId }, key);
   }
 
   prepareCopy(

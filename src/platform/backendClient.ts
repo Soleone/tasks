@@ -59,6 +59,14 @@ function queued<T>(write: (workspace: MainWorkspace) => Promise<T>): Promise<T> 
   return next;
 }
 
+export async function waitForTaskWrites(): Promise<MainWorkspace> {
+  const workspace = selected();
+  await writeQueues.get(workspace);
+  if (mainWorkspace !== workspace)
+    throw new EditorError("NO_WORKSPACE", "The task folder closed before this change was sent.");
+  return workspace;
+}
+
 function writeKey(options: CommandOptions): string {
   return options.idempotencyKey ?? randomUUID();
 }
@@ -243,6 +251,17 @@ export async function undoOperation(
       throw unsupported("Undo is limited to status changes in this selected workspace.");
     const { removedIds, ...result } = await workspace.undo(operationId, writeKey(options));
     return { ...result, undoneOperationId: operationId, deletedTaskIds: removedIds };
+  });
+}
+
+export async function redoOperation(
+  operationId: string,
+  options: CommandOptions,
+): Promise<TaskReorderResult> {
+  return queued((workspace) => {
+    if (!workspace.supportsOperationRedo)
+      throw unsupported("Redo is not available in this selected workspace.");
+    return workspace.redo(operationId, writeKey(options));
   });
 }
 

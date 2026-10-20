@@ -11,14 +11,16 @@ import type { TaskView } from "@/components/taskView";
 import { taskStatusMeta } from "@/components/taskFilters";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { EditorError } from "@/platform/editorClient";
-import type { UndoEntry } from "@/platform/undoHistory";
+import type { UndoEntry, UndoHistory } from "@/platform/undoHistory";
 import {
   addDependency,
   moveTask,
   removeDependency,
+  redoOperation,
   transitionTask,
   undoOperation,
   undoStatusChange,
+  waitForTaskWrites,
   type TaskMutationResult,
 } from "@/platform/backendClient";
 import { useRowExits } from "./useRowExits";
@@ -87,6 +89,9 @@ export function useWorkspaceActions({
   } = taskView;
   const [optimisticCreate, setOptimisticCreate] = useState<TaskView | null>(null);
   const [statusUndo, setStatusUndo] = useState<OperationUndoEntry | null>(null);
+  const [redoEntry, setRedoEntry] = useState<UndoEntry | null>(null);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const historyBusyRef = useRef(false);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(updateVisibleTasks);
   const statusUndoRef = useRef<OperationUndoEntry | null>(null);
@@ -238,14 +243,13 @@ export function useWorkspaceActions({
         return before === undefined || after === undefined || before.version !== after.version;
       },
     );
-    const statusLike =
-      affectedTaskIds.length > 0 &&
-      affectedTaskIds.every((taskId) => {
-        const before = previousById.get(taskId);
-        const after = currentById.get(taskId);
-        return before !== undefined && after !== undefined && before.status !== after.status;
-      });
-    // The native route keeps single-task status undo; the Linux route records every own operation for operation.undo.
+    if (affectedTaskIds.length === 0) return;
+    const statusLike = affectedTaskIds.every((taskId) => {
+      const before = previousById.get(taskId);
+      const after = currentById.get(taskId);
+      return before !== undefined && after !== undefined && before.status !== after.status;
+    });
+    // A backend without general operation undo can only retain its single-task status change.
     const singleStatus = statusLike && affectedTaskIds.length === 1;
     if (workspace && !workspace.supportsOperationUndo && !singleStatus) {
       retireStatusUndo();
@@ -274,12 +278,13 @@ export function useWorkspaceActions({
         })(),
     };
     showUndo(entry);
+    setRedoEntry(null);
     if (!workspace?.supportsOperationUndo) return;
     // Re-show after pushing, so a history load that resolves late cannot replace this newer entry.
     void workspace.undoHistory().then(
       (history) => {
         history.push(entry);
-        showUndo(history.latest());
+        showHistory(history);
       },
       () => undefined,
     );
@@ -294,92 +299,122 @@ export function useWorkspaceActions({
     showUndo(null);
   }
 
-  // On the Linux route, an undone or gateway-refused entry leaves this client's next older entry.
-  function retireUndo(entry: OperationUndoEntry): void {
-    retireStatusUndo();
-    if (!workspace?.supportsOperationUndo) return;
-    void workspace.undoHistory().then(
-      (history) => {
-        history.remove(entry.operationId);
-        showUndo(history.latest());
-      },
-      () => undefined,
-    );
+  function showHistory(history: UndoHistory): void {
+    showUndo(history.latest());
+    setRedoEntry(workspace?.supportsOperationRedo ? history.latestRedo() : null);
   }
 
-  async function handleUndoStatus(): Promise<void> {
-    const entry = statusUndoRef.current;
-    if (!entry) return;
+  async function handleHistory(direction: "undo" | "redo"): Promise<void> {
+    if (historyBusyRef.current) return;
+    historyBusyRef.current = true;
+    setHistoryBusy(true);
+    let history: UndoHistory | null = null;
+    let entry: OperationUndoEntry | null = null;
+    const action = direction === "redo" ? "Redo" : "Undo";
     try {
+      await taskListRef.current?.waitForWrites();
+      const selected = await waitForTaskWrites();
+      if (workspace && selected !== workspace) return;
+      if (direction === "redo" && !workspace?.supportsOperationRedo) return;
+      history = workspace?.supportsOperationUndo ? await workspace.undoHistory() : null;
+      entry =
+        direction === "redo"
+          ? (history?.latestRedo() ?? null)
+          : history
+            ? history.latest()
+            : statusUndoRef.current;
+      if (!entry) return;
       const result =
-        entry.expectedVersion !== undefined
+        direction === "redo"
           ? {
-              tasks: [
-                (
-                  await undoStatusChange(entry.affectedTaskIds[0], entry.expectedVersion!, {
-                    idempotencyKey: entry.key,
-                  })
-                ).task,
-              ],
+              ...(await redoOperation(entry.operationId, { idempotencyKey: entry.key })),
               deletedTaskIds: [],
             }
-          : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
+          : entry.expectedVersion !== undefined
+            ? {
+                tasks: [
+                  (
+                    await undoStatusChange(entry.affectedTaskIds[0], entry.expectedVersion, {
+                      idempotencyKey: entry.key,
+                    })
+                  ).task,
+                ],
+                deletedTaskIds: [],
+                operationId: undefined,
+              }
+            : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
       const restored = result.tasks;
       stopRowExits();
       if (result.deletedTaskIds && result.deletedTaskIds.length > 0)
         removeVisibleTasks(result.deletedTaskIds);
       updateVisibleTasks(restored);
-      if (entry.wasActiveTaskId && restored.some((task) => task.id === entry.wasActiveTaskId)) {
-        requestActiveTask(entry.wasActiveTaskId);
-      }
-      retireUndo(entry);
+      const wasActiveTaskId = entry.wasActiveTaskId;
+      if (wasActiveTaskId && restored.some((task) => task.id === wasActiveTaskId))
+        requestActiveTask(wasActiveTaskId);
+      if (history && result.operationId) {
+        const next = { ...entry, operationId: result.operationId, key: randomUUID() };
+        if (direction === "redo") history.completeRedo(entry.operationId, next);
+        else history.completeUndo(entry.operationId, next);
+        showHistory(history);
+      } else retireStatusUndo();
       const label =
         restored.length === 1
           ? (taskStatusMeta[restored[0].status]?.label ?? restored[0].status)
           : null;
+      const verb = direction === "redo" ? "Redid" : "Undid";
       const message =
         entry.createdTaskIds.length > 0
-          ? `Removed: ${entry.title}`
+          ? `${direction === "redo" ? "Restored" : "Removed"}: ${entry.title}`
           : entry.statusLike && restored.length === 1
             ? `${restored[0].title}: ${label}`
             : restored.length === 1
-              ? `Undid change to ${restored[0].title}`
-              : `Undid changes for ${entry.affectedTaskIds.length} tasks`;
+              ? `${verb} change to ${restored[0].title}`
+              : `${verb} changes for ${entry.affectedTaskIds.length} tasks`;
       setAnnouncement(message);
-      showTaskToast(entry.statusLike && label ? `Undo status change to ${label}` : message);
+      showTaskToast(entry.statusLike && label ? `${action} status change to ${label}` : message);
       void refreshTasks(0, true);
     } catch (caught) {
       if (
+        entry &&
         caught instanceof EditorError &&
-        (caught.code === "OPERATION_CONFLICT" ||
-          caught.code === "OPERATION_UNAVAILABLE" ||
-          caught.code === "OPERATION_NOT_FOUND" ||
-          caught.code === "STALE_TASK_VERSION" ||
-          caught.code === "TASK_NOT_FOUND" ||
-          (caught instanceof EditorError &&
-            (caught.code === "PARENT_CYCLE" || caught.code === "DEPENDENCY_CYCLE")))
+        [
+          "OPERATION_CONFLICT",
+          "OPERATION_UNAVAILABLE",
+          "OPERATION_NOT_FOUND",
+          "UNDO_UNAVAILABLE",
+          "STALE_TASK_VERSION",
+          "TASK_NOT_FOUND",
+          "PARENT_CYCLE",
+          "DEPENDENCY_CYCLE",
+        ].includes(caught.code)
       ) {
-        retireUndo(entry);
+        if (history) {
+          if (direction === "redo") history.removeRedo(entry.operationId);
+          else history.remove(entry.operationId);
+          showHistory(history);
+        } else retireStatusUndo();
         stopRowExits();
-        setAnnouncement(`${entry.title} changed elsewhere. Undo is no longer available.`);
+        setAnnouncement(`${entry.title} changed elsewhere. ${action} is no longer available.`);
         void refreshTasks();
         return;
       }
       setAnnouncement(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      historyBusyRef.current = false;
+      setHistoryBusy(false);
     }
   }
 
-  useEffect(() => {
-    statusUndoRef.current = statusUndo;
-  }, [statusUndo]);
-
-  // After confirmation, the Linux route reloads this client's retained history for the same root/cache/profile.
+  // Restore only this client's history for the confirmed root/cache/profile.
   useEffect(() => {
     if (!workspace?.supportsOperationUndo) return;
     let cancelled = false;
     void workspace.undoHistory().then(
       (history) => {
-        if (!cancelled) showUndo(history.latest());
+        if (!cancelled) {
+          showUndo(history.latest());
+          setRedoEntry(workspace.supportsOperationRedo ? history.latestRedo() : null);
+        }
       },
       () => undefined,
     );
@@ -552,6 +587,8 @@ export function useWorkspaceActions({
     optimisticCreate,
     setOptimisticCreate,
     statusUndo,
+    redoEntry,
+    historyBusy,
     newTaskId,
     exitingTaskIds,
     pickerRemoveBlocker,
@@ -559,7 +596,8 @@ export function useWorkspaceActions({
     pickerSelected,
     pauseTaskFromPalette,
     recordOperationUndo,
-    handleUndoStatus,
+    handleUndoStatus: () => handleHistory("undo"),
+    handleRedo: () => handleHistory("redo"),
     showOptimisticCreate,
     taskSaved,
     handleStatusChanged,

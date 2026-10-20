@@ -247,6 +247,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     optimisticCreate,
     setOptimisticCreate,
     statusUndo,
+    redoEntry,
+    historyBusy,
     newTaskId,
     exitingTaskIds,
     pickerRemoveBlocker,
@@ -255,6 +257,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     pauseTaskFromPalette,
     recordOperationUndo,
     handleUndoStatus,
+    handleRedo,
     showOptimisticCreate,
     taskSaved,
     handleStatusChanged,
@@ -785,8 +788,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           }
           onStatusChanged={handleStatusChanged}
           onStatusBatchChanged={handleStatusBatchChanged}
-          canUndoStatus={statusUndo !== null}
+          canUndoStatus={statusUndo !== null && !historyBusy}
           onUndoStatus={() => void handleUndoStatus()}
+          canRedo={redoEntry !== null && !historyBusy}
+          onRedo={() => void handleRedo()}
           onCanceled={(task) => handleCanceledMany([task], [task])}
           onCanceledMany={handleCanceledMany}
           onAddBlocker={(task) => openPicker("blocker", task)}
@@ -826,7 +831,12 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
         statusUndoOnly={!workspace.supportsOperationUndo}
-        canUndoStatus={statusUndo !== null}
+        canUndoStatus={statusUndo !== null && !historyBusy}
+        canRedo={redoEntry !== null && !historyBusy}
+        onRedo={() => {
+          setHelpOpen(false);
+          void handleRedo();
+        }}
         onUndoStatus={() => {
           setHelpOpen(false);
           void handleUndoStatus();

@@ -82,9 +82,12 @@ export class MainWorkspace {
   get supportsOrdering(): boolean {
     return this.editor.selection.writeCommands.includes("task.reorder");
   }
-  /** Only the Linux route advertises general operation undo; the native route keeps single-task status undo. */
+  /** Capabilities come from the selected shared backend, not the shell platform. */
   get supportsOperationUndo(): boolean {
     return this.editor.selection.writeCommands.includes("operation.undo");
+  }
+  get supportsOperationRedo(): boolean {
+    return this.editor.selection.writeCommands.includes("operation.redo");
   }
   /** Only the Linux route advertises status batches. */
   get supportsStatusBatch(): boolean {
@@ -240,7 +243,7 @@ export class MainWorkspace {
     return { ...result, tasks: result.tasks.map(taskView) };
   }
 
-  /** This client's own undo history for the confirmed root/cache/profile and current write context; Linux route only. */
+  /** This client's history for the confirmed root/cache/profile and current write context. */
   undoHistory(): Promise<UndoHistory> {
     if (!this.supportsOperationUndo)
       return Promise.reject(
@@ -271,6 +274,19 @@ export class MainWorkspace {
   async undo(operationId: string, key: string) {
     const result = await this.run(async () => {
       const prepared = this.editor.prepareOperationUndo(
+        await this.editor.begin(undefined, "operation"),
+        operationId,
+        key,
+      );
+      await prepared.preview();
+      return prepared;
+    });
+    return { ...result, tasks: result.tasks.map(taskView) };
+  }
+
+  async redo(operationId: string, key: string) {
+    const result = await this.run(async () => {
+      const prepared = this.editor.prepareOperationRedo(
         await this.editor.begin(undefined, "operation"),
         operationId,
         key,

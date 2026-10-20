@@ -10,6 +10,7 @@ import {
   persistUndoArchive,
   retireBatchStages,
   undoRecoveryLocation,
+  verifyCaptureRecovery,
 } from "./batchJournal.js";
 import type { BatchIntent } from "./batchJournal.js";
 import {
@@ -21,6 +22,7 @@ import {
 import { refuseDescriptorConflicts } from "./copyFiles.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
+import { isRecord } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { projectTasks } from "./queries.js";
 import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
@@ -28,7 +30,7 @@ import type { QueryAuthority } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { selectUndoHistory } from "./undoHistory.js";
-import { parseUndo, planUndo } from "./undoPlan.js";
+import { historyOrigin, parseUndo, planUndo } from "./undoPlan.js";
 import type { UndoPlan } from "./undoPlan.js";
 
 function requireUndoBudget(database: DatabaseSync, count: number): void {
@@ -72,18 +74,34 @@ export function commitUndo(database: DatabaseSync, intent: BatchIntent): Record<
   // Read fixed originals, not the potentially already-applied subset observed during recovery.
   const before = batchIntentPlanOriginals(intent).filter((task) => affected.has(task.id));
   const after = snapshot.tasks.filter((task) => affected.has(task.id));
-  database
-    .prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(
-      intent.operationId,
-      authority.writeContext,
-      plan.affectedIds[0],
-      intent.request.command,
-      JSON.stringify(intent.request.actor),
-      intent.at,
-      JSON.stringify({ tasks: before, undoOf: plan.claims }),
-      JSON.stringify({ tasks: after }),
-    );
+  const source = intent.sources[0];
+  const origin = source ? historyOrigin(source) : undefined;
+  const ordered = origin && ["task.reorder", "task.order.normalize"].includes(origin.command);
+  const beforeScope =
+    ordered && isRecord(source.after)
+      ? { parentId: source.after.parentId, scope: source.after.scope }
+      : {};
+  const afterScope =
+    ordered && isRecord(source.before)
+      ? { parentId: source.before.parentId, scope: source.before.scope }
+      : {};
+  database.prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+    intent.operationId,
+    authority.writeContext,
+    plan.affectedIds[0],
+    intent.request.command,
+    JSON.stringify(intent.request.actor),
+    intent.at,
+    JSON.stringify({
+      tasks: before,
+      undoOf: plan.claims,
+      ...(["operation.undo", "operation.redo"].includes(intent.request.command)
+        ? { originId: origin!.id }
+        : {}),
+      ...beforeScope,
+    }),
+    JSON.stringify({ tasks: after, ...afterScope }),
+  );
   const member = database.prepare("INSERT INTO v2_operation_members VALUES (?, ?)");
   for (const id of affected) member.run(intent.operationId, id);
   for (const claim of plan.claims)
@@ -100,8 +118,10 @@ export function commitUndo(database: DatabaseSync, intent: BatchIntent): Record<
   return result;
 }
 function batchIntentPlanOriginals(intent: BatchIntent): CanonicalTask[] {
-  return intent.files.map(
-    (file) => JSON.parse(Buffer.from(file.beforeBytes, "base64").toString()) as CanonicalTask,
+  return intent.files.flatMap((file) =>
+    file.beforeBytes === null
+      ? []
+      : [JSON.parse(Buffer.from(file.beforeBytes, "base64").toString()) as CanonicalTask],
   );
 }
 
@@ -124,7 +144,7 @@ export function executeUndo(request: Request, rootPath: string, cachePath: strin
       if (!request.readOnly && !request.dryRun) requireUndoBudget(database, snapshot.tasks.length);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
-      if (input.kind !== "operation")
+      if (input.kind === "status" || input.kind === "transition")
         for (const reference of input.tasks) {
           if (!authority.versions.has(reference.id))
             throw new CommandError("TASK_NOT_FOUND", "batch task was not found");
@@ -146,19 +166,45 @@ export function executeUndo(request: Request, rootPath: string, cachePath: strin
           );
         const bytes = readRegularFile(path.join(root.rootPath, "tasks", `${id}.json`));
         if (
-          !sources.some(
-            (source) =>
-              source.command === "task.create" &&
-              bytes.equals(Buffer.from(`${JSON.stringify(source.after)}\n`)),
-          )
+          !sources.some((source) => {
+            const origin = historyOrigin(source);
+            return (
+              origin.command === "task.create" &&
+              bytes.equals(Buffer.from(`${JSON.stringify(origin.after)}\n`))
+            );
+          })
         )
           throw new CommandError("OPERATION_UNAVAILABLE", "creation bytes changed since capture");
+      }
+      const restored = plan.tasks.filter(
+        (task) => !snapshot.tasks.some((old) => old.id === task.id),
+      );
+      for (const task of restored) {
+        if (
+          snapshot.files.some(
+            (file) =>
+              path.basename(file.relativePath).split(".")[0].toLowerCase() ===
+              task.id.toLowerCase(),
+          )
+        )
+          throw new CommandError(
+            "OPERATION_UNAVAILABLE",
+            "capture destination or conflict evidence reappeared",
+          );
+        verifyCaptureRecovery(root, sources[0]);
       }
       if (request.dryRun || request.readOnly)
         return {
           writeContext: authority.writeContext,
           result: {
-            ...undoResult(request.command, plan, authority),
+            ...undoResult(request.command, plan, {
+              ...authority,
+              // Restored task preview versions are hypothetical, not reserved write authority.
+              versions: new Map([
+                ...authority.versions,
+                ...restored.map((task) => [task.id, 1] as const),
+              ]),
+            }),
             dryRun: request.dryRun,
             readOnly: request.readOnly,
           },
@@ -168,8 +214,8 @@ export function executeUndo(request: Request, rootPath: string, cachePath: strin
         storeReceipt(database, request, result);
         return { writeContext: authority.writeContext, result };
       }
-      requireUndoBudget(database, snapshot.tasks.length);
-      const files = snapshot.tasks.map((task) => {
+      requireUndoBudget(database, snapshot.tasks.length + restored.length);
+      const files: BatchIntent["files"] = snapshot.tasks.map((task) => {
         const before = readRegularFile(path.join(root.rootPath, "tasks", `${task.id}.json`));
         if (
           exactHash(before) !==
@@ -184,6 +230,12 @@ export function executeUndo(request: Request, rootPath: string, cachePath: strin
             : Buffer.from(`${JSON.stringify(next)}\n`).toString("base64");
         return { taskId: task.id, beforeBytes: before.toString("base64"), nextBytes };
       });
+      for (const task of restored)
+        files.push({
+          taskId: task.id,
+          beforeBytes: null,
+          nextBytes: Buffer.from(`${JSON.stringify(task)}\n`).toString("base64"),
+        });
       const intent = parseBatchIntent(
         {
           format: "taskdb.pending-batch",

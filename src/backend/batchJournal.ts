@@ -11,10 +11,10 @@ import type { Request } from "./protocol.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 import { isTimestamp, validateGraph, validateTask } from "./taskModel.js";
-import { parseUndo, planUndo, UNDO_COMMANDS } from "./undoPlan.js";
+import { historyOrigin, historyTasks, parseUndo, planUndo, UNDO_COMMANDS } from "./undoPlan.js";
 import type { HistorySource, UndoPlan } from "./undoPlan.js";
 
-type BatchFile = { taskId: string; beforeBytes: string; nextBytes: string | null };
+type BatchFile = { taskId: string; beforeBytes: string | null; nextBytes: string | null };
 export type BatchIntent = {
   format: "taskdb.pending-batch";
   version: 1;
@@ -41,8 +41,10 @@ function stagePath(intent: BatchIntent, index: number): string {
   );
 }
 export function batchIntentPlan(intent: BatchIntent): UndoPlan {
-  const before = intent.files.map((file) =>
-    validateTask(parseCanonicalJson(Buffer.from(file.beforeBytes, "base64")), file.taskId),
+  const before = intent.files.flatMap((file) =>
+    file.beforeBytes === null
+      ? []
+      : [validateTask(parseCanonicalJson(Buffer.from(file.beforeBytes, "base64")), file.taskId)],
   );
   validateGraph(before);
   return planUndo(
@@ -113,26 +115,48 @@ export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent
         conflict();
     }
     for (const file of intent.files) {
-      for (const bytes of [
-        file.beforeBytes,
-        ...(file.nextBytes === null ? [] : [file.nextBytes]),
-      ]) {
+      if (file.beforeBytes === null && file.nextBytes === null) conflict();
+      for (const bytes of [file.beforeBytes, file.nextBytes]) {
+        if (bytes === null) continue;
         if (typeof bytes !== "string" || Buffer.from(bytes, "base64").toString("base64") !== bytes)
           conflict();
         validateTask(parseCanonicalJson(Buffer.from(bytes, "base64")), file.taskId);
       }
+      const beforeBytes = file.beforeBytes;
       if (
-        !intent.guards.some(
-          (guard) =>
-            guard.relativePath === `tasks/${file.taskId}.json` &&
-            guard.sha256 === exactHash(Buffer.from(file.beforeBytes, "base64")),
-        )
+        beforeBytes === null
+          ? intent.guards.some(
+              (guard) =>
+                path.basename(guard.relativePath).split(".")[0].toLowerCase() ===
+                file.taskId.toLowerCase(),
+            )
+          : !intent.guards.some(
+              (guard) =>
+                guard.relativePath === `tasks/${file.taskId}.json` &&
+                guard.sha256 === exactHash(Buffer.from(beforeBytes, "base64")),
+            )
+      )
+        conflict();
+      if (
+        (beforeBytes === null || file.nextBytes === null) &&
+        !intent.sources.some((source) => {
+          const origin = historyOrigin(source);
+          return (
+            origin.command === "task.create" &&
+            (beforeBytes ?? file.nextBytes) ===
+              Buffer.from(`${JSON.stringify(origin.after)}\n`).toString("base64")
+          );
+        })
       )
         conflict();
     }
     const parsed = { ...intent, request };
     const plan = batchIntentPlan(parsed);
-    if (plan.affectedIds.length === 0) conflict();
+    if (
+      plan.affectedIds.length === 0 ||
+      plan.tasks.some((task) => !intent.files.some((file) => file.taskId === task.id))
+    )
+      conflict();
     for (const file of intent.files) {
       const next = plan.tasks.find((task) => task.id === file.taskId);
       if (!next) {
@@ -141,12 +165,6 @@ export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent
           !plan.removedIds.includes(file.taskId) ||
           intent.guards.some((guard) =>
             guard.relativePath.startsWith(`tasks/${file.taskId}.sync-conflict-`),
-          ) ||
-          !intent.sources.some(
-            (source) =>
-              source.command === "task.create" &&
-              file.beforeBytes ===
-                Buffer.from(`${JSON.stringify(source.after)}\n`).toString("base64"),
           )
         )
           conflict();
@@ -158,9 +176,11 @@ export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent
           canonicalJson(next)
       )
         conflict();
-      const before = parseCanonicalJson(Buffer.from(file.beforeBytes, "base64"));
-      if (canonicalJson(next) === canonicalJson(before) && file.beforeBytes !== file.nextBytes)
-        conflict();
+      if (file.beforeBytes !== null) {
+        const before = parseCanonicalJson(Buffer.from(file.beforeBytes, "base64"));
+        if (canonicalJson(next) === canonicalJson(before) && file.beforeBytes !== file.nextBytes)
+          conflict();
+      }
     }
     localPathOutsideRoot(intent.cachePath, root.rootPath);
     localDomain(root);
@@ -188,6 +208,31 @@ export function persistUndoArchive(intent: BatchIntent): void {
     verifyArchive(intent);
   }
 }
+export function verifyCaptureRecovery(root: RootBinding, source: HistorySource): void {
+  const origin = historyOrigin(source);
+  const task = historyTasks(origin.after)[0];
+  const location = path.join(localDomain(root), `undo-${source.id}.recovery.json`);
+  const expected = Buffer.from(
+    `${JSON.stringify({
+      format: "taskdb.undo-recovery",
+      version: 1,
+      operationId: source.id,
+      root,
+      files: [
+        {
+          taskId: task.id,
+          beforeBytes: Buffer.from(`${JSON.stringify(origin.after)}\n`).toString("base64"),
+        },
+      ],
+    })}\n`,
+  );
+  if (!existsSync(location) || !readRegularFile(location).equals(expected))
+    throw new CommandError(
+      "OPERATION_UNAVAILABLE",
+      "capture recovery evidence is missing or changed",
+    );
+}
+
 function verifyArchive(intent: BatchIntent): void {
   const location = undoRecoveryLocation(intent);
   if (
@@ -211,7 +256,16 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
     const actual = new Map(snapshot.files.map((file) => [file.relativePath, file.sha256]));
     const plans = new Map(intent.files.map((file) => [`tasks/${file.taskId}.json`, file]));
     if (
-      [...actual.keys()].some((name) => !intent.guards.some((guard) => guard.relativePath === name))
+      [...actual].some(([name, hash]) => {
+        if (intent.guards.some((guard) => guard.relativePath === name)) return false;
+        const added = plans.get(name);
+        return !(
+          recovery &&
+          added?.beforeBytes === null &&
+          added.nextBytes &&
+          hash === exactHash(Buffer.from(added.nextBytes, "base64"))
+        );
+      })
     )
       fail("STALE_SCOPE");
     for (const guard of intent.guards) {
@@ -228,6 +282,14 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
         fail("STALE_FILE");
     }
     for (const [index, file] of intent.files.entries()) {
+      if (file.beforeBytes === null) {
+        const hash = actual.get(`tasks/${file.taskId}.json`);
+        if (
+          hash !== undefined &&
+          !(recovery && file.nextBytes && hash === exactHash(Buffer.from(file.nextBytes, "base64")))
+        )
+          fail("STALE_FILE");
+      }
       const temporary = stagePath(intent, index);
       if (
         existsSync(temporary) &&
@@ -236,6 +298,8 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
       )
         conflict();
     }
+    if (intent.files.some((file) => file.beforeBytes === null))
+      verifyCaptureRecovery(intent.root, intent.sources[0]);
     if (recovery) verifyArchive(intent);
     return snapshot;
   } catch (error) {

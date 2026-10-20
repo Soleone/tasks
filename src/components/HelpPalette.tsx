@@ -16,6 +16,7 @@ import {
   ListPlus,
   MoveLeft,
   Palette,
+  Redo2,
   SaveCheck,
   Search,
   Settings2,
@@ -60,7 +61,8 @@ type HelpEntry = {
     | "filter-tags"
     | "filter-search"
     | "copy-task"
-    | "undo-status";
+    | "undo-status"
+    | "redo";
 };
 
 const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
@@ -137,6 +139,15 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         action: "undo-status",
         keywords:
           "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order",
+      },
+      {
+        label: "Redo last change",
+        hint: "Ctrl/⌘+Shift+Z also redoes",
+        icon: Redo2,
+        keys: ["Ctrl", "Y"],
+        action: "redo",
+        keywords:
+          "ctrl cmd y shift z redo reapply restore undone change task status capture edit move priority dependency order",
       },
       {
         label: "Set active task priority",
@@ -387,6 +398,8 @@ export function HelpPalette({
   statusUndoOnly = false,
   canUndoStatus,
   onUndoStatus,
+  canRedo,
+  onRedo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -408,6 +421,8 @@ export function HelpPalette({
   statusUndoOnly?: boolean;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
+  canRedo?: boolean;
+  onRedo?: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
 
@@ -449,39 +464,44 @@ export function HelpPalette({
                             ? canUndoStatus && onUndoStatus
                               ? onUndoStatus
                               : undefined
-                            : entry.action === "new-task"
-                              ? onCreate
-                              : entry.action === "new-child-task" && activeTask && onCreateChild
-                                ? () => onCreateChild(activeTask)
-                                : entry.action === "filter-category"
-                                  ? onOpenCategoryPicker
-                                  : entry.action === "filter-status"
-                                    ? onOpenStatusMenu
-                                    : entry.action === "filter-priority"
-                                      ? onOpenPriorityMenu
-                                      : entry.action === "filter-tags"
-                                        ? onOpenTagPicker
-                                        : entry.action === "filter-search"
-                                          ? onOpenSearch
-                                          : entry.action === "add-blocker" &&
-                                              activeTask &&
-                                              onAddBlocker
-                                            ? () => onAddBlocker(activeTask)
-                                            : entry.action === "pause-task" &&
+                            : entry.action === "redo"
+                              ? canRedo
+                                ? onRedo
+                                : undefined
+                              : entry.action === "new-task"
+                                ? onCreate
+                                : entry.action === "new-child-task" && activeTask && onCreateChild
+                                  ? () => onCreateChild(activeTask)
+                                  : entry.action === "filter-category"
+                                    ? onOpenCategoryPicker
+                                    : entry.action === "filter-status"
+                                      ? onOpenStatusMenu
+                                      : entry.action === "filter-priority"
+                                        ? onOpenPriorityMenu
+                                        : entry.action === "filter-tags"
+                                          ? onOpenTagPicker
+                                          : entry.action === "filter-search"
+                                            ? onOpenSearch
+                                            : entry.action === "add-blocker" &&
                                                 activeTask &&
-                                                onPauseTask
-                                              ? () => onPauseTask(activeTask)
-                                              : entry.action === "move-under" &&
+                                                onAddBlocker
+                                              ? () => onAddBlocker(activeTask)
+                                              : entry.action === "pause-task" &&
                                                   activeTask &&
-                                                  onMoveUnder
-                                                ? () => onMoveUnder(activeTask)
-                                                : undefined;
+                                                  onPauseTask
+                                                ? () => onPauseTask(activeTask)
+                                                : entry.action === "move-under" &&
+                                                    activeTask &&
+                                                    onMoveUnder
+                                                  ? () => onMoveUnder(activeTask)
+                                                  : undefined;
                   return (
                     <CommandItem
                       key={entry.label}
                       value={`${group.heading} ${label}`}
                       keywords={entryKeywords(entry)}
                       onSelect={onSelect}
+                      disabled={entry.action === "redo" && !canRedo}
                     >
                       <Icon aria-hidden="true" />
                       <span className="font-medium">{label}</span>

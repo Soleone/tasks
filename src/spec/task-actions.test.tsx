@@ -90,20 +90,26 @@ test("home.task-context-menu: Escape dismisses without editing", async () => {
 test("toolbar.task-actions: empty and editing states disable the action buttons", async () => {
   const { user } = await workspace.render();
   const undo = screen.getByRole<HTMLButtonElement>("button", { name: "Undo" });
+  const redo = screen.getByRole<HTMLButtonElement>("button", { name: "Redo" });
   const actions = screen.getByRole<HTMLButtonElement>("button", { name: "Task actions" });
   expect(undo.disabled).toBe(true);
+  expect(redo.disabled).toBe(true);
   expect(actions.disabled).toBe(true);
   expect(undo.tabIndex).toBe(-1);
+  expect(redo.tabIndex).toBe(-1);
   expect(actions.tabIndex).toBe(-1);
   const group = screen.getByRole("group", { name: "Task list actions" });
   expect(group.contains(undo)).toBe(true);
+  expect(group.contains(redo)).toBe(true);
   expect(group.contains(actions)).toBe(true);
   expect(undo.textContent).toBe("");
+  expect(redo.textContent).toBe("");
   expect(actions.textContent).toBe("");
   await user.click(screen.getByRole("button", { name: "New task" }));
   await focusedTitleField();
   expect(actions.disabled).toBe(true);
   expect(undo.disabled).toBe(true);
+  expect(redo.disabled).toBe(true);
 });
 
 test("toolbar.task-actions: the menu exposes shortcuts and Escape returns to the list", async () => {

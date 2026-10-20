@@ -81,6 +81,7 @@ export type TaskListHandle = {
   finishIdentityPreservingRefresh: () => void;
   clearActiveTaskSelection: () => void;
   getActiveTask: () => TaskView | undefined;
+  waitForWrites: () => Promise<void>;
 };
 
 type TaskListProps = {
@@ -151,6 +152,8 @@ type TaskListProps = {
   ) => void;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
+  canRedo?: boolean;
+  onRedo?: () => void;
   onCanceled: (task: TaskView) => void;
   onCanceledMany?: (previous: TaskView[], current: TaskView[]) => void;
   onAddBlocker: (task: TaskView) => void;
@@ -235,6 +238,8 @@ export function TaskList({
   onStatusBatchChanged,
   canUndoStatus,
   onUndoStatus,
+  canRedo,
+  onRedo,
   onCanceled,
   onCanceledMany,
   onAddBlocker,
@@ -290,7 +295,7 @@ export function TaskList({
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const unblockedFeedback = useFlashTooltip(unblockedFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [moveControlsOpen, setMoveControlsOpen] = useState(false);
-  const reorderPending = useRef(false);
+  const reorderPending = useRef<Promise<void> | null>(null);
   const reorderQueue = useRef<
     { direction: TaskMoveDirection; activeId: string; selectedIds: string[]; filter: string }[]
   >([]);
@@ -382,7 +387,22 @@ export function TaskList({
     onEdit,
   });
 
-  useImperativeHandle(ref, () => selectionHandle, [selectionHandle]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      ...selectionHandle,
+      waitForWrites: async () => {
+        // A refused optimistic write still settles before history chooses the preceding accepted step.
+        while (taskWrites.current.size > 0 || reorderPending.current) {
+          await Promise.allSettled([
+            ...[...taskWrites.current.values()].map((chain) => chain.tail),
+            ...(reorderPending.current ? [reorderPending.current] : []),
+          ]);
+        }
+      },
+    }),
+    [selectionHandle],
+  );
 
   // Details change row heights, so keep the active task on screen.
   const shownDetailsRef = useRef({ showDetails, flippedDetailIds });
@@ -821,7 +841,11 @@ export function TaskList({
       filter: filterIdentity,
     });
     if (reorderPending.current) return;
-    reorderPending.current = true;
+    reorderPending.current = drainReorderQueue();
+    await reorderPending.current;
+  }
+
+  async function drainReorderQueue(): Promise<void> {
     try {
       while (reorderQueue.current.length > 0) {
         const next = reorderQueue.current.shift()!;
@@ -842,7 +866,7 @@ export function TaskList({
       reorderQueue.current = [];
       announce("Could not refresh tasks. Refresh before moving again.");
     } finally {
-      reorderPending.current = false;
+      reorderPending.current = null;
       setPendingRowOrder(null);
     }
   }
@@ -1307,6 +1331,8 @@ export function TaskList({
       visibleRowCount: visibleRows.length,
       canUndoStatus: Boolean(canUndoStatus),
       undoStatus: () => onUndoStatus?.(),
+      canRedo: Boolean(canRedo),
+      redo: () => onRedo?.(),
       deleteSelectedTasks,
       returnToList,
       clearAllFilters: onClearAllFilters,
@@ -1392,7 +1418,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1422,6 +1448,8 @@ export function TaskList({
           disabled: composer !== null,
           canUndo: Boolean(canUndoStatus),
           onUndo: () => onUndoStatus?.(),
+          canRedo: Boolean(canRedo),
+          onRedo: () => onRedo?.(),
           onAddBlocker: (task) => {
             returnToList();
             onAddBlocker(task);
@@ -1512,7 +1540,7 @@ export function TaskList({
           }
           aria-orientation="vertical"
           aria-multiselectable="true"
-          aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z"
+          aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
           aria-activedescendant={
             activeTask && !editingActiveTask ? `task-option-${activeTask.id}` : undefined
           }

@@ -28,6 +28,7 @@ const KNOWN_COMMANDS = [
   "activity.list",
   "category.list",
   "operation.undo",
+  "operation.redo",
   "runtime.probe",
   "source.list",
   "tag.list",

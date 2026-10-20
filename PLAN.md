@@ -15,7 +15,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 ## Owner decisions
 
 - Daily-use scope (2026-10-14): capture, edit, complete, delete; classification and priority; filters and search; parents and blockers (done blockers still block, canceled don't); persistent manual order; all-or-nothing bulk status; about 50 steps of same-client undo kept across reopen; backup and restore; global focus shortcut (desktop only); preferences kept across restarts. No new sharing feature. No workflow losses agreed.
-- **Redo builds on undo** (owner, 2026-10-20): add `Ctrl+Y` and `Ctrl/⌘+Shift+Z`, with the corresponding toolbar and palette action. Reuse named commands, recorded before/after effects and safe retries, not a new command framework or broad undo refactor. Spec and planning are approved; production implementation needs a separate go-ahead.
+- **Redo builds on undo** (owner, 2026-10-20): add `Ctrl+Y` and `Ctrl/⌘+Shift+Z`, with the corresponding toolbar and palette action. Reuse named commands, recorded before/after effects and safe retries, not a new command framework or broad undo refactor. The owner authorized the bounded implementation with "build this"; its validation checkpoint is recorded below.
 - Move completely to the new engine (2026-10-14). Legacy runtime is deleted; schema 1 survives only in the migration tool.
 - **Android returns on the shared backend** (2026-10-17, replaces "dropped until ported" from 2026-10-14): the app bundles Node built for Android and runs the same backend bundle as desktop, so there is still one engine. The task folder is a plain path on shared storage (all files access, sideloaded only). Builds run in WSL and are release-signed with the owner's key (owner, 2026-10-17); the owner checks on a phone.
 - **Switch everything as soon as possible** (2026-10-16, replaces "Windows parity before cutover" from 2026-10-14). No Windows proof gate: the desktop app moves to the new engine on every OS, the legacy runtime is deleted, and the owner tests the Windows build once it is ready. Global focus is deferred. Windows 11 is the first release platform.
@@ -45,6 +45,8 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 12. Filtered hierarchy (owner bug report, 2026-10-20): parents keep their disclosure when children are outside the current results. Expanding reveals the whole tree, with outside-result children muted and labeled as context. Matching counts, bulk selection and reorder exclude context rows; individual status changes and undo still work. Regression coverage includes pause/resume, switching views, reopening and pagination. Disposable browser checks pass at desktop and phone widths; this is not native validation.
 
+13. Redo is implemented (2026-10-20): `Ctrl+Y`, `Ctrl/⌘+Shift+Z`, the toolbar, palette and `redo-operation ID` share `operation.redo` on the existing reversal writer. The two client stacks persist across reopen; only confirmed results transfer a step, and meaningful new edits clear redo. Repeated reversals keep per-task claims and reorder scopes; an undone capture restores the same ID and raw task through a guarded journal. No new command framework, cache schema or dependency. `pnpm check`, `pnpm lint`, `pnpm test` and `kit check` pass (1,497 tests passed, one existing skip), as do backend bundles and the web build. Disposable WSL Chromium confirms capture undo/redo, both shortcut forms, toolbar/palette actions, reload and layouts at 1280, 390 and 320 px; no browser errors or settled-page axe findings. The existing large web-chunk warning remains (about 608 kB minified). Native Windows/Android redo was not manually checked. Plan: `$DATA/plans/2026-10-19-tasks-redo.md`, SQ `xxz`. Stop at this checkpoint; no deployment or personal-data access was performed.
+
 ## Next step
 
 Windows 11 and Android native smoke checks are owner-confirmed (2026-10-19), and the recorded kit drift is resolved. No implementation stage is newly authorized by that confirmation.
@@ -57,7 +59,6 @@ Remaining follow-ups, each requiring its own go-ahead:
 4. Sign the Windows release. After the earlier reboot, Bitdefender added ~850 ms to the backend step; an install-folder exception removed it. Signing remains a publication follow-up, not a measured code fix. Further startup work, including showing a saved list before the backend answers, is not approved.
 5. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
 6. User-chosen app home (owner direction, 2026-10-20): keep meaningful device-local state and settings in one chosen parent, with only its `sync/` subtree added to Syncthing. Detailed deferred plan: `$DATA/plans/2026-10-19-tasks-user-chosen-home.md`, SQ `zce`. Planning only; execution is not approved. Start with the storage/lock-domain/relocation contract and Android shared-storage SQLite feasibility, then stop at that checkpoint. Preserve receipts, undo and recovery authority; personal adoption requires separate permission.
-7. Redo (owner direction, 2026-10-20): target rules now include redo, but the runtime still only supports undo. Plan: `$DATA/plans/2026-10-19-tasks-redo.md`, SQ `xxz`. Planning only; execution is not approved. One bounded feature slice extends the recorded reversal path, preserves reorder-scope evidence, adds safe same-ID capture restoration and confirmed persistent undo/redo stack transfers, then exposes shortcuts, toolbar, palette and CLI. Keep existing undo entries, pending intents, claims and receipts; stop after focused validation and the normal checks. This work does not depend on or authorize the app-home relocation.
 
 Kit adoption is at r4. `src/components/ui` and `src/components/soleone` match stock registry sources.
 
@@ -65,7 +66,7 @@ Kit adoption is at r4. `src/components/ui` and `src/components/soleone` match st
 
 ### Owner acceptance
 
-The owner uses the Windows build on their real tasks (imported, old files kept) and reports friction: capture, edit, complete, undo, search, refresh, reopen, keyboard, mouse and focus. Automation counts as zero sessions.
+The owner uses the Windows build on their real tasks (imported, old files kept) and reports friction: capture, edit, complete, undo/redo, search, refresh, reopen, keyboard, mouse and focus. Automation counts as zero sessions.
 
 ### Cutover
 

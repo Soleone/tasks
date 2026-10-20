@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement } from "react";
-import { CirclePause, Copy, CornerDownRight, Ellipsis, Link2, Undo2 } from "lucide-react";
+import { CirclePause, Copy, CornerDownRight, Ellipsis, Link2, Redo2, Undo2 } from "lucide-react";
 import type { TaskView } from "./taskView";
 import type { Tooltip } from "./ui/tooltip";
 import { ToolbarCommand, ToolbarTooltip } from "./variants/toolbar";
@@ -18,6 +18,8 @@ type TaskActionsProps = {
   disabled: boolean;
   canUndo: boolean;
   onUndo: () => void;
+  canRedo: boolean;
+  onRedo: () => void;
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
   onCreateChild: (task: TaskView) => void;
@@ -32,6 +34,8 @@ export function TaskActions({
   disabled,
   canUndo,
   onUndo,
+  canRedo,
+  onRedo,
   onAddBlocker,
   onMoveUnder,
   onCreateChild,
@@ -56,6 +60,21 @@ export function TaskActions({
         }
       >
         <Undo2 aria-hidden="true" />
+      </ToolbarTooltip>
+      <ToolbarTooltip
+        tooltip={tooltipFor("redo")}
+        hint="Redo (Ctrl+Y or Ctrl/⌘+Shift+Z)"
+        render={
+          <ToolbarCommand
+            disabled={disabled || !canRedo}
+            aria-label="Redo"
+            aria-keyshortcuts="Control+y Control+Shift+z Meta+Shift+z"
+            onMouseDown={preventFocusSteal}
+            onClick={onRedo}
+          />
+        }
+      >
+        <Redo2 aria-hidden="true" />
       </ToolbarTooltip>
       <DropdownMenu>
         <ToolbarTooltip

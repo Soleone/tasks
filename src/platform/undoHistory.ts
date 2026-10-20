@@ -1,4 +1,4 @@
-/** One of this client's own recorded operations; whether it can still be undone is the gateway's answer. */
+/** One of this client's own recorded operations; reversal eligibility is the gateway's answer. */
 export type UndoEntry = {
   operationId: string;
   key: string;
@@ -9,7 +9,11 @@ export type UndoEntry = {
   wasActiveTaskId: string | null;
 };
 export type UndoStorage = Pick<Storage, "getItem" | "setItem">;
-type StoredHistory = { version: 1; workspaces: { scope: string; entries: UndoEntry[] }[] };
+type HistoryStacks = { entries: UndoEntry[]; redoEntries: UndoEntry[] };
+type StoredHistory = {
+  version: 1;
+  workspaces: { scope: string; entries: UndoEntry[]; redoEntries?: UndoEntry[] }[];
+};
 
 /** @public Tested from scripts/ through an esbuild bundle, which knip can't trace. */
 export const UNDO_HISTORY_LIMIT = 50;
@@ -44,11 +48,12 @@ function isEntry(value: unknown): value is UndoEntry {
 
 /**
  * Client-local, bounded history of this client's own operation IDs for one confirmed
- * root/cache/profile and write context. It never decides eligibility: every undo still goes
+ * root/cache/profile and write context. It never decides eligibility: every reversal goes
  * through the gateway's preview and the locked executing request.
  */
 export class UndoHistory {
-  private memory: UndoEntry[] = [];
+  private memory: HistoryStacks = { entries: [], redoEntries: [] };
+  private storageFailed = false;
 
   constructor(
     private readonly scope: string,
@@ -56,50 +61,88 @@ export class UndoHistory {
   ) {}
 
   latest(): UndoEntry | null {
-    return this.read().at(-1) ?? null;
+    return this.read().entries.at(-1) ?? null;
+  }
+
+  latestRedo(): UndoEntry | null {
+    return this.read().redoEntries.at(-1) ?? null;
   }
 
   push(entry: UndoEntry): void {
-    this.write(
-      [
-        ...this.read().filter((existing) => existing.operationId !== entry.operationId),
-        entry,
-      ].slice(-UNDO_HISTORY_LIMIT),
-    );
+    const { entries } = this.read();
+    if (entries.some((existing) => existing.operationId === entry.operationId)) return;
+    this.write({ entries: [...entries, entry].slice(-UNDO_HISTORY_LIMIT), redoEntries: [] });
+  }
+
+  completeUndo(operationId: string, entry: UndoEntry): void {
+    const history = this.read();
+    if (!history.entries.some((existing) => existing.operationId === operationId)) return;
+    this.write({
+      entries: history.entries.filter((existing) => existing.operationId !== operationId),
+      redoEntries: [...history.redoEntries, entry],
+    });
+  }
+
+  completeRedo(operationId: string, entry: UndoEntry): void {
+    const history = this.read();
+    if (!history.redoEntries.some((existing) => existing.operationId === operationId)) return;
+    this.write({
+      entries: [...history.entries, entry],
+      redoEntries: history.redoEntries.filter((existing) => existing.operationId !== operationId),
+    });
   }
 
   remove(operationId: string): void {
-    this.write(this.read().filter((entry) => entry.operationId !== operationId));
+    const history = this.read();
+    this.write({
+      ...history,
+      entries: history.entries.filter((entry) => entry.operationId !== operationId),
+    });
+  }
+
+  removeRedo(operationId: string): void {
+    const history = this.read();
+    this.write({
+      ...history,
+      redoEntries: history.redoEntries.filter((entry) => entry.operationId !== operationId),
+    });
   }
 
   // Storage is reread on every use so another tab of the same client cannot be overwritten with a stale copy.
-  private read(): UndoEntry[] {
+  private read(): HistoryStacks {
     const stored = this.stored();
     if (!stored) return this.memory;
-    const entries =
-      stored.workspaces.find((workspace) => workspace.scope === this.scope)?.entries ?? [];
-    this.memory = entries.filter(isEntry).slice(-UNDO_HISTORY_LIMIT);
+    const history = stored.workspaces.find((workspace) => workspace.scope === this.scope);
+    const entries = (history?.entries ?? []).filter(isEntry).slice(-UNDO_HISTORY_LIMIT);
+    const remaining = UNDO_HISTORY_LIMIT - entries.length;
+    this.memory = {
+      entries,
+      redoEntries:
+        remaining > 0 ? (history?.redoEntries ?? []).filter(isEntry).slice(-remaining) : [],
+    };
     return this.memory;
   }
 
-  private write(entries: UndoEntry[]): void {
-    this.memory = entries;
-    if (!this.storage) return;
+  private write(stacks: HistoryStacks): void {
+    this.memory = stacks;
+    if (!this.storage || this.storageFailed) return;
     const others = (this.stored()?.workspaces ?? []).filter(
       (workspace) => workspace.scope !== this.scope,
     );
     const history: StoredHistory = {
       version: 1,
-      workspaces: [{ scope: this.scope, entries }, ...others].slice(0, RETAINED_WORKSPACES),
+      workspaces: [{ scope: this.scope, ...stacks }, ...others].slice(0, RETAINED_WORKSPACES),
     };
     try {
       this.storage.setItem(STORAGE_KEY, JSON.stringify(history));
     } catch {
-      /* Full or unavailable storage keeps this session's history in memory only. */
+      // Do not reread an older persisted copy over this session's confirmed history.
+      this.storageFailed = true;
     }
   }
 
   private stored(): StoredHistory | null {
+    if (this.storageFailed) return null;
     let value: unknown;
     try {
       const raw = this.storage?.getItem(STORAGE_KEY);
@@ -121,7 +164,10 @@ export class UndoHistory {
       version: 1,
       workspaces: history.workspaces.filter(
         (workspace) =>
-          workspace && typeof workspace.scope === "string" && Array.isArray(workspace.entries),
+          workspace &&
+          typeof workspace.scope === "string" &&
+          Array.isArray(workspace.entries) &&
+          (workspace.redoEntries === undefined || Array.isArray(workspace.redoEntries)),
       ),
     };
   }

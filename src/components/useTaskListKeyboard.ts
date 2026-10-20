@@ -39,6 +39,8 @@ type HomeShortcutActions = {
   visibleRowCount: number;
   canUndoStatus: boolean;
   undoStatus: () => void;
+  canRedo: boolean;
+  redo: () => void;
   deleteSelectedTasks: () => Promise<void>;
   returnToList: () => void;
   clearAllFilters: () => void;
@@ -135,12 +137,19 @@ export function useTaskListKeyboard(
       actions.returnToList();
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "z") {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      (event.key.toLowerCase() === "z" ||
+        (event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "y"))
+    ) {
       if (toolbarModeRef.current !== null) return;
-      if (event.repeat || event.isComposing || event.keyCode === 229 || event.shiftKey) return;
-      if (!actions.canUndoStatus) return;
+      if (event.repeat || event.isComposing || event.keyCode === 229) return;
+      const redo = event.shiftKey || event.key.toLowerCase() === "y";
+      if (redo ? !actions.canRedo : !actions.canUndoStatus) return;
       event.preventDefault();
-      actions.undoStatus();
+      if (redo) actions.redo();
+      else actions.undoStatus();
       return;
     }
     if (

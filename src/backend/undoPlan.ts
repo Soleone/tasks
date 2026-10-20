@@ -12,12 +12,27 @@ export const UNDO_COMMANDS = [
   "task.status.undoMany",
   "task.transitionMany",
   "operation.undo",
+  "operation.redo",
+];
+const reversibleCommands: readonly string[] = [
+  ...STATUS_COMMANDS,
+  "task.create",
+  "task.update",
+  "task.move",
+  "task.dependency.add",
+  "task.dependency.remove",
+  "task.reorder",
+  "task.order.normalize",
+  "task.transitionMany",
 ];
 type Reference = { id: string; expectedVersion: number; command?: string };
 export type UndoInput =
   | { kind: "operation"; operationId: string }
+  | { kind: "redo"; operationId: string }
   | { kind: "status" | "transition"; tasks: Reference[] };
-export type HistorySource = { id: string; command: string; before: unknown; after: unknown };
+type OperationRecord = { id: string; command: string; before: unknown; after: unknown };
+// Retain flat root evidence in pending intents instead of nesting every reversal in the next one.
+export type HistorySource = OperationRecord & { origin?: OperationRecord };
 type UndoClaim = { operationId: string; taskId: string };
 export type UndoPlan = {
   selectedIds: string[];
@@ -35,11 +50,14 @@ function unavailable(status = false): never {
 }
 
 export function parseUndo(command: string, args: Record<string, unknown>): UndoInput {
-  if (command === "operation.undo") {
+  if (command === "operation.undo" || command === "operation.redo") {
     assertArgs(args, ["operationId"]);
     if (typeof args.operationId !== "string" || args.operationId === "")
       throw new CommandError("INVALID_ARGUMENT", "operationId is required");
-    return { kind: "operation", operationId: args.operationId };
+    return {
+      kind: command === "operation.redo" ? "redo" : "operation",
+      operationId: args.operationId,
+    };
   }
   if (command === "task.status.undo") {
     assertArgs(args, ["id", "expectedVersion"]);
@@ -126,6 +144,35 @@ export function historyAffected(source: HistorySource): string[] {
     ),
   ];
 }
+export function historyOrigin(source: HistorySource): OperationRecord {
+  if (!["operation.undo", "operation.redo"].includes(source.command)) {
+    if (source.origin !== undefined) unavailable();
+    return source;
+  }
+  const origin = source.origin;
+  if (
+    !origin ||
+    !reversibleCommands.includes(origin.command) ||
+    !isRecord(source.before) ||
+    source.before.originId !== origin.id ||
+    !Array.isArray(source.before.undoOf)
+  )
+    unavailable();
+  const ids = historyAffected(source).sort();
+  const claims = source.before.undoOf;
+  if (
+    canonicalJson(ids) !== canonicalJson(historyAffected(origin).sort()) ||
+    claims.length !== ids.length ||
+    claims.some(
+      (claim) => !isRecord(claim) || typeof claim.operationId !== "string" || !claim.operationId,
+    ) ||
+    new Set(claims.map((claim) => claim.operationId)).size !== 1 ||
+    canonicalJson(claims.map((claim) => claim.taskId).sort()) !== canonicalJson(ids)
+  )
+    unavailable();
+  return origin;
+}
+
 function planHistoryTasks(value: unknown, statusOnly: boolean): CanonicalTask[] {
   try {
     return historyTasks(value);
@@ -156,21 +203,37 @@ function prospectiveGraph(tasks: CanonicalTask[]): void {
   }
 }
 
-function restoreTaskFields(
-  current: CanonicalTask,
-  historic: { before: CanonicalTask; after: CanonicalTask },
+function restoreRecordedTask(
+  current: CanonicalTask | undefined,
+  historic: { before?: CanonicalTask; after?: CanonicalTask; creation?: CanonicalTask },
   at: string,
-): CanonicalTask {
+): CanonicalTask | undefined {
+  const { before, after, creation } = historic;
+  if (!after) {
+    if (current || !before || !creation || canonicalJson(before) !== canonicalJson(creation))
+      unavailable();
+    return before;
+  }
+  if (!current || current.createdAt !== after.createdAt) unavailable();
+  if (!before) {
+    if (
+      !creation ||
+      canonicalJson(current) !== canonicalJson(after) ||
+      canonicalJson(after) !== canonicalJson(creation)
+    )
+      unavailable();
+    return undefined;
+  }
   const patch: Partial<CanonicalTask> = {};
   let editsTime = false;
-  for (const key of Object.keys(historic.before) as (keyof CanonicalTask)[]) {
+  for (const key of Object.keys(before) as (keyof CanonicalTask)[]) {
     if (
       ["id", "createdAt", "updatedAt"].includes(key) ||
-      canonicalJson(historic.before[key]) === canonicalJson(historic.after[key])
+      canonicalJson(before[key]) === canonicalJson(after[key])
     )
       continue;
-    if (canonicalJson(current[key]) !== canonicalJson(historic.after[key])) unavailable();
-    Object.assign(patch, { [key]: historic.before[key] });
+    if (canonicalJson(current[key]) !== canonicalJson(after[key])) unavailable();
+    Object.assign(patch, { [key]: before[key] });
     if (!["status", "closedAt", "orderKey"].includes(key)) editsTime = true;
   }
   return { ...current, ...patch, ...(editsTime ? { updatedAt: at } : {}) };
@@ -195,15 +258,25 @@ export function planUndo(
       if (effect.changed) affected.add(old.id);
     }
   } else {
-    if (input.kind === "operation" && (sources.length !== 1 || sources[0].id !== input.operationId))
+    if (
+      (input.kind === "operation" || input.kind === "redo") &&
+      (sources.length !== 1 || sources[0].id !== input.operationId)
+    )
       unavailable();
     if (input.kind === "status" && sources.length !== input.tasks.length) unavailable(true);
     for (const [index, source] of sources.entries()) {
       const statusOnly = input.kind === "status";
+      const origin = historyOrigin(source);
       const before = planHistoryTasks(source.before, statusOnly),
         after = planHistoryTasks(source.after, statusOnly);
       if (
-        !["task.transitionMany", "task.reorder", "task.order.normalize"].includes(source.command) &&
+        ![
+          "task.transitionMany",
+          "task.reorder",
+          "task.order.normalize",
+          "operation.undo",
+          "operation.redo",
+        ].includes(source.command) &&
         (before.length > 1 || after.length !== 1)
       )
         unavailable(statusOnly);
@@ -215,41 +288,35 @@ export function planUndo(
       )
         unavailable(true);
       if (
-        !statusOnly &&
-        ![
-          ...STATUS_COMMANDS,
-          "task.create",
-          "task.update",
-          "task.move",
-          "task.dependency.add",
-          "task.dependency.remove",
-          "task.reorder",
-          "task.order.normalize",
-          "task.transitionMany",
-        ].includes(source.command)
+        (input.kind === "redo" && source.command !== "operation.undo") ||
+        (input.kind === "operation" &&
+          source.command !== "operation.redo" &&
+          !reversibleCommands.includes(source.command))
       )
         unavailable();
       for (const id of ids) {
         const old = before.find((task) => task.id === id),
           post = after.find((task) => task.id === id),
           current = next.get(id);
-        if (!current || !post || current.createdAt !== post.createdAt) unavailable(statusOnly);
-        if (!old) {
-          if (source.command !== "task.create" || canonicalJson(current) !== canonicalJson(post))
-            unavailable(statusOnly);
+        if (statusOnly) {
           if (
-            tasks.some(
-              (task) => task.id !== id && (task.parentId === id || task.dependencyIds.includes(id)),
-            )
+            !current ||
+            !old ||
+            !post ||
+            canonicalJson(current) !== canonicalJson(post) ||
+            old.status === post.status
           )
-            unavailable();
-          next.delete(id);
-        } else if (statusOnly) {
-          if (canonicalJson(current) !== canonicalJson(post) || old.status === post.status)
             unavailable(true);
           next.set(id, { ...current, status: old.status, closedAt: old.closedAt });
         } else {
-          next.set(id, restoreTaskFields(current, { before: old, after: post }, at));
+          if (!post && input.kind !== "redo") unavailable();
+          const creation =
+            origin.command === "task.create" && origin.before === null
+              ? historyTasks(origin.after)[0]
+              : undefined;
+          const restored = restoreRecordedTask(current, { before: old, after: post, creation }, at);
+          if (restored) next.set(id, restored);
+          else next.delete(id);
         }
         affected.add(id);
         claims.push({ operationId: source.id, taskId: id });
@@ -260,7 +327,7 @@ export function planUndo(
   prospectiveGraph(result);
   // Graph validity precedes order eligibility, so a restored link cannot hide a cycle behind a scope failure.
   for (const source of sources) {
-    if (!["task.reorder", "task.order.normalize"].includes(source.command)) continue;
+    if (!["task.reorder", "task.order.normalize"].includes(historyOrigin(source).command)) continue;
     for (const scope of historyScopes(source.after)) {
       const current = tasks
         .filter((task) => task.parentId === scope.parentId)
@@ -279,7 +346,9 @@ export function planUndo(
   return {
     tasks: result,
     selectedIds:
-      input.kind === "operation" ? historyAffected(sources[0]) : input.tasks.map((task) => task.id),
+      input.kind === "operation" || input.kind === "redo"
+        ? historyAffected(sources[0])
+        : input.tasks.map((task) => task.id),
     affectedIds: [...affected],
     claims,
     removedIds: tasks.filter((task) => !next.has(task.id)).map((task) => task.id),

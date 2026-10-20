@@ -176,6 +176,7 @@ test("info inspects empty, partial and unsupported roots without creating canoni
       ? [
           "activity.list",
           "category.list",
+          "operation.redo",
           "operation.undo",
           "tag.list",
           "task.cancel",

@@ -365,7 +365,11 @@ test(
     const workspace = setup(t);
     const detached = ok(workspace, ["move", child, "--no-parent"]);
     assert.equal((detached.task as TaskProjection).parentId, null);
-    ok(workspace, ["undo-operation", String(detached.operationId)]);
+    const undone = ok(workspace, ["undo-operation", String(detached.operationId)]);
+    assert.equal((ok(workspace, ["show", child]).task as TaskProjection).parentId, parent);
+    const redone = ok(workspace, ["redo-operation", String(undone.operationId)]);
+    assert.equal((ok(workspace, ["show", child]).task as TaskProjection).parentId, null);
+    ok(workspace, ["undo-operation", String(redone.operationId)]);
     assert.equal((ok(workspace, ["show", child]).task as TaskProjection).parentId, parent);
     assert.deepEqual(
       (ok(workspace, ["dep-remove", child, parent]).task as TaskProjection).dependencyIds,

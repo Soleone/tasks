@@ -32,6 +32,7 @@ const client = await import(
 const withheldActions = [
   ["transitionTasks", [[{ id: "id", expectedVersion: 1, command: "task.start" }], {}]],
   ["undoOperation", ["operation", {}]],
+  ["redoOperation", ["operation", {}]],
   ["moveTask", ["id", null, 1, {}]],
   ["reorderTasks", [[{ id: "id", expectedVersion: 1 }], { first: true }, {}]],
   ["addDependency", ["id", "blocker", 1, {}]],
@@ -848,6 +849,58 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
     storage,
   );
   assert.equal((await otherWorkspace.undoHistory()).latest(), null, "another root sees no entries");
+});
+
+test("redo.scope: confirmed transfers persist both stacks without dropping existing undo entries", () => {
+  const storage = memoryStorage();
+  const first = undoEntry("first", "task");
+  storage.setItem(
+    "tasks.v2UndoHistory",
+    JSON.stringify({ version: 1, workspaces: [{ scope: "scope", entries: [first] }] }),
+  );
+  const history = new httpClient.UndoHistory("scope", storage);
+  assert.equal(history.latest().operationId, "first");
+  assert.equal(history.latestRedo(), null);
+  history.push(undoEntry("second", "task"));
+  history.completeUndo("second", undoEntry("undo-second", "task"));
+  history.completeUndo("first", undoEntry("undo-first", "task"));
+  const reopened = new httpClient.UndoHistory("scope", storage);
+  assert.equal(reopened.latest(), null);
+  assert.equal(reopened.latestRedo().operationId, "undo-first");
+  reopened.completeRedo("undo-first", undoEntry("redo-first", "task"));
+  reopened.completeRedo("undo-first", undoEntry("duplicate-reply", "task"));
+  assert.equal(reopened.latest().operationId, "redo-first");
+  assert.equal(reopened.latestRedo().operationId, "undo-second");
+  reopened.push(undoEntry("branch", "task"));
+  assert.equal(reopened.latestRedo(), null);
+  assert.equal(new httpClient.UndoHistory("other-scope", storage).latest(), null);
+  assert.equal(new httpClient.UndoHistory("other-scope", storage).latestRedo(), null);
+});
+
+test("redo.scope: stacks share the bound and failed persistence keeps confirmed memory history", () => {
+  const storage = memoryStorage();
+  const history = new httpClient.UndoHistory("scope", storage);
+  for (let index = 0; index < httpClient.UNDO_HISTORY_LIMIT + 5; index++)
+    history.push(undoEntry(`operation-${index}`, "task"));
+  for (let entry = history.latest(); entry; entry = history.latest())
+    history.completeUndo(entry.operationId, undoEntry(`undo-${entry.operationId}`, "task"));
+  let count = 0;
+  for (let entry = history.latestRedo(); entry; entry = history.latestRedo()) {
+    history.completeRedo(entry.operationId, undoEntry(`redo-${entry.operationId}`, "task"));
+    count++;
+  }
+  assert.equal(count, httpClient.UNDO_HISTORY_LIMIT);
+  const quota = new httpClient.UndoHistory("scope", {
+    ...storage,
+    setItem() {
+      throw new Error("quota");
+    },
+  });
+  quota.completeUndo(quota.latest().operationId, undoEntry("memory-undo", "task"));
+  assert.equal(quota.latestRedo().operationId, "memory-undo");
+  quota.completeRedo("memory-undo", undoEntry("memory-redo", "task"));
+  assert.equal(quota.latest().operationId, "memory-redo");
+  assert.equal(quota.latestRedo(), null);
 });
 
 test("own undo history keeps the newest entries up to its bound and tolerates unusable storage", () => {
