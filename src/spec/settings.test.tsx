@@ -150,7 +150,7 @@ test("prefs.remembered: sort and Details survive a reload", async () => {
   await workspace.create("Low", { priority: 4 });
   await workspace.create("Urgent", { priority: 0 });
   const first = await workspace.render();
-  await first.user.keyboard("spv");
+  await first.user.keyboard("sp{Shift>}v{/Shift}");
   await expectRows(["Urgent", "Low"]);
   first.view.unmount();
   await workspace.render();

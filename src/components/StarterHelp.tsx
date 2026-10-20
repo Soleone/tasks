@@ -8,7 +8,7 @@ const STARTER_SHORTCUTS = [
   { keys: ["Enter"], label: "Edit the active task" },
   { keys: ["F"], label: "Filter tasks" },
   { keys: ["S"], label: "Sort tasks" },
-  { keys: ["V"], label: "Show task details" },
+  { keys: ["V"], label: "Show details of the active task" },
   { keys: ["Escape"], label: "Reset filters / clear multi-selection" },
   { keys: ["@"], label: "Filter by category" },
   { keys: ["→"], label: "Filter its category (no children)" },

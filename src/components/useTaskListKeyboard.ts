@@ -47,7 +47,8 @@ type HomeShortcutActions = {
   applyExactStatus: (status: TaskStatus) => void;
   applySortField: (field: SortField) => void;
   reverseSort: () => void;
-  toggleDetailsView: () => void;
+  toggleActiveDetails: (task: TaskView) => void;
+  toggleAllDetails: () => void;
   setPriority: (task: TaskView, priority: TaskPriority) => Promise<void>;
   openSearch: () => void;
   createTask: (parentId?: string) => void;
@@ -336,10 +337,11 @@ export function useTaskListKeyboard(
       if (event.repeat) return;
       event.preventDefault();
       actions.startSortMode();
-    } else if (event.key.toLowerCase() === "v" && !event.shiftKey) {
+    } else if (event.key.toLowerCase() === "v") {
       if (event.repeat) return;
       event.preventDefault();
-      actions.toggleDetailsView();
+      if (event.shiftKey) actions.toggleAllDetails();
+      else if (actions.activeTask) actions.toggleActiveDetails(actions.activeTask);
     } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
       if (event.repeat) return;
       event.preventDefault();

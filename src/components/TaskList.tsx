@@ -284,6 +284,9 @@ export function TaskList({
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const filterFeedback = useFlashTooltip(filterFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  // Tasks whose details differ from the global setting. Client memory only: never stored in the
+  // workspace, never synced, gone on reload.
+  const [flippedDetailIds, setFlippedDetailIds] = useState<ReadonlySet<string>>(() => new Set());
   const [unblockedFeedbackVersion, setUnblockedFeedbackVersion] = useState(0);
   const unblockedFeedback = useFlashTooltip(unblockedFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [moveControlsOpen, setMoveControlsOpen] = useState(false);
@@ -382,12 +385,13 @@ export function TaskList({
   useImperativeHandle(ref, () => selectionHandle, [selectionHandle]);
 
   // Details change row heights, so keep the active task on screen.
-  const shownDetailsRef = useRef(showDetails);
+  const shownDetailsRef = useRef({ showDetails, flippedDetailIds });
   useEffect(() => {
-    if (shownDetailsRef.current === showDetails) return;
-    shownDetailsRef.current = showDetails;
+    const shown = shownDetailsRef.current;
+    if (shown.showDetails === showDetails && shown.flippedDetailIds === flippedDetailIds) return;
+    shownDetailsRef.current = { showDetails, flippedDetailIds };
     if (activeTask) scheduleActiveScroll(activeTask.id);
-  }, [showDetails, activeTask, scheduleActiveScroll]);
+  }, [showDetails, flippedDetailIds, activeTask, scheduleActiveScroll]);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.
@@ -1241,6 +1245,21 @@ export function TaskList({
     }
   }
 
+  function detailsShownFor(taskId: string): boolean {
+    return showDetails !== flippedDetailIds.has(taskId);
+  }
+
+  function toggleTaskDetails(task: TaskView): void {
+    const next = new Set(flippedDetailIds);
+    if (!next.delete(task.id)) next.add(task.id);
+    setFlippedDetailIds(next);
+  }
+
+  function toggleAllDetails(): void {
+    setFlippedDetailIds(new Set());
+    onToggleDetails();
+  }
+
   function contextActions(row: VisibleTaskRow, index: number): TaskContextActions {
     return {
       disabled:
@@ -1264,6 +1283,8 @@ export function TaskList({
         returnToList();
         onCreate(task.id);
       },
+      detailsShown: detailsShownFor(row.task.id),
+      onToggleDetails: toggleTaskDetails,
       onCopy: (task) => void copyActiveTask(task),
       onDelete: (task) => void deleteTaskRecord(task),
       onReorder: (direction) => void reorderSelection(direction),
@@ -1294,7 +1315,8 @@ export function TaskList({
       applyExactStatus,
       applySortField,
       reverseSort,
-      toggleDetailsView: onToggleDetails,
+      toggleActiveDetails: toggleTaskDetails,
+      toggleAllDetails,
       setPriority: setTaskPriority,
       openSearch,
       createTask: onCreate,
@@ -1438,7 +1460,8 @@ export function TaskList({
         applySortField={applySortField}
         reverseSort={reverseSort}
         showDetails={showDetails}
-        onToggleDetails={onToggleDetails}
+        mixedDetails={flippedDetailIds.size > 0}
+        onToggleDetails={toggleAllDetails}
         moveControlsOpen={moveControlsOpen}
         setMoveControlsOpen={setMoveControlsOpen}
         moveSubjectLabel={moveSubjectLabel}
@@ -1534,7 +1557,7 @@ export function TaskList({
                 }
                 newTaskId={newTaskId}
                 exitingTaskIds={exitingTaskIds}
-                showDetails={showDetails}
+                showDetails={detailsShownFor(row.task.id)}
                 hiddenCategorySlug={categoryFilter?.slug ?? null}
                 taskById={taskById}
                 onClick={handleOptionClick}

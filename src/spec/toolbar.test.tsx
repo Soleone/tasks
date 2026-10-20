@@ -136,9 +136,9 @@ describe("touch feedback", () => {
     expect(screen.queryByText("Priority", tooltip)).toBeNull();
 
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Hide details", tooltip);
+    await screen.findByText("Hide all details", tooltip);
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Show details", tooltip);
+    await screen.findByText("Show all details", tooltip);
     await expectListFocused();
 
     await tap("[data-filter=task-unblocked]", user);
@@ -167,10 +167,10 @@ describe("touch feedback", () => {
     expect(document.querySelector(tooltip.selector)).toBeNull();
 
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Hide details", tooltip);
+    await screen.findByText("Hide all details", tooltip);
     await tap("[data-filter=task-priority]", user);
     await screen.findByRole("dialog");
-    expect(screen.queryByText("Hide details", tooltip)).toBeNull();
+    expect(screen.queryByText("Hide all details", tooltip)).toBeNull();
     expect(document.querySelector(tooltip.selector)).toBeNull();
     await user.keyboard("{Escape}");
   });
@@ -463,7 +463,7 @@ describe("filters", () => {
     await workspace.create("Low", { priority: 4 });
     await workspace.create("Urgent", { priority: 0 });
     const { user } = await workspace.render();
-    await user.keyboard("spvf0");
+    await user.keyboard("sp{Shift>}v{/Shift}f0");
     await expectRows(["Urgent"]);
     await user.keyboard("{Escape}");
     await expectRows(["Urgent", "Low"]);

@@ -86,7 +86,9 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `details.toggle` | `V`, or the Details button | Descriptions and the time footer show or hide together. Off by default. It is a display preference, so `Escape` never clears it |
+| `details.toggle-all` | `Shift+V`, or the Details button | Descriptions and the time footer show or hide for every task together. Off by default and remembered. It is a display preference, so `Escape` never clears it. Pressing it resets any per-task change |
+| `details.toggle-active` | `V`, or Show or Hide details in the task menu | Flips details for that task alone, against the all-tasks setting. It lives in client memory only: never stored in the workspace, never synced, and gone on reload |
+| `details.mixed-marker` | Some tasks differ from the all-tasks setting | The Details button shows a dot, and its tooltip says some tasks differ |
 | `details.keep-active-visible` | Details toggles while a task is active | The active task scrolls back into view, since its row height changed |
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |
 | `details.footer` | Details is on | One quiet last row shows Created, and Updated first when it falls on a different day |

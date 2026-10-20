@@ -12,6 +12,7 @@ import {
   Copy,
   CornerDownRight,
   Link2,
+  ListChevronsUpDown,
   Pencil,
 } from "lucide-react";
 import type { TaskView } from "./taskView";
@@ -37,6 +38,8 @@ export type TaskContextActions = {
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
   onCreateChild: (task: TaskView) => void;
+  detailsShown: boolean;
+  onToggleDetails: (task: TaskView) => void;
   onCopy: (task: TaskView) => void;
   onDelete: (task: TaskView) => void;
   onReorder: (direction: TaskMoveDirection) => void;
@@ -139,6 +142,10 @@ export function TaskContextMenu({
               </ContextMenuGroup>
             </TaskContextSubContent>
           </ContextMenuSub>
+          <ContextMenuItem onClick={() => actions.onToggleDetails(task)}>
+            <ListChevronsUpDown aria-hidden="true" />
+            {actions.detailsShown ? "Hide details" : "Show details"}
+          </ContextMenuItem>
           <ContextMenuItem onClick={() => actions.onCopy(task)}>
             <Copy aria-hidden="true" />
             Copy text

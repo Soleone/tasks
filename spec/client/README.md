@@ -38,7 +38,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `Ctrl/⌘+Z` | Undo this client's latest change | `undo.latest` |
 | `B` | Add or remove a blocker | `pick.blocker` |
 | `M` | Move under another task, or remove the parent | `pick.parent` |
-| `V` | Toggle details | `details.toggle` |
+| `V` / `Shift+V` | Toggle details of the active task / of all tasks | `details.toggle-active`, `details.toggle-all` |
 | `Up` `Down` `Home` `End` | Move the active row | `home.arrows`, `home.home-end` |
 | `Left` / `Right` | Parent, collapse, expand, category | `home.left`, `home.right-expand`, `home.right-category` |
 | `Shift+Up/Down/Home/End` | Extend the selection | `select.extend` |

@@ -14,12 +14,17 @@ const CELL = "pointer-coarse:size-8";
 
 type ButtonProps = ComponentProps<typeof Button>;
 
-/** A control that shows a list state. The accent tint means exactly "this state is on". */
+/**
+ * A control that shows a list state. The accent tint means exactly "this state is on". The dot
+ * marks that part of the list deviates from it, so a pressed or unpressed look is not the whole story.
+ */
 export function ToolbarToggle({
   pressed,
+  mixed = false,
   className,
+  children,
   ...props
-}: Omit<ButtonProps, "variant" | "size"> & { pressed: boolean }) {
+}: Omit<ButtonProps, "variant" | "size"> & { pressed: boolean; mixed?: boolean }) {
   return (
     <ToggleButton
       variant={pressed ? "outline" : "ghost"}
@@ -27,10 +32,19 @@ export function ToolbarToggle({
       size="icon-sm"
       aria-pressed={pressed}
       data-toolbar-cell
-      className={cn(CELL, className)}
+      className={cn("relative", CELL, className)}
       {...props}
       tabIndex={-1}
-    />
+    >
+      {children}
+      {mixed ? (
+        <span
+          aria-hidden="true"
+          data-toolbar-toggle-mixed
+          className="absolute top-1 right-1 size-1.5 rounded-full bg-primary"
+        />
+      ) : null}
+    </ToggleButton>
   );
 }
 

@@ -230,12 +230,20 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keywords: "manual reorder move selected group beginning end up down",
       },
       {
-        label: "Show task details",
+        label: "Show details of the active task",
         hint: "Descriptions and timestamps",
         icon: ListChevronsUpDown,
         keys: ["V"],
         keywords:
           "v view details description notes timestamps created updated time footer today yesterday date",
+      },
+      {
+        label: "Show details of all tasks",
+        hint: "Descriptions and timestamps",
+        icon: ListChevronsUpDown,
+        keys: ["Shift+V"],
+        keywords:
+          "v view details description notes timestamps created updated time footer today yesterday date everything",
       },
       {
         label: "Add blocker",

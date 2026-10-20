@@ -532,14 +532,55 @@ describe("hierarchy in a filtered list", () => {
 });
 
 describe("details", () => {
-  test("details.toggle: V shows descriptions and the time footer; Escape never clears it", async () => {
-    await workspace.create("Task", { description: "Some notes" });
+  test("details.toggle-all: Shift+V shows every task's details; Escape never clears it", async () => {
+    await workspace.create("A", { description: "Notes A" });
+    await workspace.create("B", { description: "Notes B" });
     const { user } = await workspace.render();
-    expect(screen.queryByText("Some notes")).toBeNull();
-    await user.keyboard("v");
-    await screen.findByText("Some notes");
+    expect(screen.queryByText("Notes A")).toBeNull();
+    await user.keyboard("{Shift>}v{/Shift}");
+    await screen.findByText("Notes A");
+    await screen.findByText("Notes B");
     await user.keyboard("{Escape}");
-    expect(screen.queryByText("Some notes")).not.toBeNull();
+    expect(screen.queryByText("Notes A")).not.toBeNull();
+  });
+
+  test("details.toggle-active: V flips the active task alone and Shift+V resets it", async () => {
+    await workspace.create("A", { description: "Notes A" });
+    await workspace.create("B", { description: "Notes B" });
+    const { user } = await workspace.render();
+    await expectActive("B");
+    await user.keyboard("v");
+    await screen.findByText("Notes B");
+    expect(screen.queryByText("Notes A")).toBeNull();
+    await user.keyboard("{Shift>}v{/Shift}");
+    await screen.findByText("Notes A");
+    await user.keyboard("v");
+    await waitFor(() => expect(screen.queryByText("Notes B")).toBeNull());
+    expect(screen.queryByText("Notes A")).not.toBeNull();
+    await user.keyboard("{Shift>}v{/Shift}");
+    await waitFor(() => expect(screen.queryByText("Notes A")).toBeNull());
+    expect(screen.queryByText("Notes B")).toBeNull();
+  });
+
+  test("details.toggle-active: the task menu shows or hides that task's details", async () => {
+    await workspace.create("A", { description: "Notes A" });
+    const { user } = await workspace.render();
+    fireEvent.contextMenu(row("A"), { clientX: 30, clientY: 60 });
+    await user.click(await screen.findByRole("menuitem", { name: "Show details" }));
+    await screen.findByText("Notes A");
+  });
+
+  test("details.mixed-marker: the Details button shows a dot while some tasks differ", async () => {
+    await workspace.create("A", { description: "Notes A" });
+    const { user } = await workspace.render();
+    const button = () => document.querySelector("[data-view=task-details]");
+    expect(button()?.querySelector("[data-toolbar-toggle-mixed]")).toBeNull();
+    await user.keyboard("v");
+    await waitFor(() =>
+      expect(button()?.querySelector("[data-toolbar-toggle-mixed]")).not.toBeNull(),
+    );
+    await user.keyboard("v");
+    await waitFor(() => expect(button()?.querySelector("[data-toolbar-toggle-mixed]")).toBeNull());
   });
 
   test("details.keep-active-visible: toggling details scrolls the active task into view", async () => {

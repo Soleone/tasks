@@ -192,6 +192,7 @@ type TaskListToolbarProps = {
   applySortField: (field: SortField) => void;
   reverseSort: () => void;
   showDetails: boolean;
+  mixedDetails: boolean;
   onToggleDetails: () => void;
   moveControlsOpen: boolean;
   setMoveControlsOpen: (open: boolean) => void;
@@ -242,6 +243,7 @@ export function TaskListToolbar({
   applySortField,
   reverseSort,
   showDetails,
+  mixedDetails,
   onToggleDetails,
   moveControlsOpen,
   setMoveControlsOpen,
@@ -702,23 +704,28 @@ export function TaskListToolbar({
             icon={Pointer}
             label="Actions"
             open={groupOpen("actions")}
-            active={showDetails}
+            active={showDetails || mixedDetails}
             onFoldChange={setGroupFolded}
             tooltip={feedbackTooltip("fold-actions")}
           >
             <ButtonGroup aria-label="Task list actions">
               <ToolbarTooltip
                 tooltip={feedbackTooltip("details")}
-                hint={showDetails ? "Hide details" : "Show details"}
+                hint={
+                  showDetails
+                    ? `Hide all details${mixedDetails ? ", some tasks differ" : ""}`
+                    : `Show all details${mixedDetails ? ", some tasks differ" : ""}`
+                }
                 render={
                   <ToolbarToggle
                     pressed={showDetails}
+                    mixed={mixedDetails}
                     aria-label={
                       showDetails
-                        ? "Hide descriptions and timestamps. Press V."
-                        : "Show descriptions and timestamps. Press V."
+                        ? "Hide descriptions and timestamps of all tasks. Press Shift+V."
+                        : "Show descriptions and timestamps of all tasks. Press Shift+V."
                     }
-                    aria-keyshortcuts="V"
+                    aria-keyshortcuts="Shift+V"
                     data-view="task-details"
                     data-toolbar-feedback="details"
                     onClick={onToggleDetails}
