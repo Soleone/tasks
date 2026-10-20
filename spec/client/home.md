@@ -45,8 +45,8 @@ The list shows two levels: root tasks and their children.
 | `home.left` | `Left` on a child | The parent becomes active |
 | `home.left-collapse` | `Left` on an expanded parent | It collapses |
 | `home.left-clear-category` | `Left` on a collapsed or childless root task while filtered by category | The category filter clears and the task stays active |
-| `home.right-expand` | `Right` on a collapsed parent | It expands. On an expanded parent, nothing happens |
-| `home.right-category` | `Right` on a task without children | The list filters to that task's category, keeping it as the only selection. Without a category, nothing changes and the app says so |
+| `home.right-expand` | `Right` on a collapsed parent with no category, or while filtered by category | It expands. On an expanded parent, nothing happens |
+| `home.right-category` | `Right` on a categorized childless task, or on a categorized parent while no category filter is active; also `Right` on a childless task without a category | A categorized task filters the list to its category and stays the only selection. A parent stays collapsed; another `Right` expands it. A childless task without a category stays put and the app says so |
 | `home.open-editor` | `Enter`, or clicking a row | The task's inline editor replaces its row with the title focused |
 | `home.task-context-menu` | Long-pressing or right-clicking a saved task | Opens a task-actions menu for that row without opening its editor. Moving a touch to scroll cancels the hold. Actions target that task alone; release never also edits it. Dismissal returns focus to the list unless an action opened an editor or dialog. Every action has an icon matching the existing action where available. Cancel task changes status to canceled, rather than deleting the task. The existing toolbar remains an alternative path |
 

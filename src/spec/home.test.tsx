@@ -152,6 +152,25 @@ describe("moving around", () => {
     expect(selectedTitles()).toEqual(["Work item"]);
   });
 
+  test("home.right-category: Right filters a parent before expanding its children", async () => {
+    const parent = await workspace.create("Parent", { category: "work" });
+    await workspace.create("Child", { parentId: parent.id });
+    const { user } = await workspace.render();
+
+    await user.keyboard("{ArrowRight}");
+    await expectRows(["Parent"]);
+    expect(
+      screen
+        .getAllByRole("button", { name: "Clear category filter: work" })
+        .some((button) => button.getAttribute("aria-pressed") === "true"),
+    ).toBe(true);
+    expect(selectedTitles()).toEqual(["Parent"]);
+
+    await user.keyboard("{ArrowRight}");
+    await expectRows(["Parent", "Child"]);
+    expect(row("Child").getAttribute("data-context-child")).toBe("true");
+  });
+
   test("home.left-clear-category: Left on a root task clears the category filter and keeps it active", async () => {
     await workspace.create("Elsewhere");
     await workspace.create("Work item", { category: "work" });

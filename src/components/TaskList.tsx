@@ -860,6 +860,13 @@ export function TaskList({
     if (!activeRow) return;
     if (key === "ArrowRight") {
       if (activeRow.hasChildren) {
+        if (!categoryFilter && activeRow.task.category) {
+          selectCategory(
+            activeRow.task.category,
+            activeRow.contextOnly ? undefined : activeRow.task.id,
+          );
+          return;
+        }
         if (!expandedIds.has(activeRow.task.id)) {
           setExpanded(activeRow.task.id, true);
           onAnnounce(`Expanded ${activeRow.task.title}`);

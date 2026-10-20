@@ -40,7 +40,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `M` | Move under another task, or remove the parent | `pick.parent` |
 | `V` | Toggle details | `details.toggle` |
 | `Up` `Down` `Home` `End` | Move the active row | `home.arrows`, `home.home-end` |
-| `Left` / `Right` | Parent, collapse, expand, category | `home.left`, `home.right-expand` |
+| `Left` / `Right` | Parent, collapse, expand, category | `home.left`, `home.right-expand`, `home.right-category` |
 | `Shift+Up/Down/Home/End` | Extend the selection | `select.extend` |
 | `Ctrl/⌘+Up/Down/Home/End` | Reorder the selection | `reorder.step`, `reorder.edge` |
 | `F`, then a key | Filter (see toolbar) | `filter.mode` |
