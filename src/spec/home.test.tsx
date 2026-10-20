@@ -542,6 +542,15 @@ describe("details", () => {
     expect(screen.queryByText("Some notes")).not.toBeNull();
   });
 
+  test("details.keep-active-visible: toggling details scrolls the active task into view", async () => {
+    await workspace.create("Task", { description: "Some notes" });
+    const { user } = await workspace.render();
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    await user.keyboard("v");
+    await waitFor(() => expect(scroll.mock.contexts).toContain(row("Task")));
+    scroll.mockRestore();
+  });
+
   test("details.blocked-by: Blocked by stays visible with Details off", async () => {
     const blocker = await workspace.create("Blocker");
     const task = await workspace.create("Task");

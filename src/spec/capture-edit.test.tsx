@@ -148,6 +148,16 @@ describe("inside the editor", () => {
     await screen.findByPlaceholderText("Write in Markdown…");
   });
 
+  test("edit.description-visible: opening the description scrolls it into view", async () => {
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    const { user } = await workspace.render();
+    await capture(user, "Task");
+    await user.click(within(editor()).getByRole("button", { name: /description/i }));
+    const field = await screen.findByPlaceholderText("Write in Markdown…");
+    await waitFor(() => expect(scroll.mock.contexts).toContain(field));
+    scroll.mockRestore();
+  });
+
   test("edit.buttons: Cancel precedes Add description and stays labeled Cancel when editing", async () => {
     await workspace.create("Existing task");
     const { user } = await workspace.render();

@@ -366,6 +366,7 @@ export function TaskList({
     selectBoundary,
     clearSelection,
     handleOptionClick,
+    scheduleActiveScroll,
     handle: selectionHandle,
   } = useTaskListSelection({
     tasks,
@@ -379,6 +380,14 @@ export function TaskList({
   });
 
   useImperativeHandle(ref, () => selectionHandle, [selectionHandle]);
+
+  // Details change row heights, so keep the active task on screen.
+  const shownDetailsRef = useRef(showDetails);
+  useEffect(() => {
+    if (shownDetailsRef.current === showDetails) return;
+    shownDetailsRef.current = showDetails;
+    if (activeTask) scheduleActiveScroll(activeTask.id);
+  }, [showDetails, activeTask, scheduleActiveScroll]);
 
   // The list owns its internal tail (load-more, retry); the navigator only
   // enters it through explicit navigation.

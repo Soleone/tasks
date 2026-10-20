@@ -87,6 +87,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | Rule | When | Then |
 | --- | --- | --- |
 | `details.toggle` | `V`, or the Details button | Descriptions and the time footer show or hide together. Off by default. It is a display preference, so `Escape` never clears it |
+| `details.keep-active-visible` | Details toggles while a task is active | The active task scrolls back into view, since its row height changed |
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |
 | `details.footer` | Details is on | One quiet last row shows Created, and Updated first when it falls on a different day |
 | `details.relative-dates` | A date in the footer | Reads `today`, `yesterday` or `2 days ago`; older dates read `Sep 8`, or `Dec 10, 2025` outside the current year. Hover shows the full local time |

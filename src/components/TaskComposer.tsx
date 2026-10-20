@@ -89,6 +89,24 @@ const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> 
   },
 };
 
+/**
+ * Scrolls `element` into view now and again once the on-screen keyboard has
+ * resized the window, which happens after focus. Returns its cleanup.
+ */
+function keepInView(element: HTMLElement): () => void {
+  const scroll = () => element.scrollIntoView({ block: "nearest" });
+  scroll();
+  window.addEventListener("resize", scroll);
+  const timeout = window.setTimeout(() => {
+    scroll();
+    window.removeEventListener("resize", scroll);
+  }, 400);
+  return () => {
+    window.clearTimeout(timeout);
+    window.removeEventListener("resize", scroll);
+  };
+}
+
 function ComposerHelpTooltip({
   target,
   onDisableHelp,
@@ -230,10 +248,11 @@ export function TaskComposer({
 
   // Focus the notes after they commit, not in the click frame.
   useEffect(() => {
-    if (notesOpen && focusNotesOnOpen.current) {
-      focusNotesOnOpen.current = false;
-      notesInput.current?.focus();
-    }
+    if (!notesOpen || !focusNotesOnOpen.current) return undefined;
+    focusNotesOnOpen.current = false;
+    const input = notesInput.current;
+    input?.focus();
+    return input ? keepInView(input) : undefined;
   }, [notesOpen]);
 
   useLayoutEffect(() => {

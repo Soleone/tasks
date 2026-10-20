@@ -389,6 +389,7 @@ export function useTaskListSelection({
     selectBoundary,
     clearSelection,
     handleOptionClick,
+    scheduleActiveScroll,
     handle: {
       startIdentityPreservingRefresh: () => {
         identityRefreshPendingRef.current = true;
