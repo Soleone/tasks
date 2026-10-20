@@ -1,4 +1,4 @@
-import { lazy, StrictMode, Suspense } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import favicon16Url from "../assets/branding/favicon-two-color-v8-16.png";
 import favicon32Url from "../assets/branding/favicon-two-color-v8-32.png";
@@ -13,9 +13,6 @@ import { runtimeKind } from "./platform/runtime";
 import { revealScrollbarsWhileScrolling } from "./scrollbars";
 import { markScript } from "./launchTiming";
 import "./styles.css";
-
-const WorkspaceSelection = lazy(() => import("./WorkspaceSelection"));
-const DesktopWorkspace = lazy(() => import("./DesktopWorkspace"));
 
 markScript();
 document.title = APP_NAME;
@@ -38,14 +35,21 @@ for (const [size, href] of favicons) {
 applyStoredFontSizeIncrease();
 revealScrollbarsWhileScrolling();
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ThemeProvider themes={themeOptions} storageKey={THEME_STORAGE_KEY}>
-      <TooltipProvider>
-        <Suspense fallback={null}>
-          {runtimeKind() === "native" ? <DesktopWorkspace /> : <WorkspaceSelection />}
-        </Suspense>
-      </TooltipProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+async function mountWorkspace(): Promise<void> {
+  // Loading before render avoids Suspense's 300 ms delay when revealing the first screen.
+  const { default: Workspace } = await (runtimeKind() === "native"
+    ? import("./DesktopWorkspace")
+    : import("./WorkspaceSelection"));
+
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <ThemeProvider themes={themeOptions} storageKey={THEME_STORAGE_KEY}>
+        <TooltipProvider>
+          <Workspace />
+        </TooltipProvider>
+      </ThemeProvider>
+    </StrictMode>,
+  );
+}
+
+void mountWorkspace();
