@@ -49,7 +49,9 @@ export function parseShorthand(input: string): Pick<CanonicalTask, "title" | "ca
   const tags = new Set<string>();
   const ranges: { start: number; end: number }[] = [];
   // Escaped markers still participate in boundary checks after decoding.
-  for (const match of decoded.matchAll(/(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b/g)) {
+  for (const match of decoded.matchAll(
+    /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b(?![\w-]*[@#])/g,
+  )) {
     const start = match.index + match[1].length;
     if (protectedUnits.slice(start, start + match[2].length + match[3].length).some(Boolean))
       continue;

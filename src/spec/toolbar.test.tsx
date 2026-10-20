@@ -401,7 +401,9 @@ describe("filters", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByText(/Titles and descriptions/)).toBeNull();
     expect(search.querySelectorAll("button").length).toBe(1);
-    expect(screen.getByRole("button", { name: /^Clear search$/ }).textContent).toBe("");
+    const clear = screen.getByRole("button", { name: /^Clear search$/ });
+    expect(clear.textContent).toBe("");
+    expect(clear.tabIndex).toBe(-1);
     await user.keyboard("groceries{Enter}");
     await expectRows(["Plain", "Groceries"]);
     expect(screen.queryByRole("search")).toBeNull();

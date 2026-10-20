@@ -50,7 +50,12 @@ export function InlineSearch({
           defaultValue={initialQuery}
         />
         <InputGroupAddon align="inline-end">
-          <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => onSelect("")}>
+          <InputGroupButton
+            size="icon-xs"
+            tabIndex={-1}
+            aria-label="Clear search"
+            onClick={() => onSelect("")}
+          >
             <X aria-hidden="true" />
           </InputGroupButton>
         </InputGroupAddon>

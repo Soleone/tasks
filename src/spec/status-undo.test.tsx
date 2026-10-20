@@ -57,6 +57,10 @@ describe("status", () => {
     await expectStatus(task.id, "paused");
     await user.keyboard("fs");
     await expectRows(["Task"]);
+    // The Active view's pending exit must not remove the task from Inactive.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await expectRows(["Task"]);
+    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("1 inactive task");
     await user.keyboard("p");
     await expectStatus(task.id, "in_progress");
   });

@@ -36,7 +36,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Rule | Then |
 | --- | --- |
-| `text.markers` | Outside code, `@name` sets the category and `#name` adds a tag, where a marker follows start of text or a character other than a letter, digit, `_`, `/` or `@`, and the name starts with a letter |
+| `text.markers` | Outside code, `@name` sets the category and `#name` adds a tag, where a marker follows start of text or a character other than a letter, digit, `_`, `/` or `@`, and the name starts with a letter. Names are slugs; joined markers such as `#one@two` or `@one#two` stay literal text |
 | `text.code` | Text inside triple or single backticks never classifies |
 | `text.escape` | `\@`, `\#` and `\\` become literal characters and never classify |
 | `text.remove-span` | The marker and name are removed, and a marker between two spaces leaves one: `Review @work now` becomes `Review now`. Other spacing stays as typed |

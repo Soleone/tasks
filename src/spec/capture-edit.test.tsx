@@ -264,6 +264,32 @@ describe("shorthand", () => {
     expect(pills()).toEqual(["books"]);
   });
 
+  test("shorthand.unlift: Backspace after a paste restores only the last lifted token", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read ");
+    await user.paste("#one #two ");
+    expect(pills()).toEqual(["one", "two"]);
+    await user.keyboard("{Backspace}");
+    expect(titleField().value).toBe("Read #two");
+    expect(pills()).toEqual(["one"]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await onlyTask()).tags).toEqual(["one", "two"]));
+  });
+
+  test.each(["#one@two", "@one#two"])(
+    "shorthand.literal: joined markers %s stay plain text",
+    async (text) => {
+      const { user } = await workspace.render();
+      await capture(user, `Keep ${text} @work #real `);
+      expect(pills()).toEqual(["work", "real"]);
+      await user.keyboard("{Enter}");
+      await waitFor(async () => {
+        const task = await onlyTask();
+        expect([task.title, task.category, task.tags]).toEqual([`Keep ${text}`, "work", ["real"]]);
+      });
+    },
+  );
+
   test("shorthand.pill-click: clicking a pill removes it and keeps the title focused", async () => {
     const { user } = await workspace.render();
     await capture(user, "Read #books ");

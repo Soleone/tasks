@@ -63,6 +63,14 @@ test("shorthand evaluates escaped-marker boundaries on decoded characters", () =
   });
 });
 
+test("text.markers: joined category and tag names stay literal", () => {
+  assert.deepEqual(parseShorthand("Keep #one@two @one-long#two @work #real"), {
+    title: "Keep #one@two @one-long#two",
+    category: "work",
+    tags: ["real"],
+  });
+});
+
 test("text.remove-span: a marker between two spaces leaves one; other spacing stays", () => {
   assert.equal(parseShorthand("Review @work now").title, "Review now");
   assert.equal(parseShorthand("Call #a #b  now").title, "Call  now");

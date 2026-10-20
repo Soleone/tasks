@@ -31,7 +31,7 @@ Typing stays the same as the CLI's shorthand, but the title field keeps only the
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into a pill under it. The space before it stays, so typing continues. `\@`, `\#` and text in backticks stay in the title |
+| `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into a pill under it. The space before it stays, so typing continues. `\@`, `\#`, text in backticks and joined markers such as `#one@two` stay in the title |
 | `shorthand.category` | `@word` | Sets the category pill. A second category replaces the first |
 | `shorthand.tags` | `#word` | Adds a tag pill |
 | `shorthand.toggle` | Typing or choosing a category or tag the task already has | Removes that pill |

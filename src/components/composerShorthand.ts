@@ -13,7 +13,12 @@ type LiftChange = "added" | "replaced" | "removed" | "kept";
 /** What the title field holds: its text, the caret and the pills. */
 export type TitleDraft = { text: string; caret: number; classification: Classification };
 
-export type Lift = { draft: TitleDraft; token: ShorthandToken; change: LiftChange };
+export type Lift = {
+  before: TitleDraft;
+  draft: TitleDraft;
+  token: ShorthandToken;
+  change: LiftChange;
+};
 
 /** A marker and partial name right before the caret, with their range. */
 export type PartialToken = { marker: Marker; query: string; start: number; end: number };
@@ -21,7 +26,7 @@ export type PartialToken = { marker: Marker; query: string; start: number; end: 
 export type SuggestionRow = { slug: string; label: string; kind: "add" | "remove" | "new" };
 
 // Same marker grammar as parseShorthand in the backend.
-const TOKEN = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b/g;
+const TOKEN = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b(?![\w-]*[@#])/g;
 const TOKEN_BEFORE_CARET = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)?$/;
 
 // Escapes and code spans never classify, as in parseShorthand.
@@ -134,6 +139,7 @@ export function liftToken(draft: TitleDraft, token: ShorthandToken, toggle: bool
   const removed = removeToken(draft.text, draft.caret, token);
   const applied = applyToken(draft.classification, token, toggle);
   return {
+    before: draft,
     draft: { ...removed, classification: applied.classification },
     token,
     change: applied.change,

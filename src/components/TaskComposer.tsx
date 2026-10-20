@@ -222,7 +222,7 @@ export function TaskComposer({
   // The caret to restore after a lift rewrites the title.
   const pendingCaret = useRef<number | null>(null);
   // The latest lift, so a Backspace right after it can put the token back.
-  const lastLift = useRef<{ before: TitleDraft; lift: Lift } | null>(null);
+  const lastLift = useRef<Lift | null>(null);
   const [description, setDescription] = useState(task?.description ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
@@ -300,9 +300,9 @@ export function TaskComposer({
     updateSuggestion(draft.text, draft.caret);
   }
 
-  function commitLift(before: TitleDraft, lift: Lift): void {
+  function commitLift(lift: Lift): void {
     commitTitle(lift.draft);
-    lastLift.current = { before, lift };
+    lastLift.current = lift;
     if (lift.change === "added" || lift.change === "replaced")
       setLanding({ marker: lift.token.marker, slug: lift.token.slug, at: lift.token.start });
   }
@@ -325,16 +325,16 @@ export function TaskComposer({
       start: partial.start,
       end: completed.caret,
     };
-    commitLift(completed, liftToken(completed, token, true));
+    commitLift(liftToken(completed, token, true));
   }
 
   // Backspace right after a lift: the token goes back into the title, without the space that lifted it.
-  function undoLift({ before, lift }: { before: TitleDraft; lift: Lift }): void {
+  function undoLift({ before, draft, token }: Lift): void {
     lastLift.current = null;
-    const typed = before.text.slice(lift.token.start, lift.token.end);
-    const at = lift.token.start;
+    const typed = before.text.slice(token.start, token.end);
+    const at = token.start;
     commitTitle({
-      text: `${lift.draft.text.slice(0, at)}${typed}${lift.draft.text.slice(at)}`,
+      text: `${draft.text.slice(0, at)}${typed}${draft.text.slice(at)}`,
       caret: at + typed.length,
       classification: before.classification,
     });
@@ -496,8 +496,8 @@ export function TaskComposer({
     const lifted = lastLift.current;
     if (
       event.key === "Backspace" &&
-      lifted?.lift.draft.text === title &&
-      input.selectionStart === lifted.lift.draft.caret &&
+      lifted?.draft.text === title &&
+      input.selectionStart === lifted.draft.caret &&
       input.selectionEnd === input.selectionStart
     ) {
       event.preventDefault();
@@ -647,7 +647,7 @@ export function TaskComposer({
                 // Pasted text adds what it names; only typing a pill again takes it off.
                 const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
                 const lift = liftFinished(draft, toggle);
-                if (lift) commitLift(draft, lift);
+                if (lift) commitLift(lift);
                 else {
                   setTitle(draft.text);
                   updateSuggestion(draft.text, draft.caret);

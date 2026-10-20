@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaskView } from "@/components/taskView";
+import { useStableHandler } from "@/components/useStableHandler";
 
 /** How long a leaving row slides out (task-list-exit in styles.css). */
 const ROW_EXIT_MS = 150;
@@ -14,6 +15,7 @@ type RowExit = { tasks: Map<string, TaskView>; timers: number[] };
 export function useRowExits(remove: (tasks: TaskView[]) => void) {
   const [exitingTaskIds, setExitingTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const exits = useRef(new Set<RowExit>());
+  const removeRows = useStableHandler(remove);
 
   useEffect(() => {
     const running = exits.current;
@@ -44,7 +46,7 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
       window.setTimeout(() => {
         exits.current.delete(exit);
         setSliding([...exit.tasks.keys()], false);
-        remove([...exit.tasks.values()]);
+        removeRows([...exit.tasks.values()]);
         afterRemove?.();
       }, lingerMs + ROW_EXIT_MS),
     );
