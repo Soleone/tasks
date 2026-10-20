@@ -66,6 +66,7 @@ import { TaskItem } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { useStableHandler } from "./useStableHandler";
+import type { TaskContextActions } from "./TaskContextMenu";
 
 export async function copyTaskText(task: TaskView): Promise<void> {
   const text = [selectedMainWorkspace() ? task.title : (task.text ?? task.title), task.description]
@@ -1217,6 +1218,38 @@ export function TaskList({
     }
   }
 
+  function contextActions(row: VisibleTaskRow, index: number): TaskContextActions {
+    return {
+      disabled:
+        composer !== null || mutationPendingIds.has(row.task.id) || exitingTaskIds.has(row.task.id),
+      onTarget: () => {
+        setActiveTaskIndex(index);
+        selectOnly(row);
+      },
+      onEdit,
+      onStatus: (task) => void toggleStatus(task),
+      onPause: (task) => void pauseTask(task),
+      onAddBlocker: (task) => {
+        returnToList();
+        onAddBlocker(task);
+      },
+      onMoveUnder: (task) => {
+        returnToList();
+        onMoveUnder(task);
+      },
+      onCreateChild: (task) => {
+        returnToList();
+        onCreate(task.id);
+      },
+      onCopy: (task) => void copyActiveTask(task),
+      onDelete: (task) => void deleteTaskRecord(task),
+      onReorder: (direction) => void reorderSelection(direction),
+      reorderDisabledReason: reorderDisabledReason(row),
+      finalFocus: () =>
+        composerOpenRef.current || isDialogOpen() ? false : (list.current ?? section.current),
+    };
+  }
+
   const handleOptionToggleStatus = useStableHandler((task: TaskView): void => {
     void toggleStatus(task);
   });
@@ -1482,6 +1515,7 @@ export function TaskList({
                 hiddenCategorySlug={categoryFilter?.slug ?? null}
                 taskById={taskById}
                 onClick={handleOptionClick}
+                contextActions={contextActions}
                 onToggleStatus={handleOptionToggleStatus}
                 onToggleExpanded={handleOptionToggleExpanded}
                 onSelectCategory={handleOptionSelectCategory}

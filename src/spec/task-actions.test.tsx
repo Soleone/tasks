@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectActive, expectListFocused, focusedTitleField } from "@/testing/taskList";
@@ -9,6 +9,66 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await workspace.stop();
+});
+
+test("home.task-context-menu: a long press targets its row and release never opens the editor", async () => {
+  const held = await workspace.create("Held task");
+  await workspace.create("Other task");
+  const { user } = await workspace.render();
+  await expectActive("Other task");
+  const row = screen.getByText("Held task").closest('[role="option"]')!;
+  const touch = { identifier: 1, clientX: 30, clientY: 60, target: row };
+  fireEvent.touchStart(row, { touches: [touch] });
+  const menu = await screen.findByRole("menu", { name: "Actions for Held task" });
+  fireEvent.touchEnd(row, { touches: [] });
+  fireEvent.click(row);
+  expect(screen.queryByPlaceholderText("What needs doing?")).toBeNull();
+  await user.click(within(menu).getByRole("menuitem", { name: "Pause" }));
+  await waitFor(async () => expect((await workspace.task(held.id)).status).toBe("paused"));
+  await expectListFocused();
+});
+
+test("home.task-context-menu: scrolling cancels a hold and a normal tap still edits", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  const row = screen.getByText("Task").closest('[role="option"]')!;
+  fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 20, clientY: 40 }] });
+  fireEvent.touchMove(row, { touches: [{ identifier: 1, clientX: 20, clientY: 80 }] });
+  // Wait beyond the library's long-press threshold to detect a late menu.
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  expect(screen.queryByRole("menu")).toBeNull();
+  fireEvent.touchEnd(row, { touches: [] });
+  await user.click(row);
+  await focusedTitleField();
+});
+
+test("home.task-context-menu: moving another row opens its picker and preserves picker focus", async () => {
+  const parent = await workspace.create("Parent");
+  const moved = await workspace.create("Moved task");
+  await workspace.create("Other task");
+  const { user } = await workspace.render();
+  await expectActive("Other task");
+  const row = screen.getByText("Moved task").closest('[role="option"]')!;
+  fireEvent.contextMenu(row, { clientX: 30, clientY: 60 });
+  await user.click(await screen.findByRole("menuitem", { name: "Move under…" }));
+  await screen.findByRole("dialog", { name: "Move Moved task under…" });
+  await user.keyboard("Parent{Enter}");
+  await waitFor(async () => expect((await workspace.task(moved.id)).parentId).toBe(parent.id));
+  await expectListFocused();
+});
+
+test("home.task-context-menu: Escape dismisses without editing", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  fireEvent.contextMenu(screen.getByText("Task").closest('[role="option"]')!, {
+    clientX: 30,
+    clientY: 60,
+  });
+  await screen.findByRole("menu");
+  await user.keyboard("{Escape}");
+  await expectListFocused();
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(screen.queryByPlaceholderText("What needs doing?")).toBeNull();
 });
 
 test("toolbar.task-actions: empty and editing states disable the action buttons", async () => {

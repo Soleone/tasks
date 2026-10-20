@@ -12,6 +12,7 @@ import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { TaskItem } from "@/components/variants/item";
+import { TaskContextMenu, type TaskContextActions } from "./TaskContextMenu";
 
 export type TaskOptionClick = (
   row: VisibleTaskRow,
@@ -33,6 +34,7 @@ type TaskOptionProps = {
   hiddenCategorySlug: string | null;
   taskById: ReadonlyMap<string, TaskView>;
   onClick: TaskOptionClick;
+  contextActions: (row: VisibleTaskRow, index: number) => TaskContextActions;
   onToggleStatus: (task: TaskView) => void;
   onToggleExpanded: (row: VisibleTaskRow) => void;
   onSelectCategory: (category: ClassificationToken) => void;
@@ -52,6 +54,7 @@ export const TaskOption = memo(function TaskOption({
   hiddenCategorySlug,
   taskById,
   onClick,
+  contextActions,
   onToggleStatus,
   onToggleExpanded,
   onSelectCategory,
@@ -66,64 +69,66 @@ export const TaskOption = memo(function TaskOption({
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <TaskItem
-      id={`task-option-${task.id}`}
-      role="option"
-      aria-selected={selected}
-      aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
-      aria-label={row.contextOnly ? `${task.title}, ${taskContextMessage(task)}` : undefined}
-      tabIndex={-1}
-      data-active={active || undefined}
-      data-selected={selected || undefined}
-      data-context-parent={row.contextOnly || undefined}
-      data-depth={row.depth}
-      data-new-task={task.id === newTaskId || undefined}
-      data-exiting-task={exitingTaskIds.has(task.id) || undefined}
-      size="sm"
-      variant={active && !selected ? "outline" : "default"}
-      state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
-      onClick={(event) => onClick(row, index, event)}
-    >
-      <TaskRow
-        task={task}
-        variant="full"
-        indented={row.depth === 1}
-        blockedByLabels={blockedByLabels}
-        showDetails={showDetails}
-        contextOnly={row.contextOnly}
-        hiddenCategorySlug={hiddenCategorySlug}
-        onSelectCategory={onSelectCategory}
-        statusSlot={
-          <TaskStatusToggle
-            task={task}
-            pending={pending}
-            feedbackVersion={feedbackVersion}
-            nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
-            previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
-            onToggle={onToggleStatus}
-          />
-        }
-      />
-      {row.hasChildren ? (
-        <span id={`task-children-${task.id}`} hidden>
-          Children {expanded ? "expanded" : "collapsed"}.
-        </span>
-      ) : null}
-      {row.hasChildren ? (
-        <span
-          role="img"
-          aria-label={expanded ? "Collapse children" : "Expand children"}
-          className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
-          onMouseDown={preventFocusSteal}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleExpanded(row);
-          }}
-        >
-          <DisclosureIcon aria-hidden="true" className="size-4" />
-        </span>
-      ) : null}
-    </TaskItem>
+    <TaskContextMenu task={task} actions={contextActions(row, index)}>
+      <TaskItem
+        id={`task-option-${task.id}`}
+        role="option"
+        aria-selected={selected}
+        aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
+        aria-label={row.contextOnly ? `${task.title}, ${taskContextMessage(task)}` : undefined}
+        tabIndex={-1}
+        data-active={active || undefined}
+        data-selected={selected || undefined}
+        data-context-parent={row.contextOnly || undefined}
+        data-depth={row.depth}
+        data-new-task={task.id === newTaskId || undefined}
+        data-exiting-task={exitingTaskIds.has(task.id) || undefined}
+        size="sm"
+        variant={active && !selected ? "outline" : "default"}
+        state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
+        onClick={(event) => onClick(row, index, event)}
+      >
+        <TaskRow
+          task={task}
+          variant="full"
+          indented={row.depth === 1}
+          blockedByLabels={blockedByLabels}
+          showDetails={showDetails}
+          contextOnly={row.contextOnly}
+          hiddenCategorySlug={hiddenCategorySlug}
+          onSelectCategory={onSelectCategory}
+          statusSlot={
+            <TaskStatusToggle
+              task={task}
+              pending={pending}
+              feedbackVersion={feedbackVersion}
+              nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
+              previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
+              onToggle={onToggleStatus}
+            />
+          }
+        />
+        {row.hasChildren ? (
+          <span id={`task-children-${task.id}`} hidden>
+            Children {expanded ? "expanded" : "collapsed"}.
+          </span>
+        ) : null}
+        {row.hasChildren ? (
+          <span
+            role="img"
+            aria-label={expanded ? "Collapse children" : "Expand children"}
+            className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
+            onMouseDown={preventFocusSteal}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleExpanded(row);
+            }}
+          >
+            <DisclosureIcon aria-hidden="true" className="size-4" />
+          </span>
+        ) : null}
+      </TaskItem>
+    </TaskContextMenu>
   );
 });
 

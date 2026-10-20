@@ -326,33 +326,38 @@ describe("shorthand", () => {
       expect(prioritySection()).not.toBeNull();
     });
 
-    test("platform.keyboard-bar: the arrows move the caret, suggestions and priority", async () => {
-      await createTagged("Old #errand #email");
+    test("platform.keyboard-bar: touch Tab completes suggestions once and reaches description without arrows", async () => {
+      await createTagged("Old #errand");
       const { user } = await workspace.render();
       await capture(user, "Buy #e");
       await suggestion(/errand/);
-      const highlighted = () => screen.getByRole("option", { selected: true }).textContent;
-      const first = highlighted();
-      await barKey(user, "Down");
-      expect(highlighted()).not.toBe(first);
-      await barKey(user, "Up");
-      expect(highlighted()).toBe(first);
-      await barKey(user, "Left");
-      expect(titleField().selectionStart).toBe(5);
-      await barKey(user, "Right");
-      expect(titleField().selectionStart).toBe(6);
-      await user.keyboard("{Shift>}{Tab}{/Shift}");
-      await barKey(user, "Left");
-      expect(prioritySection()?.getAttribute("aria-activedescendant")).toMatch(/priority-1$/);
-      await user.keyboard("{Tab}");
+      const bar = screen.getByRole("toolbar", { name: "Keyboard keys" });
+      expect(
+        within(bar)
+          .getAllByRole("button")
+          .map((button) => button.getAttribute("aria-label")),
+      ).toEqual(["@", "#", "Shift+Tab", "Tab"]);
+      const tab = within(bar).getByRole("button", { name: "Tab" });
+      const tapTab = () =>
+        user.pointer([
+          { keys: "[TouchA>]", target: tab },
+          { keys: "[/TouchA]", target: tab },
+        ]);
+      await tapTab();
+      expect(titleField().value).toBe("Buy #errand");
+      expect(pills()).toEqual([]);
+      await focusedTitleField();
+      await tapTab();
+      expect(pills()).toEqual(["errand"]);
+      await focusedTitleField();
+      await tapTab();
+      expect(prioritySection()).not.toBeNull();
+      await tapTab();
       const notes =
         within(editor()).getByPlaceholderText<HTMLTextAreaElement>("Write in Markdown…");
       await waitFor(() => expect(document.activeElement).toBe(notes));
-      await user.keyboard("ab{Enter}cd");
-      await barKey(user, "Up");
-      expect(notes.selectionStart).toBe(2);
-      await barKey(user, "Down");
-      expect(notes.selectionStart).toBe(5);
+      await barKey(user, "Shift+Tab");
+      expect(prioritySection()).not.toBeNull();
     });
   });
 

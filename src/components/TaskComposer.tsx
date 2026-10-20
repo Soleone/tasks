@@ -47,7 +47,7 @@ import { preventFocusSteal } from "@/navigation";
 import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
 import { QuietInput, QuietTextarea } from "@/components/variants/input";
 import { isAndroid } from "@/platform/runtime";
-import { KeyboardBar, moveCaret, type Arrow } from "./KeyboardBar";
+import { KeyboardBar } from "./KeyboardBar";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -399,20 +399,6 @@ export function TaskComposer({
     const row = suggestionItems[suggestionIndex];
     if (activeField === "title" && !backward && suggestion && row) tabSuggestion(suggestion, row);
     else focusAfter(activeField, backward);
-  }
-
-  // The keyboard bar's arrows: the same as the keys in the field that has focus.
-  function pressArrow(arrow: Arrow): void {
-    const delta = arrow === "up" || arrow === "left" ? -1 : 1;
-    const vertical = arrow === "up" || arrow === "down";
-    if (activeField === "priority") {
-      if (!vertical) stepPriority(delta);
-    } else if (activeField === "title" && vertical) {
-      if (suggestion && suggestionItems.length > 0) moveSuggestion(delta);
-    } else {
-      const field = activeField === "title" ? titleInput.current : notesInput.current;
-      if (field) moveCaret(field, delta, vertical);
-    }
   }
 
   // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
@@ -814,12 +800,7 @@ export function TaskComposer({
         </Button>
       </div>
       {isAndroid() ? (
-        <KeyboardBar
-          disabled={pending}
-          onMarker={insertMarker}
-          onTab={pressTab}
-          onArrow={pressArrow}
-        />
+        <KeyboardBar disabled={pending} onMarker={insertMarker} onTab={pressTab} />
       ) : null}
     </form>
   );
