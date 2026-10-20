@@ -48,7 +48,7 @@ The list shows two levels: root tasks and their children.
 | `home.right-expand` | `Right` on a collapsed parent | It expands. On an expanded parent, nothing happens |
 | `home.right-category` | `Right` on a task without children | The list filters to that task's category, keeping it as the only selection. Without a category, nothing changes and the app says so |
 | `home.open-editor` | `Enter`, or clicking a row | The task's inline editor replaces its row with the title focused |
-| `home.task-context-menu` | Long-pressing or right-clicking a saved task | Opens a task-actions menu for that row without opening its editor. Moving a touch to scroll cancels the hold. Actions target that task alone; release never also edits it. Dismissal returns focus to the list unless an action opened an editor or dialog. The existing toolbar remains an alternative path |
+| `home.task-context-menu` | Long-pressing or right-clicking a saved task | Opens a task-actions menu for that row without opening its editor. Moving a touch to scroll cancels the hold. Actions target that task alone; release never also edits it. Dismissal returns focus to the list unless an action opened an editor or dialog. Every action has an icon matching the existing action where available. Cancel task changes status to canceled, rather than deleting the task. The existing toolbar remains an alternative path |
 
 ## Selection
 

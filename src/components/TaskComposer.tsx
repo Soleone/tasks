@@ -394,11 +394,22 @@ export function TaskComposer({
     else titleInput.current?.focus();
   }
 
-  // The keyboard bar's Tab: the same as the key in the field that has focus.
-  function pressTab(backward: boolean): void {
-    const row = suggestionItems[suggestionIndex];
-    if (activeField === "title" && !backward && suggestion && row) tabSuggestion(suggestion, row);
-    else focusAfter(activeField, backward);
+  function moveCursor(direction: -1 | 1): void {
+    const field = activeField === "description" ? notesInput.current : titleInput.current;
+    if (!field) return;
+    field.focus();
+    const start = field.selectionStart ?? 0;
+    const end = field.selectionEnd ?? start;
+    let caret = direction === -1 ? start : end;
+    if (start === end) {
+      const adjacent =
+        direction === -1
+          ? Array.from(field.value.slice(0, caret)).at(-1)
+          : Array.from(field.value.slice(caret))[0];
+      caret += direction * (adjacent?.length ?? 0);
+    }
+    field.setSelectionRange(caret, caret);
+    if (field === titleInput.current) updateSuggestion(field.value, caret);
   }
 
   // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
@@ -800,7 +811,7 @@ export function TaskComposer({
         </Button>
       </div>
       {isAndroid() ? (
-        <KeyboardBar disabled={pending} onMarker={insertMarker} onTab={pressTab} />
+        <KeyboardBar disabled={pending} onMarker={insertMarker} onMoveCursor={moveCursor} />
       ) : null}
     </form>
   );

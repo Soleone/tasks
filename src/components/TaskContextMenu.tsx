@@ -1,4 +1,19 @@
 import { useState, type ReactElement } from "react";
+import {
+  ArrowDown,
+  ArrowDownUp,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  Circle,
+  CirclePause,
+  CirclePlay,
+  CircleX,
+  Copy,
+  CornerDownRight,
+  Link2,
+  Pencil,
+} from "lucide-react";
 import type { TaskView } from "./taskView";
 import type { TaskMoveDirection } from "./taskReordering";
 import {
@@ -64,47 +79,76 @@ export function TaskContextMenu({
       >
         <ContextMenuGroup>
           <ContextMenuLabel>{task.title}</ContextMenuLabel>
-          <ContextMenuItem onClick={() => actions.onEdit(task)}>Edit</ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.onStatus(task)}>Change status</ContextMenuItem>
+          <ContextMenuItem onClick={() => actions.onEdit(task)}>
+            <Pencil aria-hidden="true" />
+            Edit
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => actions.onStatus(task)}>
+            <Circle aria-hidden="true" />
+            Change status
+          </ContextMenuItem>
           <ContextMenuItem
             disabled={task.status === "done" || task.status === "canceled"}
             onClick={() => actions.onPause(task)}
           >
+            {task.status === "paused" ? (
+              <CirclePlay aria-hidden="true" />
+            ) : (
+              <CirclePause aria-hidden="true" />
+            )}
             {task.status === "paused" ? "Resume" : "Pause"}
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.onAddBlocker(task)}>Blockers…</ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.onMoveUnder(task)}>Move under…</ContextMenuItem>
+          <ContextMenuItem onClick={() => actions.onAddBlocker(task)}>
+            <Link2 aria-hidden="true" />
+            Blockers…
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => actions.onMoveUnder(task)}>
+            <CornerDownRight aria-hidden="true" />
+            Move under…
+          </ContextMenuItem>
           <ContextMenuItem
             disabled={task.status === "canceled"}
             onClick={() => actions.onCreateChild(task)}
           >
+            <CornerDownRight aria-hidden="true" />
             New child
           </ContextMenuItem>
           <ContextMenuSub>
             <ContextMenuSubTrigger disabled={actions.reorderDisabledReason !== null}>
+              <ArrowDownUp aria-hidden="true" />
               Reorder
             </ContextMenuSubTrigger>
             <TaskContextSubContent>
               <ContextMenuGroup>
-                <ContextMenuItem onClick={() => actions.onReorder("up")}>Move up</ContextMenuItem>
+                <ContextMenuItem onClick={() => actions.onReorder("up")}>
+                  <ArrowUp aria-hidden="true" />
+                  Move up
+                </ContextMenuItem>
                 <ContextMenuItem onClick={() => actions.onReorder("down")}>
+                  <ArrowDown aria-hidden="true" />
                   Move down
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => actions.onReorder("start")}>
+                  <ChevronUp aria-hidden="true" />
                   Move to beginning
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => actions.onReorder("end")}>
+                  <ChevronDown aria-hidden="true" />
                   Move to end
                 </ContextMenuItem>
               </ContextMenuGroup>
             </TaskContextSubContent>
           </ContextMenuSub>
-          <ContextMenuItem onClick={() => actions.onCopy(task)}>Copy text</ContextMenuItem>
+          <ContextMenuItem onClick={() => actions.onCopy(task)}>
+            <Copy aria-hidden="true" />
+            Copy text
+          </ContextMenuItem>
         </ContextMenuGroup>
         <ContextMenuSeparator />
         <ContextMenuGroup>
           <ContextMenuItem variant="destructive" onClick={() => actions.onDelete(task)}>
-            Delete
+            <CircleX aria-hidden="true" />
+            Cancel task
           </ContextMenuItem>
         </ContextMenuGroup>
       </TaskContextMenuContent>

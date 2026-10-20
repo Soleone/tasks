@@ -57,6 +57,22 @@ test("home.task-context-menu: moving another row opens its picker and preserves 
   await expectListFocused();
 });
 
+test("home.task-context-menu: actions have icons and Cancel task changes status without deleting", async () => {
+  const task = await workspace.create("Task");
+  const { user } = await workspace.render();
+  fireEvent.contextMenu(screen.getByText("Task").closest('[role="option"]')!, {
+    clientX: 30,
+    clientY: 60,
+  });
+  const menu = await screen.findByRole("menu", { name: "Actions for Task" });
+  for (const item of within(menu).getAllByRole("menuitem")) {
+    expect(item.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  }
+  expect(within(menu).queryByRole("menuitem", { name: "Delete" })).toBeNull();
+  await user.click(within(menu).getByRole("menuitem", { name: "Cancel task" }));
+  await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("canceled"));
+});
+
 test("home.task-context-menu: Escape dismisses without editing", async () => {
   await workspace.create("Task");
   const { user } = await workspace.render();

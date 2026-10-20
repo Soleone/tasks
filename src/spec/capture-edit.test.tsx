@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
@@ -297,67 +297,67 @@ describe("shorthand", () => {
 
     function barKey(user: UserEvent, name: string): Promise<void> {
       const bar = screen.getByRole("toolbar", { name: "Keyboard keys" });
-      return user.click(within(bar).getByRole("button", { name }));
+      const button = within(bar).getByRole("button", { name });
+      button.setPointerCapture = vi.fn();
+      return user.click(button);
     }
 
-    function prioritySection(): Element | null {
-      const active = document.activeElement;
-      return active?.hasAttribute("data-priority-section") ? active : null;
-    }
-
-    test("platform.keyboard-bar: the bar types markers and tabs like the keys", async () => {
-      await createTagged("Old #errand");
+    test("platform.keyboard-bar: markers and cursor arrows keep focus in text fields", async () => {
       const { user } = await workspace.render();
-      await capture(user, "Buy ");
-      await barKey(user, "#");
-      await user.keyboard("e");
-      await suggestion(/errand/);
-      await barKey(user, "Tab");
-      expect(titleField().value).toBe("Buy #errand");
-      await barKey(user, "Tab");
-      expect(pills()).toEqual(["errand"]);
-      await focusedTitleField();
-      await barKey(user, "Tab");
-      expect(prioritySection()).not.toBeNull();
-      await barKey(user, "@");
-      expect(titleField().value).toBe("Buy @");
-      await focusedTitleField();
-      await barKey(user, "Shift+Tab");
-      expect(prioritySection()).not.toBeNull();
-    });
-
-    test("platform.keyboard-bar: touch Tab completes suggestions once and reaches description without arrows", async () => {
-      await createTagged("Old #errand");
-      const { user } = await workspace.render();
-      await capture(user, "Buy #e");
-      await suggestion(/errand/);
+      await capture(user, "Buy milk");
       const bar = screen.getByRole("toolbar", { name: "Keyboard keys" });
       expect(
         within(bar)
           .getAllByRole("button")
           .map((button) => button.getAttribute("aria-label")),
-      ).toEqual(["@", "#", "Shift+Tab", "Tab"]);
-      const tab = within(bar).getByRole("button", { name: "Tab" });
-      const tapTab = () =>
-        user.pointer([
-          { keys: "[TouchA>]", target: tab },
-          { keys: "[/TouchA]", target: tab },
-        ]);
-      await tapTab();
-      expect(titleField().value).toBe("Buy #errand");
-      expect(pills()).toEqual([]);
+      ).toEqual(["@", "#", "Move cursor left", "Move cursor right"]);
+      await barKey(user, "Move cursor left");
+      expect(titleField().selectionStart).toBe(7);
+      await barKey(user, "Move cursor right");
+      expect(titleField().selectionStart).toBe(8);
+      titleField().setSelectionRange(4, 8);
+      await barKey(user, "Move cursor left");
+      expect(titleField().selectionStart).toBe(4);
+      await barKey(user, "#");
+      expect(titleField().value).toBe("Buy #milk");
       await focusedTitleField();
-      await tapTab();
-      expect(pills()).toEqual(["errand"]);
+      await user.keyboard("{Tab}");
+      await barKey(user, "@");
       await focusedTitleField();
-      await tapTab();
-      expect(prioritySection()).not.toBeNull();
-      await tapTab();
+      await user.keyboard("{Tab}{Tab}");
       const notes =
         within(editor()).getByPlaceholderText<HTMLTextAreaElement>("Write in Markdown…");
-      await waitFor(() => expect(document.activeElement).toBe(notes));
-      await barKey(user, "Shift+Tab");
-      expect(prioritySection()).not.toBeNull();
+      await user.keyboard("A😀B");
+      await barKey(user, "Move cursor left");
+      expect(notes.selectionStart).toBe(3);
+      await barKey(user, "Move cursor left");
+      expect(notes.selectionStart).toBe(1);
+      await barKey(user, "#");
+      expect(notes.value).toBe("A#😀B");
+      expect(document.activeElement).toBe(notes);
+    });
+
+    test("platform.keyboard-bar: holding a touch arrow repeats and release stops it", async () => {
+      const { user } = await workspace.render();
+      await capture(user, "Buy milk");
+      const bar = screen.getByRole("toolbar", { name: "Keyboard keys" });
+      const left = within(bar).getByRole("button", { name: "Move cursor left" });
+      left.setPointerCapture = vi.fn();
+      await user.pointer({ keys: "[TouchA>]", target: left });
+      expect(titleField().selectionStart).toBe(7);
+      await waitFor(() => expect(titleField().selectionStart).toBeLessThan(7));
+      await user.pointer({ keys: "[/TouchA]", target: left });
+      const caret = titleField().selectionStart;
+      await new Promise((resolve) => setTimeout(resolve, 160));
+      expect(titleField().selectionStart).toBe(caret);
+      const right = within(bar).getByRole("button", { name: "Move cursor right" });
+      right.setPointerCapture = vi.fn();
+      await user.pointer({ keys: "[TouchA>]", target: right });
+      fireEvent.pointerCancel(right, { pointerId: 2, pointerType: "touch" });
+      const canceledCaret = titleField().selectionStart;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(titleField().selectionStart).toBe(canceledCaret);
+      await focusedTitleField();
     });
   });
 

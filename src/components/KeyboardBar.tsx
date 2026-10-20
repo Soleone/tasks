@@ -1,4 +1,5 @@
-import type { ReactElement } from "react";
+import { useEffect, useRef, type ReactElement } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { Marker } from "./composerShorthand";
 import { Button } from "@/components/ui/button";
@@ -6,16 +7,41 @@ import { Button } from "@/components/ui/button";
 type KeyboardBarProps = {
   disabled: boolean;
   onMarker: (marker: Marker) => void;
-  onTab: (backward: boolean) => void;
+  onMoveCursor: (direction: -1 | 1) => void;
 };
 
 // Portaled so an animated row can't anchor the bar above the soft keyboard.
-export function KeyboardBar({ disabled, onMarker, onTab }: KeyboardBarProps): ReactElement {
+export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarProps): ReactElement {
+  const repeatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function stopRepeat(): void {
+    if (repeatTimer.current !== null) clearTimeout(repeatTimer.current);
+    repeatTimer.current = null;
+  }
+  function repeatMove(direction: -1 | 1): void {
+    if (disabled) return;
+    onMoveCursor(direction);
+    repeatTimer.current = setTimeout(() => repeatMove(direction), 60);
+  }
+  useEffect(() => {
+    if (disabled) stopRepeat();
+    return stopRepeat;
+  }, [disabled]);
+
   const keys = [
     { label: "@", name: "@", press: () => onMarker("@") },
     { label: "#", name: "#", press: () => onMarker("#") },
-    { label: "⇧ Tab", name: "Shift+Tab", press: () => onTab(true) },
-    { label: "Tab", name: "Tab", press: () => onTab(false) },
+    {
+      label: <ArrowLeft aria-hidden="true" />,
+      name: "Move cursor left",
+      direction: -1 as const,
+      press: () => onMoveCursor(-1),
+    },
+    {
+      label: <ArrowRight aria-hidden="true" />,
+      name: "Move cursor right",
+      direction: 1 as const,
+      press: () => onMoveCursor(1),
+    },
   ];
   return createPortal(
     <div
@@ -36,8 +62,19 @@ export function KeyboardBar({ disabled, onMarker, onTab }: KeyboardBarProps): Re
             // Touch focus changes happen before click. Run while the field still owns focus,
             // and prevent the bar from taking focus or dismissing the soft keyboard.
             event.preventDefault();
+            stopRepeat();
             key.press();
+            const direction = key.direction;
+            if (direction !== undefined) {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              repeatTimer.current = setTimeout(() => repeatMove(direction), 400);
+            }
           }}
+          onPointerUp={stopRepeat}
+          onPointerCancel={stopRepeat}
+          onLostPointerCapture={stopRepeat}
+          onPointerLeave={stopRepeat}
+          onContextMenu={(event) => event.preventDefault()}
           onClick={(event) => {
             // Assistive technology can activate without a pointer event.
             if (event.detail === 0) key.press();
