@@ -55,6 +55,7 @@ Remaining follow-ups, each requiring its own go-ahead:
 3. Investigate the web bundle's chunk-size warning if load performance warrants it; do not hide it by raising the warning limit.
 4. Sign the Windows release. After the earlier reboot, Bitdefender added ~850 ms to the backend step; an install-folder exception removed it. Signing remains a publication follow-up, not a measured code fix. Further startup work, including showing a saved list before the backend answers, is not approved.
 5. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
+6. User-chosen app home (owner direction, 2026-10-20): keep meaningful device-local state and settings in one chosen parent, with only its `sync/` subtree added to Syncthing. Detailed deferred plan: `$DATA/plans/2026-10-19-tasks-user-chosen-home.md`, SQ `zce`. Planning only; execution is not approved. Start with the storage/lock-domain/relocation contract and Android shared-storage SQLite feasibility, then stop at that checkpoint. Preserve receipts, undo and recovery authority; personal adoption requires separate permission.
 
 Kit adoption is at r4. `src/components/ui` and `src/components/soleone` match stock registry sources.
 
