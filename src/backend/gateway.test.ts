@@ -226,6 +226,70 @@ test("info inspects empty, partial and unsupported roots without creating canoni
   assert.deepEqual(readdirSync(current.root), []);
 });
 
+test("list.descendants: a filtered page includes its whole tree without changing matching pagination", (t) => {
+  const current = workspace(t, {
+    root: { title: "Parent" },
+    child: { parentId: "root", status: "paused" },
+    grandchild: { parentId: "child" },
+    sibling: { parentId: "root" },
+    unrelated: {},
+    unrelatedChild: { parentId: "unrelated", status: "paused" },
+  });
+  const page = result(
+    query(current, "task.list", {
+      search: "Parent",
+      includeDescendants: true,
+      limit: 1,
+    }),
+  );
+  assert.equal(page.total, 1);
+  assert.equal(page.limit, 1);
+  assert.deepEqual(
+    (page.tasks as { id: string }[]).map((task) => task.id),
+    ["root"],
+  );
+  assert.deepEqual(
+    (page.contextTasks as { id: string }[]).map((task) => task.id),
+    ["child", "grandchild", "sibling"],
+  );
+  const childPage = result(
+    query(current, "task.list", {
+      status: "paused",
+      includeDescendants: true,
+      limit: 1,
+      sort: "manual",
+    }),
+  );
+  assert.equal(childPage.total, 2);
+  assert.deepEqual(
+    (childPage.tasks as { id: string }[]).map((task) => task.id),
+    ["child"],
+  );
+  assert.deepEqual(
+    (childPage.contextTasks as { id: string }[]).map((task) => task.id),
+    ["root", "grandchild", "sibling"],
+  );
+  const paged = result(
+    query(current, "task.list", {
+      status: "open",
+      includeDescendants: true,
+      limit: 1,
+      sort: "manual",
+    }),
+  );
+  assert.equal(paged.total, 4);
+  assert.equal((paged.tasks as unknown[]).length, 1);
+  assert.equal((paged.contextTasks as unknown[]).length, 3);
+  const empty = result(
+    query(current, "task.list", {
+      search: "missing",
+      includeDescendants: true,
+    }),
+  );
+  assert.deepEqual(empty.contextTasks, []);
+  assert.equal(query(current, "task.list", { includeDescendants: "yes" }).ok, false);
+});
+
 test("query filters preserve graph context, AND tags, ASCII search and full manual preorder", (t) => {
   const current = workspace(t, {
     root: {

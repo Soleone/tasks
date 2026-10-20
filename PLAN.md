@@ -42,6 +42,8 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 
 11. Startup (owner Windows check, 2026-10-20): loading the selected screen module before the first React render avoids React's 300 ms Suspense retry throttle. Mount fell from 280–282 to 4–7 ms; warm launches fell from 0.94–0.96 to 0.68 s. One initial launch still took 1.27 s, with 690 ms in the backend. Temporary launch diagnostics and the placeholder Shortcuts tab are removed; Settings keeps General and Data, including font size, keyboard help, task folder and backup/restore. Cleanup checks pass in the disposable WSL browser and Android Rust compile; the Windows cleanup build has not been checked. No saved-list cache or personal workspace access by the agent.
 
+12. Filtered hierarchy (owner bug report, 2026-10-20): parents keep their disclosure when children are outside the current results. Expanding reveals the whole tree, with outside-result children muted and labeled as context. Matching counts, bulk selection and reorder exclude context rows; individual status changes and undo still work. Regression coverage includes pause/resume, switching views, reopening and pagination. Disposable browser checks pass at desktop and phone widths; this is not native validation.
+
 ## Next step
 
 Windows 11 and Android native smoke checks are owner-confirmed (2026-10-19), and the recorded kit drift is resolved. No implementation stage is newly authorized by that confirmation.

@@ -2503,7 +2503,7 @@ try {
     '[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active context child"))',
   );
   check(
-    `document.querySelector("[data-parent-context]")?.textContent === "Still visible because children aren't done yet."`,
+    `document.querySelector("[data-parent-context]")?.textContent === "Shown because a child matches the current filters."`,
   );
   check(
     '(() => { const context = document.querySelector("#task-list [role=option][data-context-parent]"); if (!context) return false; const contextStyle = getComputedStyle(context); if (contextStyle.backgroundColor === "rgba(0, 0, 0, 0)" || contextStyle.backgroundColor === "transparent") return false; const plain = [...document.querySelectorAll("#task-list [role=option]")].find((entry) => !entry.hasAttribute("data-context-parent") && !entry.hasAttribute("data-active") && entry.getAttribute("aria-selected") !== "true"); if (!plain) return true; const plainStyle = getComputedStyle(plain); return contextStyle.backgroundColor !== plainStyle.backgroundColor || contextStyle.color !== plainStyle.color; })()',
@@ -2562,7 +2562,7 @@ try {
     'document.querySelector("#task-list [role=option][data-context-parent] [data-status=canceled]") !== null',
   );
   check(
-    `document.querySelector("[data-parent-context]")?.textContent === "Still visible because children aren't canceled yet."`,
+    `document.querySelector("[data-parent-context]")?.textContent === "Shown because a child matches the current filters."`,
   );
   check(
     '[...document.querySelectorAll("[data-depth=\\"1\\"]")].some((item) => item.textContent.includes("Active canceled-context child"))',
@@ -3137,7 +3137,7 @@ try {
   );
   browser("press", "Control+ArrowDown");
   waitFor(
-    'document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only ancestors cannot be reordered")',
+    'document.querySelector("p.sr-only[role=status]")?.textContent.includes("Context-only tasks cannot be reordered")',
   );
   assert.deepEqual(
     (await command("task.list", { sort: "manual" })).tasks.map((task) => task.id),

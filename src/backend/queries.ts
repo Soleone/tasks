@@ -74,6 +74,7 @@ function listTasks(
     "search",
     "unblocked",
     "includeAncestors",
+    "includeDescendants",
     "sort",
     "direction",
     "limit",
@@ -85,7 +86,7 @@ function listTasks(
     invalidFilter("status");
   const priority = args.priority === undefined ? undefined : queryInteger(args.priority, 2);
   if (priority !== undefined && (priority < 0 || priority > 4)) invalidFilter("priority");
-  for (const field of ["categoryIsNull", "unblocked", "includeAncestors"]) {
+  for (const field of ["categoryIsNull", "unblocked", "includeAncestors", "includeDescendants"]) {
     if (args[field] !== undefined && typeof args[field] !== "boolean") invalidFilter(field);
   }
   const category = args.category === undefined ? undefined : filterSlug(args.category, "@");
@@ -137,22 +138,30 @@ function listTasks(
   }
   const page = matching.slice(offset, offset + limit);
   const pageIds = new Set(page.map((task) => task.id));
-  const ancestors = new Set<string>();
-  if (args.includeAncestors === true) {
+  const contextIds = new Set<string>();
+  const includeContext = args.includeAncestors === true || args.includeDescendants === true;
+  if (includeContext) {
     const byId = new Map(tasks.map((task) => [task.id, task]));
     for (const task of page) {
       let parentId = task.parentId;
       while (parentId !== null) {
-        if (!pageIds.has(parentId)) ancestors.add(parentId);
+        if (!pageIds.has(parentId)) contextIds.add(parentId);
         parentId = byId.get(parentId)!.parentId;
       }
     }
   }
+  if (args.includeDescendants === true) {
+    const treeIds = new Set([...pageIds, ...contextIds]);
+    for (const task of ordered) {
+      if (task.parentId !== null && treeIds.has(task.parentId)) treeIds.add(task.id);
+    }
+    for (const id of treeIds) {
+      if (!pageIds.has(id)) contextIds.add(id);
+    }
+  }
   return {
     tasks: page,
-    ...(args.includeAncestors === true
-      ? { contextTasks: ordered.filter((task) => ancestors.has(task.id)) }
-      : {}),
+    ...(includeContext ? { contextTasks: ordered.filter((task) => contextIds.has(task.id)) } : {}),
     total: matching.length,
     limit,
     offset,

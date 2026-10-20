@@ -11,7 +11,7 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskListHandle } from "@/components/TaskList";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
-import { contextAncestorIds, taskGroupOrder } from "@/components/taskTree";
+import { contextTaskIds, taskGroupOrder } from "@/components/taskTree";
 import {
   compareTasksForViewSort,
   presetStatuses,
@@ -97,6 +97,7 @@ export function useWorkspaceTasks({
             sort: sortFieldRef.current,
             direction: sortDirectionRef.current,
             includeAncestors: true,
+            includeDescendants: true,
           },
         );
         if (sequence !== querySequence.current) return false;
@@ -319,10 +320,10 @@ export function useWorkspaceTasks({
       candidates === undefined ? [] : Array.isArray(candidates) ? candidates : [candidates];
     setContextTasks((previous) => {
       const visibleIds = new Set(nextTasks.map((entry) => entry.id));
-      const knownTasks = [...previous, ...nextTasks, ...candidateList];
-      const requiredContextIds = contextAncestorIds(nextTasks, knownTasks);
-      const byId = new Map(previous.map((entry) => [entry.id, entry]));
-      for (const candidate of candidateList) byId.set(candidate.id, candidate);
+      const byId = new Map(
+        [...previous, ...nextTasks, ...candidateList].map((entry) => [entry.id, entry]),
+      );
+      const requiredContextIds = contextTaskIds(nextTasks, [...byId.values()]);
       return [...byId.values()].filter(
         (entry) => !visibleIds.has(entry.id) && requiredContextIds.has(entry.id),
       );
@@ -335,7 +336,7 @@ export function useWorkspaceTasks({
     const ids = new Set(taskIds);
     const nextTasks = tasks.filter((task) => !ids.has(task.id));
     const removed = tasks.length - nextTasks.length;
-    if (removed === 0) return;
+    setContextTasks((previous) => previous.filter((task) => !ids.has(task.id)));
     const currentGroupOrder = taskGroupOrder(tasks, contextTasks);
     setContextOrder((previous) => {
       const next = new Map(previous);
@@ -368,11 +369,15 @@ export function useWorkspaceTasks({
     for (const task of updates.values()) {
       const currentIndex = nextTasks.findIndex((existing) => existing.id === task.id);
       const wasVisible = currentIndex !== -1;
+      const previous = wasVisible
+        ? nextTasks[currentIndex]
+        : contextTasks.find((existing) => existing.id === task.id);
+      const wasMatching = previous !== undefined && isCurrentViewMatch(previous);
       const visible = isCurrentViewMatch(task);
       if (visible) {
         if (wasVisible) {
           nextTasks = nextTasks.map((existing) => (existing.id === task.id ? task : existing));
-        } else {
+        } else if (!wasMatching) {
           nextTasks = [...nextTasks, task].sort((a, b) =>
             compareTasksForViewSort(a, b, sortField, sortDirection),
           );
@@ -384,6 +389,8 @@ export function useWorkspaceTasks({
         totalDelta -= 1;
         membershipChanged = true;
         removedTask = true;
+      } else if (wasMatching) {
+        totalDelta -= 1;
       }
     }
     if (removedTask) {
@@ -421,7 +428,7 @@ export function useWorkspaceTasks({
     if (isCurrentViewMatch(task)) return true;
 
     const otherVisibleTasks = visibleTasks.filter((entry) => entry.id !== task.id);
-    return contextAncestorIds(otherVisibleTasks, [...otherVisibleTasks, ...contextTasks, task]).has(
+    return contextTaskIds(otherVisibleTasks, [...contextTasks, ...otherVisibleTasks, task]).has(
       task.id,
     );
   }

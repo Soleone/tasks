@@ -79,6 +79,7 @@ export type TaskListFilters = {
   sort?: SortField;
   direction?: "asc" | "desc";
   includeAncestors?: boolean;
+  includeDescendants?: boolean;
 };
 
 export type CategoryListResult = { categories: ClassificationOption[] };
@@ -128,6 +129,7 @@ export async function listTasks(
     ...(filters.sort !== undefined ? { sort: filters.sort } : {}),
     ...(filters.direction !== undefined ? { direction: filters.direction } : {}),
     ...(filters.includeAncestors ? { includeAncestors: true } : {}),
+    ...(filters.includeDescendants ? { includeDescendants: true } : {}),
     offset,
   });
 }

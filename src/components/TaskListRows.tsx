@@ -75,11 +75,14 @@ export const TaskOption = memo(function TaskOption({
         role="option"
         aria-selected={selected}
         aria-describedby={row.hasChildren ? `task-children-${task.id}` : undefined}
-        aria-label={row.contextOnly ? `${task.title}, ${taskContextMessage(task)}` : undefined}
+        aria-label={
+          row.contextOnly ? `${task.title}, ${taskContextMessage(row.depth === 1)}` : undefined
+        }
         tabIndex={-1}
         data-active={active || undefined}
         data-selected={selected || undefined}
-        data-context-parent={row.contextOnly || undefined}
+        data-context-parent={(row.contextOnly && row.depth === 0) || undefined}
+        data-context-child={(row.contextOnly && row.depth === 1) || undefined}
         data-depth={row.depth}
         data-new-task={task.id === newTaskId || undefined}
         data-exiting-task={exitingTaskIds.has(task.id) || undefined}

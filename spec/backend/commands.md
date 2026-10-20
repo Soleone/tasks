@@ -86,11 +86,12 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Rule | Then |
 | --- | --- |
-| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `includeAncestors` |
+| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `includeAncestors`, `includeDescendants` |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
 | `list.sort` | `created` and `updated` default newest first, `priority` defaults P0 first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.paging` | `limit` defaults to 50 and clamps to 1 to 100. `offset` clamps to 0 or more |
 | `list.ancestors` | Filters never detach a child from its tree. Non-matching ancestors come back in `contextTasks` and don't count in `total` |
+| `list.descendants` | `includeDescendants: true` includes ancestors and every descendant of each page task's root in `contextTasks`, excluding tasks already in the page. Unrelated trees stay out. Context doesn't change matching `total`, `limit` or `offset` |
 | `list.canceled-classification` | Categories and tags used only by canceled tasks are left out of `category.list` and `tag.list` |
 | `info.state` | `state` is `empty`, `ready`, `incomplete`, `unsupported` or `recovery_pending`. `commands` lists what this build supports, sorted |
 | `info.refusals` | A known command this build doesn't offer fails `UNSUPPORTED_COMMAND`, an unknown one `UNKNOWN_COMMAND`. No command approximates another |

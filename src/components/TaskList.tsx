@@ -306,9 +306,13 @@ export function TaskList({
         : queriedTasks.map((task) => pendingTasks.get(task.id) ?? task),
     [queriedTasks, pendingTasks],
   );
+  const shownContextTasks = useMemo(
+    () => contextTasks.map((task) => pendingTasks.get(task.id) ?? task),
+    [contextTasks, pendingTasks],
+  );
   const savedRows = useMemo(
-    () => visibleTaskRows(tasks, expandedIds, contextTasks, contextOrder),
-    [tasks, expandedIds, contextTasks, contextOrder],
+    () => visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
+    [tasks, expandedIds, shownContextTasks, contextOrder],
   );
   // A filter change resets the selection and hides any previous reorder preview.
   const filterIdentity = [
@@ -333,7 +337,10 @@ export function TaskList({
   useLayoutEffect(() => {
     savedRowsRef.current = savedRows;
   });
-  const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks]);
+  const taskById = useMemo(
+    () => new Map([...shownContextTasks, ...tasks].map((task) => [task.id, task])),
+    [tasks, shownContextTasks],
+  );
   const reorderFilterRef = useRef(filterIdentity);
   useLayoutEffect(() => {
     reorderFilterRef.current = filterIdentity;
@@ -610,7 +617,7 @@ export function TaskList({
     if (selected && !selected.supportsOrdering)
       return "Reordering is not yet available in this selected workspace.";
     if (!row) return "No task is selected.";
-    if (row.contextOnly) return "Context-only ancestors cannot be reordered.";
+    if (row.contextOnly) return "Context-only tasks cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";
     if (statusPreset !== "active") return "Clear the inactive filter before reordering.";
     if (showUnblocked) return "Clear the Unblocked filter before reordering.";

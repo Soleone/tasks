@@ -231,7 +231,7 @@ export function useTaskListSelection({
 
   function selectRangeTo(row: VisibleTaskRow): void {
     if (row.contextOnly) {
-      onAnnounce("Context-only ancestors cannot be selected.");
+      onAnnounce("Context-only tasks cannot be selected.");
       return;
     }
     const scope = selectableSiblingRows(row, visibleRowsRef.current);
@@ -343,7 +343,7 @@ export function useTaskListSelection({
     if (composerOpen) return;
     const { task } = row;
     if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
-      onAnnounce("Context-only ancestors cannot be selected.");
+      onAnnounce("Context-only tasks cannot be selected.");
       return;
     }
     if (event.shiftKey) {

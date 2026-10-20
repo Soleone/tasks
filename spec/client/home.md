@@ -78,7 +78,8 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `home.context-ancestor` | A matching task's ancestor doesn't match the filters | The ancestor shows as a muted row. It isn't counted and can still be expanded |
+| `home.context-ancestor` | A matching task's ancestor doesn't match the filters | The ancestor shows as a muted row explaining that a child matches. It isn't counted and can still be expanded |
+| `home.context-children` | A loaded tree has children outside the current results | The parent keeps its expand arrow. Expanding reveals all descendants, including paused, done and canceled tasks, in the two-level outline. Outside-result children are muted and labeled as shown with their parent. Context rows don't change the matching count or join bulk selection or reorder; their individual actions still work |
 | `home.filtered-empty` | Filters match nothing | A focusable, row-sized shell says "No tasks match the current filters" with a mouse-only Clear filters action. `Escape` clears filters from the keyboard |
 
 ## Details

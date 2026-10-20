@@ -429,6 +429,79 @@ describe("hierarchy in a filtered list", () => {
     await expectRows(["Parent", "Urgent child"]);
   });
 
+  test("home.context-children: paused children stay discoverable after resuming their parent and reopening", async () => {
+    const parent = await workspace.create("Parent");
+    const child = await workspace.create("Child", { parentId: parent.id });
+    const { user, view } = await workspace.render();
+    await expectActive("Parent");
+    await user.keyboard("{ArrowRight}p");
+    await waitFor(async () => expect((await workspace.task(parent.id)).status).toBe("paused"));
+    await expectRows(["Parent", "Child"]);
+    await waitFor(() => expect(row("Parent").hasAttribute("data-context-parent")).toBe(true));
+    await user.keyboard("{ArrowDown}p");
+    await waitFor(async () => expect((await workspace.task(child.id)).status).toBe("paused"));
+    await expectRows([]);
+    await user.keyboard("fs");
+    await expectRows(["Parent", "Child"]);
+    await user.keyboard("{Home}p");
+    await waitFor(async () => expect((await workspace.task(parent.id)).status).toBe("in_progress"));
+    await expectRows(["Parent", "Child"]);
+    await user.keyboard("fs");
+    await expectRows(["Parent", "Child"]);
+    await waitFor(() => expect(row("Child").hasAttribute("data-context-child")).toBe(true));
+    expect(row("Child").textContent).toContain("Shown with parent, outside current results.");
+    expect(document.querySelector("[data-filter-summary]")?.textContent).toMatch(/^1 active task$/);
+    expect((await workspace.task(child.id)).status).toBe("paused");
+
+    view.unmount();
+    const reopened = await workspace.render();
+    await expectRows(["Parent"]);
+    expect(row("Parent").querySelector('[aria-label="Expand children"]')).not.toBeNull();
+    await reopened.user.keyboard("{ArrowRight}");
+    await expectRows(["Parent", "Child"]);
+    expect(row("Child").hasAttribute("data-context-child")).toBe(true);
+  });
+
+  test("home.context-children: context children can resume and undo individually but cannot join bulk selection", async () => {
+    const parent = await workspace.create("Parent");
+    const child = await workspace.create("Child", { parentId: parent.id });
+    await workspace.change("task.pause", child.id);
+    const { user } = await workspace.render();
+    await user.keyboard("{ArrowRight}{ArrowDown}");
+    await expectActive("Child");
+    expect(selectedTitles()).toEqual([]);
+    await user.keyboard("p");
+    await waitFor(async () => expect((await workspace.task(child.id)).status).toBe("in_progress"));
+    await waitFor(() => expect(row("Child").hasAttribute("data-context-child")).toBe(false));
+    await user.keyboard("{Control>}z{/Control}");
+    await waitFor(async () => expect((await workspace.task(child.id)).status).toBe("paused"));
+    await waitFor(() => expect(row("Child").hasAttribute("data-context-child")).toBe(true));
+    await expectRows(["Parent", "Child"]);
+    await user.keyboard("{Home}{Shift>}{ArrowDown}{/Shift}");
+    expect(selectedTitles()).toEqual(["Parent"]);
+    expect((await workspace.task(parent.id)).status).toBe("open");
+  });
+
+  test("home.context-children: editing and loading context from another page never double-counts or duplicates tasks", async () => {
+    const parent = await workspace.create("Parent");
+    for (let index = 0; index < 51; index += 1) {
+      await workspace.create(`Child ${index}`, { parentId: parent.id });
+    }
+    const { user } = await workspace.render();
+    await expectActive("Parent");
+    await user.keyboard("{ArrowRight}0");
+    await waitFor(async () => expect((await workspace.task(parent.id)).priority).toBe(0));
+    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("52 active tasks");
+    expect(screen.getAllByRole("option")).toHaveLength(52);
+    await user.click(screen.getByRole("button", { name: "Load more tasks" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Load more tasks" })).toBeNull(),
+    );
+    expect(screen.getAllByRole("option")).toHaveLength(52);
+    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("52 active tasks");
+    expect(row("Child 0").hasAttribute("data-context-child")).toBe(false);
+  });
+
   test("home.filtered-empty: filters that match nothing show a shell with Clear filters", async () => {
     await seed("A");
     const { user } = await workspace.render();

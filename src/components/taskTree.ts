@@ -26,24 +26,15 @@ function rootFor(task: TaskView, byId: Map<string, TaskView>): string {
   return current.id;
 }
 
-export function contextAncestorIds(
+export function contextTaskIds(
   tasks: readonly TaskView[],
   knownTasks: readonly TaskView[],
 ): Set<string> {
   const byId = new Map(knownTasks.map((task) => [task.id, task]));
-  const contextIds = new Set<string>();
-  for (const task of tasks) {
-    const seen = new Set<string>([task.id]);
-    let parentId = task.parentId;
-    while (parentId !== null && !seen.has(parentId)) {
-      seen.add(parentId);
-      const parent = byId.get(parentId);
-      if (!parent) break;
-      contextIds.add(parent.id);
-      parentId = parent.parentId;
-    }
-  }
-  return contextIds;
+  const rootIds = new Set(tasks.map((task) => rootFor(task, byId)));
+  return new Set(
+    knownTasks.filter((task) => rootIds.has(rootFor(task, byId))).map((task) => task.id),
+  );
 }
 
 export function taskGroupOrder(tasks: TaskView[], contextTasks: TaskView[]): Map<string, number> {
@@ -84,6 +75,12 @@ export function visibleTaskRows(
     groups.set(rootId, group);
   });
 
+  for (const task of contextTasks) {
+    if (matchingIds.has(task.id)) continue;
+    const rootId = rootFor(task, byId);
+    if (task.id !== rootId) groups.get(rootId)?.descendants.push(task);
+  }
+
   return [...groups.values()]
     .sort((left, right) => left.rootIndex - right.rootIndex)
     .flatMap((group) => {
@@ -100,7 +97,7 @@ export function visibleTaskRows(
           task,
           depth: 1 as const,
           hasChildren: false,
-          contextOnly: false,
+          contextOnly: !matchingIds.has(task.id),
         })),
       ];
     });

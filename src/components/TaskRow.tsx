@@ -15,9 +15,10 @@ import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
 
-export function taskContextMessage(task: TaskView): string {
-  const status = taskStatusMeta[task.status].label.toLowerCase();
-  return `Still visible because children aren't ${status} yet.`;
+export function taskContextMessage(indented: boolean): string {
+  return indented
+    ? "Shown with parent, outside current results."
+    : "Shown because a child matches the current filters.";
 }
 
 /** Informational status icon. Interactive toggling stays with the list. */
@@ -309,8 +310,12 @@ export function TaskRow({
           <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} />
         ) : null}
         {variant === "full" && contextOnly ? (
-          <p data-parent-context className="text-xs text-muted-foreground">
-            {taskContextMessage(task)}
+          <p
+            data-parent-context={!indented || undefined}
+            data-child-context={indented || undefined}
+            className="text-xs text-muted-foreground"
+          >
+            {taskContextMessage(indented)}
           </p>
         ) : null}
         {variant === "full" && showDetails ? <TaskRowTimestamps task={task} /> : null}
