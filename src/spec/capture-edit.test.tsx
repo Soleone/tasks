@@ -310,7 +310,7 @@ describe("shorthand", () => {
         within(bar)
           .getAllByRole("button")
           .map((button) => button.getAttribute("aria-label")),
-      ).toEqual(["@", "#", "Move cursor left", "Move cursor right"]);
+      ).toEqual(["Escape", "@", "#", "Move cursor left", "Move cursor right"]);
       await barKey(user, "Move cursor left");
       expect(titleField().selectionStart).toBe(7);
       await barKey(user, "Move cursor right");
@@ -335,6 +335,23 @@ describe("shorthand", () => {
       await barKey(user, "#");
       expect(notes.value).toBe("A#😀B");
       expect(document.activeElement).toBe(notes);
+    });
+
+    test("platform.keyboard-bar: Escape uses the focused field's behavior before canceling", async () => {
+      const { user } = await workspace.render();
+      await capture(user, "Buy #er");
+      await barKey(user, "Escape");
+      expect(titleField().value).toBe("Buy ");
+      await focusedTitleField();
+      await user.keyboard("{Tab}{Tab}Notes");
+      await barKey(user, "Escape");
+      await focusedTitleField();
+      await barKey(user, "Escape");
+      expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
+      await capture(user, "Another task");
+      await user.keyboard("{Tab}");
+      await barKey(user, "Escape");
+      expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
     });
 
     test("platform.keyboard-bar: holding a touch arrow repeats and release stops it", async () => {

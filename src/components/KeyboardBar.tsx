@@ -28,6 +28,14 @@ export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarPro
   }, [disabled]);
 
   const keys = [
+    {
+      label: "Esc",
+      name: "Escape",
+      press: () =>
+        document.activeElement?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+        ),
+    },
     { label: "@", name: "@", press: () => onMarker("@") },
     { label: "#", name: "#", press: () => onMarker("#") },
     {
@@ -47,7 +55,7 @@ export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarPro
     <div
       role="toolbar"
       aria-label="Keyboard keys"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 gap-1 border-t bg-background p-1"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 gap-1 border-t bg-background p-1"
     >
       {keys.map((key) => (
         <Button
