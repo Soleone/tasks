@@ -186,12 +186,18 @@ describe("priority and copy", () => {
 });
 
 describe("undo", () => {
-  test("undo.latest: Ctrl+Z undoes this client's latest change and confirms it", async () => {
+  test("undo.latest: Ctrl+Z undoes and confirms the latest change; redo shortcuts never undo", async () => {
     const task = await workspace.create("Task");
     const { user } = await workspace.render();
     await expectActive("Task");
     await user.keyboard(" ");
     await expectStatus(task.id, "in_progress");
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Undo" }).disabled).toBe(false),
+    );
+    const saved = await workspace.task(task.id);
+    await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}{Control>}y{/Control}");
+    expect(await workspace.task(task.id)).toEqual(saved);
     await user.keyboard("{Control>}z{/Control}");
     await expectStatus(task.id, "open");
     await screen.findByText("Undo status change to Open");

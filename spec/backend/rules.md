@@ -43,6 +43,10 @@ Each operation uses one captured instant.
 | Reorder or key maintenance | kept | kept |
 | Undo of a status change | kept | the exact earlier value |
 | Undo of a content or link change | now | earlier value only if closure changed |
+| Redo of a status change | kept | the exact recorded forward value |
+| Redo of a content or link change | now | recorded forward value only if closure changed |
+| Redo of an order change | kept | kept |
+| Redo of a create | original value | original value |
 
 | Rule | Then |
 | --- | --- |
@@ -91,7 +95,16 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `undo.graph` | The whole resulting graph is checked before any write |
 | `undo.not-destructive` | Purge, doctor and migration can't be undone. Their recovery copies replace undo |
 | `undo.unavailable` | Ineligible undo fails `UNDO_UNAVAILABLE` or `OPERATION_UNAVAILABLE` and changes nothing |
-| `undo.no-redo` | There is no redo and no undo of an undo |
+| `undo.direction` | `operation.undo` reverses an original supported change or a completed `operation.redo`, never an undo. `operation.redo` reverses a completed `operation.undo` |
+
+## Redo
+
+| Rule | Then |
+| --- | --- |
+| `redo.operation` | `operation.redo` reapplies one undone operation from its recorded effect, not by rerunning its original command. Unrelated current fields are kept; the complete resulting graph and any affected sibling scope are checked before writing |
+| `redo.claims` | Each successful undo or redo records a fresh operation ID and consumes its immediate source once. Repeated cycles use those new IDs; old claims and receipts are never reset |
+| `redo.create` | Redo of an undone create restores its retained task with the same ID, fields, order key and timestamps only if its file is absent, no conflict evidence exists for it, and the resulting graph is valid. It never creates a replacement ID or overwrites a reappeared file |
+| `redo.unavailable` | Missing, consumed or unsafe redo history fails `OPERATION_UNAVAILABLE` without changing files or consuming the request's idempotency key |
 
 ## Purge
 

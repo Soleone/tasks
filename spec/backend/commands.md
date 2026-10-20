@@ -64,7 +64,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `task.order.normalize` | `parentId`, every sibling as `tasks: [{id, expectedVersion}]` in order | sibling tasks, `parentId`, `changed`, `rewrittenIds`, `operationId` |
 | `task.transitionMany` | `tasks: [{id, expectedVersion, command}]` | `tasks`, `changed`, `operationId` |
 | `task.status.undoMany` | `tasks: [{id, expectedVersion}]` | `tasks`, `changed`, `operationId` |
-| `operation.undo` | `operationId` | affected tasks, `changed`, `operationId`; a create undo adds `removedIds`, `recoveryLocation` |
+| `operation.undo` | `operationId` of a supported forward change or completed redo | affected tasks, `changed`, `operationId`; a create undo adds `removedIds`, `recoveryLocation` |
+| `operation.redo` | `operationId` of a completed `operation.undo` | affected tasks, `changed`, a new `operationId` |
 | `task.purgeCanceled` | none | `purgedIds`, `changed`, `recoveryLocation` |
 
 | Rule | Then |
@@ -124,7 +125,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `INVALID_CANONICAL` / `INVALID_STORAGE` | Invalid files, or a storage failure |
 | `STALE_FILE` / `STALE_SCOPE` / `ORDER_KEY_LIMIT` | Files changed under the write, or order key too long |
 | `PURGE_REFERENCED` | Survivors still link to canceled tasks |
-| `UNDO_UNAVAILABLE` / `OPERATION_UNAVAILABLE` | Nothing eligible to undo |
+| `UNDO_UNAVAILABLE` / `OPERATION_UNAVAILABLE` | Nothing eligible to undo, or no eligible operation to redo |
 | `AMBIGUOUS_LINK` / `STALE_REPAIR_PLAN` | Doctor needs a link choice, or its plan is out of date |
 | `RECOVERY_PENDING` / `RECOVERY_CONFLICT` | Unfinished work blocks writes, or can't be safely finished |
 | `MIGRATION_INVALID_SOURCE` / `MIGRATION_CONFLICT` / `DESTINATION_NOT_EMPTY` | Bad migration source, source changed, destination occupied |

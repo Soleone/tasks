@@ -1,6 +1,6 @@
 # Safety
 
-Tasks never pretends a write succeeded, never invents data to fill a gap, and never brings back a deleted file. When something is uncertain, it stops and keeps what it needs for a person to decide.
+Tasks never pretends a write succeeded or invents data to fill a gap. Reading never brings back a deleted file; an explicit [redo of an undone create](rules.md#redo) can restore its retained task. When something is uncertain, Tasks stops and keeps what it needs for a person to decide.
 
 ## Observing the folder
 

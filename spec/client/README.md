@@ -7,7 +7,7 @@ The desktop app and the web app are one client. This folder describes what a per
 | [home.md](home.md) | Launch, focus, moving around, selection, reorder, details |
 | [toolbar.md](toolbar.md) | Filters, search, sort and the count line |
 | [capture-edit.md](capture-edit.md) | The inline editor, shorthand, the move and blocker pickers |
-| [status-undo.md](status-undo.md) | Status and priority shortcuts, batches, copy, undo |
+| [status-undo.md](status-undo.md) | Status and priority shortcuts, batches, copy, undo and redo |
 | [settings.md](settings.md) | Settings, themes, help, font size, backup and restore |
 | [platforms.md](platforms.md) | Desktop, web, Linux and Windows differences |
 
@@ -36,6 +36,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `0`–`4` | Set priority P0–P4 | `priority.set` |
 | `Ctrl/⌘+C` | Copy title and description | `copy.text` |
 | `Ctrl/⌘+Z` | Undo this client's latest change | `undo.latest` |
+| `Ctrl+Y` / `Ctrl/⌘+Shift+Z` | Redo this client's most recently undone change | `redo.latest` |
 | `B` | Add or remove a blocker | `pick.blocker` |
 | `M` | Move under another task, or remove the parent | `pick.parent` |
 | `V` / `Shift+V` | Toggle details of the active task / of all tasks | `details.toggle-active`, `details.toggle-all` |
