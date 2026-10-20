@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./components/ui/field";
 import { Input } from "./components/ui/input";
-import { markBackendReady, startLaunchTiming } from "./launchTiming";
+import { markBackendReady, markStartupStep, startLaunchTiming } from "./launchTiming";
 import { selectMainWorkspace } from "./platform/backendClient";
 import {
   createFolder,
@@ -20,6 +20,8 @@ import {
 import { EditorClient } from "./platform/editorClient";
 import { MainWorkspace } from "./platform/mainWorkspace";
 import { WorkspaceReader } from "./platform/workspaceReader";
+
+markStartupStep("desktop");
 
 /** The app keeps talking to the backend that checked the folder. */
 function openWorkspace({ selection, session }: FolderSetup): MainWorkspace {

@@ -1,6 +1,6 @@
 # Tasks: roadmap
 
-Updated 2026-10-19. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
+Updated 2026-10-20. This file holds direction, current state, the next step and the gates. The working plan for the cutover cleanup is `$DATA/plans/2026-10-14-tasks-full-cutover-cleanup.md` (stages 0 to 6). The previous detailed roadmap is in git at `f568d2b:PLAN.md`; older milestone history is at `86e3c1b:PLAN.md`.
 
 ## Direction
 
@@ -49,8 +49,9 @@ Remaining follow-ups, each requiring its own go-ahead:
 1. Gather detailed daily-use feedback, including faster saves and repeated keyboard reorder; high-level native success does not establish every workflow or multi-day acceptance.
 2. Rebuild Windows crash checks for the unified backend (the proof-profile checks were removed).
 3. Investigate the web bundle's chunk-size warning if load performance warrants it; do not hide it by raising the warning limit.
-4. Launch speed (owner, 2026-10-19: measure first). Launch now starts the backend once instead of twice. Settings → Data → Launch time keeps the last five launches split into steps; the owner sends a few from a Windows build (one right after a reboot) before anything else changes. Showing the last list before the backend answers is the candidate fix for felt speed, not yet approved.
-5. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
+4. Launch speed (owner, 2026-10-19: measure first; 2026-10-20: finer native-call measurement before a fix). Launch starts the backend once. Measured on Windows 11 (2026-10-19, about 140 tasks): about 1 s total, split into window ~330, app code ~320, backend ~140 and first list ~107 ms. After a reboot, Bitdefender added ~850 ms to the backend step on every launch; an install-folder exception removed it. Release signing remains a publication follow-up, not a measured code fix. The app-code interval includes desktop-module loading, React mounting and three sequential native path calls (Documents, app data, suggested folder), even when reopening a remembered folder. Settings → Data → Launch time now splits those five intervals; the owner rebuilds on Windows and sends new launches before a startup fix is chosen. No new native measurements or personal workspace access by the agent. Showing a saved list before the backend answers is still unapproved.
+5. Settings cleanup is approved after the Windows timing review (owner, 2026-10-20): remove launch diagnostics and the placeholder Shortcuts tab, leaving General and Data. Keep font size, keyboard help, task folder, backup/restore and keyboard focus behavior. Keep the timing UI until that checkpoint.
+6. Personal migration remains owner-only and needs explicit permission; native smoke success does not imply it happened.
 
 Kit adoption is at r4. `src/components/ui` and `src/components/soleone` match stock registry sources.
 

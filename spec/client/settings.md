@@ -33,7 +33,7 @@
 | `backup.restore` | Restore to new folder | Copies a backup into a new folder. The current workspace is untouched; the new folder must be opened separately |
 | `backup.confirm` | Either action | Shows source and destination, then asks for a separate confirmation |
 | `backup.contents` | Any copy | Includes tasks and conflict originals. The local cache and undo history are not copied |
-| `settings.launch-time` | Data tab, after a launch that opened the remembered folder directly | Lists the last five launches, newest first: the time to the first rows on screen, split into window, page, app code, backend, first list and rows. First launches and the setup form aren't timed |
+| `settings.launch-time` | Data tab, after a launch that opened the remembered folder directly | Lists the last five launches, newest first: the time to the first rows on screen, split into window, page, app load, mount, documents, app data, folder path, backend, first list and rows. App load covers loading the desktop module; mount ends when path lookup starts; documents, app data and folder path cover the sequential native path calls. First launches and the setup form aren't timed |
 
 ## Preferences
 

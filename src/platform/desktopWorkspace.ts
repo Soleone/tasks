@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir, documentDir, join } from "@tauri-apps/api/path";
 import { randomUUID } from "@/lib/randomUUID";
+import { markStartupStep } from "@/launchTiming";
 import { parseResponse, type Response } from "@/backend/protocol";
 import { EDITOR_COMMANDS } from "@/backend/editorCommands";
 import { androidBackend } from "./androidBackend";
@@ -18,8 +19,12 @@ export type DesktopPaths = { appData: string; suggestedFolder: string };
 const ANDROID_DOCUMENTS = "/storage/emulated/0/Documents";
 
 export async function desktopPaths(): Promise<DesktopPaths> {
+  markStartupStep("paths");
   const documents = isAndroid() ? ANDROID_DOCUMENTS : await documentDir();
-  return { appData: await appDataDir(), suggestedFolder: await join(documents, "Tasks") };
+  markStartupStep("documents");
+  const appData = await appDataDir();
+  markStartupStep("appData");
+  return { appData, suggestedFolder: await join(documents, "Tasks") };
 }
 
 export function rememberedFolder(): string | null {

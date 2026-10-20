@@ -7,14 +7,19 @@ export type LaunchTiming = {
   totalMs: number;
 };
 
-type Point = "process" | "page" | "script" | "appCode" | "backend" | "list" | "rows";
+type StartupPoint = "desktop" | "paths" | "documents" | "appData";
+type Point = StartupPoint | "process" | "page" | "script" | "appCode" | "backend" | "list" | "rows";
 
 const STORAGE_KEY = "tasks.launchTimings";
 const KEPT_LAUNCHES = 5;
 const STEPS: { label: string; from: Point; to: Point }[] = [
   { label: "window", from: "process", to: "page" },
   { label: "page", from: "page", to: "script" },
-  { label: "app code", from: "script", to: "appCode" },
+  { label: "app load", from: "script", to: "desktop" },
+  { label: "mount", from: "desktop", to: "paths" },
+  { label: "documents", from: "paths", to: "documents" },
+  { label: "app data", from: "documents", to: "appData" },
+  { label: "folder path", from: "appData", to: "appCode" },
   { label: "backend", from: "appCode", to: "backend" },
   { label: "first list", from: "backend", to: "list" },
   { label: "rows", from: "list", to: "rows" },
@@ -32,6 +37,11 @@ function mark(point: Point): void {
 /** The main script ran. Recorded on every launch; kept only if the launch is timed. */
 export function markScript(): void {
   mark("script");
+}
+
+/** Captures startup work before we know whether a remembered folder will open. */
+export function markStartupStep(point: StartupPoint): void {
+  mark(point);
 }
 
 /**
