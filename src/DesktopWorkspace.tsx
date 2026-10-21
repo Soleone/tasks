@@ -128,6 +128,8 @@ async function openHome(
 /** The app opens the remembered Tasks home. On first launch it asks for one. */
 export default function DesktopWorkspace(): ReactElement | null {
   const [home, setHome] = useState("");
+  // The remembered home while setup was asked for from Settings, so setup can go back to it.
+  const [current, setCurrent] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -154,8 +156,9 @@ export default function DesktopWorkspace(): ReactElement | null {
   }
 
   const launch = useEffectEvent((remembered: string | null, suggested: string) => {
-    if (remembered) void run("Opening Tasks...", remembered, "launch");
+    if (remembered && !homeChoiceRequested) void run("Opening Tasks...", remembered, "launch");
     else {
+      setCurrent(remembered);
       setHome(suggested);
       setShowForm(true);
     }
@@ -167,7 +170,7 @@ export default function DesktopWorkspace(): ReactElement | null {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([homeChoiceRequested ? null : rememberedHome(), suggestedHome()]).then(
+    void Promise.all([rememberedHome(), suggestedHome()]).then(
       ([remembered, suggested]) => {
         if (!cancelled) launch(remembered, suggested);
       },
@@ -264,6 +267,16 @@ export default function DesktopWorkspace(): ReactElement | null {
             >
               Open existing home
             </Button>
+            {current && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy !== null}
+                onClick={() => void run("Opening Tasks...", current, "launch")}
+              >
+                Back to current home
+              </Button>
+            )}
           </div>
           {previousFolder && (
             <div className="flex flex-col gap-3">
