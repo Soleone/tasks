@@ -299,6 +299,23 @@ export function rebuildQueryAuthority(
   return synchronizeAuthority(database, root, snapshot);
 }
 
+const SQLITE_BUSY = 5;
+
+/** Starts a write transaction, waiting a second for another process before refusing. */
+export function beginImmediate(database: DatabaseSync): void {
+  database.exec("PRAGMA busy_timeout = 1000");
+  try {
+    database.exec("BEGIN IMMEDIATE");
+  } catch (error) {
+    if ((error as { errcode?: unknown }).errcode === SQLITE_BUSY)
+      throw new CommandError(
+        "FOLDER_IN_USE",
+        "Another Tasks window or the CLI is busy with these tasks. Try again in a moment.",
+      );
+    throw error;
+  }
+}
+
 export function withCacheTransaction<T>(
   cachePath: string,
   root: RootBinding,
@@ -308,7 +325,8 @@ export function withCacheTransaction<T>(
   mkdirSync(path.dirname(resolved), { recursive: true });
   const database = new DatabaseSync(resolved);
   try {
-    database.exec("PRAGMA busy_timeout = 1000; PRAGMA synchronous = FULL; BEGIN IMMEDIATE");
+    database.exec("PRAGMA synchronous = FULL");
+    beginImmediate(database);
     initializeQueryCache(database);
     const result = action(database);
     database.exec("COMMIT");

@@ -127,4 +127,5 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `UNDO_UNAVAILABLE` / `OPERATION_UNAVAILABLE` | Nothing eligible to undo, or no eligible operation to redo |
 | `AMBIGUOUS_LINK` / `STALE_REPAIR_PLAN` | Doctor needs a link choice, or its plan is out of date |
 | `RECOVERY_PENDING` / `RECOVERY_CONFLICT` | Unfinished work blocks writes, or can't be safely finished |
+| `FOLDER_IN_USE` | Another window or the CLI holds the folder's lock or cache; try again |
 | `MIGRATION_INVALID_SOURCE` / `MIGRATION_CONFLICT` / `DESTINATION_NOT_EMPTY` | Bad migration source, source changed, destination occupied |

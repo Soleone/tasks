@@ -14,7 +14,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import { homeOfRoot } from "./home.js";
-import { localPathOutsideRoot } from "./queryCache.js";
+import { beginImmediate, localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 
 let otherRoots: string | undefined;
@@ -81,7 +81,7 @@ export function withRootWriterLock<T>(root: RootBinding, action: () => T): T {
   const lock = new DatabaseSync(lockPath);
   try {
     // SQLite releases this cross-cache, root-scoped lock even if its process is killed.
-    lock.exec("PRAGMA busy_timeout = 1000; BEGIN IMMEDIATE");
+    beginImmediate(lock);
     return action();
   } finally {
     lock.close();

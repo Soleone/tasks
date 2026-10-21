@@ -213,9 +213,16 @@ test(
     const contexts = { app: contextOf("app", alias), cli: contextOf("cli", home) };
     const lock = new DatabaseSync(path.join(home, "local", "lock.db"));
     lock.exec("BEGIN IMMEDIATE");
-    refused(createTask("app", alias, contexts.app, "While locked"), "INVALID_STORAGE");
-    refused(createTask("cli", home, contexts.cli, "While locked too"), "INVALID_STORAGE");
+    const busy = createTask("app", alias, contexts.app, "While locked");
+    refused(busy, "FOLDER_IN_USE");
+    assert.match(busy.ok ? "" : busy.error.message, /Another Tasks window or the CLI is busy/);
+    refused(createTask("cli", home, contexts.cli, "While locked too"), "FOLDER_IN_USE");
     lock.close();
+    // Each client's own cache refuses the same way while another process of that client writes.
+    const cache = new DatabaseSync(path.join(home, "local", "cli.db"));
+    cache.exec("BEGIN IMMEDIATE");
+    refused(createTask("cli", alias, contexts.cli, "While the cache is busy"), "FOLDER_IN_USE");
+    cache.close();
     assert.deepEqual(titles("cli", alias), ["From the CLI", "From the app"]);
 
     writeFileSync(path.join(home, "local", "pending.json"), "{}\n");

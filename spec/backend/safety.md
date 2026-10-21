@@ -15,7 +15,7 @@ Tasks never pretends a write succeeded or invents data to fill a gap. Reading ne
 
 | Rule | Then |
 | --- | --- |
-| `write.lock` | Writers on one device share a lock for the folder. Syncthing and text editors don't, so a racing external edit can be overwritten; preserved conflict copies and backups cover that |
+| `write.lock` | Writers on one device share a lock for the folder. Syncthing and text editors don't, so a racing external edit can be overwritten; preserved conflict copies and backups cover that. A writer that waits a second for the lock is refused with `FOLDER_IN_USE` and changes nothing |
 | `write.validate-first` | All effects are checked before the first file changes |
 | `write.journal` | Before changing several files, the writer saves a pending record outside the folder with the old and new bytes, fixed IDs, keys and times. Creating or editing one task needs none: its rename is atomic |
 | `write.guard` | Each replacement first checks the file and its sibling set are still as observed |

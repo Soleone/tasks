@@ -93,6 +93,41 @@ export class AppWorkspace {
     ).task;
   }
 
+  /** Writes through `tasks-cli`'s path: the same home, with the CLI's own cache and context. */
+  async cli<T = Record<string, unknown>>(
+    command: string,
+    args: Record<string, unknown> = {},
+  ): Promise<T> {
+    const send = async (request: Record<string, unknown>) => {
+      const response = await fetch(
+        `${inject("workspaceServerUrl")}/cli?url=${encodeURIComponent(this.url)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            version: 2,
+            requestId: crypto.randomUUID(),
+            actor: { kind: "human", label: "tasks-cli" },
+            ...request,
+          }),
+        },
+      );
+      const reply = (await response.json()) as Record<string, unknown>;
+      if (reply.ok !== true) throw new Error(`${command} failed: ${JSON.stringify(reply)}`);
+      return reply;
+    };
+    const { writeContext } = await send({ command: "workspace.info" });
+    return (await send({ command, args, writeContext, idempotencyKey: crypto.randomUUID() }))
+      .result as T;
+  }
+
+  /** Delivers a fixture task file into the sync folder, as Syncthing would from another device. */
+  async arrive(name: string): Promise<void> {
+    const response = await fetch(
+      `${inject("workspaceServerUrl")}/arrive?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
+    );
+    if (!response.ok) throw new Error(await response.text());
+  }
+
   /** The text of one of the home's own documents, or null when it doesn't exist. */
   async homeDocument(name: "settings" | "undo"): Promise<string | null> {
     const reply = await this.post({ command: "home.document.read", args: { name } });
