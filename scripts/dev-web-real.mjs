@@ -15,9 +15,9 @@ import { createInterface } from "node:readline/promises";
 const testData = path.join(import.meta.dirname, "fixtures/workspace/root");
 
 /**
- * Keeps one copy of the owner's real task folder for `pnpm dev:web:real`. The
- * copy and its cache live in local app data, outside any Syncthing folder,
- * so dev edits never reach the real tasks. `--refresh` asks again and replaces the copy.
+ * Keeps one copy of the owner's real task folder for `pnpm dev:web:real`, as the sync folder of
+ * a Tasks home in local app data, outside any Syncthing folder, so dev edits never reach the
+ * real tasks. `--refresh` asks again and replaces the copy.
  */
 export async function realSnapshot(refresh) {
   const home = snapshotHome();
@@ -34,17 +34,14 @@ export async function realSnapshot(refresh) {
   }
   const source = choice ?? testData;
   if (!isFolder(source)) throw new Error(`${source} is not a folder; fix or delete ${configFile}`);
-  const root = path.join(snapshot, "root");
+  const root = path.join(snapshot, "sync");
   if (refresh || !existsSync(root)) {
     rmSync(snapshot, { recursive: true, force: true });
     cpSync(source, root, { recursive: true });
+    mkdirSync(path.join(snapshot, "local"));
     process.stdout.write(`[dev:web] copied ${describe(source)} to ${root}\n`);
   }
-  return {
-    root,
-    database: path.join(snapshot, "cache.db"),
-    profile: path.join(snapshot, "profile"),
-  };
+  return { home: snapshot };
 }
 
 /** Enter takes the default. Without a terminal (agents, CI) it never asks and never picks a found folder. */

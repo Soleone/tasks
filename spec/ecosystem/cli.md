@@ -9,7 +9,7 @@ There are two ways in from outside the app. Both use the same [commands](../back
 
 | Rule | Then |
 | --- | --- |
-| `cli.explicit-root` | Every call names the folder with `--root PATH` and the cache with `--database PATH` outside that folder. There is no default workspace and no environment fallback |
+| `cli.explicit-root` | Every call names the Tasks home with `--home PATH`; the CLI keeps its own cache in the home's `local/`. There is no default home and no environment fallback. `--root PATH --database PATH` selects a bare folder for tests and conversion, and can't be combined with `--home` |
 
 ## Verbs
 
@@ -28,7 +28,8 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | `purge-canceled` | `task.purgeCanceled` |
 | `activity [--task ID]` | `activity.list` |
 | `categories`, `tags`, `info` | `category.list`, `tag.list`, `workspace.info` |
-| `init`, `rebuild` | `workspace.init`, `workspace.rebuild` |
+| `init`, `rebuild` | `workspace.init` (creating the home first), `workspace.rebuild` |
+| `rebind`, `new-history` | `workspace.rebind`, `workspace.newHistory` |
 | `archive DEST`, `restore SRC DEST` | `workspace.archive`, `workspace.restore` |
 | `migrate DEST` | `workspace.migrate` |
 | `recover OPERATION_ID` | `workspace.recovery.resume` |

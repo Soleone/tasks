@@ -8,7 +8,7 @@ import {
   doctorCorpus as corpus,
   doctorRaw as raw,
 } from "./doctorTestWorkspace.js";
-import { fail, send, success } from "./copyTestWorkspace.js";
+import { fail, send, startNewHistory, success } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import type { DoctorPlan } from "./doctorPlan.js";
 import type { DoctorIssue, DoctorLink, DoctorVersion } from "./doctorSource.js";
@@ -582,6 +582,7 @@ for (const mode of ["lost", "copied"])
         const cache = path.join(w.directory, "copied.db");
         cpSync(w.cache, cache);
         selected = { ...w, cache };
+        startNewHistory(selected);
       }
       assert.notEqual(inspect(selected).writeContext, request.writeContext);
       fail(send(selected, request), "STALE_WRITE_CONTEXT");

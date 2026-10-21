@@ -342,7 +342,10 @@ for (const fault of [
       }
       const before = raw(w),
         evidence = readFileSync(pending);
-      fail(recover(selected, intent.operationId), "RECOVERY_CONFLICT");
+      fail(
+        recover(selected, intent.operationId),
+        fault === "copied-cache" ? "CACHE_FROM_ELSEWHERE" : "RECOVERY_CONFLICT",
+      );
       assert.deepEqual(raw(w), before);
       assert.deepEqual(readFileSync(pending), evidence);
     },

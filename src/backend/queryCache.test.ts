@@ -19,6 +19,7 @@ import type { TestContext } from "node:test";
 import { readCanonicalRoot } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { executeLine } from "./gateway.js";
+import type { Response } from "./protocol.js";
 import { observeQueryAuthority, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 
 const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
@@ -28,6 +29,10 @@ function setup(t: TestContext): { root: string; cache: string } {
   const root = path.join(directory, "root");
   cpSync(golden, root, { recursive: true });
   return { root, cache: path.join(directory, "cache.db") };
+}
+
+function request(root: string, cache: string, command: string): Response {
+  return executeLine(Buffer.from(JSON.stringify({ version: 2, command })), root, cache);
 }
 
 test("query context and versions persist across cache reopen; complete cache loss rotates authority", (t) => {
@@ -42,22 +47,98 @@ test("query context and versions persist across cache reopen; complete cache los
   assert.deepEqual(readCanonicalRoot(root).files, snapshot.files);
 });
 
-test("copied/moved caches cannot inherit another physical cache's context", (t) => {
+test("auth.fresh-context: a copied or replaced cache is refused, never wiped or adopted", (t) => {
   const { root, cache } = setup(t);
   const snapshot = readCanonicalRoot(root);
   const first = observeQueryAuthority(cache, snapshot, snapshot);
   const copy = `${cache}.copy`;
   cpSync(cache, copy);
-  const copied = observeQueryAuthority(copy, snapshot, snapshot);
-  assert.notEqual(copied.writeContext, first.writeContext);
+  assert.throws(() => observeQueryAuthority(copy, snapshot, snapshot), {
+    code: "CACHE_FROM_ELSEWHERE",
+  });
   assert.deepEqual(observeQueryAuthority(cache, snapshot, snapshot), first);
   const replacement = `${cache}.replacement`;
   cpSync(cache, replacement);
   renameSync(cache, `${cache}.old`);
   renameSync(replacement, cache);
-  const replaced = observeQueryAuthority(cache, snapshot, snapshot);
-  assert.notEqual(replaced.writeContext, first.writeContext);
-  assert.deepEqual(observeQueryAuthority(cache, snapshot, snapshot), replaced);
+  assert.throws(() => observeQueryAuthority(cache, snapshot, snapshot), {
+    code: "CACHE_FROM_ELSEWHERE",
+  });
+});
+
+test("auth.fresh-context: a new history sets the copied cache aside and starts a new context", (t) => {
+  const { root, cache } = setup(t);
+  const snapshot = readCanonicalRoot(root);
+  const first = observeQueryAuthority(cache, snapshot, snapshot);
+  const copy = path.join(path.dirname(cache), "copy.db");
+  cpSync(cache, copy);
+  const copied = request(root, copy, "workspace.newHistory");
+  assert.equal(copied.ok, true, JSON.stringify(copied));
+  if (!copied.ok) return;
+  assert.notEqual(copied.writeContext, first.writeContext);
+  const retired = copied.result.retiredPath as string;
+  assert.equal(path.dirname(retired), path.join(path.dirname(cache), "retired"));
+  assert.deepEqual(readFileSync(retired), readFileSync(cache));
+  const again = request(root, copy, "workspace.newHistory");
+  assert.equal(again.ok ? "" : again.error.code, "UNSUPPORTED_COMMAND");
+});
+
+test("auth.moved-home: a moved folder and cache keep their history only after confirmation", (t) => {
+  const { root, cache } = setup(t);
+  let snapshot = readCanonicalRoot(root);
+  const first = observeQueryAuthority(cache, snapshot, snapshot);
+  const moved = `${path.dirname(root)}-moved`;
+  renameSync(path.dirname(root), moved);
+  t.after(() => rmSync(moved, { recursive: true, force: true }));
+  const movedRoot = path.join(moved, path.basename(root));
+  const movedCache = path.join(moved, path.basename(cache));
+  snapshot = readCanonicalRoot(movedRoot);
+  assert.throws(() => observeQueryAuthority(movedCache, snapshot, snapshot), {
+    code: "HOME_MOVED",
+  });
+  const confirmed = request(movedRoot, movedCache, "workspace.rebind");
+  assert.equal(confirmed.ok && confirmed.writeContext, first.writeContext);
+  assert.equal(
+    observeQueryAuthority(movedCache, snapshot, snapshot).writeContext,
+    first.writeContext,
+  );
+});
+
+test("auth.moved-home: a new device number for the same files keeps the context silently", (t) => {
+  const { root, cache } = setup(t);
+  const snapshot = readCanonicalRoot(root);
+  const first = observeQueryAuthority(cache, snapshot, snapshot);
+  const database = new DatabaseSync(cache);
+  const { binding } = database.prepare("SELECT binding FROM v2_query_state").get() as {
+    binding: string;
+  };
+  const [rootPath, rootIdentity, cachePath, cacheIdentity] = JSON.parse(binding) as string[];
+  const remounted = (identity: string) => `9${identity}`;
+  database
+    .prepare("UPDATE v2_query_state SET binding = ?")
+    .run(JSON.stringify([rootPath, remounted(rootIdentity), cachePath, remounted(cacheIdentity)]));
+  database.close();
+  assert.equal(observeQueryAuthority(cache, snapshot, snapshot).writeContext, first.writeContext);
+});
+
+test("auth.fresh-context: one cache never serves another folder, even at the same path", (t) => {
+  const { root, cache } = setup(t);
+  let snapshot = readCanonicalRoot(root);
+  const first = observeQueryAuthority(cache, snapshot, snapshot);
+  const otherRoot = `${root}-other`;
+  cpSync(golden, otherRoot, { recursive: true });
+  snapshot = readCanonicalRoot(otherRoot);
+  assert.throws(() => observeQueryAuthority(cache, snapshot, snapshot), {
+    code: "CACHE_FROM_ELSEWHERE",
+  });
+  snapshot = readCanonicalRoot(root);
+  assert.deepEqual(observeQueryAuthority(cache, snapshot, snapshot), first);
+  renameSync(root, `${root}-old`);
+  cpSync(golden, root, { recursive: true });
+  snapshot = readCanonicalRoot(root);
+  assert.throws(() => observeQueryAuthority(cache, snapshot, snapshot), {
+    code: "CACHE_FROM_ELSEWHERE",
+  });
 });
 
 test("query tokens notice formatting, deletion/reappearance and moves whose selected key stays unchanged", (t) => {
@@ -89,25 +170,6 @@ test("query tokens notice formatting, deletion/reappearance and moves whose sele
   const restored = observeQueryAuthority(cache, snapshot, snapshot);
   assert.ok(restored.versions.get(selected.id)! > formatted.versions.get(selected.id)!);
   assert.ok(restored.workspaceRevision > first.workspaceRevision);
-});
-
-test("query context rotates on root switching and same-path physical root replacement", (t) => {
-  const { root, cache } = setup(t);
-  let snapshot = readCanonicalRoot(root);
-  const first = observeQueryAuthority(cache, snapshot, snapshot);
-  const otherRoot = `${root}-other`;
-  cpSync(golden, otherRoot, { recursive: true });
-  snapshot = readCanonicalRoot(otherRoot);
-  const other = observeQueryAuthority(cache, snapshot, snapshot);
-  assert.notEqual(other.writeContext, first.writeContext);
-  snapshot = readCanonicalRoot(root);
-  const back = observeQueryAuthority(cache, snapshot, snapshot);
-  assert.notEqual(back.writeContext, first.writeContext);
-  renameSync(root, `${root}-old`);
-  cpSync(golden, root, { recursive: true });
-  snapshot = readCanonicalRoot(root);
-  const replaced = observeQueryAuthority(cache, snapshot, snapshot);
-  assert.notEqual(replaced.writeContext, back.writeContext);
 });
 
 test("cache rejects dangling aliases into canonical data before SQLite can create files", (t) => {
@@ -279,12 +341,6 @@ test(
   { skip: process.platform !== "linux" },
   (t) => {
     const { root, cache } = setup(t);
-    const previousProfile = process.env.XDG_DATA_HOME;
-    process.env.XDG_DATA_HOME = path.join(path.dirname(cache), "local-data");
-    t.after(() => {
-      if (previousProfile === undefined) delete process.env.XDG_DATA_HOME;
-      else process.env.XDG_DATA_HOME = previousProfile;
-    });
     const send = (request: object) => {
       const response = executeLine(
         Buffer.from(JSON.stringify({ version: 2, ...request })),

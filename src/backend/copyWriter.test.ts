@@ -12,7 +12,13 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
+import {
+  createCopyTestWorkspace as setup,
+  fail,
+  send,
+  startNewHistory,
+  success,
+} from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath, withRootWriterLock } from "./localDomain.js";
@@ -356,6 +362,8 @@ test("copy receipts cannot be adopted from a copied cache", linuxOnly, (t) => {
   const original = success(send(workspace, request));
   const copied = { ...workspace, cache: `${workspace.cache}.copy` };
   cpSync(workspace.cache, copied.cache);
+  fail(send(copied, request), "CACHE_FROM_ELSEWHERE");
+  startNewHistory(copied);
   fail(send(copied, request), "STALE_WRITE_CONTEXT");
   assert.deepEqual(success(send(workspace, request)).result, original.result);
   assert.deepEqual(rawCanonical(workspace.destination), rawCanonical(workspace.root));

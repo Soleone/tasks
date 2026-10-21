@@ -165,7 +165,7 @@ export function readCanonicalDeletionPrefix(
 ): CanonicalSnapshot {
   try {
     return observeRoot(
-      realpathSync(directory),
+      realpathSync.native(directory),
       deletedTasks.map((task) => validateTask(task, task.id)),
     );
   } catch (error) {
@@ -176,7 +176,7 @@ export function readCanonicalDeletionPrefix(
 
 /** Resolve an explicitly selected existing directory, without assuming or creating a schema. */
 export function readPhysicalRoot(directory: string): { rootPath: string; rootIdentity: string } {
-  const rootPath = realpathSync(directory);
+  const rootPath = realpathSync.native(directory);
   return { rootPath, rootIdentity: directoryIdentity(rootPath) };
 }
 
@@ -228,7 +228,7 @@ export type RootInspection = {
 };
 
 export function inspectCanonicalRoot(directory: string): RootInspection {
-  const rootPath = realpathSync(directory);
+  const rootPath = realpathSync.native(directory);
   const rootIdentity = directoryIdentity(rootPath);
   const base = { rootPath, rootIdentity };
   let schemaVersion: number | null = null;
@@ -272,7 +272,7 @@ export function inspectCanonicalRoot(directory: string): RootInspection {
 /** Read-only Node observation, not an API projection, writer lock, journal or distributed snapshot. */
 export function readCanonicalRoot(directory: string): CanonicalSnapshot {
   try {
-    return observeRoot(realpathSync(directory));
+    return observeRoot(realpathSync.native(directory));
   } catch (error) {
     if (error instanceof CommandError) throw error;
     throw new CommandError("INVALID_STORAGE", "canonical root could not be read completely");

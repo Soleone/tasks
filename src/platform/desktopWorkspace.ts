@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { appDataDir, documentDir, join } from "@tauri-apps/api/path";
+import { homeDir, join } from "@tauri-apps/api/path";
 import { randomUUID } from "@/lib/randomUUID";
 import { parseResponse, type Response } from "@/backend/protocol";
 import { EDITOR_COMMANDS } from "@/backend/editorCommands";
@@ -9,109 +9,129 @@ import type { EditorSelection } from "./editorClient";
 import { isAndroid } from "./runtime";
 import { sidecarArgs } from "./workspaceReader";
 
-const FOLDER_KEY = "tasks.workspaceFolder";
+// Android's own document folders are app storage that Syncthing can't reach.
+const ANDROID_SHARED_STORAGE = "/storage/emulated/0";
+const PREVIOUS_FOLDER_KEY = "tasks.workspaceFolder";
+const CHOOSE_HOME_KEY = "tasks.chooseHome";
 
-/** Where the desktop app keeps its own files, and where a first task folder is suggested. */
-export type DesktopPaths = { appData: string; suggestedFolder: string };
-
-// Android's document folder API points at the app's own storage, which Syncthing can't reach.
-const ANDROID_DOCUMENTS = "/storage/emulated/0/Documents";
-
-export async function desktopPaths(): Promise<DesktopPaths> {
-  const documents = isAndroid() ? ANDROID_DOCUMENTS : await documentDir();
-  return { appData: await appDataDir(), suggestedFolder: await join(documents, "Tasks") };
+/** A new home goes in the user folder: on Windows, Documents is often inside OneDrive. */
+export async function suggestedHome(): Promise<string> {
+  return join(isAndroid() ? ANDROID_SHARED_STORAGE : await homeDir(), "Tasks");
 }
 
-export function rememberedFolder(): string | null {
+/** The Tasks home this app opened last, or null on a first launch. */
+export function rememberedHome(): Promise<string | null> {
+  return invoke<string | null>("home_pointer_read");
+}
+
+export function rememberHome(home: string): Promise<void> {
+  return invoke("home_pointer_write", { home });
+}
+
+/** Settings' "Open another home" shows setup on the next start without forgetting this home. */
+export function chooseHomeOnNextStart(): void {
   try {
-    return localStorage.getItem(FOLDER_KEY);
+    sessionStorage.setItem(CHOOSE_HOME_KEY, "1");
+  } catch {
+    // Without session storage the remembered home opens again.
+  }
+}
+
+/** Whether this start should show setup instead of opening the remembered home; asks only once. */
+export function takeHomeChoice(): boolean {
+  try {
+    const requested = sessionStorage.getItem(CHOOSE_HOME_KEY) === "1";
+    sessionStorage.removeItem(CHOOSE_HOME_KEY);
+    return requested;
+  } catch {
+    return false;
+  }
+}
+
+/** The task folder the app used before Tasks homes, left untouched where it is. */
+export function previousTaskFolder(): string | null {
+  try {
+    return localStorage.getItem(PREVIOUS_FOLDER_KEY);
   } catch {
     return null;
   }
 }
 
-export function rememberFolder(folder: string | null): void {
-  try {
-    if (folder === null) localStorage.removeItem(FOLDER_KEY);
-    else localStorage.setItem(FOLDER_KEY, folder);
-  } catch {
-    // Without storage the app asks for the folder on the next launch.
-  }
-}
-
-export function pathExists(path: string): Promise<boolean> {
-  return invoke<boolean>("path_exists", { path });
-}
-
-export function createFolder(path: string): Promise<void> {
-  return invoke("create_folder", { path });
-}
-
-/** Each task folder gets its own cache in the app data folder, named after the folder's path. */
-async function cachePath(appData: string, folder: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(folder));
-  const name = Array.from(new Uint8Array(digest).slice(0, 12), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return join(appData, "caches", `${name}.db`);
-}
-
-async function folderSelection(appData: string, folder: string): Promise<EditorSelection> {
+async function homeSelection(home: string): Promise<EditorSelection> {
   return {
     version: 2,
-    rootPath: folder,
-    databasePath: await cachePath(appData, folder),
-    profilePath: appData,
+    rootPath: await join(home, "sync"),
+    databasePath: await join(home, "local", "app.db"),
+    profilePath: home,
     selectionToken: randomUUID(),
     readOnly: false,
     writeCommands: EDITOR_COMMANDS,
   };
 }
 
-function folderSession(selection: EditorSelection): JsonLineSession<Response> {
+function homeSession(home: string): JsonLineSession<Response> {
   return new JsonLineSession(async () => {
-    const args = sidecarArgs(selection); // Validates the selection on both routes.
-    if (isAndroid()) return androidBackend(selection.rootPath, selection.databasePath);
+    const args = sidecarArgs(home); // Validates the home on both routes.
+    if (isAndroid()) return androidBackend(home);
     const { Command } = await import("@tauri-apps/plugin-shell");
     return Command.sidecar("binaries/tasks-backend", args);
   }, parseResponse);
 }
 
-export type FolderState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
+export type HomeState = "ready" | "empty" | "incomplete" | "unsupported" | "recovery_pending";
+
+/** A refusal from the backend, with its code so setup can offer the matching choice. */
+export class HomeError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 /**
- * One backend conversation about a folder that isn't open in the app yet. When the folder
+ * One backend conversation about a Tasks home that isn't open in the app yet. When the home
  * opens, the app takes over the session, so launch starts the backend only once.
  */
-export class FolderSetup {
+export class HomeSetup {
   private constructor(
     readonly selection: EditorSelection,
     readonly session: JsonLineSession<Response>,
   ) {}
 
-  static async open(appData: string, folder: string): Promise<FolderSetup> {
-    const selection = await folderSelection(appData, folder);
-    return new FolderSetup(selection, folderSession(selection));
+  static async open(home: string): Promise<HomeSetup> {
+    return new HomeSetup(await homeSelection(home), homeSession(home));
   }
 
-  async info(): Promise<{
-    state: FolderState;
-    schemaVersion: number | null;
-    writeContext: string;
-  }> {
+  get home(): string {
+    return this.selection.profilePath;
+  }
+
+  async info(): Promise<{ state: HomeState; writeContext: string }> {
     const response = await this.send("workspace.info", {}, { readOnly: true });
-    const result = response.result as { state: FolderState; schemaVersion: number | null };
-    return {
-      state: result.state,
-      schemaVersion: result.schemaVersion,
-      writeContext: response.writeContext,
-    };
+    return { state: response.result.state as HomeState, writeContext: response.writeContext };
   }
 
-  /** Turns an empty folder into a new task workspace. */
+  /** Creates the home's folders, or finishes an interrupted creation; returns its real path. */
+  async create(): Promise<string> {
+    return (await this.send("home.create", {})).result.homePath as string;
+  }
+
+  /** Turns the home's empty sync folder into a new task workspace. */
   async init(): Promise<void> {
     const { writeContext } = await this.info();
     await this.send("workspace.init", {}, { writeContext, idempotencyKey: randomUUID() });
+  }
+
+  /** The home moved with its cache: keep its history at the new path. */
+  async keepHistory(): Promise<void> {
+    await this.send("workspace.rebind", {});
+  }
+
+  /** The home's cache came with a copy: set it aside and start a new history here. */
+  async startNewHistory(): Promise<void> {
+    await this.send("workspace.newHistory", {});
   }
 
   close(): Promise<void> {
@@ -121,11 +141,7 @@ export class FolderSetup {
   private async send(
     command: string,
     args: Record<string, unknown>,
-    options: {
-      readOnly?: boolean;
-      writeContext?: string;
-      idempotencyKey?: string;
-    },
+    options: { readOnly?: boolean; writeContext?: string; idempotencyKey?: string } = {},
   ): Promise<Extract<Response, { ok: true }>> {
     const request = {
       version: 2 as const,
@@ -139,7 +155,7 @@ export class FolderSetup {
       ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
     };
     const response = await this.session.request(request);
-    if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`);
+    if (!response.ok) throw new HomeError(response.error.code, response.error.message);
     return response;
   }
 }

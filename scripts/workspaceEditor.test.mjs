@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -70,17 +71,15 @@ const statusSources = {
 };
 
 function workspace(t) {
+  // The directory is a Tasks home: the fixture is its sync folder, the app cache is in local.
   const directory = mkdtempSync(path.join(tmpdir(), "tasks-app-editor-"));
-  const root = path.join(directory, "root"),
-    cache = path.join(directory, "cache.db");
+  const root = path.join(directory, "sync"),
+    cache = path.join(directory, "local", "app.db");
   cpSync("scripts/fixtures/workspace/root", root, { recursive: true });
-  const originalXdg = process.env.XDG_DATA_HOME;
+  mkdirSync(path.join(directory, "local"));
   const originalRegistry = process.env.TASKS_SOURCE_REGISTRY_PATH;
-  process.env.XDG_DATA_HOME = path.join(directory, "profile");
   delete process.env.TASKS_SOURCE_REGISTRY_PATH;
   t.after(() => {
-    if (originalXdg === undefined) delete process.env.XDG_DATA_HOME;
-    else process.env.XDG_DATA_HOME = originalXdg;
     if (originalRegistry === undefined) delete process.env.TASKS_SOURCE_REGISTRY_PATH;
     else process.env.TASKS_SOURCE_REGISTRY_PATH = originalRegistry;
     rmSync(directory, { recursive: true, force: true });
@@ -106,7 +105,7 @@ function counts(cache) {
   }
 }
 async function server(t, selected) {
-  const dev = await startDevServer({ port: 0, root: selected.root, databasePath: selected.cache });
+  const dev = await startDevServer({ port: 0, home: selected.directory });
   t.after(() => new Promise((resolve) => dev.server.close(resolve)));
   const handshake = await readEditorSelection(dev.url);
   return { dev, handshake, editor: new EditorClient(dev.url, handshake) };
@@ -129,40 +128,27 @@ function traceFetch(t, alter) {
 for (const argv of [
   ["--edit"],
   ["--database", "cache"],
-  ["--root", "root", "--edit"],
-  ["--root", "root", "--database", "cache", "--edit"],
+  ["--home", "home", "--edit"],
+  ["--root", "root", "--database", "cache"],
 ]) {
   test(`editor launcher refuses incomplete or mixed selection ${JSON.stringify(argv)}`, () =>
     assert.throws(() => devWebOptions(argv)));
 }
-test("an explicit root opens the editor and keeps Vite separation", () => {
-  const options = devWebOptions([
-    "--root",
-    "root",
-    "--database",
-    "cache",
-    "--",
-    "--host",
-    "127.0.0.1",
-  ]);
-  assert.deepEqual(options.backendArgs, [
-    "--root",
-    path.resolve("root"),
-    "--database",
-    path.resolve("cache"),
-  ]);
+test("an explicit home opens the editor and keeps Vite separation", () => {
+  const options = devWebOptions(["--home", "home", "--", "--host", "127.0.0.1"]);
+  assert.deepEqual(options.backendArgs, ["--home", path.resolve("home")]);
   assert.deepEqual(options.viteArgs, ["--host", "127.0.0.1"]);
-  assert.throws(() => startDevServer({}), /requires explicit/);
+  assert.throws(() => startDevServer({}), /requires an explicit --home/);
 });
 
-test("editor health creates no cache or profile", async (t) => {
+test("editor health creates no cache or other local files", async (t) => {
   const selected = workspace(t),
     original = bytes(selected.root);
   const writable = await server(t, selected);
   assert.equal(writable.handshake.readOnly, false);
   assert.deepEqual(writable.handshake.writeCommands, linuxEditorCommands);
   assert.equal(existsSync(selected.cache), false);
-  assert.equal(existsSync(process.env.XDG_DATA_HOME), false);
+  assert.deepEqual(readdirSync(path.join(selected.directory, "local")), []);
   assert.deepEqual(bytes(selected.root), original);
 });
 
@@ -198,7 +184,7 @@ test("editor health requires the exact connected-command whitelist, not comma co
     [...allowed.slice(0, -1), "task.order.normalize"],
     [...allowed.slice(0, -1), "task.start"],
   ])
-    await assert.rejects(readEditorSelection(dev.url), /started with --root/);
+    await assert.rejects(readEditorSelection(dev.url), /started with --home/);
   assert.equal(existsSync(selected.cache), false);
 });
 
@@ -449,19 +435,18 @@ test("successful historical replay after task disappearance does not renew a tas
   assert.equal(existsSync(path.join(selected.root, "tasks", `${original.task.id}.json`)), false);
 });
 
-test("profile selection change is refused before gateway/cache access rather than renewing the retained request", async (t) => {
+test("a home that disappears is refused before gateway/cache access rather than renewing the retained request", async (t) => {
   const selected = workspace(t),
     { editor } = await server(t, selected);
   const prepared = editor.prepare(await editor.begin(), literal),
-    original = bytes(selected.root);
-  const profile = process.env.XDG_DATA_HOME,
-    foreign = path.join(selected.directory, "foreign-profile");
-  process.env.XDG_DATA_HOME = foreign;
+    original = bytes(selected.root),
+    moved = `${selected.directory}-unplugged`;
+  renameSync(selected.directory, moved);
   try {
-    await assert.rejects(prepared.execute(), /STALE_DEV_SELECTION/);
-    assert.equal(existsSync(foreign), false);
+    await assert.rejects(prepared.execute(), /HOME_MISSING/);
+    assert.equal(existsSync(selected.directory), false);
   } finally {
-    process.env.XDG_DATA_HOME = profile;
+    renameSync(moved, selected.directory);
   }
   assert.deepEqual(bytes(selected.root), original);
 });
@@ -577,15 +562,7 @@ test("simulated withheld host refuses the explicit editor launcher before storag
   writeFileSync(loader, 'Object.defineProperty(process,"platform",{value:"darwin"});\n');
   const result = spawnSync(
     process.execPath,
-    [
-      "--import",
-      loader,
-      "dist/backend/devServer.js",
-      "--root",
-      selected.root,
-      "--database",
-      selected.cache,
-    ],
+    ["--import", loader, "dist/backend/devServer.js", "--home", selected.directory],
     { env: process.env, encoding: "utf8" },
   );
   assert.equal(result.status, 1);
@@ -799,10 +776,8 @@ async function processDev(t, selected, loader, port = 0) {
       "dist/backend/devServer.js",
       "--port",
       String(port),
-      "--root",
-      selected.root,
-      "--database",
-      selected.cache,
+      "--home",
+      selected.directory,
     ],
     { env: process.env, stdio: ["ignore", "pipe", "pipe"] },
   );

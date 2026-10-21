@@ -220,9 +220,11 @@ test("info inspects empty, partial and unsupported roots without creating canoni
   const unsupported = result(query(current, "workspace.info"));
   assert.equal(unsupported.state, "unsupported");
   assert.equal(unsupported.schemaVersion, 1);
+  // A folder replaced at the same path is another folder, so it gets its own cache.
   rmSync(current.root, { recursive: true });
   mkdirSync(current.root);
-  const empty = result(query(current, "workspace.info"));
+  const replaced = { ...current, cache: `${current.cache}.replaced` };
+  const empty = result(query(replaced, "workspace.info"));
   assert.equal(empty.state, "empty");
   assert.deepEqual(readdirSync(current.root), []);
 });

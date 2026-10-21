@@ -13,18 +13,33 @@ import {
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import { getDataDirectory } from "./paths.js";
+import { homeOfRoot } from "./home.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 
+let otherRoots: string | undefined;
+
+/**
+ * Where recovery evidence for roots that aren't a home's `sync/` lives: archive destinations,
+ * restore sources and old folders being converted. It sits beside the selected cache, inside the
+ * selected home's `local/` for the app and CLI. Every gateway call selects it first.
+ */
+export function selectOtherRootsDirectory(cachePath: string): void {
+  otherRoots = path.join(path.dirname(path.resolve(cachePath)), "roots");
+}
+
+/**
+ * A home's lock and recovery files sit next to its `sync/`, so every spelling of the path and
+ * every cache shares them.
+ */
 export function localDomain(root: RootBinding): string {
+  const home = homeOfRoot(root.rootPath);
+  if (home) return path.join(home, "local");
+  if (!otherRoots) throw new CommandError("INVALID_STORAGE", "no cache was selected for this root");
   const key = createHash("sha256")
     .update(JSON.stringify([root.rootPath, root.rootIdentity]))
     .digest("hex");
-  return localPathOutsideRoot(
-    path.join(getDataDirectory(), "taskdb-v2", "roots", key),
-    root.rootPath,
-  );
+  return localPathOutsideRoot(path.join(otherRoots, key), root.rootPath);
 }
 
 export function pendingIntentPath(root: RootBinding): string {

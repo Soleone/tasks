@@ -37,8 +37,8 @@ export function inspectCopyDestination(
     throw new CommandError("INVALID_ARGUMENT", "copy destination parent must already exist");
   }
   const directory = entry
-    ? realpathSync(selected)
-    : path.join(realpathSync(path.dirname(selected)), path.basename(selected));
+    ? realpathSync.native(selected)
+    : path.join(realpathSync.native(path.dirname(selected)), path.basename(selected));
   if (
     containsDirectory(sourceDirectory, directory) ||
     containsDirectory(directory, sourceDirectory)

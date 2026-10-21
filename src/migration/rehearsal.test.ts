@@ -249,10 +249,6 @@ test(
     const destination = path.join(directory, "converted");
     const controlCache = path.join(directory, "control.db");
     const freshCache = path.join(directory, "fresh-target.db");
-    const env = {
-      ...process.env,
-      XDG_DATA_HOME: path.join(directory, "profile"),
-    };
     seedLegacyRoot(source);
     cpSync(source, backup, { recursive: true });
     const frozenBytes = rawTree(source);
@@ -262,7 +258,6 @@ test(
         [cli, "--stdio", "--root", root, "--database", cache],
         {
           input: JSON.stringify({ version: 2, ...envelope }),
-          env,
           encoding: "utf8",
           timeout: 10_000,
         },
@@ -290,7 +285,7 @@ test(
         "migrate",
         destination,
       ],
-      { env, encoding: "utf8", timeout: 10_000 },
+      { encoding: "utf8", timeout: 10_000 },
     );
     assert.equal(preview.status, 0, preview.stderr);
     assert.equal(JSON.parse(preview.stdout).taskCount, 8);

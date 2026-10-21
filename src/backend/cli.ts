@@ -1,4 +1,5 @@
 import { executeLine } from "./gateway.js";
+import { executeHomeLine } from "./homeGateway.js";
 import type { Response } from "./protocol.js";
 
 function optionValue(args: string[], name: string): string | undefined {
@@ -10,11 +11,11 @@ function writeResponse(response: Response): void {
   process.stdout.write(`${JSON.stringify(response)}\n`);
 }
 
-async function runStdio(rootPath: string, cachePath: string): Promise<void> {
+async function runStdio(execute: (line: Buffer) => Response): Promise<void> {
   let buffered = Buffer.alloc(0);
   const respond = (line: Buffer): void => {
     if (line.every((byte) => byte === 0x20 || byte === 0x09 || byte === 0x0d)) return;
-    writeResponse(executeLine(line, rootPath, cachePath));
+    writeResponse(execute(line));
   };
   // Frame bytes before UTF-8 decoding so invalid input cannot become replacement characters.
   for await (const chunk of process.stdin) {
@@ -28,24 +29,39 @@ async function runStdio(rootPath: string, cachePath: string): Promise<void> {
   if (buffered.length > 0) respond(buffered);
 }
 
+function given(value: string | undefined): value is string {
+  return value !== undefined && value.trim() !== "" && !value.startsWith("--");
+}
+
+/**
+ * The app runs `--home PATH --client app`. `--root` and `--database` select a bare folder and cache
+ * for tests and the old-folder conversion; they can't be mixed with a home.
+ */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const homePath = optionValue(args, "--home");
+  const client = optionValue(args, "--client");
   const rootPath = optionValue(args, "--root");
   const cachePath = optionValue(args, "--database");
+  const homeForm = given(homePath) && (client === "app" || client === "cli");
+  const folderForm = given(rootPath) && given(cachePath);
   if (
     !args.includes("--stdio") ||
-    !rootPath?.trim() ||
-    !cachePath?.trim() ||
-    rootPath.startsWith("--") ||
-    cachePath.startsWith("--")
+    homeForm === folderForm ||
+    (homeForm && (rootPath || cachePath))
   ) {
     process.stderr.write(
-      "Usage: tasks-backend --stdio --root PATH --database CACHE_OUTSIDE_ROOT\n",
+      "Usage: tasks-backend --stdio --home PATH --client app|cli\n" +
+        "       tasks-backend --stdio --root PATH --database CACHE_OUTSIDE_ROOT\n",
     );
     process.exitCode = 2;
     return;
   }
-  await runStdio(rootPath, cachePath);
+  await runStdio((line) =>
+    homeForm
+      ? executeHomeLine(line, homePath!, client as "app" | "cli")
+      : executeLine(line, rootPath!, cachePath!),
+  );
 }
 
 main().catch((error: unknown) => {

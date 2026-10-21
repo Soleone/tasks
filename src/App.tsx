@@ -24,6 +24,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
 import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
+import { useTheme } from "@/components/soleone/theme";
 import { ThemePicker } from "@/components/soleone/theme-picker";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
@@ -42,7 +43,9 @@ import {
   type FontSizeIncrease,
 } from "@/fontSize";
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
+import { readPreference, writePreference } from "@/platform/preferences";
 import { isAndroid } from "@/platform/runtime";
+import { THEME_STORAGE_KEY } from "@/theme/config";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
 const EXACT_STATUS_KEY = "tasks.exactStatus";
@@ -58,28 +61,12 @@ const FOLDED_TOOLBAR_GROUPS_KEY = "tasks.foldedToolbarGroups";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 const HELP_MODE_KEY = "tasks.helpMode";
 
-function readStored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStored(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Without storage the choice lasts for this session.
-  }
-}
-
 function readStatusPreset(): StatusPreset {
-  return readStored(STATUS_PRESET_KEY) === "inactive" ? "inactive" : "active";
+  return readPreference(STATUS_PRESET_KEY) === "inactive" ? "inactive" : "active";
 }
 
 function readExactStatus(): TaskStatus | null {
-  const stored = readStored(EXACT_STATUS_KEY);
+  const stored = readPreference(EXACT_STATUS_KEY);
   return stored === "open" ||
     stored === "in_progress" ||
     stored === "paused" ||
@@ -90,12 +77,12 @@ function readExactStatus(): TaskStatus | null {
 }
 
 function readPriorityFilter(): TaskPriority | null {
-  const stored = readStored(PRIORITY_FILTER_KEY);
+  const stored = readPreference(PRIORITY_FILTER_KEY);
   return stored !== null && /^[0-4]$/.test(stored) ? (Number(stored) as TaskPriority) : null;
 }
 
 function readCategorySlug(): string | null {
-  const stored = readStored(CATEGORY_FILTER_KEY);
+  const stored = readPreference(CATEGORY_FILTER_KEY);
   return stored !== null && stored !== "" ? stored : null;
 }
 
@@ -109,7 +96,7 @@ function readInitialCategoryFilter(): ClassificationToken | null {
 }
 
 function readSlugs(key: string): string[] {
-  const stored = readStored(key);
+  const stored = readPreference(key);
   if (!stored) return [];
   try {
     const value: unknown = JSON.parse(stored);
@@ -120,7 +107,7 @@ function readSlugs(key: string): string[] {
 }
 
 function readSortField(): SortField {
-  const stored = readStored(SORT_FIELD_KEY);
+  const stored = readPreference(SORT_FIELD_KEY);
   return stored === "created" ||
     stored === "updated" ||
     stored === "priority" ||
@@ -130,16 +117,18 @@ function readSortField(): SortField {
 }
 
 function readSortDirection(): SortDirection {
-  return readStored(SORT_DIRECTION_KEY) === "asc" ? "asc" : "desc";
+  return readPreference(SORT_DIRECTION_KEY) === "asc" ? "asc" : "desc";
 }
 
 function readShowDetails(): boolean {
-  return (readStored(SHOW_DETAILS_KEY) ?? readStored(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true";
+  return (
+    (readPreference(SHOW_DETAILS_KEY) ?? readPreference(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true"
+  );
 }
 
 function readFoldedToolbarGroups(): ToolbarFoldGroup[] {
   try {
-    const stored: unknown = JSON.parse(readStored(FOLDED_TOOLBAR_GROUPS_KEY) ?? "[]");
+    const stored: unknown = JSON.parse(readPreference(FOLDED_TOOLBAR_GROUPS_KEY) ?? "[]");
     return TOOLBAR_FOLD_GROUPS.filter((group) => Array.isArray(stored) && stored.includes(group));
   } catch {
     return [];
@@ -147,7 +136,7 @@ function readFoldedToolbarGroups(): ToolbarFoldGroup[] {
 }
 
 function readHelpMode(): KeyboardHelpMode {
-  const stored = readStored(HELP_MODE_KEY);
+  const stored = readPreference(HELP_MODE_KEY);
   if (isKeyboardHelpMode(stored)) return stored;
   // Preserve the old checkbox preference: enabled meant full contextual help,
   // while disabled left the task-list shortcut guides available.
@@ -164,13 +153,29 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   useEffect(() => {
     selectMainWorkspace(workspace);
   }, [workspace]);
+  useEffect(
+    () =>
+      workspace.documents?.onFailure((name) =>
+        showTaskToast(
+          name === "settings"
+            ? "Couldn't save settings in the Tasks home"
+            : "Couldn't save undo history in the Tasks home",
+        ),
+      ),
+    [workspace],
+  );
+  // The theme picker remembers its choice in browser storage; the home keeps the real copy.
+  const { theme } = useTheme();
+  useEffect(() => {
+    if (theme) writePreference(THEME_STORAGE_KEY, theme);
+  }, [theme]);
   const [statusPreset, setStatusPreset] = useState<StatusPreset>(readStatusPreset);
   const [exactStatus, setExactStatus] = useState<TaskStatus | null>(readExactStatus);
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | null>(readPriorityFilter);
   const [tagFilter, setTagFilter] = useState<ClassificationOption[]>(readInitialTagFilter);
-  const [searchQuery, setSearchQuery] = useState(() => readStored(SEARCH_QUERY_KEY) ?? "");
+  const [searchQuery, setSearchQuery] = useState(() => readPreference(SEARCH_QUERY_KEY) ?? "");
   const [showUnblocked, setShowUnblocked] = useState(
-    () => readStored(UNBLOCKED_FILTER_KEY) === "true",
+    () => readPreference(UNBLOCKED_FILTER_KEY) === "true",
   );
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [foldedToolbarGroups, setFoldedToolbarGroups] = useState(readFoldedToolbarGroups);
@@ -462,11 +467,11 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     // Clearing an exact status returns to the current preset; otherwise toggle.
     if (exactStatus !== null) {
       setExactStatus(null);
-      writeStored(EXACT_STATUS_KEY, "");
+      writePreference(EXACT_STATUS_KEY, "");
     } else {
       const next = statusPreset === "active" ? "inactive" : "active";
       setStatusPreset(next);
-      writeStored(STATUS_PRESET_KEY, next);
+      writePreference(STATUS_PRESET_KEY, next);
     }
     requestActiveTask();
   }
@@ -476,7 +481,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     sortFieldRef.current = field;
     setSortField(field);
     requestActiveTask();
-    writeStored(SORT_FIELD_KEY, field);
+    writePreference(SORT_FIELD_KEY, field);
     setAnnouncement(
       field === "manual" ? "Sorted by manual order" : `Sorted ${sortSummary(field, sortDirection)}`,
     );
@@ -487,14 +492,14 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     const next = sortDirection === "desc" ? "asc" : "desc";
     setSortDirection(next);
     requestActiveTask();
-    writeStored(SORT_DIRECTION_KEY, next);
+    writePreference(SORT_DIRECTION_KEY, next);
     setAnnouncement(`Sorted ${sortSummary(sortField, next)}`);
   }
 
   function toggleDetails(): void {
     const next = !showDetails;
     setShowDetails(next);
-    writeStored(SHOW_DETAILS_KEY, String(next));
+    writePreference(SHOW_DETAILS_KEY, String(next));
     setAnnouncement(next ? "Showing task details" : "Hiding task details");
   }
 
@@ -503,12 +508,12 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
       entry === group ? folded : foldedToolbarGroups.includes(entry),
     );
     setFoldedToolbarGroups(next);
-    writeStored(FOLDED_TOOLBAR_GROUPS_KEY, JSON.stringify(next));
+    writePreference(FOLDED_TOOLBAR_GROUPS_KEY, JSON.stringify(next));
   }
 
   function changeHelpMode(mode: KeyboardHelpMode): void {
     setHelpMode(mode);
-    writeStored(HELP_MODE_KEY, mode);
+    writePreference(HELP_MODE_KEY, mode);
     setAnnouncement(
       mode === "full"
         ? "Full keyboard help enabled"
@@ -527,7 +532,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   function chooseExactStatus(status: TaskStatus | null): void {
     setStatusMenuOpen(false);
     setExactStatus(status);
-    writeStored(EXACT_STATUS_KEY, status ?? "");
+    writePreference(EXACT_STATUS_KEY, status ?? "");
     requestActiveTask();
   }
 
@@ -538,14 +543,14 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setStatusMenuOpen(false);
     if (exact !== undefined) {
       setExactStatus(exact);
-      writeStored(EXACT_STATUS_KEY, exact ?? "");
+      writePreference(EXACT_STATUS_KEY, exact ?? "");
     }
     if (preset !== undefined) {
       setStatusPreset(preset);
-      writeStored(STATUS_PRESET_KEY, preset);
+      writePreference(STATUS_PRESET_KEY, preset);
       if (exact === undefined) {
         setExactStatus(null);
-        writeStored(EXACT_STATUS_KEY, "");
+        writePreference(EXACT_STATUS_KEY, "");
       }
     }
     requestActiveTask();
@@ -558,13 +563,13 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
-    writeStored(PRIORITY_FILTER_KEY, priority === null ? "" : String(priority));
+    writePreference(PRIORITY_FILTER_KEY, priority === null ? "" : String(priority));
     requestActiveTask();
   }
 
   function chooseTags(tags: ClassificationOption[]): void {
     setTagFilter(tags);
-    writeStored(TAG_FILTER_KEY, JSON.stringify(tags.map((tag) => tag.slug)));
+    writePreference(TAG_FILTER_KEY, JSON.stringify(tags.map((tag) => tag.slug)));
     requestActiveTask();
   }
 
@@ -572,7 +577,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     if (searchOpen) closeSearch();
     const next = query.trim();
     setSearchQuery(next);
-    writeStored(SEARCH_QUERY_KEY, next);
+    writePreference(SEARCH_QUERY_KEY, next);
     requestActiveTask();
   }
 
@@ -584,13 +589,13 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setSearchQuery("");
     setCategoryFilter(null);
     setShowUnblocked(false);
-    writeStored(EXACT_STATUS_KEY, "");
-    writeStored(STATUS_PRESET_KEY, "active");
-    writeStored(PRIORITY_FILTER_KEY, "");
-    writeStored(TAG_FILTER_KEY, "[]");
-    writeStored(SEARCH_QUERY_KEY, "");
-    writeStored(CATEGORY_FILTER_KEY, "");
-    writeStored(UNBLOCKED_FILTER_KEY, "false");
+    writePreference(EXACT_STATUS_KEY, "");
+    writePreference(STATUS_PRESET_KEY, "active");
+    writePreference(PRIORITY_FILTER_KEY, "");
+    writePreference(TAG_FILTER_KEY, "[]");
+    writePreference(SEARCH_QUERY_KEY, "");
+    writePreference(CATEGORY_FILTER_KEY, "");
+    writePreference(UNBLOCKED_FILTER_KEY, "false");
     requestActiveTask();
     setAnnouncement("Cleared all filters");
   }
@@ -610,7 +615,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   ): void {
     setCategoryFilter(null);
     categoryFilterRef.current = null;
-    writeStored(CATEGORY_FILTER_KEY, "");
+    writePreference(CATEGORY_FILTER_KEY, "");
     requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
   }
 
@@ -618,7 +623,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setCategoryPickerOpen(false);
     setCategoryFilter(category);
     categoryFilterRef.current = category.slug;
-    writeStored(CATEGORY_FILTER_KEY, category.slug);
+    writePreference(CATEGORY_FILTER_KEY, category.slug);
     requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
     setAnnouncement(`Showing ${category.label} tasks`);
   }
@@ -728,7 +733,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           showUnblocked={showUnblocked}
           onShowUnblockedChange={(next) => {
             setShowUnblocked(next);
-            writeStored(UNBLOCKED_FILTER_KEY, String(next));
+            writePreference(UNBLOCKED_FILTER_KEY, String(next));
             requestActiveTask();
           }}
           sortField={sortField}

@@ -60,29 +60,28 @@ function canonicalBytes(root) {
     ),
   );
 }
+/** A Tasks home holding `source` as its sync folder, or an empty sync folder. */
+function homeIn(directory, name, source) {
+  const home = path.join(directory, name);
+  const rootPath = path.join(home, "sync");
+  if (source) cpSync(source, rootPath, { recursive: true });
+  else mkdirSync(rootPath, { recursive: true });
+  mkdirSync(path.join(home, "local"));
+  return { home, rootPath, databasePath: path.join(home, "local", "app.db") };
+}
 function workspace(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "tasks-app-reader-"));
-  const rootPath = path.join(directory, "root");
-  cpSync("scripts/fixtures/workspace/root", rootPath, { recursive: true });
-  const originalXdg = process.env.XDG_DATA_HOME;
   const originalRegistry = process.env.TASKS_SOURCE_REGISTRY_PATH;
   delete process.env.TASKS_SOURCE_REGISTRY_PATH;
-  process.env.XDG_DATA_HOME = path.join(directory, "profile");
   t.after(() => {
-    if (originalXdg === undefined) delete process.env.XDG_DATA_HOME;
-    else process.env.XDG_DATA_HOME = originalXdg;
     if (originalRegistry === undefined) delete process.env.TASKS_SOURCE_REGISTRY_PATH;
     else process.env.TASKS_SOURCE_REGISTRY_PATH = originalRegistry;
     rmSync(directory, { recursive: true, force: true });
   });
-  return { rootPath, databasePath: path.join(directory, "cache.db"), directory };
+  return { ...homeIn(directory, "home", "scripts/fixtures/workspace/root"), directory };
 }
 async function devReader(t, selection) {
-  const dev = await startDevServer({
-    port: 0,
-    root: selection.rootPath,
-    databasePath: selection.databasePath,
-  });
+  const dev = await startDevServer({ port: 0, home: selection.home });
   t.after(() => new Promise((resolve) => dev.server.close(resolve)));
   const selected = await readEditorSelection(dev.url);
   const reader = new WorkspaceReader(selection, { url: dev.url, selection: selected });
@@ -132,16 +131,13 @@ function processCommand(args, launches, responses) {
   };
 }
 
-test("dev launcher passes an explicit root and keeps Vite arguments separate", () => {
-  assert.deepEqual(
-    devWebOptions(["--root", "fixture", "--database", "cache.db", "--", "--port", "5231"]),
-    {
-      backendArgs: ["--root", path.resolve("fixture"), "--database", path.resolve("cache.db")],
-      viteArgs: ["--port", "5231"],
-      real: false,
-      refresh: false,
-    },
-  );
+test("dev launcher passes an explicit home and keeps Vite arguments separate", () => {
+  assert.deepEqual(devWebOptions(["--home", "fixture", "--", "--port", "5231"]), {
+    backendArgs: ["--home", path.resolve("fixture")],
+    viteArgs: ["--port", "5231"],
+    real: false,
+    refresh: false,
+  });
 });
 test("dev launcher without a selection leaves the workspace to the disposable fixture", () => {
   assert.deepEqual(devWebOptions(["--", "--host", "127.0.0.1"]), {
@@ -160,15 +156,15 @@ test("dev launcher asks for the kept copy of the real folder", () => {
   });
 });
 for (const argv of [
-  ["--root", "root"],
-  ["--root"],
-  ["--root", "--database", "cache"],
-  ["--root", "root", "--database", "cache", "--root", "other"],
-  ["--root", "root", "--database", ""],
-  ["--root", "root", "--database", "cache", "--unknown", "value"],
+  ["--root", "root", "--database", "cache"],
+  ["--home"],
+  ["--home", "--real"],
+  ["--home", "home", "--home", "other"],
+  ["--home", ""],
+  ["--home", "home", "--unknown", "value"],
   ["--refresh"],
   ["--real", "--real"],
-  ["--real", "--root", "root", "--database", "cache"],
+  ["--real", "--home", "home"],
 ]) {
   test(`dev launcher refuses ambiguous selection ${JSON.stringify(argv)}`, () =>
     assert.throws(() => devWebOptions(argv)));
@@ -256,29 +252,19 @@ test("list validator refuses duplicate projection identities and unsafe paginati
 });
 
 test("sidecar selection accepts explicit absolute paths and exact argv only", () => {
-  for (const rootPath of [
-    "/tmp/disposable root",
-    "C:\\disposable\\root",
-    "\\\\host\\share\\root",
-  ]) {
-    assert.deepEqual(sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }), [
-      "--stdio",
-      "--root",
-      rootPath,
-      "--database",
-      "/tmp/cache.db",
-    ]);
+  for (const home of ["/tmp/disposable home", "C:\\disposable\\home", "\\\\host\\share\\home"]) {
+    assert.deepEqual(sidecarArgs(home), ["--stdio", "--home", home, "--client", "app"]);
   }
-  for (const rootPath of ["", "relative", "--root", "/tmp/root\nother", "/tmp/root\0other"])
-    assert.throws(() => sidecarArgs({ rootPath, databasePath: "/tmp/cache.db" }));
+  for (const home of ["", "relative", "--home", "/tmp/home\nother", "/tmp/home\0other"])
+    assert.throws(() => sidecarArgs(home));
   const permission = JSON.parse(
     readFileSync("src-tauri/capabilities/default.json", "utf8"),
   ).permissions.find((item) => item.identifier === "shell:allow-spawn");
-  // The desktop app may start the backend only on one folder and its cache.
+  // The desktop app may start the backend only on one Tasks home, as the app.
   assert.equal(permission.allow.length, 1);
   assert.deepEqual(
     permission.allow[0].args.map((arg) => (typeof arg === "string" ? arg : "*")),
-    ["--stdio", "--root", "*", "--database", "*"],
+    ["--stdio", "--home", "*", "--client", "app"],
   );
   assert.throws(
     () => new WorkspaceReader({ rootPath: "/tmp/root", databasePath: "/tmp/cache.db" }),
@@ -305,9 +291,8 @@ test("health discovers explicit selection without reading/initializing root or c
   assert.deepEqual(canonicalBytes(selected.rootPath), original);
 });
 
-test("dev bridge requires an explicit cache", (t) => {
-  const selected = workspace(t);
-  assert.throws(() => startDevServer({ port: 0, root: selected.rootPath }), /no default workspace/);
+test("dev bridge requires an explicit home", () => {
+  assert.throws(() => startDevServer({ port: 0 }), /no default home/);
 });
 
 test("dev bridge refuses unconnected commands, stale/missing selection and version 1 frames without effects", async (t) => {
@@ -362,10 +347,12 @@ test("a restarted dev backend cannot silently substitute a different root/cache"
   const { reader, dev } = await devReader(t, selected);
   await reader.workspaceInfo();
   await new Promise((resolve) => dev.server.close(resolve));
-  const rootPath = path.join(selected.directory, "different-root");
-  const databasePath = path.join(selected.directory, "different-cache.db");
-  cpSync("scripts/fixtures/workspace/root", rootPath, { recursive: true });
-  const next = await startDevServer({ port: dev.port, root: rootPath, databasePath });
+  const { home, databasePath } = homeIn(
+    selected.directory,
+    "different-home",
+    "scripts/fixtures/workspace/root",
+  );
+  const next = await startDevServer({ port: dev.port, home });
   t.after(() => new Promise((resolve) => next.server.close(resolve)));
   await assert.rejects(reader.workspaceInfo(), /STALE_DEV_SELECTION|fetch failed/);
   assert.equal(existsSync(databasePath), false);
@@ -392,22 +379,16 @@ test("reader selection is a fixed private snapshot, not a mutable caller referen
 
 test("empty and schema 1 roots are inspected without initialization or fallback", async (t) => {
   const selected = workspace(t);
-  const empty = path.join(selected.directory, "empty");
-  mkdirSync(empty);
-  const { reader: emptyReader } = await devReader(t, {
-    rootPath: empty,
-    databasePath: path.join(selected.directory, "empty-cache.db"),
-  });
+  const emptyHome = homeIn(selected.directory, "empty-home");
+  const empty = emptyHome.rootPath;
+  const { reader: emptyReader } = await devReader(t, emptyHome);
   assert.equal((await emptyReader.workspaceInfo()).state, "empty");
   await assert.rejects(emptyReader.tasks(), /complete schema-2/);
   assert.deepEqual(readdirSync(empty), []);
-  const legacy = path.join(selected.directory, "legacy");
-  cpSync("scripts/fixtures/schema1/sync", legacy, { recursive: true });
+  const legacyHome = homeIn(selected.directory, "legacy-home", "scripts/fixtures/schema1/sync");
+  const legacy = legacyHome.rootPath;
   const legacyBefore = canonicalBytes(legacy);
-  const { reader } = await devReader(t, {
-    rootPath: legacy,
-    databasePath: path.join(selected.directory, "legacy-control.db"),
-  });
+  const { reader } = await devReader(t, legacyHome);
   assert.equal((await reader.workspaceInfo()).state, "unsupported");
   await assert.rejects(reader.tasks(), /UNSUPPORTED_SCHEMA/);
   assert.deepEqual(canonicalBytes(legacy), legacyBefore);
@@ -456,10 +437,8 @@ test("HTTP reader sees actual friendly CLI edits and retains query-only authorit
       process.execPath,
       [
         "dist/backend/tasks-cli.js",
-        "--root",
-        selected.rootPath,
-        "--database",
-        selected.databasePath,
+        "--home",
+        selected.home,
         "add",
         "--title",
         "Call @alice",
@@ -491,7 +470,7 @@ test("actual JSON-lines reader launches only selected process and can reopen ret
   const original = canonicalBytes(selected.rootPath);
   const launches = [],
     responses = [];
-  const args = sidecarArgs(selected);
+  const args = sidecarArgs(selected.home);
   const reader = new WorkspaceReader(
     selected,
     undefined,

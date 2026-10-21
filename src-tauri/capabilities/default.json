@@ -22,14 +22,12 @@
           "sidecar": true,
           "args": [
             "--stdio",
-            "--root",
+            "--home",
             {
               "validator": "\\S.*"
             },
-            "--database",
-            {
-              "validator": "\\S.*"
-            }
+            "--client",
+            "app"
           ]
         }
       ]

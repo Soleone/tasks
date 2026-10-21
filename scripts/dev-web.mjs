@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { cpSync, mkdtempSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { devWebOptions } from "./dev-web-options.mjs";
@@ -8,7 +8,6 @@ import { realSnapshot } from "./dev-web-real.mjs";
 const options = devWebOptions(process.argv.slice(2));
 const { viteArgs } = options;
 const root = path.resolve(import.meta.dirname, "..");
-const env = { ...process.env };
 let backendArgs = options.backendArgs;
 let viteEnv = process.env;
 let copy;
@@ -16,20 +15,16 @@ if (options.real) {
   copy = await realSnapshot(options.refresh);
 } else if (backendArgs.length === 0) {
   // Without a selection, run on a fresh copy of the fixture so the real workspace is never opened.
-  const scratch = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
-  copy = {
-    root: path.join(scratch, "root"),
-    database: path.join(scratch, "cache.db"),
-    profile: path.join(scratch, "profile"),
-  };
-  cpSync(path.join(root, "scripts/fixtures/workspace/root"), copy.root, { recursive: true });
-  process.stdout.write(`[dev:web] disposable workspace in ${scratch}\n`);
+  const home = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
+  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(home, "sync"), {
+    recursive: true,
+  });
+  mkdirSync(path.join(home, "local"));
+  copy = { home };
+  process.stdout.write(`[dev:web] disposable Tasks home in ${home}\n`);
 }
 if (copy) {
-  // The backend finds its profile through XDG_DATA_HOME on Linux and APPDATA on Windows.
-  env.XDG_DATA_HOME = copy.profile;
-  env.APPDATA = copy.profile;
-  backendArgs = ["--root", copy.root, "--database", copy.database];
+  backendArgs = ["--home", copy.home];
   // The UI asks before opening a folder picked by hand; copies made here open directly.
   viteEnv = { ...process.env, VITE_DEV_WORKSPACE_COPY: "1" };
 }
@@ -43,7 +38,6 @@ execFileSync("pnpm", ["build:backend"], {
 const backend = spawn(process.execPath, ["dist/backend/devServer.js", ...backendArgs], {
   cwd: root,
   stdio: ["ignore", "pipe", "pipe"],
-  env,
 });
 // Vite directly, not the vp wrapper: vp exits on SIGTERM without stopping its Vite child.
 const vite = spawn(

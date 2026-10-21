@@ -41,7 +41,8 @@ fn native_library_dir() -> Result<PathBuf, String> {
         .ok_or_else(|| "Could not find the app's native library folder.".into())
 }
 
-fn spawn(app: &AppHandle, root: &str, database: &str) -> Result<Child, String> {
+fn spawn(app: &AppHandle, home: &str) -> Result<Child, String> {
+    // Only runtime scratch stays private; everything Tasks keeps lives in the chosen home.
     let paths = app.path();
     let data = paths.app_data_dir().map_err(|error| error.to_string())?;
     let temp = paths.app_cache_dir().map_err(|error| error.to_string())?;
@@ -49,9 +50,8 @@ fn spawn(app: &AppHandle, root: &str, database: &str) -> Result<Child, String> {
         std::fs::create_dir_all(directory).map_err(|error| error.to_string())?;
     }
     Command::new(native_library_dir()?.join("libtasks_backend.so"))
-        .args(["--stdio", "--root", root, "--database", database])
+        .args(["--stdio", "--home", home, "--client", "app"])
         .env("HOME", &data)
-        .env("XDG_DATA_HOME", &data)
         .env("TMPDIR", &temp)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -60,19 +60,18 @@ fn spawn(app: &AppHandle, root: &str, database: &str) -> Result<Child, String> {
         .map_err(|error| format!("Could not start the backend: {error}"))
 }
 
-/// Starts a backend for one task folder and streams its output as whole lines.
+/// Starts a backend for one Tasks home and streams its output as whole lines.
 #[tauri::command]
 pub fn backend_start(
     app: AppHandle,
     backends: State<Backends>,
-    root: String,
-    database: String,
+    home: String,
     events: Channel<BackendEvent>,
 ) -> Result<u32, String> {
-    if root.trim().is_empty() || database.trim().is_empty() {
-        return Err("The backend needs a task folder and a cache path.".into());
+    if home.trim().is_empty() {
+        return Err("The backend needs a Tasks home.".into());
     }
-    let mut child = spawn(&app, &root, &database)?;
+    let mut child = spawn(&app, &home)?;
     let pid = child.id();
     let stdin = child.stdin.take().ok_or("The backend has no input.")?;
     let stdout = child.stdout.take().ok_or("The backend has no output.")?;

@@ -8,6 +8,7 @@ import { themeOptions } from "virtual:theme-options";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 import { closeMainWorkspace, selectMainWorkspace } from "@/platform/backendClient";
 import { EditorClient, readEditorSelection, type EditorSelection } from "@/platform/editorClient";
+import { openHomeWorkspace } from "@/platform/homeWorkspace";
 import { MainWorkspace } from "@/platform/mainWorkspace";
 import { WorkspaceReader } from "@/platform/workspaceReader";
 
@@ -92,13 +93,25 @@ export class AppWorkspace {
     ).task;
   }
 
-  /** Renders the app and waits until the list has loaded. */
-  async render(): Promise<{ user: UserEvent; view: RenderResult }> {
+  /** The text of one of the home's own documents, or null when it doesn't exist. */
+  async homeDocument(name: "settings" | "undo"): Promise<string | null> {
+    const reply = await this.post({ command: "home.document.read", args: { name } });
+    return (reply.result as { text: string | null }).text;
+  }
+
+  /**
+   * Renders the app and waits until the list has loaded. With `home`, preferences and undo
+   * records load from the Tasks home as in the app; otherwise they stay in browser storage.
+   */
+  async render({ home = false } = {}): Promise<{ user: UserEvent; view: RenderResult }> {
     const reader = new WorkspaceReader(this.selection, {
       url: this.url,
       selection: this.selection,
     });
-    const workspace = new MainWorkspace(reader, new EditorClient(this.url, this.selection));
+    const editor = new EditorClient(this.url, this.selection);
+    const workspace = home
+      ? await openHomeWorkspace(reader, editor)
+      : new MainWorkspace(reader, editor);
     closeMainWorkspace();
     selectMainWorkspace(workspace);
     const user = userEvent.setup();

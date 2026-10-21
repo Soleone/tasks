@@ -4,9 +4,8 @@ export function devWebOptions(argv) {
   const separator = argv.indexOf("--");
   const backendOptions = separator === -1 ? argv : argv.slice(0, separator);
   const viteArgs = separator === -1 ? [] : argv.slice(separator + 1);
-  const usage =
-    "Use --root PATH --database CACHE_OUTSIDE_ROOT, or --real [--refresh], before --; put Vite flags after --.";
-  const values = new Map();
+  const usage = "Use --home PATH, or --real [--refresh], before --; put Vite flags after --.";
+  let home;
   const flags = new Set();
   for (let index = 0; index < backendOptions.length; index++) {
     const name = backendOptions[index];
@@ -15,20 +14,12 @@ export function devWebOptions(argv) {
       continue;
     }
     const value = backendOptions[++index];
-    if (
-      !["--root", "--database"].includes(name) ||
-      values.has(name) ||
-      !value?.trim() ||
-      value.startsWith("--")
-    )
+    if (name !== "--home" || home !== undefined || !value?.trim() || value.startsWith("--"))
       throw new Error(usage);
-    values.set(name, path.resolve(value));
-  }
-  if (values.size === 1) {
-    throw new Error("dev:web takes --root PATH and --database CACHE_OUTSIDE_ROOT together");
+    home = path.resolve(value);
   }
   const real = flags.has("--real");
   const refresh = flags.has("--refresh");
-  if ((real && values.size > 0) || (refresh && !real)) throw new Error(usage);
-  return { backendArgs: [...values].flat(), viteArgs, real, refresh };
+  if ((real && home !== undefined) || (refresh && !real)) throw new Error(usage);
+  return { backendArgs: home === undefined ? [] : ["--home", home], viteArgs, real, refresh };
 }

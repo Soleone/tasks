@@ -311,7 +311,10 @@ for (const fault of [
         selected = { ...w, cache };
       }
       const before = raw(w);
-      fail(recover(selected, intent.operationId), "RECOVERY_CONFLICT");
+      fail(
+        recover(selected, intent.operationId),
+        fault === "copied-cache" ? "CACHE_FROM_ELSEWHERE" : "RECOVERY_CONFLICT",
+      );
       assert.deepEqual(raw(w), before);
       assert.equal(existsSync(pending), true);
     },

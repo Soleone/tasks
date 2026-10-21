@@ -9,6 +9,24 @@ A workspace is a folder. The folder is the whole collection: there is no workspa
 
 Everything else (cache, receipts, undo history, journals, recovery copies) lives outside the folder and is never synced.
 
+## Tasks home
+
+The app and the CLI work in a Tasks home that the owner chooses. Its `sync/` folder is the workspace; the rest belongs to this device.
+
+```text
+<home>/settings.json         this device's preferences
+<home>/sync/                 the workspace, the only folder a sync tool may see
+<home>/local/                caches, writer lock, recovery files, undo records
+```
+
+| Rule | Then |
+| --- | --- |
+| `home.layout` | Everything Tasks keeps for a device is in its home. A root whose folder is named `sync` beside a `local/` folder keeps its writer lock and recovery files in that `local/`, so every spelling of the path and every cache shares them. Other roots (archives, restore sources, old folders being converted) keep theirs beside the selected cache |
+| `home.create` | Only explicit setup creates a home, inside an existing parent. It refuses a folder holding anything but a home's own entries, a task folder from before homes, and a home's own `sync/` or `local/`. Setup interrupted part way simply runs again |
+| `home.refuse-unsafe` | A home can't be inside a Syncthing folder (`.stfolder` in the home or above it), inside another home, inside OneDrive, on a network share, or on Android outside shared storage. Opening repeats the Syncthing check, so adding the whole home to Syncthing stops writes |
+| `home.missing` | A missing or unreachable home is reported with its path. Nothing is created in its place and it is never treated as a first launch |
+| `home.documents` | Preferences (`settings.json`) and client undo records (`local/undo.json`) are replaced durably: staged, flushed, renamed. A file the app can't read is kept beside the new one as `*.damaged-<time>.json` |
+
 ## Workspace file
 
 | Rule | Then |

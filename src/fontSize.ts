@@ -1,3 +1,5 @@
+import { readPreference, writePreference } from "./platform/preferences";
+
 export const FONT_SIZE_INCREASES = [0, 10, 25, 33, 40] as const;
 
 export type FontSizeIncrease = (typeof FONT_SIZE_INCREASES)[number];
@@ -9,13 +11,9 @@ function isFontSizeIncrease(value: number): value is FontSizeIncrease {
 }
 
 export function readStoredFontSizeIncrease(): FontSizeIncrease {
-  try {
-    const stored = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
-    const value = stored === null ? 0 : Number(stored);
-    return isFontSizeIncrease(value) ? value : 0;
-  } catch {
-    return 0;
-  }
+  const stored = readPreference(FONT_SIZE_STORAGE_KEY);
+  const value = stored === null ? 0 : Number(stored);
+  return isFontSizeIncrease(value) ? value : 0;
 }
 
 function applyFontSizeIncrease(increase: FontSizeIncrease): void {
@@ -29,11 +27,7 @@ function applyFontSizeIncrease(increase: FontSizeIncrease): void {
 
 export function storeFontSizeIncrease(increase: FontSizeIncrease): void {
   applyFontSizeIncrease(increase);
-  try {
-    localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(increase));
-  } catch {
-    // Without storage the choice lasts for this session.
-  }
+  writePreference(FONT_SIZE_STORAGE_KEY, String(increase));
 }
 
 export function applyStoredFontSizeIncrease(): void {

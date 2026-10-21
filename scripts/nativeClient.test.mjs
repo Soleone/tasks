@@ -32,11 +32,11 @@ const {
   `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`
 );
 const selection = {
-  rootPath: "C:\\proof\\root",
-  databasePath: "C:\\proof\\cache.db",
-  profilePath: "C:\\proof\\profile",
+  rootPath: "C:\\proof\\home\\sync",
+  databasePath: "C:\\proof\\home\\local\\app.db",
+  profilePath: "C:\\proof\\home",
 };
-const argv = ["--stdio", "--root", selection.rootPath, "--database", selection.databasePath];
+const argv = ["--stdio", "--home", selection.profilePath, "--client", "app"];
 const editorSelection = {
   ...selection,
   version: 2,
@@ -88,7 +88,7 @@ function sessionFixture(t, respond) {
     launches = [];
   let kills = 0;
   const session = new JsonLineSession(async () => {
-    launches.push(sidecarArgs(selection));
+    launches.push(sidecarArgs(selection.profilePath));
     let stdout, close;
     return {
       stdout: {

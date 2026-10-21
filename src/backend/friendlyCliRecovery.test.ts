@@ -36,12 +36,7 @@ const original = [
   "operator",
   "--json",
 ];
-function run(
-  workspace: Workspace,
-  argv: string[],
-  loader?: string,
-  profile = process.env.XDG_DATA_HOME,
-) {
+function run(workspace: Workspace, argv: string[], loader?: string) {
   return spawnSync(
     process.execPath,
     [
@@ -53,11 +48,7 @@ function run(
       workspace.cache,
       ...argv,
     ],
-    {
-      env: { ...process.env, XDG_DATA_HOME: profile },
-      encoding: "utf8",
-      timeout: 10_000,
-    },
+    { encoding: "utf8", timeout: 10_000 },
   );
 }
 function ok(result: ReturnType<typeof run>) {
@@ -81,7 +72,6 @@ function metadata(result: ReturnType<typeof run>) {
     requestHash: string;
     rootPath: string;
     cachePath: string;
-    profileDirectory: string;
   };
 }
 function retained(result: ReturnType<typeof run>) {
@@ -154,7 +144,6 @@ for (const cut of [
         recorded = metadata(result);
       assert.equal(recorded.rootPath, workspace.root);
       assert.equal(recorded.cachePath, workspace.cache);
-      assert.match(recorded.profileDirectory, /tasks$/);
       assert.equal(result.stderr.includes("Private capture"), false);
       assert.equal(result.stderr.includes("Private **Markdown**"), false);
       const pending = pendingIntentPath(readRootDescriptor(workspace.root));
@@ -252,16 +241,7 @@ test(
   },
 );
 
-for (const change of [
-  "profile",
-  "root",
-  "cache",
-  "cache-copy",
-  "payload",
-  "actor",
-  "flags",
-  "placement",
-]) {
+for (const change of ["root", "cache", "cache-copy", "payload", "actor", "flags", "placement"]) {
   test(`prepared CLI hash refuses a changed ${change} before any retry dispatch`, linux, (t) => {
     const workspace = setup(t),
       killed = run(workspace, original, loaderFor(workspace, "stage-written"));
@@ -269,9 +249,7 @@ for (const change of [
     const pending = pendingIntentPath(readRootDescriptor(workspace.root)),
       before = raw(workspace),
       changed = { ...workspace };
-    let argv = [...original, ...retained(killed)],
-      profile = process.env.XDG_DATA_HOME;
-    if (change === "profile") profile = path.join(workspace.directory, "different-profile");
+    let argv = [...original, ...retained(killed)];
     if (change === "root") {
       changed.root = path.join(workspace.directory, "copied-root");
       cpSync(workspace.root, changed.root, { recursive: true });
@@ -285,10 +263,9 @@ for (const change of [
     if (change === "actor") argv = argv.map((word) => (word === "operator" ? "another" : word));
     if (change === "flags") argv.push("--dry-run");
     if (change === "placement") argv.push("--parent", parent);
-    fail(run(changed, argv, undefined, profile), "IDEMPOTENCY_KEY_REUSED");
+    fail(run(changed, argv), "IDEMPOTENCY_KEY_REUSED");
     assert.deepEqual(raw(workspace), before);
     assert.equal(existsSync(pending), false);
-    if (change === "profile") assert.equal(existsSync(path.join(profile!, "tasks")), false);
     if (change === "cache") assert.equal(existsSync(changed.cache), false);
   });
 }

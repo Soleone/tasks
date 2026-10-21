@@ -1,47 +1,21 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import test from "node:test";
 
 const uiRunner = readFileSync(new URL("./check-ui.mjs", import.meta.url), "utf8");
 const sidecarRunner = readFileSync(new URL("./check-sidecar.mjs", import.meta.url), "utf8");
-const hostileEnvironment = {
-  XDG_DATA_HOME: "/personal/data",
-  APPDATA: "C:\\personal\\data",
-  PATH: "/toolchain",
-};
-
-function runnerEnvironment(source, name, bindings) {
-  const expression = new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n\\});`).exec(source)?.[1];
-  assert.ok(expression, `${name} must remain an explicit environment object`);
-  return new Function("process", "path", ...Object.keys(bindings), `return (${expression});`)(
-    { env: hostileEnvironment },
-    path,
-    ...Object.values(bindings),
-  );
-}
-
-function assertScratchEnvironment(environment, directory) {
-  assert.equal(environment.XDG_DATA_HOME, path.join(directory, "local-data"));
-  assert.equal(environment.APPDATA, path.join(directory, "local-data"));
-  assert.equal(environment.PATH, hostileEnvironment.PATH);
-  assert.equal(hostileEnvironment.XDG_DATA_HOME, "/personal/data");
-}
-
-test("UI test server and external CLI use the same explicitly isolated environment", () => {
-  const scratch = path.resolve("disposable-ui-test");
-  assertScratchEnvironment(runnerEnvironment(uiRunner, "testEnvironment", { scratch }), scratch);
-  assert.match(uiRunner, /env: \{\s*\.\.\.testEnvironment,\s*TASKS_DEV_BACKEND_PORT:/);
-  assert.match(uiRunner, /\{\s*cwd: root,\s*env: testEnvironment,\s*encoding: "utf8"\s*\}/);
+test("UI test server and external CLI share one scratch Tasks home", () => {
+  assert.match(uiRunner, /const home = path\.join\(scratch, "home"\);/);
+  assert.match(uiRunner, /"dist\/backend\/tasks-cli\.js"\), "--home", home,/);
+  assert.match(uiRunner, /"scripts\/dev-web\.mjs",\s*"--home",\s*home,/);
+  assert.doesNotMatch(uiRunner, /--root|--database/);
 });
 
-test("both bundled binaries run with a scratch profile instead of the inherited app data", () => {
-  const probeDirectory = path.resolve("disposable-sidecar-test");
-  assertScratchEnvironment(
-    runnerEnvironment(sidecarRunner, "environment", { probeDirectory }),
-    probeDirectory,
-  );
+test("both bundled binaries run on a scratch Tasks home, never a default one", () => {
+  assert.match(sidecarRunner, /const homePath = path\.join\(probeDirectory, "home"\);/);
+  assert.match(sidecarRunner, /const selection = \["--home", homePath\];/);
+  assert.doesNotMatch(sidecarRunner, /--root|--database/);
   assert.equal((sidecarRunner.match(/env: environment/g) ?? []).length, 1);
 });
 

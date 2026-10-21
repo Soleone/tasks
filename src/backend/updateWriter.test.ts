@@ -16,14 +16,7 @@ type Workspace = { root: string; cache: string };
 const parentId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 function setup(t: TestContext): Workspace {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-update-"));
-  const env = { XDG_DATA_HOME: process.env.XDG_DATA_HOME, APPDATA: process.env.APPDATA };
-  process.env.XDG_DATA_HOME = path.join(directory, "local");
-  process.env.APPDATA = path.join(directory, "local");
   t.after(() => {
-    for (const [key, value] of Object.entries(env)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
     rmSync(directory, { recursive: true, force: true });
   });
   const root = path.join(directory, "root");
@@ -130,7 +123,8 @@ test(
     const bytes = readFileSync(file);
     const refused = send(copy, request);
     assert.equal(refused.ok, false);
-    if (!refused.ok) assert.equal(refused.error.code, "STALE_WRITE_CONTEXT");
+    if (!refused.ok) assert.equal(refused.error.code, "CACHE_FROM_ELSEWHERE");
+    success(send(copy, { command: "workspace.newHistory" }));
     const fresh = success(send(copy, { command: "workspace.info" }));
     assert.notEqual(fresh.writeContext, request.writeContext);
     assert.deepEqual(readFileSync(file), bytes);

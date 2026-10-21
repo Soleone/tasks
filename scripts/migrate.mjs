@@ -3,13 +3,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Converts the old version's task folder into a new one: `pnpm migrate OLD_FOLDER NEW_FOLDER`.
-// The old folder is only read. The new one must be absent or empty.
+// Converts the old version's task folder into a new Tasks home: `pnpm migrate OLD_FOLDER NEW_HOME`.
+// The old folder is only read. The home must be new or empty; the tasks land in its sync folder.
 const [source, destination, ...rest] = process.argv.slice(2);
 if (!source || !destination || rest.length) {
-  process.stderr.write("usage: pnpm migrate OLD_FOLDER NEW_FOLDER\n");
+  process.stderr.write("usage: pnpm migrate OLD_FOLDER NEW_HOME\n");
   process.exit(2);
 }
+
+const { createHome } = await import("../dist/backend/home.js");
+const home = createHome(path.resolve(destination));
 
 // The cache only serves this one conversion. It stays behind for `recover` if the run fails.
 const cacheDirectory = mkdtempSync(path.join(tmpdir(), "tasks-migrate-"));
@@ -23,7 +26,7 @@ const run = spawnSync(
     "--database",
     path.join(cacheDirectory, "cache.db"),
     "migrate",
-    path.resolve(destination),
+    home.rootPath,
   ],
   { stdio: "inherit" },
 );

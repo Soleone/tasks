@@ -1,31 +1,29 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { build } from "esbuild";
 
 // The desktop setup runs against the real backend; only Tauri's bridge is replaced, with the
-// sidecar started as `node dist/backend/cli.js` and the path helpers answered from a scratch folder.
+// sidecar started as `node dist/backend/cli.js`, the pointer kept in memory and the user folder
+// answered from a scratch folder.
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-desktop-setup-"));
-const appData = path.join(scratch, "app-data");
 const cli = path.resolve("dist/backend/cli.js");
 
 const tauri = {
   "@tauri-apps/api/core": `
-    import { existsSync, mkdirSync } from "node:fs";
     export class Channel {}
-    export async function invoke(command, { path }) {
-      if (command === "path_exists") return existsSync(path);
-      if (command === "create_folder") return void mkdirSync(path, { recursive: true });
+    let pointer = null;
+    export async function invoke(command, args) {
+      if (command === "home_pointer_read") return pointer;
+      if (command === "home_pointer_write") return void (pointer = args.home);
       throw new Error("unknown command " + command);
     }`,
   "@tauri-apps/api/path": `
     import path from "node:path";
-    export const appDataDir = async () => ${JSON.stringify(appData)};
-    export const documentDir = async () => ${JSON.stringify(path.join(scratch, "documents"))};
-    export const join = async (...parts) => path.join(...parts);
-    export const dirname = async (value) => path.dirname(value);`,
+    export const homeDir = async () => ${JSON.stringify(scratch)};
+    export const join = async (...parts) => path.join(...parts);`,
   "@tauri-apps/plugin-shell": `
     import { spawn } from "node:child_process";
     export const Command = {
@@ -35,9 +33,7 @@ const tauri = {
           stdout: { on: (_event, callback) => (stdout.data = callback) },
           on: (event, callback) => (listeners[event] = callback),
           async spawn() {
-            const child = spawn(process.execPath, [${JSON.stringify(cli)}, ...args], {
-              env: { ...process.env, XDG_DATA_HOME: ${JSON.stringify(appData)} },
-            });
+            const child = spawn(process.execPath, [${JSON.stringify(cli)}, ...args]);
             child.stdout.setEncoding("utf8").on("data", (data) => stdout.data?.(data));
             child.on("close", (code, signal) => listeners.close?.({ code, signal }));
             return {
@@ -75,37 +71,47 @@ const bundle = await build({
     },
   ],
 });
-const { FolderSetup, desktopPaths } = await import(
+const { HomeError, HomeSetup, rememberHome, rememberedHome, suggestedHome } = await import(
   `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString("base64")}`
 );
 
 test.after(() => rmSync(scratch, { recursive: true, force: true }));
 
-async function stateOf(folder) {
-  const setup = await FolderSetup.open(appData, folder);
+async function withSetup(home, action) {
+  const setup = await HomeSetup.open(home);
   try {
-    return await setup.info();
+    return await action(setup);
   } finally {
     await setup.close();
   }
 }
 
-test("desktop setup suggests a folder in Documents", async () => {
-  const paths = await desktopPaths();
-  assert.equal(paths.appData, appData);
-  assert.equal(paths.suggestedFolder, path.join(scratch, "documents", "Tasks"));
+test("platform.open-workspace: setup suggests a Tasks home in the user folder", async () => {
+  assert.equal(await suggestedHome(), path.join(scratch, "Tasks"));
+  assert.equal(await rememberedHome(), null);
 });
 
-test("desktop setup turns an empty folder into a ready workspace", async () => {
-  const folder = path.join(scratch, "fresh");
-  mkdirSync(folder);
-  assert.equal((await stateOf(folder)).state, "empty");
-  const setup = await FolderSetup.open(appData, folder);
-  try {
+test("platform.open-workspace: setup creates a home, starts its list and remembers it", async () => {
+  const home = path.join(scratch, "Tasks");
+  const created = await withSetup(home, (setup) => setup.create());
+  assert.equal(created, home);
+  assert.deepEqual(readdirSync(home).sort(), ["local", "sync"]);
+  await withSetup(home, async (setup) => {
+    assert.equal((await setup.info()).state, "empty");
     await setup.init();
-  } finally {
-    await setup.close();
-  }
-  assert.equal((await stateOf(folder)).state, "ready");
-  assert.ok(existsSync(path.join(folder, "workspace.json")));
+    assert.equal((await setup.info()).state, "ready");
+  });
+  assert.ok(existsSync(path.join(home, "sync", "workspace.json")));
+  assert.ok(existsSync(path.join(home, "local", "app.db")));
+  await rememberHome(home);
+  assert.equal(await rememberedHome(), home);
+});
+
+test("platform.open-workspace: a missing home is reported, never created", async () => {
+  const home = path.join(scratch, "unplugged");
+  await assert.rejects(
+    withSetup(home, (setup) => setup.info()),
+    (error) => error instanceof HomeError && error.code === "HOME_MISSING",
+  );
+  assert.equal(existsSync(home), false);
 });

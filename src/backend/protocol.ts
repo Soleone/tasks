@@ -27,6 +27,9 @@ export type TaskReorderPlacement =
 const KNOWN_COMMANDS = [
   "activity.list",
   "category.list",
+  "home.create",
+  "home.document.read",
+  "home.document.write",
   "operation.undo",
   "operation.redo",
   "runtime.probe",
@@ -63,6 +66,8 @@ const KNOWN_COMMANDS = [
   "workspace.info",
   "workspace.init",
   "workspace.migrate",
+  "workspace.newHistory",
+  "workspace.rebind",
   "workspace.rebuild",
   "workspace.receive.abort",
   "workspace.receive.prepare",

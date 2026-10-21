@@ -40,21 +40,22 @@ function nonnegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isExplicitPath(filename: string): boolean {
+  return (
+    /^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(filename) &&
+    !["\u0000", "\r", "\n"].some((character) => filename.includes(character))
+  );
+}
+
 export function validateSelection(selection: Selection): void {
-  for (const filename of [selection.rootPath, selection.databasePath]) {
-    if (
-      !/^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(filename) ||
-      ["\u0000", "\r", "\n"].some((character) => filename.includes(character))
-    ) {
-      throw new Error("Select explicit absolute root and outside-root cache paths.");
-    }
-  }
+  if (!isExplicitPath(selection.rootPath) || !isExplicitPath(selection.databasePath))
+    throw new Error("Select explicit absolute root and outside-root cache paths.");
 }
 
 /** @public Tested from scripts/ through an esbuild bundle, which knip can't trace. */
-export function sidecarArgs(selection: Selection): string[] {
-  validateSelection(selection);
-  return ["--stdio", "--root", selection.rootPath, "--database", selection.databasePath];
+export function sidecarArgs(home: string): string[] {
+  if (!isExplicitPath(home)) throw new Error("Select an explicit absolute Tasks home.");
+  return ["--stdio", "--home", home, "--client", "app"];
 }
 
 export function parseWorkspaceInfo(result: Record<string, unknown>): WorkspaceInfo {

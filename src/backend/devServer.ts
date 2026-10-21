@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getDataDirectory } from "./paths.js";
-import { executeLine } from "./gateway.js";
+import { executeHomeLine } from "./homeGateway.js";
 import { EDITOR_COMMANDS } from "./editorCommands.js";
+import { homeCache, openHome } from "./home.js";
 import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 
 /**
@@ -15,14 +15,20 @@ import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
  * production desktop traffic stays on the sidecar stdio bridge.
  */
 export const DEFAULT_DEV_BACKEND_PORT = 5174;
-const MAX_BODY_BYTES = 1024 * 1024;
+// Documents can be up to 1 MiB, so the body allows for their JSON escaping.
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
+const HOME_COMMANDS = [
+  "home.document.read",
+  "home.document.write",
+  "workspace.rebind",
+  "workspace.newHistory",
+];
 
 export type DevServerOptions = {
   port?: number;
   host?: string;
-  databasePath?: string;
-  /** The workspace folder to edit. */
-  root?: string;
+  /** The Tasks home to edit. */
+  home?: string;
 };
 
 type DevSelection = {
@@ -79,21 +85,20 @@ function readBody(request: http.IncomingMessage): Promise<Buffer> {
 }
 
 export function startDevServer(options: DevServerOptions = {}): Promise<DevServer> {
-  if (!options.root?.trim() || !options.databasePath?.trim()) {
-    throw new Error(
-      "the dev bridge requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace",
-    );
+  if (!options.home?.trim()) {
+    throw new Error("the dev bridge requires an explicit --home PATH; there is no default home");
   }
   if (process.platform !== "linux")
     throw new Error("browser editing over the dev bridge runs only on Linux");
-  const databasePath = path.resolve(options.databasePath);
+  const home = openHome(options.home);
+  const databasePath = homeCache(home, "app");
   const selection: DevSelection = {
     version: 2,
-    rootPath: path.resolve(options.root),
+    rootPath: home.rootPath,
     databasePath,
     selectionToken: randomUUID(),
     readOnly: false,
-    profilePath: path.resolve(getDataDirectory()),
+    profilePath: home.homePath,
     writeCommands: [...EDITOR_COMMANDS],
   };
   const host = options.host ?? "127.0.0.1";
@@ -197,10 +202,7 @@ function executeDevCommand(
   try {
     const request = parseRequest(decodeEnvelope(body));
     requestId = request.requestId;
-    if (
-      token !== selection.selectionToken ||
-      selection.profilePath !== path.resolve(getDataDirectory())
-    ) {
+    if (token !== selection.selectionToken) {
       return {
         version: 2,
         requestId,
@@ -208,13 +210,14 @@ function executeDevCommand(
         error: {
           code: "STALE_DEV_SELECTION",
           message:
-            "dev backend selection/profile changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection",
+            "dev backend selection changed; preserve the original envelope and paths for manual reconciliation; no automatic reconnection",
         },
       };
     }
     if (
       !(QUERY_COMMANDS as readonly string[]).includes(request.command) &&
-      !(EDITOR_COMMANDS as readonly string[]).includes(request.command)
+      !(EDITOR_COMMANDS as readonly string[]).includes(request.command) &&
+      !HOME_COMMANDS.includes(request.command)
     ) {
       return {
         version: 2,
@@ -227,7 +230,7 @@ function executeDevCommand(
         },
       };
     }
-    return executeLine(body, selection.rootPath, selection.databasePath);
+    return executeHomeLine(body, selection.profilePath, "app");
   } catch {
     return {
       version: 2,
@@ -253,12 +256,10 @@ async function main(): Promise<void> {
   if (port !== undefined && (!Number.isInteger(port) || port < 0)) {
     throw new Error("--port must be a non-negative integer");
   }
-  const root = optionValue(args, "--root");
-  if (args.includes("--root") && (root === undefined || root.startsWith("--")))
-    throw new Error("--root requires PATH");
-  const databasePath = optionValue(args, "--database");
+  const home = optionValue(args, "--home");
+  if (home === undefined || home.startsWith("--")) throw new Error("--home requires PATH");
 
-  const dev = await startDevServer({ port, databasePath, root });
+  const dev = await startDevServer({ port, home });
   process.stdout.write(`tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`);
 
   const shutdown = (): void => {

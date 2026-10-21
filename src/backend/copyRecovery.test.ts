@@ -114,7 +114,7 @@ for (const command of ["archive", "restore"])
           const target = {
             ...workspace,
             root: workspace.destination,
-            cache: path.join(workspace.directory, "target.db"),
+            cache: path.join(workspace.directory, "local", "target.db"),
           };
           assert.equal(
             success(send(target, { command: "workspace.info" })).result.state,
@@ -135,7 +135,7 @@ for (const command of ["archive", "restore"])
         const target = {
           ...workspace,
           root: workspace.destination,
-          cache: path.join(workspace.directory, "target.db"),
+          cache: path.join(workspace.directory, "local", "target.db"),
         };
         assert.equal(success(send(target, { command: "workspace.info" })).result.state, "ready");
         assert.deepEqual(
@@ -360,7 +360,7 @@ test(
     const target = {
       ...workspace,
       root: workspace.destination,
-      cache: path.join(workspace.directory, "target.db"),
+      cache: path.join(workspace.directory, "local", "target.db"),
     };
     assert.equal(success(send(target, { command: "workspace.info" })).result.state, "ready");
   },

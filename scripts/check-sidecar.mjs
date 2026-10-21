@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -21,32 +21,26 @@ if (!existsSync(cliBinary)) {
 }
 
 const probeDirectory = mkdtempSync(path.join(os.tmpdir(), "tasks-sidecar-check-"));
-const rootPath = path.join(probeDirectory, "root");
-const databasePath = path.join(probeDirectory, "cache.db");
-const environment = {
-  ...process.env,
-  XDG_DATA_HOME: path.join(probeDirectory, "local-data"),
-  APPDATA: path.join(probeDirectory, "local-data"),
-};
+const homePath = path.join(probeDirectory, "home");
+const environment = { ...process.env };
 environment.PATH =
   process.platform === "win32"
     ? `${process.env.SystemRoot ?? "C:\\Windows"}\\System32`
     : "/usr/bin:/bin";
 delete environment.NODE_PATH;
 delete environment.NODE_OPTIONS;
-const selection = ["--root", rootPath, "--database", databasePath];
+const selection = ["--home", homePath];
 const run = (file, args, input) =>
   execFileSync(file, args, { cwd: root, encoding: "utf8", env: environment, input });
 
 try {
-  mkdirSync(rootPath);
   run(cliBinary, [...selection, "init", "--json"]);
   run(cliBinary, [...selection, "add", "Sidecar search probe", "--json"]);
-  console.log(`PASS: ${path.relative(root, cliBinary)} started a folder and added a task.`);
+  console.log(`PASS: ${path.relative(root, cliBinary)} created a home and added a task.`);
 
   const request = { version: 2, command: "task.list", args: { search: "probe" } };
   const response = JSON.parse(
-    run(binary, ["--stdio", ...selection], `${JSON.stringify(request)}\n`),
+    run(binary, ["--stdio", ...selection, "--client", "cli"], `${JSON.stringify(request)}\n`),
   );
   if (!response.ok || response.result.total !== 1)
     throw new Error(response.error?.message ?? "Sidecar search did not find the probe task");

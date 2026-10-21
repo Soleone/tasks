@@ -1,10 +1,25 @@
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { syncDirectory, localDomain, withRootWriterLock, writeDurableFile } from "./localDomain.js";
+import { readPhysicalRoot } from "./canonicalReader.js";
+import {
+  localDomain,
+  selectOtherRootsDirectory,
+  syncDirectory,
+  withRootWriterLock,
+  writeDurableFile,
+} from "./localDomain.js";
 
 function scratch(t: TestContext): string {
   const directory = mkdtempSync(path.join(os.tmpdir(), "taskdb-local-domain-"));
@@ -31,29 +46,42 @@ test(
 );
 
 test(
-  "first root-domain initialization stops at the created parent, including Windows namespace spelling",
-  { skip: process.platform !== "linux" && process.platform !== "win32" },
+  "home.layout: a home's lock and recovery files sit beside its sync folder under every spelling",
+  { skip: process.platform !== "linux" },
   (t) => {
-    const directory = scratch(t);
-    const rootPath = path.join(directory, "root");
-    mkdirSync(rootPath);
-    const stat = lstatSync(rootPath, { bigint: true });
-    const root = { rootPath, rootIdentity: `${stat.dev}:${stat.ino}` };
-    const variable = process.platform === "win32" ? "APPDATA" : "XDG_DATA_HOME";
-    const previous = process.env[variable];
-    process.env[variable] = path.join(directory, "new-profile/nested");
-    t.after(() => {
-      if (previous === undefined) delete process.env[variable];
-      else process.env[variable] = previous;
-    });
+    const home = scratch(t);
+    mkdirSync(path.join(home, "sync"));
+    mkdirSync(path.join(home, "local"));
+    symlinkSync(home, `${home}-alias`);
+    t.after(() => rmSync(`${home}-alias`, { force: true }));
+    const root = readPhysicalRoot(path.join(home, "sync"));
+    const alias = readPhysicalRoot(path.join(`${home}-alias`, "sync"));
+    assert.equal(localDomain(alias), path.join(home, "local"));
     let calls = 0;
     withRootWriterLock(root, () => {
       calls += 1;
     });
-    withRootWriterLock(root, () => {
+    withRootWriterLock(alias, () => {
       calls += 1;
     });
     assert.equal(calls, 2);
-    assert.equal(existsSync(path.join(localDomain(root), "lock.db")), true);
+    assert.equal(existsSync(path.join(home, "local", "lock.db")), true);
+  },
+);
+
+test(
+  "home.layout: other roots keep their lock beside the selected cache, creating only the missing folders",
+  { skip: process.platform !== "linux" && process.platform !== "win32" },
+  (t) => {
+    const directory = scratch(t);
+    const rootPath = path.join(directory, "archive");
+    mkdirSync(rootPath);
+    const stat = lstatSync(rootPath, { bigint: true });
+    const root = { rootPath, rootIdentity: `${stat.dev}:${stat.ino}` };
+    selectOtherRootsDirectory(path.join(directory, "new-local", "nested", "cli.db"));
+    withRootWriterLock(root, () => {});
+    const domain = localDomain(root);
+    assert.equal(path.dirname(domain), path.join(directory, "new-local", "nested", "roots"));
+    assert.equal(existsSync(path.join(domain, "lock.db")), true);
   },
 );

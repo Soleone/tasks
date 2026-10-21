@@ -29,11 +29,7 @@ type Workspace = { directory: string; root: string; cache: string };
 
 function setup(t: TestContext): Workspace {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-update-fault-"));
-  const before = process.env.XDG_DATA_HOME;
-  process.env.XDG_DATA_HOME = path.join(directory, "local");
   t.after(() => {
-    if (before === undefined) delete process.env.XDG_DATA_HOME;
-    else process.env.XDG_DATA_HOME = before;
     rmSync(directory, { recursive: true, force: true });
   });
   const root = path.join(directory, "root");

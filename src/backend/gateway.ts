@@ -20,7 +20,9 @@ import { executeMigration } from "../migration/writer.js";
 import { executeLifecycle } from "./lifecycleWriter.js";
 import { Schema1MigrationSourceError } from "../migration/schema1Source.js";
 import { resumeOperation } from "./recovery.js";
+import { executeHistoryChoice } from "./historyChoice.js";
 import { readPending } from "./pending.js";
+import { selectOtherRootsDirectory } from "./localDomain.js";
 import { executeQuery, projectTasks } from "./queries.js";
 import { assertArgs, decodeEnvelope, isRecord, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 import type { Response } from "./protocol.js";
@@ -46,10 +48,15 @@ const writeCommands = [
 export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: string): Response {
   let requestId: string | null = null;
   try {
+    selectOtherRootsDirectory(cachePath);
     const envelope = decodeEnvelope(bytes);
     if (isRecord(envelope) && typeof envelope.requestId === "string")
       requestId = envelope.requestId;
     const request = parseRequest(envelope);
+    if (request.command === "workspace.rebind" || request.command === "workspace.newHistory") {
+      const outcome = executeHistoryChoice(request, rootPath, cachePath);
+      return { version: 2, requestId: request.requestId, ok: true, ...outcome };
+    }
     if (request.command === "workspace.doctor.inspect") {
       const outcome = executeDoctorInspect(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
@@ -159,31 +166,35 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
       result,
     };
   } catch (error) {
-    const storageError =
-      isRecord(error) &&
-      typeof error.code === "string" &&
-      /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
-    const code =
-      error instanceof CommandError
-        ? error.code
-        : storageError
-          ? "INVALID_STORAGE"
-          : "INTERNAL_ERROR";
-    const message =
-      error instanceof CommandError
-        ? error.message.slice(error.code.length + 2)
-        : "query could not complete safely";
-    return {
-      version: 2,
-      requestId,
-      ok: false,
-      error: {
-        code,
-        message,
-        ...(error instanceof Schema1MigrationSourceError || error instanceof PurgeReferencedError
-          ? { details: error.details }
-          : {}),
-      },
-    };
+    return failureResponse(requestId, error);
   }
+}
+
+export function failureResponse(requestId: string | null, error: unknown): Response {
+  const storageError =
+    isRecord(error) &&
+    typeof error.code === "string" &&
+    /^(?:E[A-Z]+|ERR_SQLITE.*)$/.test(error.code);
+  const code =
+    error instanceof CommandError
+      ? error.code
+      : storageError
+        ? "INVALID_STORAGE"
+        : "INTERNAL_ERROR";
+  const message =
+    error instanceof CommandError
+      ? error.message.slice(error.code.length + 2)
+      : "query could not complete safely";
+  return {
+    version: 2,
+    requestId,
+    ok: false,
+    error: {
+      code,
+      message,
+      ...(error instanceof Schema1MigrationSourceError || error instanceof PurgeReferencedError
+        ? { details: error.details }
+        : {}),
+    },
+  };
 }

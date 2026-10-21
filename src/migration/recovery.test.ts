@@ -99,7 +99,7 @@ for (const cut of cuts) {
         const target = {
           ...workspace,
           root: workspace.destination,
-          cache: path.join(workspace.directory, "target.db"),
+          cache: path.join(workspace.directory, "local", "target.db"),
         };
         assert.equal(
           success(send(target, { command: "workspace.info" })).result.state,
@@ -312,8 +312,8 @@ test(
     const { request, intent } = crash(workspace, "prefix-2");
     const other = { ...workspace, cache: path.join(workspace.directory, "other.db") };
     cpSync(workspace.cache, other.cache);
-    fail(send(other, request), "STALE_WRITE_CONTEXT");
-    fail(recover(other, intent.operationId), "RECOVERY_CONFLICT");
+    fail(send(other, request), "CACHE_FROM_ELSEWHERE");
+    fail(recover(other, intent.operationId), "CACHE_FROM_ELSEWHERE");
     rmSync(workspace.cache);
     fail(send(workspace, request), "STALE_WRITE_CONTEXT");
     success(recover(workspace, intent.operationId));

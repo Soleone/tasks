@@ -27,7 +27,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `auth.replay` | The same key with the same request returns the original result, even if the task changed since. The same key with a different request fails `IDEMPOTENCY_KEY_REUSED`. `requestId` and key order don't count; array order does |
 | `auth.replay-first` | A known key is looked up before any check on the current tasks |
 | `auth.noop-receipt` | A no-op stores a receipt and writes nothing |
-| `auth.fresh-context` | Choosing another folder, restoring, or losing the cache gives a new context. Old keys then fail `STALE_WRITE_CONTEXT`; callers inspect and reconcile by hand, never silently retry with fresh authority |
+| `auth.fresh-context` | A new or lost cache gives a new context. A cache recorded for another folder, or copied from elsewhere, fails `CACHE_FROM_ELSEWHERE` and is never wiped or adopted; `workspace.newHistory` moves it to `retired/` beside it, untouched, and starts a new context. Old keys then fail `STALE_WRITE_CONTEXT`; callers inspect and reconcile by hand, never silently retry with fresh authority |
+| `auth.moved-home` | When the folder and its cache are the same files at a new path, requests fail `HOME_MOVED` until `workspace.rebind` confirms the move, which keeps the context, receipts and history. The same paths and files on a new device number (as Android's shared storage can get) keep the context without asking. Neither choice runs while the folder has unfinished work |
 | `auth.rebuild` | Rebuilding the cache in place keeps the context and receipts and issues new task versions |
 
 ## Text input

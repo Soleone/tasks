@@ -12,7 +12,7 @@ import {
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { fail, send, success } from "./copyTestWorkspace.js";
+import { fail, send, startNewHistory, success } from "./copyTestWorkspace.js";
 import {
   createDoctorWorkspace as setup,
   doctorCorpus as corpus,
@@ -347,6 +347,8 @@ test(
     cpSync(w.cache, copied);
     renameSync(w.cache, `${w.cache}.old`);
     cpSync(copied, w.cache);
+    fail(send(w, request), "CACHE_FROM_ELSEWHERE");
+    startNewHistory(w);
     fail(send(w, request), "STALE_WRITE_CONTEXT");
     assert.deepEqual(
       success(send(w, { command: "workspace.doctor.inspect" })).result.unreviewedIncomingLinks,

@@ -84,7 +84,7 @@ function validateEditorSelection(value: unknown): asserts value is EditorSelecti
     value.writeCommands.length !== commands.length ||
     value.writeCommands.some((command, index) => command !== commands[index])
   ) {
-    throw new Error("This editor requires a dev bridge started with --root and --database.");
+    throw new Error("This editor requires a dev bridge started with --home.");
   }
   validateSelection(value as EditorSelection);
   validateSelection({ rootPath: value.profilePath, databasePath: value.databasePath });
@@ -583,6 +583,14 @@ export class EditorClient {
       readOnly: false,
       dryRun: false,
     });
+  }
+
+  /** Reads or saves one of the home's own documents; these need no write authority. */
+  async homeCommand(
+    command: "home.document.read" | "home.document.write",
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return (await this.query(command, args)).result;
   }
 
   private async query(command: string, args: Record<string, unknown>) {

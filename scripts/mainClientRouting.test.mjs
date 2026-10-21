@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import {
   cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -152,12 +154,13 @@ const { startDevServer } = await import("../dist/backend/devServer.js");
 
 async function selectedHttpWorkspace(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "taskdb-main-http-"));
-  const root = path.join(directory, "root");
+  const home = path.join(directory, "home"),
+    root = path.join(home, "sync"),
+    cache = path.join(home, "local", "app.db");
   cpSync("scripts/fixtures/workspace/root", root, { recursive: true });
-  const originalXdg = process.env.XDG_DATA_HOME,
-    originalFetch = globalThis.fetch;
-  process.env.XDG_DATA_HOME = path.join(directory, "profile");
-  let dev = await startDevServer({ port: 0, root, databasePath: path.join(directory, "cache.db") });
+  mkdirSync(path.join(home, "local"));
+  const originalFetch = globalThis.fetch;
+  let dev = await startDevServer({ port: 0, home });
   const calls = [];
   let loseNextWriteReply = false;
   globalThis.fetch = async (...args) => {
@@ -173,8 +176,6 @@ async function selectedHttpWorkspace(t) {
   t.after(async () => {
     globalThis.fetch = originalFetch;
     await new Promise((resolve) => dev.server.close(resolve));
-    if (originalXdg === undefined) delete process.env.XDG_DATA_HOME;
-    else process.env.XDG_DATA_HOME = originalXdg;
     rmSync(directory, { recursive: true, force: true });
   });
   const confirm = async (storage) => {
@@ -185,21 +186,17 @@ async function selectedHttpWorkspace(t) {
       storage,
     );
   };
-  // Restart the bridge on the same root with a fresh cache and reconfirm, as after closing and reopening.
+  // Restart the bridge with the cache set aside and reconfirm, as after losing the cache.
   const reopen = async () => {
     await new Promise((resolve) => dev.server.close(resolve));
-    dev = await startDevServer({
-      port: 0,
-      root,
-      databasePath: path.join(directory, "reopened-cache.db"),
-    });
+    renameSync(cache, `${cache}.set-aside`);
+    dev = await startDevServer({ port: 0, home });
     return confirm();
   };
-  // Restart the bridge on the same root and cache, optionally under another profile, as after closing and reopening.
-  const restart = async (storage, profile = "profile") => {
+  // Restart the bridge on the same home and cache, as after closing and reopening.
+  const restart = async (storage) => {
     await new Promise((resolve) => dev.server.close(resolve));
-    process.env.XDG_DATA_HOME = path.join(directory, profile);
-    dev = await startDevServer({ port: 0, root, databasePath: path.join(directory, "cache.db") });
+    dev = await startDevServer({ port: 0, home });
     return confirm(storage);
   };
   return {
@@ -827,20 +824,15 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
     (await workspace.save("Scoped", "", undefined, "scoped-key", openId, await version(openId)))
       .operationId,
   );
-  workspace = await restart(storage, "other-profile");
-  assert.equal((await workspace.undoHistory()).latest(), null, "another profile sees no entries");
   workspace = await restart(storage);
   assert.notEqual((await workspace.undoHistory()).latest(), null);
   workspace = await reopen();
   workspace = await confirm(storage);
   assert.equal((await workspace.undoHistory()).latest(), null, "a different cache sees no entries");
-  const otherRoot = path.join(directory, "other-root");
-  cpSync("scripts/fixtures/workspace/root", otherRoot, { recursive: true });
-  const other = await startDevServer({
-    port: 0,
-    root: otherRoot,
-    databasePath: path.join(directory, "other-cache.db"),
-  });
+  const otherHome = path.join(directory, "other-home");
+  cpSync("scripts/fixtures/workspace/root", path.join(otherHome, "sync"), { recursive: true });
+  mkdirSync(path.join(otherHome, "local"));
+  const other = await startDevServer({ port: 0, home: otherHome });
   t.after(() => new Promise((resolve) => other.server.close(resolve)));
   const selection = await httpClient.readEditorSelection(other.url);
   const otherWorkspace = new httpClient.MainWorkspace(
@@ -1171,7 +1163,9 @@ test("Linux workspace backup and separately selected restore preserve raw canoni
   );
   const before = canonicalBytes(root),
     archive = path.join(directory, "archive"),
-    restored = path.join(directory, "restored");
+    restoredHome = path.join(directory, "restored-home"),
+    restored = path.join(restoredHome, "sync");
+  mkdirSync(path.join(restoredHome, "local"), { recursive: true });
   const backup = await workspace.copyWorkspace(archive, "backup-key");
   assert.equal(backup.taskCount, 5);
   assert.ok(backup.operationId);
@@ -1184,11 +1178,7 @@ test("Linux workspace backup and separately selected restore preserve raw canoni
   assert.equal(workspace.reader.selection.rootPath, root);
   assert.deepEqual(history.latest(), entry, "copies do not enter or retire task undo history");
   const selectedContext = (await workspace.editor.begin(undefined, "copy")).writeContext;
-  const dev = await startDevServer({
-    port: 0,
-    root: restored,
-    databasePath: path.join(directory, "restored-cache.db"),
-  });
+  const dev = await startDevServer({ port: 0, home: restoredHome });
   t.after(() => new Promise((resolve) => dev.server.close(resolve)));
   const selection = await httpClient.readEditorSelection(dev.url);
   const fresh = new httpClient.MainWorkspace(

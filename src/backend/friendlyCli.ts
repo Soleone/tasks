@@ -1,9 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { writeSync } from "node:fs";
-import path from "node:path";
 import { CommandError } from "./errors.js";
 import { executeLine } from "./gateway.js";
-import { getDataDirectory } from "./paths.js";
+import { executeHomeLine } from "./homeGateway.js";
 import { humanOptionIndex, parseHumanArgs, HumanUsageError, humanUsage } from "./friendlyArgs.js";
 import type { HumanInvocation } from "./friendlyArgs.js";
 import { printHumanResult } from "./friendlyOutput.js";
@@ -16,11 +15,12 @@ class HumanProtocolError extends CommandError {
   }
 }
 function dispatch(invocation: HumanInvocation, request: Request): Extract<Response, { ok: true }> {
-  const response = executeLine(
-    Buffer.from(JSON.stringify(request)),
-    invocation.rootPath,
-    invocation.cachePath,
-  );
+  const bytes = Buffer.from(JSON.stringify(request));
+  const { target } = invocation;
+  const response =
+    "homePath" in target
+      ? executeHomeLine(bytes, target.homePath, "cli")
+      : executeLine(bytes, target.rootPath, target.cachePath);
   if (!response.ok) throw new HumanProtocolError(response);
   return response;
 }
@@ -37,14 +37,7 @@ function query(invocation: HumanInvocation, command: string, args: Record<string
 }
 function preparedRequestHash(invocation: HumanInvocation, request: Request): string {
   return createHash("sha256")
-    .update(
-      JSON.stringify([
-        requestIdentity(request),
-        invocation.rootPath,
-        invocation.cachePath,
-        path.resolve(getDataDirectory()),
-      ]),
-    )
+    .update(JSON.stringify([requestIdentity(request), invocation.target]))
     .digest("hex");
 }
 function prepare(invocation: HumanInvocation): Request {
@@ -104,7 +97,7 @@ function prepare(invocation: HumanInvocation): Request {
   ) {
     throw new CommandError(
       "IDEMPOTENCY_KEY_REUSED",
-      "retained request hash differs; preserve the original payload, actor, flags and root/cache/profile paths",
+      "retained request hash differs; preserve the original payload, actor, flags and home",
     );
   }
   return request;
@@ -114,9 +107,7 @@ function reportRetry(invocation: HumanInvocation, request: Request): void {
   const bytes = Buffer.from(
     `tasks-cli retry: ${JSON.stringify({
       command: request.command,
-      rootPath: invocation.rootPath,
-      cachePath: invocation.cachePath,
-      profileDirectory: path.resolve(getDataDirectory()),
+      ...invocation.target,
       writeContext: request.writeContext,
       idempotencyKey: request.idempotencyKey,
       expectedVersion: request.args.expectedVersion,
@@ -146,6 +137,9 @@ export function runHumanCli(argv: string[]): void {
       process.stdout.write(humanUsage());
       return;
     }
+    // A new home is created by its explicit init, before init asks the home for authority.
+    if (invocation.request.command === "workspace.init" && "homePath" in invocation.target)
+      query(invocation, "home.create");
     const request = prepare(invocation);
     if (invocation.mutation && !request.readOnly && !request.dryRun)
       reportRetry(invocation, request);

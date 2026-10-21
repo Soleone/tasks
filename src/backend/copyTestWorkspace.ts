@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,20 +21,16 @@ export function createCopyTestWorkspace(
     new URL("../../scripts/fixtures/workspace/root/", import.meta.url),
   ),
 ): CopyTestWorkspace {
+  // The directory is a Tasks home, so the root's lock and recovery files are in its local folder.
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-copy-"));
-  const before = process.env.XDG_DATA_HOME;
-  process.env.XDG_DATA_HOME = path.join(directory, "local");
-  t.after(() => {
-    if (before === undefined) delete process.env.XDG_DATA_HOME;
-    else process.env.XDG_DATA_HOME = before;
-    rmSync(directory, { recursive: true, force: true });
-  });
-  const root = path.join(directory, "root");
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const root = path.join(directory, "sync");
   cpSync(fixtureDirectory, root, { recursive: true });
+  mkdirSync(path.join(directory, "local"));
   return {
     directory,
     root,
-    cache: path.join(directory, "cache.db"),
+    cache: path.join(directory, "local", "cache.db"),
     destination: path.join(directory, "archive"),
   };
 }
@@ -61,6 +57,12 @@ export function fail(response: Response, code: string): void {
   if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response));
 }
 
+/** A cache copied from another home is refused until the owner starts a new history with it. */
+export function startNewHistory(workspace: CopyTestWorkspace): void {
+  fail(send(workspace, { command: "workspace.info" }), "CACHE_FROM_ELSEWHERE");
+  success(send(workspace, { command: "workspace.newHistory" }));
+}
+
 /** One request through the stdio CLI in a child process, optionally with a module hook that cuts it short. */
 export function run(workspace: CopyTestWorkspace, request: object, loader?: string) {
   return spawnSync(
@@ -83,7 +85,8 @@ export function recover(
   operationId: string,
   key = "resume",
 ): Response {
-  const info = success(send(workspace, { command: "workspace.info" }));
+  const info = send(workspace, { command: "workspace.info" });
+  if (!info.ok) return info;
   return send(workspace, {
     command: "workspace.recovery.resume",
     args: { operationId },

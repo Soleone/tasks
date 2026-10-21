@@ -1,9 +1,8 @@
 /**
  * The only source of truth for the product's user-facing name.
  *
- * Keep the data directory stable when rebranding so existing workspaces remain
- * available. Change APP_NAME for a new product name; APP_DATA_DIRECTORY is a
- * storage compatibility detail, not part of the brand.
+ * User data lives in the Tasks home the owner chose, so renaming the product never moves it.
+ * The native shell's identifier (`src-tauri/tauri.conf.json`) only locates the small pointer to
+ * that home and the WebView's own storage; changing it means reconnecting the home once.
  */
 export const APP_NAME = "Tasks";
-export const APP_DATA_DIRECTORY = "com.soleone.tasks";

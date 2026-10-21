@@ -12,8 +12,8 @@ type Listeners = {
   close: (payload: { code: number | null; signal: number | null }) => void;
 };
 
-/** Starts the backend through the Android shell, which runs it from the app's native library folder. */
-export function androidBackend(root: string, database: string): BackendCommand {
+/** Starts the backend for a Tasks home through the Android shell, from the app's native library folder. */
+export function androidBackend(home: string): BackendCommand {
   const listeners: Listeners = { data: () => {}, error: () => {}, close: () => {} };
   return {
     stdout: {
@@ -31,7 +31,7 @@ export function androidBackend(root: string, database: string): BackendCommand {
         else if (message.event === "error") listeners.error(message.data);
         else listeners.close({ code: message.data.code, signal: null });
       });
-      const pid = await invoke<number>("backend_start", { root, database, events });
+      const pid = await invoke<number>("backend_start", { home, events });
       return {
         write: (data) => invoke("backend_write", { pid, data }),
         kill: () => invoke("backend_kill", { pid }),

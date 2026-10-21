@@ -10,15 +10,10 @@ if [[ ! -f "$sidecar" ]]; then
   exit 1
 fi
 
-if [[ -n "${TASKS_WINDOWS_DATABASE:-}" ]]; then
-  database_path="$(wslpath -w "$TASKS_WINDOWS_DATABASE")"
-else
-  application_data="$(powershell.exe -NoProfile -NonInteractive -Command '[Environment]::GetFolderPath("ApplicationData")' < /dev/null | tr -d '\r\n')"
-  if [[ -z "$application_data" ]]; then
-    printf 'Could not resolve the Windows ApplicationData directory.\n' >&2
-    exit 1
-  fi
-  database_path="${application_data}\\com.soleone.tasks\\tasks.db"
+# JSON lines to the Windows backend, as a second writer in a Tasks home. There is no default home.
+if [[ -z "${TASKS_WINDOWS_HOME:-}" ]]; then
+  printf 'Set TASKS_WINDOWS_HOME to the Tasks home, for example /mnt/c/Users/you/Tasks.\n' >&2
+  exit 1
 fi
 
-exec "$sidecar" "$@" --database "$database_path"
+exec "$sidecar" --stdio --home "$(wslpath -w "$TASKS_WINDOWS_HOME")" --client cli "$@"

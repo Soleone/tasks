@@ -18,14 +18,11 @@ const running = new Map<string, { dev: DevServer; directory: string }>();
 
 async function startWorkspace(): Promise<string> {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-client-test-"));
-  const root = path.join(directory, "root");
+  const root = path.join(directory, "sync");
   mkdirSync(path.join(root, "tasks"), { recursive: true });
+  mkdirSync(path.join(directory, "local"));
   writeFileSync(path.join(root, "workspace.json"), JSON.stringify({ schemaVersion: 2 }));
-  const dev = await startDevServer({
-    port: 0,
-    root,
-    databasePath: path.join(directory, "cache.db"),
-  });
+  const dev = await startDevServer({ port: 0, home: directory });
   running.set(dev.url, { dev, directory });
   return dev.url;
 }
@@ -39,9 +36,6 @@ async function stopWorkspace(url: string): Promise<void> {
 }
 
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  // The bridge checks the profile per request, so every workspace in this process shares one.
-  const profile = mkdtempSync(path.join(os.tmpdir(), "tasks-client-profile-"));
-  process.env.XDG_DATA_HOME = profile;
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const work =
@@ -70,6 +64,5 @@ export default async function setup(project: TestProject): Promise<() => Promise
   return async () => {
     await Promise.all([...running.keys()].map(stopWorkspace));
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    rmSync(profile, { recursive: true, force: true });
   };
 }

@@ -2,7 +2,7 @@ import { useRef, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
 import { selectedMainWorkspace } from "@/platform/backendClient";
 import { runtimeKind } from "@/platform/runtime";
-import { rememberFolder } from "@/platform/desktopWorkspace";
+import { chooseHomeOnNextStart } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -251,28 +251,36 @@ export function SettingsDialog({
               >
                 <div className="flex flex-col gap-1">
                   <h2 id="settings-sync" className="text-sm font-medium">
-                    Task folder
+                    Tasks home
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Each task is a file in this folder.
+                    Everything Tasks keeps on this device. To back it up, close Tasks and copy the
+                    whole folder.
                   </p>
                 </div>
                 {workspace ? (
-                  <code className="wrap-anywhere text-xs">
-                    {workspace.editor.selection.rootPath}
-                  </code>
+                  <>
+                    <code className="wrap-anywhere text-xs">
+                      {workspace.editor.selection.profilePath}
+                    </code>
+                    <p className="text-sm text-muted-foreground">
+                      Add only its sync folder to Syncthing, never the home itself:
+                    </p>
+                    <code className="wrap-anywhere text-xs">
+                      {workspace.editor.selection.rootPath}
+                    </code>
+                  </>
                 ) : null}
                 {runtimeKind() === "native" && (
                   <Button
                     variant="outline"
                     className="w-fit"
                     onClick={() => {
-                      // Setup asks for a folder again on the next start.
-                      rememberFolder(null);
+                      chooseHomeOnNextStart();
                       window.location.reload();
                     }}
                   >
-                    Change folder…
+                    Open another home…
                   </Button>
                 )}
               </section>

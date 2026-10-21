@@ -1,12 +1,12 @@
 # Sharing
 
-A workspace is shared by syncing its folder, for example with Syncthing. Tasks adds no sync service of its own.
+A workspace is shared by syncing its folder, for example with Syncthing: the `sync/` folder of each device's Tasks home, never the home itself. Tasks adds no sync service of its own.
 
 ## Syncing
 
 | Rule | Then |
 | --- | --- |
-| `share.folder-only` | Only `workspace.json` and `tasks/` are shared. Each device keeps its own cache |
+| `share.folder-only` | Only `workspace.json` and `tasks/` are shared. Each device keeps its own home with its own cache, settings and recovery files |
 | `share.refresh` | The app notices changes from other devices and the CLI and refreshes without a restart |
 | `share.join-disjoint` | Different task files from different devices simply add up |
 | `share.join-identical` | The same ID with identical bytes is one task |

@@ -17,6 +17,7 @@ import {
   type StatusAction,
   type UndoResult,
 } from "./editorClient";
+import type { HomeDocuments } from "./homeDocuments";
 import { browserUndoStorage, UndoHistory, type UndoStorage } from "./undoHistory";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
@@ -58,6 +59,8 @@ export class MainWorkspace {
     readonly reader: WorkspaceReader,
     readonly editor: EditorClient,
     private readonly undoStorage: UndoStorage | null = browserUndoStorage(),
+    /** The home's own documents, when the workspace was opened through a Tasks home. */
+    readonly documents: HomeDocuments | null = null,
   ) {
     if (
       reader.selection.rootPath !== editor.selection.rootPath ||

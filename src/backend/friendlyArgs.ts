@@ -4,6 +4,7 @@ import { parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 
 const VALUE_FLAGS = new Set([
+  "home",
   "root",
   "database",
   "write-context",
@@ -40,6 +41,7 @@ const BOOLEAN_FLAGS = new Set([
   "include-ancestors",
 ]);
 const GLOBAL_FLAGS = [
+  "home",
   "root",
   "database",
   "write-context",
@@ -75,10 +77,11 @@ export class HumanUsageError extends CommandError {
 function usage(message: string): never {
   throw new HumanUsageError(message);
 }
+/** A home (the documented form) or a bare folder and cache, which tests and conversion use. */
+type HumanTarget = { homePath: string } | { rootPath: string; cachePath: string };
 export type HumanInvocation = {
   help: false;
-  rootPath: string;
-  cachePath: string;
+  target: HumanTarget;
   json: boolean;
   requestHash?: string;
   request: Request;
@@ -183,13 +186,14 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
   const { flags, words } = tokenize(argv),
     [verb, ...positionals] = words;
   if (flags.has("help")) return { help: true, json: flags.has("json") };
-  const rootPath = value(flags, "root"),
+  const homePath = value(flags, "home"),
+    rootPath = value(flags, "root"),
     cachePath = value(flags, "database");
-  if (!rootPath?.trim() || !cachePath?.trim())
-    usage(
-      "tasks-cli requires explicit --root PATH and --database CACHE_OUTSIDE_ROOT; there is no default workspace",
-    );
-  if (!verb) usage("no command; use tasks-cli --root PATH --help");
+  if (homePath !== undefined && (rootPath !== undefined || cachePath !== undefined))
+    usage("--home already selects the folder and cache; don't add --root or --database");
+  if (!homePath?.trim() && (!rootPath?.trim() || !cachePath?.trim()))
+    usage("tasks-cli requires explicit --home PATH; there is no default home");
+  if (!verb) usage("no command; use tasks-cli --home PATH --help");
   let command: string,
     allowed: string[] = [],
     mutation = true;
@@ -358,6 +362,12 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       requirePositionals(positionals, 1, verb);
       args.operationId = positionals[0];
       break;
+    case "rebind":
+    case "new-history":
+      command = verb === "rebind" ? "workspace.rebind" : "workspace.newHistory";
+      requirePositionals(positionals, 0, verb);
+      mutation = false;
+      break;
     default:
       usage("unknown command; use --help or the documented JSON-lines advanced controls");
   }
@@ -392,8 +402,9 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
     usage("--request-hash requires the retained SHA-256 hash");
   return {
     help: false,
-    rootPath: path.resolve(rootPath),
-    cachePath: path.resolve(cachePath),
+    target: homePath?.trim()
+      ? { homePath: path.resolve(homePath) }
+      : { rootPath: path.resolve(rootPath!), cachePath: path.resolve(cachePath!) },
     json: flags.has("json"),
     requestHash,
     request,
@@ -404,8 +415,9 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
 export function humanUsage(): string {
   return `tasks-cli: work with one explicitly selected workspace folder
 
-  tasks-cli --root PATH --database CACHE_OUTSIDE_ROOT COMMAND [OPTIONS]
-  No environment, registry, default database, initialization or adoption fallback.
+  tasks-cli --home PATH COMMAND [OPTIONS]
+  PATH is a Tasks home: its sync folder holds the tasks, and the CLI keeps its own
+  cache in its local folder. No environment, registry or default home.
   Pause other writers/sharing before destructive work.
 
 QUERIES
@@ -426,10 +438,12 @@ WRITES
   undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled
   move ID --parent ID | move ID --no-parent
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
-  init | rebuild | archive DESTINATION | restore SOURCE DESTINATION
-  migrate DESTINATION | recover OPERATION_ID
-  Copy/migration never switches selection or enables sharing. Migration only reads the
-  schema 1 folder; later edits in the new folder are never copied back.
+  init (creates the home) | rebuild | archive DESTINATION | restore SOURCE DESTINATION
+  recover OPERATION_ID
+  rebind: keep history after the home moved | new-history: set aside a cache that
+  came with a copy of the home and start a new history here
+  Archive and restore never switch the home or enable sharing. Old-version folders
+  are converted with pnpm migrate.
   Ordering, batches and doctor remain advanced JSON-lines controls, not new verbs.
 
 OUTPUT AND RETRIES
@@ -437,11 +451,11 @@ OUTPUT AND RETRIES
   --actor-kind human|agent (default agent), --actor-label LABEL (default tasks-cli)
   First calls may fetch context/version and generate a key. Before an executing
   write, stderr synchronously reports retry metadata without task payload text.
-  Record that line and retain the exact original arguments, root/cache/profile.
+  Record that line and retain the exact original arguments and home.
   Stable --idempotency-key KEY requires original --write-context CONTEXT and,
   for existing-task writes, --expected-version N. No automatic refresh/retry.
-  --request-hash HASH verifies the retained request and selected root/cache/profile
-  paths before dispatch. Reuse the original directory arguments and working directory.
+  --request-hash HASH verifies the retained request and selected home before
+  dispatch. Reuse the original directory arguments and working directory.
   New keys after uncertain replies can duplicate effects. Inspect pending work;
   recover explicitly with fresh recovery authority, never silently reissue it.
 

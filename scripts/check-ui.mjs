@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-// Requires agent-browser with Linux Chromium installed. All writes use a scratch task folder.
+// Requires agent-browser with Linux Chromium installed. All writes use a scratch Tasks home.
 const root = path.resolve(import.meta.dirname, "..");
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-ui-check-"));
-const taskFolder = path.join(scratch, "root");
-const cachePath = path.join(scratch, "cache.db");
+const home = path.join(scratch, "home");
+const taskFolder = path.join(home, "sync");
+const cachePath = path.join(home, "local", "app.db");
 const session = `tasks-ui-check-${process.pid}`;
 const server = createServer();
 async function freePort() {
@@ -23,40 +24,25 @@ const webPort = await freePort();
 const backendPort = await freePort();
 const url = `http://127.0.0.1:${webPort}`;
 const backendUrl = `http://127.0.0.1:${backendPort}`;
-const testEnvironment = {
-  ...process.env,
-  XDG_DATA_HOME: path.join(scratch, "local-data"),
-  APPDATA: path.join(scratch, "local-data"),
-};
-// The external CLI is a second writer on this device, so it shares the app's cache.
+const testEnvironment = { ...process.env };
+// The external CLI is a second writer in the same home, with its own cache and the shared lock.
 function tasksCli(...args) {
   return JSON.parse(
     execFileSync(
       process.execPath,
-      [
-        path.join(root, "dist/backend/tasks-cli.js"),
-        "--root",
-        taskFolder,
-        "--database",
-        cachePath,
-        ...args,
-        "--json",
-      ],
+      [path.join(root, "dist/backend/tasks-cli.js"), "--home", home, ...args, "--json"],
       { cwd: root, env: testEnvironment, encoding: "utf8" },
     ),
   );
 }
-mkdirSync(taskFolder);
 execFileSync("pnpm", ["-s", "build:backend"], { cwd: root, stdio: "inherit" });
 tasksCli("init");
 const app = spawn(
   process.execPath,
   [
     "scripts/dev-web.mjs",
-    "--root",
-    taskFolder,
-    "--database",
-    cachePath,
+    "--home",
+    home,
     "--",
     "--host",
     "127.0.0.1",
@@ -1108,7 +1094,7 @@ try {
   check(
     'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
   );
-  check('document.querySelector("[role=tabpanel]")?.textContent.includes("Task folder")');
+  check('document.querySelector("[role=tabpanel]")?.textContent.includes("Tasks home")');
   check('!document.querySelector("[role=tabpanel]")?.textContent.includes("Launch time")');
   check(`!document.body.textContent.includes(${JSON.stringify(cachePath)})`);
   check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');

@@ -5,7 +5,13 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
+import {
+  createCopyTestWorkspace as setup,
+  fail,
+  send,
+  startNewHistory,
+  success,
+} from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
@@ -243,7 +249,13 @@ for (const id of [
           }),
         );
       else cpSync(workspace.root, root, { recursive: true });
-      const selected = { ...workspace, root };
+      // Another folder never reuses this cache's authority: the cache refuses it outright.
+      fail(send({ ...workspace, root }, { command: "workspace.info" }), "CACHE_FROM_ELSEWHERE");
+      const selected = {
+        ...workspace,
+        root,
+        cache: path.join(workspace.directory, "local", "other.db"),
+      };
       success(send(selected, { command: "workspace.info" }));
       const bytes = canonicalBytes(selected);
       const last = steps.at(-1)!;
@@ -543,7 +555,7 @@ for (const command of ["task.create", "task.complete"]) {
       );
       const copied = { ...workspace, cache: path.join(workspace.directory, "copied.db") };
       cpSync(workspace.cache, copied.cache);
-      success(send(copied, { command: "workspace.info" }));
+      startNewHistory(copied);
       fail(send(copied, request), "STALE_WRITE_CONTEXT");
     },
   );

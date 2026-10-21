@@ -13,9 +13,9 @@ Friendly CLI / JSON-lines CLI -------------------------------> gateway
                                                                -> canonical JSON + local SQLite authority
 ```
 
-The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms the selected root, cache and profile before opening `App`. `MainWorkspace` routes supported actions and refuses the rest.
+The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms the selected Tasks home before opening `App`. `MainWorkspace` routes supported actions and refuses the rest.
 
-`tasks-cli` and `tasks-backend` require `--root`; there is no default workspace. `pnpm dev:web` without `--root` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
+`tasks-cli` and `tasks-backend` require `--home`; there is no default home. (`--root` with `--database` selects a bare folder for tests and `pnpm migrate`.) `pnpm dev:web` without `--home` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
 
 Keep domain rules independent of React, Tauri and transport. The gateway owns validation, command execution and storage effects; clients own presentation and immutable request preparation. Reuse the existing UI instead of another workbench or a generic adapter/writer framework.
 
@@ -37,13 +37,12 @@ Start the established UI on the replacement backend:
 
 ```bash
 scratch=$(mktemp -d)
-cp -R scripts/fixtures/workspace/root "$scratch/root"
-printf 'Disposable workspace: %s\n' "$scratch"
-XDG_DATA_HOME="$scratch/profile" pnpm dev:web \
-  --root "$scratch/root" --database "$scratch/cache.db"
+cp -R scripts/fixtures/workspace/root "$scratch/sync" && mkdir "$scratch/local"
+printf 'Disposable Tasks home: %s\n' "$scratch"
+pnpm dev:web --home "$scratch"
 ```
 
-Confirm the displayed root/cache/profile before querying. Reload requires confirmation again. Keep a stable browser origin and profile for display preferences; they do not preserve selection or unresolved requests.
+Confirm the displayed home before querying. Reload requires confirmation again. Preferences and undo records are saved in the home, as in the native app; they do not preserve selection or unresolved requests.
 
 Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to `127.0.0.1:5174`; `TASKS_DEV_BACKEND_PORT` changes its port. `pnpm dev:backend` runs only the bridge. `pnpm dev` runs only Vite; `VITE_DEV_BACKEND_URL` selects a separately started bridge. The development listener and per-process selection token are not a production hosting or filesystem security boundary.
 
@@ -80,13 +79,13 @@ Build on the machine the app runs on, from a local checkout (on Windows an NTFS 
 - `pnpm dev:native` builds the sidecar if needed and runs `tauri dev` with hot reload.
 - `pnpm build:tauri` builds the sidecar and the release app. The app is `src-tauri/target/release/tasks(.exe)`; installers land in `src-tauri/target/release/bundle/`.
 
-The app opens the remembered task folder and keeps one cache per folder in its app data folder (`%APPDATA%\com.soleone.tasks` on Windows, `~/.local/share/com.soleone.tasks` on Linux). The first launch asks for a folder. The old version's tasks are converted outside the app with `pnpm migrate` ([runbook](migration.md)). Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
+The app opens the remembered Tasks home. Everything it keeps lives in that home (settings, `sync/`, and `local/` with its cache `app.db`, the writer lock, recovery files and undo records); the app's own config folder (`%APPDATA%\com.soleone.tasks` on Windows) holds only `home.json`, the pointer to the home, plus the WebView's storage. The first launch asks to create a home (suggested: `Tasks` in the user folder, since Windows `Documents` is often inside OneDrive) or open an existing one. The old version's tasks are converted outside the app with `pnpm migrate` ([runbook](migration.md)). Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
 
 On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browser or WSLg session does not establish Omarchy desktop support. Global focus is deferred; the old implementation is in git (`src/platform/globalShortcut.ts` before the legacy removal). Separately approve native work before pursuing it.
 
 ## Android
 
-The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (about half an hour, cached in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per task folder (`src-tauri/src/android_backend.rs`).
+The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (about half an hour, cached in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per Tasks home (`src-tauri/src/android_backend.rs`).
 
 Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. Then:
 
@@ -103,9 +102,9 @@ Then create `src-tauri/gen/android/keystore.properties` (ignored by git) with `s
 pnpm build:android
 ```
 
-The script verifies the signature with `apksigner` and prints the APK path (`src-tauri/gen/android/app/build/outputs/apk/universal/release/`). It targets arm64 phones on Android 11 or later. On first launch the app asks for all files access, because the task folder is a plain path on shared storage that the backend and Syncthing both use. Keep the cache out of synced folders; the app keeps it in its private storage.
+The script verifies the signature with `apksigner` and prints the APK path (`src-tauri/gen/android/app/build/outputs/apk/universal/release/`). It targets arm64 phones on Android 11 or later. On first launch the app asks for all files access, because the Tasks home is a plain path on shared storage (suggested: `/storage/emulated/0/Tasks`) that the backend and Syncthing both use. Its cache, lock and recovery files live in the home's `local/`; add only `sync/` to Syncthing.
 
-WSL has no emulator (no KVM). Install the APK on a phone, or use the emulator steps in git history (`f568d2b:AGENTS.md`).
+WSL has no emulator (no KVM). An emulator runs on the Windows side: the SDK is in `%LOCALAPPDATA%\Android\Sdk`, with the AVD `medium_phone` on the Google APIs image, so `adb` needs no on-screen approval. Start it with `emulator.exe -avd medium_phone -no-window`, and call `adb.exe` from WSL. It translates arm64, so the release APK and the arm64 Node build run on it, slowly.
 
 ## Storage and retry safety
 

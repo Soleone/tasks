@@ -1,175 +1,274 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactElement,
+} from "react";
 import App from "./App";
 import { APP_NAME } from "./backend/branding";
+import { useTheme } from "./components/soleone/theme";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./components/ui/field";
 import { Input } from "./components/ui/input";
+import { applyStoredFontSizeIncrease } from "./fontSize";
 import { selectMainWorkspace } from "./platform/backendClient";
 import {
-  createFolder,
-  desktopPaths,
-  FolderSetup,
-  type FolderState,
-  pathExists,
-  rememberedFolder,
-  rememberFolder,
-  type DesktopPaths,
+  HomeError,
+  HomeSetup,
+  previousTaskFolder,
+  rememberedHome,
+  rememberHome,
+  suggestedHome,
+  takeHomeChoice,
 } from "./platform/desktopWorkspace";
 import { EditorClient } from "./platform/editorClient";
-import { MainWorkspace } from "./platform/mainWorkspace";
+import { openHomeWorkspace } from "./platform/homeWorkspace";
+import type { MainWorkspace } from "./platform/mainWorkspace";
+import { DamagedSettingsError, readPreference } from "./platform/preferences";
 import { WorkspaceReader } from "./platform/workspaceReader";
+import { THEME_STORAGE_KEY } from "./theme/config";
 
-/** The app keeps talking to the backend that checked the folder. */
-function openWorkspace({ selection, session }: FolderSetup): MainWorkspace {
-  const workspace = new MainWorkspace(
-    new WorkspaceReader(selection, undefined, session),
-    new EditorClient(session, selection),
-  );
-  selectMainWorkspace(workspace);
-  return workspace;
-}
+// Read once per page load, so React's development double effects can't consume it.
+const homeChoiceRequested = takeHomeChoice();
+
+type Mode = "create" | "open" | "launch";
+/** What setup can offer after a refusal, beyond choosing a home again. */
+type Choice = "retry" | "keepHistory" | "newHistory" | "resetSettings";
+type Problem = { home: string; mode: Mode; title: string; message: string; choice?: Choice };
 
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-function opens(state: FolderState): boolean {
-  return state === "ready" || state === "recovery_pending";
+/** Explains a refusal and the one choice that resolves it, if there is one. */
+function problemFor(home: string, mode: Mode, reason: unknown): Problem {
+  const problem = { home, mode, title: "That didn't work", message: message(reason) };
+  if (reason instanceof DamagedSettingsError)
+    return {
+      ...problem,
+      title: "Settings can't be read",
+      message: `${reason.message} Resetting keeps the damaged file next to the new one.`,
+      choice: "resetSettings",
+    };
+  if (!(reason instanceof HomeError)) return problem;
+  if (reason.code === "HOME_MISSING" || reason.code === "EMPTY_SYNC_FOLDER")
+    return { ...problem, title: "Tasks home not found", message: reason.message, choice: "retry" };
+  if (reason.code === "HOME_MOVED")
+    return {
+      ...problem,
+      title: "This Tasks home moved",
+      message: `${home} has the same files as before at a new place. Continue here to keep its undo and activity history.`,
+      choice: "keepHistory",
+    };
+  if (reason.code === "CACHE_FROM_ELSEWHERE")
+    return {
+      ...problem,
+      title: "This Tasks home is a copy",
+      message: `${home} was copied or restored from another place. Its tasks are fine. Start a new history here; the old history is kept aside, unchanged.`,
+      choice: "newHistory",
+    };
+  return problem;
 }
 
-/** Checks a folder with the backend. The caller opens the app on the setup or closes it. */
-async function inspect(appData: string, folder: string) {
-  const setup = await FolderSetup.open(appData, folder);
+/**
+ * Opens a home: creates it first when asked, initializes an empty sync folder only on an
+ * explicit choice, and loads its settings before the list renders.
+ */
+async function openHome(
+  requested: string,
+  mode: Mode,
+  choice?: Choice,
+): Promise<{ workspace: MainWorkspace; theme: string | null }> {
+  let setup = await HomeSetup.open(requested);
   try {
-    return { setup, state: (await setup.info()).state };
+    if (mode === "create") {
+      const home = await setup.create();
+      if (home !== setup.home) {
+        await setup.close();
+        setup = await HomeSetup.open(home);
+      }
+    }
+    if (choice === "keepHistory") await setup.keepHistory();
+    if (choice === "newHistory") await setup.startNewHistory();
+    const { state } = await setup.info();
+    if (state === "empty" && mode === "launch")
+      throw new HomeError(
+        "EMPTY_SYNC_FOLDER",
+        `The sync folder of ${setup.home} is empty. If Syncthing is still bringing your tasks, retry later. Open the home again to start an empty list.`,
+      );
+    if (state === "empty") await setup.init();
+    else if (state === "unsupported")
+      throw new Error(
+        "This home holds tasks from the old version. Convert them with pnpm migrate.",
+      );
+    else if (state !== "ready" && state !== "recovery_pending")
+      throw new Error(
+        `${setup.home} has files that aren't a complete task workspace in its sync folder.`,
+      );
+    const workspace = await openHomeWorkspace(
+      new WorkspaceReader(setup.selection, undefined, setup.session),
+      new EditorClient(setup.session, setup.selection),
+      choice === "resetSettings",
+    );
+    await rememberHome(setup.home);
+    selectMainWorkspace(workspace);
+    return { workspace, theme: readPreference(THEME_STORAGE_KEY) };
   } catch (reason) {
     await setup.close();
     throw reason;
   }
 }
 
-/** The desktop app opens the remembered task folder. On first launch it asks for one. */
+/** The app opens the remembered Tasks home. On first launch it asks for one. */
 export default function DesktopWorkspace(): ReactElement | null {
-  const [paths, setPaths] = useState<DesktopPaths | null>(null);
-  const [folder, setFolder] = useState("");
+  const [home, setHome] = useState("");
+  const [showForm, setShowForm] = useState(false);
   const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const folderRef = useRef<HTMLInputElement>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const homeRef = useRef<HTMLInputElement>(null);
+  const { setTheme } = useTheme();
+  const previousFolder = previousTaskFolder();
+
+  async function run(label: string, requested: string, mode: Mode, choice?: Choice) {
+    setBusy(label);
+    setProblem(null);
+    try {
+      const opened = await openHome(requested, mode, choice);
+      if (opened.theme) setTheme(opened.theme);
+      applyStoredFontSizeIncrease();
+      setWorkspace(opened.workspace);
+    } catch (reason) {
+      setProblem(problemFor(requested, mode, reason));
+      setHome(requested);
+      setShowForm(true);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const launch = useEffectEvent((remembered: string | null, suggested: string) => {
+    if (remembered) void run("Opening Tasks...", remembered, "launch");
+    else {
+      setHome(suggested);
+      setShowForm(true);
+    }
+  });
+  const launchFailed = useEffectEvent((reason: unknown) => {
+    setProblem({ home: "", mode: "launch", title: "That didn't work", message: message(reason) });
+    setShowForm(true);
+  });
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const found = await desktopPaths();
-        const remembered = rememberedFolder();
-        if (remembered && (await pathExists(remembered))) {
-          const { setup, state } = await inspect(found.appData, remembered);
-          if (!cancelled && opens(state)) {
-            setWorkspace(openWorkspace(setup));
-            return;
-          }
-          await setup.close();
-          if (cancelled) return;
-          setError(`${remembered} isn't a task folder anymore (${state}).`);
-        }
-        if (cancelled) return;
-        setPaths(found);
-        setFolder(remembered ?? found.suggestedFolder);
-      } catch (reason) {
-        if (!cancelled) setError(message(reason));
-      }
-    })();
+    void Promise.all([homeChoiceRequested ? null : rememberedHome(), suggestedHome()]).then(
+      ([remembered, suggested]) => {
+        if (!cancelled) launch(remembered, suggested);
+      },
+      (reason: unknown) => {
+        if (!cancelled) launchFailed(reason);
+      },
+    );
     return () => {
       cancelled = true;
     };
   }, []);
 
   useEffect(() => {
-    if (paths && !busy) folderRef.current?.focus();
-  }, [paths, busy]);
+    if (showForm && !busy) homeRef.current?.focus();
+  }, [showForm, busy]);
 
-  async function run(label: string, action: () => Promise<FolderSetup>): Promise<void> {
-    setBusy(label);
-    setError(null);
-    try {
-      const setup = await action();
-      rememberFolder(setup.selection.rootPath);
-      setWorkspace(openWorkspace(setup));
-    } catch (reason) {
-      setError(message(reason));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  function openFolder(event: FormEvent): void {
+  function submit(event: FormEvent): void {
     event.preventDefault();
-    if (!paths || !folder.trim()) return;
-    const target = folder.trim();
-    void run("Opening the folder...", async () => {
-      if (!(await pathExists(target))) await createFolder(target);
-      const { setup, state } = await inspect(paths.appData, target);
-      try {
-        if (state === "empty") await setup.init();
-        else if (!opens(state))
-          throw new Error(
-            state === "unsupported"
-              ? "This folder holds tasks from the old version. Convert it with pnpm migrate first."
-              : "This folder has files that aren't a complete task workspace. Pick an empty or new folder.",
-          );
-        return setup;
-      } catch (reason) {
-        await setup.close();
-        throw reason;
-      }
-    });
+    if (home.trim()) void run("Creating the Tasks home...", home.trim(), "create");
   }
 
   if (workspace) return <App workspace={workspace} />;
-  // Opening the remembered folder shows nothing, so setup appears only when it is needed.
-  if (!paths && !error) return null;
+  // Opening the remembered home shows nothing, so setup appears only when it is needed.
+  if (!showForm && !problem) return null;
 
+  const separator = home.includes("\\") ? "\\" : "/";
   return (
     <main className="app-shell mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <h1 className="font-heading text-xl font-semibold">Set up {APP_NAME}</h1>
+        <h1 className="font-heading text-xl font-semibold">Choose a Tasks home</h1>
         <p className="text-sm text-muted-foreground">
-          Tasks keeps each task as a file in a folder you choose.
+          {APP_NAME} keeps everything for this device in one folder you choose. Your tasks are files
+          in its sync folder.
         </p>
       </header>
       {busy && <p role="status">{busy}</p>}
-      {paths && (
-        <form onSubmit={openFolder} className="flex flex-col gap-6">
+      {problem && (
+        <Alert variant="destructive">
+          <AlertTitle>{problem.title}</AlertTitle>
+          <AlertDescription>{problem.message}</AlertDescription>
+          {problem.choice && (
+            <Button
+              variant="outline"
+              className="mt-3 w-fit"
+              disabled={busy !== null}
+              onClick={() =>
+                void run("Opening Tasks...", problem.home, problem.mode, problem.choice)
+              }
+            >
+              {problem.choice === "retry"
+                ? "Retry"
+                : problem.choice === "keepHistory"
+                  ? "Continue here"
+                  : problem.choice === "newHistory"
+                    ? "Start a new history here"
+                    : "Reset settings"}
+            </Button>
+          )}
+        </Alert>
+      )}
+      {showForm && (
+        <form onSubmit={submit} className="flex flex-col gap-6">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="task-folder">Task folder</FieldLabel>
+              <FieldLabel htmlFor="tasks-home">Tasks home</FieldLabel>
               <Input
-                ref={folderRef}
-                id="task-folder"
-                value={folder}
-                onChange={(event) => setFolder(event.target.value)}
+                ref={homeRef}
+                id="tasks-home"
+                value={home}
+                onChange={(event) => setHome(event.target.value)}
                 required
                 autoComplete="off"
                 spellCheck={false}
                 disabled={busy !== null}
               />
               <FieldDescription>
-                A new folder starts an empty list. An existing task folder opens as it is.
+                Add only its sync folder to Syncthing, never the home itself:{" "}
+                <code className="wrap-anywhere">
+                  {home.trim().replace(/[\\/]+$/, "")}
+                  {separator}sync
+                </code>
               </FieldDescription>
             </Field>
           </FieldGroup>
-          <Button type="submit" className="w-fit" disabled={busy !== null}>
-            Open
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={busy !== null}>
+              Create home
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy !== null || !home.trim()}
+              onClick={() => void run("Opening the Tasks home...", home.trim(), "open")}
+            >
+              Open existing home
+            </Button>
+          </div>
+          {previousFolder && (
+            <p className="text-sm text-muted-foreground">
+              Your task folder from before, {previousFolder}, is unchanged. Bringing it into a Tasks
+              home comes in the next update.
+            </p>
+          )}
         </form>
-      )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>That didn't work</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
       )}
     </main>
   );

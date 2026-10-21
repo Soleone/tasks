@@ -412,9 +412,10 @@ for (const fault of [
         cpSync(w.cache, `${w.cache}.copy`);
         w.cache = `${w.cache}.copy`;
       }
-      const before = raw(w),
-        result = response(w, resume(w, intent));
-      fail(result, "RECOVERY_CONFLICT");
+      const before = raw(w);
+      if (fault === "copied-cache")
+        fail(send(w, { command: "workspace.info" }), "CACHE_FROM_ELSEWHERE");
+      else fail(response(w, resume(w, intent)), "RECOVERY_CONFLICT");
       assert.deepEqual(raw(w), before);
       assert.ok(
         lstatSync(pendingIntentPath(readRootDescriptor(w.root)), { throwIfNoEntry: false }),

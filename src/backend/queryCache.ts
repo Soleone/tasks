@@ -29,7 +29,7 @@ export function localPathOutsideRoot(cachePath: string, rootPath: string): strin
     suffix.unshift(path.basename(ancestor));
     ancestor = path.dirname(ancestor);
   }
-  const resolved = path.join(realpathSync(ancestor), ...suffix);
+  const resolved = path.join(realpathSync.native(ancestor), ...suffix);
   const relative = path.relative(rootPath, resolved);
   if (
     relative === "" ||
@@ -113,11 +113,25 @@ function snapshotObservations(snapshot: CanonicalSnapshot): Map<string, string> 
   );
 }
 
-export function synchronizeAuthority(
-  database: DatabaseSync,
-  root: RootBinding,
-  snapshot?: CanonicalSnapshot,
-): QueryAuthority {
+type BindingChange = "device" | "moved" | "copied";
+
+/** How a cache's recorded root and cache file relate to the ones it is opened with now. */
+function bindingChange(recorded: string, current: string): BindingChange {
+  let before: unknown;
+  try {
+    before = JSON.parse(recorded);
+  } catch {
+    return "copied";
+  }
+  const now = JSON.parse(current) as string[];
+  if (!Array.isArray(before) || before.length !== 4) return "copied";
+  const inode = (identity: unknown) => (typeof identity === "string" ? identity.split(":")[1] : "");
+  const sameFiles = inode(before[1]) === inode(now[1]) && inode(before[3]) === inode(now[3]);
+  if (!sameFiles) return "copied";
+  return before[0] === now[0] && before[2] === now[2] ? "device" : "moved";
+}
+
+function cacheBinding(database: DatabaseSync, root: RootBinding): string {
   const main = database
     .prepare("PRAGMA database_list")
     .all()
@@ -127,12 +141,40 @@ export function synchronizeAuthority(
   const cacheIdentity = lstatSync(main.file, { bigint: true });
   if (!cacheIdentity.isFile() || cacheIdentity.isSymbolicLink())
     throw new CommandError("INVALID_STORAGE", "write authority requires a regular cache file");
-  const binding = JSON.stringify([
+  return JSON.stringify([
     root.rootPath,
     root.rootIdentity,
     main.file,
     `${cacheIdentity.dev}:${cacheIdentity.ino}`,
   ]);
+}
+
+/** Whether this cache was made for the root it is opened with, and if not, how it got here. */
+export function cacheOrigin(
+  database: DatabaseSync,
+  root: RootBinding,
+): "new" | "same" | BindingChange {
+  const state = database.prepare("SELECT binding FROM v2_query_state WHERE singleton = 1").get() as
+    | Pick<CacheState, "binding">
+    | undefined;
+  if (!state) return "new";
+  const binding = cacheBinding(database, root);
+  return state.binding === binding ? "same" : bindingChange(state.binding, binding);
+}
+
+/** After a confirmed move, the cache keeps its context, receipts and history at the new paths. */
+export function confirmMovedBinding(database: DatabaseSync, root: RootBinding): void {
+  database
+    .prepare("UPDATE v2_query_state SET binding = ? WHERE singleton = 1")
+    .run(cacheBinding(database, root));
+}
+
+export function synchronizeAuthority(
+  database: DatabaseSync,
+  root: RootBinding,
+  snapshot?: CanonicalSnapshot,
+): QueryAuthority {
+  const binding = cacheBinding(database, root);
   const previous = database
     .prepare(
       "SELECT binding, context, counter, revision, fingerprint FROM v2_query_state WHERE singleton = 1",
@@ -157,8 +199,22 @@ export function synchronizeAuthority(
       "query authority is corrupt; explicit cache recovery is required",
     );
   }
+  if (state.binding !== binding) {
+    const change = bindingChange(state.binding, binding);
+    if (change === "copied")
+      throw new CommandError(
+        "CACHE_FROM_ELSEWHERE",
+        "this cache belongs to another copy of the folder; start a new history here to use it",
+      );
+    if (change === "moved")
+      throw new CommandError(
+        "HOME_MOVED",
+        "the folder and its cache moved; confirm the move to keep their history",
+      );
+    // Same paths and files on a new device number, as Android gives shared storage after some boots.
+    state.binding = binding;
+  }
   if (
-    state.binding !== binding ||
     !Number.isSafeInteger(state.counter + (snapshot?.tasks.length ?? 0) + 1) ||
     state.revision === Number.MAX_SAFE_INTEGER
   ) {

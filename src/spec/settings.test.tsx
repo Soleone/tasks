@@ -41,7 +41,7 @@ test("settings.tabs: Left and Right switch sections", async () => {
   await user.keyboard("{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   const panel = within(screen.getByRole("tabpanel"));
-  panel.getByRole("heading", { name: "Task folder" });
+  panel.getByRole("heading", { name: "Tasks home" });
   panel.getByRole("button", { name: "Create backup…" });
   panel.getByRole("button", { name: "Restore to new folder…" });
   expect(panel.queryByRole("heading", { name: "Launch time" })).toBeNull();
