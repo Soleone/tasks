@@ -18,7 +18,7 @@ import {
   type UndoResult,
 } from "./editorClient";
 import type { HomeDocuments } from "./homeDocuments";
-import { browserUndoStorage, UndoHistory, type UndoStorage } from "./undoHistory";
+import { browserUndoStorage, UndoHistory, undoScope, type UndoStorage } from "./undoHistory";
 
 // Gateway envelope checks precede writer dispatch. Writer admission codes are not pre-effect.
 const PRE_EFFECT_REFUSALS = new Set(["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]);
@@ -256,13 +256,12 @@ export class MainWorkspace {
         ),
       );
     if (!this.history) {
-      const { rootPath, databasePath, profilePath } = this.editor.selection;
       this.history = this.editor
         .begin(undefined, "operation")
         .then(
           (baseline) =>
             new UndoHistory(
-              JSON.stringify([rootPath, databasePath, profilePath, baseline.writeContext]),
+              undoScope(this.editor.selection, baseline.writeContext),
               this.undoStorage,
             ),
         );

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { homeDir, join } from "@tauri-apps/api/path";
+import { appDataDir, homeDir, join } from "@tauri-apps/api/path";
 import { randomUUID } from "@/lib/randomUUID";
 import { parseResponse, type Response } from "@/backend/protocol";
 import { EDITOR_COMMANDS } from "@/backend/editorCommands";
@@ -55,6 +55,23 @@ export function previousTaskFolder(): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Where the app kept a folder's cache and recovery files before Tasks homes. The cache was named
+ * after the folder's path; Android's backend kept `taskdb-v2/` one folder further in.
+ */
+async function previousInstallation(folder: string) {
+  const appData = await appDataDir();
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(folder));
+  const name = Array.from(new Uint8Array(digest).slice(0, 12), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return {
+    root: folder,
+    cache: await join(appData, "caches", `${name}.db`),
+    profile: isAndroid() ? await join(appData, "com.soleone.tasks") : appData,
+  };
 }
 
 async function homeSelection(home: string): Promise<EditorSelection> {
@@ -116,6 +133,12 @@ export class HomeSetup {
   /** Creates the home's folders, or finishes an interrupted creation; returns its real path. */
   async create(): Promise<string> {
     return (await this.send("home.create", {})).result.homePath as string;
+  }
+
+  /** Moves the task folder from before Tasks homes into this new home; returns its real path. */
+  async adopt(folder: string): Promise<string> {
+    return (await this.send("home.adopt", await previousInstallation(folder))).result
+      .homePath as string;
   }
 
   /** Turns the home's empty sync folder into a new task workspace. */

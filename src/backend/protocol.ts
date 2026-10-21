@@ -27,6 +27,7 @@ export type TaskReorderPlacement =
 const KNOWN_COMMANDS = [
   "activity.list",
   "category.list",
+  "home.adopt",
   "home.create",
   "home.document.read",
   "home.document.write",

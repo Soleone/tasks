@@ -24,7 +24,7 @@ const SETTINGS = "settings.json";
 // What an interrupted creation can leave behind; anything else makes the folder someone else's.
 const CREATION_ENTRIES = new Set([SYNC, LOCAL, SETTINGS]);
 
-function homeAt(homePath: string): Home {
+export function homeAt(homePath: string): Home {
   return {
     homePath,
     rootPath: path.join(homePath, SYNC),
@@ -55,7 +55,7 @@ function refuse(code: string, message: string): never {
   throw new CommandError(code, message);
 }
 
-function isWithin(child: string, parent: string): boolean {
+export function isWithin(child: string, parent: string): boolean {
   const relative = path.relative(
     process.platform === "win32" ? parent.toLowerCase() : parent,
     process.platform === "win32" ? child.toLowerCase() : child,
@@ -125,10 +125,10 @@ export function openHome(selected: string): Home {
 }
 
 /**
- * Creates a home's folders, or finishes an interrupted creation. The parent must exist, and a
- * folder with anything but a home's own entries in it is never taken over.
+ * Where a home chosen at `selected` goes, by its one canonical spelling. The parent must exist,
+ * and the place must be one a home may be; whether it may be taken over is the caller's check.
  */
-export function createHome(selected: string): Home {
+export function newHomePath(selected: string): string {
   const requested = path.resolve(selected);
   let parent: string;
   try {
@@ -143,14 +143,23 @@ export function createHome(selected: string): Home {
   const canonical = existing ? realpathSync.native(homePath) : homePath;
   refuseTaskFolders(canonical);
   refuseUnsafeLocation(canonical);
-  if (existing) {
-    if (readdirSync(canonical).some((name) => !CREATION_ENTRIES.has(name)))
-      refuse("HOME_CONFLICT", `${canonical} isn't empty. Choose an empty or new folder.`);
+  return canonical;
+}
+
+/**
+ * Creates a home's folders, or finishes an interrupted creation. A folder with anything but a
+ * home's own entries in it is never taken over.
+ */
+export function createHome(selected: string): Home {
+  const homePath = newHomePath(selected);
+  if (isDirectory(homePath)) {
+    if (readdirSync(homePath).some((name) => !CREATION_ENTRIES.has(name)))
+      refuse("HOME_CONFLICT", `${homePath} isn't empty. Choose an empty or new folder.`);
   } else {
-    mkdirSync(canonical, { mode: 0o700 });
-    syncDirectory(parent);
+    mkdirSync(homePath, { mode: 0o700 });
+    syncDirectory(path.dirname(homePath));
   }
-  const home = homeAt(canonical);
+  const home = homeAt(homePath);
   for (const directory of [home.localPath, home.rootPath]) {
     if (!isDirectory(directory)) mkdirSync(directory, { mode: 0o700 });
   }

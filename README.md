@@ -38,6 +38,16 @@ Everything Tasks keeps for one device lives in one folder, its Tasks home:
 
 Back up the whole home with Tasks and the CLI closed. Never add the home itself to a sync tool. Each device has its own home; Syncthing connects their `sync/` folders.
 
+### Moving a task folder from before homes
+
+On a device that used Tasks before homes, setup shows the old task folder and offers **Bring my tasks into this home**. Do this once on each device:
+
+1. Close the CLI and pause the folder in Syncthing.
+2. Choose a new, empty home outside the old folder and bring the tasks over. The app copies the tasks, the cache with its activity and undo history, the recovery files, the preferences and the undo records. The old folder and the old app data stay as they were.
+3. Syncthing can't change a folder's path, so remove the folder there (its files stay) and add it again with the same folder ID, pointing at the new home's `sync/` folder, shared with the same devices. It finds the files already in sync.
+
+To go back before making changes in the new home, install the previous version of Tasks: it still opens the untouched old folder. Changes made in the new home after the move aren't in the old folder.
+
 ## Use the CLI
 
 The CLI has no default home, so give it a scratch one:

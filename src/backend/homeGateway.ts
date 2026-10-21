@@ -1,5 +1,6 @@
 import { existsSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
+import { adoptTaskFolder } from "./adoption.js";
 import { readPhysicalRoot, readRegularFile } from "./canonicalReader.js";
 import { CommandError } from "./errors.js";
 import { executeLine, failureResponse } from "./gateway.js";
@@ -67,7 +68,7 @@ function homeResponse(request: Request, home: Home, client: HomeClient, result: 
 }
 
 /**
- * One request against a Tasks home: home setup and the app's own documents are answered here,
+ * One request against a Tasks home: home setup, adoption and the app's own documents are answered here,
  * everything else goes to the gateway with the home's `sync/` and this client's cache.
  */
 export function executeHomeLine(bytes: Uint8Array, selected: string, client: HomeClient): Response {
@@ -80,6 +81,18 @@ export function executeHomeLine(bytes: Uint8Array, selected: string, client: Hom
     if (request.command === "home.create") {
       assertArgs(request.args, []);
       return homeResponse(request, createHome(selected), client, {});
+    }
+    if (request.command === "home.adopt") {
+      assertArgs(request.args, ["root", "cache", "profile"]);
+      const { root, cache, profile } = request.args;
+      if (
+        typeof root !== "string" ||
+        typeof cache !== "string" ||
+        typeof profile !== "string" ||
+        [root, cache, profile].includes("")
+      )
+        throw new CommandError("INVALID_ARGUMENT", "root, cache and profile must be paths");
+      return homeResponse(request, adoptTaskFolder(selected, { root, cache, profile }), client, {});
     }
     const home = openHome(selected);
     if (request.command === "home.document.read")
