@@ -164,10 +164,14 @@ export function historyOrigin(source: HistorySource): OperationRecord {
     canonicalJson(ids) !== canonicalJson(historyAffected(origin).sort()) ||
     claims.length !== ids.length ||
     claims.some(
-      (claim) => !isRecord(claim) || typeof claim.operationId !== "string" || !claim.operationId,
+      (claim) =>
+        !isRecord(claim) ||
+        typeof claim.operationId !== "string" ||
+        !claim.operationId ||
+        typeof claim.taskId !== "string",
     ) ||
     new Set(claims.map((claim) => claim.operationId)).size !== 1 ||
-    canonicalJson(claims.map((claim) => claim.taskId).sort()) !== canonicalJson(ids)
+    canonicalJson(claims.map((claim) => claim.taskId as string).sort()) !== canonicalJson(ids)
   )
     unavailable();
   return origin;
