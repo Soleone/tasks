@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-/// The one file Tasks keeps in the app's own storage: which Tasks home to open.
+/// Which Tasks home to open, kept in the app's own storage beside the window's size and position.
 fn pointer_path(app: &AppHandle) -> Result<PathBuf, String> {
     let config = app
         .path()
@@ -73,6 +73,16 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_shell::init())
+        // Not decorations or visibility: Linux drops decorations in setup and the window always shows.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::SIZE
+                        | tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+                )
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             home_pointer_read,
             home_pointer_write,
