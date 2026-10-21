@@ -16,7 +16,7 @@ The app and the CLI work in a Tasks home that the owner chooses. Its `sync/` fol
 ```text
 <home>/settings.json         this device's preferences
 <home>/sync/                 the workspace, the only folder a sync tool may see
-<home>/local/                caches, writer lock, recovery files, undo records
+<home>/local/                caches, writer lock, recovery files, undo records; never synced, not disposable
 ```
 
 | Rule | Then |

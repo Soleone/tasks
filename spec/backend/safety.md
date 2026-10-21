@@ -56,4 +56,4 @@ Tasks never pretends a write succeeded or invents data to fill a gap. Reading ne
 | `cache.outside` | The SQLite cache, receipts, history and journals live outside the folder |
 | `cache.rebuildable` | Task data can always be rebuilt from the folder |
 | `cache.loss` | Losing the cache loses receipts, undo history and write context. Old requests then fail `STALE_WRITE_CONTEXT`, and uncertain requests are reconciled by hand. No task data is lost |
-| `cache.not-copied` | Backups and restores never copy the cache or its authority |
+| `cache.not-copied` | Archives and restores never copy the cache. A cache copied with a whole home never brings its authority along (`backup.full-home`) |

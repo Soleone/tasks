@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
 import { createHome, openHome } from "./home.js";
+import type { HomeClient } from "./home.js";
 import { executeHomeLine } from "./homeGateway.js";
 import type { Response } from "./protocol.js";
 
@@ -26,12 +30,22 @@ function scratch(t: TestContext): string {
   return directory;
 }
 
-function send(home: string, command: string, args: object = {}, extra: object = {}): Response {
+function sendAs(
+  client: HomeClient,
+  home: string,
+  command: string,
+  args: object = {},
+  extra: object = {},
+): Response {
   return executeHomeLine(
     Buffer.from(JSON.stringify({ version: 2, command, args, ...extra })),
     home,
-    "app",
+    client,
   );
+}
+
+function send(home: string, command: string, args: object = {}, extra: object = {}): Response {
+  return sendAs("app", home, command, args, extra);
 }
 
 function ok(response: Response): Extract<Response, { ok: true }> {
@@ -42,6 +56,39 @@ function ok(response: Response): Extract<Response, { ok: true }> {
 
 function refused(response: Response, code: string): void {
   assert.equal(response.ok ? "" : response.error.code, code, JSON.stringify(response));
+}
+
+function createAndInit(home: string): void {
+  ok(send(home, "home.create"));
+  const { writeContext } = ok(send(home, "workspace.info"));
+  ok(send(home, "workspace.init", {}, { writeContext, idempotencyKey: "init" }));
+}
+
+function createTask(client: HomeClient, home: string, writeContext: string, title: string) {
+  return sendAs(
+    client,
+    home,
+    "task.create",
+    { title },
+    { writeContext, idempotencyKey: title, actor: { kind: "human", label: "home test" } },
+  );
+}
+
+function contextOf(client: HomeClient, home: string): string {
+  return ok(sendAs(client, home, "workspace.info")).writeContext;
+}
+
+function titles(client: HomeClient, home: string): string[] {
+  const { tasks } = ok(sendAs(client, home, "task.list")).result as { tasks: { title: string }[] };
+  return tasks.map((task) => task.title).sort();
+}
+
+/** Every file under `directory`, by its path relative to it. */
+function files(directory: string): string[] {
+  return readdirSync(directory, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.relative(directory, path.join(entry.parentPath, entry.name)))
+    .sort();
 }
 
 test("home.create: setup creates the folders, runs again after an interruption and opens", (t) => {
@@ -148,3 +195,98 @@ test(
     assert.equal(run("list").status, 2);
   },
 );
+
+test(
+  "write.lock: the app and the CLI share one home's lock and recovery files under every spelling",
+  { skip: process.platform !== "linux" },
+  (t) => {
+    const directory = scratch(t);
+    const home = path.join(directory, "home");
+    const alias = path.join(directory, "alias");
+    createAndInit(home);
+    symlinkSync(home, alias);
+    ok(createTask("app", home, contextOf("app", home), "From the app"));
+    ok(createTask("cli", alias, contextOf("cli", alias), "From the CLI"));
+    assert.deepEqual(titles("app", alias), ["From the CLI", "From the app"]);
+    assert.deepEqual(titles("cli", home), ["From the CLI", "From the app"]);
+
+    const contexts = { app: contextOf("app", alias), cli: contextOf("cli", home) };
+    const lock = new DatabaseSync(path.join(home, "local", "lock.db"));
+    lock.exec("BEGIN IMMEDIATE");
+    refused(createTask("app", alias, contexts.app, "While locked"), "INVALID_STORAGE");
+    refused(createTask("cli", home, contexts.cli, "While locked too"), "INVALID_STORAGE");
+    lock.close();
+    assert.deepEqual(titles("cli", alias), ["From the CLI", "From the app"]);
+
+    writeFileSync(path.join(home, "local", "pending.json"), "{}\n");
+    refused(createTask("cli", alias, contexts.cli, "While pending"), "RECOVERY_CONFLICT");
+    refused(createTask("app", home, contexts.app, "While pending too"), "RECOVERY_CONFLICT");
+    assert.equal(readdirSync(path.join(home, "sync", "tasks")).length, 2);
+  },
+);
+
+test("share.folder-only: two device homes exchange only sync/; tasks add up, the rest stays on each device", (t) => {
+  const directory = scratch(t);
+  const laptop = path.join(directory, "laptop");
+  const phone = path.join(directory, "phone");
+  // A filesystem copy of new files stands in for Syncthing, which sees only each home's sync/.
+  const exchange = (from: string, to: string) =>
+    cpSync(path.join(from, "sync"), path.join(to, "sync"), { recursive: true, force: false });
+  createAndInit(laptop);
+  ok(send(phone, "home.create"));
+  exchange(laptop, phone);
+
+  ok(createTask("app", laptop, contextOf("app", laptop), "On the laptop"));
+  ok(createTask("app", phone, contextOf("app", phone), "On the phone"));
+  ok(send(laptop, "home.document.write", { name: "settings", text: '{"theme":"dark"}' }));
+  ok(send(phone, "home.document.write", { name: "settings", text: '{"theme":"light"}' }));
+  ok(send(phone, "home.document.write", { name: "undo", text: '{"entries":[]}' }));
+  exchange(laptop, phone);
+  exchange(phone, laptop);
+
+  assert.deepEqual(titles("app", laptop), ["On the laptop", "On the phone"]);
+  assert.deepEqual(titles("app", phone), ["On the laptop", "On the phone"]);
+  assert.deepEqual(files(path.join(laptop, "sync")), files(path.join(phone, "sync")));
+  assert.notEqual(contextOf("app", laptop), contextOf("app", phone));
+  assert.equal(readFileSync(path.join(laptop, "settings.json"), "utf8"), '{"theme":"dark"}');
+  assert.equal(readFileSync(path.join(phone, "settings.json"), "utf8"), '{"theme":"light"}');
+  assert.equal(existsSync(path.join(laptop, "local", "undo.json")), false);
+});
+
+test("backup.full-home: a copy of the whole home holds all of it; its caches start a new history", (t) => {
+  const directory = scratch(t);
+  const home = path.join(directory, "home");
+  createAndInit(home);
+  ok(createTask("app", home, contextOf("app", home), "From the app"));
+  ok(createTask("cli", home, contextOf("cli", home), "From the CLI"));
+  ok(send(home, "home.document.write", { name: "settings", text: '{"theme":"dark"}' }));
+  ok(send(home, "home.document.write", { name: "undo", text: '{"entries":[]}' }));
+  const context = contextOf("app", home);
+
+  // With every writer closed, the whole home is copied, here straight to where it is restored.
+  const restored = path.join(directory, "restored");
+  cpSync(home, restored, { recursive: true });
+  assert.deepEqual(files(restored), files(home));
+  for (const file of ["settings.json", "local/undo.json", "local/app.db", "local/cli.db"])
+    assert.equal(existsSync(path.join(restored, file)), true, file);
+
+  refused(send(restored, "workspace.info"), "CACHE_FROM_ELSEWHERE");
+  refused(sendAs("cli", restored, "workspace.info"), "CACHE_FROM_ELSEWHERE");
+  const fresh = ok(send(restored, "workspace.newHistory"));
+  assert.notEqual(fresh.writeContext, context);
+  assert.equal(
+    path.dirname(fresh.result.retiredPath as string),
+    path.join(restored, "local", "retired"),
+  );
+  assert.deepEqual(titles("app", restored), ["From the CLI", "From the app"]);
+  assert.equal(
+    ok(send(restored, "home.document.read", { name: "settings" })).result.text,
+    '{"theme":"dark"}',
+  );
+  assert.equal(
+    ok(send(restored, "home.document.read", { name: "undo" })).result.text,
+    '{"entries":[]}',
+  );
+  refused(sendAs("cli", restored, "workspace.info"), "CACHE_FROM_ELSEWHERE");
+  assert.equal(contextOf("app", home), context);
+});
