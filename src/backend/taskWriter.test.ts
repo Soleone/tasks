@@ -221,12 +221,10 @@ for (const id of [
   "receipt-changed",
   "receipt-actor",
   "noop-receipt",
-  "restore-cache-authority",
 ]) {
   test(`public task writer materializes protocol ${id}`, linuxOnly, (t) => {
     const entry = corpus.cases.find((entry) => entry.id === id)!;
-    const workspace =
-      id === "restore-cache-authority" ? setup(t) : materialize(t, entry.given.patch);
+    const workspace = materialize(t, entry.given.patch);
     const steps = entry.action.steps ?? [];
     const first = steps[0] ?? {};
     if (id === "context-required") {
@@ -236,19 +234,10 @@ for (const id of [
       assert.deepEqual(canonicalBytes(workspace), bytes);
       return;
     }
-    if (id === "context-root-switch" || id === "restore-cache-authority") {
+    if (id === "context-root-switch") {
       const context = success(send(workspace, { command: "workspace.info" })).writeContext;
       const root = path.join(workspace.directory, "other-root");
-      if (id === "restore-cache-authority")
-        success(
-          send(workspace, {
-            command: "workspace.restore",
-            args: { sourceDirectory: workspace.root, destinationDirectory: root },
-            writeContext: context,
-            idempotencyKey: "restore",
-          }),
-        );
-      else cpSync(workspace.root, root, { recursive: true });
+      cpSync(workspace.root, root, { recursive: true });
       // Another folder never reuses this cache's authority: the cache refuses it outright.
       fail(send({ ...workspace, root }, { command: "workspace.info" }), "CACHE_FROM_ELSEWHERE");
       const selected = {

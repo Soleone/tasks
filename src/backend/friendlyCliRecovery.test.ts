@@ -347,7 +347,7 @@ test(
       workspace.root,
       "--database",
       workspace.cache,
-      "archive",
+      "migrate",
       "relative-target",
       "--json",
     ];

@@ -38,7 +38,7 @@ Everything Tasks keeps for one device lives in one folder, its Tasks home:
 
 Never add the home itself to a sync tool. Each device has its own home; Syncthing connects their `sync/` folders, and settings, caches and undo history stay on each device. `local/` isn't a throwaway cache: deleting it loses undo history, receipts and any recovery files.
 
-For a full backup, close Tasks and the CLI and copy the whole home. When a copy is opened, the app asks to start a new history there; the tasks, settings and undo records are all in it, and the old history is kept aside in `local/retired/`. A home moved as a whole on the same drive keeps its history once you confirm the move. **Archive and restore tasks** in Settings copies only the tasks, not settings or history.
+For a full backup, close Tasks and the CLI and copy the whole home. When a copy is opened, the app asks to start a new history there; the tasks, settings and undo records are all in it, and the old history is kept aside in `local/retired/`. A home moved as a whole on the same drive keeps its history once you confirm the move.
 
 ### Moving a task folder from before homes
 

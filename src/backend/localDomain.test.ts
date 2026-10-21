@@ -74,7 +74,7 @@ test(
   { skip: process.platform !== "linux" && process.platform !== "win32" },
   (t) => {
     const directory = scratch(t);
-    const rootPath = path.join(directory, "archive");
+    const rootPath = path.join(directory, "old");
     mkdirSync(rootPath);
     const stat = lstatSync(rootPath, { bigint: true });
     const root = { rootPath, rootIdentity: `${stat.dev}:${stat.ino}` };

@@ -25,14 +25,7 @@ import { runtimeKind } from "./runtime";
 import { JsonLineSession } from "./backendSession";
 
 const statusActions = [...STATUS_COMMANDS, "task.status.undo"] as const;
-export type EditorMode =
-  | "content"
-  | "status"
-  | "relationship"
-  | "order"
-  | "operation"
-  | "batch"
-  | "copy";
+export type EditorMode = "content" | "status" | "relationship" | "order" | "operation" | "batch";
 export type StatusAction = (typeof statusActions)[number];
 export type RelationshipAction = (typeof RELATIONSHIP_COMMANDS)[number];
 
@@ -49,13 +42,7 @@ export type LiteralContent = Pick<
 export type EditResult = TaskExecutionResult | Pick<TaskPreviewResult, "task" | "changed">;
 export type OrderResult = { tasks: TaskProjection[]; changed: boolean; operationId?: string };
 export type UndoResult = OrderResult & { removedIds: string[] };
-export type CopyResult = {
-  destinationDirectory: string;
-  taskCount: number;
-  changed: boolean;
-  operationId?: string;
-};
-type GroupResult = EditResult | OrderResult | UndoResult | CopyResult;
+type GroupResult = EditResult | OrderResult | UndoResult;
 
 export class EditorError extends Error {
   constructor(
@@ -164,41 +151,9 @@ function editorResult(result: Record<string, unknown>, preview: boolean): EditRe
   return { task: decoded.task, changed: decoded.changed };
 }
 
-function copyResult(value: Record<string, unknown>, preview: boolean): CopyResult {
-  if (
-    typeof value.destinationDirectory !== "string" ||
-    !value.destinationDirectory ||
-    !Number.isSafeInteger(value.taskCount) ||
-    (value.taskCount as number) < 0 ||
-    value.changed !== true ||
-    (preview
-      ? value.dryRun !== true || value.readOnly !== false || value.operationId !== undefined
-      : value.readOnly !== undefined ||
-        value.dryRun !== undefined ||
-        typeof value.operationId !== "string" ||
-        !value.operationId)
-  ) {
-    throw new Error("The editor returned an invalid copy result; retain the original request.");
-  }
-  return {
-    destinationDirectory: value.destinationDirectory,
-    taskCount: value.taskCount as number,
-    changed: true,
-    ...(!preview ? { operationId: value.operationId as string } : {}),
-  };
-}
-
 function hasExpectedVersions(request: Request): boolean {
   const positive = (value: unknown) => Number.isSafeInteger(value) && (value as number) >= 1;
   if (request.command === "task.create") return true;
-  if (request.command === "workspace.archive" || request.command === "workspace.restore")
-    return (
-      typeof request.args.destinationDirectory === "string" &&
-      request.args.destinationDirectory.trim() !== "" &&
-      (request.command !== "workspace.restore" ||
-        (typeof request.args.sourceDirectory === "string" &&
-          request.args.sourceDirectory.trim() !== ""))
-    );
   if (request.command === "operation.undo" || request.command === "operation.redo")
     return typeof request.args.operationId === "string" && request.args.operationId !== "";
   if (request.command !== "task.reorder" && request.command !== "task.transitionMany")
@@ -316,8 +271,6 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
         return groupResult(response.result, request, preview) as R;
       if (request.command === "operation.undo" || request.command === "operation.redo")
         return undoResult(response.result, preview) as R;
-      if (request.command === "workspace.archive" || request.command === "workspace.restore")
-        return copyResult(response.result, preview) as R;
       const result = editorResult(response.result, preview);
       if (request.command !== "task.create" && result.task.id !== request.args.id)
         throw new Error("The editor returned another task; retain the original request.");
@@ -350,11 +303,10 @@ export class EditorClient {
       mode !== "relationship" &&
       mode !== "order" &&
       mode !== "operation" &&
-      mode !== "batch" &&
-      mode !== "copy"
+      mode !== "batch"
     )
       throw new Error("Unsupported editor mode; no query was sent.");
-    const grouped = mode === "operation" || mode === "batch" || mode === "copy";
+    const grouped = mode === "operation" || mode === "batch";
     if (grouped ? taskId !== undefined : mode !== "content" && taskId === undefined)
       throw new Error(
         grouped
@@ -376,9 +328,7 @@ export class EditorClient {
         ? ["operation.undo"]
         : mode === "batch"
           ? ["task.transitionMany"]
-          : mode === "copy"
-            ? ["workspace.archive", "workspace.restore"]
-            : ["task.create"];
+          : ["task.create"];
     const info = await this.query("workspace.info", {});
     const workspace = parseWorkspaceInfo(info.result);
     if (workspace.state !== "ready")
@@ -549,21 +499,6 @@ export class EditorClient {
     if (baseline.task || !operationId)
       throw new Error("An operation ID without a task baseline is required.");
     return this.prepareTaskRequest(baseline, "operation.redo", { operationId }, key);
-  }
-
-  prepareCopy(
-    baseline: EditBaseline,
-    destinationDirectory: string,
-    key: string,
-    sourceDirectory?: string,
-  ): PreparedEdit<CopyResult> {
-    if (baseline.task) throw new Error("Workspace copies have no task baseline.");
-    return this.prepareTaskRequest(
-      baseline,
-      sourceDirectory === undefined ? "workspace.archive" : "workspace.restore",
-      { destinationDirectory, ...(sourceDirectory !== undefined ? { sourceDirectory } : {}) },
-      key,
-    );
   }
 
   private prepareTaskRequest<R extends GroupResult = EditResult>(

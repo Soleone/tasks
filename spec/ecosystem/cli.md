@@ -30,7 +30,6 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | `categories`, `tags`, `info` | `category.list`, `tag.list`, `workspace.info` |
 | `init`, `rebuild` | `workspace.init` (creating the home first), `workspace.rebuild` |
 | `rebind`, `new-history` | `workspace.rebind`, `workspace.newHistory` |
-| `archive DEST`, `restore SRC DEST` | `workspace.archive`, `workspace.restore` |
 | `migrate DEST` | `workspace.migrate` |
 | `recover OPERATION_ID` | `workspace.recovery.resume` |
 

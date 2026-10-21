@@ -239,8 +239,6 @@ const invalid: string[][] = [
   ["complete", parent, "--expected-version", "0"],
   ["add", "New", "--request-hash", "not-a-hash"],
   ["purge-canceled", parent],
-  ["archive"],
-  ["restore", "one-path"],
   ["recover"],
   ["migrate"],
 ];
@@ -495,7 +493,7 @@ test(
 );
 
 test(
-  "lifecycle explicitly initializes/rebuilds/copies disjoint roots without selection or sharing changes",
+  "lifecycle explicitly initializes and rebuilds disjoint roots without selection or sharing changes",
   linux,
   (t) => {
     const workspace = setup(t),
@@ -518,19 +516,6 @@ test(
     assert.equal(ok(workspace, ["rebuild"]).taskCount, 4);
     assert.equal(ok(workspace, ["info"]).writeContext, ctx);
     assert.deepEqual(raw(workspace), snapshot);
-    const archive = ok(workspace, ["archive", workspace.destination]);
-    assert.equal(archive.taskCount, 4);
-    assert.deepEqual(raw({ ...workspace, root: workspace.destination }), snapshot);
-    const restored = path.join(workspace.directory, "restored");
-    const restore = run(selected, ["restore", workspace.destination, restored]);
-    assert.equal(restore.status, 0, restore.stderr);
-    assert.match(restore.stdout, /Selection and sharing are unchanged/);
-    assert.deepEqual(raw({ ...workspace, root: restored }), snapshot);
-    assert.deepEqual(raw(workspace), snapshot);
-    failure(
-      run(workspace, ["archive", path.join(workspace.root, "inside"), "--json"]),
-      "INVALID_ARGUMENT",
-    );
   },
 );
 

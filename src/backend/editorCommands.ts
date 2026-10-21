@@ -12,6 +12,4 @@ export const EDITOR_COMMANDS = [
   "operation.undo",
   "operation.redo",
   "task.transitionMany",
-  "workspace.archive",
-  "workspace.restore",
 ] as const;

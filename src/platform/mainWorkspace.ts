@@ -8,7 +8,6 @@ import {
   AnsweredRefusal,
   EditorClient,
   EditorError,
-  type CopyResult,
   type EditorMode,
   type EditResult,
   type OrderResult,
@@ -41,7 +40,7 @@ function classificationEntries(value: unknown): { slug: string; taskCount: numbe
 }
 
 export type UnresolvedTaskRequest = {
-  prepared: PreparedEdit<EditResult | OrderResult | UndoResult | CopyResult>;
+  prepared: PreparedEdit<EditResult | OrderResult | UndoResult>;
   error: string;
   retry: () => Promise<void>;
   preserveForReconciliation: () => void;
@@ -96,36 +95,7 @@ export class MainWorkspace {
   get supportsStatusBatch(): boolean {
     return this.editor.selection.writeCommands.includes("task.transitionMany");
   }
-  get supportsBackupRestore(): boolean {
-    return (
-      this.editor.selection.writeCommands.includes("workspace.archive") &&
-      this.editor.selection.writeCommands.includes("workspace.restore")
-    );
-  }
   hasWriteInProgress = (): boolean => this.writing;
-
-  /** Copies never change selection or enter task undo history. The gateway validates paths and the complete source. */
-  async copyWorkspace(
-    destinationDirectory: string,
-    key: string,
-    sourceDirectory?: string,
-  ): Promise<CopyResult> {
-    if (!this.supportsBackupRestore)
-      throw new EditorError(
-        "UNSUPPORTED_COMMAND",
-        "Backup and restore are not available in this selected workspace.",
-      );
-    return this.run(async () => {
-      const prepared = this.editor.prepareCopy(
-        await this.editor.begin(undefined, "copy"),
-        destinationDirectory,
-        key,
-        sourceDirectory,
-      );
-      await prepared.preview();
-      return prepared;
-    });
-  }
 
   async tasks(args: Record<string, unknown>) {
     // The UI's priority "desc" means most important (P0) first; the engine sorts the number.
@@ -413,7 +383,7 @@ export class MainWorkspace {
     return { ...result, task: taskView(result.task) };
   }
 
-  private async run<R extends EditResult | OrderResult | UndoResult | CopyResult>(
+  private async run<R extends EditResult | OrderResult | UndoResult>(
     prepare: () => Promise<PreparedEdit<R>>,
   ): Promise<R> {
     if (this.reconciliationRequired)

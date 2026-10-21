@@ -345,17 +345,10 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       command = `workspace.${verb}`;
       requirePositionals(positionals, 0, verb);
       break;
-    case "archive":
     case "migrate":
-      command = verb === "archive" ? "workspace.archive" : "workspace.migrate";
+      command = "workspace.migrate";
       requirePositionals(positionals, 1, verb);
       args.destinationDirectory = directoryArgument(positionals[0]);
-      break;
-    case "restore":
-      command = "workspace.restore";
-      requirePositionals(positionals, 2, verb);
-      args.sourceDirectory = directoryArgument(positionals[0]);
-      args.destinationDirectory = directoryArgument(positionals[1]);
       break;
     case "recover":
       command = "workspace.recovery.resume";
@@ -438,12 +431,11 @@ WRITES
   undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled
   move ID --parent ID | move ID --no-parent
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
-  init (creates the home) | rebuild | archive DESTINATION | restore SOURCE DESTINATION
+  init (creates the home) | rebuild
   recover OPERATION_ID
   rebind: keep history after the home moved | new-history: set aside a cache that
   came with a copy of the home and start a new history here
-  Archive and restore never switch the home or enable sharing. Old-version folders
-  are converted with pnpm migrate.
+  Old-version folders are converted with pnpm migrate.
   Ordering, batches and doctor remain advanced JSON-lines controls, not new verbs.
 
 OUTPUT AND RETRIES

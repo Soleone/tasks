@@ -63,20 +63,8 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
         authority.writeContext !== intent.request.writeContext
           ? undefined
           : findReceipt(database, intent.request);
-      if (!originalResult && intent.format === "taskdb.pending-copy") {
-        const recover = () => commitCopy(database, intent);
-        originalResult =
-          intent.source.rootPath === root.rootPath
-            ? recover()
-            : withRootWriterLock(intent.source, () => {
-                if (readPending(intent.source))
-                  throw new CommandError(
-                    "RECOVERY_CONFLICT",
-                    "external source has unfinished work",
-                  );
-                return recover();
-              });
-      }
+      if (!originalResult && intent.format === "taskdb.pending-copy")
+        originalResult = commitCopy(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-order")
         originalResult = commitOrder(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-batch")

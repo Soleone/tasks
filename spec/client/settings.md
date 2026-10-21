@@ -24,10 +24,6 @@
 | Rule | When | Then |
 | --- | --- | --- |
 | `settings.home` | Data | Shows the Tasks home's path with Open folder (desktop) and its sync folder's path with Copy path, and warns to add only the sync folder to Syncthing, because syncing the home copies this device's database and locks |
-| `backup.create` | Archive tasks | Copies the tasks in the sync folder to a new path. The destination must be empty or absent, outside the workspace, with an existing parent |
-| `backup.restore` | Restore to new folder | Copies an archive into a new folder. The current workspace is untouched; the new folder must be opened separately |
-| `backup.confirm` | Either action | Shows source and destination, then asks for a separate confirmation |
-| `backup.contents` | Any copy | Includes tasks and conflict originals. The local cache, undo history and settings are not copied; a full backup is a copy of the whole Tasks home made with Tasks closed |
 
 ## Preferences
 

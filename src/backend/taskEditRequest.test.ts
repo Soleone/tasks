@@ -67,7 +67,7 @@ test("single-file request decoding chooses one existing content/status/relations
   for (const command of [
     "task.create",
     "task.status.undo",
-    "workspace.archive",
+    "workspace.migrate",
     "workspace.recovery.resume",
   ]) {
     assert.equal(isTaskEditRequest(request(command, {})), false);

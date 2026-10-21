@@ -43,7 +43,7 @@ function isDirectory(directory: string): boolean {
   return stat !== undefined && stat.isDirectory() && !stat.isSymbolicLink();
 }
 
-/** The home whose `sync/` this root is, or undefined for archives, restore sources and old folders. */
+/** The home whose `sync/` this root is, or undefined for old folders and other bare roots. */
 export function homeOfRoot(rootPath: string): string | undefined {
   const homePath = path.dirname(rootPath);
   return path.basename(rootPath) === SYNC && isDirectory(path.join(homePath, LOCAL))

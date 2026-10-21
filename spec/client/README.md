@@ -8,7 +8,7 @@ The desktop app and the web app are one client. This folder describes what a per
 | [toolbar.md](toolbar.md) | Filters, search, sort and the count line |
 | [capture-edit.md](capture-edit.md) | The inline editor, shorthand, the move and blocker pickers |
 | [status-undo.md](status-undo.md) | Status and priority shortcuts, batches, copy, undo and redo |
-| [settings.md](settings.md) | Settings, themes, help, font size, backup and restore |
+| [settings.md](settings.md) | Settings, themes, help, font size and the Tasks home |
 | [platforms.md](platforms.md) | Desktop, web, Linux and Windows differences |
 
 ## Principles

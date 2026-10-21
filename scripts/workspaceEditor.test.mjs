@@ -58,8 +58,6 @@ const linuxEditorCommands = [
   "operation.undo",
   "operation.redo",
   "task.transitionMany",
-  "workspace.archive",
-  "workspace.restore",
 ];
 const statusSources = {
   "task.start": "done",
@@ -946,47 +944,4 @@ test("browser status undo restores the latest eligible status once and refuses w
     editor.prepareStatus(await editor.begin(openId, "status"), "task.status.undo").execute(),
     /UNDO_UNAVAILABLE/,
   );
-});
-
-test("workspace copy decoder refuses malformed success and preview flags; request remains frozen", async (t) => {
-  const selected = workspace(t),
-    { editor } = await server(t, selected);
-  let patch = {};
-  traceFetch(t, async (response, request) => {
-    const body = await response.json();
-    if (request?.command === "workspace.archive" && body.ok) Object.assign(body.result, patch);
-    return new Response(JSON.stringify(body));
-  });
-  const prepared = editor.prepareCopy(
-    await editor.begin(undefined, "copy"),
-    path.join(selected.directory, "archive"),
-    "copy-decode",
-  );
-  const original = prepared.originalRequest;
-  for (patch of [
-    { dryRun: false },
-    { readOnly: true },
-    { operationId: "invented" },
-    { taskCount: -1 },
-    { destinationDirectory: "" },
-  ]) {
-    await assert.rejects(prepared.preview(), /invalid copy result/);
-    assert.equal(existsSync(path.join(selected.directory, "archive")), false);
-  }
-  patch = {};
-  assert.equal((await prepared.preview()).taskCount, 4);
-  for (patch of [
-    { dryRun: true },
-    { readOnly: false },
-    { operationId: "" },
-    { taskCount: 1.5 },
-    { changed: false },
-    { destinationDirectory: null },
-  ]) {
-    await assert.rejects(prepared.execute(), /invalid copy result/);
-    assert.equal(prepared.originalRequest, original);
-  }
-  patch = {};
-  assert.equal((await prepared.execute()).taskCount, 4, "the original receipt remains replayable");
-  assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 0 });
 });

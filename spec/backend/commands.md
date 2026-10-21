@@ -104,8 +104,6 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | --- | --- | --- |
 | `workspace.init` | none | `schemaVersion`, `changed` |
 | `workspace.rebuild` | none | `taskCount`, `changed`, `workspaceRevision` (cache only) |
-| `workspace.archive` | `destinationDirectory` | `destinationDirectory`, `taskCount`, `changed` |
-| `workspace.restore` | `sourceDirectory`, `destinationDirectory` | `destinationDirectory`, `taskCount`, `changed` |
 | `workspace.migrate` | `destinationDirectory` | completion report |
 | `workspace.recovery.resume` | `operationId` | `operationId`, `outcome`, original result when available |
 | `workspace.doctor.inspect` / `.plan` / `.apply` | see [sharing](../ecosystem/sharing.md#doctor) | issues, plan, repair result |

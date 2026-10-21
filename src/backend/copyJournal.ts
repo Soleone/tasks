@@ -64,30 +64,12 @@ function conflict(): never {
   throw new CommandError("RECOVERY_CONFLICT", "copy has missing, divergent or invalid evidence");
 }
 
-export function parseCopyArgs(request: Request): {
-  sourceDirectory?: string;
-  destinationDirectory: string;
-} {
-  assertArgs(
-    request.args,
-    request.command === "workspace.restore"
-      ? ["sourceDirectory", "destinationDirectory"]
-      : ["destinationDirectory"],
-  );
+export function parseCopyArgs(request: Request): { destinationDirectory: string } {
+  assertArgs(request.args, ["destinationDirectory"]);
   const destination = request.args.destinationDirectory;
-  const source = request.args.sourceDirectory;
-  if (
-    typeof destination !== "string" ||
-    destination.trim() === "" ||
-    (request.command === "workspace.restore" &&
-      (typeof source !== "string" || source.trim() === ""))
-  ) {
-    throw new CommandError("INVALID_ARGUMENT", "copy requires explicit directory arguments");
-  }
-  return {
-    destinationDirectory: destination,
-    ...(typeof source === "string" ? { sourceDirectory: source } : {}),
-  };
+  if (typeof destination !== "string" || destination.trim() === "")
+    throw new CommandError("INVALID_ARGUMENT", "copy requires an explicit destination directory");
+  return { destinationDirectory: destination };
 }
 
 function validateCopyFiles(files: CopyFile[]): void {
@@ -132,7 +114,7 @@ export function parseCopyIntent(value: unknown, root: RootBinding): CopyIntent {
         conflict();
     const request = parseRequest(intent.request);
     if (
-      !["workspace.archive", "workspace.restore", "workspace.migrate"].includes(request.command) ||
+      request.command !== "workspace.migrate" ||
       request.readOnly ||
       request.dryRun ||
       !request.writeContext ||
@@ -141,8 +123,8 @@ export function parseCopyIntent(value: unknown, root: RootBinding): CopyIntent {
       conflict();
     parseCopyArgs(request);
     if (
-      request.command !== "workspace.restore" &&
-      (intent.source.rootPath !== root.rootPath || intent.source.rootIdentity !== root.rootIdentity)
+      intent.source.rootPath !== root.rootPath ||
+      intent.source.rootIdentity !== root.rootIdentity
     )
       conflict();
     if (
@@ -181,9 +163,7 @@ export function parseCopyIntent(value: unknown, root: RootBinding): CopyIntent {
         conflict();
     }
     validateCopyFiles(intent.files);
-    if (request.command === "workspace.migrate")
-      parseMigrationEvidence(intent.migration, root, intent.files);
-    else if (intent.migration !== undefined) conflict();
+    parseMigrationEvidence(intent.migration, root, intent.files);
     for (const binding of [root, intent.source]) {
       localPathOutsideRoot(intent.destination.directory, binding.rootPath);
       localPathOutsideRoot(binding.rootPath, intent.destination.directory);

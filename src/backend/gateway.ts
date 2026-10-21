@@ -15,7 +15,6 @@ import { UNDO_COMMANDS } from "./undoPlan.js";
 import { executeOrder } from "./orderWriter.js";
 import { ORDER_COMMANDS } from "./taskOrdering.js";
 import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
-import { executeCopy } from "./copyWriter.js";
 import { executeMigration } from "../migration/writer.js";
 import { executeLifecycle } from "./lifecycleWriter.js";
 import { Schema1MigrationSourceError } from "../migration/schema1Source.js";
@@ -36,8 +35,6 @@ const writeCommands = [
   ...UNDO_COMMANDS,
   "task.purgeCanceled",
   "workspace.recovery.resume",
-  "workspace.archive",
-  "workspace.restore",
   "workspace.migrate",
   "workspace.init",
   "workspace.rebuild",
@@ -81,9 +78,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
                         ? resumeOperation(request, rootPath, cachePath)
                         : request.command === "workspace.migrate"
                           ? executeMigration(request, rootPath, cachePath)
-                          : ["workspace.init", "workspace.rebuild"].includes(request.command)
-                            ? executeLifecycle(request, rootPath, cachePath)
-                            : executeCopy(request, rootPath, cachePath);
+                          : executeLifecycle(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     const inspection = inspectCanonicalRoot(rootPath);

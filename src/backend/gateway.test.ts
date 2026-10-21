@@ -198,7 +198,6 @@ test("info inspects empty, partial and unsupported roots without creating canoni
           "task.status.undoMany",
           "task.transitionMany",
           "task.update",
-          "workspace.archive",
           "workspace.doctor.apply",
           "workspace.doctor.inspect",
           "workspace.doctor.plan",
@@ -207,7 +206,6 @@ test("info inspects empty, partial and unsupported roots without creating canoni
           "workspace.migrate",
           "workspace.rebuild",
           "workspace.recovery.resume",
-          "workspace.restore",
         ]
       : ["category.list", "tag.list", "task.get", "task.list", "workspace.info"],
   );

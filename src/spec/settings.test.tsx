@@ -42,8 +42,7 @@ test("settings.tabs: Left and Right switch sections", async () => {
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   const panel = within(screen.getByRole("tabpanel"));
   panel.getByRole("heading", { name: "Tasks home" });
-  panel.getByRole("button", { name: "Archive tasks…" });
-  panel.getByRole("button", { name: "Restore to new folder…" });
+  expect(panel.queryByRole("button", { name: "Archive tasks…" })).toBeNull();
   expect(panel.queryByRole("heading", { name: "Launch time" })).toBeNull();
   expect(panel.queryByRole("heading", { name: "Local" })).toBeNull();
   expect(panel.queryByText("Local cache", { exact: true })).toBeNull();

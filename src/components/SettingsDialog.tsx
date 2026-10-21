@@ -21,7 +21,6 @@ import {
 import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
-import { WorkspaceBackup } from "./WorkspaceBackup";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { ReadableTabsTrigger } from "@/components/variants/tabs";
 
@@ -320,10 +319,6 @@ export function SettingsDialog({
                   </Button>
                 )}
               </section>
-
-              {open && workspace?.supportsBackupRestore ? (
-                <WorkspaceBackup workspace={workspace} />
-              ) : null}
             </div>
           </TabsContent>
         </Tabs>

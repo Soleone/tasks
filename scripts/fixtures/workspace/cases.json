@@ -2752,34 +2752,6 @@
       }
     },
     {
-      "id": "archive-restore",
-      "profile": "storage",
-      "rule": "ecosystem/backup.md#backup-and-restore",
-      "given": {
-        "goldenRoot": "root"
-      },
-      "action": {
-        "kind": "sequence",
-        "steps": [
-          {
-            "command": "workspace.archive",
-            "destinationDirectory": "empty-archive"
-          },
-          {
-            "command": "workspace.restore",
-            "sourceDirectory": "empty-archive",
-            "destinationDirectory": "empty-restored"
-          }
-        ]
-      },
-      "expect": {
-        "sameCanonicalBytes": true,
-        "sourceBytesUnchanged": true,
-        "selectionUnchanged": true,
-        "noCacheCopied": true
-      }
-    },
-    {
       "id": "record-tags-unsorted",
       "profile": "model",
       "rule": "backend/data.md#values",
@@ -2941,54 +2913,6 @@
         "error": "INVALID_CANONICAL",
         "canonicalWrites": 0,
         "outsideContentRead": false
-      }
-    },
-    {
-      "id": "destination-overlap",
-      "profile": "storage",
-      "rule": "ecosystem/backup.md#backup-and-restore",
-      "given": {},
-      "action": {
-        "command": "workspace.archive",
-        "args": {
-          "destinationDirectory": "selected-root/inside"
-        }
-      },
-      "expect": {
-        "error": "INVALID_ARGUMENT",
-        "canonicalWrites": 0,
-        "sourceBytesUnchanged": true
-      }
-    },
-    {
-      "id": "restore-cache-authority",
-      "profile": "protocol",
-      "rule": "backend/commands.md#write-authority",
-      "given": {
-        "goldenRoot": "root"
-      },
-      "action": {
-        "kind": "sequence",
-        "steps": [
-          {
-            "captureContext": "ctx-A"
-          },
-          {
-            "restoreToNewRoot": true
-          },
-          {
-            "selectRestoredRoot": true
-          },
-          {
-            "command": "task.create",
-            "title": "Old authority",
-            "context": "ctx-A"
-          }
-        ]
-      },
-      "expect": {
-        "error": "STALE_WRITE_CONTEXT",
-        "canonicalWritesAtFailure": 0
       }
     }
   ]
