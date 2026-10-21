@@ -67,7 +67,13 @@ export function browserUndoFor(scope: string, writeContext: string): string | nu
   if (!match || !Array.isArray(match.entries)) return null;
   const history: StoredHistory = {
     version: 1,
-    workspaces: [{ scope, entries: match.entries.filter(isEntry) }],
+    workspaces: [
+      {
+        scope,
+        entries: match.entries.filter(isEntry),
+        redoEntries: Array.isArray(match.redoEntries) ? match.redoEntries.filter(isEntry) : [],
+      },
+    ],
   };
   return JSON.stringify(history);
 }

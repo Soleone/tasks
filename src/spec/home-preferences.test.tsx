@@ -65,16 +65,21 @@ test("platform.prefs-scope: a home without undo records takes this browser's rec
       version: 1,
       workspaces: [
         { scope: oldScope("another-history"), entries: [{ ...entry, operationId: "op-other" }] },
-        { scope: oldScope(writeContext), entries: [entry] },
+        {
+          scope: oldScope(writeContext),
+          entries: [entry],
+          redoEntries: [{ ...entry, operationId: "op-undone" }],
+        },
       ],
     }),
   );
   await workspace.render({ home: true });
   const saved = JSON.parse((await workspace.homeDocument("undo")) ?? "null") as {
-    workspaces: { scope: string; entries: unknown[] }[];
+    workspaces: { scope: string; entries: unknown[]; redoEntries: unknown[] }[];
   };
   expect(saved.workspaces).toHaveLength(1);
   expect(saved.workspaces[0].entries).toEqual([entry]);
+  expect(saved.workspaces[0].redoEntries).toEqual([{ ...entry, operationId: "op-undone" }]);
   const scope = JSON.parse(saved.workspaces[0].scope) as string[];
   expect(scope[0]).not.toBe("/old/Tasks");
   expect(scope.at(-1)).toBe(writeContext);
