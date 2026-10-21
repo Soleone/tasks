@@ -46,11 +46,11 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
       className="flex flex-col gap-3 rounded-lg border p-4 md:col-span-2"
     >
       <h2 id="settings-backup" className="text-sm font-medium">
-        Backup and restore
+        Archive and restore tasks
       </h2>
       <p className="text-sm text-muted-foreground">
-        Copy the canonical task folder, including known conflict originals. Local cache, receipts
-        and undo history are not included; keep the original cache and request evidence for retries.
+        Copies only the tasks in the sync folder, with known conflict originals, to a new folder.
+        History, undo records and settings stay behind; for those, back up the whole Tasks home.
       </p>
       {!mode ? (
         <div className="flex flex-wrap gap-2">
@@ -63,7 +63,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
               setFailure(null);
             }}
           >
-            Create backup…
+            Archive tasks…
           </Button>
           <Button
             variant="outline"
@@ -81,7 +81,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
       ) : confirmation ? (
         <ConfirmationAlert>
           <AlertTitle>
-            {mode === "restore" ? "Restore to this new folder?" : "Create this backup?"}
+            {mode === "restore" ? "Restore to this new folder?" : "Create this archive?"}
           </AlertTitle>
           <AlertDescription className="wrap-anywhere">
             <div className="flex flex-col gap-2">
@@ -99,7 +99,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
               Back
             </Button>
             <Button disabled={pending} onClick={() => void copyNow(confirmation)}>
-              {pending ? "Copying…" : mode === "restore" ? "Confirm restore" : "Confirm backup"}
+              {pending ? "Copying…" : mode === "restore" ? "Confirm restore" : "Confirm archive"}
             </Button>
           </div>
         </ConfirmationAlert>
@@ -118,7 +118,7 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
           </p>
           {mode === "restore" ? (
             <Field>
-              <FieldLabel htmlFor="backup-source">Backup source folder</FieldLabel>
+              <FieldLabel htmlFor="backup-source">Archive to restore</FieldLabel>
               <Input
                 id="backup-source"
                 value={source}
@@ -142,7 +142,9 @@ export function WorkspaceBackup({ workspace }: { workspace: MainWorkspace }): Re
             <Button type="button" variant="outline" onClick={() => setMode(null)}>
               Cancel
             </Button>
-            <Button type="submit">{mode === "restore" ? "Review restore" : "Review backup"}</Button>
+            <Button type="submit">
+              {mode === "restore" ? "Review restore" : "Review archive"}
+            </Button>
           </div>
         </form>
       )}

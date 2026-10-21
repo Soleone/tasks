@@ -42,7 +42,7 @@ test("settings.tabs: Left and Right switch sections", async () => {
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   const panel = within(screen.getByRole("tabpanel"));
   panel.getByRole("heading", { name: "Tasks home" });
-  panel.getByRole("button", { name: "Create backup…" });
+  panel.getByRole("button", { name: "Archive tasks…" });
   panel.getByRole("button", { name: "Restore to new folder…" });
   expect(panel.queryByRole("heading", { name: "Launch time" })).toBeNull();
   expect(panel.queryByRole("heading", { name: "Local" })).toBeNull();
@@ -53,6 +53,19 @@ test("settings.tabs: Left and Right switch sections", async () => {
   expect(document.activeElement).toBe(screen.getByRole("slider", { name: "Font size" }));
   await user.tab({ shift: true });
   expect(document.activeElement).toBe(screen.getByRole("tab", { name: "General" }));
+});
+
+test("settings.home: Data shows the home and copies its sync folder's path", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Data" }));
+  const panel = within(screen.getByRole("tabpanel"));
+  panel.getByText(/Add only this sync folder to Syncthing, not the Tasks home/);
+  await user.click(panel.getByRole("button", { name: "Copy path" }));
+  await panel.findByText("Sync folder path copied.");
+  expect(await navigator.clipboard.readText()).toMatch(/[\\/]sync$/);
+  // The web client has no file manager to open.
+  expect(panel.queryByRole("button", { name: "Open folder" })).toBeNull();
 });
 
 test("help.palette: Ctrl+K opens a searchable palette of shortcuts", async () => {

@@ -28,6 +28,11 @@ export function rememberHome(home: string): Promise<void> {
   return invoke("home_pointer_write", { home });
 }
 
+/** Shows the remembered home in the file manager (desktop only). */
+export function revealHome(): Promise<void> {
+  return invoke("home_reveal");
+}
+
 /** Settings' "Open another home" shows setup on the next start without forgetting this home. */
 export function chooseHomeOnNextStart(): void {
   try {

@@ -35,6 +35,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/tasks-backend", "binaries/tasks-cli"]
+    "externalBin": ["binaries/tasks-backend", "binaries/tasks-cli"],
+    "windows": {
+      "nsis": { "installerHooks": "windows/installer-hooks.nsh" }
+    }
   }
 }

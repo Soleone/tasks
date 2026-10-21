@@ -1,8 +1,8 @@
-import { useRef, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
 import { selectedMainWorkspace } from "@/platform/backendClient";
-import { runtimeKind } from "@/platform/runtime";
-import { chooseHomeOnNextStart } from "@/platform/desktopWorkspace";
+import { isAndroid, runtimeKind } from "@/platform/runtime";
+import { chooseHomeOnNextStart, revealHome } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,6 +70,7 @@ export function SettingsDialog({
   onFontSizeIncreaseChange,
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
+  const [pathNotice, setPathNotice] = useState<string | null>(null);
   const settingsTab = useRef<HTMLButtonElement>(null);
 
   return (
@@ -254,8 +255,8 @@ export function SettingsDialog({
                     Tasks home
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Everything Tasks keeps on this device. To back it up, close Tasks and copy the
-                    whole folder.
+                    Everything Tasks keeps on this device: tasks, settings, history and undo. For a
+                    full backup, close Tasks and the CLI and copy the whole folder.
                   </p>
                 </div>
                 {workspace ? (
@@ -263,12 +264,47 @@ export function SettingsDialog({
                     <code className="wrap-anywhere text-xs">
                       {workspace.editor.selection.profilePath}
                     </code>
-                    <p className="text-sm text-muted-foreground">
-                      Add only its sync folder to Syncthing, never the home itself:
-                    </p>
+                    {runtimeKind() === "native" && !isAndroid() && (
+                      <Button
+                        variant="outline"
+                        className="w-fit"
+                        onClick={() =>
+                          void revealHome().catch((error: unknown) =>
+                            setPathNotice(error instanceof Error ? error.message : String(error)),
+                          )
+                        }
+                      >
+                        Open folder
+                      </Button>
+                    )}
+                    <h3 className="text-sm font-medium">Sync folder</h3>
                     <code className="wrap-anywhere text-xs">
                       {workspace.editor.selection.rootPath}
                     </code>
+                    <Button
+                      variant="outline"
+                      className="w-fit"
+                      onClick={() =>
+                        void navigator.clipboard
+                          .writeText(workspace.editor.selection.rootPath)
+                          .then(
+                            () => setPathNotice("Sync folder path copied."),
+                            () => setPathNotice("The path couldn't be copied; select it instead."),
+                          )
+                      }
+                    >
+                      Copy path
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Add only this sync folder to Syncthing, not the Tasks home. Syncing the home
+                      would copy this device's database and locks to your other devices and can
+                      damage them.
+                    </p>
+                    {pathNotice && (
+                      <p role="status" className="text-sm text-muted-foreground">
+                        {pathNotice}
+                      </p>
+                    )}
                   </>
                 ) : null}
                 {runtimeKind() === "native" && (
