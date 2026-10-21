@@ -93,11 +93,6 @@ export class AppWorkspace {
     ).task;
   }
 
-  /** The write context the app's cache has now. */
-  async writeContext(): Promise<string> {
-    return (await this.post({ command: "workspace.info" })).writeContext as string;
-  }
-
   /** The text of one of the home's own documents, or null when it doesn't exist. */
   async homeDocument(name: "settings" | "undo"): Promise<string | null> {
     const reply = await this.post({ command: "home.document.read", args: { name } });

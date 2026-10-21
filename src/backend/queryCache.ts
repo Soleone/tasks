@@ -131,30 +131,20 @@ function bindingChange(recorded: string, current: string): BindingChange {
   return before[0] === now[0] && before[2] === now[2] ? "device" : "moved";
 }
 
-function mainFile(database: DatabaseSync): string {
+function cacheBinding(database: DatabaseSync, root: RootBinding): string {
   const main = database
     .prepare("PRAGMA database_list")
     .all()
     .find((row) => row.name === "main");
   if (typeof main?.file !== "string" || main.file === "")
     throw new CommandError("INVALID_STORAGE", "write authority requires a physical cache file");
-  return main.file;
-}
-
-function cacheBinding(database: DatabaseSync, root: RootBinding): string {
-  const file = mainFile(database);
-  return bindingAt(root, file, file);
-}
-
-/** The binding of a cache file found at `cacheFile` that will be opened as `cachePath`. */
-function bindingAt(root: RootBinding, cachePath: string, cacheFile: string): string {
-  const cacheIdentity = lstatSync(cacheFile, { bigint: true });
+  const cacheIdentity = lstatSync(main.file, { bigint: true });
   if (!cacheIdentity.isFile() || cacheIdentity.isSymbolicLink())
     throw new CommandError("INVALID_STORAGE", "write authority requires a regular cache file");
   return JSON.stringify([
     root.rootPath,
     root.rootIdentity,
-    cachePath,
+    main.file,
     `${cacheIdentity.dev}:${cacheIdentity.ino}`,
   ]);
 }
@@ -177,20 +167,6 @@ export function confirmMovedBinding(database: DatabaseSync, root: RootBinding): 
   database
     .prepare("UPDATE v2_query_state SET binding = ? WHERE singleton = 1")
     .run(cacheBinding(database, root));
-}
-
-/**
- * Binds a staged cache to where it will be published, keeping its context, receipts and history.
- * The root and cache keep their identities when the stage is renamed into place.
- */
-export function bindStagedCache(
-  database: DatabaseSync,
-  root: RootBinding,
-  cachePath: string,
-): void {
-  database
-    .prepare("UPDATE v2_query_state SET binding = ? WHERE singleton = 1")
-    .run(bindingAt(root, cachePath, mainFile(database)));
 }
 
 export function synchronizeAuthority(

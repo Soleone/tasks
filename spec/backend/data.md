@@ -21,10 +21,9 @@ The app and the CLI work in a Tasks home that the owner chooses. Its `sync/` fol
 
 | Rule | Then |
 | --- | --- |
-| `home.layout` | Everything Tasks keeps for a device is in its home. A root whose folder is named `sync` beside a `local/` folder keeps its writer lock and recovery files in that `local/`, so every spelling of the path and every cache shares them. Other roots (old folders being converted or moved into a home) keep theirs beside the selected cache |
+| `home.layout` | Everything Tasks keeps for a device is in its home. A root whose folder is named `sync` beside a `local/` folder keeps its writer lock and recovery files in that `local/`, so every spelling of the path and every cache shares them. Other roots (old folders being converted) keep theirs beside the selected cache |
 | `home.create` | Only explicit setup creates a home, inside an existing parent. It refuses a folder holding anything but a home's own entries, a task folder from before homes, and a home's own `sync/` or `local/`. Setup interrupted part way simply runs again |
 | `home.refuse-unsafe` | A home can't be inside a Syncthing folder (`.stfolder` in the home or above it), inside another home, inside OneDrive, on a network share, or on Android outside shared storage. Opening repeats the Syncthing check, so adding the whole home to Syncthing stops writes |
-| `home.adopt` | A task folder from before homes moves into a new home only on an explicit choice, with its cache and recovery files. The old folder, cache and recovery files are only read and stay as they were. It is refused while the old folder has an unfinished operation or an old writer holds it, and into a folder that isn't empty or that is inside the old one (or the reverse). The home is staged beside its place and published by one rename, so an interruption leaves no home and running it again starts over. The write context, activity, receipts and undo claims carry on in the home |
 | `home.missing` | A missing or unreachable home is reported with its path. Nothing is created in its place and it is never treated as a first launch |
 | `home.documents` | Preferences (`settings.json`) and client undo records (`local/undo.json`) are replaced durably: staged, flushed, renamed. A file the app can't read is kept beside the new one as `*.damaged-<time>.json` |
 

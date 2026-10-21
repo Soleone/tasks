@@ -21,7 +21,7 @@ let otherRoots: string | undefined;
 
 /**
  * Where recovery evidence for roots that aren't a home's `sync/` lives: old folders being
- * converted or moved into a home. It sits beside the selected cache, inside the
+ * converted into a home. It sits beside the selected cache, inside the
  * selected home's `local/` for the app and CLI. Every gateway call selects it first.
  */
 export function selectOtherRootsDirectory(cachePath: string): void {

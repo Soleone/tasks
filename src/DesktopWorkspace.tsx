@@ -18,7 +18,6 @@ import { selectMainWorkspace } from "./platform/backendClient";
 import {
   HomeError,
   HomeSetup,
-  previousTaskFolder,
   rememberedHome,
   rememberHome,
   suggestedHome,
@@ -34,7 +33,7 @@ import { THEME_STORAGE_KEY } from "./theme/config";
 // Read once per page load, so React's development double effects can't consume it.
 const homeChoiceRequested = takeHomeChoice();
 
-type Mode = "create" | "adopt" | "open" | "launch";
+type Mode = "create" | "open" | "launch";
 /** What setup can offer after a refusal, beyond choosing a home again. */
 type Choice = "retry" | "keepHistory" | "newHistory" | "resetSettings";
 type Problem = { home: string; mode: Mode; title: string; message: string; choice?: Choice };
@@ -75,8 +74,7 @@ function problemFor(home: string, mode: Mode, reason: unknown): Problem {
 }
 
 /**
- * Opens a home: creates it or brings the previous task folder into it first when asked,
- * initializes an empty sync folder only on an explicit choice, and loads its settings before the
+ * Opens a home: creates it first when asked, initializes an empty sync folder only on an explicit choice, and loads its settings before the
  * list renders.
  */
 async function openHome(
@@ -86,9 +84,8 @@ async function openHome(
 ): Promise<{ workspace: MainWorkspace; theme: string | null }> {
   let setup = await HomeSetup.open(requested);
   try {
-    if (mode === "create" || mode === "adopt") {
-      const previous = mode === "adopt" ? previousTaskFolder() : null;
-      const home = previous ? await setup.adopt(previous) : await setup.create();
+    if (mode === "create") {
+      const home = await setup.create();
       if (home !== setup.home) {
         await setup.close();
         setup = await HomeSetup.open(home);
@@ -136,7 +133,6 @@ export default function DesktopWorkspace(): ReactElement | null {
   const [problem, setProblem] = useState<Problem | null>(null);
   const homeRef = useRef<HTMLInputElement>(null);
   const { setTheme } = useTheme();
-  const previousFolder = previousTaskFolder();
 
   async function run(label: string, requested: string, mode: Mode, choice?: Choice) {
     setBusy(label);
@@ -278,24 +274,6 @@ export default function DesktopWorkspace(): ReactElement | null {
               </Button>
             )}
           </div>
-          {previousFolder && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                Your tasks from before are in {previousFolder}. Bring them into this new home with
-                their history; the old folder stays as it is. Close the CLI and pause Syncthing
-                first, then point Syncthing at the new sync folder.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-fit"
-                disabled={busy !== null || !home.trim()}
-                onClick={() => void run("Bringing your tasks over...", home.trim(), "adopt")}
-              >
-                Bring my tasks into this home
-              </Button>
-            </div>
-          )}
         </form>
       )}
     </main>

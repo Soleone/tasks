@@ -28,56 +28,6 @@ export function browserUndoStorage(): UndoStorage | null {
   }
 }
 
-/** Which undo records belong to a selection: its paths and the write context they were made under. */
-export function undoScope(
-  selection: { rootPath: string; databasePath: string; profilePath: string },
-  writeContext: string,
-): string {
-  return JSON.stringify([
-    selection.rootPath,
-    selection.databasePath,
-    selection.profilePath,
-    writeContext,
-  ]);
-}
-
-/**
- * The undo records this browser kept before Tasks homes for the history now in a home, under the
- * home's scope. A write context belongs to one cache, so records made under another are left out.
- */
-export function browserUndoFor(scope: string, writeContext: string): string | null {
-  let stored: unknown;
-  try {
-    const raw = browserUndoStorage()?.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    stored = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  const workspaces = (stored as Partial<StoredHistory> | null)?.workspaces;
-  const match = Array.isArray(workspaces)
-    ? workspaces.find((workspace) => {
-        try {
-          return (JSON.parse(workspace.scope) as unknown[]).at(-1) === writeContext;
-        } catch {
-          return false;
-        }
-      })
-    : undefined;
-  if (!match || !Array.isArray(match.entries)) return null;
-  const history: StoredHistory = {
-    version: 1,
-    workspaces: [
-      {
-        scope,
-        entries: match.entries.filter(isEntry),
-        redoEntries: Array.isArray(match.redoEntries) ? match.redoEntries.filter(isEntry) : [],
-      },
-    ],
-  };
-  return JSON.stringify(history);
-}
-
 function isEntry(value: unknown): value is UndoEntry {
   const ids = (list: unknown) =>
     Array.isArray(list) && list.every((id) => typeof id === "string" && id !== "");
