@@ -21,7 +21,7 @@ export function TaskItem({
   return (
     <Item
       className={cn(
-        props.role === "option" && "border-l-0 pl-0 pointer-coarse:pl-0.5",
+        props.role === "option" && "border-l-0 pl-0",
         state && STATES[state],
         className,
       )}

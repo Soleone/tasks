@@ -6,11 +6,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ToggleButton } from "@/components/variants/button";
 
 /**
- * Toolbar cells: one size for every toolbar control so groups wrap onto shared columns; touch
- * pointers get a larger cell. Integer-cell widths with no gaps are what keep wrapped rows aligned.
+ * Toolbar cells: one size for every toolbar control so groups wrap onto shared columns.
+ * Integer-cell widths with no gaps are what keep wrapped rows aligned.
  * Cells are mouse fallbacks for shortcuts, so no trigger may turn one into a Tab stop.
  */
-const CELL = "pointer-coarse:size-8";
+const CELL = "size-8";
 
 type ButtonProps = ComponentProps<typeof Button>;
 

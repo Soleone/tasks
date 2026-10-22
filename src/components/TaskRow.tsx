@@ -285,8 +285,10 @@ export function TaskRow({
     >
       <div
         className={cn(
-          "flex shrink-0 items-center justify-center gap-1.5",
-          variant === "full" && "h-[1.375em]",
+          "shrink-0 items-center justify-center",
+          variant === "full"
+            ? "grid h-[1.375em] w-16 grid-cols-2 grid-rows-1 justify-items-center"
+            : "flex",
         )}
       >
         {statusSlot}

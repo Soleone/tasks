@@ -116,16 +116,16 @@ function summaryBaseExpression() {
 function summaryFilterExpression(filter) {
   return `document.querySelector('[data-filter-summary] [data-filter-remove=${JSON.stringify(filter)}]')?.textContent.trim()`;
 }
-// toolbar.layout and platform.toolbar-cell: cells are one size (28px, or 32px on touch, scaled with
-// the text size), sit on integer columns from New task, groups never split, and rows after the
-// first start one cell in. The logo and root status icons share New task's centerline; the count
-// starts at the cell's left edge.
+// toolbar.layout and platform.toolbar-cell: 32px cells scale with the text size, sit on integer
+// columns from New task, groups never split, and rows after the first start one cell in. The logo
+// and root status icons share New task's centerline, priority dots use the next column, and the
+// count starts at the first cell's left edge.
 function toolbarGridExpression(rows) {
   return `(() => {
     const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect();
     const cell = capture.width;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    const sized = Math.abs(cell - (matchMedia("(pointer: coarse)").matches ? 2 : 1.75) * rem) < 0.5;
+    const sized = Math.abs(cell - 2 * rem) < 0.5;
     const cells = [...document.querySelectorAll("[data-toolbar-cell]")].filter((element) => !element.closest("[hidden]"));
     const columnOf = (box) => (box.left - capture.left) / cell;
     const boxes = cells.map((element) => element.getBoundingClientRect());
@@ -136,8 +136,10 @@ function toolbarGridExpression(rows) {
     const centered = (box) => Math.abs(box.left + box.width / 2 - (capture.left + cell / 2)) < 0.5;
     const logo = document.querySelector("header .app-icon").getBoundingClientRect();
     const statuses = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-status]')].map((element) => element.getBoundingClientRect());
+    const priorities = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-priority]')].map((element) => element.getBoundingClientRect());
+    const priorityAligned = priorities.every((box) => Math.abs(box.left + box.width / 2 - (capture.left + cell * 1.5)) < 0.5);
     const summary = document.querySelector("[data-filter-summary]").getBoundingClientRect();
-    const aligned = centered(logo) && statuses.every(centered) && Math.abs(summary.left - capture.left) < 0.5;
+    const aligned = centered(logo) && statuses.every(centered) && priorityAligned && Math.abs(summary.left - capture.left) < 0.5;
     return document.documentElement.scrollWidth <= innerWidth && sized && onGrid && whole && aligned && tops.length === ${rows} && starts.every((start, row) => start === (row === 0 ? 0 : 1));
   })()`;
 }
@@ -1137,7 +1139,7 @@ try {
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
   check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
   check(
-    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] > [data-side]").getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] [data-slot=tooltip-trigger]").getBoundingClientRect(); return shell.width <= 680 && help.width < 320 && help.left >= 0 && help.right < anchor.left && arrow.right > help.right && arrow.right < anchor.left && Math.abs((arrow.top + arrow.height / 2) - (anchor.top + anchor.height / 2)) < 3; })()',
+    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] > [data-side]").getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] [data-slot=tooltip-trigger]").getBoundingClientRect(); return shell.width <= 704 && help.width < 320 && help.left >= 0 && help.right < anchor.left && arrow.right > help.right && arrow.right < anchor.left && Math.abs((arrow.top + arrow.height / 2) - (anchor.top + anchor.height / 2)) < 3; })()',
   );
   check(
     'document.querySelector("[data-context-help] [aria-label=\\"Use basic keyboard help\\"]") !== null',
@@ -3134,7 +3136,7 @@ try {
   waitFor(
     `([...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].some((title) => title.textContent === "CLI refresh probe"))`,
   );
-  // platform.toolbar-cell: touch gets larger cells; folding Actions saves a row at phone width.
+  // platform.toolbar-cell: touch keeps the same cells; folding Actions saves a row at phone width.
   browser("set", "viewport", "390", "844");
   const [touchOpen, touchFolded] = await evaluateWithCoarsePointer([
     toolbarGridExpression(3),
