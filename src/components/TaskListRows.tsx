@@ -27,6 +27,7 @@ type TaskOptionProps = {
   expanded: boolean;
   pending: boolean;
   feedbackVersion?: number;
+  sheenStep?: number;
   newTaskId?: string | null;
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
@@ -48,6 +49,7 @@ export const TaskOption = memo(function TaskOption({
   expanded,
   pending,
   feedbackVersion,
+  sheenStep,
   newTaskId,
   exitingTaskIds,
   showDetails,
@@ -107,6 +109,7 @@ export const TaskOption = memo(function TaskOption({
               task={task}
               pending={pending}
               feedbackVersion={feedbackVersion}
+              sheenStep={sheenStep}
               nextLabel={taskStatusMeta[forwardStatusTransition[task.status].next].label}
               previousLabel={taskStatusMeta[reverseStatusTransition[task.status].next].label}
               onToggle={onToggleStatus}

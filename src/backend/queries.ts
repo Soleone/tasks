@@ -1,7 +1,7 @@
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
-import { compareTasks } from "./taskModel.js";
+import { compareTasks, isTimestamp } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
 import type { QueryAuthority } from "./queryCache.js";
 
@@ -78,6 +78,7 @@ function listTasks(
     "tags",
     "search",
     "unblocked",
+    "closedSince",
     "includeAncestors",
     "includeDescendants",
     "sort",
@@ -107,6 +108,9 @@ function listTasks(
     if (/[\uD800-\uDBFF]$/.test(search)) search = search.slice(0, -1);
     search = asciiLower(search);
   }
+  // Stored times share this exact form, so text order is time order.
+  const closedSince = args.closedSince;
+  if (closedSince !== undefined && !isTimestamp(closedSince)) invalidFilter("closedSince");
   const sort = args.sort === undefined ? "created" : args.sort;
   if (!["created", "updated", "priority", "manual"].includes(sort as string)) invalidFilter("sort");
   const direction =
@@ -123,6 +127,7 @@ function listTasks(
       (args.categoryIsNull !== true || task.category === null) &&
       tags.every((tag) => task.tags.includes(tag)) &&
       (args.unblocked !== true || task.blockedByIds.length === 0) &&
+      (closedSince === undefined || (task.closedAt !== null && task.closedAt >= closedSince)) &&
       (search === undefined ||
         asciiLower(task.title).includes(search) ||
         asciiLower(task.description).includes(search)),

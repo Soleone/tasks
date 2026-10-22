@@ -60,6 +60,7 @@ type HomeShortcutActions = {
   openCategoryPicker: () => void;
   openTagPicker: () => void;
   addBlocker: (task: TaskView) => void;
+  openDoneToday: () => void;
   moveUnder: (task: TaskView) => void;
   toggleSelectedStatus: () => Promise<void>;
   reverseSelectedStatus: () => Promise<void>;
@@ -368,6 +369,10 @@ export function useTaskListKeyboard(
       event.preventDefault();
       if (actions.activeTask)
         void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
+    } else if (event.key.toLowerCase() === "d") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      actions.openDoneToday();
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();

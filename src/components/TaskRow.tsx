@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { Clock3, Folder, Images, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
@@ -71,6 +71,7 @@ export function TaskStatusToggle({
   task,
   pending,
   feedbackVersion,
+  sheenStep,
   nextLabel,
   previousLabel,
   onToggle,
@@ -78,6 +79,8 @@ export function TaskStatusToggle({
   task: TaskView;
   pending: boolean;
   feedbackVersion?: number;
+  /** Set while this client's own completion plays its sheen; the step staggers a batch. */
+  sheenStep?: number;
   nextLabel: string;
   previousLabel: string;
   onToggle: (task: TaskView) => void;
@@ -103,6 +106,10 @@ export function TaskStatusToggle({
             tabIndex={-1}
             data-status={task.status}
             data-status-pending={pending || undefined}
+            data-completion-sheen={sheenStep !== undefined || undefined}
+            style={
+              sheenStep !== undefined ? ({ "--sheen-step": sheenStep } as CSSProperties) : undefined
+            }
             className={cn(
               "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
               status.color,

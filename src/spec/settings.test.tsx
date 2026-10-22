@@ -185,8 +185,9 @@ test("theme.picker: Alt+T opens the shared ring, selection persists and focus re
   const task = await workspace.create("Task");
   const { user } = await workspace.render();
   await expectListFocused();
+  // Plain D opens Done today now; neither key may open the theme ring.
   await user.keyboard("td");
-  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("listbox", { name: "Themes" })).toBeNull();
   expect(document.documentElement.dataset.theme).toBe("gilt");
   await user.keyboard("{Alt>}t{/Alt}");
   const ring = await screen.findByRole("listbox", { name: "Themes" });

@@ -16,12 +16,24 @@ export function formatTaskDate(iso: string, now = new Date()): string {
   return date.getFullYear() === now.getFullYear() ? monthDay : `${monthDay}, ${date.getFullYear()}`;
 }
 
+function clockTime(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** Full local timestamp for tooltips, e.g. Sep 8, 2026, 14:32. */
 export function formatTaskDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const pad = (value: number): string => String(value).padStart(2, "0");
-  return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}, ${clockTime(date)}`;
+}
+
+/** A time within the last day: 14:32 today, or yesterday 22:10. */
+export function formatRecentTime(iso: string, now = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = formatTaskDate(iso, now);
+  return day === "today" ? clockTime(date) : `${day} ${clockTime(date)}`;
 }
 
 /** Whether two timestamps fall on the same local calendar day. */

@@ -9,6 +9,7 @@ import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import type { TaskPickerMode } from "@/components/TaskPicker";
 import type { TaskView } from "@/components/taskView";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
+import { completionExitLinger } from "@/components/useCompletionSheen";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { EditorError } from "@/platform/editorClient";
 import type { UndoEntry, UndoHistory } from "@/platform/undoHistory";
@@ -28,11 +29,16 @@ import type { useWorkspaceTasks } from "./useWorkspaceTasks";
 
 type OperationUndoEntry = UndoEntry & { expectedVersion?: number };
 
-/** How long a row a status change moves out of view keeps showing its new status before sliding out. */
+/**
+ * How long a row a status change moves out of view keeps showing its new status before sliding
+ * out. A completion stays until its sheen has played.
+ */
 const STATUS_EXIT_LINGER_MS = 250;
 
-function statusExitLinger(): number {
-  return matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : STATUS_EXIT_LINGER_MS;
+function statusExitLinger(leaving: readonly TaskView[] = []): number {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+  const completed = leaving.filter((task) => task.status === "done").length;
+  return completed > 0 ? completionExitLinger(completed) : STATUS_EXIT_LINGER_MS;
 }
 
 type StatusChangeFeedback = {
@@ -586,7 +592,7 @@ export function useWorkspaceActions({
     updateVisibleTasks(staying);
     if (leaving.length === 0) return;
     showInPlace(leaving);
-    exitRows(leaving, statusExitLinger());
+    exitRows(leaving, statusExitLinger(leaving));
   }
 
   function handleCanceledMany(previous: TaskView[], current: TaskView[]): void {

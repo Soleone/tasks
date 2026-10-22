@@ -41,6 +41,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `B` | Add or remove a blocker | `pick.blocker` |
 | `M` | Move under another task, or remove the parent | `pick.parent` |
 | `V` / `Shift+V` | Toggle details of the active task / of all tasks | `details.toggle-active`, `details.toggle-all` |
+| `D` | Tasks done in the last 24 hours | `done.today-list` |
 | `Up` `Down` `Home` `End` | Move the active row | `home.arrows`, `home.home-end` |
 | `Left` / `Right` | Parent, collapse, expand, category | `home.left`, `home.right-expand`, `home.right-category` |
 | `Shift+Up/Down/Home/End` | Extend the selection | `select.extend` |

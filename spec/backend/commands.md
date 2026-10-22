@@ -102,7 +102,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Rule | Then |
 | --- | --- |
-| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `includeAncestors`, `includeDescendants` |
+| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `closedSince`, `includeAncestors`, `includeDescendants` |
+| `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
 | `list.sort` | `created` and `updated` default newest first, `priority` defaults P0 first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.paging` | `limit` defaults to 50 and clamps to 1 to 100. `offset` clamps to 0 or more |

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "./taskDates.js";
+import { formatRecentTime, formatTaskDate, formatTaskDateTime, sameTaskDay } from "./taskDates.js";
 
 const NOW = new Date(2026, 8, 10, 12, 0, 0);
 
@@ -24,6 +24,12 @@ test("formatTaskDate names recent relative dates and older calendar dates", () =
 test("formatTaskDateTime renders the local date and time", () => {
   assert.equal(formatTaskDateTime(iso(2026, 8, 8, 14, 32)), "Sep 8, 2026, 14:32");
   assert.equal(formatTaskDateTime("not-a-date"), "");
+});
+
+test("formatRecentTime shows the clock today and names yesterday", () => {
+  assert.equal(formatRecentTime(iso(2026, 8, 10, 9, 5), NOW), "09:05");
+  assert.equal(formatRecentTime(iso(2026, 8, 9, 22, 10), NOW), "yesterday 22:10");
+  assert.equal(formatRecentTime("not-a-date", NOW), "");
 });
 
 test("sameTaskDay compares local calendar days", () => {

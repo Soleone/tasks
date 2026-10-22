@@ -1,5 +1,6 @@
 import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
+import { useDoneToday } from "./useDoneToday";
 import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
@@ -23,6 +24,7 @@ import type { ComposerState } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
 import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
+import { DoneToday } from "@/components/DoneToday";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
 import { ThemePicker } from "@/components/soleone/theme-picker";
@@ -211,6 +213,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [disableHelpTarget, setDisableHelpTarget] = useState<"basic" | "none" | null>(null);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [doneTodayOpen, setDoneTodayOpen] = useState(false);
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
@@ -253,6 +256,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     refreshTasks,
     isCurrentViewMatch,
   } = taskView;
+  const doneToday = useDoneToday(tasks);
   const {
     optimisticCreate,
     setOptimisticCreate,
@@ -396,6 +400,25 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   // on close, so settings inherits the palette's own return target. Consume
   // it now: otherwise the palette's close would steal focus back from the
   // settings dialog opening on top of it.
+  function openDoneToday(): void {
+    if (doneToday.total > 0) {
+      changeDoneTodayOpen(true);
+      return;
+    }
+    setHelpOpen(false);
+    setAnnouncement("Nothing done in the last 24 hours yet");
+    showTaskToast("Nothing done in the last 24 hours yet");
+  }
+
+  function changeDoneTodayOpen(open: boolean): void {
+    if (open) {
+      const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
+      focusStack.push("done-today", fromPalette);
+      setHelpOpen(false);
+    }
+    setDoneTodayOpen(open);
+  }
+
   function openSettings(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
     focusStack.push("settings", fromPalette);
@@ -658,6 +681,13 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
               }
             }}
           >
+            <DoneToday
+              tasks={doneToday.tasks}
+              total={doneToday.total}
+              open={doneTodayOpen}
+              onOpenChange={changeDoneTodayOpen}
+              finalFocus={() => focusStack.restore("done-today")}
+            />
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -727,6 +757,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           contextTasks={contextTasks}
           contextOrder={contextOrder}
           total={total}
+          doneTodayCount={doneToday.total}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
@@ -807,6 +838,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onCanceledMany={handleCanceledMany}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
+          onOpenDoneToday={openDoneToday}
         />
         <p role="status" className="sr-only">
           {announcement}
@@ -829,6 +861,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
         onOpenThemes={openThemes}
+        onOpenDoneToday={openDoneToday}
         onCreate={openCreate}
         onCreateChild={(task) => openCreate(task.id)}
         onOpenCategoryPicker={openCategoryPicker}

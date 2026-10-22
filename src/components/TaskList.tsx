@@ -65,6 +65,7 @@ import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { TaskItem } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
+import { useCompletionSheen } from "./useCompletionSheen";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { useStableHandler } from "./useStableHandler";
 import type { TaskContextActions } from "./TaskContextMenu";
@@ -106,6 +107,8 @@ type TaskListProps = {
   contextTasks: TaskView[];
   contextOrder: ReadonlyMap<string, number>;
   total: number;
+  /** Tasks done in the last 24 hours, for the empty Active view. */
+  doneTodayCount: number;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
@@ -172,6 +175,7 @@ type TaskListProps = {
   onCanceled: (task: TaskView) => void;
   onCanceledMany?: (previous: TaskView[], current: TaskView[]) => void;
   onAddBlocker: (task: TaskView) => void;
+  onOpenDoneToday: () => void;
   onMoveUnder: (task: TaskView) => void;
 };
 
@@ -196,6 +200,7 @@ export function TaskList({
   contextTasks,
   contextOrder,
   total,
+  doneTodayCount,
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
@@ -258,6 +263,7 @@ export function TaskList({
   onCanceled,
   onCanceledMany,
   onAddBlocker,
+  onOpenDoneToday,
   onMoveUnder,
 }: TaskListProps & { ref?: Ref<TaskListHandle> }): ReactElement {
   const section = useRef<HTMLElement>(null);
@@ -301,6 +307,7 @@ export function TaskList({
   const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(
     null,
   );
+  const { sheenSteps, playSheen } = useCompletionSheen();
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const filterFeedback = useFlashTooltip(filterFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
@@ -1047,6 +1054,7 @@ export function TaskList({
   function changeStatus(task: TaskView, transition: StatusTransition): Promise<void> {
     if (mutationPending.current.has(task.id)) return Promise.resolve();
     const wasActive = activeTask?.id === task.id;
+    if (transition.next === "done") playSheen([task.id]);
     return writeOptimistically(
       task,
       { ...task, status: transition.next },
@@ -1101,6 +1109,15 @@ export function TaskList({
         const previous = selected.filter((task) => selectedIds.includes(task.id));
         const current = result.tasks.filter((task) => selectedIds.includes(task.id));
         if (result.operationId) onOperation?.(result.operationId, previous, current);
+        // The wave runs down the list, so it follows the visible order of the selection.
+        const doneNow = new Set(
+          current.filter((task) => task.status === "done").map((task) => task.id),
+        );
+        playSheen(
+          previous
+            .filter((task) => task.status !== "done" && doneNow.has(task.id))
+            .map((task) => task.id),
+        );
         onStatusBatchChanged?.(previous, current, activeTask?.id ?? null);
       }
       onAnnounce(
@@ -1377,6 +1394,7 @@ export function TaskList({
       openCategoryPicker,
       openTagPicker,
       addBlocker: onAddBlocker,
+      openDoneToday: onOpenDoneToday,
       moveUnder: onMoveUnder,
       toggleSelectedStatus,
       reverseSelectedStatus,
@@ -1398,6 +1416,10 @@ export function TaskList({
 
   const captureHint =
     helpMode === "none" ? "Choose New task to capture." : "Press C or choose New task to capture.";
+  // Clearing the list after real work earns a warmer word than "no tasks".
+  const activeEmptyTitle = doneTodayCount > 0 ? "All clear" : "No active tasks";
+  const activeEmptyHint =
+    doneTodayCount > 0 ? `${doneTodayCount} done today. ${captureHint}` : captureHint;
   const isDefaultActiveEmpty =
     !loading &&
     !error &&
@@ -1444,7 +1466,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
+      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V D Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1612,6 +1634,7 @@ export function TaskList({
                 feedbackVersion={
                   statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined
                 }
+                sheenStep={sheenSteps.get(row.task.id)}
                 newTaskId={newTaskId}
                 exitingTaskIds={exitingTaskIds}
                 showDetails={detailsShownFor(row.task.id)}
@@ -1629,8 +1652,8 @@ export function TaskList({
           {isDefaultActiveEmpty ? (
             <TaskItem data-empty-state="active" size="sm" state="empty">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">No active tasks</p>
-                <p className="mt-1 text-sm text-muted-foreground">{captureHint}</p>
+                <p className="text-sm font-medium">{activeEmptyTitle}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{activeEmptyHint}</p>
               </div>
             </TaskItem>
           ) : null}
@@ -1659,8 +1682,8 @@ export function TaskList({
       ) : !loading && !error && composer === null ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No active tasks</EmptyTitle>
-            <EmptyDescription>{captureHint}</EmptyDescription>
+            <EmptyTitle>{activeEmptyTitle}</EmptyTitle>
+            <EmptyDescription>{activeEmptyHint}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}

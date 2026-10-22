@@ -164,9 +164,11 @@
 
 /* A status or priority change plays a short entrance on the new glyph, shaped
  * by what changed: in progress turns into place, done and canceled draw their
- * marks, paused raises its bars. A fresh mount stays still (useChangedAfterMount). */
+ * marks, paused raises its bars. A fresh mount stays still (useChangedAfterMount). The header's
+ * done-today count pops the same way when it rises. */
 [data-status-enter],
-[data-priority-enter] {
+[data-priority-enter],
+[data-count-enter] {
   transform-box: fill-box;
   transform-origin: center;
   animation: task-completion-pop 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -189,6 +191,39 @@
   transform-box: fill-box;
   transform-origin: center;
   animation: task-status-raise 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* This client's own completion adds a sheen in the theme accent (gold in Gilt) as the check
+ * draws. A batch plays it as a wave down the rows, --sheen-step × 45ms apart
+ * (useCompletionSheen). Undo, redo and refreshes never set it. */
+[data-completion-sheen] {
+  animation: task-completion-sheen 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+[data-completion-sheen],
+[data-completion-sheen] [data-status-enter],
+[data-completion-sheen] [data-status-enter] path {
+  animation-delay: calc(var(--sheen-step, 0) * 45ms);
+}
+
+@keyframes task-completion-sheen {
+  from {
+    color: var(--primary);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 55%, transparent);
+  }
+  45% {
+    color: var(--primary);
+  }
+  to {
+    box-shadow: 0 0 0 0.5rem transparent;
+  }
+}
+
+/* Done today opens with the stock popover fade and every row in place, so the count reads at
+ * once. Only the checks tick, a quick wave down the list, --done-row × 25ms apart. */
+[data-done-today-list][data-open] li svg path {
+  animation: task-completion-check 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(60ms + min(var(--done-row, 0), 10) * 25ms);
 }
 
 @keyframes task-status-turn {
@@ -218,7 +253,10 @@
   .task-completion-icon path,
   [data-status-enter],
   [data-status-enter] *,
-  [data-priority-enter] {
+  [data-completion-sheen],
+  [data-done-today-list] *,
+  [data-priority-enter],
+  [data-count-enter] {
     animation: none;
   }
 }

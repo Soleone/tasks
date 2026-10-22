@@ -14,6 +14,16 @@ export function GuidePopoverContent({ className, ...props }: ContentProps) {
   );
 }
 
+/** A short list of task titles: wider than the guide so long titles have room. */
+export function ListPopoverContent({ className, ...props }: ContentProps) {
+  return (
+    <PopoverContent
+      className={cn("w-[min(26rem,calc(100vw-2rem))] gap-2 p-3", className)}
+      {...props}
+    />
+  );
+}
+
 /** One row of Move controls. Dense on purpose; never per-row controls. */
 export function CompactPopoverContent({ className, ...props }: ContentProps) {
   return <PopoverContent className={cn("w-auto gap-1.5 p-2", className)} {...props} />;

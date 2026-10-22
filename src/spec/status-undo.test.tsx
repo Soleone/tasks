@@ -1,8 +1,16 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
-import { announcements, expectActive, expectRows, row, selectedTitles } from "@/testing/taskList";
+import {
+  activeTitle,
+  announcements,
+  expectActive,
+  expectListFocused,
+  expectRows,
+  row,
+  selectedTitles,
+} from "@/testing/taskList";
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
@@ -155,6 +163,121 @@ describe("status", () => {
       globalThis.fetch = original;
     }
     await expectStatus(task.id, "done");
+  });
+});
+
+function sheenStep(title: string): string | null {
+  const status = row(title).querySelector("[data-status]") as HTMLElement | null;
+  return status?.hasAttribute("data-completion-sheen")
+    ? status.style.getPropertyValue("--sheen-step")
+    : null;
+}
+
+function doneTodayButton(): HTMLElement | null {
+  return document.querySelector("[data-done-today]");
+}
+
+describe("completion", () => {
+  test("done.sheen: completing plays a wave once; undo, redo and outside changes never do", async () => {
+    await workspace.create("Third");
+    await workspace.create("Second");
+    await workspace.create("First");
+    const paused = await workspace.create("Paused");
+    await workspace.change("task.pause", paused.id);
+    const { user } = await workspace.render();
+    await expectActive("First");
+    await user.keyboard("{Shift>}{ArrowDown}{ArrowDown}{/Shift}{Shift>} {/Shift}");
+    await waitFor(() =>
+      expect(["First", "Second", "Third"].map(sheenStep)).toEqual(["0", "1", "2"]),
+    );
+    // The rows leave only after the wave has played.
+    await expectRows([]);
+
+    await user.keyboard("fs");
+    await expectRows(["Paused", "First", "Second", "Third"]);
+    await expectActive("Paused");
+    await user.keyboard(" ");
+    await waitFor(() => expect(sheenStep("Paused")).toBe("0"));
+    await waitFor(() => expect(sheenStep("Paused")).toBeNull(), { timeout: 2000 });
+    await expectStatus(paused.id, "done");
+    await user.keyboard("{Control>}z{/Control}");
+    await expectStatus(paused.id, "paused");
+    await user.keyboard("{Control>}y{/Control}");
+    await expectStatus(paused.id, "done");
+    await waitFor(() => expect(rowStatus("Paused")).toBe("done"));
+    expect(sheenStep("Paused")).toBeNull();
+    expect(sheenStep("First")).toBeNull();
+  });
+
+  test("done.today: the header counts completions from any client and undo takes one back", async () => {
+    const mine = await workspace.create("Mine");
+    const theirs = await workspace.create("Theirs");
+    const { user } = await workspace.render();
+    await expectActive("Theirs");
+    expect(doneTodayButton()).toBeNull();
+    await user.keyboard("d");
+    await waitFor(() => expect(announcements()).toMatch(/Nothing done in the last 24 hours/));
+    await user.keyboard("{ArrowDown}{Shift>} {/Shift}");
+    await expectStatus(mine.id, "done");
+    await waitFor(() => expect(doneTodayButton()?.getAttribute("aria-label")).toBe("1 done today"));
+    const { task: seen } = await workspace.cli<{ task: { version: number } }>("task.get", {
+      id: theirs.id,
+    });
+    await workspace.cli("task.complete", { id: theirs.id, expectedVersion: seen.version });
+    // The list picks up the outside write on its next revision check.
+    await waitFor(
+      () => expect(doneTodayButton()?.getAttribute("aria-label")).toBe("2 done today"),
+      { timeout: 4000 },
+    );
+    await user.keyboard("{Control>}z{/Control}");
+    await expectStatus(mine.id, "open");
+    await waitFor(() => expect(doneTodayButton()?.getAttribute("aria-label")).toBe("1 done today"));
+  });
+
+  test("done.today-list: D, the count and the palette open the list, and closing returns focus", async () => {
+    const older = await workspace.create("Older");
+    const newer = await workspace.create("Newer");
+    await workspace.change("task.complete", older.id);
+    await workspace.change("task.complete", newer.id);
+    await workspace.create("Still open");
+    const { user } = await workspace.render();
+    await expectActive("Still open");
+    await waitFor(() => expect(doneTodayButton()).not.toBeNull());
+    await user.click(doneTodayButton()!);
+    const list = await screen.findByRole("dialog", { name: "Done today" });
+    expect([...list.querySelectorAll("li")].map((item) => item.textContent)).toEqual([
+      expect.stringContaining("Newer"),
+      expect.stringContaining("Older"),
+    ]);
+    // A long title may be cut off, so its full text is on hover.
+    expect(within(list).getByText("Newer").getAttribute("title")).toBe("Newer");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Done today" })).toBeNull());
+    await expectListFocused();
+
+    // The scrolling list takes focus, so arrows scroll it instead of moving the active row.
+    await user.keyboard("d");
+    const scroller = await screen.findByRole("list", { name: "Tasks done today" });
+    await waitFor(() => expect(document.activeElement).toBe(scroller));
+    await user.keyboard("{ArrowDown}{End}");
+    expect(activeTitle()).toBe("Still open");
+    await user.keyboard("{Escape}");
+    await expectListFocused();
+
+    await user.keyboard("{Control>}k{/Control}done today");
+    await user.click(screen.getByRole("option", { name: /Done today/ }));
+    await screen.findByRole("dialog", { name: "Done today" });
+    await user.keyboard("{Escape}");
+    await expectListFocused();
+  });
+
+  test("done.all-clear: emptying the Active view after completing work says so", async () => {
+    await workspace.create("Last one");
+    const { user } = await workspace.render();
+    await expectActive("Last one");
+    await user.keyboard("{Shift>} {/Shift}");
+    await waitFor(() => expect(screen.getByText("All clear")).toBeTruthy());
+    expect(screen.getByText(/1 done today\./)).toBeTruthy();
   });
 });
 

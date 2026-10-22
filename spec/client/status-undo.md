@@ -32,6 +32,17 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` or images |
 | `attach.copy` | `Ctrl/⌘+Shift+C` on the list, Copy image in Task actions, or clicking the image badge | Copies the active task's most recently added image, whether details are shown or not, and a toast confirms it. A task without images, or whose image is missing, says so |
 
+## Completion
+
+Finishing work should feel like it. The reward stays quiet: a moment on the row, a count in the header, a warmer empty list.
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `done.sheen` | This client completes tasks with a status key, a glyph click or a batch | As the check draws, the glyph gets a brief sheen in the theme accent. A batch plays it as a wave down the rows. A completed row that leaves the view stays until its sheen has played. Undo, redo and changes from elsewhere never play it, and reduced motion turns it off |
+| `done.today` | Any task was completed in the last 24 hours, from any client | The header shows a quiet count, e.g. "3 done today". It is hidden at zero, rises with a short pop and falls quietly when an undo takes a completion back. "Today" is always the last 24 hours, with no setting |
+| `done.today-list` | `D`, clicking the count, or Done today in the `Ctrl/⌘+K` palette | A popover opens with every row in place and lists up to 50 of those tasks, most recent first, with when each was completed, and says how many more there are. Only the checks move, ticking in a quick wave (no motion with reduced motion). A long title wraps to two lines before it is cut off and shows in full on hover. It opens with focus on the list, so arrows, Page Up/Down and Home/End scroll a long one while list shortcuts stay off. Closing it returns focus to the surface that opened it. With nothing done, `D` says so instead |
+| `done.all-clear` | The default Active view is empty and something was completed in the last 24 hours | The empty shell reads "All clear" with the day's count instead of "No active tasks" |
+
 ## Undo
 
 | Rule | When | Then |
