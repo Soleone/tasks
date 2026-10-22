@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
+import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { syncDirectory } from "./localDomain.js";
@@ -21,8 +21,10 @@ export type HomeClient = "app" | "cli";
 const SYNC = "sync";
 const LOCAL = "local";
 const SETTINGS = "settings.json";
-// What an interrupted creation can leave behind; anything else makes the folder someone else's.
-const CREATION_ENTRIES = new Set([SYNC, LOCAL, SETTINGS]);
+const EXPORTS = "exports";
+const NO_MEDIA = ".nomedia";
+// A home's own entries; anything else makes the folder someone else's.
+const CREATION_ENTRIES = new Set([SYNC, LOCAL, SETTINGS, EXPORTS, NO_MEDIA]);
 
 function homeAt(homePath: string): Home {
   return {
@@ -94,6 +96,15 @@ function refuseUnsafeLocation(homePath: string): void {
     refuse("HOME_UNSUPPORTED_DRIVE", "A Tasks home must be in the phone's shared storage.");
 }
 
+/** Android's gallery skips folders holding a `.nomedia` file, so pasted images stay out of it. */
+function keepOutOfGallery(home: Home): void {
+  if (process.platform !== "android") return;
+  const marker = path.join(home.homePath, NO_MEDIA);
+  if (lstatSync(marker, { throwIfNoEntry: false })) return;
+  closeSync(openSync(marker, "wx"));
+  syncDirectory(home.homePath);
+}
+
 function refuseTaskFolders(homePath: string): void {
   if (lstatSync(path.join(homePath, "workspace.json"), { throwIfNoEntry: false }))
     refuse(
@@ -121,6 +132,7 @@ export function openHome(selected: string): Home {
   if (!isDirectory(home.rootPath) || !isDirectory(home.localPath))
     refuse("NOT_A_HOME", `${homePath} is not a Tasks home: it needs a sync and a local folder.`);
   refuseUnsafeLocation(homePath);
+  keepOutOfGallery(home);
   return home;
 }
 
@@ -155,5 +167,6 @@ export function createHome(selected: string): Home {
     if (!isDirectory(directory)) mkdirSync(directory, { mode: 0o700 });
   }
   syncDirectory(home.homePath);
+  keepOutOfGallery(home);
   return home;
 }

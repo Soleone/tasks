@@ -96,6 +96,8 @@ test("home.create: setup creates the folders, runs again after an interruption a
   const created = ok(send(home, "home.create"));
   assert.equal(created.result.homePath, home);
   assert.deepEqual(readdirSync(home).sort(), ["local", "sync"]);
+  mkdirSync(path.join(home, "exports"));
+  writeFileSync(path.join(home, ".nomedia"), "");
   ok(send(home, "home.create"));
   const info = ok(send(home, "workspace.info"));
   assert.equal(info.result.state, "empty");
