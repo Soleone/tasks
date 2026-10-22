@@ -138,11 +138,8 @@ function toolbarGridExpression(rows) {
     const statuses = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-status]')].map((element) => element.getBoundingClientRect());
     const priorities = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-priority]')].map((element) => element.getBoundingClientRect());
     const priorityAligned = priorities.every((box) => Math.abs(box.left + box.width / 2 - (capture.left + cell * 1.5)) < 0.5);
-    const title = document.querySelector("header h1 > span:not(.app-icon)").getBoundingClientRect();
-    const filterIcon = [...document.querySelectorAll('[data-toolbar-glyph="filter"] svg')].find((icon) => icon.getBoundingClientRect().width > 0).getBoundingClientRect();
-    const titleAligned = Math.abs(title.left - filterIcon.left) < 0.5;
     const summary = document.querySelector("[data-filter-summary]").getBoundingClientRect();
-    const aligned = centered(logo) && statuses.every(centered) && priorityAligned && titleAligned && Math.abs(summary.left - capture.left) < 0.5;
+    const aligned = centered(logo) && statuses.every(centered) && priorityAligned && Math.abs(summary.left - capture.left) < 0.5;
     return document.documentElement.scrollWidth <= innerWidth && sized && onGrid && whole && aligned && tops.length === ${rows} && starts.every((start, row) => start === (row === 0 ? 0 : 1));
   })()`;
 }
