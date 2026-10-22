@@ -628,11 +628,16 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").textContent).toMatch(/Blocked by.*Blocker/));
   });
 
-  test("details.footer: with Details on, the last row shows Created", async () => {
-    await workspace.create("Task");
+  test("details.footer: with Details on, the last row shows the due date once and Created", async () => {
+    const due = addDays(localToday(), 1);
+    await workspace.create("Task", { due });
     const { user } = await workspace.render();
     await user.keyboard("v");
     await waitFor(() => expect(row("Task").querySelector("[title^=Created]")).not.toBeNull());
+    const markers = row("Task").querySelectorAll("[data-task-due]");
+    expect([...markers].map((marker) => marker.textContent)).toEqual([
+      `Due ${formatDueDate(due, localToday())}`,
+    ]);
   });
 
   test("home.due-soon: rows mark due dates within the week or past, until the task closes", async () => {
@@ -651,19 +656,6 @@ describe("details", () => {
     expect(marker("Soon")).toBe(`Due ${formatDueDate(addDays(today, 3), today).slice(0, 3)}`);
     expect(marker("Later")).toBeNull();
     expect(screen.queryByText("Closed")).toBeNull();
-  });
-
-  test("home.due-soon: with Details on, the marker spells out the date once", async () => {
-    const due = addDays(localToday(), 30);
-    await workspace.create("Task", { due });
-    const { user } = await workspace.render();
-    expect(row("Task").querySelector("[data-task-due]")).toBeNull();
-    await user.keyboard("v");
-    const full = `Due ${formatDueDate(due, localToday())}`;
-    await waitFor(() =>
-      expect(row("Task").querySelector("[data-task-due]")?.textContent).toBe(full),
-    );
-    expect(row("Task").textContent?.split(formatDueDate(due, localToday()))).toHaveLength(2);
   });
 
   test("attach.badge: with Details on, the footer counts the task's images; clicking copies the newest", async () => {

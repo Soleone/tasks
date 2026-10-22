@@ -158,15 +158,9 @@ function TaskRowMetadata({
   const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
   const today = localToday();
   const closed = task.status === "done" || task.status === "canceled";
-  // Details spells out every due date; otherwise only an open task due soon or late shows one.
+  // Details shows the full date in its footer instead, saving the line this marker may need.
   const dueLabel =
-    task.due === null
-      ? null
-      : showDetails
-        ? formatDueDate(task.due, today)
-        : closed
-          ? null
-          : dueSoonLabel(task.due, today);
+    task.due === null || closed || showDetails ? null : dueSoonLabel(task.due, today);
   if (!category && task.tags.length === 0 && dueLabel === null) {
     if (!task.category) {
       return (
@@ -220,7 +214,7 @@ function TaskRowMetadata({
           title={`Due ${formatDueDate(task.due, today)}`}
           className={cn(
             "inline-flex items-center gap-1 text-xs",
-            !closed && daysBetween(today, task.due) <= 0 ? "text-warning" : "text-muted-foreground",
+            dueNow(task, today) ? "text-warning" : "text-muted-foreground",
           )}
         >
           <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
@@ -265,7 +259,13 @@ function TaskRowRelationships({
   );
 }
 
-/** Quiet footer: created and updated (leading when it differs) and the image count. */
+/** Whether an open task is due today or already late. */
+function dueNow(task: TaskView, today: string): boolean {
+  const closed = task.status === "done" || task.status === "canceled";
+  return task.due !== null && !closed && daysBetween(today, task.due) <= 0;
+}
+
+/** Quiet footer: the due date, created and updated (leading when it differs) and the image count. */
 function TaskRowFooter({
   task,
   onCopyImage,
@@ -275,8 +275,21 @@ function TaskRowFooter({
 }): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   const imageCount = task.attachments.length;
+  const today = localToday();
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      {task.due === null ? null : (
+        <span
+          data-task-due
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1",
+            dueNow(task, today) && "text-warning",
+          )}
+        >
+          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+          <span>Due {formatDueDate(task.due, today)}</span>
+        </span>
+      )}
       {showUpdated ? (
         <span
           className="inline-flex min-w-0 items-center gap-1"
