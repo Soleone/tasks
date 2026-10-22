@@ -54,6 +54,118 @@
         "kind": "read"
       },
       "expect": {
+        "error": "UNSUPPORTED_SCHEMA",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-attachments-listed",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "attachments": [
+            "2026-10-22-143012-3f9a1c2b.png",
+            "2026-10-22-143013-00ff00aa.jpg"
+          ]
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "attachments": [
+            "2026-10-22-143012-3f9a1c2b.png",
+            "2026-10-22-143013-00ff00aa.jpg"
+          ]
+        },
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-attachments-default-written",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "attachments": []
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "attachments": []
+        },
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-attachments-bad-name",
+      "profile": "model",
+      "rule": "backend/data.md#values",
+      "given": {
+        "patch": {
+          "attachments": [
+            "../escape.png"
+          ]
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-attachments-duplicate",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "attachments": [
+            "2026-10-22-143012-3f9a1c2b.png",
+            "2026-10-22-143012-3f9a1c2b.png"
+          ]
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-attachments-too-many",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "attachments": [
+            "2026-10-22-143000-3f9a1c2b.png",
+            "2026-10-22-143001-3f9a1c2b.png",
+            "2026-10-22-143002-3f9a1c2b.png",
+            "2026-10-22-143003-3f9a1c2b.png",
+            "2026-10-22-143004-3f9a1c2b.png",
+            "2026-10-22-143005-3f9a1c2b.png",
+            "2026-10-22-143006-3f9a1c2b.png",
+            "2026-10-22-143007-3f9a1c2b.png",
+            "2026-10-22-143008-3f9a1c2b.png",
+            "2026-10-22-143009-3f9a1c2b.png",
+            "2026-10-22-143010-3f9a1c2b.png"
+          ]
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
         "error": "INVALID_CANONICAL",
         "canonicalWrites": 0
       }

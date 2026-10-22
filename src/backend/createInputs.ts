@@ -8,10 +8,19 @@ import { parseContentPatch } from "./updateInputs.js";
 export type CreateInput = Pick<
   CanonicalTask,
   "title" | "text" | "description" | "priority" | "category" | "tags" | "parentId"
->;
+> & { attachments: string[] };
 
 export function parseCreate(args: Record<string, unknown>): CreateInput {
-  assertArgs(args, ["title", "text", "description", "priority", "category", "tags", "parentId"]);
+  assertArgs(args, [
+    "title",
+    "text",
+    "description",
+    "priority",
+    "category",
+    "tags",
+    "attachments",
+    "parentId",
+  ]);
   if ((args.title !== undefined) === (args.text !== undefined))
     throw new CommandError("INVALID_ARGUMENT", "create requires exactly one title or text");
   if (
@@ -28,6 +37,7 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     priority: patch.priority ?? 2,
     category: patch.category ?? null,
     tags: patch.tags ?? [],
+    attachments: patch.attachments ?? [],
     parentId: (args.parentId as string | null | undefined) ?? null,
   };
 }
@@ -65,6 +75,7 @@ export function buildCreatedTask(
       createdAt: taskIdentity.at,
       updatedAt: taskIdentity.at,
       closedAt: null,
+      ...(input.attachments.length > 0 ? { attachments: input.attachments } : {}),
     },
     taskIdentity.id,
   );

@@ -3,6 +3,7 @@ import { listActivity } from "./activity.js";
 import { inspectCanonicalRoot } from "./canonicalReader.js";
 import { observeQueryAuthority, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { executeUpdate } from "./updateWriter.js";
+import { executeAttachmentWrite, readAttachment } from "./attachments.js";
 import { isTaskEditRequest } from "./taskEditRequest.js";
 import { executeCreate } from "./createWriter.js";
 import { STATUS_COMMANDS } from "./taskStatus.js";
@@ -29,6 +30,7 @@ import type { Response } from "./protocol.js";
 const writeCommands = [
   "task.update",
   "task.create",
+  "attachment.write",
   ...STATUS_COMMANDS,
   ...RELATIONSHIP_COMMANDS,
   ...ORDER_COMMANDS,
@@ -62,33 +64,41 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
       const outcome =
         request.command === "task.create"
           ? executeCreate(request, rootPath, cachePath)
-          : request.command === "task.purgeCanceled"
-            ? executePurge(request, rootPath, cachePath)
-            : request.command === "workspace.doctor.plan"
-              ? executeDoctorPlan(request, rootPath, cachePath)
-              : request.command === "workspace.doctor.apply"
-                ? executeDoctorApply(request, rootPath, cachePath)
-                : UNDO_COMMANDS.includes(request.command)
-                  ? executeUndo(request, rootPath, cachePath)
-                  : ORDER_COMMANDS.includes(request.command)
-                    ? executeOrder(request, rootPath, cachePath)
-                    : isTaskEditRequest(request)
-                      ? executeUpdate(request, rootPath, cachePath)
-                      : request.command === "workspace.recovery.resume"
-                        ? resumeOperation(request, rootPath, cachePath)
-                        : request.command === "workspace.migrate"
-                          ? executeMigration(request, rootPath, cachePath)
-                          : executeLifecycle(request, rootPath, cachePath);
+          : request.command === "attachment.write"
+            ? executeAttachmentWrite(request, rootPath, cachePath)
+            : request.command === "task.purgeCanceled"
+              ? executePurge(request, rootPath, cachePath)
+              : request.command === "workspace.doctor.plan"
+                ? executeDoctorPlan(request, rootPath, cachePath)
+                : request.command === "workspace.doctor.apply"
+                  ? executeDoctorApply(request, rootPath, cachePath)
+                  : UNDO_COMMANDS.includes(request.command)
+                    ? executeUndo(request, rootPath, cachePath)
+                    : ORDER_COMMANDS.includes(request.command)
+                      ? executeOrder(request, rootPath, cachePath)
+                      : isTaskEditRequest(request)
+                        ? executeUpdate(request, rootPath, cachePath)
+                        : request.command === "workspace.recovery.resume"
+                          ? resumeOperation(request, rootPath, cachePath)
+                          : request.command === "workspace.migrate"
+                            ? executeMigration(request, rootPath, cachePath)
+                            : executeLifecycle(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     const inspection = inspectCanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
-      throw new CommandError("UNSUPPORTED_SCHEMA", "task commands require canonical schema 2");
+      throw new CommandError(
+        "UNSUPPORTED_SCHEMA",
+        inspection.schemaVersion === 2
+          ? inspection.issues[0].message.slice("UNSUPPORTED_SCHEMA: ".length)
+          : "task commands require canonical schema 2",
+      );
     }
     const commands = [
       ...QUERY_COMMANDS,
       ...writeCommands,
       "activity.list",
+      "attachment.read",
       "workspace.doctor.inspect",
     ].sort();
     if (!commands.includes(request.command)) {
@@ -140,17 +150,19 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
             pendingOperationId: pending?.operationId ?? null,
             workspaceRevision: authority.workspaceRevision,
           }
-        : request.command === "activity.list"
-          ? withCacheTransaction(cachePath, inspection, (database) => {
-              synchronizeAuthority(database, inspection);
-              return listActivity(database, request.args, authority.writeContext);
-            })
-          : executeQuery(
-              request.command,
-              request.args,
-              projectTasks(inspection.snapshot!.tasks, authority),
-              authority.workspaceRevision,
-            );
+        : request.command === "attachment.read"
+          ? readAttachment(inspection.rootPath, request.args)
+          : request.command === "activity.list"
+            ? withCacheTransaction(cachePath, inspection, (database) => {
+                synchronizeAuthority(database, inspection);
+                return listActivity(database, request.args, authority.writeContext);
+              })
+            : executeQuery(
+                request.command,
+                request.args,
+                projectTasks(inspection.snapshot!.tasks, authority),
+                authority.workspaceRevision,
+              );
     if (request.command !== "workspace.info" && readPending(inspection))
       throw new CommandError("RECOVERY_PENDING", "root changed while querying");
     return {

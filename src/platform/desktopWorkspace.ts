@@ -103,9 +103,13 @@ export class HomeSetup {
     return this.selection.profilePath;
   }
 
-  async info(): Promise<{ state: HomeState; writeContext: string }> {
+  async info(): Promise<{ state: HomeState; schemaVersion: number | null; writeContext: string }> {
     const response = await this.send("workspace.info", {}, { readOnly: true });
-    return { state: response.result.state as HomeState, writeContext: response.writeContext };
+    return {
+      state: response.result.state as HomeState,
+      schemaVersion: response.result.schemaVersion as number | null,
+      writeContext: response.writeContext,
+    };
   }
 
   /** Creates the home's folders, or finishes an interrupted creation; returns its real path. */

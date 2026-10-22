@@ -230,7 +230,9 @@ function restoreRecordedTask(
   }
   const patch: Partial<CanonicalTask> = {};
   let editsTime = false;
-  for (const key of Object.keys(before) as (keyof CanonicalTask)[]) {
+  // Optional fields may be absent on either side.
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)] as (keyof CanonicalTask)[]);
+  for (const key of keys) {
     if (
       ["id", "createdAt", "updatedAt"].includes(key) ||
       canonicalJson(before[key]) === canonicalJson(after[key])
@@ -240,7 +242,9 @@ function restoreRecordedTask(
     Object.assign(patch, { [key]: before[key] });
     if (!["status", "closedAt", "orderKey"].includes(key)) editsTime = true;
   }
-  return { ...current, ...patch, ...(editsTime ? { updatedAt: at } : {}) };
+  const restored = { ...current, ...patch, ...(editsTime ? { updatedAt: at } : {}) };
+  for (const key of keys) if (restored[key] === undefined) delete restored[key];
+  return restored;
 }
 
 export function planUndo(

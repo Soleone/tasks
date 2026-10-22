@@ -5,7 +5,11 @@ import { compareTasks } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
 import type { QueryAuthority } from "./queryCache.js";
 
-export type TaskProjection = CanonicalTask & { version: number; blockedByIds: string[] };
+export type TaskProjection = CanonicalTask & {
+  attachments: string[];
+  version: number;
+  blockedByIds: string[];
+};
 const slugPattern = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 const taskStatuses = new Set(["open", "in_progress", "paused", "done", "canceled"]);
 
@@ -36,6 +40,7 @@ export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority):
   return tasks.map((task) => ({
     ...task,
     text: typedText(task),
+    attachments: task.attachments ?? [],
     version: authority.versions.get(task.id)!,
     blockedByIds: task.dependencyIds.filter((id) => byId.get(id)!.status !== "canceled"),
   }));

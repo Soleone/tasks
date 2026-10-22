@@ -15,8 +15,8 @@ import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
  * production desktop traffic stays on the sidecar stdio bridge.
  */
 export const DEFAULT_DEV_BACKEND_PORT = 5174;
-// Documents can be up to 1 MiB, so the body allows for their JSON escaping.
-const MAX_BODY_BYTES = 4 * 1024 * 1024;
+// Attachments can be 10 MiB, which base64 grows to about 13.4 MiB.
+const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const HOME_COMMANDS = [
   "home.document.read",
   "home.document.write",
@@ -73,7 +73,7 @@ function readBody(request: http.IncomingMessage): Promise<Buffer> {
     request.on("data", (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
-        reject(new Error("PAYLOAD_TOO_LARGE: request body exceeds 1 MiB"));
+        reject(new Error("PAYLOAD_TOO_LARGE: request body exceeds 16 MiB"));
         request.destroy();
         return;
       }

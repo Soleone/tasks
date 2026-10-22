@@ -11,7 +11,12 @@ const file = fileURLToPath(
     import.meta.url,
   ),
 );
-const projection = { ...JSON.parse(readFileSync(file, "utf8")), version: 7, blockedByIds: [] };
+const projection = {
+  ...JSON.parse(readFileSync(file, "utf8")),
+  attachments: [],
+  version: 7,
+  blockedByIds: [],
+};
 
 test("execution results distinguish historical changed success from receipt-only no-op", () => {
   const changed = { task: projection, changed: true, operationId: "fixed-operation" };

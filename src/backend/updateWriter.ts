@@ -13,6 +13,7 @@ import type { CanonicalTask } from "./taskModel.js";
 import { synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findTaskEditReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { applyUpdate } from "./updateInputs.js";
+import { requireAddedAttachments } from "./attachments.js";
 import { applyStatus } from "./taskStatus.js";
 import { applyRelationship } from "./taskRelationships.js";
 import { readPending } from "./pending.js";
@@ -64,6 +65,7 @@ export function executeUpdate(
           update = applyStatus(task, edit.command, at);
           break;
       }
+      requireAddedAttachments(root.rootPath, task.attachments, update.task.attachments);
       const projected = projectTasks(
         [update.task, ...snapshot.tasks.filter((item) => item.id !== task.id)],
         authority,

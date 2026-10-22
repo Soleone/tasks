@@ -12,6 +12,7 @@ import {
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { directoryIdentity } from "./copyFiles.js";
+import { requireAddedAttachments } from "./attachments.js";
 import { buildCreatedTask, parseCreate } from "./createInputs.js";
 import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDomain.js";
 import { readPending } from "./pending.js";
@@ -109,6 +110,7 @@ export function executeCreate(request: Request, rootPath: string, cachePath: str
       }
       const at = new Date().toISOString();
       const task = buildCreatedTask(input, { id: taskId, at }, snapshot.tasks);
+      requireAddedAttachments(root.rootPath, [], task.attachments);
       if (request.readOnly || request.dryRun) {
         // Preview tokens are hypothetical, not allocated/reserved authority for a future execution.
         const previewAuthority = {

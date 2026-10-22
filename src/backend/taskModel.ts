@@ -17,9 +17,11 @@ export type CanonicalTask = {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  // Optional fields are absent at their default, so task bytes stay `JSON.stringify(task)`.
+  attachments?: string[];
 };
 
-const fields = [
+const requiredFields = [
   "id",
   "title",
   "text",
@@ -35,6 +37,9 @@ const fields = [
   "updatedAt",
   "closedAt",
 ];
+const optionalFields = ["attachments"];
+export const MAX_ATTACHMENTS = 10;
+export const attachmentName = /^\d{4}-\d{2}-\d{2}-\d{6}-[0-9a-f]{8}\.(?:png|jpg|webp|gif)$/;
 const safeId = /^[A-Za-z0-9_-]+$/;
 const slug = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 const statuses = new Set(["open", "in_progress", "paused", "done", "canceled"]);
@@ -70,6 +75,15 @@ function isSortedStrings(value: unknown, pattern: RegExp): value is string[] {
   );
 }
 
+export function isAttachmentList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_ATTACHMENTS &&
+    new Set(value).size === value.length &&
+    value.every((name) => typeof name === "string" && attachmentName.test(name))
+  );
+}
+
 export function isOrderKey(value: unknown): value is string {
   if (typeof value !== "string" || value.length < 2 || value.length > 256) return false;
   const head = value.charCodeAt(0);
@@ -91,12 +105,16 @@ export function validateManifest(value: unknown): void {
 }
 
 export function validateTask(value: unknown, filenameId: string): CanonicalTask {
-  if (
-    !isRecord(value) ||
-    Object.keys(value).length !== fields.length ||
-    fields.some((field) => !Object.hasOwn(value, field))
-  )
+  if (!isRecord(value) || requiredFields.some((field) => !Object.hasOwn(value, field)))
     invalidTask("fields");
+  const unknown = Object.keys(value).find(
+    (field) => !requiredFields.includes(field) && !optionalFields.includes(field),
+  );
+  if (unknown !== undefined)
+    throw new CommandError(
+      "UNSUPPORTED_SCHEMA",
+      `task field ${unknown} was written by a newer version of Tasks; update Tasks`,
+    );
   if (
     typeof value.id !== "string" ||
     !matchesEntireString(value.id, safeId) ||
@@ -147,6 +165,8 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
     invalidTask("parentId");
   if (!isSortedStrings(value.dependencyIds, safeId)) invalidTask("dependencyIds");
   if (!isOrderKey(value.orderKey)) invalidTask("orderKey");
+  if (value.attachments !== undefined && !isAttachmentList(value.attachments))
+    invalidTask("attachments");
   if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt)) invalidTask("timestamps");
   const terminal = value.status === "done" || value.status === "canceled";
   if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null)

@@ -26,6 +26,8 @@ export type TaskReorderPlacement =
 // UNSUPPORTED_COMMAND rather than UNKNOWN_COMMAND, including retired workspace commands.
 const KNOWN_COMMANDS = [
   "activity.list",
+  "attachment.read",
+  "attachment.write",
   "category.list",
   "home.create",
   "home.document.read",

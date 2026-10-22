@@ -143,8 +143,9 @@ for (const id of ["cli-literal", "cli-text", "cli-key-context"]) {
         assert.deepEqual(
           JSON.parse(readFileSync(path.join(workspace.root, "tasks", `${task.id}.json`), "utf8")),
           Object.fromEntries(
+            // Results fill in optional fields that the file leaves out at their default.
             Object.entries(task).filter(
-              ([field]) => field !== "version" && field !== "blockedByIds",
+              ([field]) => !["version", "blockedByIds", "attachments"].includes(field),
             ),
           ),
         );

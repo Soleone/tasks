@@ -93,7 +93,7 @@ async function openHome(
     }
     if (choice === "keepHistory") await setup.keepHistory();
     if (choice === "newHistory") await setup.startNewHistory();
-    const { state } = await setup.info();
+    const { state, schemaVersion } = await setup.info();
     if (state === "empty" && mode === "launch")
       throw new HomeError(
         "EMPTY_SYNC_FOLDER",
@@ -102,7 +102,9 @@ async function openHome(
     if (state === "empty") await setup.init();
     else if (state === "unsupported")
       throw new Error(
-        "This home holds tasks from the old version. Convert them with pnpm migrate.",
+        schemaVersion === 1
+          ? "This home holds tasks from the old version. Convert them with pnpm migrate."
+          : "Some tasks in this home were saved by a newer version of Tasks. Update Tasks on this device.",
       );
     else if (state !== "ready" && state !== "recovery_pending")
       throw new Error(

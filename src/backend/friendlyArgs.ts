@@ -87,6 +87,8 @@ export type HumanInvocation = {
   request: Request;
   mutation: boolean;
   versioned: boolean;
+  /** `attach` writes this image first, then lists it with the prepared `task.update`. */
+  attachFile?: string;
 };
 export type HumanArgs = HumanInvocation | { help: true; json: boolean };
 
@@ -196,7 +198,8 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
   if (!verb) usage("no command; use tasks-cli --home PATH --help");
   let command: string,
     allowed: string[] = [],
-    mutation = true;
+    mutation = true,
+    attachFile: string | undefined;
   const args: Record<string, unknown> = {};
   switch (verb) {
     case "list": {
@@ -321,6 +324,24 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       args.id = positionals[0];
       args.dependsOnId = positionals[1];
       break;
+    case "attach":
+      command = "task.update";
+      requirePositionals(positionals, 2, verb);
+      // Two requests can't share one set of retry options.
+      if (
+        [
+          "write-context",
+          "idempotency-key",
+          "expected-version",
+          "request-hash",
+          "dry-run",
+          "read-only",
+        ].some((name) => flags.has(name))
+      )
+        usage("attach takes no retry or preview options");
+      args.id = positionals[0];
+      attachFile = path.resolve(positionals[1]);
+      break;
     case "purge-canceled":
       command = "task.purgeCanceled";
       requirePositionals(positionals, 0, verb);
@@ -403,6 +424,7 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
     request,
     mutation,
     versioned: VERSIONED_COMMANDS.has(command),
+    ...(attachFile === undefined ? {} : { attachFile }),
   };
 }
 export function humanUsage(): string {
@@ -431,12 +453,14 @@ WRITES
   undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled
   move ID --parent ID | move ID --no-parent
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
+  attach ID FILE (a PNG, JPEG, WebP or GIF image; show prints image paths)
   init (creates the home) | rebuild
   recover OPERATION_ID
   rebind: keep history after the home moved | new-history: set aside a cache that
   came with a copy of the home and start a new history here
   Old-version folders are converted with pnpm migrate.
-  Ordering, batches and doctor remain advanced JSON-lines controls, not new verbs.
+  Ordering, batches, doctor, removing attachments and deleting done tasks remain
+  advanced JSON-lines controls, not new verbs.
 
 OUTPUT AND RETRIES
   --json prints result/error only. --dry-run / --read-only previews never execute.

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { attachmentPath } from "./attachments.js";
 import type { Response } from "./protocol.js";
 import type { TaskProjection } from "./queries.js";
 
@@ -13,7 +15,7 @@ function taskLine(task: TaskProjection): string {
     `v${task.version}`,
   ].join(" ");
 }
-function taskDetail(task: TaskProjection): string {
+function taskDetail(task: TaskProjection, rootPath: string): string {
   return [
     `${task.id} [${task.status}] v${task.version}`,
     `title: ${task.title}`,
@@ -23,6 +25,10 @@ function taskDetail(task: TaskProjection): string {
     `parent: ${task.parentId ?? "none"}`,
     `depends-on: ${task.dependencyIds.join(", ") || "none"}`,
     `blocked-by: ${task.blockedByIds.join(", ") || "none"}`,
+    ...task.attachments.map((name) => {
+      const file = attachmentPath(rootPath, name);
+      return `image: ${file}${existsSync(file) ? "" : " (missing)"}`;
+    }),
     ...(task.description ? [`---\n${task.description}`] : []),
     `created: ${task.createdAt} updated: ${task.updatedAt} closed: ${task.closedAt ?? "none"}`,
   ].join("\n");
@@ -31,6 +37,7 @@ export function printHumanResult(
   command: string,
   response: Extract<Response, { ok: true }>,
   json: boolean,
+  rootPath: string,
 ): void {
   // Info exposes transport authority for callers preparing their own stable key.
   const result =
@@ -50,7 +57,7 @@ export function printHumanResult(
     for (const task of result.tasks as TaskProjection[]) lines.push(taskLine(task));
     if (!result.tasks.length) lines.push("No tasks.");
     if (typeof result.total === "number") lines.push(`(${result.tasks.length} of ${result.total})`);
-  } else if (result.task) lines.push(taskDetail(result.task as TaskProjection));
+  } else if (result.task) lines.push(taskDetail(result.task as TaskProjection, rootPath));
   else if (Array.isArray(result.categories) || Array.isArray(result.tags)) {
     const marker = command === "category.list" ? "@" : "#",
       entries = (result.categories ?? result.tags) as { slug: string; taskCount: number }[];

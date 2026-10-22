@@ -39,7 +39,7 @@ export function parseTaskProjection(value: unknown): TaskProjection {
     )
   )
     invalidTaskResult();
-  return { ...task, version, blockedByIds };
+  return { ...task, attachments: task.attachments ?? [], version, blockedByIds };
 }
 
 export function parseTaskEditResult(value: unknown, mode: "execution"): TaskExecutionResult;

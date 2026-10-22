@@ -1,6 +1,6 @@
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
-import { validateTask } from "./taskModel.js";
+import { isAttachmentList, validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { invalidInput, parseShorthand, slugInput } from "./shorthand.js";
 
@@ -8,7 +8,10 @@ export type UpdateInput = {
   id: string;
   expectedVersion: number;
   patch: Partial<
-    Pick<CanonicalTask, "title" | "text" | "description" | "priority" | "category" | "tags">
+    Pick<
+      CanonicalTask,
+      "title" | "text" | "description" | "priority" | "category" | "tags" | "attachments"
+    >
   >;
 };
 
@@ -61,6 +64,10 @@ export function parseContentPatch(args: Record<string, unknown>): UpdateInput["p
     if (!Array.isArray(args.tags)) invalidInput("tags");
     patch.tags = [...new Set(args.tags.map(slugInput))].sort();
   }
+  if (args.attachments !== undefined) {
+    if (!isAttachmentList(args.attachments)) invalidInput("attachments");
+    patch.attachments = args.attachments;
+  }
   return patch;
 }
 
@@ -88,6 +95,7 @@ export function parseUpdate(args: Record<string, unknown>): UpdateInput {
     "priority",
     "category",
     "tags",
+    "attachments",
   ]);
   return { ...parseTaskVersion(args), patch: parseContentPatch(args) };
 }
@@ -98,6 +106,7 @@ export function applyUpdate(
   at: string,
 ): { task: CanonicalTask; changed: boolean } {
   const next = { ...task, ...input.patch };
+  if (next.attachments?.length === 0) delete next.attachments;
   // Typed text is kept only while it still describes the title and classification it produced.
   if (
     input.patch.text === undefined &&

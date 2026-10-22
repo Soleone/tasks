@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
-import { writeSync } from "node:fs";
+import { readFileSync, writeSync } from "node:fs";
+import path from "node:path";
+import { detectAttachmentType } from "./attachments.js";
 import { CommandError } from "./errors.js";
 import { executeLine } from "./gateway.js";
 import { executeHomeLine } from "./homeGateway.js";
@@ -7,6 +9,8 @@ import { humanOptionIndex, parseHumanArgs, HumanUsageError, humanUsage } from ".
 import type { HumanInvocation } from "./friendlyArgs.js";
 import { printHumanResult } from "./friendlyOutput.js";
 import type { Request, Response } from "./protocol.js";
+import type { TaskProjection } from "./queries.js";
+import { MAX_ATTACHMENTS } from "./taskModel.js";
 import { requestIdentity } from "./receipts.js";
 
 class HumanProtocolError extends CommandError {
@@ -128,15 +132,58 @@ function reportRetry(invocation: HumanInvocation, request: Request): void {
     offset += written;
   }
 }
+function targetRoot(invocation: HumanInvocation): string {
+  const { target } = invocation;
+  return "homePath" in target ? path.join(target.homePath, "sync") : target.rootPath;
+}
+/** Stores the image, then turns the invocation into the update that lists it. */
+function writeAttachment(invocation: HumanInvocation, file: string): HumanInvocation {
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(file);
+  } catch {
+    throw new HumanUsageError(`cannot read ${file}`);
+  }
+  const type = detectAttachmentType(bytes);
+  if (!type) throw new HumanUsageError(`${file} is not a PNG, JPEG, WebP or GIF image`);
+  const observed = query(invocation, "task.get", { id: invocation.request.args.id });
+  const task = observed.result.task as TaskProjection;
+  if (task.attachments.length >= MAX_ATTACHMENTS)
+    throw new CommandError("INVALID_ARGUMENT", `a task holds at most ${MAX_ATTACHMENTS} images`);
+  const write: Request = {
+    ...invocation.request,
+    command: "attachment.write",
+    args: { type, data: bytes.toString("base64") },
+    requestId: randomUUID(),
+    writeContext: observed.writeContext,
+    idempotencyKey: randomUUID(),
+  };
+  reportRetry(invocation, write);
+  const written = dispatch(invocation, write);
+  return {
+    ...invocation,
+    request: {
+      ...invocation.request,
+      writeContext: observed.writeContext,
+      args: {
+        ...invocation.request.args,
+        expectedVersion: task.version,
+        attachments: [...task.attachments, written.result.name as string],
+      },
+    },
+  };
+}
 export function runHumanCli(argv: string[]): void {
   let json = false;
   try {
-    const invocation = parseHumanArgs(argv);
+    let invocation = parseHumanArgs(argv);
     json = invocation.json;
     if (invocation.help) {
       process.stdout.write(humanUsage());
       return;
     }
+    if (invocation.attachFile !== undefined)
+      invocation = writeAttachment(invocation, invocation.attachFile);
     // A new home is created by its explicit init, before init asks the home for authority.
     if (invocation.request.command === "workspace.init" && "homePath" in invocation.target)
       query(invocation, "home.create");
@@ -144,7 +191,7 @@ export function runHumanCli(argv: string[]): void {
     if (invocation.mutation && !request.readOnly && !request.dryRun)
       reportRetry(invocation, request);
     const response = dispatch(invocation, request);
-    printHumanResult(request.command, response, json);
+    printHumanResult(request.command, response, json, targetRoot(invocation));
   } catch (error) {
     const failure =
       error instanceof HumanProtocolError

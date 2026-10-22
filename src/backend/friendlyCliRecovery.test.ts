@@ -108,7 +108,7 @@ if(['metadata-failure','metadata-short','metadata-zero'].includes(cut)){const wr
 registerHooks({load(url,context,next){const result=next(url,context);if(!result.source)return result;let source=result.source.toString();function replace(needle,value){if(source.split(needle).length!==2)throw Error('cut must be unique: '+needle);source=source.replace(needle,value);}
 if(url.endsWith('/friendlyCli.js')){
  if(cut==='prepared')replace('const response = dispatch(invocation, request);','process.kill(process.pid,"SIGKILL");const response = dispatch(invocation, request);');
- if(cut==='lostReply')replace('printHumanResult(request.command, response, json);','process.kill(process.pid,"SIGKILL");');
+ if(cut==='lostReply')replace('printHumanResult(request.command, response, json, targetRoot(invocation));','process.kill(process.pid,"SIGKILL");');
  if(cut==='context-race')replace('const observed = query(invocation, "task.get", { id: request.args.id });','fs.rmSync(cache);const observed = query(invocation, "task.get", { id: request.args.id });');
  if(cut==='version-race')replace('reportRetry(invocation, request);','reportRetry(invocation, request);const changed=JSON.parse(fs.readFileSync(task,"utf8"));changed.title="External newer content";fs.writeFileSync(task,JSON.stringify(changed));');
  if(['context-race','version-race'].includes(cut))source='import fs from "node:fs";const cache='+JSON.stringify(cache)+',task='+JSON.stringify(task)+';'+source;

@@ -161,7 +161,7 @@ test("envelope correlation, strict types, unsupported names and previews cannot 
   const task = result(valid).task as Record<string, unknown>;
   assert.deepEqual(
     Object.keys(task).sort(),
-    [...Object.keys(corpus.taskTemplate), "version", "blockedByIds"].sort(),
+    [...Object.keys(corpus.taskTemplate), "attachments", "version", "blockedByIds"].sort(),
   );
   assert.ok(Number.isSafeInteger(task.version) && (task.version as number) > 0);
 });
@@ -175,6 +175,8 @@ test("info inspects empty, partial and unsupported roots without creating canoni
     process.platform === "linux"
       ? [
           "activity.list",
+          "attachment.read",
+          "attachment.write",
           "category.list",
           "operation.redo",
           "operation.undo",
