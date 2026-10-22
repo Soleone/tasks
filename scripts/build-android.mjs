@@ -72,10 +72,17 @@ function androidNode() {
       '$1 android"',
     ),
   );
-  // Tools that run during the build must be compiled for this machine, not for Android. The C++
-  // runtime is linked in because Android doesn't ship it and the app's library folder isn't on the
-  // executable's search path.
-  const env = { ...process.env, CC_host: "gcc", CXX_host: "g++", LDFLAGS: "-static-libstdc++" };
+  // Node selects Clang flags for both toolsets. The NDK's plain Clang builds Linux host tools;
+  // android-configure selects its Android-targeting drivers for the bundled runtime.
+  // V8 still uses APIs deprecated by newer host libstdc++; keep other diagnostics visible.
+  // Link the target C++ runtime in because Android doesn't ship it.
+  const env = {
+    ...process.env,
+    CC_host: path.join(toolchain, "clang"),
+    CXX_host: path.join(toolchain, "clang++"),
+    CXXFLAGS_host: `${process.env.CXXFLAGS_host ?? ""} -Wno-deprecated-declarations`.trim(),
+    LDFLAGS: "-static-libstdc++",
+  };
   run("./android-configure", [ndk, NODE_ANDROID_API, "arm64"], { cwd: source, env });
   run("make", [`-j${availableParallelism()}`], { cwd: source, env });
   return binary;
