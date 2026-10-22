@@ -15,7 +15,7 @@ Android runs the desktop app's UI and the same backend, bundled in the app.
 | `platform.global-focus` | A configurable global shortcut brings the window forward. On Omarchy/Hyprland, Settings shows the binding to copy | Not available | Not available |
 | `platform.keyboard-help` | Keyboard help starts at Full | Keyboard help starts at None, since a phone has no keyboard to hint at. Settings can still turn it on | As desktop |
 | `platform.keyboard-bar` | No bar | While the editor is open, a bar above the soft keyboard has Esc at the far left, then `@`, `#`, `^`, Left and Right, with no Tab keys. Esc acts like physical Escape in the focused editor field; when that closes the editor, the tap never reaches the list under it. Markers insert once per tap; arrows move the text caret and repeat while held, stopping on release or cancellation. The bar never takes focus or navigates to priority. Markers and arrows from priority go to the title. Physical Tab navigation is unchanged | As desktop |
-| `platform.toolbar-cell` | Toolbar cells are 32px | Cells are 32px | Cells are 32px for mouse and touch |
+| `platform.toolbar-cell` | Toolbar cells share a compact, consistent size | As desktop | As desktop, for mouse and touch |
 | `platform.prefs-scope` | Preferences and undo records belong to the Tasks home and load before the list shows. A home without settings takes this browser's earlier preferences, once. The browser storage keeps a copy of the theme only so the first paint has the right colors. A preference that can't be saved says so | As desktop | As desktop, through the dev server's home |
 
 ## Not yet built
