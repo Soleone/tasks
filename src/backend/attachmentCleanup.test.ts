@@ -3,11 +3,13 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -22,6 +24,7 @@ import {
   success,
 } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
+import { writeExport } from "./exportArchive.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 const corpus = JSON.parse(
@@ -238,6 +241,14 @@ test("clear-done.export: the zip holds exactly the removed tasks and images", li
   assert.deepEqual(JSON.parse(entries.get("tasks.json")!.toString()), [JSON.parse(stored)]);
   assert.deepEqual(entries.get(`attachments/${OLD}`), png(0));
   assert.equal(task(w, "d"), undefined);
+});
+
+test("clear-done.export: a failed export leaves no partial file behind", (t) => {
+  const home = mkdtempSync(path.join(tmpdir(), "tasks-export-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const missing = { name: OLD, filePath: path.join(home, OLD) };
+  assert.throws(() => writeExport(home, "2026-10-22T09:00:00.000Z", Buffer.from("[]"), [missing]));
+  assert.deepEqual(readdirSync(path.join(home, "exports")), []);
 });
 
 test("clear-done.export: a bare folder can't export and nothing changes", linux, (t) => {

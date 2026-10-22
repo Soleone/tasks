@@ -129,7 +129,7 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `clear-done.tasks` | With scope `tasks`, the selected task files are removed, with the attachments no remaining task lists |
 | `clear-done.linked` | With scope `tasks`, a selected task stays when a task that stays links to it as parent or dependency, repeated until nothing more changes. Kept tasks are listed in `keptIds`. Links never make it fail |
 | `clear-done.attachments` | With scope `attachments`, the selected tasks lose their `attachments` (keeping `updatedAt`), and files no remaining task lists are removed. The tasks stay |
-| `clear-done.export` | With `export: true`, a zip is written to the home's `exports/` before anything is removed (a bare `--root` folder refuses export with `INVALID_ARGUMENT`): `tasks.json`, an array of the affected task files as stored, and `attachments/` with every file being removed. It is verified first; if writing it fails, nothing is removed |
+| `clear-done.export` | With `export: true`, a zip is written to the home's `exports/` before anything is removed (a bare `--root` folder refuses export with `INVALID_ARGUMENT`): `tasks.json`, an array of the affected task files as stored, and `attachments/` with every file being removed. It is verified first; if writing it fails, nothing is removed and no partial file is left |
 | `clear-done.recovery` | Removed task files are copied outside the folder first and attachments are deleted, as with purge |
 | `clear-done.unlisted` | Attachments that no task listed beforehand are left for purge |
 | `clear-done.empty` | With nothing selected, it succeeds, changes nothing and writes no export |
