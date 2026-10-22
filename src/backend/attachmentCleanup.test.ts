@@ -139,13 +139,6 @@ test("purge.unlisted: only old, pattern-named images no task lists go", linux, (
   assert.deepEqual(images(w), [OLDER, recent, "notes.png"].sort());
 });
 
-test("purge.empty: no canceled tasks and nothing unlisted changes nothing", linux, (t) => {
-  const w = materialize(t, { a: { attachments: [OLD] } }, [OLD]);
-  const result = success(send(w, request(w, "task.purgeCanceled", {}))).result;
-  assert.deepEqual(result, { purgedIds: [], removedAttachments: [], changed: false });
-  assert.deepEqual(images(w), [OLD]);
-});
-
 test("clear-done.selection: done tasks closed before the cutoff, or all with null", linux, (t) => {
   const w = materialize(t, {
     old: done("2026-01-05T00:00:00.000Z"),

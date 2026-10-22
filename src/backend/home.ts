@@ -102,7 +102,6 @@ function keepOutOfGallery(home: Home): void {
   const marker = path.join(home.homePath, NO_MEDIA);
   if (lstatSync(marker, { throwIfNoEntry: false })) return;
   closeSync(openSync(marker, "wx"));
-  syncDirectory(home.homePath);
 }
 
 function refuseTaskFolders(homePath: string): void {

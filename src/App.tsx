@@ -397,10 +397,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setThemesOpen(true);
   }
 
-  // From the palette the active element is its search field, which unmounts
-  // on close, so settings inherits the palette's own return target. Consume
-  // it now: otherwise the palette's close would steal focus back from the
-  // settings dialog opening on top of it.
   function openDoneToday(): void {
     if (doneToday.total > 0) {
       changeDoneTodayOpen(true);
@@ -420,6 +416,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setDoneTodayOpen(open);
   }
 
+  // From the palette the active element is its search field, which unmounts
+  // on close, so settings inherits the palette's own return target. Consume
+  // it now: otherwise the palette's close would steal focus back from the
+  // settings dialog opening on top of it.
   function openSettings(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
     focusStack.push("settings", fromPalette);

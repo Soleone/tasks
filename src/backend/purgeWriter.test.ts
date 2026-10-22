@@ -260,19 +260,23 @@ test(
     );
   },
 );
-test("empty purge is receipt-only and preserves existing status undo", linux, (t) => {
-  const w = materialize(t, { a: {} });
-  success(send(w, prepared(w, "task.complete", { id: "a" })));
-  const before = raw(w),
-    prior = counts(w),
-    request = prepared(w);
-  const result = success(send(w, request)).result;
-  assert.deepEqual(result, { purgedIds: [], removedAttachments: [], changed: false });
-  assert.deepEqual(counts(w), [Number(prior[0]) + 1, prior[1], prior[2]]);
-  assert.deepEqual(raw(w), before);
-  assert.deepEqual(success(send(w, request)).result, result);
-  success(send(w, prepared(w, "task.status.undo", { id: "a" })));
-});
+test(
+  "purge.empty: an empty purge is receipt-only and preserves existing status undo",
+  linux,
+  (t) => {
+    const w = materialize(t, { a: {} });
+    success(send(w, prepared(w, "task.complete", { id: "a" })));
+    const before = raw(w),
+      prior = counts(w),
+      request = prepared(w);
+    const result = success(send(w, request)).result;
+    assert.deepEqual(result, { purgedIds: [], removedAttachments: [], changed: false });
+    assert.deepEqual(counts(w), [Number(prior[0]) + 1, prior[1], prior[2]]);
+    assert.deepEqual(raw(w), before);
+    assert.deepEqual(success(send(w, request)).result, result);
+    success(send(w, prepared(w, "task.status.undo", { id: "a" })));
+  },
+);
 test(
   "historical receipt precedes arrivals/invalid graph/archive loss but enforces actor/flags identity",
   linux,

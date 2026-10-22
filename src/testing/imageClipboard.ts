@@ -2,9 +2,6 @@ import { onTestFinished, vi } from "vite-plus/test";
 
 class FakeClipboardItem {
   constructor(private readonly data: Record<string, Promise<Blob>>) {}
-  get types(): string[] {
-    return Object.keys(this.data);
-  }
   getType(type: string): Promise<Blob> {
     return this.data[type];
   }
