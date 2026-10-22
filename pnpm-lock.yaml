@@ -41,9 +41,6 @@ importers:
       cn:
         specifier: ^0.2.6
         version: 0.2.6
-      date-fns:
-        specifier: ^4.4.0
-        version: 4.4.0
       fractional-indexing:
         specifier: 3.2.0
         version: 3.2.0

@@ -68,6 +68,14 @@ import { ClassificationBadge } from "@/components/variants/badge";
 export const TOOLBAR_FOLD_GROUPS = ["filter", "sort", "actions"] as const;
 export type ToolbarFoldGroup = (typeof TOOLBAR_FOLD_GROUPS)[number];
 
+// What each sort shows first, descending then ascending.
+const ORDER_LABELS: Record<Exclude<SortField, "manual">, [string, string]> = {
+  created: ["Newest first", "Oldest first"],
+  updated: ["Newest first", "Oldest first"],
+  priority: ["Highest priority first", "Lowest priority first"],
+  due: ["Soonest due first", "Latest due first"],
+};
+
 type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
 type FilterSummaryPart = {
   filter: Exclude<FilterSummaryFilter, "status" | "category">;
@@ -380,18 +388,9 @@ export function TaskListToolbar({
 
   const groupOpen = (group: ToolbarFoldGroup): boolean =>
     !foldedGroups.includes(group) || toolbarMode === group;
-  const reverseLabel =
-    sortField === "priority"
-      ? sortDirection === "desc"
-        ? "Highest priority first"
-        : "Lowest priority first"
-      : sortField === "due"
-        ? sortDirection === "desc"
-          ? "Soonest due first"
-          : "Latest due first"
-        : sortDirection === "desc"
-          ? "Newest first"
-          : "Oldest first";
+  const [descLabel, ascLabel] = ORDER_LABELS[sortField === "manual" ? "created" : sortField];
+  const [reverseLabel, oppositeLabel] =
+    sortDirection === "desc" ? [descLabel, ascLabel] : [ascLabel, descLabel];
 
   return (
     <div
@@ -696,17 +695,7 @@ export function TaskListToolbar({
                       aria-label={
                         sortField === "manual"
                           ? "Reverse is unavailable for manual order."
-                          : sortField === "priority"
-                            ? sortDirection === "desc"
-                              ? "Highest priority first. Activate to show lowest priority first. Press S then R."
-                              : "Lowest priority first. Activate to show highest priority first. Press S then R."
-                            : sortField === "due"
-                              ? sortDirection === "desc"
-                                ? "Soonest due first. Activate to show latest due first. Press S then R."
-                                : "Latest due first. Activate to show soonest due first. Press S then R."
-                              : sortDirection === "desc"
-                                ? "Newest first. Activate to show oldest first. Press S then R."
-                                : "Oldest first. Activate to show newest first. Press S then R."
+                          : `${reverseLabel}. Activate to show ${oppositeLabel.toLowerCase()}. Press S then R.`
                       }
                       aria-keyshortcuts="R"
                       data-sort="task-sort-reverse"

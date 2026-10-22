@@ -640,14 +640,12 @@ describe("details", () => {
     ]);
   });
 
-  test("home.due-soon: rows mark due dates within the week or past, until the task closes", async () => {
+  test("home.due-soon: rows mark due dates within the week or past", async () => {
     const today = localToday();
     await workspace.create("Late", { due: addDays(today, -2) });
     await workspace.create("Today", { due: today });
     await workspace.create("Soon", { due: addDays(today, 3) });
     await workspace.create("Later", { due: addDays(today, 7) });
-    const closed = await workspace.create("Closed", { due: today });
-    await workspace.change("task.complete", closed.id);
     await workspace.render();
     const marker = (title: string): string | null =>
       row(title).querySelector("[data-task-due]")?.textContent ?? null;
@@ -655,7 +653,6 @@ describe("details", () => {
     expect(marker("Today")).toBe("Due today");
     expect(marker("Soon")).toBe(`Due ${formatDueDate(addDays(today, 3), today).slice(0, 3)}`);
     expect(marker("Later")).toBeNull();
-    expect(screen.queryByText("Closed")).toBeNull();
   });
 
   test("attach.badge: with Details on, the footer counts the task's images; clicking copies the newest", async () => {

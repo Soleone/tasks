@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useSyncExternalStore,
-  type ReactElement,
-} from "react";
+import { createContext, useContext, useSyncExternalStore, type ReactElement } from "react";
 import type { WeekProps } from "react-day-picker";
 import { localToday } from "@/backend/dueDate";
 import { formatDueDate } from "@/backend/taskDates";
@@ -53,8 +47,6 @@ export function DueDatePicker({
 }): ReactElement {
   const today = localToday();
   const focus = choice ?? today;
-  // Starts on the highlighted date's month; the parent remounts it when that date changes.
-  const [month, setMonth] = useState(() => calendarDay(focus));
   const strip = useSyncExternalStore(subscribeShortWindow, isShortWindow);
   return (
     <div
@@ -67,8 +59,8 @@ export function DueDatePicker({
         <Calendar
           mode="single"
           weekStartsOn={1}
-          month={month}
-          onMonthChange={setMonth}
+          // The parent remounts the picker when the highlighted date changes.
+          defaultMonth={calendarDay(focus)}
           hideNavigation={strip}
           components={strip ? { Week: StripWeek } : undefined}
           selected={choice === null ? undefined : calendarDay(choice)}
