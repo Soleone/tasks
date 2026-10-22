@@ -146,17 +146,27 @@ export function TaskStatusToggle({
 
 function TaskRowMetadata({
   task,
+  showDetails,
   hiddenCategorySlug,
   onSelectCategory,
 }: {
   task: TaskView;
+  showDetails: boolean;
   hiddenCategorySlug?: string | null;
   onSelectCategory?: (category: ClassificationToken) => void;
 }): ReactElement | null {
   const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
   const today = localToday();
   const closed = task.status === "done" || task.status === "canceled";
-  const dueLabel = task.due === null || closed ? null : dueSoonLabel(task.due, today);
+  // Details spells out every due date; otherwise only an open task due soon or late shows one.
+  const dueLabel =
+    task.due === null
+      ? null
+      : showDetails
+        ? formatDueDate(task.due, today)
+        : closed
+          ? null
+          : dueSoonLabel(task.due, today);
   if (!category && task.tags.length === 0 && dueLabel === null) {
     if (!task.category) {
       return (
@@ -210,7 +220,7 @@ function TaskRowMetadata({
           title={`Due ${formatDueDate(task.due, today)}`}
           className={cn(
             "inline-flex items-center gap-1 text-xs",
-            daysBetween(today, task.due) <= 0 ? "text-warning" : "text-muted-foreground",
+            !closed && daysBetween(today, task.due) <= 0 ? "text-warning" : "text-muted-foreground",
           )}
         >
           <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
@@ -255,7 +265,7 @@ function TaskRowRelationships({
   );
 }
 
-/** Quiet footer: the due date, created and updated (leading when it differs) and the image count. */
+/** Quiet footer: created and updated (leading when it differs) and the image count. */
 function TaskRowFooter({
   task,
   onCopyImage,
@@ -267,12 +277,6 @@ function TaskRowFooter({
   const imageCount = task.attachments.length;
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-      {task.due === null ? null : (
-        <span className="inline-flex min-w-0 items-center gap-1">
-          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-          <span>Due {formatDueDate(task.due, localToday())}</span>
-        </span>
-      )}
       {showUpdated ? (
         <span
           className="inline-flex min-w-0 items-center gap-1"
@@ -369,6 +373,7 @@ export function TaskRow({
         {variant === "full" ? (
           <TaskRowMetadata
             task={task}
+            showDetails={showDetails}
             hiddenCategorySlug={hiddenCategorySlug}
             onSelectCategory={onSelectCategory}
           />
