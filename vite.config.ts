@@ -113,5 +113,24 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
+    // The first screen needs all of these, so they load together; separate chunks only keep each one small and cacheable.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: "react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: "base-ui", test: /node_modules[\\/](@base-ui|@floating-ui)[\\/]/ },
+            {
+              name: "motion",
+              test: /node_modules[\\/](motion|motion-dom|motion-utils|framer-motion)[\\/]/,
+            },
+            {
+              name: "calendar",
+              test: /node_modules[\\/](react-day-picker|date-fns|@date-fns)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
   },
 });
