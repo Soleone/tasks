@@ -496,6 +496,46 @@ describe("shorthand", () => {
     expect(pills()).toEqual([]);
   });
 
+  test("shorthand.suggest-due: a bare ^ starts on the date already set, so arrows shift it and Enter removes it", async () => {
+    const today = localToday();
+    const tomorrow = addDays(today, 1);
+    const { user } = await workspace.render();
+    await capture(user, "Pay ^tmr ");
+    expect(pills()).toEqual([formatDueDate(tomorrow, today)]);
+    await user.keyboard("^");
+    const picker = await screen.findByRole("group", { name: "Due date picker" });
+    expect(picker.querySelector("p")?.textContent).toBe(
+      `${formatDueDate(tomorrow, today)}↵ remove`,
+    );
+    await user.keyboard("{ArrowRight}{Enter}");
+    expect(pills()).toEqual([formatDueDate(addDays(today, 2), today)]);
+    await user.keyboard("^{Enter}");
+    expect(pills()).toEqual([]);
+  });
+
+  test("shorthand.due-strip: a short window shows only the highlighted week, which follows the arrow keys", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query) =>
+        ({
+          matches: query === "(max-height: 600px)",
+          media: query,
+          addEventListener() {},
+          removeEventListener() {},
+        }) as unknown as MediaQueryList,
+    );
+    try {
+      const nextWeek = addDays(localToday(), 7);
+      const { user } = await workspace.render();
+      await capture(user, "Pay ^{ArrowDown}");
+      const picker = screen.getByRole("group", { name: "Due date picker" });
+      expect(picker.querySelectorAll("tbody tr")).toHaveLength(1);
+      expect(picker.querySelector(`[data-day="${nextWeek}"]`)).not.toBeNull();
+      expect(within(picker).queryByRole("button", { name: /next month/i })).toBeNull();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   test("shorthand.tab: Tab lifts a date at once", async () => {
     const { user } = await workspace.render();
     await capture(user, "Pay ^tm");

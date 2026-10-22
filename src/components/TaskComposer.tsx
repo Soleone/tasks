@@ -314,10 +314,14 @@ export function TaskComposer({
       : suggestion.marker === "#"
         ? suggestionRows(suggestion.query, tags, classification.tags)
         : [];
+  // A bare `^` starts on the date already set, so Enter removes it and the arrows shift it.
   const dueChoice =
-    suggestion?.marker === "^"
-      ? (dueCursor ?? dueCompletion(suggestion.query, localToday()))
-      : null;
+    suggestion?.marker !== "^"
+      ? null
+      : (dueCursor ??
+        (suggestion.query === "" && classification.due !== null
+          ? classification.due
+          : dueCompletion(suggestion.query, localToday())));
 
   function updateSuggestion(nextTitle: string, cursor: number): void {
     setSuggestion(tokenBeforeCaret(nextTitle, cursor));
