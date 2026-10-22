@@ -1,4 +1,6 @@
 import type { LucideIcon } from "lucide-react";
+import type { TaskPriority } from "@/backend/taskModel";
+import { priorityMeta } from "@/components/taskFilters";
 import {
   Toast,
   ToastClose,
@@ -11,8 +13,7 @@ import {
   useToastManager,
 } from "@/components/ui/toast";
 
-/** What a task toast shows next to its title: a status icon, drawn as the check animation for done. */
-export type TaskToastData = { icon?: LucideIcon; completion?: boolean };
+export type TaskToastData = { icon?: LucideIcon; completion?: boolean; priority?: TaskPriority };
 
 const TOAST_TIMEOUT_MS = 3000;
 
@@ -20,7 +21,7 @@ export function showTaskToast(title: string, data: TaskToastData = {}): void {
   toast.add({ title, data, timeout: TOAST_TIMEOUT_MS });
 }
 
-/** The stock toaster, with each toast's status icon in place of the stock type icons. */
+/** The stock toaster, with task status icons and priority dots in place of the stock type icons. */
 export function TaskToaster() {
   return (
     <ToastProvider toastManager={toast}>
@@ -47,6 +48,14 @@ function TaskToastList() {
                 item.data?.completion ? "size-4 shrink-0 task-completion-icon" : "size-4 shrink-0"
               }
             />
+          ) : null}
+          {item.data?.priority !== undefined ? (
+            <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
+              <span
+                className={`size-2 rounded-full ${priorityMeta(item.data.priority).dot}`}
+                data-priority={priorityMeta(item.data.priority).shortLabel}
+              />
+            </span>
           ) : null}
           <div className="min-w-0 flex-1">
             <ToastTitle />

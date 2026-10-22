@@ -6,6 +6,7 @@ export type UndoEntry = {
   createdTaskIds: string[];
   title: string;
   statusLike: boolean;
+  priorityLike?: boolean;
   wasActiveTaskId: string | null;
 };
 export type UndoStorage = Pick<Storage, "getItem" | "setItem">;
@@ -42,6 +43,7 @@ function isEntry(value: unknown): value is UndoEntry {
     ids(entry.createdTaskIds) &&
     typeof entry.title === "string" &&
     typeof entry.statusLike === "boolean" &&
+    (entry.priorityLike === undefined || typeof entry.priorityLike === "boolean") &&
     (entry.wasActiveTaskId === null || typeof entry.wasActiveTaskId === "string")
   );
 }

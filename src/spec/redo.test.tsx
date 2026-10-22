@@ -41,14 +41,40 @@ for (const [name, keys] of [
     await user.keyboard("{Control>}z{/Control}");
     await waitFor(() => expect(historyButton("Redo").disabled).toBe(false));
     expect((await workspace.task(task.id)).priority).toBe(2);
+    const undoToast = (await screen.findByText("Undo priority change to P2")).closest(
+      "[data-slot=toast]",
+    );
+    expect(undoToast?.querySelector("[data-priority=P2]")).not.toBeNull();
     await user.keyboard(keys);
     await expectPriority(task.id, 0);
+    const redoToast = (await screen.findByText("Redo priority change to P0")).closest(
+      "[data-slot=toast]",
+    );
+    expect(redoToast?.querySelector("[data-priority=P0]")?.classList.contains("bg-red-500")).toBe(
+      true,
+    );
     await waitFor(() => expect(historyButton("Redo").disabled).toBe(true));
     await user.keyboard("{Control>}z{/Control}");
     await waitFor(() => expect(historyButton("Redo").disabled).toBe(false));
     expect((await workspace.task(task.id)).priority).toBe(2);
   });
 }
+
+test("redo.latest: a status redo shows the restored status icon", async () => {
+  const task = await workspace.create("Task");
+  const { user } = await workspace.render();
+  await expectActive("Task");
+  await user.keyboard("{Shift>} {/Shift}");
+  await waitFor(() => expect(historyButton("Undo").disabled).toBe(false));
+  await user.keyboard("{Control>}z{/Control}");
+  await waitFor(() => expect(historyButton("Redo").disabled).toBe(false));
+  await user.keyboard("{Control>}y{/Control}");
+  const toast = (await screen.findByText("Redo status change to Done")).closest(
+    "[data-slot=toast]",
+  );
+  expect(toast?.querySelector("svg.lucide-circle-check.task-completion-icon")).not.toBeNull();
+  expect((await workspace.task(task.id)).status).toBe("done");
+});
 
 test("redo.capture: an undone sole capture survives reopen and the Redo button restores its ID", async () => {
   const first = await workspace.render();

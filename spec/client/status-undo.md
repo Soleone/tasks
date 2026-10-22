@@ -35,7 +35,7 @@ Status keys act on the selection, or on the active task when nothing else is sel
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `undo.latest` | `Ctrl/⌘+Z`, or Undo in the toolbar (disabled when unavailable) | Undoes this client's latest change and a toast confirms it. Pressing again walks further back. Each successful undo makes that step available to redo |
+| `undo.latest` | `Ctrl/⌘+Z`, or Undo in the toolbar (disabled when unavailable) | Undoes this client's latest change and a toast confirms it. Status and priority changes show the restored status icon or priority dot when the restored tasks share that value. Pressing again walks further back. Each successful undo makes that step available to redo |
 | `undo.scope` | Any change | Status, capture, edit, priority, parent, blocker and order changes made from this client are undoable. Changes from the CLI, agents or other devices are never offered |
 | `undo.batch` | Undoing a batch | One step restores every task in it |
 | `undo.depth` | History | About the last 50 changes, kept for this workspace and survives reload |
@@ -46,7 +46,7 @@ Status keys act on the selection, or on the active task when nothing else is sel
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `redo.latest` | `Ctrl+Y`, `Ctrl/⌘+Shift+Z`, or Redo beside Undo in the toolbar (disabled when unavailable) | Reapplies this client's most recently undone change and a toast confirms it. Pressing again walks forward. Each successful redo makes that step undoable again, even when the list was empty |
+| `redo.latest` | `Ctrl+Y`, `Ctrl/⌘+Shift+Z`, or Redo beside Undo in the toolbar (disabled when unavailable) | Reapplies this client's most recently undone change and a toast confirms it, using the restored status icon or priority dot for status and priority changes when the restored tasks share that value. Pressing again walks forward. Each successful redo makes that step undoable again, even when the list was empty |
 | `redo.scope` | Undo and redo history | Only this client's changes are offered, with the same workspace scope and batch boundaries as undo. Both stacks share the approximately 50-step limit and survive reopen |
 | `redo.branch` | A new meaningful change is accepted from this client after undo | Redo history is cleared. No-ops, refused changes, navigation and refresh leave it alone. Changes from other clients are checked for conflicts, never added to this history |
 | `redo.refused` | A redo would overwrite a changed affected field or order, collide with a reappeared task, or make the graph invalid | Refused before anything is sent and dropped from redo history. The next redo tries the next step |

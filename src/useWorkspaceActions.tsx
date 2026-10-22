@@ -8,7 +8,7 @@ import { showTaskToast } from "@/components/TaskToaster";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import type { TaskPickerMode } from "@/components/TaskPicker";
 import type { TaskView } from "@/components/taskView";
-import { taskStatusMeta } from "@/components/taskFilters";
+import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
 import { EditorError } from "@/platform/editorClient";
 import type { UndoEntry, UndoHistory } from "@/platform/undoHistory";
@@ -268,6 +268,11 @@ export function useWorkspaceActions({
       createdTaskIds: options.createdTaskIds ?? [],
       title: titleTask?.title ?? "task",
       statusLike,
+      priorityLike: affectedTaskIds.every((taskId) => {
+        const before = previousById.get(taskId);
+        const after = currentById.get(taskId);
+        return before !== undefined && after !== undefined && before.priority !== after.priority;
+      }),
       wasActiveTaskId:
         options.wasActiveTaskId ??
         (() => {
@@ -371,7 +376,28 @@ export function useWorkspaceActions({
               ? `${verb} change to ${restored[0].title}`
               : `${verb} changes for ${entry.affectedTaskIds.length} tasks`;
       setAnnouncement(message);
-      showTaskToast(entry.statusLike && label ? `${action} status change to ${label}` : message);
+      const status =
+        entry.statusLike &&
+        restored.length > 0 &&
+        restored.every((task) => task.status === restored[0].status)
+          ? restored[0].status
+          : undefined;
+      const priority =
+        entry.priorityLike &&
+        restored.length > 0 &&
+        restored.every((task) => task.priority === restored[0].priority)
+          ? restored[0].priority
+          : undefined;
+      showTaskToast(
+        entry.statusLike && label
+          ? `${action} status change to ${label}`
+          : priority !== undefined
+            ? `${action} priority change to ${priorityMeta(priority).shortLabel}`
+            : message,
+        status !== undefined
+          ? { icon: taskStatusMeta[status].Icon, completion: status === "done" }
+          : { priority },
+      );
       void refreshTasks(0, true);
     } catch (caught) {
       if (

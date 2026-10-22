@@ -201,7 +201,10 @@ describe("undo", () => {
     expect(await workspace.task(task.id)).toEqual(saved);
     await user.keyboard("{Control>}z{/Control}");
     await expectStatus(task.id, "open");
-    await screen.findByText("Undo status change to Open");
+    const toast = (await screen.findByText("Undo status change to Open")).closest(
+      "[data-slot=toast]",
+    );
+    expect(toast?.querySelector("svg.lucide-circle")).not.toBeNull();
     await user.keyboard("{Delete}");
     await expectStatus(task.id, "canceled");
     await user.keyboard("{Control>}z{/Control}");
@@ -221,6 +224,10 @@ describe("undo", () => {
     await user.keyboard("{Control>}z{/Control}");
     await expectStatus(a.id, "open");
     await expectStatus(b.id, "open");
+    const toast = (
+      await screen.findByText("Undid changes for 2 tasks", { selector: "[data-slot=toast-title]" })
+    ).closest("[data-slot=toast]");
+    expect(toast?.querySelector("svg.lucide-circle")).not.toBeNull();
   });
 
   test("undo.scope: changes from the CLI or agents are never offered", async () => {
@@ -249,6 +256,12 @@ describe("undo", () => {
     await expectActive("Task");
     await second.user.keyboard("{Control>}z{/Control}");
     await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(2));
+    const toast = (await screen.findByText("Undo priority change to P2")).closest(
+      "[data-slot=toast]",
+    );
+    expect(toast?.querySelector("[data-priority=P2]")?.classList.contains("bg-green-500")).toBe(
+      true,
+    );
     await waitFor(() =>
       expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe(
         "P2",
