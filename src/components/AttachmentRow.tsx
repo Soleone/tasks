@@ -1,4 +1,11 @@
-import { useEffect, useState, type KeyboardEvent, type ReactElement, type Ref } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactElement,
+  type Ref,
+} from "react";
 import { ChevronLeft, ChevronRight, Copy, ImageOff, X } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
@@ -76,6 +83,7 @@ export function AttachmentRow({
   const images = useImages(names);
   const [active, setActive] = useState(0);
   const [previewing, setPreviewing] = useState<number | null>(null);
+  const previewPopup = useRef<HTMLDivElement>(null);
   const current = Math.min(active, names.length - 1);
   const previewImage = previewing === null ? undefined : images[names[previewing]];
 
@@ -202,6 +210,9 @@ export function AttachmentRow({
       >
         {previewing !== null ? (
           <ImagePreviewContent
+            ref={previewPopup}
+            // The popup takes focus rather than the close button, so no focus ring shows on open.
+            initialFocus={previewPopup}
             aria-label={`Image ${previewing + 1} of ${names.length}`}
             onKeyDown={(event) => {
               if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;

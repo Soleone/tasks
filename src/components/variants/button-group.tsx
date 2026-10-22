@@ -15,8 +15,8 @@ export function ToolbarGroup({
   return (
     <ButtonGroup
       className={cn(
-        "rounded-lg outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [&>[data-slot]~[data-slot]]:border-l!",
-        active && "ring-3 ring-ring/50",
+        "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring [&>[data-slot]~[data-slot]]:border-l!",
+        active && "ring-2 ring-ring",
         className,
       )}
       {...props}

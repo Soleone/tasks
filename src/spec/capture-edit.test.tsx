@@ -653,7 +653,7 @@ describe("images", () => {
     const shown = async (index: number) => {
       const preview = await screen.findByRole("dialog", { name: `Image ${index + 1} of 2` });
       expect(preview.querySelector("img")?.getAttribute("src")).toBe(sources[index]);
-      await waitFor(() => expect(preview.contains(document.activeElement)).toBe(true));
+      await waitFor(() => expect(document.activeElement).toBe(preview));
     };
     await user.keyboard(" ");
     await shown(0);
