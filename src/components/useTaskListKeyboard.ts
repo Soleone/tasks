@@ -71,6 +71,7 @@ type HomeShortcutActions = {
   handleHorizontalNavigation: (key: "ArrowLeft" | "ArrowRight") => void;
   editTask: (task: TaskView) => void;
   copyTask: (task: TaskView) => Promise<void>;
+  copyImage: (task: TaskView) => void;
 };
 
 type HomeShortcutSurface = {
@@ -150,6 +151,17 @@ export function useTaskListKeyboard(
       event.preventDefault();
       if (redo) actions.redo();
       else actions.undoStatus();
+      return;
+    }
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      event.shiftKey &&
+      event.key.toLowerCase() === "c"
+    ) {
+      if (event.repeat || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      if (actions.activeTask) actions.copyImage(actions.activeTask);
       return;
     }
     if (

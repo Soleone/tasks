@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
+import { fakeImageClipboard } from "@/testing/imageClipboard";
 import { announcements, expectActive, expectRows, row, selectedTitles } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
@@ -183,6 +184,41 @@ describe("priority and copy", () => {
     await waitFor(async () =>
       expect(await navigator.clipboard.readText()).toBe("Call Sam about the lease #phone #urgent"),
     );
+  });
+});
+
+describe("copy image", () => {
+  test("attach.copy: Ctrl+Shift+C copies the newest image; a task without one, or missing it, says so", async () => {
+    const lost = await workspace.storeImage(3);
+    await workspace.create("Lost", { attachments: [lost] });
+    await workspace.loseImage(lost);
+    await workspace.create("Shots", {
+      attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
+    });
+    await workspace.create("Plain");
+    const { user } = await workspace.render();
+    const copied = fakeImageClipboard();
+    const copyImage = () => user.keyboard("{Control>}{Shift>}c{/Shift}{/Control}");
+    await expectActive("Plain");
+    await copyImage();
+    await screen.findByText("This task has no images.");
+    await user.keyboard("{ArrowDown}");
+    await expectActive("Shots");
+    await copyImage();
+    await screen.findByText("Image copied to clipboard");
+    expect((await copied())?.at(-1)).toBe(2);
+    await user.keyboard("{ArrowDown}");
+    await expectActive("Lost");
+    await copyImage();
+    await screen.findByText(/isn't on this device/);
+  });
+
+  test("platform.copy-image: where the browser can't write images, copying says so", async () => {
+    await workspace.create("Shots", { attachments: [await workspace.storeImage()] });
+    const { user } = await workspace.render();
+    await expectActive("Shots");
+    await user.keyboard("{Control>}{Shift>}c{/Shift}{/Control}");
+    await screen.findByText("Couldn't copy the image. This device can't copy images.");
   });
 });
 

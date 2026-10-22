@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
+import { fakeImageClipboard } from "@/testing/imageClipboard";
 import { expectActive, expectListFocused, focusedTitleField } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
@@ -184,6 +185,19 @@ test("copy.text: Copy text in Task actions copies the active task and restores f
   await user.click(await screen.findByRole("menuitem", { name: /Copy text/ }));
   await waitFor(async () => expect(await navigator.clipboard.readText()).toBe("Task Notes"));
   await expectListFocused();
+});
+
+test("attach.copy: Copy image in Task actions copies the newest image", async () => {
+  await workspace.create("Task", {
+    attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
+  });
+  const { user } = await workspace.render();
+  const copied = fakeImageClipboard();
+  await expectActive("Task");
+  await user.click(screen.getByRole("button", { name: "Task actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: /Copy image/ }));
+  await screen.findByText("Image copied to clipboard");
+  expect((await copied())?.at(-1)).toBe(2);
 });
 
 test("undo.latest: the Undo button reverses a menu pause and is unavailable when history is empty", async () => {

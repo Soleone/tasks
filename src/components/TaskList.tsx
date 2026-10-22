@@ -60,6 +60,7 @@ import {
   type TaskMutationResult,
 } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
+import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { TaskItem } from "@/components/variants/item";
@@ -75,6 +76,19 @@ export async function copyTaskText(task: TaskView): Promise<void> {
     .filter(Boolean)
     .join(" ");
   await navigator.clipboard.writeText(text);
+}
+
+/** Copies one image and returns what the toast says; `name` is undefined for a task without images. */
+export async function copyImageMessage(name: string | undefined): Promise<string> {
+  if (name === undefined) return "This task has no images.";
+  try {
+    await copyImage(name);
+    return "Image copied to clipboard";
+  } catch (caught) {
+    if (caught instanceof EditorError && caught.code === "ATTACHMENT_NOT_FOUND")
+      return "This image isn't on this device. It may not have synced yet.";
+    return `Couldn't copy the image. ${caught instanceof Error ? caught.message : String(caught)}`;
+  }
 }
 
 export type TaskListHandle = {
@@ -644,6 +658,15 @@ export function TaskList({
     } catch {
       onAnnounce("Could not copy the selected task.");
     }
+  }
+
+  // The newest image is the one just pasted, which is usually the one wanted.
+  function copyNewestImage(task: TaskView): void {
+    void copyImageMessage(task.attachments.at(-1)).then(onToast);
+  }
+
+  function copyEditorImage(name: string): void {
+    void copyImageMessage(name).then(onToast);
   }
 
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
@@ -1324,6 +1347,7 @@ export function TaskList({
   });
   const handleOptionToggleExpanded = useStableHandler(toggleExpanded);
   const handleOptionSelectCategory = useStableHandler(selectCategory);
+  const handleOptionCopyImage = useStableHandler(copyNewestImage);
 
   useTaskListKeyboard(
     {
@@ -1364,6 +1388,7 @@ export function TaskList({
       handleHorizontalNavigation,
       editTask: onEdit,
       copyTask: copyActiveTask,
+      copyImage: copyNewestImage,
     },
     { toolbarModeRef, composerOpenRef, list, section },
   );
@@ -1419,7 +1444,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
+      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1464,6 +1489,7 @@ export function TaskList({
             onCreate(task.id);
           },
           onCopy: (task) => void copyActiveTask(task),
+          onCopyImage: copyNewestImage,
           onPause: () => void pauseSelectedTasks(),
           finalFocus: () =>
             composerOpenRef.current || isDialogOpen() ? false : (list.current ?? section.current),
@@ -1524,6 +1550,7 @@ export function TaskList({
             onCreateFailed={onCreateFailed}
             helpMode={helpMode}
             onDisableHelp={onDisableComposerHelp}
+            onCopyImage={copyEditorImage}
           />
         </div>
       ) : null}
@@ -1541,7 +1568,7 @@ export function TaskList({
           }
           aria-orientation="vertical"
           aria-multiselectable="true"
-          aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
+          aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
           aria-activedescendant={
             activeTask && !editingActiveTask ? `task-option-${activeTask.id}` : undefined
           }
@@ -1570,6 +1597,7 @@ export function TaskList({
                 onCreateFailed={onCreateFailed}
                 helpMode={helpMode}
                 onDisableHelp={onDisableComposerHelp}
+                onCopyImage={copyEditorImage}
                 inList
               />
             ) : (
@@ -1594,6 +1622,7 @@ export function TaskList({
                 onToggleStatus={handleOptionToggleStatus}
                 onToggleExpanded={handleOptionToggleExpanded}
                 onSelectCategory={handleOptionSelectCategory}
+                onCopyImage={handleOptionCopyImage}
               />
             ),
           )}

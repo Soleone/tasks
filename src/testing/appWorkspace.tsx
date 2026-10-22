@@ -27,6 +27,11 @@ export type SeededTask = {
   attachments: string[];
 };
 
+/** A tiny PNG whose last byte is `pixel`, so tests can tell images apart. */
+export function pngBytes(pixel = 1): number[] {
+  return [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, pixel];
+}
+
 /** A disposable workspace served by the dev bridge, with the real app rendered over it. */
 export class AppWorkspace {
   private constructor(
@@ -72,6 +77,13 @@ export class AppWorkspace {
 
   async create(title: string, args: Record<string, unknown> = {}): Promise<SeededTask> {
     return (await this.command<{ task: SeededTask }>("task.create", { title, ...args })).task;
+  }
+
+  /** Stores `pngBytes(pixel)` through `attachment.write` and returns its name. */
+  async storeImage(pixel = 1): Promise<string> {
+    const data = btoa(String.fromCharCode(...pngBytes(pixel)));
+    return (await this.command<{ name: string }>("attachment.write", { type: "image/png", data }))
+      .name;
   }
 
   async task(id: string): Promise<SeededTask> {

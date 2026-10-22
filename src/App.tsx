@@ -27,7 +27,12 @@ import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
 import { ThemePicker } from "@/components/soleone/theme-picker";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { copyTaskText, TaskList, type TaskListHandle } from "@/components/TaskList";
+import {
+  copyImageMessage,
+  copyTaskText,
+  TaskList,
+  type TaskListHandle,
+} from "@/components/TaskList";
 import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { Button } from "@/components/ui/button";
@@ -836,6 +841,9 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         onMoveUnder={(task) => openPicker("move", task)}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
+        onCopyImage={(task) =>
+          void copyImageMessage(task.attachments.at(-1)).then((message) => showTaskToast(message))
+        }
         statusUndoOnly={!workspace.supportsOperationUndo}
         canUndoStatus={statusUndo !== null && !historyBusy}
         canRedo={redoEntry !== null && !historyBusy}

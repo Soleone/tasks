@@ -37,6 +37,7 @@ type TaskOptionProps = {
   onToggleStatus: (task: TaskView) => void;
   onToggleExpanded: (row: VisibleTaskRow) => void;
   onSelectCategory: (category: ClassificationToken) => void;
+  onCopyImage: (task: TaskView) => void;
 };
 
 export const TaskOption = memo(function TaskOption({
@@ -57,6 +58,7 @@ export const TaskOption = memo(function TaskOption({
   onToggleStatus,
   onToggleExpanded,
   onSelectCategory,
+  onCopyImage,
 }: TaskOptionProps): ReactElement {
   const { task } = row;
   const blockedByLabels = task.blockedByIds
@@ -99,6 +101,7 @@ export const TaskOption = memo(function TaskOption({
           contextOnly={row.contextOnly}
           hiddenCategorySlug={hiddenCategorySlug}
           onSelectCategory={onSelectCategory}
+          onCopyImage={onCopyImage}
           statusSlot={
             <TaskStatusToggle
               task={task}
@@ -174,6 +177,7 @@ export function InlineTaskComposer({
   onCreateFailed,
   helpMode,
   onDisableHelp,
+  onCopyImage,
   inList = false,
 }: {
   composer: ComposerState;
@@ -183,6 +187,7 @@ export function InlineTaskComposer({
   onCreateFailed: () => void;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
+  onCopyImage: (name: string) => void;
   inList?: boolean;
 }): ReactElement {
   const task = composer.mode === "edit" ? composer.task : undefined;
@@ -209,6 +214,7 @@ export function InlineTaskComposer({
         onCancel={onClose}
         helpMode={helpMode}
         onDisableHelp={onDisableHelp}
+        onCopyImage={onCopyImage}
       />
     </TaskItem>
   );

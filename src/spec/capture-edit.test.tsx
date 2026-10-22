@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { AppWorkspace } from "@/testing/appWorkspace";
+import { AppWorkspace, pngBytes } from "@/testing/appWorkspace";
+import { fakeImageClipboard } from "@/testing/imageClipboard";
 import {
   announcements,
   expectActive,
@@ -553,15 +554,7 @@ describe("pickers", () => {
 });
 
 describe("images", () => {
-  const pngBytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
-  const png = () => new File([new Uint8Array(pngBytes)], "shot.png", { type: "image/png" });
-
-  async function storeImage(): Promise<string> {
-    const data = btoa(String.fromCharCode(...pngBytes));
-    return (
-      await workspace.command<{ name: string }>("attachment.write", { type: "image/png", data })
-    ).name;
-  }
+  const png = () => new File([new Uint8Array(pngBytes())], "shot.png", { type: "image/png" });
 
   function paste(target: Element, files: File[], text = ""): void {
     fireEvent.paste(target, { clipboardData: { files, getData: () => text } });
@@ -599,7 +592,7 @@ describe("images", () => {
   });
 
   test("attach.refused: other file types and an 11th image are refused with a message", async () => {
-    const names = await Promise.all(Array.from({ length: 10 }, storeImage));
+    const names = await Promise.all(Array.from({ length: 10 }, () => workspace.storeImage()));
     await workspace.create("Full", { attachments: names });
     const { user } = await workspace.render();
     const title = await openEditor(user, "Full");
@@ -612,7 +605,7 @@ describe("images", () => {
   });
 
   test("attach.row-keys: the image row is one stop; arrows move and Delete removes from the draft", async () => {
-    const [first, second] = [await storeImage(), await storeImage()];
+    const [first, second] = [await workspace.storeImage(), await workspace.storeImage()];
     const task = await workspace.create("Task", { attachments: [first, second] });
     const { user } = await workspace.render();
     await openEditor(user, "Task");
@@ -631,6 +624,20 @@ describe("images", () => {
     await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([first]));
   });
 
+  test("attach.row-keys: Ctrl+C copies the focused image and Copy image does the same", async () => {
+    await workspace.create("Task", {
+      attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
+    });
+    const { user } = await workspace.render();
+    const copied = fakeImageClipboard();
+    await openEditor(user, "Task");
+    await user.keyboard("{Shift>}{Tab}{/Shift}{Control>}c{/Control}");
+    await screen.findByText("Image copied to clipboard");
+    expect((await copied())?.at(-1)).toBe(1);
+    await user.click(within(thumbnails()[1]).getByRole("button", { name: "Copy image" }));
+    await waitFor(async () => expect((await copied())?.at(-1)).toBe(2));
+  });
+
   test("attach.cancel: canceling drops images pasted in the editor", async () => {
     const task = await workspace.create("Task");
     const { user } = await workspace.render();
@@ -643,7 +650,7 @@ describe("images", () => {
   });
 
   test("attach.missing: an image that isn't on this device reads Image missing and can be removed", async () => {
-    const name = await storeImage();
+    const name = await workspace.storeImage();
     const task = await workspace.create("Task", { attachments: [name] });
     await workspace.loseImage(name);
     const { user } = await workspace.render();
@@ -657,7 +664,7 @@ describe("images", () => {
   });
 
   test("undo.scope: removing an image in the editor is undone and redone like any edit", async () => {
-    const name = await storeImage();
+    const name = await workspace.storeImage();
     const task = await workspace.create("Task", { attachments: [name] });
     const { user } = await workspace.render();
     await openEditor(user, "Task");

@@ -9,6 +9,7 @@ import {
   FileText,
   Flag,
   Folder,
+  Image,
   Link2,
   ListChecks,
   ListChevronsUpDown,
@@ -61,6 +62,7 @@ type HelpEntry = {
     | "filter-tags"
     | "filter-search"
     | "copy-task"
+    | "copy-image"
     | "undo-status"
     | "redo";
 };
@@ -130,6 +132,14 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         action: "copy-task",
         keywords:
           "ctrl cmd c copy title description clipboard selected active task category tags metadata",
+      },
+      {
+        label: "Copy newest image",
+        hint: "The image added last",
+        icon: Image,
+        keys: ["Ctrl/⌘", "Shift", "C"],
+        action: "copy-image",
+        keywords: "ctrl cmd shift c copy image picture screenshot attachment clipboard paste agent",
       },
       {
         label: "Undo last change",
@@ -395,6 +405,7 @@ export function HelpPalette({
   onMoveUnder,
   onPauseTask,
   onCopyTask,
+  onCopyImage,
   statusUndoOnly = false,
   canUndoStatus,
   onUndoStatus,
@@ -418,6 +429,7 @@ export function HelpPalette({
   onMoveUnder?: (task: TaskView) => void;
   onPauseTask?: (task: TaskView) => void;
   onCopyTask?: (task: TaskView) => void;
+  onCopyImage?: (task: TaskView) => void;
   statusUndoOnly?: boolean;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
@@ -460,41 +472,43 @@ export function HelpPalette({
                         ? onOpenSettings
                         : entry.action === "copy-task" && activeTask && onCopyTask
                           ? () => onCopyTask(activeTask)
-                          : entry.action === "undo-status"
-                            ? canUndoStatus && onUndoStatus
-                              ? onUndoStatus
-                              : undefined
-                            : entry.action === "redo"
-                              ? canRedo
-                                ? onRedo
+                          : entry.action === "copy-image" && activeTask && onCopyImage
+                            ? () => onCopyImage(activeTask)
+                            : entry.action === "undo-status"
+                              ? canUndoStatus && onUndoStatus
+                                ? onUndoStatus
                                 : undefined
-                              : entry.action === "new-task"
-                                ? onCreate
-                                : entry.action === "new-child-task" && activeTask && onCreateChild
-                                  ? () => onCreateChild(activeTask)
-                                  : entry.action === "filter-category"
-                                    ? onOpenCategoryPicker
-                                    : entry.action === "filter-status"
-                                      ? onOpenStatusMenu
-                                      : entry.action === "filter-priority"
-                                        ? onOpenPriorityMenu
-                                        : entry.action === "filter-tags"
-                                          ? onOpenTagPicker
-                                          : entry.action === "filter-search"
-                                            ? onOpenSearch
-                                            : entry.action === "add-blocker" &&
-                                                activeTask &&
-                                                onAddBlocker
-                                              ? () => onAddBlocker(activeTask)
-                                              : entry.action === "pause-task" &&
+                              : entry.action === "redo"
+                                ? canRedo
+                                  ? onRedo
+                                  : undefined
+                                : entry.action === "new-task"
+                                  ? onCreate
+                                  : entry.action === "new-child-task" && activeTask && onCreateChild
+                                    ? () => onCreateChild(activeTask)
+                                    : entry.action === "filter-category"
+                                      ? onOpenCategoryPicker
+                                      : entry.action === "filter-status"
+                                        ? onOpenStatusMenu
+                                        : entry.action === "filter-priority"
+                                          ? onOpenPriorityMenu
+                                          : entry.action === "filter-tags"
+                                            ? onOpenTagPicker
+                                            : entry.action === "filter-search"
+                                              ? onOpenSearch
+                                              : entry.action === "add-blocker" &&
                                                   activeTask &&
-                                                  onPauseTask
-                                                ? () => onPauseTask(activeTask)
-                                                : entry.action === "move-under" &&
+                                                  onAddBlocker
+                                                ? () => onAddBlocker(activeTask)
+                                                : entry.action === "pause-task" &&
                                                     activeTask &&
-                                                    onMoveUnder
-                                                  ? () => onMoveUnder(activeTask)
-                                                  : undefined;
+                                                    onPauseTask
+                                                  ? () => onPauseTask(activeTask)
+                                                  : entry.action === "move-under" &&
+                                                      activeTask &&
+                                                      onMoveUnder
+                                                    ? () => onMoveUnder(activeTask)
+                                                    : undefined;
                   return (
                     <CommandItem
                       key={entry.label}

@@ -1,5 +1,14 @@
 import type { ComponentProps, ReactElement } from "react";
-import { CirclePause, Copy, CornerDownRight, Ellipsis, Link2, Redo2, Undo2 } from "lucide-react";
+import {
+  CirclePause,
+  Copy,
+  CornerDownRight,
+  Ellipsis,
+  Image,
+  Link2,
+  Redo2,
+  Undo2,
+} from "lucide-react";
 import type { TaskView } from "./taskView";
 import type { Tooltip } from "./ui/tooltip";
 import { ToolbarCommand, ToolbarTooltip } from "./variants/toolbar";
@@ -24,6 +33,7 @@ type TaskActionsProps = {
   onMoveUnder: (task: TaskView) => void;
   onCreateChild: (task: TaskView) => void;
   onCopy: (task: TaskView) => void;
+  onCopyImage: (task: TaskView) => void;
   onPause: () => void;
   finalFocus: () => HTMLElement | false | null;
   tooltipFor: (key: string) => ComponentProps<typeof Tooltip>;
@@ -40,6 +50,7 @@ export function TaskActions({
   onMoveUnder,
   onCreateChild,
   onCopy,
+  onCopyImage,
   onPause,
   finalFocus,
   tooltipFor,
@@ -120,6 +131,11 @@ export function TaskActions({
                 <Copy aria-hidden="true" />
                 Copy text
                 <DropdownMenuShortcut>Ctrl/⌘+C</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onCopyImage(activeTask)}>
+                <Image aria-hidden="true" />
+                Copy image
+                <DropdownMenuShortcut>Ctrl/⌘+Shift+C</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onPause}>
                 <CirclePause aria-hidden="true" />

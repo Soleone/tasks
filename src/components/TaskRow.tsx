@@ -225,7 +225,13 @@ function TaskRowRelationships({
 }
 
 /** Quiet footer: created and updated, with Updated leading when it differs, and the image count. */
-function TaskRowFooter({ task }: { task: TaskView }): ReactElement {
+function TaskRowFooter({
+  task,
+  onCopyImage,
+}: {
+  task: TaskView;
+  onCopyImage?: (task: TaskView) => void;
+}): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   const imageCount = task.attachments.length;
   return (
@@ -247,7 +253,20 @@ function TaskRowFooter({ task }: { task: TaskView }): ReactElement {
         <span>Created {formatTaskDate(task.createdAt)}</span>
       </span>
       {imageCount > 0 ? (
-        <span data-task-images className="inline-flex min-w-0 items-center gap-1">
+        // A pointer shortcut inside a list option, like the category badge.
+        <span
+          role="img"
+          tabIndex={-1}
+          data-task-images
+          aria-label={`${imageCount === 1 ? "1 image" : `${imageCount} images`}. Click to copy the newest; press Ctrl/⌘+Shift+C.`}
+          title="Copy the newest image"
+          onMouseDown={preventFocusSteal}
+          onClick={(event) => {
+            event.stopPropagation();
+            onCopyImage?.(task);
+          }}
+          className={cn("inline-flex min-w-0 items-center gap-1", onCopyImage && "cursor-pointer")}
+        >
           <Images className="size-3.5 shrink-0" aria-hidden="true" />
           <span>{imageCount === 1 ? "1 image" : `${imageCount} images`}</span>
         </span>
@@ -271,6 +290,7 @@ export function TaskRow({
   contextOnly = false,
   hiddenCategorySlug,
   onSelectCategory,
+  onCopyImage,
 }: {
   task: TaskView;
   variant: TaskRowVariant;
@@ -281,6 +301,7 @@ export function TaskRow({
   contextOnly?: boolean;
   hiddenCategorySlug?: string | null;
   onSelectCategory?: (category: ClassificationToken) => void;
+  onCopyImage?: (task: TaskView) => void;
 }): ReactElement {
   return (
     <div
@@ -327,7 +348,9 @@ export function TaskRow({
             {taskContextMessage(indented)}
           </p>
         ) : null}
-        {variant === "full" && showDetails ? <TaskRowFooter task={task} /> : null}
+        {variant === "full" && showDetails ? (
+          <TaskRowFooter task={task} onCopyImage={onCopyImage} />
+        ) : null}
       </div>
     </div>
   );

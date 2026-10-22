@@ -73,6 +73,7 @@ type TaskComposerProps = {
   onCancel: () => void;
   helpMode: KeyboardHelpMode;
   onDisableHelp: () => void;
+  onCopyImage: (name: string) => void;
 };
 
 type ComposerField = "title" | "description" | "priority" | "images";
@@ -92,7 +93,7 @@ const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> 
   },
   images: {
     heading: "Images",
-    text: "Press ← → to choose an image and Delete to remove it. Tab returns to the title.",
+    text: "Press ← → to choose an image, Ctrl/⌘+C to copy it and Delete to remove it. Tab returns to the title.",
   },
 };
 
@@ -203,6 +204,7 @@ export function TaskComposer({
   onCancel,
   helpMode,
   onDisableHelp,
+  onCopyImage,
 }: TaskComposerProps): ReactElement {
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
@@ -860,6 +862,7 @@ export function TaskComposer({
               id={id}
               names={images.attachments}
               onRemove={removeImage}
+              onCopy={onCopyImage}
               onFocus={() => setActiveField("images")}
               onKeyDown={handleImageKeyDown}
             />

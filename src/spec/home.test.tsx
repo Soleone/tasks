@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { revealScrollbarsWhileScrolling } from "@/scrollbars";
 import { AppWorkspace } from "@/testing/appWorkspace";
+import { fakeImageClipboard } from "@/testing/imageClipboard";
 import { selectedMainWorkspace } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import {
@@ -607,21 +608,20 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").querySelector("[title^=Created]")).not.toBeNull());
   });
 
-  test("attach.badge: with Details on, the footer counts the task's images", async () => {
-    const data = btoa("\x89PNG\r\n\x1a\npixels");
-    const names = [];
-    for (let index = 0; index < 2; index += 1)
-      names.push(
-        (await workspace.command<{ name: string }>("attachment.write", { type: "image/png", data }))
-          .name,
-      );
-    await workspace.create("Task", { attachments: names });
+  test("attach.badge: with Details on, the footer counts the task's images; clicking copies the newest", async () => {
+    await workspace.create("Task", {
+      attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
+    });
     const { user } = await workspace.render();
+    const copied = fakeImageClipboard();
     expect(row("Task").querySelector("[data-task-images]")).toBeNull();
     await user.keyboard("v");
     await waitFor(() =>
       expect(row("Task").querySelector("[data-task-images]")?.textContent).toBe("2 images"),
     );
+    await user.click(row("Task").querySelector("[data-task-images]")!);
+    await screen.findByText("Image copied to clipboard");
+    expect((await copied())?.at(-1)).toBe(2);
   });
 
   test("details.relative-dates: today's dates read today", async () => {

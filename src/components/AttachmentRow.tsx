@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type ReactElement, type Ref } from "react";
-import { ImageOff, X } from "lucide-react";
+import { Copy, ImageOff, X } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { preventFocusSteal } from "@/navigation";
@@ -51,14 +51,15 @@ function Thumbnail({ image }: { image: ImageState | undefined }): ReactElement {
 }
 
 /**
- * The editor's thumbnails as one Tab stop. Left and Right move, Delete or Backspace removes; other
- * keys go to `onKeyDown`. It works before any image has loaded.
+ * The editor's thumbnails as one Tab stop. Left and Right move, Ctrl/⌘+C copies, Delete or
+ * Backspace removes; other keys go to `onKeyDown`. It works before any image has loaded.
  */
 export function AttachmentRow({
   ref,
   id,
   names,
   onRemove,
+  onCopy,
   onFocus,
   onKeyDown,
 }: {
@@ -66,6 +67,7 @@ export function AttachmentRow({
   id: string;
   names: readonly string[];
   onRemove: (name: string) => void;
+  onCopy: (name: string) => void;
   onFocus: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }): ReactElement {
@@ -79,6 +81,16 @@ export function AttachmentRow({
       event.preventDefault();
       const step = event.key === "ArrowLeft" ? -1 : 1;
       setActive(Math.min(names.length - 1, Math.max(0, current + step)));
+      return;
+    }
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      !event.shiftKey &&
+      event.key.toLowerCase() === "c"
+    ) {
+      event.preventDefault();
+      if (!event.repeat) onCopy(names[current]);
       return;
     }
     if (plain && (event.key === "Delete" || event.key === "Backspace")) {
@@ -96,7 +108,7 @@ export function AttachmentRow({
       aria-label="Images"
       aria-orientation="horizontal"
       aria-activedescendant={`${id}-image-${current}`}
-      aria-keyshortcuts="ArrowLeft ArrowRight Delete Backspace"
+      aria-keyshortcuts="ArrowLeft ArrowRight Control+c Meta+c Delete Backspace"
       tabIndex={0}
       onFocus={onFocus}
       onKeyDown={handleKeyDown}
@@ -123,7 +135,22 @@ export function AttachmentRow({
             }}
           >
             <Thumbnail image={image} />
-            <span className="absolute top-0.5 right-0.5">
+            <span className="absolute top-0.5 right-0.5 flex gap-0.5">
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon-xs"
+                tabIndex={-1}
+                aria-label="Copy image"
+                title="Copy image"
+                onMouseDown={preventFocusSteal}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCopy(name);
+                }}
+              >
+                <Copy aria-hidden="true" />
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
