@@ -385,7 +385,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "^date",
         hint: "Due: ^fri ^tmr ^3d ^oct31",
         icon: CalendarDays,
-        keywords: "^ due date deadline today tomorrow weekday week month",
+        keywords: "^ due date deadline today tomorrow weekday week month year",
       },
       {
         label: "Names & Markdown",

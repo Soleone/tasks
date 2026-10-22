@@ -460,33 +460,46 @@ describe("shorthand", () => {
     await waitFor(async () => expect((await onlyTask()).due).toBeNull());
   });
 
-  test("shorthand.suggest-due: ^ lists dates as you type, and Enter lifts one without saving", async () => {
+  test("shorthand.suggest-due: ^ opens a month that follows the typed word and the arrow keys", async () => {
     const today = localToday();
     const friday = parseDueWord("fri", today)!;
     const { user } = await workspace.render();
     await capture(user, "Pay ^");
-    const list = await screen.findByRole("listbox", { name: "Due dates autocomplete" });
-    const options = (): string[] =>
-      within(list)
-        .getAllByRole("option")
-        .map((option) => option.textContent ?? "");
-    expect(options()[0]).toContain(`^today${formatDueDate(today, today)}`);
-    await user.keyboard("3");
-    expect(options().map((option) => option.slice(0, 3))).toEqual(["^3d", "^3w", "^3m"]);
-    await user.keyboard("{Backspace}fr");
-    expect(options()).toEqual([`^friday${formatDueDate(friday, today)}↵ select`]);
+    await screen.findByRole("group", { name: "Due date picker" });
+    const footer = (): string =>
+      screen.getByRole("group", { name: "Due date picker" }).querySelector("p")?.textContent ?? "";
+    expect(footer()).toBe(`${formatDueDate(today, today)}↵ select`);
+    await user.keyboard("fr");
+    expect(footer()).toBe(`${formatDueDate(friday, today)}↵ select`);
+    await user.keyboard("{ArrowDown}{ArrowLeft}");
+    const picked = addDays(friday, 6);
+    expect(footer()).toBe(`${formatDueDate(picked, today)}↵ select`);
     await user.keyboard("{Enter}");
     expect(titleField().value).toBe("Pay ");
-    expect(pills()).toEqual([formatDueDate(friday, today)]);
-    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(pills()).toEqual([formatDueDate(picked, today)]);
+    expect(screen.queryByRole("group", { name: "Due date picker" })).toBeNull();
     await user.keyboard("{Enter}");
-    await waitFor(async () => expect((await onlyTask()).due).toBe(friday));
+    await waitFor(async () => expect((await onlyTask()).due).toBe(picked));
+  });
+
+  test("shorthand.suggest-due: clicking a day picks it, and the date already set offers remove", async () => {
+    const tomorrow = addDays(localToday(), 1);
+    const { user } = await workspace.render();
+    await capture(user, "Pay ^");
+    const picker = await screen.findByRole("group", { name: "Due date picker" });
+    await user.click(picker.querySelector(`[data-day="${tomorrow}"] button`)!);
+    expect(pills()).toEqual([formatDueDate(tomorrow, localToday())]);
+    await user.keyboard("^tmr");
+    const again = await screen.findByRole("group", { name: "Due date picker" });
+    expect(again.querySelector("p")?.textContent).toMatch(/↵ remove$/);
+    await user.keyboard("{Enter}");
+    expect(pills()).toEqual([]);
   });
 
   test("shorthand.tab: Tab lifts a date at once", async () => {
     const { user } = await workspace.render();
     await capture(user, "Pay ^tm");
-    await screen.findByRole("listbox", { name: "Due dates autocomplete" });
+    await screen.findByRole("group", { name: "Due date picker" });
     await user.keyboard("{Tab}");
     expect(titleField().value).toBe("Pay ");
     expect(pills()).toEqual([formatDueDate(addDays(localToday(), 1), localToday())]);

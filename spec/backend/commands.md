@@ -38,7 +38,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | Rule | Then |
 | --- | --- |
 | `text.markers` | Outside code, `@name` sets the category and `#name` adds a tag, where a marker follows start of text or a character other than a letter, digit, `_`, `/` or `@`, and the name starts with a letter. Names are slugs; joined markers such as `#one@two` or `@one#two` stay literal text |
-| `text.due` | `^word` sets the due date when the word names one, with the same start rule as other markers. Words: `today`, `tomorrow` or `tmr`, a weekday (`fri`, `friday`; the next one, never today), a count of days, weeks or months (`3d`, `2w`, `1m`), a month and day (`oct31`, `october31`; this year unless it has passed) or a date (`2026-10-31`). Anything else, such as `x^2`, stays text |
+| `text.due` | `^word` sets the due date when the word names one, with the same start rule as other markers. Words: `today`, `tomorrow` or `tmr`, a weekday (`fri`, `friday`; the next one, never today), a count of days, weeks, months or years (`3d`, `2w`, `1m`, `1y`), a month and day (`oct31`, `october31`; this year unless it has passed) or a date (`2026-10-31`). Anything else, such as `x^2`, stays text |
 | `text.due-fixed` | Relative words resolve against today on the device that parses them, and the stored `text` holds the date instead (`^fri` is kept as `^2026-10-23`), so it reads the same later |
 | `text.one-due` | Two different due dates fail `INVALID_ARGUMENT` |
 | `text.code` | Text inside triple or single backticks never classifies |

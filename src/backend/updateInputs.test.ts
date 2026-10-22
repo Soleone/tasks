@@ -96,6 +96,8 @@ test("text.due: due words resolve against today; anything else stays text", () =
   assert.equal(due("3d"), "2026-10-25");
   assert.equal(due("2w"), "2026-11-05");
   assert.equal(parseShorthand("Pay ^1m", "2026-01-31").due, "2026-02-28");
+  assert.equal(due("1y"), "2027-10-22");
+  assert.equal(parseShorthand("Pay ^1y", "2028-02-29").due, "2029-02-28");
   assert.equal(due("oct31"), "2026-10-31");
   assert.equal(due("october22"), "2026-10-22");
   assert.equal(due("oct21"), "2027-10-21");

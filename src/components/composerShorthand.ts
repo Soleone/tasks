@@ -1,5 +1,4 @@
 import { addDays, localToday, parseDueWord, weekdayNames, weekdayOf } from "@/backend/dueDate";
-import { formatDueDate } from "@/backend/taskDates";
 import type { ClassificationOption } from "./taskView";
 
 export type Marker = "@" | "#" | "^";
@@ -28,13 +27,7 @@ export type Lift = {
 /** A marker and partial word right before the caret, with their range. */
 export type PartialToken = { marker: Marker; query: string; start: number; end: number };
 
-/** A due date row's slug is the date and its label the word; `detail` spells the date out. */
-export type SuggestionRow = {
-  slug: string;
-  label: string;
-  kind: "add" | "remove" | "new";
-  detail?: string;
-};
+export type SuggestionRow = { slug: string; label: string; kind: "add" | "remove" | "new" };
 
 // Same marker grammar as parseShorthand in the backend.
 const TOKEN = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b(?![\w-]*[@#])/g;
@@ -221,47 +214,28 @@ export function suggestionRows(
 }
 
 /**
- * Rows for a partial `^word`: today, tomorrow and the weekdays ahead, then counts of days, weeks and
- * months for a number, then any other word that names a date. One row per date; the date already
- * set is marked remove.
+ * The date a partial `^word` points at while it is typed: the date it already names, a count of days
+ * for a bare number, or the first of today, tomorrow and the weekdays ahead that it starts. Null
+ * when it points at none.
  */
-export function dueSuggestionRows(
-  query: string,
-  current: string | null,
-  today: string,
-): SuggestionRow[] {
+export function dueCompletion(query: string, today: string): string | null {
+  const named = parseDueWord(query, today);
+  if (named !== null) return named;
+  if (/^\d{1,3}$/.test(query)) return parseDueWord(`${query}d`, today);
   const weekdays = [1, 2, 3, 4, 5, 6, 7].map(
     (days) => weekdayNames[weekdayOf(addDays(today, days))],
   );
-  const words = ["today", "tomorrow", ...weekdays].filter(
-    (word) => word.startsWith(query) || (word === "tomorrow" && "tmr".startsWith(query)),
+  const word = ["today", "tomorrow", ...weekdays].find(
+    (candidate) =>
+      candidate.startsWith(query) || (candidate === "tomorrow" && "tmr".startsWith(query)),
   );
-  if (/^\d{1,3}$/.test(query)) words.push(`${query}d`, `${query}w`, `${query}m`);
-  else if (!words.includes(query)) words.push(query);
-  const rows: SuggestionRow[] = [];
-  for (const word of words) {
-    const date = parseDueWord(word, today);
-    if (date === null || rows.some((row) => row.slug === date)) continue;
-    rows.push({
-      slug: date,
-      label: word,
-      kind: date === current ? "remove" : "add",
-      detail: formatDueDate(date, today),
-    });
-  }
-  return rows;
+  return word === undefined ? null : parseDueWord(word, today);
 }
 
-/**
- * Enter takes the highlighted row; a row that only repeats what is typed saves instead. A date
- * always lifts first, so its pill shows before the task saves.
- */
-export function enterAction(
-  row: SuggestionRow,
-  partial: PartialToken,
-): "select" | "save" | "remove" {
+/** Enter takes the highlighted row; a row that only repeats what is typed saves instead. */
+export function enterAction(row: SuggestionRow, query: string): "select" | "save" | "remove" {
   if (row.kind === "remove") return "remove";
-  return partial.marker !== "^" && row.slug === partial.query ? "save" : "select";
+  return row.slug === query ? "save" : "select";
 }
 
 // A `^` in a saved title is escaped only where it would set a due date, so `x^2` reads as typed.

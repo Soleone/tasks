@@ -9,12 +9,12 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import { localToday } from "@/backend/dueDate";
+import { addDays, localToday } from "@/backend/dueDate";
 import type { TaskPriority } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
 import {
-  dueSuggestionRows,
+  dueCompletion,
   enterAction,
   liftAll,
   liftFinished,
@@ -31,6 +31,7 @@ import {
   type TitleDraft,
 } from "./composerShorthand";
 import { ClassificationPills, type PillLanding } from "./ClassificationPills";
+import { DueDatePicker } from "./DueDatePicker";
 import {
   createTask,
   listCategories,
@@ -169,10 +170,12 @@ function ComposerHelpTooltip({
   );
 }
 
-const suggestionListNames: Record<Marker, string> = {
-  "@": "Categories",
-  "#": "Tags",
-  "^": "Due dates",
+// Arrow keys move the highlighted due date by a day or a week.
+const dueSteps: Partial<Record<string, number>> = {
+  ArrowLeft: -1,
+  ArrowRight: 1,
+  ArrowUp: -7,
+  ArrowDown: 7,
 };
 
 // The highlighted row says what Enter does ("save task", so it reads as more than the name); the
@@ -253,6 +256,8 @@ export function TaskComposer({
   const [tags, setTags] = useState<ClassificationOption[]>([]);
   const [suggestion, setSuggestion] = useState<PartialToken | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
+  // A date picked with the arrow keys, until the typed word changes.
+  const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
   const showContextualHelp = helpMode === "full" && !pending;
   const showPriorityHelp = helpMode === "basic" && !pending;
@@ -298,21 +303,26 @@ export function TaskComposer({
     };
   }, []);
 
-  const suggestionItems: SuggestionRow[] = suggestion ? rowsFor(suggestion) : [];
-
-  function rowsFor({ marker, query }: PartialToken): SuggestionRow[] {
-    if (marker === "^") return dueSuggestionRows(query, classification.due, localToday());
-    if (marker === "#") return suggestionRows(query, tags, classification.tags);
-    return suggestionRows(
-      query,
-      categories,
-      classification.category === null ? [] : [classification.category],
-    );
-  }
+  const suggestionItems: SuggestionRow[] = !suggestion
+    ? []
+    : suggestion.marker === "@"
+      ? suggestionRows(
+          suggestion.query,
+          categories,
+          classification.category === null ? [] : [classification.category],
+        )
+      : suggestion.marker === "#"
+        ? suggestionRows(suggestion.query, tags, classification.tags)
+        : [];
+  const dueChoice =
+    suggestion?.marker === "^"
+      ? (dueCursor ?? dueCompletion(suggestion.query, localToday()))
+      : null;
 
   function updateSuggestion(nextTitle: string, cursor: number): void {
     setSuggestion(tokenBeforeCaret(nextTitle, cursor));
     setSuggestionIndex(0);
+    setDueCursor(null);
   }
 
   function commitTitle(draft: TitleDraft): void {
@@ -329,9 +339,9 @@ export function TaskComposer({
       setLanding({ marker: lift.token.marker, slug: lift.token.slug, at: lift.token.start });
   }
 
-  // The row's name replaces the partial one, as text.
-  function completeSuggestion(partial: PartialToken, row: SuggestionRow): TitleDraft {
-    const replacement = `${partial.marker}${row.slug}`;
+  // The chosen name replaces the partial one, as text.
+  function completeSuggestion(partial: PartialToken, slug: string): TitleDraft {
+    const replacement = `${partial.marker}${slug}`;
     return {
       text: `${title.slice(0, partial.start)}${replacement}${title.slice(partial.end)}`,
       caret: partial.start + replacement.length,
@@ -339,11 +349,11 @@ export function TaskComposer({
     };
   }
 
-  function chooseSuggestion(partial: PartialToken, row: SuggestionRow): void {
-    const completed = completeSuggestion(partial, row);
+  function chooseSuggestion(partial: PartialToken, slug: string): void {
+    const completed = completeSuggestion(partial, slug);
     const token = {
       marker: partial.marker,
-      slug: row.slug,
+      slug,
       start: partial.start,
       end: completed.caret,
     };
@@ -374,8 +384,9 @@ export function TaskComposer({
   }
 
   function handleSuggestionKeyDown(event: KeyboardEvent<HTMLInputElement>): boolean {
-    if (!suggestion || suggestionItems.length === 0) return false;
-    if (event.ctrlKey || event.metaKey || event.altKey) return false;
+    if (!suggestion || event.ctrlKey || event.metaKey || event.altKey) return false;
+    if (suggestion.marker === "^") return handleDueKeyDown(event, suggestion);
+    if (suggestionItems.length === 0) return false;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       moveSuggestion(event.key === "ArrowDown" ? 1 : -1);
@@ -384,8 +395,8 @@ export function TaskComposer({
     const row = suggestionItems[suggestionIndex];
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (enterAction(row, suggestion) === "save") event.currentTarget.form?.requestSubmit();
-      else chooseSuggestion(suggestion, row);
+      if (enterAction(row, suggestion.query) === "save") event.currentTarget.form?.requestSubmit();
+      else chooseSuggestion(suggestion, row.slug);
       return true;
     }
     if (event.key === "Tab" && !event.shiftKey) {
@@ -396,19 +407,36 @@ export function TaskComposer({
     return false;
   }
 
+  // Enter and Tab always lift the date, so its pill shows before the task saves.
+  function handleDueKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    partial: PartialToken,
+  ): boolean {
+    if (event.shiftKey) return false;
+    const step = dueSteps[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      setDueCursor(addDays(dueChoice ?? localToday(), step));
+      return true;
+    }
+    if (dueChoice === null || (event.key !== "Enter" && event.key !== "Tab")) return false;
+    event.preventDefault();
+    chooseSuggestion(partial, dueChoice);
+    return true;
+  }
+
   function moveSuggestion(delta: -1 | 1): void {
     setSuggestionIndex(
       (current) => (current + delta + suggestionItems.length) % suggestionItems.length,
     );
   }
 
-  // The first Tab completes the name as text; a second one chooses it. A date has no name to
-  // complete, so it is chosen at once.
+  // The first Tab completes the name as text; a second one chooses it.
   function tabSuggestion(partial: PartialToken, row: SuggestionRow): void {
-    if (partial.marker === "^" || row.slug === partial.query) chooseSuggestion(partial, row);
+    if (row.slug === partial.query) chooseSuggestion(partial, row.slug);
     else {
       lastLift.current = null;
-      commitTitle(completeSuggestion(partial, row));
+      commitTitle(completeSuggestion(partial, row.slug));
     }
   }
 
@@ -697,7 +725,9 @@ export function TaskComposer({
               required
               aria-invalid={titleError || undefined}
               aria-describedby={titleError ? `${id}-error` : undefined}
-              aria-expanded={suggestion !== null && suggestionItems.length > 0}
+              aria-expanded={
+                suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
+              }
               aria-autocomplete="list"
               onChange={(event) => {
                 setTitleError(false);
@@ -726,10 +756,18 @@ export function TaskComposer({
                 )
               }
             />
+            {suggestion?.marker === "^" ? (
+              <DueDatePicker
+                key={dueChoice ?? "none"}
+                choice={dueChoice}
+                current={classification.due}
+                onPick={(due) => chooseSuggestion(suggestion, due)}
+              />
+            ) : null}
             {suggestion && suggestionItems.length > 0 ? (
               <div
                 role="listbox"
-                aria-label={`${suggestionListNames[suggestion.marker]} autocomplete`}
+                aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
                 className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
               >
                 {suggestionItems.map((item, index) => (
@@ -741,18 +779,17 @@ export function TaskComposer({
                     tabIndex={-1}
                     className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => chooseSuggestion(suggestion, item)}
+                    onClick={() => chooseSuggestion(suggestion, item.slug)}
                   >
                     <span>
                       {suggestion.marker}
                       {item.label}
-                      {item.detail ? (
-                        <span className="ml-2 text-muted-foreground">{item.detail}</span>
-                      ) : null}
                     </span>
                     <SuggestionNote
                       row={item}
-                      action={index === suggestionIndex ? enterAction(item, suggestion) : null}
+                      action={
+                        index === suggestionIndex ? enterAction(item, suggestion.query) : null
+                      }
                     />
                   </button>
                 ))}

@@ -95,10 +95,11 @@ export function parseDueWord(word: string, today: string): string | null {
     const ahead = (weekday - weekdayOf(today) + 7) % 7 || 7;
     return addDays(today, ahead);
   }
-  const relative = /^(\d{1,3})([dwm])$/.exec(lower);
+  const relative = /^(\d{1,3})([dwmy])$/.exec(lower);
   if (relative) {
     const count = Number(relative[1]);
     if (relative[2] === "m") return addMonths(today, count);
+    if (relative[2] === "y") return addMonths(today, count * 12);
     return addDays(today, count * (relative[2] === "w" ? 7 : 1));
   }
   const monthDay = /^([a-z]+)(\d{1,2})$/.exec(lower);
