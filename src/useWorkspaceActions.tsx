@@ -476,7 +476,7 @@ export function useWorkspaceActions({
       tags: classification.tags,
       parentId: draft.parentId ?? null,
       dependencyIds: [],
-      attachments: [],
+      attachments: draft.attachments,
       blockedByIds: [],
       version: 1,
       createdAt: now,

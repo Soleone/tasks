@@ -551,3 +551,123 @@ describe("pickers", () => {
     expect((await workspace.task(second.id)).dependencyIds).toEqual([]);
   });
 });
+
+describe("images", () => {
+  const pngBytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+  const png = () => new File([new Uint8Array(pngBytes)], "shot.png", { type: "image/png" });
+
+  async function storeImage(): Promise<string> {
+    const data = btoa(String.fromCharCode(...pngBytes));
+    return (
+      await workspace.command<{ name: string }>("attachment.write", { type: "image/png", data })
+    ).name;
+  }
+
+  function paste(target: Element, files: File[], text = ""): void {
+    fireEvent.paste(target, { clipboardData: { files, getData: () => text } });
+  }
+
+  function thumbnails(): HTMLElement[] {
+    const images = screen.queryByRole("listbox", { name: "Images" });
+    return images ? within(images).queryAllByRole("option") : [];
+  }
+
+  async function openEditor(user: UserEvent, title: string): Promise<HTMLInputElement> {
+    await expectActive(title);
+    await user.keyboard("{Enter}");
+    return focusedTitleField();
+  }
+
+  test("attach.paste: an image pasted in the title is listed when the editor saves", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Screenshot");
+    const title = document.activeElement as HTMLInputElement;
+    paste(title, [png()], "copied text");
+    expect(thumbnails()).toHaveLength(0);
+    paste(title, [png()]);
+    await waitFor(() => expect(thumbnails()).toHaveLength(1));
+    await waitFor(() =>
+      expect(thumbnails()[0].querySelector("img")?.getAttribute("src")).toMatch(
+        /^data:image\/png;base64,/,
+      ),
+    );
+    await user.keyboard("{Enter}");
+    await expectListFocused();
+    const task = await onlyTask();
+    expect(task.attachments).toEqual([expect.stringMatching(/\.png$/)]);
+    expect(task.description).toBe("");
+  });
+
+  test("attach.refused: other file types and an 11th image are refused with a message", async () => {
+    const names = await Promise.all(Array.from({ length: 10 }, storeImage));
+    await workspace.create("Full", { attachments: names });
+    const { user } = await workspace.render();
+    const title = await openEditor(user, "Full");
+    await waitFor(() => expect(thumbnails()).toHaveLength(10));
+    paste(title, [png()]);
+    await screen.findByText("A task can have at most 10 images.");
+    paste(title, [new File(["BM"], "shot.bmp", { type: "image/bmp" })]);
+    await screen.findByText("Only PNG, JPEG, WebP and GIF images can be added.");
+    expect(thumbnails()).toHaveLength(10);
+  });
+
+  test("attach.row-keys: the image row is one stop; arrows move and Delete removes from the draft", async () => {
+    const [first, second] = [await storeImage(), await storeImage()];
+    const task = await workspace.create("Task", { attachments: [first, second] });
+    const { user } = await workspace.render();
+    await openEditor(user, "Task");
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    const images = screen.getByRole("listbox", { name: "Images" });
+    await waitFor(() => expect(document.activeElement).toBe(images));
+    const active = () => document.getElementById(images.getAttribute("aria-activedescendant")!);
+    expect(active()?.dataset.attachment).toBe(first);
+    await user.keyboard("{ArrowRight}");
+    expect(active()?.dataset.attachment).toBe(second);
+    await user.keyboard("{Delete}");
+    expect(thumbnails().map((option) => option.dataset.attachment)).toEqual([first]);
+    await user.keyboard("{Tab}");
+    await focusedTitleField();
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([first]));
+  });
+
+  test("attach.cancel: canceling drops images pasted in the editor", async () => {
+    const task = await workspace.create("Task");
+    const { user } = await workspace.render();
+    const title = await openEditor(user, "Task");
+    paste(title, [png()]);
+    await waitFor(() => expect(thumbnails()).toHaveLength(1));
+    await user.keyboard("{Escape}");
+    await expectListFocused();
+    expect((await workspace.task(task.id)).attachments).toEqual([]);
+  });
+
+  test("attach.missing: an image that isn't on this device reads Image missing and can be removed", async () => {
+    const name = await storeImage();
+    const task = await workspace.create("Task", { attachments: [name] });
+    await workspace.loseImage(name);
+    const { user } = await workspace.render();
+    await openEditor(user, "Task");
+    const missing = await screen.findByText("Image missing");
+    expect(missing.closest("[title]")?.getAttribute("title")).toMatch(/not have synced yet/);
+    await user.click(screen.getByRole("button", { name: "Remove image" }));
+    expect(thumbnails()).toHaveLength(0);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([]));
+  });
+
+  test("undo.scope: removing an image in the editor is undone and redone like any edit", async () => {
+    const name = await storeImage();
+    const task = await workspace.create("Task", { attachments: [name] });
+    const { user } = await workspace.render();
+    await openEditor(user, "Task");
+    await user.click(await screen.findByRole("button", { name: "Remove image" }));
+    await user.keyboard("{Enter}");
+    await expectListFocused();
+    await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([]));
+    await user.keyboard("{Control>}z{/Control}");
+    await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([name]));
+    await user.keyboard("{Control>}y{/Control}");
+    await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([]));
+  });
+});

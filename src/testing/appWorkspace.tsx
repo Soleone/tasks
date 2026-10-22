@@ -24,6 +24,7 @@ export type SeededTask = {
   description: string;
   category: string | null;
   tags: string[];
+  attachments: string[];
 };
 
 /** A disposable workspace served by the dev bridge, with the real app rendered over it. */
@@ -124,6 +125,14 @@ export class AppWorkspace {
   async arrive(name: string): Promise<void> {
     const response = await fetch(
       `${inject("workspaceServerUrl")}/arrive?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
+    );
+    if (!response.ok) throw new Error(await response.text());
+  }
+
+  /** Removes an image file from the sync folder, as when it was removed on another device. */
+  async loseImage(name: string): Promise<void> {
+    const response = await fetch(
+      `${inject("workspaceServerUrl")}/lose-image?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
     );
     if (!response.ok) throw new Error(await response.text());
   }

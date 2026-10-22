@@ -12,4 +12,5 @@ export const EDITOR_COMMANDS = [
   "operation.undo",
   "operation.redo",
   "task.transitionMany",
+  "attachment.write",
 ] as const;

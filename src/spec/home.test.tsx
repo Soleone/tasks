@@ -607,6 +607,23 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").querySelector("[title^=Created]")).not.toBeNull());
   });
 
+  test("attach.badge: with Details on, the footer counts the task's images", async () => {
+    const data = btoa("\x89PNG\r\n\x1a\npixels");
+    const names = [];
+    for (let index = 0; index < 2; index += 1)
+      names.push(
+        (await workspace.command<{ name: string }>("attachment.write", { type: "image/png", data }))
+          .name,
+      );
+    await workspace.create("Task", { attachments: names });
+    const { user } = await workspace.render();
+    expect(row("Task").querySelector("[data-task-images]")).toBeNull();
+    await user.keyboard("v");
+    await waitFor(() =>
+      expect(row("Task").querySelector("[data-task-images]")?.textContent).toBe("2 images"),
+    );
+  });
+
   test("details.relative-dates: today's dates read today", async () => {
     await workspace.create("Task");
     const { user } = await workspace.render();

@@ -6,6 +6,7 @@ import {
   type Response,
 } from "../backend/protocol";
 import type { TaskProjection } from "../backend/queries";
+import { attachmentName } from "../backend/taskModel";
 import { STATUS_COMMANDS } from "../backend/taskStatus";
 import { EDITOR_COMMANDS } from "../backend/editorCommands";
 import { RELATIONSHIP_COMMANDS } from "../backend/taskRelationships";
@@ -39,6 +40,9 @@ export type LiteralContent = Pick<
   TaskProjection,
   "title" | "description" | "priority" | "category" | "tags"
 >;
+export type InlineDraft = Pick<TaskProjection, "description" | "priority" | "attachments"> & {
+  text: string;
+};
 export type EditResult = TaskExecutionResult | Pick<TaskPreviewResult, "task" | "changed">;
 export type OrderResult = { tasks: TaskProjection[]; changed: boolean; operationId?: string };
 export type UndoResult = OrderResult & { removedIds: string[] };
@@ -357,15 +361,17 @@ export class EditorClient {
     return this.prepareTaskRequest(baseline, baseline.task ? "task.update" : "task.create", args);
   }
 
+  /** The editor's draft; `attachments` is sent only when it changes the task's list. */
   prepareInline(
     baseline: EditBaseline,
-    text: string,
-    description: string,
-    priority: TaskProjection["priority"],
+    draft: InlineDraft,
     key: string,
     parentId?: string,
   ): PreparedEdit {
+    const { text, description, priority, attachments } = draft;
     const args: Record<string, unknown> = { text, description, priority };
+    if (JSON.stringify(attachments) !== JSON.stringify(baseline.task?.attachments ?? []))
+      args.attachments = attachments;
     if (baseline.task) {
       args.id = baseline.task.id;
       args.expectedVersion = baseline.task.version;
@@ -528,7 +534,35 @@ export class EditorClient {
     return (await this.query(command, args)).result;
   }
 
-  private async query(command: string, args: Record<string, unknown>) {
+  /** One image's bytes as base64; `ATTACHMENT_NOT_FOUND` when the file isn't on this device. */
+  async readAttachment(name: string): Promise<{ type: string; data: string }> {
+    const { result } = await this.query("attachment.read", { name });
+    if (typeof result.type !== "string" || typeof result.data !== "string")
+      throw new Error("The editor returned an invalid image.");
+    return { type: result.type, data: result.data };
+  }
+
+  /**
+   * Stores one image and returns its name. A lost reply leaves at most a file no task lists, which
+   * cleanup removes, so this is never reconciled like a task write.
+   */
+  async writeAttachment(type: string, data: string): Promise<string> {
+    const { writeContext } = await this.begin();
+    const { result } = await this.query(
+      "attachment.write",
+      { type, data },
+      { writeContext, idempotencyKey: randomUUID(), readOnly: false },
+    );
+    if (typeof result.name !== "string" || !attachmentName.test(result.name))
+      throw new Error("The editor returned an invalid image name.");
+    return result.name;
+  }
+
+  private async query(
+    command: string,
+    args: Record<string, unknown>,
+    write?: { writeContext: string; idempotencyKey: string; readOnly: false },
+  ) {
     const request = {
       version: 2 as const,
       requestId: randomUUID(),
@@ -537,6 +571,7 @@ export class EditorClient {
       actor: { kind: "human" as const, label: "Tasks editor" },
       readOnly: true,
       dryRun: false,
+      ...write,
     };
     const response =
       this.connection instanceof JsonLineSession

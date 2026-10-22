@@ -39,6 +39,9 @@ const requiredFields = [
 ];
 const optionalFields = ["attachments"];
 export const MAX_ATTACHMENTS = 10;
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export const ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
+export type AttachmentType = (typeof ATTACHMENT_TYPES)[number];
 export const attachmentName = /^\d{4}-\d{2}-\d{2}-\d{6}-[0-9a-f]{8}\.(?:png|jpg|webp|gif)$/;
 const safeId = /^[A-Za-z0-9_-]+$/;
 const slug = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;

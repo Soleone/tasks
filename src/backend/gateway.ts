@@ -98,7 +98,6 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
       ...QUERY_COMMANDS,
       ...writeCommands,
       "activity.list",
-      "attachment.read",
       "workspace.doctor.inspect",
     ].sort();
     if (!commands.includes(request.command)) {

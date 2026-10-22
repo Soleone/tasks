@@ -9,10 +9,12 @@ import { assertArgs } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
-import { attachmentName } from "./taskModel.js";
+import { attachmentName, MAX_ATTACHMENT_BYTES, type AttachmentType } from "./taskModel.js";
 
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-const formats = {
+const formats: Record<
+  AttachmentType,
+  { extension: string; signature: (bytes: Buffer) => boolean }
+> = {
   "image/png": {
     extension: "png",
     signature: (bytes: Buffer) => startsWith(bytes, 0, "\x89PNG\r\n\x1a\n"),
@@ -29,8 +31,7 @@ const formats = {
     extension: "webp",
     signature: (bytes: Buffer) => startsWith(bytes, 0, "RIFF") && startsWith(bytes, 8, "WEBP"),
   },
-} as const;
-type AttachmentType = keyof typeof formats;
+};
 
 function startsWith(bytes: Buffer, offset: number, signature: string): boolean {
   return bytes.subarray(offset, offset + signature.length).equals(Buffer.from(signature, "latin1"));

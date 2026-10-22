@@ -10,6 +10,7 @@ import {
   EditorError,
   type EditorMode,
   type EditResult,
+  type InlineDraft,
   type OrderResult,
   type PreparedEdit,
   type RelationshipAction,
@@ -145,35 +146,15 @@ export class MainWorkspace {
     };
   }
 
-  async save(
-    text: string,
-    description: string,
-    priority: TaskPriority | undefined,
-    key: string,
-    id?: string,
-    version?: number,
-  ) {
-    return this.write(async () => {
-      const baseline = await this.baseline(id, version);
-      return this.editor.prepareInline(
-        baseline,
-        text,
-        description,
-        priority ?? baseline.task?.priority ?? 2,
-        key,
-      );
-    });
+  async save(draft: InlineDraft, key: string, id?: string, version?: number) {
+    return this.write(async () =>
+      this.editor.prepareInline(await this.baseline(id, version), draft, key),
+    );
   }
 
-  async createChild(
-    parentId: string,
-    text: string,
-    description: string,
-    priority: TaskPriority,
-    key: string,
-  ) {
+  async createChild(parentId: string, draft: InlineDraft, key: string) {
     return this.write(async () =>
-      this.editor.prepareInline(await this.baseline(), text, description, priority, key, parentId),
+      this.editor.prepareInline(await this.baseline(), draft, key, parentId),
     );
   }
 

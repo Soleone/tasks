@@ -18,7 +18,7 @@ Capture and edit use the same inline editor. Its stops are title, priority, an o
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description, then the image row when there are images. `Tab` from priority opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
+| `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description, then the image row when there are images. `Tab` from priority, or `Shift+Tab` from the image row, opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
 | `edit.priority` | `0`–`4` or `Left`/`Right` on the priority stop | Sets the priority. New tasks start at P2 |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |

@@ -48,6 +48,8 @@ import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group
 import { QuietInput, QuietTextarea } from "@/components/variants/input";
 import { isAndroid } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
+import { AttachmentRow } from "./AttachmentRow";
+import { useDraftImages } from "./useDraftImages";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -57,6 +59,7 @@ export type TaskCreateDraft = {
   title: string;
   description: string;
   priority: TaskPriority;
+  attachments: string[];
   parentId?: string;
 };
 
@@ -72,7 +75,7 @@ type TaskComposerProps = {
   onDisableHelp: () => void;
 };
 
-type ComposerField = "title" | "description" | "priority";
+type ComposerField = "title" | "description" | "priority" | "images";
 
 const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> = {
   title: {
@@ -86,6 +89,10 @@ const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> 
   priority: {
     heading: "Priority",
     text: "Press 0–4 or ← → to choose a priority.",
+  },
+  images: {
+    heading: "Images",
+    text: "Press ← → to choose an image and Delete to remove it. Tab returns to the title.",
   },
 };
 
@@ -201,6 +208,7 @@ export function TaskComposer({
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   const prioritySection = useRef<HTMLDivElement>(null);
+  const imageRow = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
@@ -225,6 +233,7 @@ export function TaskComposer({
   const lastLift = useRef<Lift | null>(null);
   const [description, setDescription] = useState(task?.description ?? "");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
+  const images = useDraftImages(task?.attachments ?? []);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
@@ -400,17 +409,51 @@ export function TaskComposer({
     setPriority((current) => Math.min(4, Math.max(0, current + delta)) as TaskPriority);
   }
 
-  // Tab order: title, priority, description. Tab from priority opens a closed description.
+  // Tab order: title, priority, description, images. Tab from priority, or Shift+Tab from the
+  // images, opens a closed description.
   function focusAfter(field: ComposerField, backward: boolean): void {
+    const hasImages = images.attachments.length > 0;
     if (field === "title") {
-      if (backward && notesOpen) notesInput.current?.focus();
+      if (backward && hasImages) imageRow.current?.focus();
+      else if (backward && notesOpen) notesInput.current?.focus();
       else focusPrioritySection();
     } else if (field === "priority") {
       if (backward) titleInput.current?.focus();
       else if (notesOpen) notesInput.current?.focus();
       else showNotes();
-    } else if (backward) focusPrioritySection();
-    else titleInput.current?.focus();
+    } else if (field === "description") {
+      if (backward) focusPrioritySection();
+      else if (hasImages) imageRow.current?.focus();
+      else titleInput.current?.focus();
+    } else if (!backward) titleInput.current?.focus();
+    else if (notesOpen) notesInput.current?.focus();
+    else showNotes();
+  }
+
+  function removeImage(name: string): void {
+    images.remove(name);
+    if (images.attachments.length === 1 && activeField === "images") titleInput.current?.focus();
+  }
+
+  function handleImageKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      focusAfter("images", event.shiftKey);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!pending) titleInput.current?.focus();
+    } else if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.repeat
+    ) {
+      event.preventDefault();
+      event.currentTarget.closest("form")?.requestSubmit();
+    }
   }
 
   function moveCursor(direction: -1 | 1): void {
@@ -556,11 +599,13 @@ export function TaskComposer({
     saving.current = true;
     setPending(true);
     setError(null);
+    const attachments = [...(await images.settled())];
     // A lost reply must be retried with the same receipt, not a second write.
     const payload = JSON.stringify([
       text,
       description,
       priority,
+      attachments,
       task?.id ?? "new",
       parentId ?? null,
     ]);
@@ -574,12 +619,14 @@ export function TaskComposer({
           title: text,
           description,
           priority,
+          attachments,
           ...(parentId ? { parentId } : {}),
         });
       }
+      const draft = { text, description, priority, attachments };
       const result = task
-        ? await updateTask(task.id, text, description, task.version, { ...options, priority })
-        : await createTask(text, description, { ...options, parentId, priority });
+        ? await updateTask(task.id, draft, task.version, options)
+        : await createTask(draft, { ...options, parentId });
       receipt.current = null;
       onSaved(result);
     } catch (caught) {
@@ -655,6 +702,7 @@ export function TaskComposer({
               }}
               onFocus={() => setActiveField("title")}
               onKeyDown={handleTitleKeyDown}
+              onPaste={pending ? undefined : images.paste}
               onClick={(event) =>
                 updateSuggestion(
                   event.currentTarget.value,
@@ -773,6 +821,7 @@ export function TaskComposer({
               readOnly={pending}
               onChange={(event) => setDescription(event.target.value)}
               onFocus={() => setActiveField("description")}
+              onPaste={pending ? undefined : images.paste}
               onBlur={(event) => {
                 const nextFocus = event.relatedTarget;
                 if (
@@ -800,7 +849,29 @@ export function TaskComposer({
             />
           </Field>
         ) : null}
+        {images.attachments.length > 0 ? (
+          <Field className="relative">
+            {showContextualHelp && activeField === "images" ? (
+              <ComposerHelpTooltip target="images" onDisableHelp={onDisableHelp} />
+            ) : null}
+            <FieldLabel>Images</FieldLabel>
+            <AttachmentRow
+              ref={imageRow}
+              id={id}
+              names={images.attachments}
+              onRemove={removeImage}
+              onFocus={() => setActiveField("images")}
+              onKeyDown={handleImageKeyDown}
+            />
+          </Field>
+        ) : null}
       </FieldGroup>
+      {images.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Image not added</AlertTitle>
+          <AlertDescription>{images.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>Could not save</AlertTitle>

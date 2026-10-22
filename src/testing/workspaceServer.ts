@@ -56,6 +56,12 @@ function arrive(url: string, name: string): object {
   return {};
 }
 
+/** An image file removed on another device, or not synced here yet. */
+function loseImage(url: string, name: string): object {
+  rmSync(path.join(directoryOf(url), "sync", "attachments", path.basename(name)));
+  return {};
+}
+
 async function body(request: http.IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
@@ -73,7 +79,11 @@ export default async function setup(project: TestProject): Promise<() => Promise
           ? body(request).then((line) => runCli(workspace, line))
           : url.pathname === "/arrive"
             ? Promise.resolve().then(() => arrive(workspace, url.searchParams.get("name") ?? ""))
-            : stopWorkspace(workspace).then(() => ({}));
+            : url.pathname === "/lose-image"
+              ? Promise.resolve().then(() =>
+                  loseImage(workspace, url.searchParams.get("name") ?? ""),
+                )
+              : stopWorkspace(workspace).then(() => ({}));
     work.then(
       (body) => {
         response.writeHead(200, {

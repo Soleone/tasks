@@ -58,6 +58,7 @@ const linuxEditorCommands = [
   "operation.undo",
   "operation.redo",
   "task.transitionMany",
+  "attachment.write",
 ];
 const statusSources = {
   "task.start": "done",

@@ -1,5 +1,5 @@
 import { randomUUID } from "../lib/randomUUID";
-import { EditorError } from "./editorClient";
+import { EditorError, type InlineDraft } from "./editorClient";
 import { MainWorkspace } from "./mainWorkspace";
 import { taskView, type ClassificationOption, type TaskView } from "@/components/taskView";
 import type { TaskPriority } from "@/backend/taskModel";
@@ -158,36 +158,60 @@ export async function getTask(id: string): Promise<{ task: TaskView }> {
 }
 
 export async function createTask(
-  title: string,
-  description: string,
-  options: CommandOptions & { parentId?: string; priority?: TaskPriority },
+  draft: InlineDraft,
+  options: CommandOptions & { parentId?: string },
 ): Promise<TaskMutationResult> {
   return queued(async (workspace) => {
     if (options.parentId) {
       if (!workspace.supportsRelationships)
         throw unsupported("Child capture is not yet available in the selected workspace.");
-      return workspace.createChild(
-        options.parentId,
-        title,
-        description,
-        options.priority ?? 2,
-        writeKey(options),
-      );
+      return workspace.createChild(options.parentId, draft, writeKey(options));
     }
-    return workspace.save(title, description, options.priority ?? 2, writeKey(options));
+    return workspace.save(draft, writeKey(options));
   });
 }
 
 export async function updateTask(
   id: string,
-  title: string,
-  description: string,
+  draft: InlineDraft,
   expectedVersion: number,
-  options: CommandOptions & { priority?: TaskPriority },
+  options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued((workspace) =>
-    workspace.save(title, description, options.priority, writeKey(options), id, expectedVersion),
-  );
+  return queued((workspace) => workspace.save(draft, writeKey(options), id, expectedVersion));
+}
+
+// Images never change once written, so each is read at most once per open workspace.
+const images = new WeakMap<MainWorkspace, Map<string, Promise<string>>>();
+
+function imagesOf(workspace: MainWorkspace): Map<string, Promise<string>> {
+  let cached = images.get(workspace);
+  if (!cached) images.set(workspace, (cached = new Map()));
+  return cached;
+}
+
+/** The image as a data URL. A missing one is read again next time, since it may sync later. */
+export function readAttachment(name: string): Promise<string> {
+  const workspace = selected();
+  const cached = imagesOf(workspace);
+  let image = cached.get(name);
+  if (!image) {
+    image = workspace.editor
+      .readAttachment(name)
+      .then(({ type, data }) => `data:${type};base64,${data}`);
+    cached.set(name, image);
+    image.catch(() => cached.delete(name));
+  }
+  return image;
+}
+
+/** Stores an image given as a data URL and returns its name. */
+export async function writeAttachment(dataUrl: string): Promise<string> {
+  const workspace = selected();
+  const [header, data] = dataUrl.split(",", 2);
+  const type = header.slice("data:".length, header.indexOf(";"));
+  const name = await workspace.editor.writeAttachment(type, data);
+  imagesOf(workspace).set(name, Promise.resolve(dataUrl));
+  return name;
 }
 
 export async function updateTaskPriority(

@@ -28,6 +28,13 @@ const client = await import(
   `data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`
 );
 
+const draft = (text, description = "", priority = 2) => ({
+  text,
+  description,
+  priority,
+  attachments: [],
+});
+
 const withheldActions = [
   ["transitionTasks", [[{ id: "id", expectedVersion: 1, command: "task.start" }], {}]],
   ["undoOperation", ["operation", {}]],
@@ -40,7 +47,7 @@ const withheldActions = [
 
 test("without an open task folder every client call refuses", async () => {
   await assert.rejects(() => client.listTasks(), /NO_WORKSPACE/);
-  await assert.rejects(() => client.createTask("Lost", "", {}), /NO_WORKSPACE/);
+  await assert.rejects(() => client.createTask(draft("Lost"), {}), /NO_WORKSPACE/);
 });
 
 test("main UI calls concrete selected actions; unadvertised operations never fall through", async () => {
@@ -65,7 +72,7 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
   };
   client.selectMainWorkspace(workspace);
   await assert.rejects(
-    () => client.createTask("Child", "", { parentId: "parent" }),
+    () => client.createTask(draft("Child"), { parentId: "parent" }),
     /Child capture/,
   );
   for (const [action, args] of withheldActions) {
@@ -76,15 +83,17 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
     );
   }
   assert.deepEqual(calls, []);
-  await client.createTask("Inline @work", "Notes", { priority: 1, idempotencyKey: "capture-key" });
-  await client.updateTask("id", "Inline @work", "Notes", 3, { idempotencyKey: "edit-key" });
+  await client.createTask(draft("Inline @work", "Notes", 1), { idempotencyKey: "capture-key" });
+  await client.updateTask("id", draft("Inline @work", "Notes", 1), 3, {
+    idempotencyKey: "edit-key",
+  });
   await client.updateTaskPriority({ id: "id", version: 3 }, 0, { idempotencyKey: "priority-key" });
   await client.transitionTask("task.start", "id", 3, { idempotencyKey: "status-key" });
   await client.undoStatusChange("id", 4, { idempotencyKey: "undo-key" });
   assert.equal(await client.getWorkspaceRevision(), 7);
   assert.deepEqual(calls, [
-    ["save", "Inline @work", "Notes", 1, "capture-key"],
-    ["save", "Inline @work", "Notes", undefined, "edit-key", "id", 3],
+    ["save", draft("Inline @work", "Notes", 1), "capture-key"],
+    ["save", draft("Inline @work", "Notes", 1), "edit-key", "id", 3],
     ["priority", "id", 3, 0, "priority-key"],
     ["status", "task.start", "id", 3, "status-key"],
     ["status", "task.status.undo", "id", 4, "undo-key"],
@@ -118,17 +127,17 @@ test("queued writes stay with the folder selected when they were made", async ()
   client.selectMainWorkspace(first);
   const started = client.transitionTask("task.start", "id", 1, { idempotencyKey: "start" });
   await new Promise((resolve) => setImmediate(resolve));
-  const capture = client.createTask("Queued", "", { idempotencyKey: "capture" });
+  const capture = client.createTask(draft("Queued"), { idempotencyKey: "capture" });
   client.closeMainWorkspace();
   client.selectMainWorkspace(second);
-  const nextCapture = client.createTask("Next", "", { idempotencyKey: "next" });
+  const nextCapture = client.createTask(draft("Next"), { idempotencyKey: "next" });
   finish();
   await started;
   await assert.rejects(capture, /NO_WORKSPACE/);
   await nextCapture;
   assert.deepEqual(calls, [
     ["first", "task.start", "id", 1, "start"],
-    ["second-save", "Next", "", 2, "next"],
+    ["second-save", draft("Next"), "next"],
   ]);
   client.closeMainWorkspace();
 });
@@ -216,7 +225,7 @@ test("main UI over the Linux HTTP bridge persists direct actions", async (t) => 
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
   assert.equal(workspace.supportsRelationships, true);
 
-  const created = await httpClient.createTask("Call @alice #home", "Notes", { priority: 0 });
+  const created = await httpClient.createTask(draft("Call @alice #home", "Notes", 0), {});
   assert.deepEqual([created.task.title, created.task.priority], ["Call", 0]);
   const stored = JSON.parse(
     readFileSync(path.join(root, "tasks", `${created.task.id}.json`), "utf8"),
@@ -234,7 +243,7 @@ test("main UI over the Linux HTTP bridge persists direct actions", async (t) => 
     JSON.parse(readFileSync(path.join(root, "tasks", `${openId}.json`), "utf8")).status,
     "open",
   );
-  const child = await httpClient.createTask("Child", "", { parentId: openId });
+  const child = await httpClient.createTask(draft("Child"), { parentId: openId });
   assert.equal(child.task.parentId, openId);
   const top = await httpClient.moveTask(child.task.id, null, child.task.version, {});
   const linked = await httpClient.addDependency(top.task.id, openId, top.task.version, {});
@@ -315,7 +324,9 @@ test("Linux route persists child capture, parent moves and dependency edits with
   const pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed",
     doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
 
-  const child = (await workspace.createChild(openId, "Draft brief #home", "", 1, "child-key")).task;
+  const child = (
+    await workspace.createChild(openId, draft("Draft brief #home", "", 1), "child-key")
+  ).task;
   assert.deepEqual(
     [child.parentId, stored(child.id).parentId, stored(child.id).tags],
     [openId, openId, ["home"]],
@@ -522,9 +533,7 @@ test("Linux route undoes the latest content, capture, relationship and reorder o
   const version = async (id) => (await workspace.reader.query("task.get", { id })).task.version;
   const original = stored(openId);
   const edited = await workspace.save(
-    "Renamed",
-    "",
-    undefined,
+    draft("Renamed", "", 1),
     "edit-key",
     openId,
     await version(openId),
@@ -540,7 +549,7 @@ test("Linux route undoes the latest content, capture, relationship and reorder o
     [true, "string", [original.title], original.title],
   );
 
-  const created = await workspace.createChild(openId, "Draft", "", 2, "child-key");
+  const created = await workspace.createChild(openId, draft("Draft"), "child-key");
   const removed = await workspace.undo(created.operationId, "undo-child-key");
   assert.deepEqual(
     [removed.tasks, removed.removedIds, exists(created.task.id)],
@@ -585,14 +594,12 @@ test("Linux route undoes the latest content, capture, relationship and reorder o
     /OPERATION_UNAVAILABLE/,
   );
   const first = await workspace.save(
-    "First",
-    "",
-    undefined,
+    draft("First", "", 1),
     "first-key",
     openId,
     await version(openId),
   );
-  await workspace.save("Second", "", undefined, "second-key", openId, first.task.version);
+  await workspace.save(draft("Second", "", 1), "second-key", openId, first.task.version);
   await assert.rejects(
     () => workspace.undo(first.operationId, "superseded-key"),
     /OPERATION_UNAVAILABLE/,
@@ -757,7 +764,7 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
     order = await topLevel();
   assert.equal((await workspace.undoHistory()).latest(), null);
   await record(
-    (await workspace.save("Renamed", "", undefined, "edit-key", openId, await version(openId)))
+    (await workspace.save(draft("Renamed", "", 1), "edit-key", openId, await version(openId)))
       .operationId,
   );
   await record(
@@ -776,9 +783,7 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
   await record(
     (
       await workspace.save(
-        "Paused renamed",
-        "",
-        undefined,
+        draft("Paused renamed", "", 3),
         "paused-key",
         pausedId,
         await version(pausedId),
@@ -786,14 +791,7 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
     ).operationId,
   );
   // Another writer on the same cache supersedes the newest own entry; that edit is not this client's history.
-  await workspace.save(
-    "Elsewhere",
-    "",
-    undefined,
-    "foreign-key",
-    pausedId,
-    await version(pausedId),
-  );
+  await workspace.save(draft("Elsewhere", "", 3), "foreign-key", pausedId, await version(pausedId));
   assert.notDeepEqual(await topLevel(), order);
 
   // Reopening the same root/cache/profile restores the list; the gateway refuses the superseded entry before sending.
@@ -818,7 +816,7 @@ test("Linux route keeps a bounded own undo history across reopen and walks it ba
 
   // Entries are scoped to the confirmed root, cache, profile and write context.
   await record(
-    (await workspace.save("Scoped", "", undefined, "scoped-key", openId, await version(openId)))
+    (await workspace.save(draft("Scoped", "", 1), "scoped-key", openId, await version(openId)))
       .operationId,
   );
   workspace = await restart(storage);

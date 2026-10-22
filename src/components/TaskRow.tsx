@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
-import { Clock3, Folder, RotateCcwClock, ShieldBan } from "lucide-react";
+import { Clock3, Folder, Images, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
@@ -224,9 +224,10 @@ function TaskRowRelationships({
   );
 }
 
-/** Quiet created/updated line for the time footer. Updated leads when it differs. */
-function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
+/** Quiet footer: created and updated, with Updated leading when it differs, and the image count. */
+function TaskRowFooter({ task }: { task: TaskView }): ReactElement {
   const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
+  const imageCount = task.attachments.length;
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
       {showUpdated ? (
@@ -245,6 +246,12 @@ function TaskRowTimestamps({ task }: { task: TaskView }): ReactElement {
         <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
         <span>Created {formatTaskDate(task.createdAt)}</span>
       </span>
+      {imageCount > 0 ? (
+        <span data-task-images className="inline-flex min-w-0 items-center gap-1">
+          <Images className="size-3.5 shrink-0" aria-hidden="true" />
+          <span>{imageCount === 1 ? "1 image" : `${imageCount} images`}</span>
+        </span>
+      ) : null}
     </p>
   );
 }
@@ -320,7 +327,7 @@ export function TaskRow({
             {taskContextMessage(indented)}
           </p>
         ) : null}
-        {variant === "full" && showDetails ? <TaskRowTimestamps task={task} /> : null}
+        {variant === "full" && showDetails ? <TaskRowFooter task={task} /> : null}
       </div>
     </div>
   );

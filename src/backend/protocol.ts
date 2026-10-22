@@ -143,6 +143,7 @@ export function parseResponse(value: unknown): Response {
 }
 
 export const QUERY_COMMANDS = [
+  "attachment.read",
   "category.list",
   "tag.list",
   "task.get",

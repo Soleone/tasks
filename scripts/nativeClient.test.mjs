@@ -54,7 +54,14 @@ const task = {
 const info = {
   state: "ready",
   schemaVersion: 2,
-  commands: [...EDITOR_COMMANDS, "activity.list", "task.get", "task.list", "workspace.info"].sort(),
+  commands: [
+    ...EDITOR_COMMANDS,
+    "activity.list",
+    "attachment.read",
+    "task.get",
+    "task.list",
+    "workspace.info",
+  ].sort(),
   issues: [],
   pendingOperationId: null,
   workspaceRevision: 1,
@@ -130,6 +137,8 @@ function sessionFixture(t, respond) {
   t.after(() => session.close());
   return { session, requests, launches, kills: () => kills };
 }
+
+const draft = (text, description = "") => ({ text, description, priority: 2, attachments: [] });
 
 test("reader and editor share one selected native session without HTTP or duplicate sidecars", async (t) => {
   desktop(t);
@@ -238,9 +247,7 @@ test("established inline save uses the new protocol directly, without a preview 
     new EditorClient(state.session, editorSelection),
   );
   await workspace.save(
-    "Keep the main UI @work #todo",
-    "Markdown",
-    2,
+    draft("Keep the main UI @work #todo", "Markdown"),
     "inline-key",
     task.id,
     task.version,
@@ -288,7 +295,7 @@ test("main-client stale selection never replaces the expected version or sends a
     new EditorClient(state.session, editorSelection),
   );
   await assert.rejects(
-    () => workspace.save("Draft", "", 2, "stale-key", task.id, 1),
+    () => workspace.save(draft("Draft"), "stale-key", task.id, 1),
     /draft was not sent/,
   );
   assert.ok(state.requests.every((request) => request.readOnly));
@@ -320,7 +327,7 @@ test("main-client lost reply blocks new writes and retries only the frozen reque
       }
     });
   });
-  const saving = workspace.save("Retained draft", "", 2, "original-key", task.id, task.version);
+  const saving = workspace.save(draft("Retained draft"), "original-key", task.id, task.version);
   const retained = await unresolved;
   await assert.rejects(
     () => workspace.priority(task.id, 1, 0, "replacement"),
@@ -376,11 +383,11 @@ for (const code of ["INVALID_REQUEST", "UNSUPPORTED_VERSION", "UNKNOWN_COMMAND"]
         new WorkspaceReader(selection, undefined, state.session),
         new EditorClient(state.session, editorSelection),
       );
-      await assert.rejects(workspace.save("Refused", "", 2, "refused-key", task.id, 1), { code });
+      await assert.rejects(workspace.save(draft("Refused"), "refused-key", task.id, 1), { code });
       assert.equal(workspace.getUnresolved(), null);
       assert.equal(workspace.hasWriteInProgress(), false);
       assert.equal(state.requests.filter((request) => !request.readOnly).length, 1);
-      await workspace.save("Corrected", "", 2, "next-key", task.id, 1);
+      await workspace.save(draft("Corrected"), "next-key", task.id, 1);
       assert.equal(state.requests.at(-1).idempotencyKey, "next-key");
     },
   );
@@ -410,7 +417,7 @@ for (const code of [
         new EditorClient(state.session, editorSelection),
       );
       const unresolved = nextUnresolved(workspace);
-      const saving = workspace.save("Uncertain create", "", 2, "original-key");
+      const saving = workspace.save(draft("Uncertain create"), "original-key");
       let settled = false;
       void saving.then(
         () => {
@@ -426,7 +433,7 @@ for (const code of [
         metadata = retained.prepared.retryMetadata;
       assert.equal(original.command, "task.create");
       assert.equal(workspace.hasWriteInProgress(), true);
-      await assert.rejects(workspace.save("Replacement", "", 2, "replacement-key"), {
+      await assert.rejects(workspace.save(draft("Replacement"), "replacement-key"), {
         code: "WRITE_IN_PROGRESS",
       });
       const before = state.requests.length;
@@ -442,7 +449,7 @@ for (const code of [
       assert.match(metadata, /original-key/);
       workspace.getUnresolved().preserveForReconciliation();
       await rejected;
-      await assert.rejects(workspace.save("Replacement", "", 2, "new-key"), {
+      await assert.rejects(workspace.save(draft("Replacement"), "new-key"), {
         code: "MANUAL_RECONCILIATION",
       });
     },
@@ -469,7 +476,7 @@ test(
       new EditorClient(state.session, editorSelection),
     );
     const unresolved = nextUnresolved(workspace);
-    const saving = workspace.save("Possibly published", "", 2, "original-key");
+    const saving = workspace.save(draft("Possibly published"), "original-key");
     const retained = await unresolved,
       before = state.requests.length;
     await retained.retry();
@@ -511,10 +518,10 @@ for (const fault of ["local-error", "wrong-correlation", "malformed-response"]) 
         editor,
       );
       const unresolved = nextUnresolved(workspace);
-      const saving = workspace.save("Uncertain", "", 2, "original-key", task.id, 1);
+      const saving = workspace.save(draft("Uncertain"), "original-key", task.id, 1);
       const rejected = assert.rejects(saving, /external reconciliation/);
       const retained = await unresolved;
-      await assert.rejects(workspace.save("Replacement", "", 2, "replacement-key"), {
+      await assert.rejects(workspace.save(draft("Replacement"), "replacement-key"), {
         code: "WRITE_IN_PROGRESS",
       });
       retained.preserveForReconciliation();
@@ -544,12 +551,12 @@ test("acknowledged external reconciliation keeps main-client writes paused", asy
       }
     });
   });
-  const saving = workspace.save("Uncertain", "", 2, "retained-key", task.id, task.version);
+  const saving = workspace.save(draft("Uncertain"), "retained-key", task.id, task.version);
   const rejected = assert.rejects(saving, /external reconciliation/);
   const retained = await unresolved;
   retained.preserveForReconciliation();
   await rejected;
   const before = state.requests.length;
-  await assert.rejects(() => workspace.save("Replacement", "", 2, "new-key"), /Writes are paused/);
+  await assert.rejects(() => workspace.save(draft("Replacement"), "new-key"), /Writes are paused/);
   assert.equal(state.requests.length, before);
 });
