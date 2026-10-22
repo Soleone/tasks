@@ -52,7 +52,6 @@ export function DoneToday({
               render={
                 <Button
                   variant="ghost"
-                  size="sm"
                   tabIndex={-1}
                   aria-label={`${total} done today`}
                   aria-keyshortcuts="D"
