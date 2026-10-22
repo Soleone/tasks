@@ -723,6 +723,8 @@ export function TaskComposer({
               id={`${id}-title`}
               name="title"
               autoComplete="off"
+              // Without a hint, a soft keyboard offers Next when the description follows.
+              enterKeyHint="go"
               placeholder="What needs doing?"
               value={title}
               readOnly={pending}

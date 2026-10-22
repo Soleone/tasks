@@ -86,6 +86,7 @@ describe("opening and closing", () => {
     await expectActive("Old title");
     await user.keyboard("{Enter}");
     const title = await focusedTitleField();
+    expect(title.getAttribute("enterkeyhint")).toBe("go");
     await user.clear(title);
     await user.keyboard("New title{Enter}");
     await waitFor(async () => expect((await workspace.task(task.id)).title).toBe("New title"));
