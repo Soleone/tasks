@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { addDays, localToday } from "@/backend/dueDate";
+import { addDays, localToday, parseDueWord } from "@/backend/dueDate";
 import { formatDueDate } from "@/backend/taskDates";
 import { AppWorkspace, pngBytes } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
@@ -458,6 +458,38 @@ describe("shorthand", () => {
     expect(pills()).toEqual([]);
     await user.keyboard("{Enter}");
     await waitFor(async () => expect((await onlyTask()).due).toBeNull());
+  });
+
+  test("shorthand.suggest-due: ^ lists dates as you type, and Enter lifts one without saving", async () => {
+    const today = localToday();
+    const friday = parseDueWord("fri", today)!;
+    const { user } = await workspace.render();
+    await capture(user, "Pay ^");
+    const list = await screen.findByRole("listbox", { name: "Due dates autocomplete" });
+    const options = (): string[] =>
+      within(list)
+        .getAllByRole("option")
+        .map((option) => option.textContent ?? "");
+    expect(options()[0]).toContain(`^today${formatDueDate(today, today)}`);
+    await user.keyboard("3");
+    expect(options().map((option) => option.slice(0, 3))).toEqual(["^3d", "^3w", "^3m"]);
+    await user.keyboard("{Backspace}fr");
+    expect(options()).toEqual([`^friday${formatDueDate(friday, today)}↵ select`]);
+    await user.keyboard("{Enter}");
+    expect(titleField().value).toBe("Pay ");
+    expect(pills()).toEqual([formatDueDate(friday, today)]);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await onlyTask()).due).toBe(friday));
+  });
+
+  test("shorthand.tab: Tab lifts a date at once", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Pay ^tm");
+    await screen.findByRole("listbox", { name: "Due dates autocomplete" });
+    await user.keyboard("{Tab}");
+    expect(titleField().value).toBe("Pay ");
+    expect(pills()).toEqual([formatDueDate(addDays(localToday(), 1), localToday())]);
   });
 
   test("shorthand.escape: Escape drops the marker being typed and keeps the editor open", async () => {

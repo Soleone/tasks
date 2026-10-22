@@ -277,7 +277,7 @@ function TaskRowFooter({
   const imageCount = task.attachments.length;
   const today = localToday();
   return (
-    <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
       {task.due === null ? null : (
         <span
           data-task-due

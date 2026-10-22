@@ -48,14 +48,15 @@ Typing stays the same as the CLI's shorthand, but the title field keeps only the
 | --- | --- | --- |
 | `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into a pill under it. The space before it stays, so typing continues. `\@`, `\#`, text in backticks and joined markers such as `#one@two` stay in the title |
 | `shorthand.category` | `@word` | Sets the category pill. A second category replaces the first |
-| `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space | Lifts into a due date pill reading `Fri, Oct 23`, resolved against today. A second date replaces the first. A word that names no date stays text, and `^` never opens suggestions |
+| `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space or chosen from suggestions | Lifts into a due date pill reading `Fri, Oct 23`, resolved against today. A second date replaces the first. A word that names no date stays text |
 | `shorthand.tags` | `#word` | Adds a tag pill |
 | `shorthand.toggle` | Typing or choosing a category or tag the task already has | Removes that pill |
 | `shorthand.unlift` | `Backspace` right after a lift | The pill goes back into the title as text, with the caret after it, ready to fix |
 | `shorthand.pill-click` | Clicking a pill | Removes it. Pills aren't Tab stops |
 | `shorthand.suggest` | Typing `@` or `#` | Suggestions list matching names, then pills the task already has (marked remove), then the typed name if it is new. An exact match comes first. The highlighted row shows what `Enter` does |
-| `shorthand.enter` | `Enter` with suggestions open | Chooses the highlighted row, or removes it if it is already a pill. A row that only repeats what is typed saves instead |
-| `shorthand.tab` | `Tab` with suggestions open | Completes the highlighted name as text. A second `Tab` chooses it |
+| `shorthand.suggest-due` | Typing `^` | Suggestions list today, tomorrow and the weekdays ahead, each with its date, narrowing as you type. A number offers that many days, weeks and months, and any other word that names a date shows it. The date already set is marked remove |
+| `shorthand.enter` | `Enter` with suggestions open | Chooses the highlighted row, or removes it if it is already a pill. A category or tag row that only repeats what is typed saves instead; a date always lifts first |
+| `shorthand.tab` | `Tab` with suggestions open | Completes the highlighted name as text. A second `Tab` chooses it. A date is chosen at once |
 | `shorthand.escape` | `Escape` while typing a marker | Drops that marker and name. The editor stays open |
 | `shorthand.save` | Saving with a marker still in the title | It counts as a pill. Saving never removes a pill |
 | `shorthand.literal` | Editing a saved task | The title field shows the title without markers, and the category and tags as pills. Literal `@` and `#` show escaped. The title ends in a space with the caret after it, so `@` or `#` can be typed at once. The description is Markdown and never sets category or tags |

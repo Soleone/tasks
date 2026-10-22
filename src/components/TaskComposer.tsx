@@ -9,10 +9,12 @@ import {
   type KeyboardEvent,
   type ReactElement,
 } from "react";
+import { localToday } from "@/backend/dueDate";
 import type { TaskPriority } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "./taskView";
 import { PRIORITY_META } from "@/components/taskFilters";
 import {
+  dueSuggestionRows,
   enterAction,
   liftAll,
   liftFinished,
@@ -167,6 +169,12 @@ function ComposerHelpTooltip({
   );
 }
 
+const suggestionListNames: Record<Marker, string> = {
+  "@": "Categories",
+  "#": "Tags",
+  "^": "Due dates",
+};
+
 // The highlighted row says what Enter does ("save task", so it reads as more than the name); the
 // others only mark a new name or a pill to remove.
 function SuggestionNote({
@@ -290,15 +298,17 @@ export function TaskComposer({
     };
   }, []);
 
-  const suggestionItems: SuggestionRow[] = suggestion
-    ? suggestion.marker === "@"
-      ? suggestionRows(
-          suggestion.query,
-          categories,
-          classification.category === null ? [] : [classification.category],
-        )
-      : suggestionRows(suggestion.query, tags, classification.tags)
-    : [];
+  const suggestionItems: SuggestionRow[] = suggestion ? rowsFor(suggestion) : [];
+
+  function rowsFor({ marker, query }: PartialToken): SuggestionRow[] {
+    if (marker === "^") return dueSuggestionRows(query, classification.due, localToday());
+    if (marker === "#") return suggestionRows(query, tags, classification.tags);
+    return suggestionRows(
+      query,
+      categories,
+      classification.category === null ? [] : [classification.category],
+    );
+  }
 
   function updateSuggestion(nextTitle: string, cursor: number): void {
     setSuggestion(tokenBeforeCaret(nextTitle, cursor));
@@ -374,7 +384,7 @@ export function TaskComposer({
     const row = suggestionItems[suggestionIndex];
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (enterAction(row, suggestion.query) === "save") event.currentTarget.form?.requestSubmit();
+      if (enterAction(row, suggestion) === "save") event.currentTarget.form?.requestSubmit();
       else chooseSuggestion(suggestion, row);
       return true;
     }
@@ -392,9 +402,10 @@ export function TaskComposer({
     );
   }
 
-  // The first Tab completes the name as text; a second one chooses it.
+  // The first Tab completes the name as text; a second one chooses it. A date has no name to
+  // complete, so it is chosen at once.
   function tabSuggestion(partial: PartialToken, row: SuggestionRow): void {
-    if (row.slug === partial.query) chooseSuggestion(partial, row);
+    if (partial.marker === "^" || row.slug === partial.query) chooseSuggestion(partial, row);
     else {
       lastLift.current = null;
       commitTitle(completeSuggestion(partial, row));
@@ -718,7 +729,7 @@ export function TaskComposer({
             {suggestion && suggestionItems.length > 0 ? (
               <div
                 role="listbox"
-                aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
+                aria-label={`${suggestionListNames[suggestion.marker]} autocomplete`}
                 className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
               >
                 {suggestionItems.map((item, index) => (
@@ -735,12 +746,13 @@ export function TaskComposer({
                     <span>
                       {suggestion.marker}
                       {item.label}
+                      {item.detail ? (
+                        <span className="ml-2 text-muted-foreground">{item.detail}</span>
+                      ) : null}
                     </span>
                     <SuggestionNote
                       row={item}
-                      action={
-                        index === suggestionIndex ? enterAction(item, suggestion.query) : null
-                      }
+                      action={index === suggestionIndex ? enterAction(item, suggestion) : null}
                     />
                   </button>
                 ))}

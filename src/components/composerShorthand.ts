@@ -1,4 +1,5 @@
-import { localToday, parseDueWord } from "@/backend/dueDate";
+import { addDays, localToday, parseDueWord, weekdayNames, weekdayOf } from "@/backend/dueDate";
+import { formatDueDate } from "@/backend/taskDates";
 import type { ClassificationOption } from "./taskView";
 
 export type Marker = "@" | "#" | "^";
@@ -24,15 +25,22 @@ export type Lift = {
   change: LiftChange;
 };
 
-/** A category or tag marker and partial name right before the caret, with their range. */
-export type PartialToken = { marker: "@" | "#"; query: string; start: number; end: number };
+/** A marker and partial word right before the caret, with their range. */
+export type PartialToken = { marker: Marker; query: string; start: number; end: number };
 
-export type SuggestionRow = { slug: string; label: string; kind: "add" | "remove" | "new" };
+/** A due date row's slug is the date and its label the word; `detail` spells the date out. */
+export type SuggestionRow = {
+  slug: string;
+  label: string;
+  kind: "add" | "remove" | "new";
+  detail?: string;
+};
 
 // Same marker grammar as parseShorthand in the backend.
 const TOKEN = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b(?![\w-]*[@#])/g;
 const DUE_TOKEN = /(^|[^A-Za-z0-9_/@^])\^([A-Za-z0-9][A-Za-z0-9-]*)\b/g;
 const TOKEN_BEFORE_CARET = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)?$/;
+const DUE_BEFORE_CARET = /(^|[^A-Za-z0-9_/@^])(\^)([A-Za-z0-9][A-Za-z0-9-]*)?$/;
 
 // Escapes and code spans never classify, as in parseShorthand.
 function protectedUnits(text: string): boolean[] {
@@ -91,12 +99,13 @@ function finishedToken(text: string, caret: number): ShorthandToken | null {
 
 /** The marker and partial name right before the caret, for suggestions. */
 export function tokenBeforeCaret(text: string, caret: number): PartialToken | null {
-  const match = text.slice(0, caret).match(TOKEN_BEFORE_CARET);
+  const before = text.slice(0, caret);
+  const match = before.match(TOKEN_BEFORE_CARET) ?? before.match(DUE_BEFORE_CARET);
   if (!match) return null;
   const query = match[3] ?? "";
   const start = caret - query.length - 1;
   if (protectedUnits(text)[start]) return null;
-  return { marker: match[2] as "@" | "#", query: query.toLowerCase(), start, end: caret };
+  return { marker: match[2] as Marker, query: query.toLowerCase(), start, end: caret };
 }
 
 /**
@@ -211,10 +220,48 @@ export function suggestionRows(
   return isNew ? [...known, { slug: query, label: query, kind: "new" }] : known;
 }
 
-/** Enter takes the highlighted row; a row that only repeats what is typed saves instead. */
-export function enterAction(row: SuggestionRow, query: string): "select" | "save" | "remove" {
+/**
+ * Rows for a partial `^word`: today, tomorrow and the weekdays ahead, then counts of days, weeks and
+ * months for a number, then any other word that names a date. One row per date; the date already
+ * set is marked remove.
+ */
+export function dueSuggestionRows(
+  query: string,
+  current: string | null,
+  today: string,
+): SuggestionRow[] {
+  const weekdays = [1, 2, 3, 4, 5, 6, 7].map(
+    (days) => weekdayNames[weekdayOf(addDays(today, days))],
+  );
+  const words = ["today", "tomorrow", ...weekdays].filter(
+    (word) => word.startsWith(query) || (word === "tomorrow" && "tmr".startsWith(query)),
+  );
+  if (/^\d{1,3}$/.test(query)) words.push(`${query}d`, `${query}w`, `${query}m`);
+  else if (!words.includes(query)) words.push(query);
+  const rows: SuggestionRow[] = [];
+  for (const word of words) {
+    const date = parseDueWord(word, today);
+    if (date === null || rows.some((row) => row.slug === date)) continue;
+    rows.push({
+      slug: date,
+      label: word,
+      kind: date === current ? "remove" : "add",
+      detail: formatDueDate(date, today),
+    });
+  }
+  return rows;
+}
+
+/**
+ * Enter takes the highlighted row; a row that only repeats what is typed saves instead. A date
+ * always lifts first, so its pill shows before the task saves.
+ */
+export function enterAction(
+  row: SuggestionRow,
+  partial: PartialToken,
+): "select" | "save" | "remove" {
   if (row.kind === "remove") return "remove";
-  return row.slug === query ? "save" : "select";
+  return partial.marker !== "^" && row.slug === partial.query ? "save" : "select";
 }
 
 // A `^` in a saved title is escaped only where it would set a due date, so `x^2` reads as typed.
