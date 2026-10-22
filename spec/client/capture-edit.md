@@ -35,7 +35,8 @@ Images are kept beside the text, never inside it. The description stays exactly 
 | `attach.refused` | Pasting an 11th image, a file over 10 MiB, or anything but PNG, JPEG, WebP or GIF | Refused with a message. The draft is unchanged |
 | `attach.row` | The task has images | Thumbnails sit in one row under the description, in the order they were added. Images are read only when the editor opens, and each is kept in memory for the session since it never changes |
 | `attach.row-ready` | The editor opens on a task with images | The image row works with the keyboard at once. Each thumbnail shows a placeholder until its image loads |
-| `attach.row-keys` | The image row has focus | `Left` / `Right` move between thumbnails, `Ctrl/⌘+C` copies the focused image and `Delete` or `Backspace` removes it from the draft. Each thumbnail's Copy and Remove buttons are the mouse path |
+| `attach.row-keys` | The image row has focus | `Left` / `Right` move between thumbnails, `Space` opens the preview, `Ctrl/⌘+C` copies the focused image and `Delete` or `Backspace` removes it from the draft. Each thumbnail's Copy and Remove buttons are the mouse path |
+| `attach.preview` | `Space` on the focused thumbnail, or clicking it | The image opens centered, at its own size or shrunk to fit inside the window, never larger. `Left` / `Right` and the arrow buttons step through the task's images. `Escape`, `Space` or clicking outside closes it and focus returns to the image row, on the image last viewed. A missing image has nothing to open |
 | `attach.cancel` | Canceling the editor | Images pasted or removed in it are discarded with the rest of the draft |
 | `attach.missing` | A listed image's file isn't on this device | Its thumbnail reads Image missing, with a tooltip saying it may not have synced yet or was removed on another device. It can still be removed |
 

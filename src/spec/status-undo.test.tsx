@@ -286,6 +286,10 @@ describe("undo", () => {
         "P0",
       ),
     );
+    // The history entry is saved after the write; reopening before that would find nothing.
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Undo" }).disabled).toBe(false),
+    );
     first.view.unmount();
 
     const second = await workspace.render();

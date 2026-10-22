@@ -93,7 +93,7 @@ const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> 
   },
   images: {
     heading: "Images",
-    text: "Press ← → to choose an image, Ctrl/⌘+C to copy it and Delete to remove it. Tab returns to the title.",
+    text: "Press ← → to choose an image, Space to view it, Ctrl/⌘+C to copy it and Delete to remove it. Tab returns to the title.",
   },
 };
 

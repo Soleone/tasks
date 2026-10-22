@@ -20,3 +20,27 @@ export function AnchoredDialogContent({
     />
   );
 }
+
+/** Hugs a full-size image and stays inside the window. */
+export function ImagePreviewContent({ className, ...props }: ComponentProps<typeof DialogContent>) {
+  return (
+    <DialogContent
+      className={cn("w-auto max-w-[calc(100svw-2rem)] p-2 sm:max-w-[calc(100svw-2rem)]", className)}
+      {...props}
+    />
+  );
+}
+
+/** The image in `ImagePreviewContent`: its own size, or shrunk to fit the window. */
+export function PreviewImage({ className, ...props }: ComponentProps<"img">) {
+  return (
+    <img
+      alt=""
+      className={cn(
+        "max-h-[calc(100svh-3rem)] max-w-[calc(100svw-3rem)] rounded-md object-contain",
+        className,
+      )}
+      {...props}
+    />
+  );
+}

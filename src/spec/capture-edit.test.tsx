@@ -638,6 +638,43 @@ describe("images", () => {
     await waitFor(async () => expect((await copied())?.at(-1)).toBe(2));
   });
 
+  test("attach.preview: Space or a click opens the image; arrows step through; Escape or Space closes", async () => {
+    const task = await workspace.create("Task", {
+      attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
+    });
+    const { user } = await workspace.render();
+    await openEditor(user, "Task");
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    const images = screen.getByRole("listbox", { name: "Images" });
+    await waitFor(() =>
+      expect(thumbnails().every((option) => option.querySelector("img"))).toBe(true),
+    );
+    const sources = thumbnails().map((option) => option.querySelector("img")?.getAttribute("src"));
+    const shown = async (index: number) => {
+      const preview = await screen.findByRole("dialog", { name: `Image ${index + 1} of 2` });
+      expect(preview.querySelector("img")?.getAttribute("src")).toBe(sources[index]);
+      await waitFor(() => expect(preview.contains(document.activeElement)).toBe(true));
+    };
+    await user.keyboard(" ");
+    await shown(0);
+    await user.keyboard("{ArrowRight}");
+    await shown(1);
+    await user.click(screen.getByRole("button", { name: "Previous image" }));
+    await shown(0);
+    await user.click(screen.getByRole("button", { name: "Next image" }));
+    await shown(1);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(images));
+    expect(images.getAttribute("aria-activedescendant")).toBe(thumbnails()[1].id);
+    await user.click(thumbnails()[0]);
+    await shown(0);
+    await user.keyboard(" ");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("form", { name: "Edit task" })).not.toBeNull();
+    expect((await workspace.task(task.id)).attachments).toHaveLength(2);
+  });
+
   test("attach.cancel: canceling drops images pasted in the editor", async () => {
     const task = await workspace.create("Task");
     const { user } = await workspace.render();
