@@ -16,7 +16,7 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | Verb | Command |
 | --- | --- |
 | `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort`, `--direction`, `--limit`, `--offset` |
-| `show ID` | `task.get` |
+| `show ID` | `task.get`, with each attachment's absolute path |
 | `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--parent`, `--category`, `--tag` |
 | `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--category`, `--clear-category`, `--tag`, `--clear-tags` |
 | `start` `pause` `complete` `reopen` `cancel` `delete` `ID` | the matching status command |
@@ -25,7 +25,10 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | `redo-operation ID` | `operation.redo`, with the completed undo's ID |
 | `move ID --parent ID` or `--no-parent` | `task.move` |
 | `dep-add ID DEP` / `dep-remove ID DEP` | `task.dependency.add` / `.remove` |
+| `attach ID FILE...` | `attachment.write` for each image file, then one `task.update` listing them after the existing ones |
+| `detach ID NAME...` | `task.update` without those names |
 | `purge-canceled` | `task.purgeCanceled` |
+| `clear-done` | `task.clearDone` with `--before DATE` (default: all), `--images-only` and `--export` |
 | `activity [--task ID]` | `activity.list` |
 | `categories`, `tags`, `info` | `category.list`, `tag.list`, `workspace.info` |
 | `init`, `rebuild` | `workspace.init` (creating the home first), `workspace.rebuild` |
@@ -39,6 +42,7 @@ Reorder, status batches and doctor are JSON lines only.
 | --- | --- |
 | `cli.shorthand` | Positional `add` text is shorthand. It can't be combined with `--category` or `--tag` |
 | `cli.flags-checked` | A flag that doesn't belong to the verb is a usage error |
+| `cli.attachment-paths` | `show` prints each attachment as an absolute path into the home's `sync/attachments/`, so agents can open the image. A missing file is marked missing |
 | `cli.actor` | `--actor-kind` (`human` or `agent`, default agent) and `--actor-label` set the actor |
 
 ## Retries

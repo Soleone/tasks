@@ -1,6 +1,6 @@
 # Capture and edit
 
-Capture and edit use the same inline editor. It has three stops: title, priority and an optional description.
+Capture and edit use the same inline editor. Its stops are title, priority, an optional description and, when the task has images, the image row.
 
 ## Opening and closing
 
@@ -18,12 +18,25 @@ Capture and edit use the same inline editor. It has three stops: title, priority
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description. `Tab` from priority opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
+| `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description, then the image row when there are images. `Tab` from priority opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
 | `edit.priority` | `0`–`4` or `Left`/`Right` on the priority stop | Sets the priority. New tasks start at P2 |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
 | `edit.buttons` | Save and Cancel buttons | Mouse fallbacks, not Tab stops. The dismissal button always says Cancel and sits before Add description |
 | `edit.help-tooltip` | Full keyboard help is on | A compact tooltip points at the focused field |
+
+## Images
+
+Images are kept beside the text, never inside it. The description stays exactly what was typed.
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `attach.paste` | `Ctrl/⌘+V` in the title or description with an image and no plain text on the clipboard | The image is saved and its thumbnail joins the image row. Text pastes work as before. The task lists the image when the editor saves |
+| `attach.refused` | Pasting an 11th image, a file over 10 MiB, or anything but PNG, JPEG, WebP or GIF | Refused with a message. The draft is unchanged |
+| `attach.row` | The task has images | Thumbnails sit in one row under the description, in the order they were added |
+| `attach.row-keys` | The image row has focus | `Left` / `Right` move between thumbnails, `Ctrl/⌘+C` copies the focused image and `Delete` or `Backspace` removes it from the draft. Each thumbnail's Copy and Remove buttons are the mouse path |
+| `attach.cancel` | Canceling the editor | Images pasted or removed in it are discarded with the rest of the draft |
+| `attach.missing` | A listed image's file isn't on this device | Its thumbnail reads Image missing, with a tooltip saying it may not have synced yet or was removed on another device. It can still be removed |
 
 ## Shorthand
 

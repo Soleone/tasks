@@ -15,7 +15,7 @@
 | --- | --- |
 | `status.same-state` | A request for the current status changes nothing and still succeeds |
 | `status.invalid` | Any other move outside the table fails `INVALID_TRANSITION` |
-| `status.delete-is-cancel` | `task.delete` cancels. Only `task.purgeCanceled` removes files |
+| `status.delete-is-cancel` | `task.delete` cancels. Only `task.purgeCanceled` and `task.clearDone` remove files |
 | `status.no-cascade` | Changing a task's status never changes its children or dependents |
 
 ## Relationships
@@ -35,12 +35,13 @@ Each operation uses one captured instant.
 | Change | `updatedAt` | `closedAt` |
 | --- | --- | --- |
 | Create | now | `null` |
-| Title, description, priority, category, tags | now | kept |
+| Title, description, priority, category, tags, attachments | now | kept |
 | Parent or dependency | now | kept |
 | Status to done or canceled | kept | now |
 | Status to open, in progress or paused | kept | `null` |
 | No-op | kept | kept |
 | Reorder or key maintenance | kept | kept |
+| Clearing attachments from done tasks | kept | kept |
 | Undo of a status change | kept | the exact earlier value |
 | Undo of a content or link change | now | earlier value only if closure changed |
 | Redo of a status change | kept | the exact recorded forward value |
@@ -93,7 +94,7 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `undo.order` | Undoing a reorder fails if siblings arrived, left or changed keys since |
 | `undo.create` | Undoing a create removes the file only while the task is unchanged and nothing links to it. A copy of the file is kept outside the folder |
 | `undo.graph` | The whole resulting graph is checked before any write |
-| `undo.not-destructive` | Purge, doctor and migration can't be undone. Their recovery copies replace undo |
+| `undo.not-destructive` | Purge, clear done, doctor and migration can't be undone. Their recovery copies replace undo |
 | `undo.unavailable` | Ineligible undo fails `UNDO_UNAVAILABLE` or `OPERATION_UNAVAILABLE` and changes nothing |
 | `undo.direction` | `operation.undo` reverses an original supported change or a completed `operation.redo`, never an undo. `operation.redo` reverses a completed `operation.undo` |
 
@@ -114,4 +115,21 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `purge.referenced` | If any surviving task's parent or dependency points at a canceled task, nothing is removed and it fails `PURGE_REFERENCED` listing each survivor, target and field |
 | `purge.no-relink` | Purge never reparents or unlinks survivors. Linked canceled tasks can be purged together |
 | `purge.recovery` | Removed files are copied outside the folder first. There are no tombstones |
-| `purge.empty` | With nothing canceled, it succeeds and changes nothing |
+| `purge.attachments` | Attachments listed only by purged tasks are removed with them |
+| `purge.unlisted` | Purge also removes attachments no task lists, but only those added more than 7 days ago (by their name) and not listed in any task record kept by this cache's undo and redo history |
+| `purge.empty` | With nothing canceled and nothing unlisted to remove, it succeeds and changes nothing |
+
+> Why: an image pasted on another device can arrive before the task that lists it, and an undo here can bring a removed image back. The grace period and the history check keep purge from deleting either.
+
+## Clear done
+
+| Rule | Then |
+| --- | --- |
+| `clear-done.selection` | `task.clearDone` selects done tasks whose `closedAt` is before `closedBefore`, or every done task when it is `null` |
+| `clear-done.tasks` | With scope `tasks`, the selected task files are removed, with the attachments no remaining task lists |
+| `clear-done.linked` | With scope `tasks`, a selected task stays when a task that stays links to it as parent or dependency, repeated until nothing more changes. Kept tasks are listed in `keptIds`. Links never make it fail |
+| `clear-done.attachments` | With scope `attachments`, the selected tasks lose their `attachments` (keeping `updatedAt`), and files no remaining task lists are removed. The tasks stay |
+| `clear-done.export` | With `export: true`, a zip is written to the home's `exports/` (beside the cache for a bare folder) before anything is removed: `tasks.json`, an array of the affected task files as stored, and `attachments/` with every file being removed. It is verified first; if writing it fails, nothing is removed |
+| `clear-done.recovery` | Removed files are copied outside the folder first, as with purge |
+| `clear-done.unlisted` | Attachments that no task listed beforehand are left for purge |
+| `clear-done.empty` | With nothing selected, it succeeds, changes nothing and writes no export |

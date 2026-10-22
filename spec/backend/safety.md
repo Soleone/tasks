@@ -39,6 +39,13 @@ Tasks never pretends a write succeeded or invents data to fill a gap. Reading ne
 | `edit.stage-rename` | An edit writes a hidden temp file in `tasks/`, checks that the folder is still exactly as observed, then renames it over the task file |
 | `edit.receipt-window` | If the process dies after the rename but before the receipt is stored, the edit stays applied without a receipt or undo entry, and retrying the same request fails `STALE_TASK_VERSION`. This is accepted |
 
+## Writing an attachment
+
+| Rule | Then |
+| --- | --- |
+| `attach.stage-rename` | An attachment write stages a hidden temp file in `attachments/`, flushes it, then renames it to a name that doesn't exist yet. An existing attachment is never replaced |
+| `attach.unlisted-window` | If the process dies after the rename, or the editor is canceled, the file stays unlisted. Purge removes it after its grace period (`purge.unlisted`) |
+
 ## Unfinished work
 
 | Rule | Then |

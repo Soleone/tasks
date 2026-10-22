@@ -35,6 +35,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `Delete` | Cancel | `status.cancel` |
 | `0`–`4` | Set priority P0–P4 | `priority.set` |
 | `Ctrl/⌘+C` | Copy title, description and tags | `copy.text` |
+| `Ctrl/⌘+Shift+C` | Copy the active task's newest image | `attach.copy` |
 | `Ctrl/⌘+Z` | Undo this client's latest change | `undo.latest` |
 | `Ctrl+Y` / `Ctrl/⌘+Shift+Z` | Redo this client's most recently undone change | `redo.latest` |
 | `B` | Add or remove a blocker | `pick.blocker` |

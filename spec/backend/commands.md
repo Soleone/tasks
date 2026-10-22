@@ -13,7 +13,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `envelope.fields` | Allowed fields: `version` (must be 2), `requestId`, `command`, `args`, `actor`, `idempotencyKey`, `writeContext`, `readOnly`, `dryRun`. Anything else, duplicate keys or bad JSON fail `INVALID_REQUEST` |
 | `envelope.actor` | `actor.kind` is `human`, `agent` or `system`, with a non-empty label. Default: agent, cli |
 | `envelope.reply` | Success is `{version, requestId, ok:true, writeContext, result}`. Failure is `{version, requestId, ok:false, error:{code, message, details?}}`. Callers branch on `code`, never on `message` |
-| `envelope.task-shape` | A returned task is the 13 stored fields plus `version` (a positive integer local token) and `blockedByIds` |
+| `envelope.task-shape` | A returned task is its stored fields, with optional fields at their defaults filled in, plus `version` (a positive integer local token) and `blockedByIds` |
 | `envelope.dry-run` | `dryRun` previews without writing and without using up the idempotency key |
 | `envelope.no-task-text-logs` | Default logs never contain task text |
 
@@ -55,8 +55,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Command | Args | Result |
 | --- | --- | --- |
-| `task.create` | `title` or `text`; optional `description`, `priority`, `category`, `tags`, `parentId` | `task`, `changed`, `operationId` |
-| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `category`, `tags` | `task`, `changed`, `operationId` |
+| `task.create` | `title` or `text`; optional `description`, `priority`, `category`, `tags`, `attachments`, `parentId` | `task`, `changed`, `operationId` |
+| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `category`, `tags`, `attachments` | `task`, `changed`, `operationId` |
 | `task.start` `pause` `complete` `reopen` `cancel` `delete` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.status.undo` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.move` | `id`, `expectedVersion`, `parentId` (or `null`) | `task`, `changed`, `operationId` |
@@ -67,7 +67,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `task.status.undoMany` | `tasks: [{id, expectedVersion}]` | `tasks`, `changed`, `operationId` |
 | `operation.undo` | `operationId` of a supported forward change or completed redo | affected tasks, `changed`, `operationId`; a create undo adds `removedIds`, `recoveryLocation` |
 | `operation.redo` | `operationId` of a completed `operation.undo` | affected tasks, `changed`, a new `operationId` |
-| `task.purgeCanceled` | none | `purgedIds`, `changed`, `recoveryLocation` |
+| `task.purgeCanceled` | none | `purgedIds`, `removedAttachments`, `bytes`, `changed`, `recoveryLocation` |
+| `task.clearDone` | `closedBefore` (a timestamp, or `null` for all), `scope` (`attachments` or `tasks`); optional `export: true` | `clearedIds`, `keptIds`, `removedAttachments`, `bytes`, `changed`, `recoveryLocation`, and `exportLocation` when exporting |
 
 | Rule | Then |
 | --- | --- |
@@ -75,6 +76,19 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `update.no-graph` | `task.update` can't set status, links, order keys or timestamps |
 | `reorder.one-scope` | All selected tasks and the anchor share one parent, the anchor isn't selected, and selected tasks are in their current order. Otherwise `INVALID_ARGUMENT` |
 | `batch.all-or-nothing` | `transitionMany` and `undoMany` check every item first. One bad item fails the whole batch with no writes |
+| `attach.list-replace` | `attachments` replaces the whole list. Names added by the request must exist in `attachments/`; names already listed may be missing. A name that doesn't match `data.attachment-name`, a duplicate or more than 10 fail `INVALID_ARGUMENT` |
+
+## Attachment commands
+
+| Command | Args | Result |
+| --- | --- | --- |
+| `attachment.write` | `type` (`image/png`, `image/jpeg`, `image/webp` or `image/gif`), `data` (base64) | `name`, `changed` |
+| `attachment.read` | `name` | `type`, `data` (base64) |
+
+| Rule | Then |
+| --- | --- |
+| `attach.write` | `attachment.write` checks the size and that the bytes are the stated format, picks a new name and stores the file. Listing it on a task is a separate `task.create` or `task.update`; until then it is unlisted. Too large or not an image fails `INVALID_ARGUMENT` |
+| `attach.read` | `attachment.read` returns a stored attachment's bytes. A missing file fails `ATTACHMENT_NOT_FOUND` |
 
 ## Queries
 
@@ -124,6 +138,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `INVALID_CANONICAL` / `INVALID_STORAGE` | Invalid files, or a storage failure |
 | `STALE_FILE` / `STALE_SCOPE` / `ORDER_KEY_LIMIT` | Files changed under the write, or order key too long |
 | `PURGE_REFERENCED` | Survivors still link to canceled tasks |
+| `ATTACHMENT_NOT_FOUND` | The attachment's file isn't in this folder (yet) |
 | `UNDO_UNAVAILABLE` / `OPERATION_UNAVAILABLE` | Nothing eligible to undo, or no eligible operation to redo |
 | `AMBIGUOUS_LINK` / `STALE_REPAIR_PLAN` | Doctor needs a link choice, or its plan is out of date |
 | `RECOVERY_PENDING` / `RECOVERY_CONFLICT` | Unfinished work blocks writes, or can't be safely finished |

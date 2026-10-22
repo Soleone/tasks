@@ -29,14 +29,15 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | Rule | When | Then |
 | --- | --- | --- |
 | `priority.set` | `0`–`4` on the list | Sets the active task's priority. The row shows it as a colored dot with a label and tooltip |
-| `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` |
+| `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` or images |
+| `attach.copy` | `Ctrl/⌘+Shift+C` on the list, Copy image in Task actions, or clicking the row's image glyph | Copies the active task's most recently added image and a toast confirms it. A task without images, or whose image is missing, says so |
 
 ## Undo
 
 | Rule | When | Then |
 | --- | --- | --- |
 | `undo.latest` | `Ctrl/⌘+Z`, or Undo in the toolbar (disabled when unavailable) | Undoes this client's latest change and a toast confirms it. Status and priority changes show the restored status icon or priority dot when the restored tasks share that value. Pressing again walks further back. Each successful undo makes that step available to redo |
-| `undo.scope` | Any change | Status, capture, edit, priority, parent, blocker and order changes made from this client are undoable. Changes from the CLI, agents or other devices are never offered |
+| `undo.scope` | Any change | Status, capture, edit (including images), priority, parent, blocker and order changes made from this client are undoable. Changes from the CLI, agents or other devices are never offered |
 | `undo.batch` | Undoing a batch | One step restores every task in it |
 | `undo.depth` | History | About the last 50 changes, kept for this workspace and survives reload |
 | `undo.refused` | A later change touched what the undo would restore (the same status, field, link or order), or the undo would create a cycle | Refused before anything is sent and dropped from history. The next `Ctrl/⌘+Z` tries the next older change |
