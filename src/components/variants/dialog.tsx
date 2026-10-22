@@ -21,11 +21,17 @@ export function AnchoredDialogContent({
   );
 }
 
-/** Hugs a full-size image and stays inside the window. */
+/**
+ * Hugs a full-size image and stays inside the window. It zooms from half size, so opening reads
+ * as the thumbnail growing; `!` beats the stock 95% zoom, which would otherwise win on CSS order.
+ */
 export function ImagePreviewContent({ className, ...props }: ComponentProps<typeof DialogContent>) {
   return (
     <DialogContent
-      className={cn("w-auto max-w-[calc(100svw-2rem)] p-2 sm:max-w-[calc(100svw-2rem)]", className)}
+      className={cn(
+        "w-auto max-w-[calc(100svw-2rem)] p-2 data-open:zoom-in-50! data-closed:zoom-out-50! sm:max-w-[calc(100svw-2rem)]",
+        className,
+      )}
       {...props}
     />
   );
