@@ -312,6 +312,11 @@ export function useTaskListKeyboard(
         actions.applySortField("priority");
         return;
       }
+      if (key === "t" && !event.shiftKey) {
+        event.preventDefault();
+        actions.applySortField("due");
+        return;
+      }
       if (key === "r" && !event.shiftKey) {
         event.preventDefault();
         actions.reverseSort();

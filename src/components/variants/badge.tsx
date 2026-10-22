@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 const KINDS = {
   category: "border-classification-category bg-classification-category",
   tag: "border-classification-tag bg-classification-tag",
+  due: "border-info bg-info",
 };
 
-/** Compact category and tag badges: semantic classification tokens, 20px high, quiet density. */
+/** Compact category, tag and due date badges: semantic tokens, 20px high, quiet density. */
 export function ClassificationBadge({
   kind,
   className,

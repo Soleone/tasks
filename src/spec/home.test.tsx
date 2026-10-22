@@ -1,6 +1,8 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { revealScrollbarsWhileScrolling } from "@/scrollbars";
+import { addDays, localToday } from "@/backend/dueDate";
+import { formatDueDate } from "@/backend/taskDates";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
 import { selectedMainWorkspace } from "@/platform/backendClient";
@@ -626,11 +628,31 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").textContent).toMatch(/Blocked by.*Blocker/));
   });
 
-  test("details.footer: with Details on, the last row shows Created", async () => {
-    await workspace.create("Task");
+  test("details.footer: with Details on, the last row shows the due date and Created", async () => {
+    const due = addDays(localToday(), 30);
+    await workspace.create("Task", { due });
     const { user } = await workspace.render();
     await user.keyboard("v");
     await waitFor(() => expect(row("Task").querySelector("[title^=Created]")).not.toBeNull());
+    expect(row("Task").textContent).toContain(`Due ${formatDueDate(due, localToday())}`);
+  });
+
+  test("home.due-soon: rows mark due dates within the week or past, until the task closes", async () => {
+    const today = localToday();
+    await workspace.create("Late", { due: addDays(today, -2) });
+    await workspace.create("Today", { due: today });
+    await workspace.create("Soon", { due: addDays(today, 3) });
+    await workspace.create("Later", { due: addDays(today, 7) });
+    const closed = await workspace.create("Closed", { due: today });
+    await workspace.change("task.complete", closed.id);
+    await workspace.render();
+    const marker = (title: string): string | null =>
+      row(title).querySelector("[data-task-due]")?.textContent ?? null;
+    await waitFor(() => expect(marker("Late")).toBe("Due 2d late"));
+    expect(marker("Today")).toBe("Due today");
+    expect(marker("Soon")).toBe(`Due ${formatDueDate(addDays(today, 3), today).slice(0, 3)}`);
+    expect(marker("Later")).toBeNull();
+    expect(screen.queryByText("Closed")).toBeNull();
   });
 
   test("attach.badge: with Details on, the footer counts the task's images; clicking copies the newest", async () => {

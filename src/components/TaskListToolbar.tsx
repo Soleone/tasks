@@ -18,6 +18,7 @@ import {
   ChartNoAxesColumnIncreasing,
   ChevronDown,
   Circle,
+  CalendarDays,
   Clock3,
   Flag,
   Folder,
@@ -384,9 +385,13 @@ export function TaskListToolbar({
       ? sortDirection === "desc"
         ? "Highest priority first"
         : "Lowest priority first"
-      : sortDirection === "desc"
-        ? "Newest first"
-        : "Oldest first";
+      : sortField === "due"
+        ? sortDirection === "desc"
+          ? "Soonest due first"
+          : "Latest due first"
+        : sortDirection === "desc"
+          ? "Newest first"
+          : "Oldest first";
 
   return (
     <div
@@ -650,6 +655,22 @@ export function TaskListToolbar({
                   <ChartNoAxesColumnIncreasing aria-hidden="true" />
                 </ToolbarTooltip>
                 <ToolbarTooltip
+                  tooltip={feedbackTooltip("due")}
+                  hint="Due date"
+                  render={
+                    <ToolbarToggle
+                      pressed={sortField === "due"}
+                      aria-label="Sort by due date. Press S then T."
+                      aria-keyshortcuts="T"
+                      data-sort="task-sort-due"
+                      data-toolbar-feedback="due"
+                      onClick={() => applySortField("due")}
+                    />
+                  }
+                >
+                  <CalendarDays aria-hidden="true" />
+                </ToolbarTooltip>
+                <ToolbarTooltip
                   tooltip={feedbackTooltip("manual")}
                   hint="Manual order"
                   render={
@@ -679,9 +700,13 @@ export function TaskListToolbar({
                             ? sortDirection === "desc"
                               ? "Highest priority first. Activate to show lowest priority first. Press S then R."
                               : "Lowest priority first. Activate to show highest priority first. Press S then R."
-                            : sortDirection === "desc"
-                              ? "Newest first. Activate to show oldest first. Press S then R."
-                              : "Oldest first. Activate to show newest first. Press S then R."
+                            : sortField === "due"
+                              ? sortDirection === "desc"
+                                ? "Soonest due first. Activate to show latest due first. Press S then R."
+                                : "Latest due first. Activate to show soonest due first. Press S then R."
+                              : sortDirection === "desc"
+                                ? "Newest first. Activate to show oldest first. Press S then R."
+                                : "Oldest first. Activate to show newest first. Press S then R."
                       }
                       aria-keyshortcuts="R"
                       data-sort="task-sort-reverse"

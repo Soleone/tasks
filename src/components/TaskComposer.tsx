@@ -81,7 +81,7 @@ type ComposerField = "title" | "description" | "priority" | "images";
 const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> = {
   title: {
     heading: "Title",
-    text: "Type the task title; @category and #tags become pills. Tab completes a suggestion or moves to priority, and Enter saves.",
+    text: "Type the task title; @category, #tags and ^dates (^fri, ^3d) become pills. Tab completes a suggestion or moves to priority, and Enter saves.",
   },
   description: {
     heading: "Description",
@@ -222,9 +222,10 @@ export function TaskComposer({
           classification: {
             category: task.category?.slug ?? null,
             tags: task.tags.map((tag) => tag.slug),
+            due: task.due,
           },
         }
-      : liftAll(initialTitle, { category: null, tags: [] }),
+      : liftAll(initialTitle, { category: null, tags: [], due: null }),
   );
   const [title, setTitle] = useState(initialDraft.text);
   const [classification, setClassification] = useState<Classification>(initialDraft.classification);
@@ -356,7 +357,9 @@ export function TaskComposer({
     setClassification((current) =>
       marker === "@"
         ? { ...current, category: null }
-        : { ...current, tags: current.tags.filter((tag) => tag !== slug) },
+        : marker === "^"
+          ? { ...current, due: null }
+          : { ...current, tags: current.tags.filter((tag) => tag !== slug) },
     );
   }
 

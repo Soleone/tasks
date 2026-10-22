@@ -1,12 +1,16 @@
+import { localToday, parseDueWord } from "@/backend/dueDate";
 import type { ClassificationOption } from "./taskView";
 
-export type Marker = "@" | "#";
+export type Marker = "@" | "#" | "^";
 
-/** A `@category` or `#tag` in the title field, with its slug and code-unit range. */
+/**
+ * A `@category`, `#tag` or `^due` in the title field, with its code-unit range. The slug of a due
+ * marker is the date it names.
+ */
 type ShorthandToken = { marker: Marker; slug: string; start: number; end: number };
 
-/** The pills under the title field, as slugs. Tags keep the order they were added in. */
-export type Classification = { category: string | null; tags: string[] };
+/** The pills under the title field. Tags keep the order they were added in. */
+export type Classification = { category: string | null; tags: string[]; due: string | null };
 
 type LiftChange = "added" | "replaced" | "removed" | "kept";
 
@@ -20,13 +24,14 @@ export type Lift = {
   change: LiftChange;
 };
 
-/** A marker and partial name right before the caret, with their range. */
-export type PartialToken = { marker: Marker; query: string; start: number; end: number };
+/** A category or tag marker and partial name right before the caret, with their range. */
+export type PartialToken = { marker: "@" | "#"; query: string; start: number; end: number };
 
 export type SuggestionRow = { slug: string; label: string; kind: "add" | "remove" | "new" };
 
 // Same marker grammar as parseShorthand in the backend.
 const TOKEN = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b(?![\w-]*[@#])/g;
+const DUE_TOKEN = /(^|[^A-Za-z0-9_/@^])\^([A-Za-z0-9][A-Za-z0-9-]*)\b/g;
 const TOKEN_BEFORE_CARET = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)?$/;
 
 // Escapes and code spans never classify, as in parseShorthand.
@@ -48,7 +53,7 @@ function protectedUnits(text: string): boolean[] {
         continue;
       }
     }
-    if (text[index] === "\\" && ["@", "#", "\\"].includes(text[index + 1])) {
+    if (text[index] === "\\" && ["@", "#", "^", "\\"].includes(text[index + 1])) {
       units.fill(true, index, index + 2);
       index += 2;
       continue;
@@ -67,7 +72,14 @@ function shorthandTokens(text: string): ShorthandToken[] {
     const marker = match[2] as Marker;
     tokens.push({ marker, slug: match[3].toLowerCase(), start, end: start + 1 + match[3].length });
   }
-  return tokens;
+  const today = localToday();
+  for (const match of text.matchAll(DUE_TOKEN)) {
+    const start = match.index + match[1].length;
+    const due = isProtected[start] ? null : parseDueWord(match[2], today);
+    if (due !== null)
+      tokens.push({ marker: "^", slug: due, start, end: start + 1 + match[2].length });
+  }
+  return tokens.sort((a, b) => a.start - b.start);
 }
 
 // A token is finished once whitespace follows it and the caret has moved past.
@@ -84,7 +96,7 @@ export function tokenBeforeCaret(text: string, caret: number): PartialToken | nu
   const query = match[3] ?? "";
   const start = caret - query.length - 1;
   if (protectedUnits(text)[start]) return null;
-  return { marker: match[2] as Marker, query: query.toLowerCase(), start, end: caret };
+  return { marker: match[2] as "@" | "#", query: query.toLowerCase(), start, end: caret };
 }
 
 /**
@@ -107,31 +119,33 @@ function removeToken(
   };
 }
 
-/** With `toggle`, a category or tag that is already a pill comes off instead. */
+/** With `toggle`, a pill that is already there comes off instead. */
 function applyToken(
   classification: Classification,
   token: Pick<ShorthandToken, "marker" | "slug">,
   toggle: boolean,
 ): { classification: Classification; change: LiftChange } {
-  const { category, tags } = classification;
-  if (token.marker === "@") {
-    if (category === token.slug)
+  const { category, tags, due } = classification;
+  if (token.marker === "@" || token.marker === "^") {
+    const field = token.marker === "@" ? "category" : "due";
+    const current = token.marker === "@" ? category : due;
+    if (current === token.slug)
       return toggle
-        ? { classification: { category: null, tags }, change: "removed" }
+        ? { classification: { ...classification, [field]: null }, change: "removed" }
         : { classification, change: "kept" };
     return {
-      classification: { category: token.slug, tags },
-      change: category === null ? "added" : "replaced",
+      classification: { ...classification, [field]: token.slug },
+      change: current === null ? "added" : "replaced",
     };
   }
   if (tags.includes(token.slug))
     return toggle
       ? {
-          classification: { category, tags: tags.filter((tag) => tag !== token.slug) },
+          classification: { ...classification, tags: tags.filter((tag) => tag !== token.slug) },
           change: "removed",
         }
       : { classification, change: "kept" };
-  return { classification: { category, tags: [...tags, token.slug] }, change: "added" };
+  return { classification: { ...classification, tags: [...tags, token.slug] }, change: "added" };
 }
 
 /** Moves one token from the text into the pills. */
@@ -203,6 +217,18 @@ export function enterAction(row: SuggestionRow, query: string): "select" | "save
   return row.slug === query ? "save" : "select";
 }
 
+// A `^` in a saved title is escaped only where it would set a due date, so `x^2` reads as typed.
+function isDueMarker(title: string, index: number): boolean {
+  DUE_TOKEN.lastIndex = Math.max(0, index - 1);
+  const match = DUE_TOKEN.exec(title);
+  DUE_TOKEN.lastIndex = 0;
+  return (
+    match !== null &&
+    match.index + match[1].length === index &&
+    parseDueWord(match[2], localToday()) !== null
+  );
+}
+
 /** A saved title as the title field shows it: literal markers escaped so they stay text. */
 export function shorthandTitle(title: string): string {
   let escaped = "";
@@ -217,8 +243,11 @@ export function shorthandTitle(title: string): string {
         continue;
       }
     }
-    const character = title[index++];
-    escaped += ["\\", "@", "#"].includes(character) ? `\\${character}` : character;
+    const character = title[index];
+    const literalMarker =
+      ["\\", "@", "#"].includes(character) || (character === "^" && isDueMarker(title, index));
+    escaped += literalMarker ? `\\${character}` : character;
+    index += 1;
   }
   return escaped;
 }
@@ -228,6 +257,7 @@ export function shorthandText(title: string, classification: Classification): st
   const markers = [
     ...(classification.category ? [`@${classification.category}`] : []),
     ...classification.tags.map((tag) => `#${tag}`),
+    ...(classification.due ? [`^${classification.due}`] : []),
   ];
   // Markers go first so an unclosed code fence in the title cannot swallow them.
   return [...markers, title.trim()].filter(Boolean).join(" ");

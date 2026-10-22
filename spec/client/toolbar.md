@@ -3,7 +3,7 @@
 One compact toolbar above the list, in this order:
 
 ```text
-[ + ]  ⧩ [ Category Status Priority Tags Unblocked Search ]  ⇣ [ Created Updated Priority Manual Reverse ]  ☝ [ Details Reorder Undo Task actions ]
+[ + ]  ⧩ [ Category Status Priority Tags Unblocked Search ]  ⇣ [ Created Updated Priority Due Manual Reverse ]  ☝ [ Details Reorder Undo Task actions ]
 ```
 
 Each button shows its value through its pressed state, label and tooltip. Filters, search and sort are remembered between launches.
@@ -73,5 +73,6 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 | `sort.created` | `S` `C` | Created date |
 | `sort.updated` | `S` `U` | Updated date |
 | `sort.priority` | `S` `P` | Priority, P0 first |
+| `sort.due` | `S` `T` | Due date, soonest first. Tasks without one stay last, also when reversed (see `list.sort-due`) |
 | `sort.manual` | `S` `M` | Manual order, the order shared with the CLI and agents |
-| `sort.reverse` | `S` `R` | Reverses date or priority order. Not available for Manual |
+| `sort.reverse` | `S` `R` | Reverses date, priority or due order. Not available for Manual |

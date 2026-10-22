@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import { addDays, localToday } from "@/backend/dueDate";
+import { formatDueDate } from "@/backend/taskDates";
 import { AppWorkspace, pngBytes } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
 import {
@@ -188,7 +190,7 @@ describe("shorthand", () => {
   }
 
   function pills(): string[] {
-    return within(within(editor()).getByRole("list", { name: "Category and tags" }))
+    return within(within(editor()).getByRole("list", { name: "Category, tags and due date" }))
       .queryAllByRole("listitem")
       .map((item) => item.textContent ?? "");
   }
@@ -347,7 +349,7 @@ describe("shorthand", () => {
         within(bar)
           .getAllByRole("button")
           .map((button) => button.getAttribute("aria-label")),
-      ).toEqual(["Escape", "@", "#", "Move cursor left", "Move cursor right"]);
+      ).toEqual(["Escape", "@", "#", "^", "Move cursor left", "Move cursor right"]);
       await barKey(user, "Move cursor left");
       expect(titleField().selectionStart).toBe(7);
       await barKey(user, "Move cursor right");
@@ -436,6 +438,26 @@ describe("shorthand", () => {
     const { user } = await workspace.render();
     await capture(user, "Buy ");
     expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
+  });
+
+  test("shorthand.due: ^tmr lifts into a date pill, saves the date and comes off with a click", async () => {
+    const tomorrow = addDays(localToday(), 1);
+    const { user } = await workspace.render();
+    await capture(user, "Pay x^2 ^tmr rent");
+    expect(titleField().value).toBe("Pay x^2 rent");
+    expect(pills()).toEqual([formatDueDate(tomorrow, localToday())]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => {
+      const task = await onlyTask();
+      expect([task.title, task.due]).toEqual(["Pay x^2 rent", tomorrow]);
+    });
+    await expectListFocused();
+    await user.keyboard("{Enter}");
+    expect((await focusedTitleField()).value).toBe("Pay x^2 rent ");
+    await user.click(within(editor()).getByRole("button", { name: /^Remove due date/ }));
+    expect(pills()).toEqual([]);
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await onlyTask()).due).toBeNull());
   });
 
   test("shorthand.escape: Escape drops the marker being typed and keeps the editor open", async () => {

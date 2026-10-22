@@ -93,7 +93,7 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "canceled", label: "Canceled", key: "X" },
 ];
 
-export type SortField = "created" | "updated" | "priority" | "manual";
+export type SortField = "created" | "updated" | "priority" | "due" | "manual";
 export type SortDirection = "asc" | "desc";
 
 /** Quiet status message for a selected sort. */
@@ -101,6 +101,8 @@ export function sortSummary(field: SortField, direction: SortDirection): string 
   if (field === "manual") return "manual order";
   if (field === "priority")
     return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
+  if (field === "due")
+    return `by due date, ${direction === "desc" ? "soonest first" : "latest first"}`;
   return `by ${field}, ${direction}`;
 }
 
@@ -112,6 +114,12 @@ export function compareTasksForViewSort(
   direction: SortDirection,
 ): number {
   if (field === "manual") return 0;
+  if (field === "due") {
+    // Undated tasks stay last in either direction, as in the engine.
+    if ((a.due === null) !== (b.due === null)) return a.due === null ? 1 : -1;
+    if (a.due !== b.due) return (a.due! < b.due! ? -1 : 1) * (direction === "desc" ? 1 : -1);
+    return a.priority - b.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  }
   if (field === "priority") {
     const priorityDirection = direction === "desc" ? 1 : -1;
     return (

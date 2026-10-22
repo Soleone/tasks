@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { addDays, localToday } from "@/backend/dueDate";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows, focusedTitleField } from "@/testing/taskList";
 
@@ -18,6 +19,21 @@ function pressed(selector: string): string | null {
 function countLine(): string {
   return document.querySelector("[data-filter-summary]")?.textContent ?? "";
 }
+
+describe("sort", () => {
+  test("sort.due: S T sorts soonest due first and keeps undated tasks last when reversed", async () => {
+    const today = localToday();
+    await workspace.create("Undated");
+    await workspace.create("Next week", { due: addDays(today, 7) });
+    await workspace.create("Tomorrow", { due: addDays(today, 1) });
+    const { user } = await workspace.render();
+    await user.keyboard("st");
+    await waitFor(() => expect(pressed("[data-sort=task-sort-due]")).toBe("true"));
+    await expectRows(["Tomorrow", "Next week", "Undated"]);
+    await user.keyboard("sr");
+    await expectRows(["Next week", "Tomorrow", "Undated"]);
+  });
+});
 
 describe("count line", () => {
   test("count.line: one line reports the matching count and never mentions sort", async () => {

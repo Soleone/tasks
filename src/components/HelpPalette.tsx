@@ -1,6 +1,7 @@
 import { Fragment, useRef, type ReactElement } from "react";
 import {
   ArrowDownUp,
+  CalendarDays,
   Circle,
   CircleCheck,
   CircleHelp,
@@ -234,9 +235,9 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Sort tasks",
         hint: "S focuses toolbar; P sorts by priority",
         icon: ArrowDownUp,
-        keys: ["S", "C/U/P/M/R"],
+        keys: ["S", "C/U/P/T/M/R"],
         keywords:
-          "s order sort created updated priority manual reverse newest oldest direction focus close toggle",
+          "s order sort created updated priority due date deadline time manual reverse newest oldest direction focus close toggle",
       },
       {
         label: "Select a task range",
@@ -381,6 +382,12 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keywords: "#planning #calls title",
       },
       {
+        label: "^date",
+        hint: "Due: ^fri ^tmr ^3d ^oct31",
+        icon: CalendarDays,
+        keywords: "^ due date deadline today tomorrow weekday week month",
+      },
+      {
         label: "Names & Markdown",
         hint: "Letters, numbers, _ -",
         icon: FileText,
@@ -455,7 +462,7 @@ export function HelpPalette({
       open={open}
       onOpenChange={onOpenChange}
       title="Shortcuts and syntax"
-      description="Keyboard help, @categories and #tags."
+      description="Keyboard help, @categories, #tags and ^dates."
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >

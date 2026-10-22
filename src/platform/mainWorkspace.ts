@@ -99,9 +99,9 @@ export class MainWorkspace {
   hasWriteInProgress = (): boolean => this.writing;
 
   async tasks(args: Record<string, unknown>) {
-    // The UI's priority "desc" means most important (P0) first; the engine sorts the number.
+    // The UI's "desc" means most pressing first (P0, soonest due); the engine sorts the value.
     const direction =
-      args.sort === "priority" && args.direction !== undefined
+      (args.sort === "priority" || args.sort === "due") && args.direction !== undefined
         ? args.direction === "desc"
           ? "asc"
           : "desc"

@@ -42,12 +42,13 @@ Images are kept beside the text, never inside it. The description stays exactly 
 
 ## Shorthand
 
-Typing stays the same as the CLI's shorthand, but the title field keeps only the words. Category and tags sit as pills under it.
+Typing stays the same as the CLI's shorthand, but the title field keeps only the words. Category, tags and the due date sit as pills under it.
 
 | Rule | When | Then |
 | --- | --- | --- |
 | `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into a pill under it. The space before it stays, so typing continues. `\@`, `\#`, text in backticks and joined markers such as `#one@two` stay in the title |
 | `shorthand.category` | `@word` | Sets the category pill. A second category replaces the first |
+| `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space | Lifts into a due date pill reading `Fri, Oct 23`, resolved against today. A second date replaces the first. A word that names no date stays text, and `^` never opens suggestions |
 | `shorthand.tags` | `#word` | Adds a tag pill |
 | `shorthand.toggle` | Typing or choosing a category or tag the task already has | Removes that pill |
 | `shorthand.unlift` | `Backspace` right after a lift | The pill goes back into the title as text, with the caret after it, ready to fix |

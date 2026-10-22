@@ -53,6 +53,16 @@ export function addDays(date: string, days: number): string {
   return isoDay(day);
 }
 
+/** Whole days from `from` to `to`; negative when `to` is earlier. */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((utcDay(to).getTime() - utcDay(from).getTime()) / 86_400_000);
+}
+
+/** 0 for Sunday through 6 for Saturday. */
+export function weekdayOf(date: string): number {
+  return utcDay(date).getUTCDay();
+}
+
 function addMonths(date: string, count: number): string {
   const day = utcDay(date);
   const target = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + count, 1));
@@ -74,7 +84,7 @@ export function parseDueWord(word: string, today: string): string | null {
   if (lower === "tomorrow" || lower === "tmr") return addDays(today, 1);
   const weekday = Math.max(weekdays.indexOf(lower), weekdayNames.indexOf(lower));
   if (weekday !== -1) {
-    const ahead = (weekday - utcDay(today).getUTCDay() + 7) % 7 || 7;
+    const ahead = (weekday - weekdayOf(today) + 7) % 7 || 7;
     return addDays(today, ahead);
   }
   const relative = /^(\d{1,3})([dwm])$/.exec(lower);

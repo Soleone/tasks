@@ -20,6 +20,7 @@ The task list is the home screen. Everything starts and ends there: launching, c
 | `home.single-tab-stop` | The list has focus | The list is one Tab stop. `Tab` and `Shift+Tab` do nothing; focus stays on the list |
 | `home.aria` | Any list state | The active row is exposed through `aria-activedescendant`, selected rows through `aria-selected`, and a parent's expanded or collapsed state through `aria-describedby` |
 | `home.row-glyphs` | Status, category or disclosure glyph on a row | Clicking acts on that task. Glyphs are never nested buttons or Tab stops |
+| `home.due-soon` | An open, in-progress or paused task is due within 6 days, or overdue | A quiet calendar marker after its tags reads `today`, `tomorrow`, the weekday (`Fri`) or `2d late`, with the full date on hover. Today and overdue use the warning color. Dates further out show only in Details; done and canceled tasks never show the marker |
 | `home.click-keeps-focus` | Clicking a toolbar button, row glyph or header button | The button doesn't take focus; the current keyboard surface keeps it |
 | `home.dialog-return` | A dialog closes | Focus returns to the surface that opened it, never to the button that was clicked |
 | `home.refresh-keeps-focus` | The workspace changes elsewhere (CLI, agent, another device) | The list reloads without moving focus, closing an editor or losing unsaved editor text. The active task stays active while it is still visible |
@@ -92,7 +93,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | `details.mixed-marker` | Some tasks differ from the all-tasks setting | The Details button shows a dot, and its tooltip says some tasks differ |
 | `details.keep-active-visible` | Details toggles while a task is active | The active task scrolls back into view, since its row height changed |
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |
-| `details.footer` | Details is on | One quiet last row shows Created, and Updated first when it falls on a different day |
+| `details.footer` | Details is on | One quiet last row shows the due date in full when there is one, Created, and Updated before Created when it falls on a different day |
 | `details.relative-dates` | A date in the footer | Reads `today`, `yesterday` or `2 days ago`; older dates read `Sep 8`, or `Dec 10, 2025` outside the current year. Hover shows the full local time |
 | `attach.badge` | Details is on and a task has images | The footer shows an image badge with the count, known from the task alone. Clicking it copies the newest image |
 

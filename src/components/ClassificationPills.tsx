@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, type ReactElement, type RefObject } from "react";
-import { Folder, X } from "lucide-react";
+import { CalendarDays, Folder, X } from "lucide-react";
+import { localToday } from "@/backend/dueDate";
+import { formatDueDate } from "@/backend/taskDates";
 import { ClassificationBadge } from "@/components/variants/badge";
 import { preventFocusSteal } from "@/navigation";
 import type { Classification, Marker } from "./composerShorthand";
@@ -21,7 +23,7 @@ function titleOffset(input: HTMLInputElement, index: number): { x: number; y: nu
   return { x: Math.min(x - input.scrollLeft, box.right), y: box.top + box.height / 2 };
 }
 
-/** The category and tags under the title field. Clicking a pill removes it; pills are not Tab stops. */
+/** The pills under the title field. Clicking a pill removes it; pills are not Tab stops. */
 export function ClassificationPills({
   classification,
   landing,
@@ -59,16 +61,17 @@ export function ClassificationPills({
     );
   }, [landing, titleInput]);
 
-  const { category, tags } = classification;
+  const { category, tags, due } = classification;
+  const dueLabel = due === null ? null : formatDueDate(due, localToday());
   return (
     <div
       ref={row}
       role="list"
-      aria-label="Category and tags"
+      aria-label="Category, tags and due date"
       className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5"
     >
-      {category === null && tags.length === 0 ? (
-        <span className="text-xs text-muted-foreground">@category #tags</span>
+      {category === null && tags.length === 0 && due === null ? (
+        <span className="text-xs text-muted-foreground">@category #tags ^date</span>
       ) : null}
       {category === null ? null : (
         <span role="listitem" className="flex">
@@ -111,6 +114,27 @@ export function ClassificationPills({
           </ClassificationBadge>
         </span>
       ))}
+      {due === null ? null : (
+        <span role="listitem" className="flex">
+          <ClassificationBadge
+            kind="due"
+            data-pill={pillKey("^", due)}
+            render={
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={`Remove due date ${dueLabel}`}
+                onMouseDown={preventFocusSteal}
+                onClick={() => onRemove("^", due)}
+              />
+            }
+          >
+            <CalendarDays data-icon="inline-start" aria-hidden="true" />
+            {dueLabel}
+            <X data-icon="inline-end" aria-hidden="true" />
+          </ClassificationBadge>
+        </span>
+      )}
     </div>
   );
 }

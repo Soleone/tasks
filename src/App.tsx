@@ -118,6 +118,7 @@ function readSortField(): SortField {
   return stored === "created" ||
     stored === "updated" ||
     stored === "priority" ||
+    stored === "due" ||
     stored === "manual"
     ? stored
     : "created";

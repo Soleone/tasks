@@ -1,6 +1,24 @@
 /** Concise task timestamps. Date-only in rows; the time survives in tooltips. */
+import { daysBetween, weekdayOf } from "./dueDate.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** A due date in full: Fri, Oct 23, with the year outside the current one. */
+export function formatDueDate(due: string, today: string): string {
+  const [year, month, day] = due.split("-").map(Number);
+  const date = `${WEEKDAYS[weekdayOf(due)]}, ${MONTHS[month - 1]} ${day}`;
+  return due.slice(0, 4) === today.slice(0, 4) ? date : `${date}, ${year}`;
+}
+
+/** How a row names a due date within the coming week, or one already past; null further out. */
+export function dueSoonLabel(due: string, today: string): string | null {
+  const days = daysBetween(today, due);
+  if (days < 0) return `${-days}d late`;
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return days < 7 ? WEEKDAYS[weekdayOf(due)] : null;
+}
 
 /** Recent past dates use relative wording; older dates use calendar dates. */
 export function formatTaskDate(iso: string, now = new Date()): string {

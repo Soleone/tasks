@@ -24,6 +24,7 @@ export type SeededTask = {
   description: string;
   category: string | null;
   tags: string[];
+  due: string | null;
   attachments: string[];
 };
 

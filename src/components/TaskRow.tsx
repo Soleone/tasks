@@ -1,9 +1,16 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
-import { Clock3, Folder, Images, RotateCcwClock, ShieldBan } from "lucide-react";
+import { CalendarDays, Clock3, Folder, Images, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
-import { formatTaskDate, formatTaskDateTime, sameTaskDay } from "@/backend/taskDates";
+import { daysBetween, localToday } from "@/backend/dueDate";
+import {
+  dueSoonLabel,
+  formatDueDate,
+  formatTaskDate,
+  formatTaskDateTime,
+  sameTaskDay,
+} from "@/backend/taskDates";
 import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
 import { ItemDescription } from "@/components/ui/item";
@@ -147,7 +154,10 @@ function TaskRowMetadata({
   onSelectCategory?: (category: ClassificationToken) => void;
 }): ReactElement | null {
   const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
-  if (!category && task.tags.length === 0) {
+  const today = localToday();
+  const closed = task.status === "done" || task.status === "canceled";
+  const dueLabel = task.due === null || closed ? null : dueSoonLabel(task.due, today);
+  if (!category && task.tags.length === 0 && dueLabel === null) {
     if (!task.category) {
       return (
         <TaskItemMetadata>
@@ -194,6 +204,20 @@ function TaskRowMetadata({
           {tag.label}
         </ClassificationBadge>
       ))}
+      {task.due !== null && dueLabel !== null ? (
+        <span
+          data-task-due
+          title={`Due ${formatDueDate(task.due, today)}`}
+          className={cn(
+            "inline-flex items-center gap-1 text-xs",
+            daysBetween(today, task.due) <= 0 ? "text-warning" : "text-muted-foreground",
+          )}
+        >
+          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="sr-only">Due </span>
+          {dueLabel}
+        </span>
+      ) : null}
     </TaskItemMetadata>
   );
 }
@@ -231,7 +255,7 @@ function TaskRowRelationships({
   );
 }
 
-/** Quiet footer: created and updated, with Updated leading when it differs, and the image count. */
+/** Quiet footer: the due date, created and updated (leading when it differs) and the image count. */
 function TaskRowFooter({
   task,
   onCopyImage,
@@ -243,6 +267,12 @@ function TaskRowFooter({
   const imageCount = task.attachments.length;
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      {task.due === null ? null : (
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+          <span>Due {formatDueDate(task.due, localToday())}</span>
+        </span>
+      )}
       {showUpdated ? (
         <span
           className="inline-flex min-w-0 items-center gap-1"
