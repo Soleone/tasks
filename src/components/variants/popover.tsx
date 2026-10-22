@@ -14,11 +14,14 @@ export function GuidePopoverContent({ className, ...props }: ContentProps) {
   );
 }
 
-/** A short list of task titles: wider than the guide so long titles have room. */
+/** A short list of task titles: as wide as its longest title, up to the room beside the anchor. */
 export function ListPopoverContent({ className, ...props }: ContentProps) {
   return (
     <PopoverContent
-      className={cn("w-[min(26rem,calc(100vw-2rem))] gap-2 p-3", className)}
+      className={cn(
+        "w-max max-w-(--available-width) min-w-[min(18rem,var(--available-width))] gap-2 p-3",
+        className,
+      )}
       {...props}
     />
   );
