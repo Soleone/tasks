@@ -116,7 +116,7 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `purge.no-relink` | Purge never reparents or unlinks survivors. Linked canceled tasks can be purged together |
 | `purge.recovery` | Removed files are copied outside the folder first. There are no tombstones |
 | `purge.attachments` | Attachments listed only by purged tasks are removed with them |
-| `purge.unlisted` | Purge also removes attachments no task lists, but only those added more than 7 days ago (by their name) and not listed in any task record kept by this cache's undo and redo history |
+| `purge.unlisted` | Purge also removes attachments no task lists, but only names matching `data.attachment-name`, only those added more than 7 days ago (by their name) and not listed in any task record kept by this cache's undo and redo history |
 | `purge.empty` | With nothing canceled and nothing unlisted to remove, it succeeds and changes nothing |
 
 > Why: an image pasted on another device can arrive before the task that lists it, and an undo here can bring a removed image back. The grace period and the history check keep purge from deleting either.
@@ -129,7 +129,7 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `clear-done.tasks` | With scope `tasks`, the selected task files are removed, with the attachments no remaining task lists |
 | `clear-done.linked` | With scope `tasks`, a selected task stays when a task that stays links to it as parent or dependency, repeated until nothing more changes. Kept tasks are listed in `keptIds`. Links never make it fail |
 | `clear-done.attachments` | With scope `attachments`, the selected tasks lose their `attachments` (keeping `updatedAt`), and files no remaining task lists are removed. The tasks stay |
-| `clear-done.export` | With `export: true`, a zip is written to the home's `exports/` (beside the cache for a bare folder) before anything is removed: `tasks.json`, an array of the affected task files as stored, and `attachments/` with every file being removed. It is verified first; if writing it fails, nothing is removed |
+| `clear-done.export` | With `export: true`, a zip is written to the home's `exports/` before anything is removed (a bare `--root` folder refuses export with `INVALID_ARGUMENT`): `tasks.json`, an array of the affected task files as stored, and `attachments/` with every file being removed. It is verified first; if writing it fails, nothing is removed |
 | `clear-done.recovery` | Removed files are copied outside the folder first, as with purge |
 | `clear-done.unlisted` | Attachments that no task listed beforehand are left for purge |
 | `clear-done.empty` | With nothing selected, it succeeds, changes nothing and writes no export |

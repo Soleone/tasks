@@ -94,6 +94,6 @@ Every task file has these 14 required fields and may have the optional fields be
 | `data.graph` | Parent links and dependency links are each free of cycles, self-links and missing targets. Links to canceled tasks are valid |
 | `data.blocked-by` | A task's blockers are its dependencies that aren't canceled. Done dependencies still block |
 | `data.attachment-name` | An attachment name is the UTC time it was added and 8 random lowercase hex digits: `YYYY-MM-DD-HHMMSS-xxxxxxxx.ext`, with `png`, `jpg`, `webp` or `gif`. Name order is time order |
-| `data.attachment-file` | An attachment is a regular file of at most 10 MiB whose bytes match its extension's image format. It never changes once written. Other entries in `attachments/` are reported and preserved, like unrecognized task files |
+| `data.attachment-file` | An attachment is a regular file of at most 10 MiB whose bytes match its extension's image format, checked when it is written and again when it is read. It never changes once written. Reading the workspace never lists or opens `attachments/`, and anything else in it is left alone |
 | `data.attachment-missing` | A listed attachment whose file is absent doesn't make the task invalid or the observation incomplete. It may not have synced yet, or was removed on another device |
 | `data.whole-graph` | A missing file, partial read or broken link makes the observation incomplete. Writes need a complete, valid graph |

@@ -44,7 +44,7 @@ Tasks never pretends a write succeeded or invents data to fill a gap. Reading ne
 | Rule | Then |
 | --- | --- |
 | `attach.stage-rename` | An attachment write stages a hidden temp file in `attachments/`, flushes it, then renames it to a name that doesn't exist yet. An existing attachment is never replaced |
-| `attach.unlisted-window` | If the process dies after the rename, or the editor is canceled, the file stays unlisted. Purge removes it after its grace period (`purge.unlisted`) |
+| `attach.unlisted-window` | If the process dies after the rename, or the editor is canceled, the file stays unlisted |
 
 ## Unfinished work
 

@@ -67,7 +67,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `task.status.undoMany` | `tasks: [{id, expectedVersion}]` | `tasks`, `changed`, `operationId` |
 | `operation.undo` | `operationId` of a supported forward change or completed redo | affected tasks, `changed`, `operationId`; a create undo adds `removedIds`, `recoveryLocation` |
 | `operation.redo` | `operationId` of a completed `operation.undo` | affected tasks, `changed`, a new `operationId` |
-| `task.purgeCanceled` | none | `purgedIds`, `removedAttachments`, `bytes`, `changed`, `recoveryLocation` |
+| `task.purgeCanceled` | none | `purgedIds`, `removedAttachments`, `changed`, `recoveryLocation` |
 | `task.clearDone` | `closedBefore` (a timestamp, or `null` for all), `scope` (`attachments` or `tasks`); optional `export: true` | `clearedIds`, `keptIds`, `removedAttachments`, `bytes`, `changed`, `recoveryLocation`, and `exportLocation` when exporting |
 
 | Rule | Then |
@@ -88,7 +88,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | Rule | Then |
 | --- | --- |
 | `attach.write` | `attachment.write` checks the size and that the bytes are the stated format, picks a new name and stores the file. Listing it on a task is a separate `task.create` or `task.update`; until then it is unlisted. Too large or not an image fails `INVALID_ARGUMENT` |
-| `attach.read` | `attachment.read` returns a stored attachment's bytes. A missing file fails `ATTACHMENT_NOT_FOUND` |
+| `attach.read` | `attachment.read` returns a stored attachment's bytes. A missing file fails `ATTACHMENT_NOT_FOUND`; bytes that aren't the named format fail `INVALID_STORAGE` |
 
 ## Queries
 

@@ -25,10 +25,8 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | `redo-operation ID` | `operation.redo`, with the completed undo's ID |
 | `move ID --parent ID` or `--no-parent` | `task.move` |
 | `dep-add ID DEP` / `dep-remove ID DEP` | `task.dependency.add` / `.remove` |
-| `attach ID FILE...` | `attachment.write` for each image file, then one `task.update` listing them after the existing ones |
-| `detach ID NAME...` | `task.update` without those names |
+| `attach ID FILE` | `attachment.write` with the image file, then `task.update` listing it after the existing ones |
 | `purge-canceled` | `task.purgeCanceled` |
-| `clear-done` | `task.clearDone` with `--before DATE` (default: all), `--images-only` and `--export` |
 | `activity [--task ID]` | `activity.list` |
 | `categories`, `tags`, `info` | `category.list`, `tag.list`, `workspace.info` |
 | `init`, `rebuild` | `workspace.init` (creating the home first), `workspace.rebuild` |
@@ -36,7 +34,7 @@ There are two ways in from outside the app. Both use the same [commands](../back
 | `migrate DEST` | `workspace.migrate` |
 | `recover OPERATION_ID` | `workspace.recovery.resume` |
 
-Reorder, status batches and doctor are JSON lines only.
+Reorder, status batches, doctor, removing attachments and deleting done tasks are JSON lines only.
 
 | Rule | Then |
 | --- | --- |

@@ -20,7 +20,6 @@ The task list is the home screen. Everything starts and ends there: launching, c
 | `home.single-tab-stop` | The list has focus | The list is one Tab stop. `Tab` and `Shift+Tab` do nothing; focus stays on the list |
 | `home.aria` | Any list state | The active row is exposed through `aria-activedescendant`, selected rows through `aria-selected`, and a parent's expanded or collapsed state through `aria-describedby` |
 | `home.row-glyphs` | Status, category or disclosure glyph on a row | Clicking acts on that task. Glyphs are never nested buttons or Tab stops |
-| `attach.row-glyph` | A task has images | A quiet image glyph follows its tags, with the count when there is more than one. Its tooltip says Copy image |
 | `home.click-keeps-focus` | Clicking a toolbar button, row glyph or header button | The button doesn't take focus; the current keyboard surface keeps it |
 | `home.dialog-return` | A dialog closes | Focus returns to the surface that opened it, never to the button that was clicked |
 | `home.refresh-keeps-focus` | The workspace changes elsewhere (CLI, agent, another device) | The list reloads without moving focus, closing an editor or losing unsaved editor text. The active task stays active while it is still visible |
@@ -94,6 +93,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |
 | `details.footer` | Details is on | One quiet last row shows Created, and Updated first when it falls on a different day |
 | `details.relative-dates` | A date in the footer | Reads `today`, `yesterday` or `2 days ago`; older dates read `Sep 8`, or `Dec 10, 2025` outside the current year. Hover shows the full local time |
+| `attach.badge` | Details is on and a task has images | The footer shows an image badge with the count, known from the task alone. Clicking it copies the newest image |
 
 ## Scrolling
 

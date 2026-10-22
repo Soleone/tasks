@@ -23,10 +23,17 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.empty-canceled` | Empty canceled tasks in Data | Shows how many canceled tasks there are and how much space their images and unlisted images take, then asks before removing them for good (`task.purgeCanceled`). When other tasks link to canceled ones, it names them and removes nothing |
-| `settings.clear-done` | Clear done tasks… in Data | A dialog picks an age (done more than 1 month, 3 months, 1 year ago, or all; 3 months first) and what to remove: Remove images only, or Remove tasks and images. Each choice shows its counts and size from a preview. Export and clear, Clear and Cancel close it; it says the removal can't be undone |
-| `settings.clear-result` | A clear finishes | It says what was removed and how many tasks were kept because others link to them, and shows the export's path with Open folder (desktop) |
 | `settings.home` | Data | Shows the Tasks home's path with Open folder (desktop) and its sync folder's path with Copy path, and warns to add only the sync folder to Syncthing, because syncing the home copies this device's database and locks |
+
+## Deleting tasks
+
+The Data tab has one Delete tasks section, below the home and sync folder, with two items.
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `settings.delete-canceled` | Delete canceled tasks | Says how many canceled tasks there are and asks before deleting them for good (`task.purgeCanceled`). When other tasks link to canceled ones, it names them and deletes nothing |
+| `settings.delete-done` | Delete done tasks… | A dialog picks an age (done more than 1 month, 3 months, 1 year ago, or all; 3 months first) and what to delete: Images only, or Tasks and images. Each choice shows its counts and size from a preview. Export and delete, Delete and Cancel close it; it says deleting can't be undone |
+| `settings.delete-result` | Deleting done tasks finishes | It says what was deleted and how many tasks were kept because others link to them, and shows the export's path with Open folder (desktop) |
 
 ## Preferences
 

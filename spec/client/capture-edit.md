@@ -33,7 +33,8 @@ Images are kept beside the text, never inside it. The description stays exactly 
 | --- | --- | --- |
 | `attach.paste` | `Ctrl/⌘+V` in the title or description with an image and no plain text on the clipboard | The image is saved and its thumbnail joins the image row. Text pastes work as before. The task lists the image when the editor saves |
 | `attach.refused` | Pasting an 11th image, a file over 10 MiB, or anything but PNG, JPEG, WebP or GIF | Refused with a message. The draft is unchanged |
-| `attach.row` | The task has images | Thumbnails sit in one row under the description, in the order they were added |
+| `attach.row` | The task has images | Thumbnails sit in one row under the description, in the order they were added. Images are read only when the editor opens, and each is kept in memory for the session since it never changes |
+| `attach.row-ready` | The editor opens on a task with images | The image row works with the keyboard at once. Each thumbnail shows a placeholder until its image loads |
 | `attach.row-keys` | The image row has focus | `Left` / `Right` move between thumbnails, `Ctrl/⌘+C` copies the focused image and `Delete` or `Backspace` removes it from the draft. Each thumbnail's Copy and Remove buttons are the mouse path |
 | `attach.cancel` | Canceling the editor | Images pasted or removed in it are discarded with the rest of the draft |
 | `attach.missing` | A listed image's file isn't on this device | Its thumbnail reads Image missing, with a tooltip saying it may not have synced yet or was removed on another device. It can still be removed |

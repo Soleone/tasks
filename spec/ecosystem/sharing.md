@@ -8,7 +8,6 @@ A workspace is shared by syncing its folder, for example with Syncthing: the `sy
 | --- | --- |
 | `share.folder-only` | Only `workspace.json`, `tasks/` and `attachments/` are shared. Each device keeps its own home with its own cache, settings and recovery files |
 | `share.refresh` | The app notices changes from other devices and the CLI and refreshes without a restart |
-| `share.attachments` | Attachments never change after they are written, so they can't conflict. A task can arrive before its attachment; it shows as missing until the file arrives |
 | `share.join-disjoint` | Different task files from different devices simply add up |
 | `share.join-identical` | The same ID with identical bytes is one task |
 | `share.conflict-kept` | Different versions of one task, including sync conflict copies, are reported as issues. Tasks never merges them or picks a winner on its own |
