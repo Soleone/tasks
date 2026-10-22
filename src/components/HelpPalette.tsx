@@ -124,7 +124,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Copy task text",
-        hint: "Title and description without metadata",
+        hint: "Title, description and #tags",
         icon: Copy,
         keys: ["Ctrl/⌘", "C"],
         action: "copy-task",

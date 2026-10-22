@@ -71,6 +71,7 @@ import type { TaskContextActions } from "./TaskContextMenu";
 export async function copyTaskText(task: TaskView): Promise<void> {
   const text = [selectedMainWorkspace() ? task.title : (task.text ?? task.title), task.description]
     .map((value) => (selectedMainWorkspace() ? value : stripClassificationTokens(value)))
+    .concat(task.tags.map((tag) => `#${tag.slug}`))
     .filter(Boolean)
     .join(" ");
   await navigator.clipboard.writeText(text);

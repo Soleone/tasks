@@ -171,17 +171,17 @@ describe("priority and copy", () => {
     );
   });
 
-  test("copy.text: Ctrl+C copies the title and description without shorthand", async () => {
+  test("copy.text: Ctrl+C copies the title, description and tags without the category", async () => {
     await workspace.create("Call Sam", {
       description: "about the lease",
       category: "home",
-      tags: ["phone"],
+      tags: ["phone", "urgent"],
     });
     const { user } = await workspace.render();
     await expectActive("Call Sam");
     await user.keyboard("{Control>}c{/Control}");
     await waitFor(async () =>
-      expect(await navigator.clipboard.readText()).toBe("Call Sam about the lease"),
+      expect(await navigator.clipboard.readText()).toBe("Call Sam about the lease #phone #urgent"),
     );
   });
 });

@@ -29,7 +29,7 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | Rule | When | Then |
 | --- | --- | --- |
 | `priority.set` | `0`–`4` on the list | Sets the active task's priority. The row shows it as a colored dot with a label and tooltip |
-| `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description, without `@category` or `#tags` |
+| `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` |
 
 ## Undo
 
