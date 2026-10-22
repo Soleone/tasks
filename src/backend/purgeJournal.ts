@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
+import { lstatSync, readdirSync, renameSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
@@ -31,7 +31,7 @@ export type PurgeFile = { relativePath: string; beforeBytes: string; identity: s
 type PurgeRewrite = { taskId: string; nextBytes: string };
 /**
  * One purge or clear-done: task files it deletes, task files it rewrites without attachments,
- * and attachments it moves into the recovery copy once the task files are done.
+ * and attachments it deletes once the task files are done.
  */
 export type PurgeIntent = {
   format: "taskdb.pending-purge";
@@ -175,10 +175,6 @@ function recoveryName(intent: PurgeIntent): string {
 export function purgeRecoveryLocation(intent: PurgeIntent): string {
   return path.join(localDomain(intent.root), `${recoveryName(intent)}.recovery.json`);
 }
-/** Removed attachments sit next to the recovery copy, as files rather than base64. */
-function attachmentRecoveryLocation(intent: PurgeIntent): string {
-  return path.join(localDomain(intent.root), `${recoveryName(intent)}.attachments`);
-}
 function archiveBytes(intent: PurgeIntent): Buffer {
   return Buffer.from(
     `${JSON.stringify({ format: "taskdb.purge-recovery", version: 1, operationId: intent.operationId, root: intent.root, taskDirectoryIdentity: intent.taskDirectoryIdentity, cachePath: intent.cachePath, request: intent.request, at: intent.at, purgedIds: intent.purgedIds, rewrites: intent.rewrites, attachments: intent.attachments, files: intent.files })}\n`,
@@ -319,33 +315,15 @@ export function applyPurgeJournal(intent: PurgeIntent): CanonicalSnapshot {
   return verified;
 }
 
-function moveFile(source: string, target: string): void {
-  try {
-    renameSync(source, target);
-  } catch (error) {
-    // A bare root's recovery folder can be on another drive.
-    if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
-    rmSync(target, { force: true });
-    writeDurableFile(target, readRegularFile(source));
-    unlinkSync(source);
-  }
-}
-
 /** Attachments go after the task files, skipping any that sync has listed again since. */
 function retireAttachments(intent: PurgeIntent): void {
   if (!intent.attachments.length) return;
   const listed = listedAttachments(readCanonicalRoot(intent.root.rootPath).tasks);
-  const directory = attachmentRecoveryLocation(intent);
-  if (!lstatSync(directory, { throwIfNoEntry: false })) {
-    mkdirSync(directory);
-    syncDirectory(path.dirname(directory));
-  }
   for (const name of intent.attachments) {
     const source = attachmentPath(intent.root.rootPath, name);
     if (listed.has(name) || !lstatSync(source, { throwIfNoEntry: false })) continue;
-    moveFile(source, path.join(directory, name));
+    unlinkSync(source);
   }
-  syncDirectory(directory);
   syncDirectory(path.join(intent.root.rootPath, "attachments"));
 }
 

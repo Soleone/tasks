@@ -398,7 +398,7 @@ export function DeleteTasksSection(): ReactElement {
           Delete tasks
         </h2>
         <p className="text-sm text-muted-foreground">
-          Deleted tasks and images leave every synced device. A recovery copy stays on this one.
+          Deleted tasks and images leave every synced device.
         </p>
       </div>
       <DeleteCanceled />

@@ -127,38 +127,11 @@ test("purge.attachments: images only purged tasks list go with them", linux, (t)
   assert.deepEqual(result.purgedIds, ["a"]);
   assert.deepEqual(result.removedAttachments, [OLD]);
   assert.deepEqual(images(w), [OLDER]);
-  const recovered = path.join(
-    path.dirname(result.recoveryLocation as string),
-    `purge-${result.operationId as string}.attachments`,
-  );
-  assert.deepEqual(readFileSync(path.join(recovered, OLD)), png(0));
 });
 
-test("purge.unlisted: only old, pattern-named images outside undo history go", linux, (t) => {
+test("purge.unlisted: only old, pattern-named images no task lists go", linux, (t) => {
   const recent = recentName();
-  const w = materialize(t, { a: {} }, [OLD, OLDER, recent, "notes.png"]);
-  const info = success(send(w, { command: "workspace.info" }));
-  const version = (
-    success(send(w, { command: "task.get", args: { id: "a" } })).result.task as {
-      version: number;
-    }
-  ).version;
-  success(
-    send(w, {
-      command: "task.update",
-      args: { id: "a", expectedVersion: version, attachments: [OLDER] },
-      writeContext: info.writeContext,
-      idempotencyKey: "list",
-    }),
-  );
-  success(
-    send(w, {
-      command: "task.update",
-      args: { id: "a", expectedVersion: version + 1, attachments: [] },
-      writeContext: info.writeContext,
-      idempotencyKey: "unlist",
-    }),
-  );
+  const w = materialize(t, { a: { attachments: [OLDER] } }, [OLD, OLDER, recent, "notes.png"]);
   const result = success(send(w, request(w, "task.purgeCanceled", {}))).result;
   assert.deepEqual(result.purgedIds, []);
   assert.deepEqual(result.removedAttachments, [OLD]);
@@ -283,17 +256,22 @@ test("clear-done.export: a bare folder can't export and nothing changes", linux,
   assert.equal(existsSync(path.join(bare, "tasks", "d.json")), true);
 });
 
-test("clear-done.recovery: removed files are kept outside the folder", linux, (t) => {
-  const w = materialize(t, { d: { ...done("2026-01-05T00:00:00.000Z"), attachments: [OLD] } }, [
-    OLD,
-  ]);
-  const result = success(clearDone(w, { closedBefore: null, scope: "tasks" })).result;
-  const location = result.recoveryLocation as string;
-  assert.match(path.basename(location), /^clear-done-.+\.recovery\.json$/);
-  const archive = JSON.parse(readFileSync(location, "utf8"));
-  assert.deepEqual(archive.purgedIds, ["d"]);
-  assert.deepEqual(readdirSync(location.replace(/\.recovery\.json$/, ".attachments")), [OLD]);
-});
+test(
+  "clear-done.recovery: task files are kept outside the folder, images are deleted",
+  linux,
+  (t) => {
+    const w = materialize(t, { d: { ...done("2026-01-05T00:00:00.000Z"), attachments: [OLD] } }, [
+      OLD,
+    ]);
+    const result = success(clearDone(w, { closedBefore: null, scope: "tasks" })).result;
+    const location = result.recoveryLocation as string;
+    assert.match(path.basename(location), /^clear-done-.+\.recovery\.json$/);
+    const archive = JSON.parse(readFileSync(location, "utf8"));
+    assert.deepEqual(archive.purgedIds, ["d"]);
+    assert.equal(existsSync(location.replace(/\.recovery\.json$/, ".attachments")), false);
+    assert.deepEqual(images(w), []);
+  },
+);
 
 test("clear-done.unlisted: images no task listed are left for purge", linux, (t) => {
   const w = materialize(t, { d: done("2026-01-05T00:00:00.000Z") }, [OLD]);

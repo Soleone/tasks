@@ -35,7 +35,7 @@ import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { attachmentName } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
-import { attachmentsInHistory, invalidatePurgeUndo } from "./undoHistory.js";
+import { invalidatePurgeUndo } from "./undoHistory.js";
 
 // An image pasted on another device can arrive before the task that lists it.
 const UNLISTED_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -61,9 +61,8 @@ function addedAt(name: string): number {
   );
 }
 
-/** Attachments no task lists, old enough by name, that no undo or redo here could list again. */
+/** Attachments no task lists that are old enough by name. */
 function unlistedAttachments(
-  database: DatabaseSync,
   rootPath: string,
   tasks: readonly CanonicalTask[],
   at: string,
@@ -71,14 +70,9 @@ function unlistedAttachments(
   const directory = path.join(rootPath, "attachments");
   if (!existsSync(directory)) return [];
   const listed = listedAttachments(tasks);
-  const history = attachmentsInHistory(database);
   const cutoff = Date.parse(at) - UNLISTED_GRACE_MS;
   return readdirSync(directory).filter(
-    (name) =>
-      attachmentName.test(name) &&
-      !listed.has(name) &&
-      !history.has(name) &&
-      addedAt(name) < cutoff,
+    (name) => attachmentName.test(name) && !listed.has(name) && addedAt(name) < cutoff,
   );
 }
 
@@ -168,7 +162,7 @@ export function executeRemoval(request: Request, rootPath: string, cachePath: st
       const sizes = new Map<string, number>();
       for (const name of clearing
         ? released
-        : [...released, ...unlistedAttachments(database, root.rootPath, snapshot.tasks, at)]) {
+        : [...released, ...unlistedAttachments(root.rootPath, snapshot.tasks, at)]) {
         const size = fileSize(attachmentPath(root.rootPath, name));
         if (size !== undefined) sizes.set(name, size);
       }

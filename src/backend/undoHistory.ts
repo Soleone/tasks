@@ -4,7 +4,6 @@ import { parseCanonicalJson } from "./strictJson.js";
 import { historyAffected, historyOrigin, historyTasks } from "./undoPlan.js";
 import { isRecord } from "./protocol.js";
 import type { HistorySource, UndoInput } from "./undoPlan.js";
-import { attachmentName } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 type HistoryRow = { id: string; command: string; before_record: string; after_record: string };
@@ -151,18 +150,4 @@ export function selectUndoHistory(
     if (error instanceof CommandError) return unavailable();
     throw error;
   }
-}
-
-/** Every attachment name this cache's undo and redo history holds, since undoing could list it again. */
-export function attachmentsInHistory(database: DatabaseSync): Set<string> {
-  const pattern = new RegExp(attachmentName.source.slice(1, -1), "g");
-  const names = new Set<string>();
-  const rows = database.prepare("SELECT before_record, after_record FROM v2_operations").all() as {
-    before_record: string;
-    after_record: string;
-  }[];
-  for (const row of rows)
-    for (const record of [row.before_record, row.after_record])
-      for (const [name] of record.matchAll(pattern)) names.add(name);
-  return names;
 }
