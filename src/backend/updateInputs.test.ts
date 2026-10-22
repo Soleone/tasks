@@ -114,6 +114,10 @@ test("text.due-fixed: the stored text holds the date, not the relative word", ()
     "Pay ^2026-10-23 \\@home #bills",
   );
   assert.equal(parseShorthand("`^x` Pay ^tmr", today).text, "`^x` Pay ^2026-10-23");
+  assert.throws(
+    () => parseUpdate({ id: "a", expectedVersion: 1, text: `${"a".repeat(995)} ^1d` }),
+    (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+  );
 });
 
 test("text.one-due: two different due dates are refused; the same one twice is fine", () => {

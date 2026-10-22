@@ -24,13 +24,11 @@ export function parseContentPatch(args: Record<string, unknown>): UpdateInput["p
     invalidInput("mixed text/classification");
   const patch: UpdateInput["patch"] = {};
   if (args.text !== undefined) {
-    if (
-      typeof args.text !== "string" ||
-      args.text.trim().length > 1000 ||
-      /[\uD800-\uDFFF]/u.test(args.text)
-    )
-      invalidInput("text");
-    Object.assign(patch, parseShorthand(args.text));
+    if (typeof args.text !== "string" || /[\uD800-\uDFFF]/u.test(args.text)) invalidInput("text");
+    // Checked after parsing, since due words grow into dates in the stored text.
+    const parsed = parseShorthand(args.text);
+    if (parsed.text.length > 1000) invalidInput("text");
+    Object.assign(patch, parsed);
   }
   if (args.title !== undefined) {
     if (typeof args.title !== "string") invalidInput("title");
