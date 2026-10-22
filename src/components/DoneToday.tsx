@@ -76,6 +76,7 @@ export function DoneToday({
         data-done-today-list
         side="bottom"
         align="end"
+        sideOffset={8}
         initialFocus={list}
         finalFocus={finalFocus}
         onKeyDown={(event) => {
