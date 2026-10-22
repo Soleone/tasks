@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, renameSync, unlinkSync } from "node:fs";
+import { lstatSync, mkdirSync, readdirSync, renameSync, rmSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
@@ -9,17 +9,30 @@ import {
   exactHash,
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
+import { attachmentPath } from "./attachments.js";
 import { directoryIdentity } from "./copyFiles.js";
 import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
-import { assertArgs, isRecord, parseRequest } from "./protocol.js";
+import { isRecord, parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
-import { planPurge } from "./purgePlan.js";
+import { listedAttachments, planRemoval, remainingTasks, strippedTask } from "./purgePlan.js";
+import type { RemovalPlan } from "./purgePlan.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp, validateGraph, validateManifest, validateTask } from "./taskModel.js";
+import {
+  attachmentName,
+  isTimestamp,
+  validateGraph,
+  validateManifest,
+  validateTask,
+} from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 export type PurgeFile = { relativePath: string; beforeBytes: string; identity: string };
+type PurgeRewrite = { taskId: string; nextBytes: string };
+/**
+ * One purge or clear-done: task files it deletes, task files it rewrites without attachments,
+ * and attachments it moves into the recovery copy once the task files are done.
+ */
 export type PurgeIntent = {
   format: "taskdb.pending-purge";
   version: 1;
@@ -30,8 +43,13 @@ export type PurgeIntent = {
   operationId: string;
   at: string;
   purgedIds: string[];
+  rewrites: PurgeRewrite[];
+  attachments: string[];
+  bytes: number;
+  exportLocation: string | null;
   files: PurgeFile[];
 };
+export const REMOVAL_COMMANDS = ["task.purgeCanceled", "task.clearDone"];
 function conflict(): never {
   throw new CommandError(
     "RECOVERY_CONFLICT",
@@ -49,6 +67,25 @@ function quarantinePath(intent: PurgeIntent, index: number): string {
     "tasks",
     `.syncthing.taskdb-purge-${intent.operationId}-${index}.tmp`,
   );
+}
+function rewriteStagePath(intent: PurgeIntent, index: number): string {
+  return path.join(
+    intent.root.rootPath,
+    "tasks",
+    `.syncthing.taskdb-strip-${intent.operationId}-${index}.tmp`,
+  );
+}
+/** The task files a plan rewrites, each without its attachments. */
+export function plannedRewrites(
+  tasks: readonly CanonicalTask[],
+  plan: RemovalPlan,
+): PurgeRewrite[] {
+  return plan.strippedIds.map((taskId) => ({
+    taskId,
+    nextBytes: Buffer.from(
+      `${JSON.stringify(strippedTask(tasks.find((task) => task.id === taskId)!))}\n`,
+    ).toString("base64"),
+  }));
 }
 export function purgeIntentTasks(intent: PurgeIntent): CanonicalTask[] {
   return intent.files
@@ -79,14 +116,13 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
       conflict();
     const request = parseRequest(intent.request);
     if (
-      request.command !== "task.purgeCanceled" ||
+      !REMOVAL_COMMANDS.includes(request.command) ||
       request.dryRun ||
       request.readOnly ||
       !request.writeContext ||
       !request.idempotencyKey
     )
       conflict();
-    assertArgs(request.args, []);
     if (
       !Array.isArray(intent.files) ||
       new Set(intent.files.map((file) => file.relativePath)).size !== intent.files.length
@@ -107,8 +143,23 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
     const descriptor = intent.files.find((file) => file.relativePath === "workspace.json");
     if (!descriptor) conflict();
     validateManifest(parseCanonicalJson(Buffer.from(descriptor.beforeBytes, "base64")));
-    const purgedIds = planPurge(purgeIntentTasks(intent));
-    if (!purgedIds.length || JSON.stringify(purgedIds) !== JSON.stringify(intent.purgedIds))
+    const tasks = purgeIntentTasks(intent);
+    const plan = planRemoval(request, tasks);
+    const listed = listedAttachments(remainingTasks(tasks, plan));
+    if (
+      JSON.stringify(plan.purgedIds) !== JSON.stringify(intent.purgedIds) ||
+      !Array.isArray(intent.rewrites) ||
+      JSON.stringify(intent.rewrites) !== JSON.stringify(plannedRewrites(tasks, plan)) ||
+      !Array.isArray(intent.attachments) ||
+      new Set(intent.attachments).size !== intent.attachments.length ||
+      intent.attachments.some(
+        (name) => typeof name !== "string" || !attachmentName.test(name) || listed.has(name),
+      ) ||
+      !Number.isSafeInteger(intent.bytes) ||
+      intent.bytes < 0 ||
+      (intent.exportLocation !== null && !path.isAbsolute(intent.exportLocation)) ||
+      !(intent.purgedIds.length || intent.rewrites.length || intent.attachments.length)
+    )
       conflict();
     localPathOutsideRoot(intent.cachePath, root.rootPath);
     localDomain(root);
@@ -118,12 +169,19 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
   }
 }
 
+function recoveryName(intent: PurgeIntent): string {
+  return `${intent.request.command === "task.clearDone" ? "clear-done" : "purge"}-${intent.operationId}`;
+}
 export function purgeRecoveryLocation(intent: PurgeIntent): string {
-  return path.join(localDomain(intent.root), `purge-${intent.operationId}.recovery.json`);
+  return path.join(localDomain(intent.root), `${recoveryName(intent)}.recovery.json`);
+}
+/** Removed attachments sit next to the recovery copy, as files rather than base64. */
+function attachmentRecoveryLocation(intent: PurgeIntent): string {
+  return path.join(localDomain(intent.root), `${recoveryName(intent)}.attachments`);
 }
 function archiveBytes(intent: PurgeIntent): Buffer {
   return Buffer.from(
-    `${JSON.stringify({ format: "taskdb.purge-recovery", version: 1, operationId: intent.operationId, root: intent.root, taskDirectoryIdentity: intent.taskDirectoryIdentity, cachePath: intent.cachePath, request: intent.request, at: intent.at, purgedIds: intent.purgedIds, files: intent.files })}\n`,
+    `${JSON.stringify({ format: "taskdb.purge-recovery", version: 1, operationId: intent.operationId, root: intent.root, taskDirectoryIdentity: intent.taskDirectoryIdentity, cachePath: intent.cachePath, request: intent.request, at: intent.at, purgedIds: intent.purgedIds, rewrites: intent.rewrites, attachments: intent.attachments, files: intent.files })}\n`,
   );
 }
 function verifyArchive(intent: PurgeIntent): void {
@@ -179,6 +237,13 @@ export function guardPurge(intent: PurgeIntent, recovery: boolean): CanonicalSna
       )
         fail("STALE_FILE");
     }
+    // While recovering, a rewritten task may already hold its next bytes.
+    const rewritten = new Map(
+      intent.rewrites.map((rewrite) => [
+        `tasks/${rewrite.taskId}.json`,
+        exactHash(Buffer.from(rewrite.nextBytes, "base64")),
+      ]),
+    );
     const snapshot = deleted.length
       ? readCanonicalDeletionPrefix(intent.root.rootPath, deleted)
       : readCanonicalRoot(intent.root.rootPath);
@@ -198,6 +263,7 @@ export function guardPurge(intent: PurgeIntent, recovery: boolean): CanonicalSna
       )
         continue;
       if (hash === undefined) fail("STALE_SCOPE");
+      if (recovery && hash === rewritten.get(file.relativePath)) continue;
       if (hash !== exactHash(Buffer.from(file.beforeBytes, "base64"))) fail("STALE_FILE");
     }
     if (recovery) verifyArchive(intent);
@@ -209,19 +275,80 @@ export function guardPurge(intent: PurgeIntent, recovery: boolean): CanonicalSna
 }
 
 export function applyPurgeJournal(intent: PurgeIntent): CanonicalSnapshot {
+  guardPurge(intent, true);
   for (const [index, id] of intent.purgedIds.entries()) {
-    const snapshot = guardPurge(intent, true);
-    if (!snapshot.tasks.some((task) => task.id === id)) continue;
     const target = path.join(intent.root.rootPath, "tasks", `${id}.json`);
+    if (!lstatSync(target, { throwIfNoEntry: false })) continue;
+    if (
+      purgeFileIdentity(target) !==
+      intent.files.find((file) => file.relativePath === `tasks/${id}.json`)!.identity
+    )
+      conflict();
     // Retaining the original inode proves our atomic absence, unlike a pre-unlink marker.
     renameSync(target, quarantinePath(intent, index));
     syncDirectory(path.dirname(target));
   }
+  const tasksDirectory = path.join(intent.root.rootPath, "tasks");
+  for (const [index, rewrite] of intent.rewrites.entries()) {
+    const target = path.join(tasksDirectory, `${rewrite.taskId}.json`);
+    const next = Buffer.from(rewrite.nextBytes, "base64");
+    const current = readRegularFile(target);
+    if (current.equals(next)) continue;
+    const before = intent.files.find(
+      (file) => file.relativePath === `tasks/${rewrite.taskId}.json`,
+    )!;
+    if (!current.equals(Buffer.from(before.beforeBytes, "base64"))) conflict();
+    const stage = rewriteStagePath(intent, index);
+    if (lstatSync(stage, { throwIfNoEntry: false })) unlinkSync(stage);
+    writeDurableFile(stage, next);
+    renameSync(stage, target);
+    syncDirectory(tasksDirectory);
+  }
   const verified = guardPurge(intent, true);
   validateGraph(verified.tasks);
-  if (verified.tasks.some((task) => intent.purgedIds.includes(task.id))) conflict();
+  const hashes = new Map(verified.files.map((file) => [file.relativePath, file.sha256]));
+  if (
+    verified.tasks.some((task) => intent.purgedIds.includes(task.id)) ||
+    intent.rewrites.some(
+      (rewrite) =>
+        hashes.get(`tasks/${rewrite.taskId}.json`) !==
+        exactHash(Buffer.from(rewrite.nextBytes, "base64")),
+    )
+  )
+    conflict();
   return verified;
 }
+
+function moveFile(source: string, target: string): void {
+  try {
+    renameSync(source, target);
+  } catch (error) {
+    // A bare root's recovery folder can be on another drive.
+    if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+    rmSync(target, { force: true });
+    writeDurableFile(target, readRegularFile(source));
+    unlinkSync(source);
+  }
+}
+
+/** Attachments go after the task files, skipping any that sync has listed again since. */
+function retireAttachments(intent: PurgeIntent): void {
+  if (!intent.attachments.length) return;
+  const listed = listedAttachments(readCanonicalRoot(intent.root.rootPath).tasks);
+  const directory = attachmentRecoveryLocation(intent);
+  if (!lstatSync(directory, { throwIfNoEntry: false })) {
+    mkdirSync(directory);
+    syncDirectory(path.dirname(directory));
+  }
+  for (const name of intent.attachments) {
+    const source = attachmentPath(intent.root.rootPath, name);
+    if (listed.has(name) || !lstatSync(source, { throwIfNoEntry: false })) continue;
+    moveFile(source, path.join(directory, name));
+  }
+  syncDirectory(directory);
+  syncDirectory(path.join(intent.root.rootPath, "attachments"));
+}
+
 export function retirePurgeQuarantines(intent: PurgeIntent): void {
   try {
     verifyArchive(intent);
@@ -233,6 +360,7 @@ export function retirePurgeQuarantines(intent: PurgeIntent): void {
       unlinkSync(quarantinePath(intent, index));
       syncDirectory(path.join(intent.root.rootPath, "tasks"));
     }
+    retireAttachments(intent);
   } catch {
     return conflict();
   }

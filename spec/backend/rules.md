@@ -114,7 +114,7 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `purge.all-canceled` | `task.purgeCanceled` removes every canceled task at once, never a subset |
 | `purge.referenced` | If any surviving task's parent or dependency points at a canceled task, nothing is removed and it fails `PURGE_REFERENCED` listing each survivor, target and field |
 | `purge.no-relink` | Purge never reparents or unlinks survivors. Linked canceled tasks can be purged together |
-| `purge.recovery` | Removed files are copied outside the folder first. There are no tombstones |
+| `purge.recovery` | Removed task files are copied outside the folder first. Removed attachments are moved next to that copy once the task files are done, so each one is always in one of the two places. There are no tombstones |
 | `purge.attachments` | Attachments listed only by purged tasks are removed with them |
 | `purge.unlisted` | Purge also removes attachments no task lists, but only names matching `data.attachment-name`, only those added more than 7 days ago (by their name) and not listed in any task record kept by this cache's undo and redo history |
 | `purge.empty` | With nothing canceled and nothing unlisted to remove, it succeeds and changes nothing |

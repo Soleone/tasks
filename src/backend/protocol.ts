@@ -38,6 +38,7 @@ const KNOWN_COMMANDS = [
   "source.list",
   "tag.list",
   "task.cancel",
+  "task.clearDone",
   "task.complete",
   "task.create",
   "task.delete",

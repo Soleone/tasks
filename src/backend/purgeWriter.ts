@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { attachmentPath } from "./attachments.js";
 import { CommandError } from "./errors.js";
 import {
   readCanonicalRoot,
@@ -9,6 +11,8 @@ import {
   exactHash,
 } from "./canonicalReader.js";
 import { directoryIdentity, guardObservedRoot } from "./copyFiles.js";
+import { writeExport } from "./exportArchive.js";
+import { homeOfRoot } from "./home.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { assertArgs } from "./protocol.js";
@@ -18,16 +22,23 @@ import {
   guardPurge,
   parsePurgeIntent,
   persistPurgeArchive,
+  plannedRewrites,
   purgeIntentTasks,
   retirePurgeQuarantines,
   purgeFileIdentity,
   purgeRecoveryLocation,
 } from "./purgeJournal.js";
 import type { PurgeIntent } from "./purgeJournal.js";
-import { planPurge } from "./purgePlan.js";
+import { listedAttachments, parseClearDone, planRemoval, remainingTasks } from "./purgePlan.js";
+import type { RemovalPlan } from "./purgePlan.js";
 import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
-import { invalidatePurgeUndo } from "./undoHistory.js";
+import { attachmentName } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
+import { attachmentsInHistory, invalidatePurgeUndo } from "./undoHistory.js";
+
+// An image pasted on another device can arrive before the task that lists it.
+const UNLISTED_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function requirePurgeBudget(database: DatabaseSync, count: number): void {
   const state = database
@@ -42,45 +53,101 @@ function requirePurgeBudget(database: DatabaseSync, count: number): void {
       "explicit fresh-cache authority is required before purge",
     );
 }
+
+/** When an attachment was added, read from its `YYYY-MM-DD-HHMMSS` name. */
+function addedAt(name: string): number {
+  return Date.parse(
+    `${name.slice(0, 10)}T${name.slice(11, 13)}:${name.slice(13, 15)}:${name.slice(15, 17)}Z`,
+  );
+}
+
+/** Attachments no task lists, old enough by name, that no undo or redo here could list again. */
+function unlistedAttachments(
+  database: DatabaseSync,
+  rootPath: string,
+  tasks: readonly CanonicalTask[],
+  at: string,
+): string[] {
+  const directory = path.join(rootPath, "attachments");
+  if (!existsSync(directory)) return [];
+  const listed = listedAttachments(tasks);
+  const history = attachmentsInHistory(database);
+  const cutoff = Date.parse(at) - UNLISTED_GRACE_MS;
+  return readdirSync(directory).filter(
+    (name) =>
+      attachmentName.test(name) &&
+      !listed.has(name) &&
+      !history.has(name) &&
+      addedAt(name) < cutoff,
+  );
+}
+
+function fileSize(filePath: string): number | undefined {
+  const stat = lstatSync(filePath, { throwIfNoEntry: false });
+  return stat?.isFile() ? stat.size : undefined;
+}
+
+function removalSummary(request: Request, plan: RemovalPlan, attachments: string[], bytes: number) {
+  if (request.command !== "task.clearDone")
+    return { purgedIds: plan.purgedIds, removedAttachments: attachments };
+  return {
+    clearedIds: request.args.scope === "tasks" ? plan.purgedIds : plan.strippedIds,
+    keptIds: plan.keptIds,
+    removedAttachments: attachments,
+    bytes,
+  };
+}
+
 export function commitPurge(database: DatabaseSync, intent: PurgeIntent): Record<string, unknown> {
   guardPurge(intent, true);
   requirePurgeBudget(database, purgeIntentTasks(intent).length);
   const snapshot = applyPurgeJournal(intent);
   const authority = synchronizeAuthority(database, intent.root, snapshot);
-  invalidatePurgeUndo(database, authority.writeContext, intent.purgedIds, intent.operationId);
-  const before = purgeIntentTasks(intent).filter((task) => intent.purgedIds.includes(task.id));
-  database
-    .prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(
+  const changedIds = [...intent.purgedIds, ...intent.rewrites.map((rewrite) => rewrite.taskId)];
+  invalidatePurgeUndo(database, authority.writeContext, changedIds, intent.operationId);
+  const tasks = purgeIntentTasks(intent);
+  const plan = planRemoval(intent.request, tasks);
+  if (changedIds.length) {
+    database.prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
       intent.operationId,
       authority.writeContext,
-      intent.purgedIds[0],
+      changedIds[0],
       intent.request.command,
       JSON.stringify(intent.request.actor),
       intent.at,
-      JSON.stringify({ tasks: before }),
-      JSON.stringify({ tasks: [] }),
+      JSON.stringify({ tasks: tasks.filter((task) => changedIds.includes(task.id)) }),
+      JSON.stringify({
+        tasks: remainingTasks(tasks, plan).filter((task) => changedIds.includes(task.id)),
+      }),
     );
-  const member = database.prepare("INSERT INTO v2_operation_members VALUES (?, ?)");
-  for (const id of intent.purgedIds) member.run(intent.operationId, id);
+    const member = database.prepare("INSERT INTO v2_operation_members VALUES (?, ?)");
+    for (const id of changedIds) member.run(intent.operationId, id);
+  }
   const result = {
-    purgedIds: intent.purgedIds,
+    ...removalSummary(intent.request, plan, intent.attachments, intent.bytes),
     changed: true,
     operationId: intent.operationId,
     recoveryLocation: purgeRecoveryLocation(intent),
+    ...(intent.exportLocation === null ? {} : { exportLocation: intent.exportLocation }),
   };
   if (authority.writeContext === intent.request.writeContext)
     storeReceipt(database, intent.request, result);
   return result;
 }
-export function executePurge(request: Request, rootPath: string, cachePath: string) {
+
+/** `task.purgeCanceled` and `task.clearDone`: both delete or rewrite task files, then attachments. */
+export function executeRemoval(request: Request, rootPath: string, cachePath: string) {
   const root = readRootDescriptor(rootPath);
   return withRootWriterLock(root, () => {
     let completed: PurgeIntent | undefined;
     const outcome = withCacheTransaction(cachePath, root, (database) => {
       let authority = synchronizeAuthority(database, root);
       requireWriteContext(request, authority);
-      assertArgs(request.args, []);
+      const clearing = request.command === "task.clearDone";
+      const home = homeOfRoot(root.rootPath);
+      if (!clearing) assertArgs(request.args, []);
+      else if (parseClearDone(request.args).export && !home)
+        throw new CommandError("INVALID_ARGUMENT", "export needs a Tasks home");
       const receipt = findReceipt(database, request);
       if (receipt) return { writeContext: authority.writeContext, result: receipt };
       if (readPending(root))
@@ -89,18 +156,40 @@ export function executePurge(request: Request, rootPath: string, cachePath: stri
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
       guardObservedRoot(snapshot);
-      const purgedIds = planPurge(snapshot.tasks);
-      if (purgedIds.length && !request.readOnly && !request.dryRun)
+      const plan = planRemoval(request, snapshot.tasks);
+      const at = new Date().toISOString();
+      const changedTasks = snapshot.tasks.filter(
+        (task) => plan.purgedIds.includes(task.id) || plan.strippedIds.includes(task.id),
+      );
+      const stillListed = listedAttachments(remainingTasks(snapshot.tasks, plan));
+      const released = [...listedAttachments(changedTasks)].filter(
+        (name) => !stillListed.has(name),
+      );
+      const sizes = new Map<string, number>();
+      for (const name of clearing
+        ? released
+        : [...released, ...unlistedAttachments(database, root.rootPath, snapshot.tasks, at)]) {
+        const size = fileSize(attachmentPath(root.rootPath, name));
+        if (size !== undefined) sizes.set(name, size);
+      }
+      const attachments = [...sizes.keys()].sort();
+      const taskBytes = plan.purgedIds.reduce(
+        (sum, id) => sum + fileSize(path.join(root.rootPath, "tasks", `${id}.json`))!,
+        0,
+      );
+      const bytes = [...sizes.values()].reduce((sum, size) => sum + size, taskBytes);
+      const changed = plan.purgedIds.length + plan.strippedIds.length + attachments.length > 0;
+      if (changed && !request.readOnly && !request.dryRun)
         requirePurgeBudget(database, snapshot.tasks.length);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
-      const result = { purgedIds, changed: purgedIds.length !== 0 };
+      const result = { ...removalSummary(request, plan, attachments, bytes), changed };
       if (request.dryRun || request.readOnly)
         return {
           writeContext: authority.writeContext,
           result: { ...result, dryRun: request.dryRun, readOnly: request.readOnly },
         };
-      if (!purgedIds.length) {
+      if (!changed) {
         storeReceipt(database, request, result);
         return { writeContext: authority.writeContext, result };
       }
@@ -116,6 +205,18 @@ export function executePurge(request: Request, rootPath: string, cachePath: stri
           identity,
         };
       });
+      // The export is a keepsake of exactly what goes, written before anything does.
+      const exportLocation =
+        clearing && request.args.export === true
+          ? writeExport(
+              home!,
+              at,
+              Buffer.from(
+                `[\n${changedTasks.map((task) => JSON.stringify(task)).join(",\n")}\n]\n`,
+              ),
+              attachments.map((name) => ({ name, filePath: attachmentPath(root.rootPath, name) })),
+            )
+          : null;
       const intent = parsePurgeIntent(
         {
           format: "taskdb.pending-purge",
@@ -125,8 +226,12 @@ export function executePurge(request: Request, rootPath: string, cachePath: stri
           cachePath: localPathOutsideRoot(cachePath, root.rootPath),
           request,
           operationId: randomUUID(),
-          at: new Date().toISOString(),
-          purgedIds,
+          at,
+          purgedIds: plan.purgedIds,
+          rewrites: plannedRewrites(snapshot.tasks, plan),
+          attachments,
+          bytes,
+          exportLocation,
           files,
         },
         root,

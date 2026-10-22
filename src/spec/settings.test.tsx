@@ -67,6 +67,96 @@ test("settings.home: Data shows the home and copies its sync folder's path", asy
   expect(panel.queryByRole("button", { name: "Open folder" })).toBeNull();
 });
 
+async function openData(user: Awaited<ReturnType<AppWorkspace["render"]>>["user"]) {
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Data" }));
+  return within(screen.getByRole("region", { name: "Delete tasks" }));
+}
+
+test("settings.delete-canceled: counts canceled tasks and deletes them after asking", async () => {
+  await workspace.create("Keep");
+  const drop = await workspace.create("Drop");
+  await workspace.change("task.cancel", drop.id);
+  const { user } = await workspace.render();
+  const section = await openData(user);
+  await section.findByText("1 canceled task, kept until you delete them.");
+  await user.click(section.getByRole("button", { name: "Delete canceled tasks" }));
+  section.getByText("Delete 1 canceled task for good? This can't be undone.");
+  await user.click(section.getByRole("button", { name: "Delete 1 task" }));
+  await section.findByText("Deleted 1 canceled task.");
+  await section.findByText("There are no canceled tasks.");
+  expect(section.getByRole("button", { name: "Delete canceled tasks" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  await expect(workspace.task(drop.id)).rejects.toThrow(/TASK_NOT_FOUND/);
+});
+
+test("settings.delete-canceled: links to canceled tasks are named and nothing is deleted", async () => {
+  const blocker = await workspace.create("Old blocker");
+  const blocked = await workspace.create("Still open");
+  await workspace.change("task.dependency.add", blocked.id, { dependsOnId: blocker.id });
+  await workspace.change("task.cancel", blocker.id);
+  const { user } = await workspace.render();
+  const section = await openData(user);
+  await section.findByText("“Still open” is blocked by canceled “Old blocker”");
+  expect(section.getByRole("button", { name: "Delete canceled tasks" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  expect((await workspace.task(blocker.id)).status).toBe("canceled");
+});
+
+test("settings.delete-done: the dialog previews both choices and deletes the chosen one", async () => {
+  const image = await workspace.storeImage(1);
+  const finished = await workspace.create("Finished", { attachments: [image] });
+  await workspace.change("task.complete", finished.id);
+  await workspace.create("Open");
+  const { user } = await workspace.render();
+  const section = await openData(user);
+  await user.click(section.getByRole("button", { name: "Delete done tasks…" }));
+  const dialog = within(await screen.findByRole("dialog", { name: "Delete done tasks" }));
+  dialog.getByText(/can't be undone/);
+  await dialog.findByText(/^0 tasks · 0 images/);
+  await user.click(dialog.getByRole("combobox", { name: "Done" }));
+  await user.click(await screen.findByRole("option", { name: "any time" }));
+  await dialog.findByText(/^1 task · 1 image · /);
+  dialog.getByText(/^1 image · /);
+  await user.click(dialog.getByRole("radio", { name: /Images only/ }));
+  await user.click(dialog.getByRole("button", { name: "Delete" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog", { name: "Delete done tasks" })).toBeNull(),
+  );
+  await section.findByText(/^Deleted 1 image \(.+\) from 1 done task\.$/);
+  const kept = await workspace.task(finished.id);
+  expect(kept.status).toBe("done");
+  expect(kept.attachments).toEqual([]);
+});
+
+test("settings.delete-result: the result names the export and what was kept", async () => {
+  const parent = await workspace.create("Done parent");
+  const loose = await workspace.create("Done loose");
+  await workspace.create("Open child", { parentId: parent.id });
+  await workspace.change("task.complete", parent.id);
+  await workspace.change("task.complete", loose.id);
+  const { user } = await workspace.render();
+  const section = await openData(user);
+  await user.click(section.getByRole("button", { name: "Delete done tasks…" }));
+  const dialog = within(await screen.findByRole("dialog", { name: "Delete done tasks" }));
+  await user.click(dialog.getByRole("combobox", { name: "Done" }));
+  await user.click(await screen.findByRole("option", { name: "any time" }));
+  await dialog.findByText(/^1 task · 0 images/);
+  await user.click(dialog.getByRole("button", { name: "Export and delete" }));
+  await section.findByText(
+    /^Deleted 1 done task and 0 images \(.+\)\. 1 task kept because other tasks link to them\.$/,
+  );
+  section.getByText(/[\\/]exports[\\/]done-tasks-.+\.zip$/);
+  // The web client has no file manager to open.
+  expect(section.queryByRole("button", { name: "Open folder" })).toBeNull();
+  await expect(workspace.task(loose.id)).rejects.toThrow(/TASK_NOT_FOUND/);
+  expect((await workspace.task(parent.id)).status).toBe("done");
+});
+
 test("help.palette: Ctrl+K opens a searchable palette of shortcuts", async () => {
   await workspace.create("Task");
   const { user } = await workspace.render();

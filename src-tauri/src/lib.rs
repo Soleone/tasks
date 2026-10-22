@@ -48,11 +48,17 @@ fn home_pointer_write(app: AppHandle, home: String) -> Result<(), String> {
     std::fs::rename(&stage, &path).map_err(|error| error.to_string())
 }
 
-/// Shows the remembered Tasks home in the file manager; no other path can be opened this way.
+/// Shows the remembered Tasks home, or its exports folder, in the file manager; no other path
+/// can be opened this way.
 #[cfg(desktop)]
 #[tauri::command]
-fn home_reveal(app: AppHandle) -> Result<(), String> {
+fn home_reveal(app: AppHandle, exports: bool) -> Result<(), String> {
     let home = home_pointer_read(app)?.ok_or("No Tasks home is open.")?;
+    let folder = if exports {
+        PathBuf::from(&home).join("exports").display().to_string()
+    } else {
+        home
+    };
     #[cfg(target_os = "windows")]
     let opener = "explorer";
     #[cfg(target_os = "macos")]
@@ -60,10 +66,10 @@ fn home_reveal(app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     let opener = "xdg-open";
     std::process::Command::new(opener)
-        .arg(&home)
+        .arg(&folder)
         .spawn()
         .map(drop)
-        .map_err(|error| format!("Could not open {home}: {error}"))
+        .map_err(|error| format!("Could not open {folder}: {error}"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -226,7 +226,7 @@ function executeDevCommand(
         error: {
           code: "UNSUPPORTED_COMMAND",
           message:
-            "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches, images and backup/restore; order normalization, batch status undo and other controls remain unavailable",
+            "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches, images, deleting canceled and done tasks, and backup/restore; order normalization, batch status undo and other controls remain unavailable",
         },
       };
     }

@@ -267,7 +267,7 @@ test("empty purge is receipt-only and preserves existing status undo", linux, (t
     prior = counts(w),
     request = prepared(w);
   const result = success(send(w, request)).result;
-  assert.deepEqual(result, { purgedIds: [], changed: false });
+  assert.deepEqual(result, { purgedIds: [], removedAttachments: [], changed: false });
   assert.deepEqual(counts(w), [Number(prior[0]) + 1, prior[1], prior[2]]);
   assert.deepEqual(raw(w), before);
   assert.deepEqual(success(send(w, request)).result, result);

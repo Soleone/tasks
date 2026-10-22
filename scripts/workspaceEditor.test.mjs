@@ -59,6 +59,8 @@ const linuxEditorCommands = [
   "operation.redo",
   "task.transitionMany",
   "attachment.write",
+  "task.purgeCanceled",
+  "task.clearDone",
 ];
 const statusSources = {
   "task.start": "done",
@@ -190,7 +192,6 @@ test("editor health requires the exact connected-command whitelist, not comma co
 for (const command of [
   "task.status.undoMany",
   "task.order.normalize",
-  "task.purgeCanceled",
   "workspace.init",
   "workspace.migrate",
   "workspace.recovery.resume",

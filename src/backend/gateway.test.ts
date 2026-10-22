@@ -182,6 +182,7 @@ test("info inspects empty, partial and unsupported roots without creating canoni
           "operation.undo",
           "tag.list",
           "task.cancel",
+          "task.clearDone",
           "task.complete",
           "task.create",
           "task.delete",

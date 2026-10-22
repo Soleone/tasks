@@ -29,7 +29,12 @@ export function rememberHome(home: string): Promise<void> {
 
 /** Shows the remembered home in the file manager (desktop only). */
 export function revealHome(): Promise<void> {
-  return invoke("home_reveal");
+  return invoke("home_reveal", { exports: false });
+}
+
+/** Shows the home's exports folder, where deleting done tasks saves its zip (desktop only). */
+export function revealExports(): Promise<void> {
+  return invoke("home_reveal", { exports: true });
 }
 
 /** Settings' "Open another home" shows setup on the next start without forgetting this home. */

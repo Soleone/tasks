@@ -214,6 +214,59 @@ export async function writeAttachment(dataUrl: string): Promise<string> {
   return name;
 }
 
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/** The canceled tasks a purge removes. A refusal names linking tasks in `details.references`. */
+export function purgeCanceled(preview: boolean): Promise<{ purgedIds: string[] }> {
+  return queued(async (workspace) => {
+    const result = await workspace.editor.remove("task.purgeCanceled", {}, preview);
+    if (!isStringList(result.purgedIds))
+      throw new Error("The editor returned an invalid purge result.");
+    return { purgedIds: result.purgedIds };
+  });
+}
+
+export type ClearDoneScope = "attachments" | "tasks";
+export type ClearDoneResult = {
+  clearedIds: string[];
+  keptIds: string[];
+  removedAttachments: string[];
+  bytes: number;
+  exportLocation?: string;
+};
+
+/** Deletes done tasks closed before `closedBefore` (all when null), or only their images. */
+export function clearDone(
+  closedBefore: string | null,
+  scope: ClearDoneScope,
+  options: { preview?: boolean; export?: boolean } = {},
+): Promise<ClearDoneResult> {
+  return queued(async (workspace) => {
+    const result = await workspace.editor.remove(
+      "task.clearDone",
+      { closedBefore, scope, ...(options.export ? { export: true } : {}) },
+      options.preview ?? false,
+    );
+    if (
+      !isStringList(result.clearedIds) ||
+      !isStringList(result.keptIds) ||
+      !isStringList(result.removedAttachments) ||
+      typeof result.bytes !== "number" ||
+      (result.exportLocation !== undefined && typeof result.exportLocation !== "string")
+    )
+      throw new Error("The editor returned an invalid result for deleting done tasks.");
+    return {
+      clearedIds: result.clearedIds,
+      keptIds: result.keptIds,
+      removedAttachments: result.removedAttachments,
+      bytes: result.bytes,
+      ...(result.exportLocation === undefined ? {} : { exportLocation: result.exportLocation }),
+    };
+  });
+}
+
 export async function updateTaskPriority(
   task: TaskView,
   priority: TaskPriority,

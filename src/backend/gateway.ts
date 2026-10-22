@@ -8,9 +8,10 @@ import { isTaskEditRequest } from "./taskEditRequest.js";
 import { executeCreate } from "./createWriter.js";
 import { STATUS_COMMANDS } from "./taskStatus.js";
 import { executeUndo } from "./undoWriter.js";
-import { executePurge } from "./purgeWriter.js";
+import { executeRemoval } from "./purgeWriter.js";
 import { executeDoctorApply } from "./doctorApply.js";
 import { executeDoctorInspect, executeDoctorPlan } from "./doctorWriter.js";
+import { REMOVAL_COMMANDS } from "./purgeJournal.js";
 import { PurgeReferencedError } from "./purgePlan.js";
 import { UNDO_COMMANDS } from "./undoPlan.js";
 import { executeOrder } from "./orderWriter.js";
@@ -35,7 +36,7 @@ const writeCommands = [
   ...RELATIONSHIP_COMMANDS,
   ...ORDER_COMMANDS,
   ...UNDO_COMMANDS,
-  "task.purgeCanceled",
+  ...REMOVAL_COMMANDS,
   "workspace.recovery.resume",
   "workspace.migrate",
   "workspace.init",
@@ -66,8 +67,8 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
           ? executeCreate(request, rootPath, cachePath)
           : request.command === "attachment.write"
             ? executeAttachmentWrite(request, rootPath, cachePath)
-            : request.command === "task.purgeCanceled"
-              ? executePurge(request, rootPath, cachePath)
+            : REMOVAL_COMMANDS.includes(request.command)
+              ? executeRemoval(request, rootPath, cachePath)
               : request.command === "workspace.doctor.plan"
                 ? executeDoctorPlan(request, rootPath, cachePath)
                 : request.command === "workspace.doctor.apply"

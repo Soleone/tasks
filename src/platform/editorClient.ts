@@ -52,6 +52,7 @@ export class EditorError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(`${code}: ${message}`);
   }
@@ -558,10 +559,29 @@ export class EditorClient {
     return result.name;
   }
 
+  /**
+   * Purges canceled tasks or clears done ones, or previews that. Like an image write it sends one
+   * request with a fresh key: repeating it after a lost reply finds less to remove, never more.
+   */
+  async remove(
+    command: "task.purgeCanceled" | "task.clearDone",
+    args: Record<string, unknown>,
+    preview: boolean,
+  ): Promise<Record<string, unknown>> {
+    const { writeContext } = await this.begin();
+    const { result } = await this.query(command, args, {
+      writeContext,
+      idempotencyKey: randomUUID(),
+      readOnly: false,
+      dryRun: preview,
+    });
+    return result;
+  }
+
   private async query(
     command: string,
     args: Record<string, unknown>,
-    write?: { writeContext: string; idempotencyKey: string; readOnly: false },
+    write?: { writeContext: string; idempotencyKey: string; readOnly: false; dryRun?: boolean },
   ) {
     const request = {
       version: 2 as const,
@@ -579,7 +599,8 @@ export class EditorClient {
         : await postDevRequest(this.connection, this.selection, request);
     if (response.requestId !== request.requestId)
       throw new Error("The editor returned a different request ID.");
-    if (!response.ok) throw new EditorError(response.error.code, response.error.message);
+    if (!response.ok)
+      throw new EditorError(response.error.code, response.error.message, response.error.details);
     return response;
   }
 }

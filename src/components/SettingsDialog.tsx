@@ -22,6 +22,7 @@ import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
+import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { ReadableTabsTrigger } from "@/components/variants/tabs";
 
 type SettingsDialogProps = {
@@ -319,6 +320,7 @@ export function SettingsDialog({
                   </Button>
                 )}
               </section>
+              {workspace && <DeleteTasksSection />}
             </div>
           </TabsContent>
         </Tabs>

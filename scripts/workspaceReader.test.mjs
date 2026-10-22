@@ -301,7 +301,7 @@ test("dev bridge refuses unconnected commands, stale/missing selection and versi
   const { dev, selected: handshake } = await devReader(t, selected);
   for (const [body, token, code] of [
     [
-      { ...request("task.purgeCanceled"), readOnly: false },
+      { ...request("task.order.normalize"), readOnly: false },
       handshake.selectionToken,
       "UNSUPPORTED_COMMAND",
     ],
