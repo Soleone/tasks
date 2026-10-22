@@ -17,7 +17,17 @@ export function TaskItem({
   className,
   ...props
 }: ComponentProps<typeof Item> & { state?: TaskItemState }) {
-  return <Item className={cn(state && STATES[state], className)} {...props} />;
+  // List status slots share the first toolbar cell's center; editors keep their inset.
+  return (
+    <Item
+      className={cn(
+        props.role === "option" && "border-l-0 pl-0 pointer-coarse:pl-0.5",
+        state && STATES[state],
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 /** Task titles stay complete at narrow widths. */

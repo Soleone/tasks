@@ -7,7 +7,6 @@ import { forwardStatusTransition, reverseStatusTransition } from "./taskStatusCy
 import { taskStatusMeta } from "./taskFilters";
 import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage } from "./TaskRow";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "./TaskComposer";
-import { Item } from "./ui/item";
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
@@ -145,7 +144,7 @@ export function OptimisticTaskOption({
   hiddenCategorySlug: string | null;
 }): ReactElement {
   return (
-    <Item
+    <TaskItem
       id={`pending-task-option-${task.id}`}
       role="option"
       aria-selected={false}
@@ -163,7 +162,7 @@ export function OptimisticTaskOption({
         hiddenCategorySlug={hiddenCategorySlug}
         statusSlot={<TaskStatusDisplay task={task} />}
       />
-    </Item>
+    </TaskItem>
   );
 }
 

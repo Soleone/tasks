@@ -118,7 +118,8 @@ function summaryFilterExpression(filter) {
 }
 // toolbar.layout and platform.toolbar-cell: cells are one size (28px, or 32px on touch, scaled with
 // the text size), sit on integer columns from New task, groups never split, and rows after the
-// first start one cell in.
+// first start one cell in. The logo and root status icons share New task's centerline; the count
+// starts at the cell's left edge.
 function toolbarGridExpression(rows) {
   return `(() => {
     const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect();
@@ -132,7 +133,12 @@ function toolbarGridExpression(rows) {
     const whole = [...document.querySelectorAll("[data-slot=collapsible]")].every((group) => new Set([...group.querySelectorAll("[data-toolbar-cell]")].filter((element) => !element.closest("[hidden]")).map((element) => Math.round(element.getBoundingClientRect().top))).size === 1);
     const tops = [...new Set(boxes.map((box) => Math.round(box.top)))].sort((a, b) => a - b);
     const starts = tops.map((top) => Math.min(...boxes.filter((box) => Math.round(box.top) === top).map((box) => Math.round(columnOf(box)))));
-    return document.documentElement.scrollWidth <= innerWidth && sized && onGrid && whole && tops.length === ${rows} && starts.every((start, row) => start === (row === 0 ? 0 : 1));
+    const centered = (box) => Math.abs(box.left + box.width / 2 - (capture.left + cell / 2)) < 0.5;
+    const logo = document.querySelector("header .app-icon").getBoundingClientRect();
+    const statuses = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-status]')].map((element) => element.getBoundingClientRect());
+    const summary = document.querySelector("[data-filter-summary]").getBoundingClientRect();
+    const aligned = centered(logo) && statuses.every(centered) && Math.abs(summary.left - capture.left) < 0.5;
+    return document.documentElement.scrollWidth <= innerWidth && sized && onGrid && whole && aligned && tops.length === ${rows} && starts.every((start, row) => start === (row === 0 ? 0 : 1));
   })()`;
 }
 // The browser CLI can't emulate a coarse pointer, and CDP emulation lasts only while its session
@@ -1373,7 +1379,7 @@ try {
   // toolbar.layout: every visible cell sits on the column grid that starts at New task.
   for (const [width, rows] of [
     [1280, 1],
-    [390, 2],
+    [390, 3],
     [320, 3],
   ]) {
     browser("set", "viewport", String(width), "844");

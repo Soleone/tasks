@@ -631,11 +631,12 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   return (
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
       <WorkspaceRequestRecovery workspace={workspace} />
-      {/* 680px less the 32px gutters is 22 toolbar cells, so the top bar's buttons sit on the toolbar grid. */}
+      {/* Desktop content is 22 mouse cells wide, keeping the header buttons on the toolbar grid. */}
       <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-170 flex-col gap-6 overflow-hidden">
         <header className="flex items-center justify-between gap-4">
-          <h1 className="flex items-center gap-1 font-semibold">
-            <AppIcon className="size-8 shrink-0" />
+          <h1 className="flex items-center font-semibold">
+            {/* Center the artwork on the first cell and the title's ink rather than its line box. */}
+            <AppIcon className="size-8 shrink-0 -translate-x-0.5 -translate-y-0.25 pointer-coarse:translate-x-0" />
             <span className="text-3xl leading-none">{APP_NAME}</span>
           </h1>
           <ButtonGroup
