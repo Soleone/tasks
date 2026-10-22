@@ -8,7 +8,7 @@ import { parseContentPatch } from "./updateInputs.js";
 export type CreateInput = Pick<
   CanonicalTask,
   "title" | "text" | "description" | "priority" | "category" | "tags" | "parentId"
-> & { attachments: string[] };
+> & { due: string | null; attachments: string[] };
 
 export function parseCreate(args: Record<string, unknown>): CreateInput {
   assertArgs(args, [
@@ -18,6 +18,7 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     "priority",
     "category",
     "tags",
+    "due",
     "attachments",
     "parentId",
   ]);
@@ -37,6 +38,7 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     priority: patch.priority ?? 2,
     category: patch.category ?? null,
     tags: patch.tags ?? [],
+    due: patch.due ?? null,
     attachments: patch.attachments ?? [],
     parentId: (args.parentId as string | null | undefined) ?? null,
   };
@@ -76,6 +78,7 @@ export function buildCreatedTask(
       updatedAt: taskIdentity.at,
       closedAt: null,
       ...(input.attachments.length > 0 ? { attachments: input.attachments } : {}),
+      ...(input.due !== null ? { due: input.due } : {}),
     },
     taskIdentity.id,
   );

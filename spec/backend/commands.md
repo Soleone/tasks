@@ -33,30 +33,33 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 ## Text input
 
-`task.create` takes exactly one of `title` (literal) or `text` (shorthand). `task.update` with `text` replaces title, category and tags together. The typed text is kept so an editor can show it again exactly as written.
+`task.create` takes exactly one of `title` (literal) or `text` (shorthand). `task.update` with `text` replaces title, category, tags and due date together. The typed text is kept so an editor can show it again exactly as written.
 
 | Rule | Then |
 | --- | --- |
 | `text.markers` | Outside code, `@name` sets the category and `#name` adds a tag, where a marker follows start of text or a character other than a letter, digit, `_`, `/` or `@`, and the name starts with a letter. Names are slugs; joined markers such as `#one@two` or `@one#two` stay literal text |
+| `text.due` | `^word` sets the due date when the word names one, with the same start rule as other markers. Words: `today`, `tomorrow` or `tmr`, a weekday (`fri`, `friday`; the next one, never today), a count of days, weeks or months (`3d`, `2w`, `1m`), a month and day (`oct31`, `october31`; this year unless it has passed) or a date (`2026-10-31`). Anything else, such as `x^2`, stays text |
+| `text.due-fixed` | Relative words resolve against today on the device that parses them, and the stored `text` holds the date instead (`^fri` is kept as `^2026-10-23`), so it reads the same later |
+| `text.one-due` | Two different due dates fail `INVALID_ARGUMENT` |
 | `text.code` | Text inside triple or single backticks never classifies |
-| `text.escape` | `\@`, `\#` and `\\` become literal characters and never classify |
+| `text.escape` | `\@`, `\#`, `\^` and `\\` become literal characters and never classify |
 | `text.remove-span` | The marker and name are removed, and a marker between two spaces leaves one: `Review @work now` becomes `Review now`. Other spacing stays as typed |
 | `text.normalize` | Category and tags are lowercased; tags are deduplicated and sorted |
 | `text.one-category` | Two different categories fail `MULTIPLE_CATEGORIES` |
 | `text.empty` | An empty title after removal fails `INVALID_ARGUMENT` |
 | `text.literal` | With `title`, `Call @alice` is stored as written with no category |
-| `text.partial-update` | Omitted fields are kept. `category: null` and `tags: []` clear |
+| `text.partial-update` | Omitted fields are kept. `category: null`, `tags: []` and `due: null` clear |
 | `text.kept` | With `text`, the trimmed input is stored as the task's `text` next to the title, category and tags it produced. With `title`, `text` is `null` |
-| `text.cleared` | A change to title, category or tags without `text` sets `text` to `null`. Other changes, and setting the same values again, keep it |
-| `text.stale` | Results report `text` only while it still produces the task's title, category and tags. Otherwise, as after a hand edit of the file, they report `null` |
-| `text.mixed` | Mixing `text` with `title`, `category` or `tags`, or using old field names, fails `INVALID_ARGUMENT` |
+| `text.cleared` | A change to title, category, tags or due date without `text` sets `text` to `null`. Other changes, and setting the same values again, keep it |
+| `text.stale` | Results report `text` only while it still produces the task's title, category, tags and due date. Otherwise, as after a hand edit of the file, they report `null` |
+| `text.mixed` | Mixing `text` with `title`, `category`, `tags` or `due`, or using old field names, fails `INVALID_ARGUMENT` |
 
 ## Task commands
 
 | Command | Args | Result |
 | --- | --- | --- |
-| `task.create` | `title` or `text`; optional `description`, `priority`, `category`, `tags`, `attachments`, `parentId` | `task`, `changed`, `operationId` |
-| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `category`, `tags`, `attachments` | `task`, `changed`, `operationId` |
+| `task.create` | `title` or `text`; optional `description`, `priority`, `category`, `tags`, `due`, `attachments`, `parentId` | `task`, `changed`, `operationId` |
+| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `category`, `tags`, `due`, `attachments` | `task`, `changed`, `operationId` |
 | `task.start` `pause` `complete` `reopen` `cancel` `delete` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.status.undo` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.move` | `id`, `expectedVersion`, `parentId` (or `null`) | `task`, `changed`, `operationId` |
@@ -105,7 +108,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `closedSince`, `includeAncestors`, `includeDescendants` |
 | `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
-| `list.sort` | `created` and `updated` default newest first, `priority` defaults P0 first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
+| `list.sort` | `created` and `updated` default newest first, `priority` defaults P0 first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
+| `list.sort-due` | Tasks without a due date come last in either direction. Tasks due the same day go by priority, P0 first |
 | `list.paging` | `limit` defaults to 50 and clamps to 1 to 100. `offset` clamps to 0 or more |
 | `list.ancestors` | Filters never detach a child from its tree. Non-matching ancestors come back in `contextTasks` and don't count in `total` |
 | `list.descendants` | `includeDescendants: true` includes ancestors and every descendant of each page task's root in `contextTasks`, excluding tasks already in the page. Unrelated trees stay out. Context doesn't change matching `total`, `limit` or `offset` |

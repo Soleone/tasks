@@ -480,6 +480,7 @@ export function useWorkspaceActions({
       priority: draft.priority,
       category: classification.category,
       tags: classification.tags,
+      due: literal?.due ?? null,
       parentId: draft.parentId ?? null,
       dependencyIds: [],
       attachments: draft.attachments,

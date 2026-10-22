@@ -1,5 +1,6 @@
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
+import { isDueDate } from "./dueDate.js";
 import { isAttachmentList, validateTask } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { invalidInput, parseShorthand, slugInput } from "./shorthand.js";
@@ -11,14 +12,14 @@ export type UpdateInput = {
     Pick<
       CanonicalTask,
       "title" | "text" | "description" | "priority" | "category" | "tags" | "attachments"
-    >
+    > & { due: string | null }
   >;
 };
 
 export function parseContentPatch(args: Record<string, unknown>): UpdateInput["patch"] {
   if (
     args.text !== undefined &&
-    ["title", "category", "tags"].some((field) => args[field] !== undefined)
+    ["title", "category", "tags", "due"].some((field) => args[field] !== undefined)
   )
     invalidInput("mixed text/classification");
   const patch: UpdateInput["patch"] = {};
@@ -29,7 +30,7 @@ export function parseContentPatch(args: Record<string, unknown>): UpdateInput["p
       /[\uD800-\uDFFF]/u.test(args.text)
     )
       invalidInput("text");
-    Object.assign(patch, parseShorthand(args.text), { text: args.text.trim() });
+    Object.assign(patch, parseShorthand(args.text));
   }
   if (args.title !== undefined) {
     if (typeof args.title !== "string") invalidInput("title");
@@ -64,6 +65,10 @@ export function parseContentPatch(args: Record<string, unknown>): UpdateInput["p
     if (!Array.isArray(args.tags)) invalidInput("tags");
     patch.tags = [...new Set(args.tags.map(slugInput))].sort();
   }
+  if (args.due !== undefined) {
+    if (args.due !== null && !isDueDate(args.due)) invalidInput("due");
+    patch.due = args.due;
+  }
   if (args.attachments !== undefined) {
     if (!isAttachmentList(args.attachments)) invalidInput("attachments");
     patch.attachments = args.attachments;
@@ -95,6 +100,7 @@ export function parseUpdate(args: Record<string, unknown>): UpdateInput {
     "priority",
     "category",
     "tags",
+    "due",
     "attachments",
   ]);
   return { ...parseTaskVersion(args), patch: parseContentPatch(args) };
@@ -107,10 +113,11 @@ export function applyUpdate(
 ): { task: CanonicalTask; changed: boolean } {
   const next = { ...task, ...input.patch };
   if (next.attachments?.length === 0) delete next.attachments;
-  // Typed text is kept only while it still describes the title and classification it produced.
+  if (next.due === null) delete next.due;
+  // Typed text is kept only while it still describes what it set.
   if (
     input.patch.text === undefined &&
-    (["title", "category", "tags"] as const).some(
+    (["title", "category", "tags", "due"] as const).some(
       (field) => JSON.stringify(next[field]) !== JSON.stringify(task[field]),
     )
   )

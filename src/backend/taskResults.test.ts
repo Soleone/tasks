@@ -14,6 +14,7 @@ const file = fileURLToPath(
 const projection = {
   ...JSON.parse(readFileSync(file, "utf8")),
   attachments: [],
+  due: null,
   version: 7,
   blockedByIds: [],
 };

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { CommandError } from "./errors.js";
+import { localToday, parseDueWord } from "./dueDate.js";
 import { parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 
@@ -20,6 +21,7 @@ const VALUE_FLAGS = new Set([
   "parent",
   "category",
   "tag",
+  "due",
   "status",
   "search",
   "limit",
@@ -36,6 +38,7 @@ const BOOLEAN_FLAGS = new Set([
   "no-parent",
   "clear-category",
   "clear-tags",
+  "clear-due",
   "uncategorized",
   "unblocked",
   "include-ancestors",
@@ -170,19 +173,30 @@ function classification(flags: Flags, args: Record<string, unknown>): void {
   if (flags.has("tag")) args.tags = flags.get("tag");
   else if (flags.has("clear-tags")) args.tags = [];
 }
+function dueDate(flags: Flags, args: Record<string, unknown>): void {
+  if (flags.has("due") && flags.has("clear-due")) usage("choose --due or --clear-due, not both");
+  if (flags.has("clear-due")) args.due = null;
+  if (!flags.has("due")) return;
+  const due = parseDueWord(value(flags, "due")!, localToday());
+  if (due === null) usage("--due takes a date such as 2026-10-31, today, tmr, fri, 3d or oct31");
+  args.due = due;
+}
 function content(flags: Flags, args: Record<string, unknown>): void {
   if (flags.has("title") && flags.has("text"))
     usage("choose literal --title or shorthand --text, not both");
   if (
     flags.has("text") &&
-    ["category", "clear-category", "tag", "clear-tags"].some((name) => flags.has(name))
+    ["category", "clear-category", "tag", "clear-tags", "due", "clear-due"].some((name) =>
+      flags.has(name),
+    )
   )
-    usage("shorthand --text cannot mix with classification overrides");
+    usage("shorthand --text cannot mix with classification or due overrides");
   for (const field of ["title", "text", "description"])
     if (flags.has(field)) args[field] = value(flags, field);
   const priority = integer(flags, "priority", 0, 4);
   if (priority !== undefined) args.priority = priority;
   classification(flags, args);
+  dueDate(flags, args);
 }
 export function parseHumanArgs(argv: string[]): HumanArgs {
   const { flags, words } = tokenize(argv),
@@ -258,6 +272,8 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
         "clear-category",
         "tag",
         "clear-tags",
+        "due",
+        "clear-due",
       ];
       if (positionals.length && (flags.has("title") || flags.has("text")))
         usage("choose positional shorthand or explicit --title/--text");
@@ -265,8 +281,8 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       if (!positionals.length && !flags.has("title") && !flags.has("text"))
         usage("add needs positional shorthand, --text or literal --title");
       content(flags, args);
-      if ("text" in args && ["category", "tags"].some((name) => name in args))
-        usage("positional shorthand cannot mix with classification overrides");
+      if ("text" in args && ["category", "tags", "due"].some((name) => name in args))
+        usage("positional shorthand cannot mix with classification or due overrides");
       if (flags.has("parent")) args.parentId = value(flags, "parent");
       break;
     }
@@ -281,6 +297,8 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
         "clear-category",
         "tag",
         "clear-tags",
+        "due",
+        "clear-due",
       ];
       requirePositionals(positionals, 1, verb);
       content(flags, args);
@@ -440,15 +458,17 @@ QUERIES
   activity [--task ID] [--limit N]
   list: --status STATUS (repeat/comma), --priority 0..4, --category SLUG,
         --uncategorized, --tag SLUG (repeat), --search TEXT, --unblocked,
-        --limit N, --offset N, --sort created|updated|priority|manual,
+        --limit N, --offset N, --sort created|updated|priority|due|manual,
         --direction asc|desc (not manual), --include-ancestors
 
 WRITES
   add TEXT... | add --title LITERAL | add --text SHORTHAND
   update ID [--title LITERAL | --text SHORTHAND]
     content flags: --description TEXT, --priority 0..4, --category SLUG,
-                   --clear-category, --tag SLUG (repeat), --clear-tags
-    add also allows --parent ID. Shorthand cannot mix classification overrides.
+                   --clear-category, --tag SLUG (repeat), --clear-tags,
+                   --due DATE (2026-10-31, today, tmr, fri, 3d, 2w, oct31), --clear-due
+    add also allows --parent ID. Shorthand (^fri sets the due date) cannot mix
+    classification or due overrides.
   start|pause|complete|reopen|cancel|delete|undo ID
   undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled
   move ID --parent ID | move ID --no-parent

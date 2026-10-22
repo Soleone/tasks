@@ -15,10 +15,10 @@ There are two ways in from outside the app. Both use the same [commands](../back
 
 | Verb | Command |
 | --- | --- |
-| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort`, `--direction`, `--limit`, `--offset` |
+| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort` (including `due`), `--direction`, `--limit`, `--offset` |
 | `show ID` | `task.get`, with each attachment's absolute path |
-| `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--parent`, `--category`, `--tag` |
-| `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--category`, `--clear-category`, `--tag`, `--clear-tags` |
+| `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--parent`, `--category`, `--tag`, `--due` |
+| `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--category`, `--clear-category`, `--tag`, `--clear-tags`, `--due`, `--clear-due` |
 | `start` `pause` `complete` `reopen` `cancel` `delete` `ID` | the matching status command |
 | `undo ID` | `task.status.undo` |
 | `undo-operation ID` | `operation.undo` |
@@ -38,7 +38,8 @@ Reorder, status batches, doctor, removing attachments and deleting done tasks ar
 
 | Rule | Then |
 | --- | --- |
-| `cli.shorthand` | Positional `add` text is shorthand. It can't be combined with `--category` or `--tag` |
+| `cli.shorthand` | Positional `add` text is shorthand. It can't be combined with `--category`, `--tag` or `--due` |
+| `cli.due` | `--due` takes any word `^` accepts (see `text.due`) and sends the date it names today. A word that names no date is a usage error |
 | `cli.flags-checked` | A flag that doesn't belong to the verb is a usage error |
 | `cli.attachment-paths` | `show` prints each attachment as an absolute path into the home's `sync/attachments/`, so agents can open the image. A missing file is marked missing |
 | `cli.actor` | `--actor-kind` (`human` or `agent`, default agent) and `--actor-label` set the actor |

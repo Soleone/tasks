@@ -1,4 +1,5 @@
 import { CommandError } from "./errors.js";
+import { isDueDate } from "./dueDate.js";
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 
@@ -19,6 +20,7 @@ export type CanonicalTask = {
   closedAt: string | null;
   // Optional fields are absent at their default, so task bytes stay `JSON.stringify(task)`.
   attachments?: string[];
+  due?: string | null;
 };
 
 const requiredFields = [
@@ -37,7 +39,7 @@ const requiredFields = [
   "updatedAt",
   "closedAt",
 ];
-const optionalFields = ["attachments"];
+const optionalFields = ["attachments", "due"];
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
@@ -170,6 +172,7 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
   if (!isOrderKey(value.orderKey)) invalidTask("orderKey");
   if (value.attachments !== undefined && !isAttachmentList(value.attachments))
     invalidTask("attachments");
+  if (value.due !== undefined && value.due !== null && !isDueDate(value.due)) invalidTask("due");
   if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt)) invalidTask("timestamps");
   const terminal = value.status === "done" || value.status === "canceled";
   if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null)

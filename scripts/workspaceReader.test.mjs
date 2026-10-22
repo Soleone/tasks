@@ -42,7 +42,7 @@ const task = JSON.parse(
     "utf8",
   ),
 );
-const projection = { ...task, attachments: [], version: 1, blockedByIds: [] };
+const projection = { ...task, attachments: [], due: null, version: 1, blockedByIds: [] };
 const request = (command = "workspace.info") => ({
   version: 2,
   requestId: crypto.randomUUID(),

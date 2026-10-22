@@ -59,6 +59,61 @@
       }
     },
     {
+      "id": "record-due-listed",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "due": "2026-10-31"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "due": "2026-10-31"
+        },
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-due-default-written",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "due": null
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "due": null
+        },
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-due-not-a-date",
+      "profile": "model",
+      "rule": "backend/data.md#values",
+      "given": {
+        "patch": {
+          "due": "2026-02-30"
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
       "id": "record-attachments-listed",
       "profile": "model",
       "rule": "backend/data.md#task-fields",

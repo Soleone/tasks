@@ -11,6 +11,7 @@ function taskLine(task: TaskProjection): string {
     `(p${task.priority})`,
     ...(task.category === null ? [] : [`@${task.category}`]),
     ...task.tags.map((tag) => `#${tag}`),
+    ...(task.due === null ? [] : [`^${task.due}`]),
     ...(task.blockedByIds.length ? [`blocked-by:${task.blockedByIds.length}`] : []),
     `v${task.version}`,
   ].join(" ");
@@ -22,6 +23,7 @@ function taskDetail(task: TaskProjection, rootPath: string): string {
     `priority: ${task.priority}`,
     `category: ${task.category === null ? "none" : `@${task.category}`}`,
     `tags: ${task.tags.map((tag) => `#${tag}`).join(" ") || "none"}`,
+    `due: ${task.due ?? "none"}`,
     `parent: ${task.parentId ?? "none"}`,
     `depends-on: ${task.dependencyIds.join(", ") || "none"}`,
     `blocked-by: ${task.blockedByIds.join(", ") || "none"}`,

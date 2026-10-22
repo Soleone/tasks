@@ -17,6 +17,7 @@ function task(id: string, status: TaskStatus, closedAt: string | null): TaskProj
     parentId: null,
     dependencyIds: [],
     attachments: [],
+    due: null,
     orderKey: `a${id}`,
     createdAt: "2026-10-20T08:00:00.000Z",
     updatedAt: "2026-10-20T08:00:00.000Z",
@@ -47,4 +48,19 @@ test("list.closed-since: closed tasks at or after the time match; active tasks n
       (error: unknown) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
     );
   }
+});
+
+test("list.sort-due: soonest first, same day by priority, undated last either way", () => {
+  const dated = [
+    { ...task("late", "open", null), due: "2026-11-02" },
+    { ...task("undated", "open", null) },
+    { ...task("soon-p3", "open", null), due: "2026-10-23", priority: 3 as const },
+    { ...task("soon-p1", "open", null), due: "2026-10-23", priority: 1 as const },
+  ];
+  const order = (args: Record<string, unknown>): string[] =>
+    (
+      executeQuery("task.list", { sort: "due", ...args }, dated, 1) as { tasks: TaskProjection[] }
+    ).tasks.map((entry) => entry.id);
+  assert.deepEqual(order({}), ["soon-p1", "soon-p3", "late", "undated"]);
+  assert.deepEqual(order({ direction: "desc" }), ["late", "soon-p1", "soon-p3", "undated"]);
 });

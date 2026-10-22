@@ -49,14 +49,19 @@ for (const entry of corpus.cases.filter(
   });
 }
 
+function classified(text: string): { title: string; category: string | null; tags: string[] } {
+  const { title, category, tags } = parseShorthand(text);
+  return { title, category, tags };
+}
+
 test("shorthand evaluates escaped-marker boundaries on decoded characters", () => {
-  assert.deepEqual(parseShorthand("See \\@#tag"), { title: "See @#tag", category: null, tags: [] });
-  assert.deepEqual(parseShorthand("See \\#literal #Real"), {
+  assert.deepEqual(classified("See \\@#tag"), { title: "See @#tag", category: null, tags: [] });
+  assert.deepEqual(classified("See \\#literal #Real"), {
     title: "See #literal",
     category: null,
     tags: ["real"],
   });
-  assert.deepEqual(parseShorthand("Keep \\q \\\\ @Work"), {
+  assert.deepEqual(classified("Keep \\q \\\\ @Work"), {
     title: "Keep \\q \\",
     category: "work",
     tags: [],
@@ -64,7 +69,7 @@ test("shorthand evaluates escaped-marker boundaries on decoded characters", () =
 });
 
 test("text.markers: joined category and tag names stay literal", () => {
-  assert.deepEqual(parseShorthand("Keep #one@two @one-long#two @work #real"), {
+  assert.deepEqual(classified("Keep #one@two @one-long#two @work #real"), {
     title: "Keep #one@two @one-long#two",
     category: "work",
     tags: ["real"],
@@ -76,6 +81,45 @@ test("text.remove-span: a marker between two spaces leaves one; other spacing st
   assert.equal(parseShorthand("Call #a #b  now").title, "Call  now");
   assert.equal(parseShorthand("Ask  @work, then go").title, "Ask  , then go");
   assert.equal(parseShorthand("@home Call #phone").title, "Call");
+});
+
+// 2026-10-22 is a Thursday.
+const today = "2026-10-22";
+
+test("text.due: due words resolve against today; anything else stays text", () => {
+  const due = (word: string): string | null => parseShorthand(`Pay ^${word}`, today).due;
+  assert.equal(due("today"), "2026-10-22");
+  assert.equal(due("tmr"), "2026-10-23");
+  assert.equal(due("Tomorrow"), "2026-10-23");
+  assert.equal(due("fri"), "2026-10-23");
+  assert.equal(due("thursday"), "2026-10-29");
+  assert.equal(due("3d"), "2026-10-25");
+  assert.equal(due("2w"), "2026-11-05");
+  assert.equal(parseShorthand("Pay ^1m", "2026-01-31").due, "2026-02-28");
+  assert.equal(due("oct31"), "2026-10-31");
+  assert.equal(due("october22"), "2026-10-22");
+  assert.equal(due("oct21"), "2027-10-21");
+  assert.equal(due("2026-02-03"), "2026-02-03");
+  for (const text of ["x^2 = 4", "Pay ^soon", "Pay ^feb30", "Pay \\^fri", "Pay `^fri`", "a^fri"])
+    assert.deepEqual(parseShorthand(text, today).due, null, text);
+  assert.equal(parseShorthand("Pay \\^fri", today).title, "Pay ^fri");
+  assert.equal(parseShorthand("Pay ^fri rent", today).title, "Pay rent");
+});
+
+test("text.due-fixed: the stored text holds the date, not the relative word", () => {
+  assert.equal(
+    parseShorthand(" Pay ^fri \\@home #bills ", today).text,
+    "Pay ^2026-10-23 \\@home #bills",
+  );
+  assert.equal(parseShorthand("`^x` Pay ^tmr", today).text, "`^x` Pay ^2026-10-23");
+});
+
+test("text.one-due: two different due dates are refused; the same one twice is fine", () => {
+  assert.throws(
+    () => parseShorthand("Pay ^fri ^mon", today),
+    (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+  );
+  assert.equal(parseShorthand("Pay ^fri ^2026-10-23", today).due, "2026-10-23");
 });
 
 const at = "2026-10-01T00:00:00.000Z";
@@ -106,7 +150,13 @@ test("text.kept: shorthand input is stored trimmed next to what it produced; cre
 
 test("text.cleared: title, category or tag changes without text clear it; other changes keep it", () => {
   const task = typed("Call @home #phone");
-  for (const args of [{ title: "Call!" }, { category: "work" }, { category: null }, { tags: [] }]) {
+  for (const args of [
+    { title: "Call!" },
+    { category: "work" },
+    { category: null },
+    { tags: [] },
+    { due: "2026-11-01" },
+  ]) {
     assert.equal(
       applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...args }), at).task.text,
       null,
@@ -119,6 +169,7 @@ test("text.cleared: title, category or tag changes without text clear it; other 
     { category: "home" },
     { tags: ["phone"] },
     { title: "Call" },
+    { due: null },
   ]) {
     assert.equal(
       applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...args }), at).task.text,

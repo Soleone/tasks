@@ -7,6 +7,7 @@ import test from "node:test";
 import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import type { TaskProjection } from "./queries.js";
+import { addDays, localToday } from "./dueDate.js";
 
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const linux = { skip: process.platform !== "linux" };
@@ -145,7 +146,7 @@ for (const id of ["cli-literal", "cli-text", "cli-key-context"]) {
           Object.fromEntries(
             // Results fill in optional fields that the file leaves out at their default.
             Object.entries(task).filter(
-              ([field]) => !["version", "blockedByIds", "attachments"].includes(field),
+              ([field]) => !["version", "blockedByIds", "attachments", "due"].includes(field),
             ),
           ),
         );
@@ -213,6 +214,31 @@ test(
     assert.deepEqual(unclassified.tags, []);
     const terminator = ok(workspace, ["add", "--", "--root"]).task as TaskProjection;
     assert.equal(terminator.title, "--root");
+  },
+);
+
+test(
+  "cli.due: --due takes a date word, --clear-due clears it and ^ shorthand sets it",
+  linux,
+  (t) => {
+    const workspace = setup(t);
+    const today = localToday();
+    const added = ok(workspace, ["add", "Pay rent ^tmr"]).task as TaskProjection;
+    assert.equal(added.title, "Pay rent");
+    assert.equal(added.due, addDays(today, 1));
+    assert.equal(added.text, `Pay rent ^${addDays(today, 1)}`);
+    const moved = ok(workspace, ["update", added.id, "--due", "2026-12-24"]).task as TaskProjection;
+    assert.equal(moved.due, "2026-12-24");
+    const sorted = ok(workspace, ["list", "--sort", "due"]).tasks as TaskProjection[];
+    assert.equal(sorted[0].id, added.id);
+    const cleared = ok(workspace, ["update", added.id, "--clear-due"]).task as TaskProjection;
+    assert.equal(cleared.due, null);
+    for (const argv of [
+      ["update", added.id, "--due", "someday"],
+      ["update", added.id, "--due", "fri", "--clear-due"],
+      ["add", "Pay ^fri", "--due", "mon"],
+    ])
+      assert.equal(run(workspace, argv).status, 2, argv.join(" "));
   },
 );
 

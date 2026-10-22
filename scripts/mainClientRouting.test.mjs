@@ -33,6 +33,7 @@ const draft = (text, description = "", priority = 2) => ({
   description,
   priority,
   attachments: [],
+  due: null,
 });
 
 const withheldActions = [

@@ -223,11 +223,11 @@ test("main-client presentation preserves literal text and round-trips inline cla
     const pills = { category: "work", tags: ["alpha", "todo"] };
     // Nothing in the escaped title lifts, so saving it unchanged keeps the title literal.
     assert.deepEqual(liftAll(field, pills), { text: field, classification: pills });
-    assert.deepEqual(parseShorthand(shorthandText(field, pills)), {
-      title,
-      category: "work",
-      tags: ["alpha", "todo"],
-    });
+    const parsed = parseShorthand(shorthandText(field, pills));
+    assert.deepEqual(
+      [parsed.title, parsed.category, parsed.tags, parsed.due],
+      [title, "work", ["alpha", "todo"], null],
+    );
     assert.equal(view.description, canonical.description);
     assert.equal(view.closedAt, canonical.closedAt);
   }

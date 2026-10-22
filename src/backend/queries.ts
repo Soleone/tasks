@@ -7,6 +7,7 @@ import type { QueryAuthority } from "./queryCache.js";
 
 export type TaskProjection = CanonicalTask & {
   attachments: string[];
+  due: string | null;
   version: number;
   blockedByIds: string[];
 };
@@ -41,6 +42,7 @@ export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority):
     ...task,
     text: typedText(task),
     attachments: task.attachments ?? [],
+    due: task.due ?? null,
     version: authority.versions.get(task.id)!,
     blockedByIds: task.dependencyIds.filter((id) => byId.get(id)!.status !== "canceled"),
   }));
@@ -112,9 +114,14 @@ function listTasks(
   const closedSince = args.closedSince;
   if (closedSince !== undefined && !isTimestamp(closedSince)) invalidFilter("closedSince");
   const sort = args.sort === undefined ? "created" : args.sort;
-  if (!["created", "updated", "priority", "manual"].includes(sort as string)) invalidFilter("sort");
+  if (!["created", "updated", "priority", "due", "manual"].includes(sort as string))
+    invalidFilter("sort");
   const direction =
-    args.direction === undefined ? (sort === "priority" ? "asc" : "desc") : args.direction;
+    args.direction === undefined
+      ? sort === "priority" || sort === "due"
+        ? "asc"
+        : "desc"
+      : args.direction;
   if (direction !== "asc" && direction !== "desc") invalidFilter("direction");
   const limit = Math.min(100, Math.max(1, queryInteger(args.limit, 50)));
   const offset = Math.max(0, queryInteger(args.offset, 0));
@@ -133,16 +140,21 @@ function listTasks(
         asciiLower(task.description).includes(search)),
   );
   if (sort !== "manual") {
+    const sortValue = (task: TaskProjection): string | number =>
+      sort === "priority"
+        ? task.priority
+        : sort === "created"
+          ? task.createdAt
+          : sort === "updated"
+            ? task.updatedAt
+            : (task.due ?? "");
     matching.sort((left, right) => {
-      const a =
-        sort === "priority" ? left.priority : sort === "created" ? left.createdAt : left.updatedAt;
-      const b =
-        sort === "priority"
-          ? right.priority
-          : sort === "created"
-            ? right.createdAt
-            : right.updatedAt;
+      if (sort === "due" && (left.due === null) !== (right.due === null))
+        return left.due === null ? 1 : -1;
+      const a = sortValue(left);
+      const b = sortValue(right);
       if (a !== b) return (a < b ? -1 : 1) * (direction === "asc" ? 1 : -1);
+      if (sort === "due" && left.priority !== right.priority) return left.priority - right.priority;
       return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
     });
   }
