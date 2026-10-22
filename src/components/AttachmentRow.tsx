@@ -84,9 +84,9 @@ export function AttachmentRow({
     if (image && "url" in image) setPreviewing(index);
   }
 
-  // Browsing the preview also moves the row, so closing it lands on the last image viewed.
+  // Browsing wraps around and also moves the row, so closing lands on the last image viewed.
   function stepPreview(from: number, step: -1 | 1): void {
-    const next = Math.min(names.length - 1, Math.max(0, from + step));
+    const next = (from + step + names.length) % names.length;
     setPreviewing(next);
     setActive(next);
   }
@@ -231,7 +231,6 @@ export function AttachmentRow({
                     tabIndex={-1}
                     aria-label="Previous image"
                     onMouseDown={preventFocusSteal}
-                    disabled={previewing === 0}
                     onClick={() => stepPreview(previewing, -1)}
                   >
                     <ChevronLeft aria-hidden="true" />
@@ -245,7 +244,6 @@ export function AttachmentRow({
                     tabIndex={-1}
                     aria-label="Next image"
                     onMouseDown={preventFocusSteal}
-                    disabled={previewing === names.length - 1}
                     onClick={() => stepPreview(previewing, 1)}
                   >
                     <ChevronRight aria-hidden="true" />

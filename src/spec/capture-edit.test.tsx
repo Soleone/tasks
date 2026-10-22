@@ -638,7 +638,7 @@ describe("images", () => {
     await waitFor(async () => expect((await copied())?.at(-1)).toBe(2));
   });
 
-  test("attach.preview: Space or a click opens the image; arrows step through; Escape or Space closes", async () => {
+  test("attach.preview: Space or a click opens the image; arrows cycle through; Escape or Space closes", async () => {
     const task = await workspace.create("Task", {
       attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
     });
@@ -660,6 +660,10 @@ describe("images", () => {
     await user.keyboard("{ArrowRight}");
     await shown(1);
     await user.click(screen.getByRole("button", { name: "Previous image" }));
+    await shown(0);
+    await user.click(screen.getByRole("button", { name: "Previous image" }));
+    await shown(1);
+    await user.keyboard("{ArrowRight}");
     await shown(0);
     await user.click(screen.getByRole("button", { name: "Next image" }));
     await shown(1);
