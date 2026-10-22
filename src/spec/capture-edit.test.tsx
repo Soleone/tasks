@@ -391,6 +391,23 @@ describe("shorthand", () => {
       expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
     });
 
+    test("platform.keyboard-bar: the tap that closes the editor with Escape doesn't reach the list", async () => {
+      await workspace.create("Buy milk");
+      const { user } = await workspace.render();
+      await capture(user, "Draft");
+      const bar = screen.getByRole("toolbar", { name: "Keyboard keys" });
+      fireEvent.pointerDown(within(bar).getByRole("button", { name: "Escape" }), {
+        button: 0,
+        pointerType: "touch",
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull(),
+      );
+      fireEvent.click(within(row("Buy milk")).getByRole("img", { name: /^Status: Open/ }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect((await onlyTask()).status).toBe("open");
+    });
+
     test("platform.keyboard-bar: holding a touch arrow repeats and release stops it", async () => {
       const { user } = await workspace.render();
       await capture(user, "Buy milk");

@@ -10,6 +10,17 @@ type KeyboardBarProps = {
   onMoveCursor: (direction: -1 | 1) => void;
 };
 
+// Escape can close the editor, and this bar with it, before the finger lifts. The tap's click then
+// lands on whatever is under it, such as a row's status glyph.
+function swallowNextClick(): void {
+  const swallow = (event: MouseEvent): void => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  window.addEventListener("click", swallow, { capture: true, once: true });
+  setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 600);
+}
+
 // Portaled so an animated row can't anchor the bar above the soft keyboard.
 export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarProps): ReactElement {
   const repeatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,6 +46,7 @@ export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarPro
         document.activeElement?.dispatchEvent(
           new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
         ),
+      closesBar: true,
     },
     { label: "@", name: "@", press: () => onMarker("@") },
     { label: "#", name: "#", press: () => onMarker("#") },
@@ -71,6 +83,7 @@ export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarPro
             // and prevent the bar from taking focus or dismissing the soft keyboard.
             event.preventDefault();
             stopRepeat();
+            if (key.closesBar) swallowNextClick();
             key.press();
             const direction = key.direction;
             if (direction !== undefined) {
