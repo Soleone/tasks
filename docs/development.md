@@ -90,7 +90,7 @@ On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browse
 
 The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (about half an hour, cached in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per Tasks home (`src-tauri/src/android_backend.rs`).
 
-Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. The Node build uses the NDK's Clang for both Linux host tools and Android code, so no separate Clang installation is needed. Only deprecated-declaration warnings in the upstream host tools are suppressed; other diagnostics remain visible. Then:
+Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. Then:
 
 Release APKs are signed with your own key, so each build installs over the last. Create the key once, in a private place, and enter the passwords when `keytool` asks (never on the command line):
 
