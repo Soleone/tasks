@@ -21,13 +21,16 @@ Keep domain rules independent of React, Tauri and transport. The gateway owns va
 
 ## Prerequisites
 
-Use Node with `node:sqlite` support and the repository's pinned pnpm:
+Node is pinned to **24.22.1** in `package.json` under `devEngines.runtime`; pnpm is pinned by `packageManager`. Install the project runtime and dependencies with:
 
 ```bash
-corepack enable
-corepack prepare pnpm@11.22.0 --activate
 pnpm install --frozen-lockfile
+pnpm exec node --version
 ```
+
+`pn` is the Vite+ alias for pnpm. Both run project scripts with the pinned Node, even if a different Node is first on `PATH`. Vite+ also reads this pin. pnpm may keep its own runtime copy; leave runtime management enabled here so scripts do not depend on shell setup. Global defaults and other projects are unchanged.
+
+To deliberately upgrade Node, update `devEngines.runtime.version`, run `pnpm install` to refresh the runtime lock, and rerun validation. The first Android build for that version recompiles Node; later builds reuse it.
 
 Native development additionally needs [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Windows is the first release platform; native validation is deferred to the owner's host. Linux/WSL backend success is not a desktop acceptance pass.
 
