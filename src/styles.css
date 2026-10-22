@@ -287,6 +287,36 @@
     scrollbar-color: var(--border) transparent;
   }
 
+  /* Android shows no thumb with the colors above, so touch screens draw their own thin one. The standard
+     properties go back to auto because any other value makes Chromium skip ::-webkit-scrollbar. */
+  @media (pointer: coarse) {
+    *,
+    :hover,
+    [data-scrolling] {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+
+    ::-webkit-scrollbar {
+      width: 3px;
+      height: 3px;
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner,
+    ::-webkit-scrollbar-thumb {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-radius: 3px;
+    }
+
+    [data-scrolling]::-webkit-scrollbar-thumb {
+      background: color-mix(in oklab, var(--foreground) 30%, transparent);
+    }
+  }
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
