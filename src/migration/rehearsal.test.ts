@@ -19,8 +19,7 @@ import { contentHash } from "./schema1Source.js";
 import type { Response } from "../backend/protocol.js";
 import type { CanonicalTask } from "../backend/taskModel.js";
 
-const cli = fileURLToPath(new URL("../backend/cli.js", import.meta.url));
-const humanCli = fileURLToPath(new URL("../backend/tasks-cli.js", import.meta.url));
+const cli = fileURLToPath(new URL("../backend/tasks-cli.js", import.meta.url));
 const markdown =
   "## Notes Ω\r\n\r\n#not-a-tag @not-a-category\r\n```ts\r\nconst text = 'λ';\r\n```\r\n";
 const expectedTimes = {
@@ -275,7 +274,7 @@ test(
     const preview = spawnSync(
       process.execPath,
       [
-        humanCli,
+        cli,
         "--root",
         source,
         "--database",

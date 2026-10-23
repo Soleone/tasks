@@ -102,7 +102,7 @@ function processCommand(args, launches, responses) {
         if (event === "error") error = callback;
       },
       async spawn() {
-        const child = spawn(process.execPath, ["dist/backend/cli.js", ...args], {
+        const child = spawn(process.execPath, ["dist/backend/tasks-cli.js", ...args], {
           env: process.env,
           stdio: ["pipe", "pipe", "pipe"],
         });

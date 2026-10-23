@@ -80,7 +80,7 @@ function homeSession(home: string): JsonLineSession<Response> {
     const args = sidecarArgs(home); // Validates the home on both routes.
     if (isAndroid()) return androidBackend(home);
     const { Command } = await import("@tauri-apps/plugin-shell");
-    return Command.sidecar("binaries/tasks-backend", args);
+    return Command.sidecar("binaries/tasks-cli", args);
   }, parseResponse);
 }
 

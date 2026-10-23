@@ -8,8 +8,10 @@ const outputDirectory = path.join(root, "dist", "sidecar");
 const extension = process.platform === "win32" ? ".exe" : "";
 const target = execFileSync("rustc", ["--print", "host-tuple"], { encoding: "utf8" }).trim();
 
+// Windows has no codesign: there postject warns that Node's signature is now corrupted, which is
+// harmless until releases are signed.
 function removeSignature(executablePath) {
-  if (process.platform !== "win32" && process.platform !== "darwin") return;
+  if (process.platform !== "darwin") return;
   try {
     execFileSync("codesign", ["--remove-signature", executablePath], { stdio: "ignore" });
   } catch {
@@ -17,17 +19,11 @@ function removeSignature(executablePath) {
   }
 }
 
-// Both packaged binaries are SEA executables baked from esbuild bundles, so
-// installed machines never need Node. tasks-backend is the desktop sidecar;
-// tasks-cli is the standalone agent-facing CLI.
-for (const { name, bundle } of [
-  { name: "tasks-backend", bundle: "cli.cjs" },
-  { name: "tasks-cli", bundle: "tasks-cli.cjs" },
-]) {
-  bakeSea({
-    node: process.execPath,
-    bundle: path.join(outputDirectory, bundle),
-    output: path.join(root, "src-tauri", "binaries", `${name}-${target}${extension}`),
-    prepare: removeSignature,
-  });
-}
+// One SEA executable baked from the esbuild bundle, so installed machines never need Node. The
+// app runs it with --stdio as its backend; people and agents run it as tasks-cli.
+bakeSea({
+  node: process.execPath,
+  bundle: path.join(outputDirectory, "tasks-cli.cjs"),
+  output: path.join(root, "src-tauri", "binaries", `tasks-cli-${target}${extension}`),
+  prepare: removeSignature,
+});

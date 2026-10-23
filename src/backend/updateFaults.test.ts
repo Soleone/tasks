@@ -21,7 +21,7 @@ import { pendingIntentPath } from "./localDomain.js";
 import type { Response } from "./protocol.js";
 
 const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const blockerId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed";
 const linuxOnly = { skip: process.platform !== "linux" };

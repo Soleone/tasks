@@ -821,7 +821,14 @@ function manualLine(selected, envelope) {
   return JSON.parse(
     execFileSync(
       process.execPath,
-      ["dist/backend/cli.js", "--stdio", "--root", selected.root, "--database", selected.cache],
+      [
+        "dist/backend/tasks-cli.js",
+        "--stdio",
+        "--root",
+        selected.root,
+        "--database",
+        selected.cache,
+      ],
       {
         env: process.env,
         input: envelope + "\n",

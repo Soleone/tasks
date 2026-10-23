@@ -83,7 +83,7 @@ function androidNode() {
 
 bakeSea({
   node: androidNode(),
-  bundle: path.join(root, "dist", "sidecar", "cli.cjs"),
+  bundle: path.join(root, "dist", "sidecar", "tasks-cli.cjs"),
   output: path.join(
     root,
     "src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libtasks_backend.so",

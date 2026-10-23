@@ -6,10 +6,10 @@ import test from "node:test";
 import { build } from "esbuild";
 
 // The desktop setup runs against the real backend; only Tauri's bridge is replaced, with the
-// sidecar started as `node dist/backend/cli.js`, the pointer kept in memory and the user folder
+// sidecar started as `node dist/backend/tasks-cli.js`, the pointer kept in memory and the user folder
 // answered from a scratch folder.
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-desktop-setup-"));
-const cli = path.resolve("dist/backend/cli.js");
+const cli = path.resolve("dist/backend/tasks-cli.js");
 
 const tauri = {
   "@tauri-apps/api/core": `

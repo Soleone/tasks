@@ -8,7 +8,7 @@ import test from "node:test";
 import type { TestContext } from "node:test";
 import type { Response } from "./protocol.js";
 
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 type Workspace = { root: string; cache: string };
 function setup(t: TestContext): Workspace {

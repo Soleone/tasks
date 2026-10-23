@@ -28,7 +28,7 @@ import {
   planDoctor,
 } from "./doctorTestWorkspace.js";
 import type { DoctorIntent } from "./doctorJournal.js";
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 function run(w: ReturnType<typeof setup>, request: object, loader?: string) {
   return spawnSync(
     process.execPath,

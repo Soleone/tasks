@@ -1,9 +1,9 @@
 # CLI and agents
 
-There are two ways in from outside the app. Both use the same [commands](../backend/commands.md) as the app.
+There are two ways in from outside the app, both through `tasks-cli`, the same executable the desktop app runs as its backend. Both use the same [commands](../backend/commands.md) as the app.
 
-- **JSON lines**: send one request envelope per line on stdin, get one reply per line on stdout. This is the complete interface for agents.
-- **`tasks-cli`**: friendly verbs for people and simple scripts.
+- **JSON lines** (`tasks-cli --stdio`): send one request envelope per line on stdin, get one reply per line on stdout. This is the complete interface for agents.
+- **Verbs** (`tasks-cli VERB`): friendly verbs for people and simple scripts.
 
 ## Selecting a workspace
 

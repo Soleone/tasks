@@ -19,7 +19,7 @@
       "identifier": "shell:allow-spawn",
       "allow": [
         {
-          "name": "binaries/tasks-backend",
+          "name": "binaries/tasks-cli",
           "sidecar": true,
           "args": [
             "--stdio",

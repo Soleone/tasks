@@ -35,7 +35,7 @@ export function createCopyTestWorkspace(
   };
 }
 
-const cli = fileURLToPath(new URL("./cli.js", import.meta.url));
+const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 
 /** One JSON-lines request through the gateway, in process. */
 export function send(workspace: CopyTestWorkspace, envelope: object): Response {

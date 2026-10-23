@@ -9,7 +9,7 @@ const infoPath = path.join(root, "dist", "sidecar", ".sidecar-info.json");
 function targetBinary() {
   const target = execFileSync("rustc", ["--print", "host-tuple"], { encoding: "utf8" }).trim();
   const extension = process.platform === "win32" ? ".exe" : "";
-  return path.join(root, "src-tauri", "binaries", `tasks-backend-${target}${extension}`);
+  return path.join(root, "src-tauri", "binaries", `tasks-cli-${target}${extension}`);
 }
 
 function readInfo() {

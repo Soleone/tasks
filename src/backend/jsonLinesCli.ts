@@ -37,8 +37,7 @@ function given(value: string | undefined): value is string {
  * The app runs `--home PATH --client app`. `--root` and `--database` select a bare folder and cache
  * for tests and the old-folder conversion; they can't be mixed with a home.
  */
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+export async function runJsonLinesCli(args: string[]): Promise<void> {
   const homePath = optionValue(args, "--home");
   const client = optionValue(args, "--client");
   const rootPath = optionValue(args, "--root");
@@ -51,8 +50,8 @@ async function main(): Promise<void> {
     (homeForm && (rootPath || cachePath))
   ) {
     process.stderr.write(
-      "Usage: tasks-backend --stdio --home PATH --client app|cli\n" +
-        "       tasks-backend --stdio --root PATH --database CACHE_OUTSIDE_ROOT\n",
+      "Usage: tasks-cli --stdio --home PATH --client app|cli\n" +
+        "       tasks-cli --stdio --root PATH --database CACHE_OUTSIDE_ROOT\n",
     );
     process.exitCode = 2;
     return;
@@ -63,8 +62,3 @@ async function main(): Promise<void> {
       : executeLine(line, rootPath!, cachePath!),
   );
 }
-
-main().catch((error: unknown) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 1;
-});

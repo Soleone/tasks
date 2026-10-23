@@ -11,7 +11,7 @@ test("sidecar source freshness works without Git and includes nested sources, de
   mkdirSync(path.join(root, "src/backend/nested"), { recursive: true });
   mkdirSync(path.join(root, "scripts"));
   const files = [
-    "src/backend/cli.ts",
+    "src/backend/tasks-cli.ts",
     "src/backend/nested/model.ts",
     "scripts/build-sidecar.mjs",
     "scripts/sea.mjs",

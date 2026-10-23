@@ -14,7 +14,7 @@
     "build": "pnpm check && pnpm build:backend && pnpm build:web",
     "build:web": "vp build",
     "build:backend": "node -e \"for (const d of ['dist/backend', 'dist/migration']) require('fs').rmSync(d, { recursive: true, force: true })\" && tsc -p tsconfig.backend.json",
-    "build:backend:bundle": "esbuild src/backend/cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/cli.cjs && esbuild src/backend/tasks-cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/tasks-cli.cjs",
+    "build:backend:bundle": "esbuild src/backend/tasks-cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/tasks-cli.cjs",
     "build:sidecar": "pnpm build:backend:bundle && node scripts/build-sidecar.mjs",
     "build:tauri": "pnpm build:sidecar && tauri build",
     "build:android": "pnpm build:backend:bundle && node scripts/build-android.mjs",

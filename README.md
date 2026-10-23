@@ -65,7 +65,7 @@ node dist/backend/tasks-cli.js --home "$scratch" list --sort manual
 
 ```bash
 printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
-  node dist/backend/cli.js --stdio --home "$scratch" --client cli
+  node dist/backend/tasks-cli.js --stdio --home "$scratch" --client cli
 ```
 
 See [spec/ecosystem/cli.md](spec/ecosystem/cli.md) and [spec/backend/commands.md](spec/backend/commands.md).
@@ -79,7 +79,7 @@ pnpm install
 pnpm build:tauri
 ```
 
-`pnpm dev:native` runs it in development. Setup is in [docs/development.md](docs/development.md#desktop-development). The Android app runs the same UI and backend; `pnpm build:android` builds it ([details](docs/development.md#android)).
+On Windows that produces one installer, `src-tauri/target/release/bundle/nsis/Tasks_<version>_x64-setup.exe`. `pnpm dev:native` runs it in development. Setup is in [docs/development.md](docs/development.md#desktop-development). The Android app runs the same UI and backend; `pnpm build:android` builds it ([details](docs/development.md#android)).
 
 ## Data safety
 
