@@ -368,8 +368,8 @@ test("query filters preserve graph context, AND tags, ASCII search and full manu
     assert.equal(response.ok, false);
     if (!response.ok) assert.equal(response.error.code, "INVALID_ARGUMENT");
   }
-  const bounded = result(query(current, "task.list", { limit: 500, offset: -5, priority: 2 }));
-  assert.equal(bounded.limit, 100);
+  const bounded = result(query(current, "task.list", { limit: 5000, offset: -5, priority: 2 }));
+  assert.equal(bounded.limit, 500);
   assert.equal(bounded.offset, 0);
 });
 

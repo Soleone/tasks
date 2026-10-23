@@ -25,6 +25,8 @@ import {
 import { closeBackendSession, getWorkspaceRevision, listTasks } from "@/platform/backendClient";
 
 const WORKSPACE_REVISION_POLL_MS = 1500;
+/** Tasks per request; the list loads further pages as navigation nears its end. */
+const TASK_PAGE_SIZE = 200;
 
 type WorkspaceTasksView = {
   statusPreset: StatusPreset;
@@ -84,7 +86,7 @@ export function useWorkspaceTasks({
 
   // Runs the current query. Callers mark the list as loading first.
   const fetchTasks = useCallback(
-    async (offset: number, preserveContextOrder: boolean): Promise<boolean> => {
+    async (offset: number, preserveContextOrder: boolean, limit: number): Promise<boolean> => {
       const sequence = ++querySequence.current;
       try {
         const exact = exactStatusRef.current;
@@ -103,6 +105,7 @@ export function useWorkspaceTasks({
             ...(doneWindowRef.current !== null
               ? { closedSince: doneSince(doneWindowRef.current) }
               : {}),
+            limit,
             sort: sortFieldRef.current,
             direction: sortDirectionRef.current,
             includeAncestors: true,
@@ -193,11 +196,14 @@ export function useWorkspaceTasks({
     [setCategoryFilter, setTagFilter],
   );
 
+  // A reload from the top asks for every row already loaded, so an edit or a
+  // poll never shrinks a list that was paged further.
   const refreshTasks = useCallback(
     (offset = 0, preserveContextOrder = false): Promise<boolean> => {
       setLoading(true);
       setLoadError(null);
-      return fetchTasks(offset, preserveContextOrder);
+      const limit = offset ? TASK_PAGE_SIZE : Math.max(TASK_PAGE_SIZE, tasksRef.current.length);
+      return fetchTasks(offset, preserveContextOrder, limit);
     },
     [fetchTasks],
   );
@@ -245,7 +251,7 @@ export function useWorkspaceTasks({
 
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect -- fetchTasks sets state only after its query answers
-    void fetchTasks(0, false);
+    void fetchTasks(0, false, TASK_PAGE_SIZE);
   }, [viewKey, fetchTasks]);
 
   useEffect(() => {

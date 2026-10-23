@@ -1,5 +1,5 @@
 import { CommandError } from "./errors.js";
-import { assertArgs } from "./protocol.js";
+import { assertArgs, TASK_LIST_MAX_LIMIT } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { compareTasks, isTimestamp } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
@@ -123,7 +123,7 @@ function listTasks(
         : "desc"
       : args.direction;
   if (direction !== "asc" && direction !== "desc") invalidFilter("direction");
-  const limit = Math.min(100, Math.max(1, queryInteger(args.limit, 50)));
+  const limit = Math.min(TASK_LIST_MAX_LIMIT, Math.max(1, queryInteger(args.limit, 50)));
   const offset = Math.max(0, queryInteger(args.offset, 0));
   const ordered = manualPreorder(tasks);
   const matching = ordered.filter(

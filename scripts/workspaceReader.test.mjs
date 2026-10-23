@@ -233,7 +233,7 @@ test("list validator refuses duplicate projection identities and unsafe paginati
   for (const changes of [
     { contextTasks: [projection] },
     { tasks: [projection, projection], total: 2 },
-    { limit: 101 },
+    { limit: 501 },
     { offset: -1 },
     { total: 0 },
     { contextTasks: undefined },

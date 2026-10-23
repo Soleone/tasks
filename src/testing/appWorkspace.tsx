@@ -80,6 +80,19 @@ export class AppWorkspace {
     return (await this.command<{ task: SeededTask }>("task.create", { title, ...args })).task;
   }
 
+  /** Creates `count` tasks on one write context, for tests that need more than a page of them. */
+  async createMany(count: number, args: (index: number) => Record<string, unknown>): Promise<void> {
+    const { writeContext } = await this.post({ command: "workspace.info" });
+    for (let index = 0; index < count; index += 1) {
+      await this.post({
+        command: "task.create",
+        args: args(index),
+        writeContext,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
+  }
+
   /** Stores `pngBytes(pixel)` through `attachment.write` and returns its name. */
   async storeImage(pixel = 1): Promise<string> {
     const data = btoa(String.fromCharCode(...pngBytes(pixel)));

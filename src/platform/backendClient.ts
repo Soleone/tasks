@@ -89,6 +89,7 @@ export type TaskListFilters = {
   includeAncestors?: boolean;
   includeDescendants?: boolean;
   closedSince?: string;
+  limit?: number;
 };
 
 export type CategoryListResult = { categories: ClassificationOption[] };
@@ -140,6 +141,7 @@ export async function listTasks(
     ...(filters.includeAncestors ? { includeAncestors: true } : {}),
     ...(filters.includeDescendants ? { includeDescendants: true } : {}),
     ...(filters.closedSince !== undefined ? { closedSince: filters.closedSince } : {}),
+    ...(filters.limit !== undefined ? { limit: filters.limit } : {}),
     offset,
   });
 }

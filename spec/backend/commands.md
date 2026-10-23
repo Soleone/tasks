@@ -111,7 +111,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.sort-closed` | `closed` orders by `closedAt`. Tasks that were never closed come last in either direction |
 | `list.sort-due` | Tasks without a due date come last in either direction. Tasks due the same day go by priority, P0 first |
-| `list.paging` | `limit` defaults to 50 and clamps to 1 to 100. `offset` clamps to 0 or more |
+| `list.paging` | `limit` defaults to 50 and clamps to 1 to 500. `offset` clamps to 0 or more |
 | `list.ancestors` | Filters never detach a child from its tree. Non-matching ancestors come back in `contextTasks` and don't count in `total` |
 | `list.descendants` | `includeDescendants: true` includes ancestors and every descendant of each page task's root in `contextTasks`, excluding tasks already in the page. Unrelated trees stay out. Context doesn't change matching `total`, `limit` or `offset` |
 | `list.canceled-classification` | Categories and tags used only by canceled tasks are left out of `category.list` and `tag.list` |

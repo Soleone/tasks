@@ -520,25 +520,27 @@ describe("hierarchy in a filtered list", () => {
     expect((await workspace.task(parent.id)).status).toBe("open");
   });
 
-  test("home.context-children: editing and loading context from another page never double-counts or duplicates tasks", async () => {
+  test("home.auto-load: the next page loads near the end of the list, never double-counts, and reloads keep it", async () => {
     const parent = await workspace.create("Parent");
-    for (let index = 0; index < 51; index += 1) {
-      await workspace.create(`Child ${index}`, { parentId: parent.id });
-    }
+    await workspace.createMany(205, (index) => ({
+      title: `Child ${index}`,
+      parentId: parent.id,
+    }));
     const { user } = await workspace.render();
     await expectActive("Parent");
     await user.keyboard("{ArrowRight}0");
     await waitFor(async () => expect((await workspace.task(parent.id)).priority).toBe(0));
-    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("52 active tasks");
-    expect(screen.getAllByRole("option")).toHaveLength(52);
-    await user.click(screen.getByRole("button", { name: "Load more tasks" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Load more tasks" })).toBeNull(),
-    );
-    expect(screen.getAllByRole("option")).toHaveLength(52);
-    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("52 active tasks");
+    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("206 active tasks");
+    await user.keyboard("{End}");
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(206));
     expect(row("Child 0").hasAttribute("data-context-child")).toBe(false);
-  });
+    await workspace.create("Late");
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(207), {
+      timeout: 5000,
+    });
+    expect(document.querySelector("[data-filter-summary]")?.textContent).toBe("207 active tasks");
+  }, 30_000);
 
   test("home.filtered-empty: filters that match nothing show a shell with Clear filters", async () => {
     await seed("A");

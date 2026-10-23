@@ -3,6 +3,7 @@ import {
   isRecord,
   parseResponse,
   QUERY_COMMANDS,
+  TASK_LIST_MAX_LIMIT,
   type Request,
   type Response,
 } from "../backend/protocol";
@@ -86,7 +87,7 @@ export function parseTaskPage(result: Record<string, unknown>): TaskPage {
     !nonnegativeInteger(result.total) ||
     !nonnegativeInteger(result.limit) ||
     result.limit < 1 ||
-    result.limit > 100 ||
+    result.limit > TASK_LIST_MAX_LIMIT ||
     !nonnegativeInteger(result.offset) ||
     !nonnegativeInteger(result.workspaceRevision)
   )

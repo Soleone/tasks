@@ -1,5 +1,6 @@
 import { randomUUID } from "../lib/randomUUID";
 import {
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -206,6 +207,8 @@ type DeleteReceipt = {
 };
 
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
+/** Rows from the end of the loaded tasks at which the next page starts loading. */
+const LOAD_AHEAD_ROWS = 20;
 
 export function TaskList({
   ref,
@@ -288,7 +291,6 @@ export function TaskList({
   const filterToolbar = useRef<HTMLDivElement>(null);
   const sortToolbar = useRef<HTMLDivElement>(null);
   const statusFilterButton = useRef<HTMLButtonElement>(null);
-  const loadMore = useRef<HTMLButtonElement>(null);
   const initialHomeFocusPending = useRef(true);
   // Once the first query has succeeded, reloads keep the list on screen.
   const [firstLoadDone, setFirstLoadDone] = useState(false);
@@ -440,6 +442,15 @@ export function TaskList({
     onEdit,
   });
 
+  // Paging is invisible: the next page loads once navigation or scrolling nears
+  // the end of what is loaded.
+  const loadNextPage = useCallback(() => {
+    if (hasMore && !loading && !error) void onRefresh(tasks.length);
+  }, [hasMore, loading, error, onRefresh, tasks.length]);
+  useEffect(() => {
+    if (visibleRows.length - activeIndex <= LOAD_AHEAD_ROWS) loadNextPage();
+  }, [activeIndex, visibleRows.length, loadNextPage]);
+
   // The restored view loads after restorePlace; once that load ends, the old scroll position returns.
   const pendingScroll = useRef<{ top: number; loadStarted: boolean } | null>(null);
   const expandedIdsRef = useRef(expandedIds);
@@ -489,13 +500,12 @@ export function TaskList({
     if (activeTask) scheduleActiveScroll(activeTask.id);
   }, [showDetails, flippedDetailIds, activeTask, scheduleActiveScroll]);
 
-  // The list owns its internal tail (load-more, retry); the navigator only
-  // enters it through explicit navigation.
+  // The list owns its internal tail (retry); the navigator only enters it
+  // through explicit navigation.
   useEffect(
     () =>
       nav.register("list", {
-        focusLast: () =>
-          (loadMore.current ?? list.current ?? retry.current ?? section.current)?.focus(),
+        focusLast: () => (list.current ?? retry.current ?? section.current)?.focus(),
       }),
     [nav],
   );
@@ -1660,6 +1670,10 @@ export function TaskList({
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}
+          onScroll={(event) => {
+            const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
+            if (scrollHeight - scrollTop - clientHeight < clientHeight) loadNextPage();
+          }}
         >
           {optimisticTask ? (
             <OptimisticTaskOption
@@ -1767,16 +1781,6 @@ export function TaskList({
               : "Inactive"}
         </AnchoredTooltipContent>
       </Tooltip>
-      {hasMore ? (
-        <Button
-          ref={loadMore}
-          variant="ghost"
-          disabled={loading}
-          onClick={() => void onRefresh(tasks.length)}
-        >
-          Load more tasks
-        </Button>
-      ) : null}
     </section>
   );
 }

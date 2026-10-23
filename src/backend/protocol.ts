@@ -143,6 +143,9 @@ export function parseResponse(value: unknown): Response {
   throw new Error("backend returned an invalid protocol-2 response");
 }
 
+/** The most tasks one `task.list` answers with; the default stays 50. */
+export const TASK_LIST_MAX_LIMIT = 500;
+
 export const QUERY_COMMANDS = [
   "attachment.read",
   "category.list",

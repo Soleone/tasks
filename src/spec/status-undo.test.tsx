@@ -370,7 +370,7 @@ describe("completion", () => {
     cleanup();
     await workspace.render();
     await expectRows(["Still open"]);
-    expect(doneTodayButton()?.getAttribute("aria-pressed")).toBe("false");
+    await waitFor(() => expect(doneTodayButton()?.getAttribute("aria-pressed")).toBe("false"));
   });
 
   test("done.completed-at: sorted by Completed, rows show when they were done on the title line", async () => {
