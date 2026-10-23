@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { homeDir, join } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 import { randomUUID } from "@/lib/randomUUID";
 import { parseResponse, type Response } from "@/backend/protocol";
 import { EDITOR_COMMANDS } from "@/backend/editorCommands";
@@ -16,6 +17,11 @@ const CHOOSE_HOME_KEY = "tasks.chooseHome";
 /** A new home goes in the user folder: on Windows, Documents is often inside OneDrive. */
 export async function suggestedHome(): Promise<string> {
   return join(isAndroid() ? ANDROID_SHARED_STORAGE : await homeDir(), "Tasks");
+}
+
+/** Asks the system folder picker for a Tasks home (desktop only); null when cancelled. */
+export function pickHome(current: string): Promise<string | null> {
+  return open({ directory: true, defaultPath: current || undefined, title: "Choose a Tasks home" });
 }
 
 /** The Tasks home this app opened last, or null on a first launch. */

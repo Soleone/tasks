@@ -78,6 +78,7 @@ pub fn run() {
 
     #[cfg(desktop)]
     let builder = builder
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         // Not decorations or visibility: Linux drops decorations in setup and the window always shows.
         .plugin(

@@ -24,6 +24,10 @@ const tauri = {
     import path from "node:path";
     export const homeDir = async () => ${JSON.stringify(scratch)};
     export const join = async (...parts) => path.join(...parts);`,
+  "@tauri-apps/plugin-dialog": `
+    export async function open() {
+      throw new Error("setup tests type the home");
+    }`,
   "@tauri-apps/plugin-shell": `
     import { spawn } from "node:child_process";
     export const Command = {

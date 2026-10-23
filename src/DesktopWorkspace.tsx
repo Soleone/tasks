@@ -18,6 +18,7 @@ import { selectMainWorkspace } from "./platform/backendClient";
 import {
   HomeError,
   HomeSetup,
+  pickHome,
   rememberedHome,
   rememberHome,
   suggestedHome,
@@ -25,6 +26,7 @@ import {
 } from "./platform/desktopWorkspace";
 import { EditorClient } from "./platform/editorClient";
 import { openHomeWorkspace } from "./platform/homeWorkspace";
+import { isAndroid } from "./platform/runtime";
 import type { MainWorkspace } from "./platform/mainWorkspace";
 import { DamagedSettingsError, readPreference } from "./platform/preferences";
 import { WorkspaceReader } from "./platform/workspaceReader";
@@ -234,16 +236,36 @@ export default function DesktopWorkspace(): ReactElement | null {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="tasks-home">Tasks home</FieldLabel>
-              <Input
-                ref={homeRef}
-                id="tasks-home"
-                value={home}
-                onChange={(event) => setHome(event.target.value)}
-                required
-                autoComplete="off"
-                spellCheck={false}
-                disabled={busy !== null}
-              />
+              <div className="flex gap-2">
+                <Input
+                  ref={homeRef}
+                  id="tasks-home"
+                  value={home}
+                  onChange={(event) => setHome(event.target.value)}
+                  required
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={busy !== null}
+                />
+                {!isAndroid() && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void pickHome(home.trim()).then(
+                        (picked) => {
+                          if (picked) setHome(picked);
+                          homeRef.current?.focus();
+                        },
+                        (reason: unknown) => setProblem(problemFor(home, "open", reason)),
+                      )
+                    }
+                  >
+                    Browse…
+                  </Button>
+                )}
+              </div>
               <FieldDescription>
                 Add only its sync folder to Syncthing, never the home itself:{" "}
                 <code className="wrap-anywhere">
