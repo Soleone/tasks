@@ -769,84 +769,87 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
             <AppIcon className="size-8 shrink-0 -translate-y-0.25" />
             <span className="text-3xl leading-none">{APP_NAME}</span>
           </h1>
-          <ButtonGroup
-            onKeyDown={(event) => {
-              if (
-                event.key === "Tab" &&
-                event.shiftKey &&
-                !event.ctrlKey &&
-                !event.metaKey &&
-                !event.altKey
-              ) {
-                event.preventDefault();
-                nav.last();
-              }
-            }}
-          >
+          {/* The count stands apart from the joined group, so its pressed state keeps round corners. */}
+          <div className="flex items-center">
             <DoneToday
               total={doneTodayCount}
               lensOn={doneLens !== null}
               onToggleLens={toggleDoneLens}
             />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    tabIndex={-1}
-                    aria-keyshortcuts="Shift+/"
-                    onMouseDown={preventFocusSteal}
-                    onClick={() => setStarterHelpOpen(true)}
-                  />
+            <ButtonGroup
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Tab" &&
+                  event.shiftKey &&
+                  !event.ctrlKey &&
+                  !event.metaKey &&
+                  !event.altKey
+                ) {
+                  event.preventDefault();
+                  nav.last();
                 }
-              >
-                <CircleHelp aria-hidden="true" />
-                <span className="sr-only">Help</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                Help <Kbd>?</Kbd>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    tabIndex={-1}
-                    aria-keyshortcuts="Alt+t"
-                    onMouseDown={preventFocusSteal}
-                    onClick={openThemes}
-                  />
-                }
-              >
-                <Palette aria-hidden="true" />
-                <span className="sr-only">Themes</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                Themes <Kbd>Alt T</Kbd>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    tabIndex={-1}
-                    aria-keyshortcuts="Control+, Meta+,"
-                    onMouseDown={preventFocusSteal}
-                    onClick={openSettings}
-                  />
-                }
-              >
-                <Settings2 aria-hidden="true" />
-                <span className="sr-only">Settings</span>
-              </TooltipTrigger>
-              <TooltipContent>Settings</TooltipContent>
-            </Tooltip>
-          </ButtonGroup>
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      tabIndex={-1}
+                      aria-keyshortcuts="Shift+/"
+                      onMouseDown={preventFocusSteal}
+                      onClick={() => setStarterHelpOpen(true)}
+                    />
+                  }
+                >
+                  <CircleHelp aria-hidden="true" />
+                  <span className="sr-only">Help</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Help <Kbd>?</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      tabIndex={-1}
+                      aria-keyshortcuts="Alt+t"
+                      onMouseDown={preventFocusSteal}
+                      onClick={openThemes}
+                    />
+                  }
+                >
+                  <Palette aria-hidden="true" />
+                  <span className="sr-only">Themes</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Themes <Kbd>Alt T</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      tabIndex={-1}
+                      aria-keyshortcuts="Control+, Meta+,"
+                      onMouseDown={preventFocusSteal}
+                      onClick={openSettings}
+                    />
+                  }
+                >
+                  <Settings2 aria-hidden="true" />
+                  <span className="sr-only">Settings</span>
+                </TooltipTrigger>
+                <TooltipContent>Settings</TooltipContent>
+              </Tooltip>
+            </ButtonGroup>
+          </div>
         </header>
 
         <TaskList
