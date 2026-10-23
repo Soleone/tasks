@@ -41,7 +41,7 @@ import {
 } from "@/components/TaskList";
 import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
-import { Button } from "@/components/ui/button";
+import { ToggleButton } from "@/components/variants/button";
 import { ButtonRow } from "@/components/variants/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -793,13 +793,14 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
+                      selected={starterHelpOpen}
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
                       aria-keyshortcuts="Shift+/"
                       onMouseDown={preventFocusSteal}
-                      onClick={() => setStarterHelpOpen(true)}
+                      onClick={() => setStarterHelpOpen((open) => !open)}
                     />
                   }
                 >
@@ -813,7 +814,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
+                      selected={themesOpen}
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
@@ -833,7 +835,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <Button
+                    <ToggleButton
+                      selected={settingsOpen}
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
