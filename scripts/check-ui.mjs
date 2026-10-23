@@ -545,9 +545,7 @@ try {
   assert.equal(saved[0].description, "## Shortlist\n- Ask about accessibility");
   assert.equal(saved[0].category, "launch");
   assert.deepEqual(saved[0].tags, ["planning"]);
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]")?.dataset.sortField === "created"');
   waitFor(
     'document.querySelector("#task-list [role=option] [data-slot=item-title]")?.textContent === "Book venue"',
   );
@@ -1393,12 +1391,12 @@ try {
   const glyphMarks =
     '[...document.querySelectorAll("[data-toolbar-glyph]")].every((glyph) => { const icon = glyph.querySelector("svg:not(.hidden)").getBoundingClientRect(); const mark = glyph.querySelector("[data-toolbar-glyph-mark]")?.getBoundingClientRect(); const style = getComputedStyle(glyph); if (glyph.getAttribute("aria-expanded") === "false") return !mark && style.outlineStyle === "dashed" && parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth) <= -parseFloat(style.borderTopWidth); return mark && Math.abs(mark.width - icon.width) < 0.5 && Math.abs(mark.left + mark.width / 2 - (icon.left + icon.width / 2)) < 0.5 && mark.top >= icon.bottom + 1.5; })';
   check(glyphMarks);
-  const sortGlyph = 'document.querySelector("[data-toolbar-glyph=sort]")';
-  evaluate(`${sortGlyph}.click()`);
+  const actionsGlyph = 'document.querySelector("[data-toolbar-glyph=actions]")';
+  evaluate(`${actionsGlyph}.click()`);
   // The button's transition eases the outline in, so wait for it to settle.
-  waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "false" && ${glyphMarks}`);
-  evaluate(`${sortGlyph}.click()`);
-  waitFor(`${sortGlyph}.getAttribute("aria-expanded") === "true"`);
+  waitFor(`${actionsGlyph}.getAttribute("aria-expanded") === "false" && ${glyphMarks}`);
+  evaluate(`${actionsGlyph}.click()`);
+  waitFor(`${actionsGlyph}.getAttribute("aria-expanded") === "true"`);
   // On a wide window the top bar's buttons share the toolbar's columns.
   check(
     `(() => { const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect(); const buttons = [...document.querySelectorAll("header button")].map((button) => button.getBoundingClientRect()); return buttons.length === 3 && buttons.every((box) => Math.abs(box.width - capture.width) < 0.5 && Math.abs(((box.left - capture.left) / capture.width) % 1) < 0.01); })()`,
@@ -2091,7 +2089,7 @@ try {
   );
   browser("press", "c");
   waitFor(
-    'document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")',
+    'document.querySelector("[data-sort=task-sort-menu]").dataset.sortField === "created" && !document.querySelector("[data-shortcut-guide]") && document.activeElement.matches("[role=listbox]") && !document.querySelector("[data-toolbar=sort]").hasAttribute("data-toolbar-active")',
   );
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   waitFor(
@@ -2122,15 +2120,17 @@ try {
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null',
   );
+  evaluate('document.querySelector("[data-sort=task-sort-menu]").click(); true');
+  waitFor('document.querySelector("[data-sort=task-sort-created]") !== null');
   evaluate('document.querySelector("[data-sort=task-sort-created]").click(); true');
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]").dataset.sortField === "created"');
   check('document.activeElement.getAttribute("role") === "listbox"');
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
   waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
   waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
+  evaluate('document.querySelector("[data-sort=task-sort-menu]").click(); true');
+  waitFor('document.querySelector("[data-sort=task-sort-updated]") !== null');
   evaluate('document.querySelector("[data-sort=task-sort-updated]").click(); true');
   waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
   evaluate('document.querySelector("[data-view=task-details]").click(); true');
@@ -2142,12 +2142,12 @@ try {
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null',
   );
   // Toolbar order stays Status, Priority, Category, Tags, Unblocked, Search,
-  // then the sort and view groups in their own button groups.
+  // then Sort and Reverse, then the view group.
   check(
     'JSON.stringify([...document.querySelectorAll("[data-filter]")].map((b) => b.getAttribute("data-filter"))) === JSON.stringify(["task-category","task-status","task-priority","task-tags","task-unblocked","task-search"])',
   );
   check(
-    'JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-created","task-sort-updated","task-sort-priority","task-sort-manual","task-sort-reverse"])',
+    'JSON.stringify([...document.querySelectorAll("[data-sort]")].map((b) => b.getAttribute("data-sort"))) === JSON.stringify(["task-sort-menu","task-sort-reverse"])',
   );
   check('document.querySelector("[data-view=task-details]") !== null');
   for (const width of [1280, 320]) {
@@ -2625,7 +2625,7 @@ try {
   browser("press", "s");
   browser("press", "m");
   waitFor(
-    'document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true" && document.activeElement.matches("[role=listbox]")',
+    'document.querySelector("[data-sort=task-sort-menu]").dataset.sortField === "manual" && document.activeElement.matches("[role=listbox]")',
   );
   check('document.querySelector("[data-sort=task-sort-reverse]").disabled === true');
   const manualOrder = () =>
@@ -2724,7 +2724,7 @@ try {
   browser("hover", "[role=listbox]");
   // toolbar.button-kinds: an open Reorder shows as expanded, never with the pressed accent.
   waitFor(
-    '(() => { const move = document.querySelector("[data-move-controls-toggle]"); const manual = document.querySelector("[data-sort=task-sort-manual]"); if (!move || !manual || manual.getAttribute("aria-pressed") !== "true") return false; return getComputedStyle(move).backgroundColor !== getComputedStyle(manual).backgroundColor; })()',
+    '(() => { const move = document.querySelector("[data-move-controls-toggle]"); const category = document.querySelector("[data-filter=task-category]"); if (!move || !category || category.getAttribute("aria-pressed") !== "true") return false; return getComputedStyle(move).backgroundColor !== getComputedStyle(category).backgroundColor; })()',
   );
   check(
     'Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.manualListTop) < 0.5',
@@ -2751,16 +2751,14 @@ try {
   // the adjacent target in the refreshed manual order rather than the date order.
   browser("press", "s");
   browser("press", "c");
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-created]").getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]").dataset.sortField === "created"');
   browser("press", "End");
   waitFor(
     'document.getElementById(document.querySelector("[role=listbox]").getAttribute("aria-activedescendant"))?.textContent.includes("Manual A")',
   );
   browser("press", "Control+ArrowUp");
   waitFor(
-    'document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true" && JSON.stringify([...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual A", "Manual C"])',
+    'document.querySelector("[data-sort=task-sort-menu]").dataset.sortField === "manual" && JSON.stringify([...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].map((title) => title.textContent)) === JSON.stringify(["Manual D", "Manual B", "Manual A", "Manual C"])',
   );
 
   // A failed first-switch refresh must stop before task.reorder. The normal
@@ -2768,9 +2766,7 @@ try {
   browser("press", "Escape");
   browser("press", "s");
   browser("press", "c");
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-created]")?.getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]")?.dataset.sortField === "created"');
   browser("press", "Home");
   evaluate(`window.originalFetchForRefreshFailure = window.fetch; window.failedRefreshReorders = 0; window.failTaskListRefresh = true; window.fetch = async (...args) => {
     const payload = args[1]?.body && JSON.parse(args[1].body);
@@ -2794,9 +2790,7 @@ try {
   focus("[role=listbox]");
   browser("press", "s");
   browser("press", "m");
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]")?.dataset.sortField === "manual"');
 
   // A root move carries its expanded child, while a child move remains inside
   // its actual parent scope.
@@ -2814,9 +2808,7 @@ try {
   focus("[role=listbox]");
   browser("press", "s");
   browser("press", "m");
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-manual]").getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]").dataset.sortField === "manual"');
   browser("press", "ArrowRight");
   waitFor(`Boolean(${expandedTaskOptionExpression("Manual parent")})`);
   browser("press", "Control+ArrowDown");
@@ -2978,9 +2970,7 @@ try {
     placement: { afterId: firstVisibleManualRoot.id },
   });
   reload();
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]")?.dataset.sortField === "manual"');
   filterManualCategory();
   focus("[role=listbox]");
   browser("press", "Home");
@@ -3005,9 +2995,7 @@ try {
     `JSON.stringify([...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].map((title) => title.textContent).slice(0, 2)) === JSON.stringify(${JSON.stringify(visibleManualBeforeBoundary.slice(0, 2).reverse())})`,
   );
   reload();
-  waitFor(
-    'document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed") === "true"',
-  );
+  waitFor('document.querySelector("[data-sort=task-sort-menu]")?.dataset.sortField === "manual"');
   check('localStorage.getItem("tasks.sortField") === "manual"');
 
   // Unsupported filters keep the visible projection read-only and explain

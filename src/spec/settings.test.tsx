@@ -259,8 +259,8 @@ test("prefs.remembered: sort and Details survive a reload", async () => {
   await workspace.render();
   await waitFor(() =>
     expect(
-      document.querySelector("[data-sort=task-sort-priority]")?.getAttribute("aria-pressed"),
-    ).toBe("true"),
+      document.querySelector("[data-sort=task-sort-menu]")?.getAttribute("data-sort-field"),
+    ).toBe("priority"),
   );
   expect(document.querySelector("[data-view=task-details]")?.getAttribute("aria-pressed")).toBe(
     "true",

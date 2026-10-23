@@ -67,6 +67,29 @@ export function ToolbarCommand({
 }
 
 /**
+ * A menu trigger that shows a list state. It takes the accent tint while that state is off its
+ * default, like a pressed toggle, but as a menu it reports expanded, never pressed.
+ */
+export function ToolbarStateTrigger({
+  selected,
+  className,
+  ...props
+}: Omit<ButtonProps, "variant" | "size" | "aria-pressed"> & { selected: boolean }) {
+  return (
+    <ToggleButton
+      variant={selected ? "outline" : "ghost"}
+      selected={selected}
+      size="icon-sm"
+      data-toolbar-cell
+      data-toolbar-state-selected={selected || undefined}
+      className={cn(CELL, className)}
+      {...props}
+      tabIndex={-1}
+    />
+  );
+}
+
+/**
  * Names a group and folds it. Open, it reads as a label: a muted icon, quieter than the group's
  * buttons, underlined by a mark as wide as the icon so the group's start is findable without
  * spending a cell. The icon keeps the buttons' size so spacing stays even across the row. Folded,

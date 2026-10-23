@@ -389,8 +389,8 @@ describe("reorder", () => {
     await user.keyboard("{Control>}{ArrowDown}{/Control}");
     await waitFor(() =>
       expect(
-        document.querySelector("[data-sort=task-sort-manual]")?.getAttribute("aria-pressed"),
-      ).toBe("true"),
+        document.querySelector("[data-sort=task-sort-menu]")?.getAttribute("data-sort-field"),
+      ).toBe("manual"),
     );
   });
 

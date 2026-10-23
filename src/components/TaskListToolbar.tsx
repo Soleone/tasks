@@ -13,23 +13,16 @@ import {
 import {
   ArrowDown,
   ArrowDownUp,
-  ArrowDownWideNarrow,
   ArrowUp,
-  ChartNoAxesColumnIncreasing,
   ChevronDown,
   Circle,
-  CalendarCheck,
-  CalendarDays,
-  Clock3,
   Flag,
   Folder,
   Funnel,
   ListChevronsUpDown,
-  ListOrdered,
   type LucideIcon,
   Plus,
   Pointer,
-  RotateCcwClock,
   Search,
   ShieldCheck,
   Tags,
@@ -49,6 +42,7 @@ import {
 } from "./taskFilters";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
+import { SortMenu } from "./SortMenu";
 import { TaskActions } from "./TaskActions";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb";
 import { Button } from "./ui/button";
@@ -69,7 +63,7 @@ import { CompactPopoverContent } from "@/components/variants/popover";
 import { CompactBreadcrumbList } from "@/components/variants/breadcrumb";
 import { ClassificationBadge } from "@/components/variants/badge";
 
-export const TOOLBAR_FOLD_GROUPS = ["filter", "sort", "actions"] as const;
+export const TOOLBAR_FOLD_GROUPS = ["filter", "actions"] as const;
 export type ToolbarFoldGroup = (typeof TOOLBAR_FOLD_GROUPS)[number];
 
 // What each sort shows first, descending then ascending.
@@ -119,7 +113,7 @@ function FilterSummaryAction({
 }
 
 // A group is its glyph plus its buttons; folded, only the glyph remains. The panel stays
-// mounted so the F and S modes can focus a folded group's toolbar.
+// mounted so the F mode can focus a folded group's toolbar.
 function FoldableGroup({
   group,
   icon,
@@ -586,163 +580,65 @@ export function TaskListToolbar({
               </ToolbarGroup>
             </div>
           </FoldableGroup>
-          <FoldableGroup
-            group="sort"
-            icon={ArrowDownWideNarrow}
-            label="Sort"
-            open={groupOpen("sort")}
-            active={sortField !== "created" || reverseActive}
-            onFoldChange={setGroupFolded}
-            tooltip={feedbackTooltip("fold-sort")}
-          >
-            <div className="relative">
-              {toolbarMode === "sort" && helpMode !== "none" ? (
-                <TaskListModeHelp
-                  mode="sort"
-                  onDismiss={returnToList}
-                  onDisableHelp={onDisableHelp}
-                />
-              ) : null}
-              <ToolbarGroup
-                ref={sortToolbar}
-                aria-label="Task list sort"
-                aria-keyshortcuts={exactStatus === "done" ? "S C U D M R" : "S C U M R"}
-                tabIndex={-1}
-                data-toolbar="sort"
-                data-toolbar-active={toolbarMode === "sort" || undefined}
-                active={toolbarMode === "sort"}
-                onFocus={() => activateToolbarMode("sort")}
-                onBlur={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
-                }}
-              >
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("created")}
-                  hint="Created"
-                  render={
-                    <ToolbarToggle
-                      pressed={sortField === "created"}
-                      aria-label="Sort by created date. Press S then C."
-                      aria-keyshortcuts="C"
-                      data-sort="task-sort-created"
-                      data-toolbar-feedback="created"
-                      onClick={() => applySortField("created")}
-                    />
-                  }
-                >
-                  <Clock3 aria-hidden="true" />
-                </ToolbarTooltip>
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("updated")}
-                  hint="Updated"
-                  render={
-                    <ToolbarToggle
-                      pressed={sortField === "updated"}
-                      aria-label="Sort by updated date. Press S then U."
-                      aria-keyshortcuts="U"
-                      data-sort="task-sort-updated"
-                      data-toolbar-feedback="updated"
-                      onClick={() => applySortField("updated")}
-                    />
-                  }
-                >
-                  <RotateCcwClock aria-hidden="true" />
-                </ToolbarTooltip>
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("priority")}
-                  hint="Priority"
-                  render={
-                    <ToolbarToggle
-                      pressed={sortField === "priority"}
-                      aria-label="Sort by priority. Press S then P."
-                      aria-keyshortcuts="P"
-                      data-sort="task-sort-priority"
-                      data-toolbar-feedback="priority"
-                      onClick={() => applySortField("priority")}
-                    />
-                  }
-                >
-                  <ChartNoAxesColumnIncreasing aria-hidden="true" />
-                </ToolbarTooltip>
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("due")}
-                  hint="Due date"
-                  render={
-                    <ToolbarToggle
-                      pressed={sortField === "due"}
-                      aria-label="Sort by due date. Press S then T."
-                      aria-keyshortcuts="T"
-                      data-sort="task-sort-due"
-                      data-toolbar-feedback="due"
-                      onClick={() => applySortField("due")}
-                    />
-                  }
-                >
-                  <CalendarDays aria-hidden="true" />
-                </ToolbarTooltip>
-                {/* Completed belongs to the Done filter, not the main sorts. */}
-                {exactStatus === "done" ? (
-                  <ToolbarTooltip
-                    tooltip={feedbackTooltip("closed")}
-                    hint="Completed"
-                    render={
-                      <ToolbarToggle
-                        pressed={sortField === "closed"}
-                        aria-label="Sort by completed date. Press S then D."
-                        aria-keyshortcuts="D"
-                        data-sort="task-sort-closed"
-                        data-toolbar-feedback="closed"
-                        onClick={() => applySortField("closed")}
-                      />
+          {/* Sort has one value at a time, so it needs no fold: its menu is already one cell. */}
+          <div className="relative">
+            {toolbarMode === "sort" && helpMode !== "none" ? (
+              <TaskListModeHelp
+                mode="sort"
+                onDismiss={returnToList}
+                onDisableHelp={onDisableHelp}
+              />
+            ) : null}
+            <ToolbarGroup
+              ref={sortToolbar}
+              aria-label="Task list sort"
+              aria-keyshortcuts={exactStatus === "done" ? "S C U P T D M R" : "S C U P T M R"}
+              tabIndex={-1}
+              data-toolbar="sort"
+              data-toolbar-active={toolbarMode === "sort" || undefined}
+              active={toolbarMode === "sort"}
+              onFocus={(event) => {
+                // React bubbles focus from the menu's portal here too; picking from it is no mode.
+                if (event.currentTarget.contains(event.target)) activateToolbarMode("sort");
+              }}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) clearToolbarMode();
+              }}
+            >
+              <SortMenu
+                sortField={sortField}
+                showCompleted={exactStatus === "done"}
+                onSelect={applySortField}
+                finalFocus={taskActions.finalFocus}
+                tooltip={feedbackTooltip("sort")}
+              />
+              <ToolbarTooltip
+                tooltip={feedbackTooltip("reverse")}
+                hint={sortField === "manual" ? "Unavailable for manual order" : reverseLabel}
+                render={
+                  <ToolbarToggle
+                    pressed={reverseActive}
+                    disabled={sortField === "manual"}
+                    aria-label={
+                      sortField === "manual"
+                        ? "Reverse is unavailable for manual order."
+                        : `${reverseLabel}. Activate to show ${oppositeLabel.toLowerCase()}. Press S then R.`
                     }
-                  >
-                    <CalendarCheck aria-hidden="true" />
-                  </ToolbarTooltip>
-                ) : null}
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("manual")}
-                  hint="Manual order"
-                  render={
-                    <ToolbarToggle
-                      pressed={sortField === "manual"}
-                      aria-label="Sort by manual order. Press S then M."
-                      aria-keyshortcuts="M"
-                      data-sort="task-sort-manual"
-                      data-toolbar-feedback="manual"
-                      onClick={() => applySortField("manual")}
-                    />
-                  }
-                >
-                  <ListOrdered aria-hidden="true" />
-                </ToolbarTooltip>
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("reverse")}
-                  hint={sortField === "manual" ? "Unavailable for manual order" : reverseLabel}
-                  render={
-                    <ToolbarToggle
-                      pressed={reverseActive}
-                      disabled={sortField === "manual"}
-                      aria-label={
-                        sortField === "manual"
-                          ? "Reverse is unavailable for manual order."
-                          : `${reverseLabel}. Activate to show ${oppositeLabel.toLowerCase()}. Press S then R.`
-                      }
-                      aria-keyshortcuts="R"
-                      data-sort="task-sort-reverse"
-                      data-toolbar-feedback="reverse"
-                      onClick={reverseSort}
-                    />
-                  }
-                >
-                  {sortDirection === "desc" ? (
-                    <ArrowDown aria-hidden="true" />
-                  ) : (
-                    <ArrowUp aria-hidden="true" />
-                  )}
-                </ToolbarTooltip>
-              </ToolbarGroup>
-            </div>
-          </FoldableGroup>
+                    aria-keyshortcuts="R"
+                    data-sort="task-sort-reverse"
+                    data-toolbar-feedback="reverse"
+                    onClick={reverseSort}
+                  />
+                }
+              >
+                {sortDirection === "desc" ? (
+                  <ArrowDown aria-hidden="true" />
+                ) : (
+                  <ArrowUp aria-hidden="true" />
+                )}
+              </ToolbarTooltip>
+            </ToolbarGroup>
+          </div>
           <FoldableGroup
             group="actions"
             icon={Pointer}

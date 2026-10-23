@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { addDays, localToday } from "@/backend/dueDate";
 import { AppWorkspace } from "@/testing/appWorkspace";
@@ -14,6 +14,12 @@ afterEach(async () => {
 
 function pressed(selector: string): string | null {
   return document.querySelector(selector)?.getAttribute("aria-pressed") ?? null;
+}
+
+function sortShown(): string | null {
+  return (
+    document.querySelector("[data-sort=task-sort-menu]")?.getAttribute("data-sort-field") ?? null
+  );
 }
 
 function countLine(): string {
@@ -32,22 +38,20 @@ describe("sort", () => {
     await waitFor(() =>
       expect(screen.getAllByText("Sorting by completed needs the Done filter")).not.toHaveLength(0),
     );
-    expect(document.querySelector("[data-sort=task-sort-closed]")).toBeNull();
     await user.keyboard("sp");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-priority]")).toBe("true"));
+    await waitFor(() => expect(sortShown()).toBe("priority"));
 
     // Done starts on Completed, most recent first.
     await user.keyboard("fd");
     await expectRows(["Done later", "Done earlier"]);
-    expect(pressed("[data-sort=task-sort-closed]")).toBe("true");
+    expect(sortShown()).toBe("closed");
     await user.keyboard("sr");
     await expectRows(["Done earlier", "Done later"]);
     await user.keyboard("sr");
 
     await user.keyboard("fs");
     await expectRows(["Open"]);
-    expect(pressed("[data-sort=task-sort-priority]")).toBe("true");
-    expect(document.querySelector("[data-sort=task-sort-closed]")).toBeNull();
+    expect(sortShown()).toBe("priority");
   });
 
   test("sort.due: S T sorts soonest due first and keeps undated tasks last when reversed", async () => {
@@ -57,7 +61,7 @@ describe("sort", () => {
     await workspace.create("Tomorrow", { due: addDays(today, 1) });
     const { user } = await workspace.render();
     await user.keyboard("st");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-due]")).toBe("true"));
+    await waitFor(() => expect(sortShown()).toBe("due"));
     await expectRows(["Tomorrow", "Next week", "Undated"]);
     await user.keyboard("sr");
     await expectRows(["Next week", "Tomorrow", "Undated"]);
@@ -71,7 +75,7 @@ describe("count line", () => {
     const { user } = await workspace.render();
     await waitFor(() => expect(countLine()).toBe("2 active tasks"));
     await user.keyboard("sp");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-priority]")).toBe("true"));
+    await waitFor(() => expect(sortShown()).toBe("priority"));
     expect(countLine()).toBe("2 active tasks");
   });
 
@@ -139,7 +143,7 @@ describe("touch feedback", () => {
     const { user } = await workspace.render();
     for (const selector of [
       "[data-filter=task-unblocked]",
-      "[data-sort=task-sort-created]",
+      "[data-sort=task-sort-menu]",
       "[data-filter=task-category]",
       "[data-view=task-details]",
       "[data-filter=task-unblocked]",
@@ -168,20 +172,17 @@ describe("touch feedback", () => {
   test("toolbar.touch-feedback: taps act immediately, confirm the result and replace feedback without taking focus", async () => {
     await workspace.create("A");
     const { user } = await workspace.render();
-    await tap("[data-sort=task-sort-priority]", user);
-    expect(pressed("[data-sort=task-sort-priority]")).toBe("true");
-    await screen.findByText("Priority", tooltip);
-    // Chromium emits a synthetic hover-end after completing a touch click.
-    fireEvent.mouseLeave(document.querySelector("[data-sort=task-sort-priority]")!);
-    expect(screen.getByText("Priority", tooltip)).toBeDefined();
-    await expectListFocused();
-
     await tap("[data-sort=task-sort-reverse]", user);
-    await screen.findByText("Lowest priority first", tooltip);
-    expect(screen.queryByText("Priority", tooltip)).toBeNull();
+    expect(pressed("[data-sort=task-sort-reverse]")).toBe("true");
+    await screen.findByText("Oldest first", tooltip);
+    // Chromium emits a synthetic hover-end after completing a touch click.
+    fireEvent.mouseLeave(document.querySelector("[data-sort=task-sort-reverse]")!);
+    expect(screen.getByText("Oldest first", tooltip)).toBeDefined();
+    await expectListFocused();
 
     await tap("[data-view=task-details]", user);
     await screen.findByText("Hide all details", tooltip);
+    expect(screen.queryByText("Oldest first", tooltip)).toBeNull();
     await tap("[data-view=task-details]", user);
     await screen.findByText("Show all details", tooltip);
     await expectListFocused();
@@ -198,24 +199,25 @@ describe("touch feedback", () => {
   test("toolbar.touch-feedback: menus dismiss feedback, disabled reverse stays silent and mouse hover still works", async () => {
     await workspace.create("A");
     const { user } = await workspace.render();
-    const created = document.querySelector<HTMLButtonElement>("[data-sort=task-sort-created]")!;
-    await user.hover(created);
-    await screen.findByText("Created", tooltip);
-    expect(screen.queryByText("Sorted by created date, newest first", tooltip)).toBeNull();
-    await user.unhover(created);
-    await waitFor(() => expect(screen.queryByText("Created", tooltip)).toBeNull());
+    const sort = document.querySelector<HTMLButtonElement>("[data-sort=task-sort-menu]")!;
+    await user.hover(sort);
+    await screen.findByText("Sort: Created", tooltip);
+    await user.unhover(sort);
+    await waitFor(() => expect(screen.queryByText("Sort: Created", tooltip)).toBeNull());
 
-    await tap("[data-sort=task-sort-manual]", user);
-    await screen.findByText("Manual order", tooltip);
+    await user.keyboard("sm");
+    await waitFor(() => expect(sortShown()).toBe("manual"));
+    await tap("[data-view=task-details]", user);
+    await screen.findByText("Hide all details", tooltip);
     await tap("[data-sort=task-sort-reverse]", user);
-    await waitFor(() => expect(screen.queryByText("Manual order", tooltip)).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Hide all details", tooltip)).toBeNull());
     expect(document.querySelector(tooltip.selector)).toBeNull();
 
     await tap("[data-view=task-details]", user);
-    await screen.findByText("Hide all details", tooltip);
+    await screen.findByText("Show all details", tooltip);
     await tap("[data-filter=task-priority]", user);
     await screen.findByRole("dialog");
-    expect(screen.queryByText("Hide all details", tooltip)).toBeNull();
+    expect(screen.queryByText("Show all details", tooltip)).toBeNull();
     expect(document.querySelector(tooltip.selector)).toBeNull();
     await user.keyboard("{Escape}");
   });
@@ -240,7 +242,7 @@ describe("focus modes", () => {
     await user.keyboard("s");
     await waitFor(() => expect(document.activeElement?.getAttribute("data-toolbar")).toBe("sort"));
     await user.keyboard("u");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-updated]")).toBe("true"));
+    await waitFor(() => expect(sortShown()).toBe("updated"));
   });
 
   test("toolbar.mode-exit: choosing, the same key again, or Escape returns focus to the list", async () => {
@@ -265,7 +267,7 @@ describe("button kinds and folding", () => {
     const { user } = await workspace.render();
     expect(pressed("[data-filter=task-unblocked]")).toBe("false");
     expect(pressed("[data-view=task-details]")).toBe("false");
-    for (const name of ["New task", "Undo", "Reorder", "Task actions"])
+    for (const name of ["New task", /^Sort:/, "Undo", "Reorder", "Task actions"])
       expect(screen.getByRole("button", { name }).hasAttribute("aria-pressed")).toBe(false);
     const actions = screen.getByRole("button", { name: "Task actions" });
     await user.click(actions);
@@ -293,13 +295,13 @@ describe("button kinds and folding", () => {
     await workspace.create("A");
     const { user } = await workspace.render();
     const dot = () =>
-      document.querySelector("[data-toolbar-glyph=sort] [data-toolbar-glyph-active]");
-    await user.click(screen.getByRole("button", { name: "Sort" }));
-    await waitFor(() => expect(folded("sort")).toBe(true));
+      document.querySelector("[data-toolbar-glyph=filter] [data-toolbar-glyph-active]");
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await waitFor(() => expect(folded("filters")).toBe(true));
     expect(dot()).toBeNull();
-    await user.keyboard("sp");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-priority]")).toBe("true"));
-    expect(folded("sort")).toBe(true);
+    await user.keyboard("fu");
+    await waitFor(() => expect(pressed("[data-filter=task-unblocked]")).toBe("true"));
+    await waitFor(() => expect(folded("filters")).toBe(true));
     expect(dot()).not.toBeNull();
   });
 
@@ -514,7 +516,7 @@ describe("filters", () => {
     await expectRows(["Urgent"]);
     await user.keyboard("{Escape}");
     await expectRows(["Urgent", "Low"]);
-    expect(pressed("[data-sort=task-sort-priority]")).toBe("true");
+    expect(sortShown()).toBe("priority");
     expect(pressed("[data-view=task-details]")).toBe("true");
   });
 });
@@ -526,11 +528,51 @@ describe("sort", () => {
     await workspace.create("Newest", { priority: 0 });
   }
 
+  test("sort.menu: Sort lists this view's sorts, checks the current one and picks one", async () => {
+    await seedSortable();
+    const { user } = await workspace.render();
+    const sortMenuItems = async (): Promise<HTMLElement[]> => {
+      await user.click(document.querySelector<HTMLButtonElement>("[data-sort=task-sort-menu]")!);
+      return within(await screen.findByRole("menu")).getAllByRole("menuitemradio");
+    };
+    const sorts = (items: HTMLElement[]) => items.map((item) => item.getAttribute("data-sort"));
+
+    const tinted = () =>
+      document
+        .querySelector("[data-sort=task-sort-menu]")!
+        .hasAttribute("data-toolbar-state-selected");
+    expect(tinted()).toBe(false);
+
+    let items = await sortMenuItems();
+    expect(sorts(items)).toEqual([
+      "task-sort-created",
+      "task-sort-updated",
+      "task-sort-priority",
+      "task-sort-due",
+      "task-sort-manual",
+    ]);
+    expect(items[0].getAttribute("aria-checked")).toBe("true");
+    await user.click(items[2]);
+    await expectRows(["Newest", "Oldest", "Middle"]);
+    expect(sortShown()).toBe("priority");
+    expect(tinted()).toBe(true);
+    await expectListFocused();
+
+    // Completed joins the menu under the Done filter, in place of a new toolbar cell.
+    await user.keyboard("fd");
+    await waitFor(() => expect(sortShown()).toBe("closed"));
+    expect(tinted()).toBe(false);
+    items = await sortMenuItems();
+    expect(sorts(items)).toContain("task-sort-closed");
+    await user.keyboard("{Escape}");
+    await expectListFocused();
+  });
+
   test("sort.default: first launch sorts by created, newest first", async () => {
     await seedSortable();
     await workspace.render();
     await expectRows(["Newest", "Middle", "Oldest"]);
-    expect(pressed("[data-sort=task-sort-created]")).toBe("true");
+    expect(sortShown()).toBe("created");
   });
 
   test("sort.created: S C sorts by created date", async () => {
@@ -567,7 +609,7 @@ describe("sort", () => {
     await user.keyboard("sr");
     await expectRows(["Oldest", "Middle", "Newest"]);
     await user.keyboard("sm");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-manual]")).toBe("true"));
+    await waitFor(() => expect(sortShown()).toBe("manual"));
     expect(
       (document.querySelector("[data-sort=task-sort-reverse]") as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -586,7 +628,7 @@ describe("sort", () => {
     });
     const { user } = await workspace.render();
     await user.keyboard("sm");
-    await waitFor(() => expect(pressed("[data-sort=task-sort-manual]")).toBe("true"));
+    await waitFor(() => expect(sortShown()).toBe("manual"));
     const { tasks } = await workspace.command<{ tasks: { title: string }[] }>("task.list", {
       sort: "manual",
     });

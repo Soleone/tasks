@@ -19,7 +19,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { TaskActionsMenuContent } from "./variants/dropdown-menu";
+import { ToolbarMenuContent } from "./variants/dropdown-menu";
 import { preventFocusSteal } from "@/navigation";
 
 type TaskActionsProps = {
@@ -106,7 +106,7 @@ export function TaskActions({
           <Ellipsis aria-hidden="true" />
         </ToolbarTooltip>
 
-        <TaskActionsMenuContent align="end" finalFocus={finalFocus}>
+        <ToolbarMenuContent align="end" finalFocus={finalFocus}>
           {activeTask ? (
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => onAddBlocker(activeTask)}>
@@ -144,7 +144,7 @@ export function TaskActions({
               </DropdownMenuItem>
             </DropdownMenuGroup>
           ) : null}
-        </TaskActionsMenuContent>
+        </ToolbarMenuContent>
       </DropdownMenu>
     </>
   );
