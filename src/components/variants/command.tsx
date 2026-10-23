@@ -11,6 +11,7 @@ export function PaletteDialog({
   title,
   description,
   className,
+  wide = false,
   initialFocus,
   finalFocus,
   children,
@@ -19,6 +20,8 @@ export function PaletteDialog({
   title: string;
   description: string;
   className?: string;
+  /** For palettes whose rows carry a hint and keycaps, so each stays on one line. */
+  wide?: boolean;
   initialFocus?: ContentProps["initialFocus"];
   finalFocus?: ContentProps["finalFocus"];
   children: ReactNode;
@@ -30,7 +33,7 @@ export function PaletteDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <AnchoredDialogContent
-        className={cn("overflow-hidden p-0", className)}
+        className={cn("overflow-hidden p-0", wide && "sm:max-w-3xl", className)}
         showCloseButton={false}
         initialFocus={initialFocus}
         finalFocus={finalFocus}

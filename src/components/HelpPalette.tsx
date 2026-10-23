@@ -93,7 +93,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "New child task",
-        hint: "Use the selected task as parent",
+        hint: "Under the selected task",
         icon: CornerDownRight,
         keys: ["Shift", "C"],
         action: "new-child-task",
@@ -101,7 +101,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Set task priority",
-        hint: "Focus Priority in the inline editor",
+        hint: "In the inline editor",
         icon: Flag,
         keys: ["0", "1", "2", "3", "4", "←", "→"],
         keywords:
@@ -109,16 +109,16 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Save the inline editor",
-        hint: "Ctrl/⌘+Enter also saves from the description",
+        hint: "Ctrl/⌘+Enter in the description",
         icon: SaveCheck,
         keys: ["Enter"],
         keywords: "enter ctrl cmd save create edit title description inline",
       },
       {
         label: "Change task status",
-        hint: "Space forward, Shift+Space back",
+        hint: "Shift+Space goes back",
         icon: ListChecks,
-        keys: ["Space", "Shift+Space"],
+        keys: ["Space"],
         keywords: "space shift space reverse backward open in progress done status cycle complete",
       },
       {
@@ -157,7 +157,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Redo last change",
-        hint: "Ctrl/⌘+Shift+Z also redoes",
+        hint: "Ctrl/⌘+Shift+Z also works",
         icon: Redo2,
         keys: ["Ctrl", "Y"],
         action: "redo",
@@ -203,7 +203,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Filter by category",
-        hint: "@ opens; F then C also works",
+        hint: "Also F then C",
         icon: Folder,
         keys: ["@", "F → C"],
         action: "filter-category",
@@ -211,7 +211,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Filter by tags",
-        hint: "# opens; F then T also works, Space picks, Enter closes",
+        hint: "Also F then T",
         icon: Tags,
         keys: ["#", "F → T"],
         action: "filter-tags",
@@ -219,7 +219,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Search tasks",
-        hint: "/ opens, titles and notes",
+        hint: "Titles and notes",
         icon: Search,
         keys: ["/"],
         action: "filter-search",
@@ -227,7 +227,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Filter shortcuts",
-        hint: "F focuses toolbar; F again closes",
+        hint: "Focus the toolbar; F again closes",
         icon: ListFilter,
         keys: ["F"],
         keywords:
@@ -235,7 +235,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Sort tasks",
-        hint: "S focuses toolbar; P sorts by priority",
+        hint: "Focus the toolbar; S then P by priority",
         icon: ArrowDownUp,
         keys: ["S", "C/U/P/T/M/R"],
         keywords:
@@ -243,14 +243,14 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Select a task range",
-        hint: "Shift+keys or Shift/Ctrl-click",
+        hint: "Or Shift/Ctrl-click",
         icon: ListChecks,
         keys: ["Shift+↑/↓", "Shift+Home/End"],
         keywords: "shift selection range sibling group multiselect pointer mouse click",
       },
       {
         label: "Move selected tasks",
-        hint: "Manual order; Ctrl/⌘+keys",
+        hint: "In manual order",
         icon: ArrowDownUp,
         keys: ["Ctrl/⌘+↑/↓", "Ctrl/⌘+Home/End"],
         keywords: "manual reorder move selected group beginning end up down",
@@ -311,14 +311,14 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Navigate task hierarchy or category",
-        hint: "Right filters category first; press again to expand",
+        hint: "Right filters category first",
         icon: ListChecks,
         keys: ["←", "→"],
         keywords: "left right arrow child children parent subtask hierarchy category filter",
       },
       {
         label: "Filter a task by category",
-        hint: "Right on a categorized task with no category filter",
+        hint: "Right on a task without a filter",
         icon: Folder,
         keys: ["→"],
         keywords: "right arrow task parent leaf category filter children",
@@ -346,7 +346,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Done today",
-        hint: "Show what's done in the last 24 hours, or go back",
+        hint: "Done in the last 24 hours",
         action: "toggle-done-lens",
         icon: CircleCheck,
         keys: ["D"],
@@ -368,7 +368,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Close or go back",
-        hint: "Esc returns from toolbar; F/S also closes it",
+        hint: "Esc leaves the toolbar",
         icon: Undo2,
         keys: ["Esc", "F/S"],
         keywords:
@@ -396,12 +396,6 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         hint: "Due: ^fri ^tmr ^3d ^oct31",
         icon: CalendarDays,
         keywords: "^ due date deadline today tomorrow weekday week month year",
-      },
-      {
-        label: "Names & Markdown",
-        hint: "Letters, numbers, _ -",
-        icon: FileText,
-        keywords: "case heading code backtick rendered text",
       },
     ],
   },
@@ -473,6 +467,7 @@ export function HelpPalette({
     <PaletteDialog
       open={open}
       onOpenChange={onOpenChange}
+      wide
       title="Shortcuts and syntax"
       description="Keyboard help, @categories, #tags and ^dates."
       initialFocus={searchInput}
@@ -494,7 +489,7 @@ export function HelpPalette({
                       : entry.label;
                   const hint =
                     statusUndoOnly && entry.action === "undo-status"
-                      ? "Restore the latest eligible single-task status change"
+                      ? "Restore the latest status change"
                       : entry.hint;
                   const onSelect =
                     entry.action === "open-themes"
@@ -555,8 +550,8 @@ export function HelpPalette({
                       disabled={entry.action === "redo" && !canRedo}
                     >
                       <Icon aria-hidden="true" />
-                      <span className="font-medium">{label}</span>
-                      {hint ? <span className="text-muted-foreground">{hint}</span> : null}
+                      <span className="shrink-0 font-medium">{label}</span>
+                      {hint ? <span className="truncate text-muted-foreground">{hint}</span> : null}
                       {entry.keys ? (
                         <KeysShortcut>
                           <KbdGroup>
