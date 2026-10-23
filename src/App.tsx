@@ -42,7 +42,7 @@ import {
 import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { ButtonRow } from "@/components/variants/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
@@ -776,7 +776,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
               lensOn={doneLens !== null}
               onToggleLens={toggleDoneLens}
             />
-            <ButtonGroup
+            <ButtonRow
               onKeyDown={(event) => {
                 if (
                   event.key === "Tab" &&
@@ -848,7 +848,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                 </TooltipTrigger>
                 <TooltipContent>Settings</TooltipContent>
               </Tooltip>
-            </ButtonGroup>
+            </ButtonRow>
           </div>
         </header>
 

@@ -1,21 +1,25 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 
 /**
- * A toolbar for the F and S focus modes. The visible ring belongs to the whole group, and every
- * button keeps its left border so toggling a control never shifts the layout.
+ * Buttons side by side. Unlike shadcn's ButtonGroup it leaves every button its own rounded
+ * corners, because a ghost button squared at the seams looks clipped when it highlights.
  */
+export function ButtonRow({ className, ...props }: ComponentProps<"div">) {
+  return <div role="group" className={cn("flex w-fit", className)} {...props} />;
+}
+
+/** A toolbar for the F and S focus modes. The visible ring belongs to the whole group. */
 export function ToolbarGroup({
   active = false,
   className,
   ...props
-}: ComponentProps<typeof ButtonGroup> & { active?: boolean }) {
+}: ComponentProps<typeof ButtonRow> & { active?: boolean }) {
   return (
-    <ButtonGroup
+    <ButtonRow
       className={cn(
-        "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring [&>[data-slot]~[data-slot]]:border-l!",
+        "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active && "ring-2 ring-ring",
         className,
       )}
@@ -25,15 +29,9 @@ export function ToolbarGroup({
 }
 
 /** The composer's priority radios. No ring: focus shows as the checked radio taking the accent. */
-export function PriorityGroup({ className, ...props }: ComponentProps<typeof ButtonGroup>) {
+export function PriorityGroup({ className, ...props }: ComponentProps<typeof ButtonRow>) {
   return (
-    <ButtonGroup
-      className={cn(
-        "group/priority rounded-lg outline-none [&>[data-slot]~[data-slot]]:border-l!",
-        className,
-      )}
-      {...props}
-    />
+    <ButtonRow className={cn("group/priority rounded-lg outline-none", className)} {...props} />
   );
 }
 

@@ -46,13 +46,12 @@ import { SortMenu } from "./SortMenu";
 import { TaskActions } from "./TaskActions";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb";
 import { Button } from "./ui/button";
-import { ButtonGroup } from "./ui/button-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Popover, PopoverTrigger } from "./ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
-import { ToolbarGroup } from "@/components/variants/button-group";
+import { ButtonRow, ToolbarGroup } from "@/components/variants/button-group";
 import {
   ToolbarCommand,
   ToolbarGlyph,
@@ -648,7 +647,7 @@ export function TaskListToolbar({
             onFoldChange={setGroupFolded}
             tooltip={feedbackTooltip("fold-actions")}
           >
-            <ButtonGroup aria-label="Task list actions">
+            <ButtonRow aria-label="Task list actions">
               <ToolbarTooltip
                 tooltip={feedbackTooltip("details")}
                 hint={
@@ -799,7 +798,7 @@ export function TaskListToolbar({
                 </CompactPopoverContent>
               </Popover>
               <TaskActions {...taskActions} tooltipFor={feedbackTooltip} />
-            </ButtonGroup>
+            </ButtonRow>
           </FoldableGroup>
         </div>
       </div>
