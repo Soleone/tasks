@@ -18,6 +18,7 @@ import {
   ChartNoAxesColumnIncreasing,
   ChevronDown,
   Circle,
+  CalendarCheck,
   CalendarDays,
   Clock3,
   Flag,
@@ -37,8 +38,11 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption } from "./taskView";
 import {
+  doneWindowPhrase,
   EXACT_STATUS_META,
   PRIORITY_META,
+  widerDoneWindow,
+  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
@@ -74,6 +78,7 @@ const ORDER_LABELS: Record<Exclude<SortField, "manual">, [string, string]> = {
   updated: ["Newest first", "Oldest first"],
   priority: ["Highest priority first", "Lowest priority first"],
   due: ["Soonest due first", "Latest due first"],
+  closed: ["Recently done first", "Earliest done first"],
 };
 
 type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
@@ -209,6 +214,8 @@ type TaskListToolbarProps = {
   reorderAvailabilityReason: string | null;
   reorderSelection: (direction: TaskMoveDirection) => Promise<void>;
   summaryTaskCount: number;
+  doneWindow: DoneWindow | null;
+  widenDoneLens: () => void;
   clearStatusFilter: () => void;
   clearCategoryFilter: () => void;
   clearPriorityFilter: () => void;
@@ -260,6 +267,8 @@ export function TaskListToolbar({
   reorderAvailabilityReason,
   reorderSelection,
   summaryTaskCount,
+  doneWindow,
+  widenDoneLens,
   clearStatusFilter,
   clearCategoryFilter,
   clearPriorityFilter,
@@ -342,7 +351,9 @@ export function TaskListToolbar({
       : tagFilter.length > 0
         ? tagFilter.map((tag) => `#${tag.label}`).join(" ")
         : null;
-  const summaryBase = `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
+  const summaryBase = doneWindow
+    ? `${summaryTaskCount} done ${doneWindowPhrase(doneWindow)}`
+    : `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
   const summarySuffixParts: FilterSummaryPart[] = [
     priorityFilter !== null
@@ -595,7 +606,7 @@ export function TaskListToolbar({
               <ToolbarGroup
                 ref={sortToolbar}
                 aria-label="Task list sort"
-                aria-keyshortcuts="S C U M R"
+                aria-keyshortcuts={exactStatus === "done" ? "S C U D M R" : "S C U M R"}
                 tabIndex={-1}
                 data-toolbar="sort"
                 data-toolbar-active={toolbarMode === "sort" || undefined}
@@ -669,6 +680,25 @@ export function TaskListToolbar({
                 >
                   <CalendarDays aria-hidden="true" />
                 </ToolbarTooltip>
+                {/* Completed belongs to the Done filter, not the main sorts. */}
+                {exactStatus === "done" ? (
+                  <ToolbarTooltip
+                    tooltip={feedbackTooltip("closed")}
+                    hint="Completed"
+                    render={
+                      <ToolbarToggle
+                        pressed={sortField === "closed"}
+                        aria-label="Sort by completed date. Press S then D."
+                        aria-keyshortcuts="D"
+                        data-sort="task-sort-closed"
+                        data-toolbar-feedback="closed"
+                        onClick={() => applySortField("closed")}
+                      />
+                    }
+                  >
+                    <CalendarCheck aria-hidden="true" />
+                  </ToolbarTooltip>
+                ) : null}
                 <ToolbarTooltip
                   tooltip={feedbackTooltip("manual")}
                   hint="Manual order"
@@ -892,8 +922,12 @@ export function TaskListToolbar({
             ) : (
               <FilterSummaryAction
                 filter="status"
-                label="Reset status filter to Active"
-                onClear={clearStatusFilter}
+                label={
+                  doneWindow
+                    ? `Show tasks done ${doneWindowPhrase(widerDoneWindow(doneWindow))}`
+                    : "Reset status filter to Active"
+                }
+                onClear={doneWindow ? widenDoneLens : clearStatusFilter}
                 className="text-sm font-medium text-foreground"
               >
                 {summaryBase}

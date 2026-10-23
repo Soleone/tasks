@@ -74,5 +74,6 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 | `sort.updated` | `S` `U` | Updated date |
 | `sort.priority` | `S` `P` | Priority, P0 first |
 | `sort.due` | `S` `T` | Due date, soonest first. Tasks without one stay last, also when reversed (see `list.sort-due`) |
+| `sort.completed` | `S` `D` while the status filter is Done | Completed date, most recent first. Its button shows only under the Done filter, which starts on it; leaving Done returns to the sort chosen elsewhere. Without the Done filter, `S` `D` says it needs it |
 | `sort.manual` | `S` `M` | Manual order, the order shared with the CLI and agents |
 | `sort.reverse` | `S` `R` | Reverses date, priority or due order. Not available for Manual |

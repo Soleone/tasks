@@ -6,6 +6,7 @@ import type { TaskView } from "./taskView";
 import { daysBetween, localToday } from "@/backend/dueDate";
 import {
   dueSoonLabel,
+  formatCompletedTime,
   formatDueDate,
   formatTaskDate,
   formatTaskDateTime,
@@ -341,6 +342,7 @@ export function TaskRow({
   blockedByLabels,
   indented = false,
   showDetails = false,
+  showCompletedAt = false,
   contextOnly = false,
   hiddenCategorySlug,
   onSelectCategory,
@@ -352,6 +354,8 @@ export function TaskRow({
   blockedByLabels?: string[];
   indented?: boolean;
   showDetails?: boolean;
+  /** A trailing column on the title line, so the time costs no extra line. */
+  showCompletedAt?: boolean;
   contextOnly?: boolean;
   hiddenCategorySlug?: string | null;
   onSelectCategory?: (category: ClassificationToken) => void;
@@ -377,7 +381,22 @@ export function TaskRow({
         {variant === "full" ? <TaskPriorityDisplay task={task} /> : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
+        {variant === "full" && showCompletedAt && task.closedAt ? (
+          <div className="flex items-baseline gap-3">
+            <TaskItemTitle className="wrap-anywhere min-w-0 flex-1">{task.title}</TaskItemTitle>
+            <time
+              dateTime={task.closedAt}
+              title={`Done ${formatTaskDateTime(task.closedAt)}`}
+              data-task-completed
+              className="shrink-0 text-xs text-muted-foreground tabular-nums"
+            >
+              <span className="sr-only">Done </span>
+              {formatCompletedTime(task.closedAt)}
+            </time>
+          </div>
+        ) : (
+          <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
+        )}
         {variant === "full" && showDetails && task.description ? (
           <ItemDescription data-task-description className="wrap-anywhere">
             {task.description}

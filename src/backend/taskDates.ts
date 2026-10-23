@@ -46,12 +46,18 @@ export function formatTaskDateTime(iso: string): string {
   return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}, ${clockTime(date)}`;
 }
 
-/** A time within the last day: 14:32 today, or yesterday 22:10. */
-export function formatRecentTime(iso: string, now = new Date()): string {
+/** A short completion time for the row's trailing column: 14:32 today, Tue this week, Oct 3, Mar 2025. */
+export function formatCompletedTime(iso: string, now = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const day = formatTaskDate(iso, now);
-  return day === "today" ? clockTime(date) : `${day} ${clockTime(date)}`;
+  const startOfDay = (value: Date): number =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / (24 * 60 * 60 * 1000));
+  if (daysAgo === 0) return clockTime(date);
+  if (daysAgo > 0 && daysAgo < 7) return WEEKDAYS[date.getDay()];
+  return date.getFullYear() === now.getFullYear()
+    ? `${MONTHS[date.getMonth()]} ${date.getDate()}`
+    : `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 /** Whether two timestamps fall on the same local calendar day. */

@@ -60,7 +60,8 @@ type HomeShortcutActions = {
   openCategoryPicker: () => void;
   openTagPicker: () => void;
   addBlocker: (task: TaskView) => void;
-  openDoneToday: () => void;
+  toggleDoneLens: () => void;
+  widenDoneLens: () => void;
   moveUnder: (task: TaskView) => void;
   toggleSelectedStatus: () => Promise<void>;
   reverseSelectedStatus: () => Promise<void>;
@@ -317,6 +318,11 @@ export function useTaskListKeyboard(
         actions.applySortField("due");
         return;
       }
+      if (key === "d" && !event.shiftKey) {
+        event.preventDefault();
+        actions.applySortField("closed");
+        return;
+      }
       if (key === "r" && !event.shiftKey) {
         event.preventDefault();
         actions.reverseSort();
@@ -375,9 +381,10 @@ export function useTaskListKeyboard(
       if (actions.activeTask)
         void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
     } else if (event.key.toLowerCase() === "d") {
-      if (event.repeat || event.shiftKey) return;
+      if (event.repeat) return;
       event.preventDefault();
-      actions.openDoneToday();
+      if (event.shiftKey) actions.widenDoneLens();
+      else actions.toggleDoneLens();
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();

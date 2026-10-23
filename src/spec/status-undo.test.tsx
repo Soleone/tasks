@@ -1,15 +1,15 @@
-import { screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
+import { cleanup, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
 import {
-  activeTitle,
   announcements,
   expectActive,
   expectListFocused,
   expectRows,
   row,
   selectedTitles,
+  taskList,
 } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
@@ -177,6 +177,10 @@ function doneTodayButton(): HTMLElement | null {
   return document.querySelector("[data-done-today]");
 }
 
+function countLine(): string | null | undefined {
+  return document.querySelector("[data-filter-summary]")?.textContent;
+}
+
 describe("completion", () => {
   test("done.sheen: completing plays a wave once; undo, redo and outside changes never do", async () => {
     await workspace.create("Third");
@@ -215,8 +219,6 @@ describe("completion", () => {
     const { user } = await workspace.render();
     await expectActive("Theirs");
     expect(doneTodayButton()).toBeNull();
-    await user.keyboard("d");
-    await waitFor(() => expect(announcements()).toMatch(/Nothing done in the last 24 hours/));
     await user.keyboard("{ArrowDown}{Shift>} {/Shift}");
     await expectStatus(mine.id, "done");
     await waitFor(() => expect(doneTodayButton()?.getAttribute("aria-label")).toBe("1 done today"));
@@ -234,7 +236,10 @@ describe("completion", () => {
     await waitFor(() => expect(doneTodayButton()?.getAttribute("aria-label")).toBe("1 done today"));
   });
 
-  test("done.today-list: D, the count and the palette open the list, and closing returns focus", async () => {
+  test("done.lens: D, the count and the palette show today's done tasks in the list itself", async () => {
+    const project = await workspace.create("Project");
+    const step = await workspace.create("Finished step", { parentId: project.id });
+    await workspace.change("task.complete", step.id);
     const older = await workspace.create("Older");
     const newer = await workspace.create("Newer");
     await workspace.change("task.complete", older.id);
@@ -243,32 +248,142 @@ describe("completion", () => {
     const { user } = await workspace.render();
     await expectActive("Still open");
     await waitFor(() => expect(doneTodayButton()).not.toBeNull());
-    await user.click(doneTodayButton()!);
-    const list = await screen.findByRole("dialog", { name: "Done today" });
-    expect([...list.querySelectorAll("li")].map((item) => item.textContent)).toEqual([
-      expect.stringContaining("Newer"),
-      expect.stringContaining("Older"),
-    ]);
-    // A long title may be cut off, so its full text is on hover.
-    expect(within(list).getByText("Newer").getAttribute("title")).toBe("Newer");
-    await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Done today" })).toBeNull());
-    await expectListFocused();
+    // The lens clears other filters rather than narrowing by them.
+    await user.keyboard("/still{Enter}");
+    await expectRows(["Still open"]);
 
-    // The scrolling list takes focus, so arrows scroll it instead of moving the active row.
     await user.keyboard("d");
-    const scroller = await screen.findByRole("list", { name: "Tasks done today" });
-    await waitFor(() => expect(document.activeElement).toBe(scroller));
-    await user.keyboard("{ArrowDown}{End}");
-    expect(activeTitle()).toBe("Still open");
-    await user.keyboard("{Escape}");
+    // A done subtask shows under its open parent rather than behind it.
+    await expectRows(["Newer", "Older", "Project", "Finished step"]);
+    expect(countLine()).toBe("3 done today");
+    expect(doneTodayButton()?.getAttribute("aria-pressed")).toBe("true");
     await expectListFocused();
+    await user.keyboard("d");
+    await expectRows(["Still open"]);
+
+    await user.click(doneTodayButton()!);
+    await expectRows(["Newer", "Older", "Project", "Finished step"]);
+    await user.click(doneTodayButton()!);
+    await expectRows(["Still open"]);
 
     await user.keyboard("{Control>}k{/Control}done today");
     await user.click(screen.getByRole("option", { name: /Done today/ }));
-    await screen.findByRole("dialog", { name: "Done today" });
-    await user.keyboard("{Escape}");
+    await expectRows(["Newer", "Older", "Project", "Finished step"]);
     await expectListFocused();
+  });
+
+  test("done.lens-back: D and Escape restore the filters, active task, expanded parent and scroll", async () => {
+    const parent = await workspace.create("Parent");
+    await workspace.create("Child", { parentId: parent.id });
+    await workspace.create("Other");
+    const finished = await workspace.create("Finished");
+    await workspace.change("task.complete", finished.id);
+    const { user } = await workspace.render();
+    await expectRows(["Other", "Parent"]);
+    await user.keyboard("{ArrowDown}{ArrowRight}{ArrowDown}");
+    await expectRows(["Other", "Parent", "Child"]);
+    await expectActive("Child");
+    const list = taskList();
+    Object.defineProperty(list, "scrollTop", { configurable: true, value: 120 });
+    const scrolls: unknown[] = [];
+    list.scrollTo = ((options: ScrollToOptions) => {
+      scrolls.push(options);
+    }) as typeof list.scrollTo;
+
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+    // What changes inside the lens is dropped on the way back.
+    await user.keyboard("/fin{Enter}");
+    await expectRows(["Finished"]);
+    await user.keyboard("d");
+    await expectRows(["Other", "Parent", "Child"]);
+    await expectActive("Child");
+    expect(countLine()).toBe("3 active tasks");
+    await waitFor(() => expect(scrolls).toContainEqual({ top: 120 }));
+
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+    await user.keyboard("{Escape}");
+    await expectRows(["Other", "Parent", "Child"]);
+    await expectActive("Child");
+  });
+
+  test("done.lens-window: Shift+D and the count line look back 7 days, then 30, then a day", async () => {
+    const finished = await workspace.create("Finished");
+    await workspace.change("task.complete", finished.id);
+    await workspace.create("Open");
+    // Three days on, the completion has left the last 24 hours but not the week.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    try {
+      const { user } = await workspace.render();
+      await expectRows(["Open"]);
+      await user.keyboard("d");
+      await waitFor(() => expect(countLine()).toBe("0 done today"));
+      expect(screen.getByText("Nothing done today")).toBeTruthy();
+      await user.keyboard("{Shift>}d{/Shift}");
+      await expectRows(["Finished"]);
+      expect(countLine()).toBe("1 done in the last 7 days");
+      await user.click(screen.getByRole("button", { name: "Show tasks done in the last 30 days" }));
+      await waitFor(() => expect(countLine()).toBe("1 done in the last 30 days"));
+      await user.keyboard("{Shift>}d{/Shift}");
+      await waitFor(() => expect(countLine()).toBe("0 done today"));
+      await user.click(screen.getByRole("button", { name: "Go back" }));
+      await expectRows(["Open"]);
+
+      // Outside the lens, Shift+D opens it at a week.
+      await user.keyboard("{Shift>}d{/Shift}");
+      await expectRows(["Finished"]);
+      expect(countLine()).toBe("1 done in the last 7 days");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("done.lens-status: a status change inside the lens settles on that ordinary view", async () => {
+    const finished = await workspace.create("Finished");
+    await workspace.change("task.complete", finished.id);
+    await workspace.create("Open");
+    const { user } = await workspace.render();
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+    await user.keyboard("fs");
+    await expectRows(["Open"]);
+    expect(countLine()).toBe("1 active task");
+    expect(doneTodayButton()?.getAttribute("aria-pressed")).toBe("false");
+    // D now starts a new lens instead of going anywhere older.
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+  });
+
+  test("done.lens-launch: relaunching with the lens on opens the view it set aside", async () => {
+    const finished = await workspace.create("Finished");
+    await workspace.change("task.complete", finished.id);
+    await workspace.create("Still open");
+    await workspace.create("Other");
+    const { user } = await workspace.render();
+    await user.keyboard("/still{Enter}");
+    await expectRows(["Still open"]);
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+
+    cleanup();
+    await workspace.render();
+    await expectRows(["Still open"]);
+    expect(doneTodayButton()?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  test("done.completed-at: sorted by Completed, rows show when they were done on the title line", async () => {
+    const finished = await workspace.create("Finished");
+    await workspace.change("task.complete", finished.id);
+    const { user } = await workspace.render();
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+    const time = row("Finished").querySelector("[data-task-completed]");
+    expect(time?.textContent).toMatch(/^Done \d\d:\d\d$/);
+    expect(time?.getAttribute("title")).toMatch(/^Done \w{3} \d+, \d{4}, \d\d:\d\d$/);
+    await user.keyboard("sc");
+    await waitFor(() => expect(row("Finished").querySelector("[data-task-completed]")).toBeNull());
   });
 
   test("done.all-clear: emptying the Active view after completing work says so", async () => {

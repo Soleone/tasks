@@ -33,7 +33,7 @@ The task list is the home screen. Everything starts and ends there: launching, c
 | `home.shortcuts-paused` | Typing in a field, or an editor or dialog is open | List shortcuts are off. The editor's own keys win |
 | `home.app-shortcuts` | Any state | `Ctrl/⌘+K` (palette), `Ctrl/⌘+,` (Settings) and `Alt+T` (themes) still work |
 | `home.palette-complete` | Any keyboard action exists | It is listed in the `Ctrl/⌘+K` palette |
-| `home.same-key-closes` | A key opened a panel, popover or dialog (`D`, `?`, `Ctrl/⌘+K`, `Ctrl/⌘+,`, `Alt+T`). Toolbar modes follow `toolbar.mode-exit` | Pressing that key again closes it like `Escape`, and focus returns to where it was. A surface you type into (`@`, `#`, `/`) keeps the key as text |
+| `home.same-key-closes` | A key opened a panel, popover or dialog (`?`, `Ctrl/⌘+K`, `Ctrl/⌘+,`, `Alt+T`). Toolbar modes follow `toolbar.mode-exit` | Pressing that key again closes it like `Escape`, and focus returns to where it was. A surface you type into (`@`, `#`, `/`) keeps the key as text |
 | `home.mouse-path` | Any action exists | It also has a mouse path: a button, menu item, picker or row glyph. A shortcut alone is incomplete |
 
 ## Moving around

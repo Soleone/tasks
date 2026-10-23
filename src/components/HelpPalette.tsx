@@ -1,6 +1,7 @@
 import { Fragment, useRef, type ReactElement } from "react";
 import {
   ArrowDownUp,
+  CalendarCheck,
   CalendarDays,
   Circle,
   CircleCheck,
@@ -53,7 +54,8 @@ type HelpEntry = {
   action?:
     | "open-settings"
     | "open-themes"
-    | "open-done-today"
+    | "toggle-done-lens"
+    | "widen-done-lens"
     | "add-blocker"
     | "move-under"
     | "pause-task"
@@ -344,11 +346,19 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Done today",
-        hint: "Tasks completed in the last 24 hours",
-        action: "open-done-today",
+        hint: "Show what's done in the last 24 hours, or go back",
+        action: "toggle-done-lens",
         icon: CircleCheck,
         keys: ["D"],
         keywords: "accomplished finished completed recent history yesterday count",
+      },
+      {
+        label: "Look further back",
+        hint: "Done in the last 7 days, then 30",
+        action: "widen-done-lens",
+        icon: CalendarCheck,
+        keys: ["Shift", "D"],
+        keywords: "accomplished finished completed week month history",
       },
       {
         label: "Toggle this palette",
@@ -410,7 +420,8 @@ export function HelpPalette({
   finalFocus,
   onOpenSettings,
   onOpenThemes,
-  onOpenDoneToday,
+  onToggleDoneLens,
+  onWidenDoneLens,
   onCreate,
   onCreateChild,
   onOpenCategoryPicker,
@@ -435,7 +446,8 @@ export function HelpPalette({
   finalFocus: () => HTMLElement | undefined;
   onOpenSettings: () => void;
   onOpenThemes: () => void;
-  onOpenDoneToday: () => void;
+  onToggleDoneLens: () => void;
+  onWidenDoneLens: () => void;
   onCreate: () => void;
   onCreateChild?: (task: TaskView) => void;
   onOpenCategoryPicker: () => void;
@@ -487,51 +499,53 @@ export function HelpPalette({
                   const onSelect =
                     entry.action === "open-themes"
                       ? onOpenThemes
-                      : entry.action === "open-done-today"
-                        ? onOpenDoneToday
-                        : entry.action === "open-settings"
-                          ? onOpenSettings
-                          : entry.action === "copy-task" && activeTask && onCopyTask
-                            ? () => onCopyTask(activeTask)
-                            : entry.action === "copy-image" && activeTask && onCopyImage
-                              ? () => onCopyImage(activeTask)
-                              : entry.action === "undo-status"
-                                ? canUndoStatus && onUndoStatus
-                                  ? onUndoStatus
-                                  : undefined
-                                : entry.action === "redo"
-                                  ? canRedo
-                                    ? onRedo
+                      : entry.action === "toggle-done-lens"
+                        ? onToggleDoneLens
+                        : entry.action === "widen-done-lens"
+                          ? onWidenDoneLens
+                          : entry.action === "open-settings"
+                            ? onOpenSettings
+                            : entry.action === "copy-task" && activeTask && onCopyTask
+                              ? () => onCopyTask(activeTask)
+                              : entry.action === "copy-image" && activeTask && onCopyImage
+                                ? () => onCopyImage(activeTask)
+                                : entry.action === "undo-status"
+                                  ? canUndoStatus && onUndoStatus
+                                    ? onUndoStatus
                                     : undefined
-                                  : entry.action === "new-task"
-                                    ? onCreate
-                                    : entry.action === "new-child-task" &&
-                                        activeTask &&
-                                        onCreateChild
-                                      ? () => onCreateChild(activeTask)
-                                      : entry.action === "filter-category"
-                                        ? onOpenCategoryPicker
-                                        : entry.action === "filter-status"
-                                          ? onOpenStatusMenu
-                                          : entry.action === "filter-priority"
-                                            ? onOpenPriorityMenu
-                                            : entry.action === "filter-tags"
-                                              ? onOpenTagPicker
-                                              : entry.action === "filter-search"
-                                                ? onOpenSearch
-                                                : entry.action === "add-blocker" &&
-                                                    activeTask &&
-                                                    onAddBlocker
-                                                  ? () => onAddBlocker(activeTask)
-                                                  : entry.action === "pause-task" &&
+                                  : entry.action === "redo"
+                                    ? canRedo
+                                      ? onRedo
+                                      : undefined
+                                    : entry.action === "new-task"
+                                      ? onCreate
+                                      : entry.action === "new-child-task" &&
+                                          activeTask &&
+                                          onCreateChild
+                                        ? () => onCreateChild(activeTask)
+                                        : entry.action === "filter-category"
+                                          ? onOpenCategoryPicker
+                                          : entry.action === "filter-status"
+                                            ? onOpenStatusMenu
+                                            : entry.action === "filter-priority"
+                                              ? onOpenPriorityMenu
+                                              : entry.action === "filter-tags"
+                                                ? onOpenTagPicker
+                                                : entry.action === "filter-search"
+                                                  ? onOpenSearch
+                                                  : entry.action === "add-blocker" &&
                                                       activeTask &&
-                                                      onPauseTask
-                                                    ? () => onPauseTask(activeTask)
-                                                    : entry.action === "move-under" &&
+                                                      onAddBlocker
+                                                    ? () => onAddBlocker(activeTask)
+                                                    : entry.action === "pause-task" &&
                                                         activeTask &&
-                                                        onMoveUnder
-                                                      ? () => onMoveUnder(activeTask)
-                                                      : undefined;
+                                                        onPauseTask
+                                                      ? () => onPauseTask(activeTask)
+                                                      : entry.action === "move-under" &&
+                                                          activeTask &&
+                                                          onMoveUnder
+                                                        ? () => onMoveUnder(activeTask)
+                                                        : undefined;
                   return (
                     <CommandItem
                       key={entry.label}

@@ -458,7 +458,7 @@ QUERIES
   activity [--task ID] [--limit N]
   list: --status STATUS (repeat/comma), --priority 0..4, --category SLUG,
         --uncategorized, --tag SLUG (repeat), --search TEXT, --unblocked,
-        --limit N, --offset N, --sort created|updated|priority|due|manual,
+        --limit N, --offset N, --sort created|updated|priority|due|closed|manual,
         --direction asc|desc (not manual), --include-ancestors
 
 WRITES

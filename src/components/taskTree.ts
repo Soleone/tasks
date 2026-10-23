@@ -37,6 +37,15 @@ export function contextTaskIds(
   );
 }
 
+/** The roots of trees where some of these tasks sit below the root. */
+export function rootIdsAboveTasks(
+  tasks: readonly TaskView[],
+  knownTasks: readonly TaskView[],
+): Set<string> {
+  const byId = new Map(knownTasks.map((task) => [task.id, task]));
+  return new Set(tasks.filter((task) => task.parentId !== null).map((task) => rootFor(task, byId)));
+}
+
 export function taskGroupOrder(tasks: TaskView[], contextTasks: TaskView[]): Map<string, number> {
   const byId = new Map([...contextTasks, ...tasks].map((entry) => [entry.id, entry]));
   const order = new Map<string, number>();

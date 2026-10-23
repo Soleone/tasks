@@ -219,13 +219,6 @@
   }
 }
 
-/* Done today opens with the stock popover fade and every row in place, so the count reads at
- * once. Only the checks tick, a quick wave down the list, --done-row × 25ms apart. */
-[data-done-today-list][data-open] li svg path {
-  animation: task-completion-check 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  animation-delay: calc(60ms + min(var(--done-row, 0), 10) * 25ms);
-}
-
 @keyframes task-status-turn {
   from {
     opacity: 0.55;
@@ -254,7 +247,6 @@
   [data-status-enter],
   [data-status-enter] *,
   [data-completion-sheen],
-  [data-done-today-list] *,
   [data-priority-enter],
   [data-count-enter] {
     animation: none;

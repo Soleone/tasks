@@ -15,7 +15,7 @@ There are two ways in from outside the app. Both use the same [commands](../back
 
 | Verb | Command |
 | --- | --- |
-| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort` (including `due`), `--direction`, `--limit`, `--offset` |
+| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort` (including `due` and `closed`), `--direction`, `--limit`, `--offset` |
 | `show ID` | `task.get`, with each attachment's absolute path |
 | `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--parent`, `--category`, `--tag`, `--due` |
 | `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--category`, `--clear-category`, `--tag`, `--clear-tags`, `--due`, `--clear-due` |

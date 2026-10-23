@@ -64,3 +64,14 @@ test("list.sort-due: soonest first, same day by priority, undated last either wa
   assert.deepEqual(order({}), ["soon-p1", "soon-p3", "late", "undated"]);
   assert.deepEqual(order({ direction: "desc" }), ["late", "soon-p1", "soon-p3", "undated"]);
 });
+
+test("list.sort-closed: newest close first, never-closed tasks last either way", () => {
+  const order = (args: Record<string, unknown>): string[] =>
+    (
+      executeQuery("task.list", { sort: "closed", ...args }, tasks, 1) as {
+        tasks: TaskProjection[];
+      }
+    ).tasks.map((entry) => entry.id);
+  assert.deepEqual(order({}), ["3", "2", "1", "4"]);
+  assert.deepEqual(order({ direction: "asc" }), ["1", "2", "3", "4"]);
+});

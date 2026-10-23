@@ -34,13 +34,18 @@ Status keys act on the selection, or on the active task when nothing else is sel
 
 ## Completion
 
-Finishing work should feel like it. The reward stays quiet: a moment on the row, a count in the header, a warmer empty list.
+Finishing work should feel like it. The reward stays quiet: a moment on the row, a count in the header, a warmer empty list. Looking back at what was done is a lens on the task list, not a second list.
 
 | Rule | When | Then |
 | --- | --- | --- |
 | `done.sheen` | This client completes tasks with a status key, a glyph click or a batch | As the check draws, the glyph gets a brief sheen in the theme accent. A batch plays it as a wave down the rows. A completed row that leaves the view stays until its sheen has played. Undo, redo and changes from elsewhere never play it, and reduced motion turns it off |
-| `done.today` | Any task was completed in the last 24 hours, from any client | The header shows a quiet count, e.g. "3 done today". It is hidden at zero, rises with a short pop and falls quietly when an undo takes a completion back. "Today" is always the last 24 hours, with no setting |
-| `done.today-list` | `D`, clicking the count, or Done today in the `Ctrl/⌘+K` palette | A popover opens with every row in place and lists up to 50 of those tasks, most recent first, with when each was completed, and says how many more there are. Only the checks move, ticking in a quick wave (no motion with reduced motion). The popover is as wide as its longest title, up to the window width, so a title wraps only when the window is too narrow, to two lines before it is cut off, and shows in full on hover. It opens with focus on the list, so arrows, Page Up/Down and Home/End scroll a long one while list shortcuts stay off. Closing it returns focus to the surface that opened it. With nothing done, `D` says so instead |
+| `done.today` | Any task was completed in the last 24 hours, from any client | The header shows a quiet count, e.g. "3 done today". It is hidden at zero, except while the done lens is on,, rises with a short pop and falls quietly when an undo takes a completion back. "Today" is always the last 24 hours, with no setting |
+| `done.lens` | `D`, clicking the count, or Done today in the `Ctrl/⌘+K` palette | The list itself shows the tasks done in the last 24 hours, most recently done first, with every other filter cleared. The count stays pressed and the count line reads e.g. "3 done today". Rows work as anywhere else, and filters and sorts narrow or reorder the lens. A done subtask shows under its parent, which the lens expands once and leaves to you after that. With nothing done, the empty list says so and offers to look further back |
+| `done.lens-back` | `D` again, clicking the count, `Escape` with no selection to clear, or Go back on an empty lens | The list returns to the view it showed before: filters, search, sort, the active task, expanded parents and scroll position. Anything changed inside the lens is dropped |
+| `done.lens-window` | `Shift+D`, clicking the count line in the lens, or Look further back in the palette | The lens looks back 7 days, then 30, then 24 hours again, and the count line says which. Outside the lens, `Shift+D` opens it at 7 days. The header count always means the last 24 hours |
+| `done.lens-status` | Changing the status filter in the lens | The lens ends and the new status view becomes the ordinary view, remembered as usual |
+| `done.lens-launch` | Launching after quitting with the lens on | The lens is never remembered; the list opens on the view it set aside |
+| `done.completed-at` | The list is sorted by Completed | Each done row shows when it was done in a trailing column on its title line: the time today, the weekday within the week, the date before that, and the full time on hover. The column never adds a line, and other sorts don't show it |
 | `done.all-clear` | The default Active view is empty and something was completed in the last 24 hours | The empty shell reads "All clear" with the day's count instead of "No active tasks" |
 
 ## Undo

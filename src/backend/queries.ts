@@ -114,7 +114,7 @@ function listTasks(
   const closedSince = args.closedSince;
   if (closedSince !== undefined && !isTimestamp(closedSince)) invalidFilter("closedSince");
   const sort = args.sort === undefined ? "created" : args.sort;
-  if (!["created", "updated", "priority", "due", "manual"].includes(sort as string))
+  if (!["created", "updated", "priority", "due", "closed", "manual"].includes(sort as string))
     invalidFilter("sort");
   const direction =
     args.direction === undefined
@@ -147,10 +147,14 @@ function listTasks(
           ? task.createdAt
           : sort === "updated"
             ? task.updatedAt
-            : (task.due ?? "");
+            : sort === "closed"
+              ? (task.closedAt ?? "")
+              : (task.due ?? "");
+    // Undated tasks, and active tasks under the closed sort, stay last in either direction.
+    const missing = (task: TaskProjection): boolean =>
+      sort === "due" ? task.due === null : sort === "closed" && task.closedAt === null;
     matching.sort((left, right) => {
-      if (sort === "due" && (left.due === null) !== (right.due === null))
-        return left.due === null ? 1 : -1;
+      if (missing(left) !== missing(right)) return missing(left) ? 1 : -1;
       const a = sortValue(left);
       const b = sortValue(right);
       if (a !== b) return (a < b ? -1 : 1) * (direction === "asc" ? 1 : -1);

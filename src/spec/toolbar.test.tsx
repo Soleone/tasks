@@ -21,6 +21,35 @@ function countLine(): string {
 }
 
 describe("sort", () => {
+  test("sort.completed: S D sorts the Done filter by completion and leaving Done keeps the main sort", async () => {
+    const earlier = await workspace.create("Done earlier");
+    const later = await workspace.create("Done later");
+    await workspace.change("task.complete", earlier.id);
+    await workspace.change("task.complete", later.id);
+    await workspace.create("Open");
+    const { user } = await workspace.render();
+    await user.keyboard("sd");
+    await waitFor(() =>
+      expect(screen.getAllByText("Sorting by completed needs the Done filter")).not.toHaveLength(0),
+    );
+    expect(document.querySelector("[data-sort=task-sort-closed]")).toBeNull();
+    await user.keyboard("sp");
+    await waitFor(() => expect(pressed("[data-sort=task-sort-priority]")).toBe("true"));
+
+    // Done starts on Completed, most recent first.
+    await user.keyboard("fd");
+    await expectRows(["Done later", "Done earlier"]);
+    expect(pressed("[data-sort=task-sort-closed]")).toBe("true");
+    await user.keyboard("sr");
+    await expectRows(["Done earlier", "Done later"]);
+    await user.keyboard("sr");
+
+    await user.keyboard("fs");
+    await expectRows(["Open"]);
+    expect(pressed("[data-sort=task-sort-priority]")).toBe("true");
+    expect(document.querySelector("[data-sort=task-sort-closed]")).toBeNull();
+  });
+
   test("sort.due: S T sorts soonest due first and keeps undated tasks last when reversed", async () => {
     const today = localToday();
     await workspace.create("Undated");

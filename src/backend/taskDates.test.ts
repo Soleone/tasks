@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatRecentTime, formatTaskDate, formatTaskDateTime, sameTaskDay } from "./taskDates.js";
+import {
+  formatCompletedTime,
+  formatTaskDate,
+  formatTaskDateTime,
+  sameTaskDay,
+} from "./taskDates.js";
 
 const NOW = new Date(2026, 8, 10, 12, 0, 0);
 
@@ -26,10 +31,13 @@ test("formatTaskDateTime renders the local date and time", () => {
   assert.equal(formatTaskDateTime("not-a-date"), "");
 });
 
-test("formatRecentTime shows the clock today and names yesterday", () => {
-  assert.equal(formatRecentTime(iso(2026, 8, 10, 9, 5), NOW), "09:05");
-  assert.equal(formatRecentTime(iso(2026, 8, 9, 22, 10), NOW), "yesterday 22:10");
-  assert.equal(formatRecentTime("not-a-date", NOW), "");
+test("formatCompletedTime stays short: the clock today, the weekday this week, then dates", () => {
+  assert.equal(formatCompletedTime(iso(2026, 8, 10, 9, 5), NOW), "09:05");
+  assert.equal(formatCompletedTime(iso(2026, 8, 9, 22, 10), NOW), "Wed");
+  assert.equal(formatCompletedTime(iso(2026, 8, 4), NOW), "Fri");
+  assert.equal(formatCompletedTime(iso(2026, 8, 3), NOW), "Sep 3");
+  assert.equal(formatCompletedTime(iso(2025, 11, 10), NOW), "Dec 2025");
+  assert.equal(formatCompletedTime("not-a-date", NOW), "");
 });
 
 test("sameTaskDay compares local calendar days", () => {

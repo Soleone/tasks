@@ -14,8 +14,10 @@ import type { ClassificationOption, TaskView } from "@/components/taskView";
 import { contextTaskIds, taskGroupOrder } from "@/components/taskTree";
 import {
   compareTasksForViewSort,
+  doneSince,
   presetStatuses,
   taskMatchesViewFilters,
+  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
@@ -34,6 +36,8 @@ type WorkspaceTasksView = {
   sortField: SortField;
   sortDirection: SortDirection;
   categoryFilter: ClassificationToken | null;
+  /** How far back the done lens looks, or null outside it. */
+  doneWindow: DoneWindow | null;
   setCategoryFilter: Dispatch<SetStateAction<ClassificationToken | null>>;
   setTagFilter: Dispatch<SetStateAction<ClassificationOption[]>>;
   taskListRef: RefObject<TaskListHandle | null>;
@@ -49,6 +53,7 @@ export function useWorkspaceTasks({
   sortField,
   sortDirection,
   categoryFilter,
+  doneWindow,
   setCategoryFilter,
   setTagFilter,
   taskListRef,
@@ -70,6 +75,7 @@ export function useWorkspaceTasks({
   const sortFieldRef = useRef<SortField>(sortField);
   const sortDirectionRef = useRef<SortDirection>(sortDirection);
   const categoryFilterRef = useRef<string | null>(categoryFilter?.slug ?? null);
+  const doneWindowRef = useRef(doneWindow);
   const restoredMetadataRef = useRef(false);
   const workspaceRevisionRef = useRef<number | null>(null);
   // Saves reply after later renders; their count changes must compare against the current list.
@@ -93,6 +99,9 @@ export function useWorkspaceTasks({
             ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
             ...(searchQueryRef.current.trim() !== ""
               ? { search: searchQueryRef.current.trim() }
+              : {}),
+            ...(doneWindowRef.current !== null
+              ? { closedSince: doneSince(doneWindowRef.current) }
               : {}),
             sort: sortFieldRef.current,
             direction: sortDirectionRef.current,
@@ -208,6 +217,7 @@ export function useWorkspaceTasks({
     sortFieldRef.current = sortField;
     sortDirectionRef.current = sortDirection;
     categoryFilterRef.current = categoryFilter?.slug ?? null;
+    doneWindowRef.current = doneWindow;
     tasksRef.current = tasks;
     contextTasksRef.current = contextTasks;
   });
@@ -224,6 +234,7 @@ export function useWorkspaceTasks({
     sortField,
     sortDirection,
     categoryFilter?.slug ?? null,
+    doneWindow,
   ]);
   const [loadingViewKey, setLoadingViewKey] = useState(viewKey);
   if (loadingViewKey !== viewKey) {
@@ -421,6 +432,7 @@ export function useWorkspaceTasks({
       priorityFilter,
       tagSlugs: tagFilter.map((tag) => tag.slug),
       searchQuery,
+      closedSince: doneWindow === null ? null : doneSince(doneWindow),
     });
   }
 

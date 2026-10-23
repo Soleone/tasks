@@ -13,6 +13,7 @@ const PREFERENCE_KEYS = new Set([
   "tasks.showUnblocked",
   "tasks.sortField",
   "tasks.sortDirection",
+  "tasks.completedSort",
   "tasks.showDetails",
   "tasks.foldedToolbarGroups",
   "tasks.helpMode",

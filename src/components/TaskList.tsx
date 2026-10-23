@@ -19,7 +19,9 @@ import { stripClassificationTokens } from "@/backend/taskText";
 import {
   EXACT_STATUS_META,
   PRIORITY_META,
+  doneWindowPhrase,
   taskStatusMeta,
+  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
@@ -36,7 +38,7 @@ import {
 import { TaskListToolbar, type ToolbarFoldGroup } from "./TaskListToolbar";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
-import { visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
+import { rootIdsAboveTasks, visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
 import {
   movedTaskRows,
   orderedTaskRows,
@@ -92,7 +94,17 @@ export async function copyImageMessage(name: string | undefined): Promise<string
   }
 }
 
+/** Where the list stood, so the done lens can put it back. */
+export type TaskListPlace = {
+  activeTaskId: string | null;
+  expandedIds: ReadonlySet<string>;
+  scrollTop: number;
+};
+
 export type TaskListHandle = {
+  currentPlace: () => TaskListPlace;
+  /** Expands the same parents and scrolls back once the restored view has loaded. */
+  restorePlace: (place: TaskListPlace) => void;
   startIdentityPreservingRefresh: () => void;
   finishIdentityPreservingRefresh: () => void;
   clearActiveTaskSelection: () => void;
@@ -109,6 +121,10 @@ type TaskListProps = {
   total: number;
   /** Tasks done in the last 24 hours, for the empty Active view. */
   doneTodayCount: number;
+  /** How far back the done lens looks, or null outside it. */
+  doneWindow: DoneWindow | null;
+  onToggleDoneLens: () => void;
+  onWidenDoneLens: () => void;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
@@ -175,7 +191,6 @@ type TaskListProps = {
   onCanceled: (task: TaskView) => void;
   onCanceledMany?: (previous: TaskView[], current: TaskView[]) => void;
   onAddBlocker: (task: TaskView) => void;
-  onOpenDoneToday: () => void;
   onMoveUnder: (task: TaskView) => void;
 };
 
@@ -201,6 +216,9 @@ export function TaskList({
   contextOrder,
   total,
   doneTodayCount,
+  doneWindow,
+  onToggleDoneLens,
+  onWidenDoneLens,
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
@@ -263,7 +281,6 @@ export function TaskList({
   onCanceled,
   onCanceledMany,
   onAddBlocker,
-  onOpenDoneToday,
   onMoveUnder,
 }: TaskListProps & { ref?: Ref<TaskListHandle> }): ReactElement {
   const section = useRef<HTMLElement>(null);
@@ -340,6 +357,20 @@ export function TaskList({
     () => contextTasks.map((task) => pendingTasks.get(task.id) ?? task),
     [contextTasks, pendingTasks],
   );
+  // The done lens opens each tree its done subtasks sit in, once, so none hides behind a
+  // collapsed parent. Leaving the lens restores the expansion it set aside.
+  const [lensOpenedIds, setLensOpenedIds] = useState<ReadonlySet<string> | null>(null);
+  if (doneWindow === null) {
+    if (lensOpenedIds !== null) setLensOpenedIds(null);
+  } else if (!loading) {
+    const unopened = [...rootIdsAboveTasks(tasks, [...shownContextTasks, ...tasks])].filter(
+      (id) => !lensOpenedIds?.has(id),
+    );
+    if (unopened.length > 0) {
+      setLensOpenedIds(new Set([...(lensOpenedIds ?? []), ...unopened]));
+      setExpandedIds((previous) => new Set([...previous, ...unopened]));
+    }
+  }
   const savedRows = useMemo(
     () => visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
     [tasks, expandedIds, shownContextTasks, contextOrder],
@@ -409,10 +440,33 @@ export function TaskList({
     onEdit,
   });
 
+  // The restored view loads after restorePlace; once that load ends, the old scroll position returns.
+  const pendingScroll = useRef<{ top: number; loadStarted: boolean } | null>(null);
+  const expandedIdsRef = useRef(expandedIds);
+  useLayoutEffect(() => {
+    expandedIdsRef.current = expandedIds;
+    const pending = pendingScroll.current;
+    if (!pending) return;
+    if (loading) pending.loadStarted = true;
+    else if (pending.loadStarted) {
+      pendingScroll.current = null;
+      list.current?.scrollTo({ top: pending.top });
+    }
+  });
+
   useImperativeHandle(
     ref,
     () => ({
       ...selectionHandle,
+      currentPlace: () => ({
+        activeTaskId: selectionHandle.getActiveTask()?.id ?? null,
+        expandedIds: expandedIdsRef.current,
+        scrollTop: list.current?.scrollTop ?? 0,
+      }),
+      restorePlace: (place) => {
+        setExpandedIds(new Set(place.expandedIds));
+        pendingScroll.current = { top: place.scrollTop, loadStarted: false };
+      },
       waitForWrites: async () => {
         // A refused optimistic write still settles before history chooses the preceding accepted step.
         while (taskWrites.current.size > 0 || reorderPending.current) {
@@ -1394,7 +1448,8 @@ export function TaskList({
       openCategoryPicker,
       openTagPicker,
       addBlocker: onAddBlocker,
-      openDoneToday: onOpenDoneToday,
+      toggleDoneLens: onToggleDoneLens,
+      widenDoneLens: onWidenDoneLens,
       moveUnder: onMoveUnder,
       toggleSelectedStatus,
       reverseSelectedStatus,
@@ -1466,7 +1521,7 @@ export function TaskList({
       ref={section}
       tabIndex={-1}
       aria-label="Saved tasks"
-      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V D Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
+      aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 / @ # F O V D Shift+D Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
       onFocus={(event) => {
         if (event.target === event.currentTarget && visibleRows.length > 0) list.current?.focus();
       }}
@@ -1545,6 +1600,11 @@ export function TaskList({
         reorderAvailabilityReason={reorderAvailabilityReason}
         reorderSelection={reorderSelection}
         summaryTaskCount={summaryTaskCount}
+        doneWindow={doneWindow}
+        widenDoneLens={() => {
+          returnToList();
+          onWidenDoneLens();
+        }}
         clearStatusFilter={clearStatusFilter}
         clearCategoryFilter={clearCategoryFilter}
         clearPriorityFilter={clearPriorityFilter}
@@ -1638,6 +1698,7 @@ export function TaskList({
                 newTaskId={newTaskId}
                 exitingTaskIds={exitingTaskIds}
                 showDetails={detailsShownFor(row.task.id)}
+                showCompletedAt={sortField === "closed"}
                 hiddenCategorySlug={categoryFilter?.slug ?? null}
                 taskById={taskById}
                 onClick={handleOptionClick}
@@ -1660,9 +1721,17 @@ export function TaskList({
           {isFilteredEmpty ? (
             <TaskItem data-empty-state="filtered" size="sm" state="empty">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">No tasks match the current filters</p>
+                <p className="text-sm font-medium">
+                  {doneWindow
+                    ? `Nothing done ${doneWindowPhrase(doneWindow)}`
+                    : "No tasks match the current filters"}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Try different filters or clear them.
+                  {doneWindow
+                    ? helpMode === "none"
+                      ? "Choose the count to look further back."
+                      : "Press Shift+D or choose the count to look further back."
+                    : "Try different filters or clear them."}
                 </p>
               </div>
               <Button
@@ -1674,7 +1743,7 @@ export function TaskList({
                   list.current?.focus();
                 }}
               >
-                Clear filters
+                {doneWindow ? "Go back" : "Clear filters"}
               </Button>
             </TaskItem>
           ) : null}

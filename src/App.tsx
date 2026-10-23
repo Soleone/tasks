@@ -10,7 +10,10 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
 import {
+  doneWindowPhrase,
   sortSummary,
+  widerDoneWindow,
+  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
@@ -34,6 +37,7 @@ import {
   copyTaskText,
   TaskList,
   type TaskListHandle,
+  type TaskListPlace,
 } from "@/components/TaskList";
 import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
@@ -63,6 +67,7 @@ const UNBLOCKED_FILTER_KEY = "tasks.showUnblocked";
 const CATEGORY_FILTER_KEY = "tasks.categoryFilter";
 const SORT_FIELD_KEY = "tasks.sortField";
 const SORT_DIRECTION_KEY = "tasks.sortDirection";
+const COMPLETED_SORT_KEY = "tasks.completedSort";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
 const FOLDED_TOOLBAR_GROUPS_KEY = "tasks.foldedToolbarGroups";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
@@ -153,6 +158,41 @@ function readHelpMode(): KeyboardHelpMode {
   return isAndroid() ? "none" : "full";
 }
 
+/** What the list shows: remembered between launches, and set aside while the done lens is on. */
+type ListView = {
+  statusPreset: StatusPreset;
+  exactStatus: TaskStatus | null;
+  priorityFilter: TaskPriority | null;
+  tagFilter: ClassificationOption[];
+  searchQuery: string;
+  showUnblocked: boolean;
+  categoryFilter: ClassificationToken | null;
+  sortField: SortField;
+  sortDirection: SortDirection;
+  /** Whether the Done filter sorts by completion; other views never do. */
+  completedSort: boolean;
+};
+
+/** How each part of the list view is stored. */
+const VIEW_PREFERENCES: [key: string, stored: (view: ListView) => string][] = [
+  [STATUS_PRESET_KEY, (view) => view.statusPreset],
+  [EXACT_STATUS_KEY, (view) => view.exactStatus ?? ""],
+  [
+    PRIORITY_FILTER_KEY,
+    (view) => (view.priorityFilter === null ? "" : String(view.priorityFilter)),
+  ],
+  [TAG_FILTER_KEY, (view) => JSON.stringify(view.tagFilter.map((tag) => tag.slug))],
+  [SEARCH_QUERY_KEY, (view) => view.searchQuery],
+  [UNBLOCKED_FILTER_KEY, (view) => String(view.showUnblocked)],
+  [CATEGORY_FILTER_KEY, (view) => view.categoryFilter?.slug ?? ""],
+  [SORT_FIELD_KEY, (view) => view.sortField],
+  [SORT_DIRECTION_KEY, (view) => view.sortDirection],
+  [COMPLETED_SORT_KEY, (view) => String(view.completedSort)],
+];
+
+/** The done lens and the way back from it. Never remembered between launches. */
+type DoneLens = { window: DoneWindow; returnTo: ListView; place: TaskListPlace | null };
+
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
 // task editor or list.
@@ -193,6 +233,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   );
   const [sortField, setSortField] = useState(readSortField);
   const [sortDirection, setSortDirection] = useState(readSortDirection);
+  const [completedSort, setCompletedSort] = useState(
+    () => readPreference(COMPLETED_SORT_KEY) !== "false",
+  );
+  const [doneLens, setDoneLens] = useState<DoneLens | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(
     readInitialCategoryFilter,
   );
@@ -214,7 +258,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [disableHelpTarget, setDisableHelpTarget] = useState<"basic" | "none" | null>(null);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [doneTodayOpen, setDoneTodayOpen] = useState(false);
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
   const composerRef = useRef<ComposerState | null>(null);
   const taskListRef = useRef<TaskListHandle>(null);
@@ -231,6 +274,32 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setActiveTaskRequest((previous) => ({ key: previous.key + 1, taskId, preserveTaskOnRefresh }));
   }
 
+  const listView: ListView = {
+    statusPreset,
+    exactStatus,
+    priorityFilter,
+    tagFilter,
+    searchQuery,
+    showUnblocked,
+    categoryFilter,
+    sortField,
+    sortDirection,
+    completedSort,
+  };
+  // Completed is the Done filter's own sort, so leaving Done returns to the main one.
+  const shownSortField: SortField = exactStatus === "done" && completedSort ? "closed" : sortField;
+
+  // The lens is never remembered, so a relaunch inside it returns to the view it set aside.
+  const rememberedView = useRef(listView);
+  useEffect(() => {
+    if (doneLens) return;
+    for (const [key, stored] of VIEW_PREFERENCES) {
+      const value = stored(listView);
+      if (value !== stored(rememberedView.current)) writePreference(key, value);
+    }
+    rememberedView.current = listView;
+  });
+
   const taskView = useWorkspaceTasks({
     statusPreset,
     exactStatus,
@@ -238,9 +307,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     tagFilter,
     searchQuery,
     showUnblocked,
-    sortField,
+    sortField: shownSortField,
     sortDirection,
     categoryFilter,
+    doneWindow: doneLens?.window ?? null,
     setCategoryFilter,
     setTagFilter,
     taskListRef,
@@ -257,7 +327,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     refreshTasks,
     isCurrentViewMatch,
   } = taskView;
-  const doneToday = useDoneToday(tasks);
+  const doneTodayCount = useDoneToday(tasks);
   const {
     optimisticCreate,
     setOptimisticCreate,
@@ -397,23 +467,67 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setThemesOpen(true);
   }
 
-  function openDoneToday(): void {
-    if (doneToday.total > 0) {
-      changeDoneTodayOpen(true);
-      return;
-    }
-    setHelpOpen(false);
-    setAnnouncement("Nothing done in the last 24 hours yet");
-    showTaskToast("Nothing done in the last 24 hours yet");
+  function showListView(view: ListView): void {
+    setStatusPreset(view.statusPreset);
+    setExactStatus(view.exactStatus);
+    setPriorityFilter(view.priorityFilter);
+    setTagFilter(view.tagFilter);
+    setSearchQuery(view.searchQuery);
+    setShowUnblocked(view.showUnblocked);
+    setCategoryFilter(view.categoryFilter);
+    categoryFilterRef.current = view.categoryFilter?.slug ?? null;
+    setSortField(view.sortField);
+    setSortDirection(view.sortDirection);
+    setCompletedSort(view.completedSort);
   }
 
-  function changeDoneTodayOpen(open: boolean): void {
-    if (open) {
-      const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-      focusStack.push("done-today", fromPalette);
-      setHelpOpen(false);
+  function enterDoneLens(doneWindow: DoneWindow): void {
+    setHelpOpen(false);
+    setDoneLens({
+      window: doneWindow,
+      returnTo: listView,
+      place: taskListRef.current?.currentPlace() ?? null,
+    });
+    showListView({
+      statusPreset: "active",
+      exactStatus: "done",
+      priorityFilter: null,
+      tagFilter: [],
+      searchQuery: "",
+      showUnblocked: false,
+      categoryFilter: null,
+      sortField,
+      sortDirection: "desc",
+      completedSort: true,
+    });
+    requestActiveTask();
+    setAnnouncement(`Showing tasks done ${doneWindowPhrase(doneWindow)}`);
+  }
+
+  function leaveDoneLens(): void {
+    if (!doneLens) return;
+    setDoneLens(null);
+    showListView(doneLens.returnTo);
+    if (doneLens.place) taskListRef.current?.restorePlace(doneLens.place);
+    requestActiveTask(doneLens.place?.activeTaskId ?? null, true);
+    setAnnouncement("Back to your list");
+  }
+
+  function toggleDoneLens(): void {
+    if (doneLens) leaveDoneLens();
+    else enterDoneLens("day");
+  }
+
+  function widenDoneLens(): void {
+    if (!doneLens) {
+      enterDoneLens("week");
+      return;
     }
-    setDoneTodayOpen(open);
+    const next = widerDoneWindow(doneLens.window);
+    setHelpOpen(false);
+    setDoneLens({ ...doneLens, window: next });
+    requestActiveTask();
+    setAnnouncement(`Showing tasks done ${doneWindowPhrase(next)}`);
   }
 
   // From the palette the active element is its search field, which unmounts
@@ -493,36 +607,36 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   }
 
   function toggleStatusPreset(): void {
+    // A status change inside the lens settles on that ordinary view.
+    setDoneLens(null);
     // Clearing an exact status returns to the current preset; otherwise toggle.
-    if (exactStatus !== null) {
-      setExactStatus(null);
-      writePreference(EXACT_STATUS_KEY, "");
-    } else {
-      const next = statusPreset === "active" ? "inactive" : "active";
-      setStatusPreset(next);
-      writePreference(STATUS_PRESET_KEY, next);
-    }
+    if (exactStatus !== null) setExactStatus(null);
+    else setStatusPreset(statusPreset === "active" ? "inactive" : "active");
     requestActiveTask();
   }
 
   function chooseSortField(field: SortField): void {
-    if (field === sortField) return;
+    if (field === shownSortField) return;
+    if (field === "closed" && exactStatus !== "done") {
+      setAnnouncement("Sorting by completed needs the Done filter");
+      showTaskToast("Sorting by completed needs the Done filter");
+      return;
+    }
     sortFieldRef.current = field;
-    setSortField(field);
+    if (exactStatus === "done") setCompletedSort(field === "closed");
+    if (field !== "closed") setSortField(field);
     requestActiveTask();
-    writePreference(SORT_FIELD_KEY, field);
     setAnnouncement(
       field === "manual" ? "Sorted by manual order" : `Sorted ${sortSummary(field, sortDirection)}`,
     );
   }
 
   function reverseSort(): void {
-    if (sortField === "manual") return;
+    if (shownSortField === "manual") return;
     const next = sortDirection === "desc" ? "asc" : "desc";
     setSortDirection(next);
     requestActiveTask();
-    writePreference(SORT_DIRECTION_KEY, next);
-    setAnnouncement(`Sorted ${sortSummary(sortField, next)}`);
+    setAnnouncement(`Sorted ${sortSummary(shownSortField, next)}`);
   }
 
   function toggleDetails(): void {
@@ -560,8 +674,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
 
   function chooseExactStatus(status: TaskStatus | null): void {
     setStatusMenuOpen(false);
+    setDoneLens(null);
     setExactStatus(status);
-    writePreference(EXACT_STATUS_KEY, status ?? "");
     requestActiveTask();
   }
 
@@ -570,17 +684,11 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     exact: TaskStatus | null | undefined,
   ): void {
     setStatusMenuOpen(false);
-    if (exact !== undefined) {
-      setExactStatus(exact);
-      writePreference(EXACT_STATUS_KEY, exact ?? "");
-    }
+    setDoneLens(null);
+    if (exact !== undefined) setExactStatus(exact);
     if (preset !== undefined) {
       setStatusPreset(preset);
-      writePreference(STATUS_PRESET_KEY, preset);
-      if (exact === undefined) {
-        setExactStatus(null);
-        writePreference(EXACT_STATUS_KEY, "");
-      }
+      if (exact === undefined) setExactStatus(null);
     }
     requestActiveTask();
   }
@@ -592,13 +700,11 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
-    writePreference(PRIORITY_FILTER_KEY, priority === null ? "" : String(priority));
     requestActiveTask();
   }
 
   function chooseTags(tags: ClassificationOption[]): void {
     setTagFilter(tags);
-    writePreference(TAG_FILTER_KEY, JSON.stringify(tags.map((tag) => tag.slug)));
     requestActiveTask();
   }
 
@@ -606,11 +712,15 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     if (searchOpen) closeSearch();
     const next = query.trim();
     setSearchQuery(next);
-    writePreference(SEARCH_QUERY_KEY, next);
     requestActiveTask();
   }
 
   function clearAllFilters(): void {
+    // The lens's reset is its way back.
+    if (doneLens) {
+      leaveDoneLens();
+      return;
+    }
     setExactStatus(null);
     setStatusPreset("active");
     setPriorityFilter(null);
@@ -618,13 +728,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setSearchQuery("");
     setCategoryFilter(null);
     setShowUnblocked(false);
-    writePreference(EXACT_STATUS_KEY, "");
-    writePreference(STATUS_PRESET_KEY, "active");
-    writePreference(PRIORITY_FILTER_KEY, "");
-    writePreference(TAG_FILTER_KEY, "[]");
-    writePreference(SEARCH_QUERY_KEY, "");
-    writePreference(CATEGORY_FILTER_KEY, "");
-    writePreference(UNBLOCKED_FILTER_KEY, "false");
     requestActiveTask();
     setAnnouncement("Cleared all filters");
   }
@@ -644,7 +747,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   ): void {
     setCategoryFilter(null);
     categoryFilterRef.current = null;
-    writePreference(CATEGORY_FILTER_KEY, "");
     requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
   }
 
@@ -652,7 +754,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setCategoryPickerOpen(false);
     setCategoryFilter(category);
     categoryFilterRef.current = category.slug;
-    writePreference(CATEGORY_FILTER_KEY, category.slug);
     requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
     setAnnouncement(`Showing ${category.label} tasks`);
   }
@@ -683,11 +784,9 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
             }}
           >
             <DoneToday
-              tasks={doneToday.tasks}
-              total={doneToday.total}
-              open={doneTodayOpen}
-              onOpenChange={changeDoneTodayOpen}
-              finalFocus={() => focusStack.restore("done-today")}
+              total={doneTodayCount}
+              lensOn={doneLens !== null}
+              onToggleLens={toggleDoneLens}
             />
             <Tooltip>
               <TooltipTrigger
@@ -758,7 +857,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           contextTasks={contextTasks}
           contextOrder={contextOrder}
           total={total}
-          doneTodayCount={doneToday.total}
+          doneTodayCount={doneTodayCount}
+          doneWindow={doneLens?.window ?? null}
+          onToggleDoneLens={toggleDoneLens}
+          onWidenDoneLens={widenDoneLens}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
@@ -771,10 +873,9 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           showUnblocked={showUnblocked}
           onShowUnblockedChange={(next) => {
             setShowUnblocked(next);
-            writePreference(UNBLOCKED_FILTER_KEY, String(next));
             requestActiveTask();
           }}
-          sortField={sortField}
+          sortField={shownSortField}
           sortDirection={sortDirection}
           onSortFieldChange={chooseSortField}
           onReverseSort={reverseSort}
@@ -839,7 +940,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onCanceledMany={handleCanceledMany}
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
-          onOpenDoneToday={openDoneToday}
         />
         <p role="status" className="sr-only">
           {announcement}
@@ -862,7 +962,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
         onOpenThemes={openThemes}
-        onOpenDoneToday={openDoneToday}
+        onToggleDoneLens={toggleDoneLens}
+        onWidenDoneLens={widenDoneLens}
         onCreate={openCreate}
         onCreateChild={(task) => openCreate(task.id)}
         onOpenCategoryPicker={openCategoryPicker}

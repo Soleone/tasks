@@ -61,18 +61,9 @@ describe("launch", () => {
 
 describe("shortcut scope", () => {
   test("home.same-key-closes: pressing the opening key again closes the surface", async () => {
-    const done = await workspace.create("Done");
-    await workspace.change("task.complete", done.id);
     await seed("Open");
     const { user } = await workspace.render();
     await expectActive("Open");
-    await waitFor(() => expect(document.querySelector("[data-done-today]")).not.toBeNull());
-
-    await user.keyboard("d");
-    await screen.findByRole("dialog", { name: "Done today" });
-    await user.keyboard("d");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Done today" })).toBeNull());
-    await expectListFocused();
 
     await user.keyboard("{Control>}k{/Control}");
     await screen.findByRole("dialog", { name: "Shortcuts and syntax" });

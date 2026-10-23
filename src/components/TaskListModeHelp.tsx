@@ -71,6 +71,7 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
           { id: "updated", label: "Updated", keys: ["U"] },
           { id: "priority", label: "Priority", keys: ["P"] },
           { id: "due", label: "Due date", keys: ["T"] },
+          { id: "closed", label: "Completed, with the Done filter", keys: ["D"] },
           { id: "manual", label: "Manual order", keys: ["M"] },
           { id: "reverse", label: "Reverse sort direction", keys: ["R"] },
         ],

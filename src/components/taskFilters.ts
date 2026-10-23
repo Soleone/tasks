@@ -36,6 +36,8 @@ export type TaskViewFilters = {
   priorityFilter: TaskPriority | null;
   tagSlugs: readonly string[];
   searchQuery: string;
+  /** Only tasks closed at or after this time, while the done lens is on. */
+  closedSince: string | null;
 };
 
 /** Matches a task against the current UI view while optimistic changes settle. */
@@ -48,6 +50,7 @@ export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters)
           : ACTIVE_TASK_STATUS_SET
         ).has(task.status);
   if (!statusOk) return false;
+  if (filters.closedSince !== null && (task.closedAt ?? "") < filters.closedSince) return false;
   if (filters.showUnblocked && task.blockedByIds.length > 0) return false;
   if (filters.categorySlug !== null && task.category?.slug !== filters.categorySlug) return false;
   if (filters.priorityFilter !== null && task.priority !== filters.priorityFilter) return false;
@@ -93,8 +96,27 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "canceled", label: "Canceled", key: "X" },
 ];
 
-export type SortField = "created" | "updated" | "priority" | "due" | "manual";
+export type SortField = "created" | "updated" | "priority" | "due" | "closed" | "manual";
 export type SortDirection = "asc" | "desc";
+
+/** How far back the done lens looks. Day is the last 24 hours, like the header count. */
+export type DoneWindow = "day" | "week" | "month";
+
+const DONE_WINDOW_DAYS: Record<DoneWindow, number> = { day: 1, week: 7, month: 30 };
+
+export function doneSince(doneWindow: DoneWindow, now = Date.now()): string {
+  return new Date(now - DONE_WINDOW_DAYS[doneWindow] * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** The next window Shift+D shows, wrapping from month back to day. */
+export function widerDoneWindow(doneWindow: DoneWindow): DoneWindow {
+  return doneWindow === "day" ? "week" : doneWindow === "week" ? "month" : "day";
+}
+
+/** When the lens's tasks were done: "today", or "in the last 7 days". */
+export function doneWindowPhrase(doneWindow: DoneWindow): string {
+  return doneWindow === "day" ? "today" : `in the last ${DONE_WINDOW_DAYS[doneWindow]} days`;
+}
 
 /** Quiet status message for a selected sort. */
 export function sortSummary(field: SortField, direction: SortDirection): string {
@@ -103,6 +125,7 @@ export function sortSummary(field: SortField, direction: SortDirection): string 
     return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
   if (field === "due")
     return `by due date, ${direction === "desc" ? "soonest first" : "latest first"}`;
+  if (field === "closed") return `by completed, ${direction}`;
   return `by ${field}, ${direction}`;
 }
 
@@ -126,8 +149,16 @@ export function compareTasksForViewSort(
       priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     );
   }
-  const keyA = field === "created" ? a.createdAt : a.updatedAt;
-  const keyB = field === "created" ? b.createdAt : b.updatedAt;
+  if (field === "closed" && (a.closedAt === null) !== (b.closedAt === null))
+    return a.closedAt === null ? 1 : -1;
+  const sortKey = (task: TaskView): string =>
+    field === "created"
+      ? task.createdAt
+      : field === "closed"
+        ? (task.closedAt ?? "")
+        : task.updatedAt;
+  const keyA = sortKey(a);
+  const keyB = sortKey(b);
   if (keyA !== keyB) {
     const newerFirst = direction === "desc";
     if (keyA > keyB) return newerFirst ? -1 : 1;
