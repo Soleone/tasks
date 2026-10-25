@@ -93,7 +93,6 @@ export const TaskOption = memo(function TaskOption({
         data-new-task={task.id === newTaskId || undefined}
         data-exiting-task={exitingTaskIds.has(task.id) || undefined}
         size="sm"
-        variant={active && !selected ? "outline" : "default"}
         state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
         onClick={(event) => onClick(row, index, event)}
       >

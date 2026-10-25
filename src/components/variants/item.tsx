@@ -19,13 +19,14 @@ export function TaskItem({
   ...props
 }: ComponentProps<typeof Item> & { state?: TaskItemState; nested?: boolean }) {
   // List status slots share the first toolbar cell's center; editors keep their inset.
-  // A child's rail runs under its parent's status glyph and bridges the group's gap.
+  // Rows are tighter than the stock Item, which spaces outlined cards; states are fills.
+  // A child's rail runs under its parent's status glyph, through both transparent borders.
   return (
     <Item
       className={cn(
-        props.role === "option" && "border-l-0 pl-0",
+        props.role === "option" && "border-l-0 py-1.5 pl-0",
         nested &&
-          "relative before:absolute before:-top-0.5 before:bottom-0 before:left-4 before:w-px before:bg-border",
+          "relative before:absolute before:-top-px before:-bottom-px before:left-4 before:w-px before:bg-border",
         state && STATES[state],
         className,
       )}
@@ -34,9 +35,9 @@ export function TaskItem({
   );
 }
 
-/** A root task and its visible children sit closer together than separate roots. */
+/** A root task and its visible children touch, so the list's gap separates only families. */
 export function TaskItemGroup({ className, ...props }: ComponentProps<typeof ItemGroup>) {
-  return <ItemGroup className={cn("gap-0.5 has-data-[size=sm]:gap-0.5", className)} {...props} />;
+  return <ItemGroup className={cn("gap-0 has-data-[size=sm]:gap-0", className)} {...props} />;
 }
 
 /** Task titles stay complete at narrow widths. */
