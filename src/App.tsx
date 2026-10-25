@@ -2,7 +2,7 @@ import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useHeaderCounts } from "./useHeaderCounts";
 import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
-import { CircleHelp, Palette, Settings2 } from "lucide-react";
+import { Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
 import type { MainWorkspace } from "@/platform/mainWorkspace";
@@ -23,8 +23,8 @@ import { TagPicker } from "@/components/TagPicker";
 import { InlineSearch } from "@/components/InlineSearch";
 import type { ComposerState } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
-import { StarterHelp } from "@/components/StarterHelp";
-import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
+import { LearnIcon } from "@/components/LearnIcon";
+import { LearnPanel } from "@/components/LearnPanel";
 import { DoneToday, DueNow } from "@/components/LensCounts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
@@ -51,9 +51,8 @@ import {
   storeFontSizeIncrease,
   type FontSizeIncrease,
 } from "@/fontSize";
-import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
+import { practice, useLearning } from "@/learning/progress";
 import { readPreference, writePreference } from "@/platform/preferences";
-import { isAndroid } from "@/platform/runtime";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
@@ -69,7 +68,6 @@ const COMPLETED_SORT_KEY = "tasks.completedSort";
 const SHOW_DETAILS_KEY = "tasks.showDetails";
 const FOLDED_TOOLBAR_GROUPS_KEY = "tasks.foldedToolbarGroups";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
-const HELP_MODE_KEY = "tasks.helpMode";
 
 function readStatusPreset(): StatusPreset {
   return readPreference(STATUS_PRESET_KEY) === "inactive" ? "inactive" : "active";
@@ -146,16 +144,6 @@ function readFoldedToolbarGroups(): ToolbarFoldGroup[] {
   }
 }
 
-function readHelpMode(): KeyboardHelpMode {
-  const stored = readPreference(HELP_MODE_KEY);
-  if (isKeyboardHelpMode(stored)) return stored;
-  // Preserve the old checkbox preference: enabled meant full contextual help,
-  // while disabled left the task-list shortcut guides available.
-  if (stored === "true") return "full";
-  if (stored === "false") return "basic";
-  return isAndroid() ? "none" : "full";
-}
-
 /** What the list shows: remembered between launches, and set aside while the done lens is on. */
 type ListView = {
   statusPreset: StatusPreset;
@@ -225,7 +213,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   );
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [foldedToolbarGroups, setFoldedToolbarGroups] = useState(readFoldedToolbarGroups);
-  const [helpMode, setHelpMode] = useState(readHelpMode);
+  const learning = useLearning();
   const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(
     readStoredFontSizeIncrease,
   );
@@ -253,8 +241,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   });
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
-  const [starterHelpOpen, setStarterHelpOpen] = useState(false);
-  const [disableHelpTarget, setDisableHelpTarget] = useState<"basic" | "none" | null>(null);
+  const [learnOpen, setLearnOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
@@ -409,12 +396,12 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
     if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
       event.preventDefault();
-      setStarterHelpOpen((open) => !open);
+      setLearnOpen((open) => !open);
       return;
     }
-    if (event.key === "Escape" && starterHelpOpen) {
+    if (event.key === "Escape" && learnOpen) {
       event.preventDefault();
-      setStarterHelpOpen(false);
+      setLearnOpen(false);
       return;
     }
     if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ",") {
@@ -433,7 +420,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       if (helpOpen) setHelpOpen(false);
-      else openHelp();
+      else {
+        practice("help.palette");
+        openHelp();
+      }
       return;
     }
   });
@@ -446,17 +436,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   function openHelp(): void {
     focusStack.push("help");
     setHelpOpen(true);
-  }
-
-  function openDisableHelpDialog(mode: "basic" | "none"): void {
-    focusStack.push("disable-help");
-    setDisableHelpTarget(mode);
-  }
-
-  function confirmDisableHelp(): void {
-    if (disableHelpTarget === null) return;
-    changeHelpMode(disableHelpTarget);
-    setDisableHelpTarget(null);
   }
 
   function openThemes(): void {
@@ -659,18 +638,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     writePreference(FOLDED_TOOLBAR_GROUPS_KEY, JSON.stringify(next));
   }
 
-  function changeHelpMode(mode: KeyboardHelpMode): void {
-    setHelpMode(mode);
-    writePreference(HELP_MODE_KEY, mode);
-    setAnnouncement(
-      mode === "full"
-        ? "Full keyboard help enabled"
-        : mode === "basic"
-          ? "Basic keyboard help enabled"
-          : "Keyboard help disabled",
-    );
-  }
-
   function changeFontSizeIncrease(increase: FontSizeIncrease): void {
     setFontSizeIncrease(increase);
     storeFontSizeIncrease(increase);
@@ -780,12 +747,18 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
             <DueNow
               total={dueNowCount}
               lensOn={lens?.kind === "due"}
-              onToggleLens={() => toggleLens("due")}
+              onToggleLens={() => {
+                practice("due.lens", "pointer");
+                toggleLens("due");
+              }}
             />
             <DoneToday
               total={doneTodayCount}
               lensOn={lens?.kind === "done"}
-              onToggleLens={() => toggleLens("done")}
+              onToggleLens={() => {
+                practice("done.lens", "pointer");
+                toggleLens("done");
+              }}
             />
             <ButtonRow
               onKeyDown={(event) => {
@@ -805,21 +778,23 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                 <TooltipTrigger
                   render={
                     <ToggleButton
-                      selected={starterHelpOpen}
+                      selected={learnOpen}
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
                       aria-keyshortcuts="Shift+/"
                       onMouseDown={preventFocusSteal}
-                      onClick={() => setStarterHelpOpen((open) => !open)}
+                      onClick={() => setLearnOpen((open) => !open)}
                     />
                   }
                 >
-                  <CircleHelp aria-hidden="true" />
-                  <span className="sr-only">Help</span>
+                  <LearnIcon
+                    progress={learning.hints ? learning.learnedCount / learning.moves.length : 1}
+                  />
+                  <span className="sr-only">Learn</span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Help <Kbd>?</Kbd>
+                  Learn <Kbd>?</Kbd>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -897,9 +872,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onSortFieldChange={chooseSortField}
           onReverseSort={reverseSort}
           showDetails={showDetails}
-          helpMode={helpMode}
-          onDisableHelp={() => openDisableHelpDialog("none")}
-          onDisableComposerHelp={() => openDisableHelpDialog("basic")}
           onToggleDetails={toggleDetails}
           foldedToolbarGroups={foldedToolbarGroups}
           onToolbarGroupFoldedChange={setToolbarGroupFolded}
@@ -963,15 +935,13 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         </p>
         <TaskToaster />
       </div>
-      <StarterHelp open={starterHelpOpen} onClose={() => setStarterHelpOpen(false)} />
-      <DisableKeyboardHelpDialog
-        open={disableHelpTarget !== null}
-        mode={disableHelpTarget ?? "none"}
-        onOpenChange={(open) => {
-          if (!open) setDisableHelpTarget(null);
+      <LearnPanel
+        open={learnOpen}
+        onClose={() => setLearnOpen(false)}
+        onOpenPalette={() => {
+          setLearnOpen(false);
+          openHelp();
         }}
-        onConfirm={confirmDisableHelp}
-        finalFocus={() => focusStack.restore("disable-help")}
       />
       <HelpPalette
         open={helpOpen}
@@ -1068,8 +1038,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         finalFocus={() => focusStack.restore("settings")}
-        helpMode={helpMode}
-        onHelpModeChange={changeHelpMode}
         fontSizeIncrease={fontSizeIncrease}
         onFontSizeIncreaseChange={changeFontSizeIncrease}
       />

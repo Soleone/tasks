@@ -5,10 +5,20 @@ import type { ListLens } from "./listLens";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import type { TaskView } from "./taskView";
+import { practice } from "@/learning/progress";
 
 const EXACT_STATUS_BY_KEY = new Map(
   EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]),
 );
+
+const SORT_BY_KEY = new Map<string, SortField>([
+  ["c", "created"],
+  ["u", "updated"],
+  ["m", "manual"],
+  ["p", "priority"],
+  ["t", "due"],
+  ["d", "closed"],
+]);
 
 // Home shortcuts work anywhere on the home surface, not only when the listbox
 // is focused. Typing targets, the inline editor, and open dialogs always win.
@@ -77,6 +87,27 @@ type HomeShortcutActions = {
   copyImage: (task: TaskView) => void;
 };
 
+/** What the second key of `F` does, or null for a key with no filter. */
+function filterChoice(key: string, actions: HomeShortcutActions): (() => void) | null {
+  if (key === "s") return actions.toggleStatusPreset;
+  const exact = EXACT_STATUS_BY_KEY.get(key);
+  if (exact) return () => actions.applyExactStatus(exact);
+  if (key >= "0" && key <= "4")
+    return () => actions.applyPriorityFilter(Number(key) as TaskPriority);
+  if (key === "c") return actions.openCategoryPicker;
+  if (key === "t") return actions.openTagPicker;
+  if (key === "u") return actions.toggleUnblockedFilter;
+  if (key === "/") return actions.openSearch;
+  return null;
+}
+
+/** What the second key of `S` does, or null for a key with no sort. */
+function sortChoice(key: string, actions: HomeShortcutActions): (() => void) | null {
+  if (key === "r") return actions.reverseSort;
+  const field = SORT_BY_KEY.get(key);
+  return field ? () => actions.applySortField(field) : null;
+}
+
 type HomeShortcutSurface = {
   toolbarModeRef: RefObject<ToolbarMode | null>;
   composerOpenRef: RefObject<boolean>;
@@ -115,7 +146,10 @@ export function useTaskListKeyboard(
         return;
       }
       if (actions.clearSelection()) return;
-      if (actions.hasActiveFilters) actions.clearAllFilters();
+      if (actions.hasActiveFilters) {
+        practice("filter.escape");
+        actions.clearAllFilters();
+      }
       return;
     }
     if (
@@ -153,7 +187,10 @@ export function useTaskListKeyboard(
       if (redo ? !actions.canRedo : !actions.canUndoStatus) return;
       event.preventDefault();
       if (redo) actions.redo();
-      else actions.undoStatus();
+      else {
+        practice("undo.latest");
+        actions.undoStatus();
+      }
       return;
     }
     if (
@@ -192,19 +229,16 @@ export function useTaskListKeyboard(
       if (moveDirection !== null) {
         if (event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
+        practice("reorder.step");
         void actions.reorderSelection(moveDirection);
         return;
       }
     }
     if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (event.key === "ArrowUp") {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
         event.preventDefault();
-        actions.moveActive("previous", true);
-        return;
-      }
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        actions.moveActive("next", true);
+        practice("select.extend");
+        actions.moveActive(event.key === "ArrowUp" ? "previous" : "next", true);
         return;
       }
       if (event.key === "Home") {
@@ -231,105 +265,20 @@ export function useTaskListKeyboard(
     // returns focus to the task list. It has no timeout or fall-through to
     // unrelated home shortcuts.
     const activeToolbarMode = toolbarModeRef.current;
-    if (activeToolbarMode === "filter") {
-      if (event.repeat) {
-        event.preventDefault();
-        return;
-      }
+    if (activeToolbarMode !== null) {
+      event.preventDefault();
+      if (event.repeat || event.shiftKey) return;
       const key = event.key.toLowerCase();
-      if (key === "f" && !event.shiftKey) {
-        event.preventDefault();
+      // The mode's own key closes it again.
+      if (key === (activeToolbarMode === "filter" ? "f" : "s")) {
         actions.returnToList();
         return;
       }
-      if (key === "s" && !event.shiftKey) {
-        event.preventDefault();
-        actions.toggleStatusPreset();
-        return;
-      }
-      if (!event.shiftKey) {
-        const exact = EXACT_STATUS_BY_KEY.get(key);
-        if (exact) {
-          event.preventDefault();
-          actions.applyExactStatus(exact);
-          return;
-        }
-      }
-      if (key >= "0" && key <= "4" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applyPriorityFilter(Number(key) as TaskPriority);
-        return;
-      }
-      if (key === "c" && !event.shiftKey) {
-        event.preventDefault();
-        actions.openCategoryPicker();
-        return;
-      }
-      if (key === "t" && !event.shiftKey) {
-        event.preventDefault();
-        actions.openTagPicker();
-        return;
-      }
-      if (key === "u" && !event.shiftKey) {
-        event.preventDefault();
-        actions.toggleUnblockedFilter();
-        return;
-      }
-      if (key === "/" && !event.shiftKey) {
-        event.preventDefault();
-        actions.openSearch();
-        return;
-      }
-      event.preventDefault();
-      return;
-    }
-    if (activeToolbarMode === "sort") {
-      if (event.repeat) {
-        event.preventDefault();
-        return;
-      }
-      const key = event.key.toLowerCase();
-      if (key === "s" && !event.shiftKey) {
-        event.preventDefault();
-        actions.returnToList();
-        return;
-      }
-      if (key === "c" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applySortField("created");
-        return;
-      }
-      if (key === "u" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applySortField("updated");
-        return;
-      }
-      if (key === "m" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applySortField("manual");
-        return;
-      }
-      if (key === "p" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applySortField("priority");
-        return;
-      }
-      if (key === "t" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applySortField("due");
-        return;
-      }
-      if (key === "d" && !event.shiftKey) {
-        event.preventDefault();
-        actions.applySortField("closed");
-        return;
-      }
-      if (key === "r" && !event.shiftKey) {
-        event.preventDefault();
-        actions.reverseSort();
-        return;
-      }
-      event.preventDefault();
+      const choice =
+        activeToolbarMode === "filter" ? filterChoice(key, actions) : sortChoice(key, actions);
+      if (!choice) return;
+      practice(activeToolbarMode === "filter" ? "filter.mode" : "sort.mode");
+      choice();
       return;
     }
     if (event.key === "Delete") {
@@ -350,10 +299,12 @@ export function useTaskListKeyboard(
     if (event.key === "/") {
       if (event.repeat) return;
       event.preventDefault();
+      practice("filter.search");
       actions.openSearch();
     } else if (event.key === "@") {
       if (event.repeat) return;
       event.preventDefault();
+      practice("filter.category");
       actions.openCategoryPicker();
     } else if (event.key === "#") {
       if (event.repeat) return;
@@ -362,6 +313,7 @@ export function useTaskListKeyboard(
     } else if (event.key.toLowerCase() === "c") {
       if (event.repeat) return;
       event.preventDefault();
+      practice(event.shiftKey ? "capture.child" : "capture.open");
       actions.createTask(event.shiftKey ? actions.activeTask?.id : undefined);
     } else if (event.key.toLowerCase() === "f" && !event.shiftKey) {
       if (event.repeat) return;
@@ -375,37 +327,54 @@ export function useTaskListKeyboard(
       if (event.repeat) return;
       event.preventDefault();
       if (event.shiftKey) actions.toggleAllDetails();
-      else if (actions.activeTask) actions.toggleActiveDetails(actions.activeTask);
+      else if (actions.activeTask) {
+        practice("details.toggle-active");
+        actions.toggleActiveDetails(actions.activeTask);
+      }
     } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
       if (event.repeat) return;
       event.preventDefault();
-      if (actions.activeTask)
+      if (actions.activeTask) {
+        practice("priority.set");
         void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
+      }
     } else if (event.key.toLowerCase() === "d") {
       if (event.repeat) return;
       event.preventDefault();
       if (event.shiftKey) actions.widenDoneLens();
-      else actions.toggleLens("done");
+      else {
+        practice("done.lens");
+        actions.toggleLens("done");
+      }
     } else if (event.key.toLowerCase() === "n") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
+      practice("due.lens");
       actions.toggleLens("due");
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
-      if (actions.activeTask) actions.addBlocker(actions.activeTask);
+      if (actions.activeTask) {
+        practice("pick.blocker");
+        actions.addBlocker(actions.activeTask);
+      }
     } else if (event.key.toLowerCase() === "m") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();
-      if (actions.activeTask) actions.moveUnder(actions.activeTask);
+      if (actions.activeTask) {
+        practice("pick.parent");
+        actions.moveUnder(actions.activeTask);
+      }
     } else if (event.key.toLowerCase() === "p" && !event.shiftKey) {
       if (event.repeat) return;
       event.preventDefault();
+      practice("status.pause");
       void actions.pauseSelectedTasks();
     } else if (event.key === " ") {
       if (event.repeat || isNativeButtonAction(event.target)) return;
       event.preventDefault();
       if (actions.activeTask) {
+        if (!event.shiftKey) practice("status.forward");
         void (event.shiftKey ? actions.reverseSelectedStatus() : actions.toggleSelectedStatus());
       }
     } else if (event.key === "ArrowDown") {
@@ -426,7 +395,10 @@ export function useTaskListKeyboard(
     } else if (event.key === "Enter") {
       if (isNativeButtonAction(event.target)) return;
       event.preventDefault();
-      if (actions.activeTask) actions.editTask(actions.activeTask);
+      if (actions.activeTask) {
+        practice("home.open-editor");
+        actions.editTask(actions.activeTask);
+      }
     }
   });
 

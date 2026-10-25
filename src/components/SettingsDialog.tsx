@@ -11,14 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { isKeyboardHelpMode, type KeyboardHelpMode } from "@/keyboardHelp";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { resetProgress, setHints, useLearning } from "@/learning/progress";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
@@ -29,8 +24,6 @@ type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   finalFocus: () => HTMLElement | undefined;
-  helpMode: KeyboardHelpMode;
-  onHelpModeChange: (mode: KeyboardHelpMode) => void;
   fontSizeIncrease: FontSizeIncrease;
   onFontSizeIncreaseChange: (increase: FontSizeIncrease) => void;
 };
@@ -64,13 +57,13 @@ export function SettingsDialog({
   open,
   onOpenChange,
   finalFocus,
-  helpMode,
-  onHelpModeChange,
   fontSizeIncrease,
   onFontSizeIncreaseChange,
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
   const [pathNotice, setPathNotice] = useState<string | null>(null);
+  const [progressReset, setProgressReset] = useState(false);
+  const learning = useLearning();
   const settingsTab = useRef<HTMLButtonElement>(null);
 
   return (
@@ -104,9 +97,7 @@ export function SettingsDialog({
         <div className="pr-8">
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>
-              Adjust appearance, keyboard help, and workspace data.
-            </DialogDescription>
+            <DialogDescription>Adjust appearance, hints, and workspace data.</DialogDescription>
           </DialogHeader>
         </div>
 
@@ -197,49 +188,45 @@ export function SettingsDialog({
               </section>
 
               <section
-                aria-labelledby="settings-help"
+                aria-labelledby="settings-hints"
                 className="flex flex-col gap-4 rounded-lg border p-4"
               >
                 <div className="flex flex-col gap-1">
-                  <h2 id="settings-help" className="text-sm font-medium">
-                    Keyboard help
+                  <h2 id="settings-hints" className="text-sm font-medium">
+                    Hints
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Choose how much keyboard guidance to show.
+                    Hints point out moves you haven't used yet and retire once you have.
                   </p>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span id="settings-help-mode-label" className="text-sm font-medium">
-                      Display
-                    </span>
-                    <Select
-                      value={helpMode}
-                      onValueChange={(value) => {
-                        if (isKeyboardHelpMode(value)) onHelpModeChange(value);
-                      }}
-                    >
-                      <SelectTrigger
-                        id="settings-help-mode"
-                        size="sm"
-                        data-help-mode={helpMode}
-                        aria-labelledby="settings-help-mode-label"
-                        aria-describedby="settings-help-mode-description"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent align="end">
-                        <SelectItem value="full">Full</SelectItem>
-                        <SelectItem value="basic">Basic</SelectItem>
-                        <SelectItem value="none">None</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p id="settings-help-mode-description" className="text-sm text-muted-foreground">
-                    Full shows all keyboard help. Basic shows only the filter and sort shortcuts.
-                    None hides automatic keyboard help. You can change this anytime.
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="settings-show-hints"
+                    checked={learning.hints}
+                    onCheckedChange={setHints}
+                  />
+                  <FieldLabel htmlFor="settings-show-hints">Show hints</FieldLabel>
+                </Field>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground" data-settings-learned>
+                    {learning.learnedCount} of {learning.moves.length} moves learned
                   </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      resetProgress();
+                      setProgressReset(true);
+                    }}
+                  >
+                    Reset progress
+                  </Button>
                 </div>
+                {progressReset && learning.learnedCount === 0 ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    Progress reset. Hints start over.
+                  </p>
+                ) : null}
               </section>
             </div>
           </TabsContent>

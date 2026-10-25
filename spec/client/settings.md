@@ -15,8 +15,6 @@
 | `theme.select` | Choosing a theme in the dedicated theme picker | Applies one of the built-in themes at once and remembers it |
 | `theme.picker` | `Alt+T`, Themes in the header or help palette | Opens the shared theme ring on the current palette. Arrows, drag or scroll browse; typing filters. Enter or clicking the front card confirms; browsing leaves the page unchanged. Escape clears a filter before closing and focus returns to the opener. No plain T or D theme shortcut |
 | `font.size` | The font size slider | Default, +10%, +25%, +33% or +40%. Applies at once and is remembered |
-| `help.mode` | Keyboard help display | Full shows all hints, Basic only filter and sort hints, None hides automatic hints |
-| `help.starter` | `?` | The starter help panel opens on the right |
 | `help.palette` | `Ctrl/⌘+K` | A searchable palette lists every shortcut and the shorthand syntax |
 
 ## Data
@@ -39,5 +37,5 @@ The Data tab has one Delete tasks section, below the home and sync folder, with 
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `prefs.remembered` | Theme, font size, help mode, Details, filters, search, sort | Saved locally and restored on the next launch |
+| `prefs.remembered` | Theme, font size, hints and learned moves, Details, filters, search, sort | Saved locally and restored on the next launch |
 | `prefs.not-authority` | Any saved preference | Never picks a workspace or grants write access. Opening a workspace is always explicit |

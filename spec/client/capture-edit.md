@@ -23,7 +23,6 @@ Capture and edit use the same inline editor. Its stops are title, priority, an o
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
 | `edit.buttons` | Save and Cancel buttons | Mouse fallbacks, not Tab stops. The dismissal button always says Cancel and sits before Add description |
-| `edit.help-tooltip` | Full keyboard help is on | A compact tooltip points at the focused field |
 
 ## Images
 

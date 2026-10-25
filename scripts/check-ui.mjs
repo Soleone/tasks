@@ -343,18 +343,19 @@ try {
   check('document.querySelector("[data-slot=empty-title]")?.textContent === "No active tasks"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
   browser("press", "?");
-  waitFor('document.querySelector("[data-starter-help]") !== null');
+  waitFor('document.querySelector("[data-learn-panel]") !== null');
   check(
-    'document.querySelector("[data-starter-help]")?.textContent.includes("Filter by category")',
+    'document.querySelector("[data-learn-panel] [data-next]")?.getAttribute("data-move") === "capture.open"',
   );
-  check(
-    'document.querySelector("[data-starter-help]")?.textContent.includes("Filter its category (no children)")',
-  );
+  check('document.querySelector("[data-learn-panel]")?.textContent.includes("Filter by category")');
+  check('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
   browser("press", "?");
-  waitFor('document.querySelector("[data-starter-help]") === null');
+  waitFor('document.querySelector("[data-learn-panel]") === null');
   // C opens the inline create editor with the title focused and notes closed.
   browser("press", "c");
   waitFor("document.querySelector('form[aria-label=\"New task\"]') !== null");
+  // The first editor teaches @ in a quiet line under the title.
+  check("document.querySelector(\"[data-move-nudge='shorthand.category']\") !== null");
   check(
     '(() => { const editor = document.querySelector("[data-inline-task-editor]"); if (!editor) return false; const style = getComputedStyle(editor); const transparentBorder = style.borderColor === "rgba(0, 0, 0, 0)" || style.borderColor === "transparent"; return transparentBorder && style.backgroundColor !== getComputedStyle(document.body).backgroundColor; })()',
   );
@@ -672,25 +673,6 @@ try {
   check(
     'Math.abs(document.querySelector("[aria-label=\\"Task list filters\\"]").getBoundingClientRect().top + window.scrollY - window.filterToolbarTop) < 0.5 && Math.abs(document.querySelector("[role=listbox]").getBoundingClientRect().top + window.scrollY - window.filterListTop) < 0.5',
   );
-  browser("click", '[data-shortcut-guide=filter] [aria-label="Disable keyboard help"]');
-  waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
-  browser("click", "[data-disable-help-confirm]");
-  waitFor(
-    'document.querySelector("[data-disable-help-confirm]") === null && document.querySelector("[data-shortcut-guide=filter]") === null',
-  );
-  browser("find", "role", "button", "click", "--name", "Settings");
-  waitFor(
-    'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
-  );
-  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
-  browser("click", "[data-help-mode]");
-  waitFor('document.querySelector("[data-slot=select-content]") !== null');
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Full").click(); true',
-  );
-  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
-  browser("press", "Escape");
-  waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])")');
   // Pressing the focus key again closes the mode, while Escape remains a
   // second close path.
   browser("press", "f");
@@ -1102,116 +1084,58 @@ try {
   focus("[role=tab][aria-selected=true]");
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
-  // Full help is the default. The dropdown also keeps the old basic mode
-  // available while adding a separate option for no automatic guidance.
-  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
-  browser("click", "[data-help-mode]");
-  waitFor('document.querySelector("[data-slot=select-content]") !== null');
+  // Hints replace help levels: one checkbox, the learned count and Reset progress.
+  check('document.querySelector("#settings-show-hints")?.getAttribute("aria-checked") === "true"');
   check(
-    '[...document.querySelectorAll("[data-slot=select-content][data-open] [data-slot=select-item]")].map((item) => item.textContent.trim()).join(",") === "Full,Basic,None"',
+    '/^\\d+ of \\d+ moves learned$/.test(document.querySelector("[data-settings-learned]")?.textContent ?? "")',
   );
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Basic").click(); true',
-  );
-  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
-  waitFor('document.activeElement.matches("[data-help-mode]")');
-  browser("click", "[data-help-mode]");
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Full").click(); true',
-  );
-  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "full"');
-  // Selection updates before the popup finishes restoring focus to its trigger.
-  waitFor('document.activeElement.matches("[data-help-mode]")');
-  // Context help uses the Tooltip component, points at the active field, and does not resize the list.
-  browser("press", "Tab");
-  waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])")');
-  browser("set", "viewport", "1981", "1071");
+  // The editor's lesson stays inside the editor at any width.
   browser("press", "c");
   waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
-  check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
+  check('document.querySelector("form[aria-label=\\"New task\\"] [data-move-nudge]") !== null');
+  browser("set", "viewport", "320", "640");
   check(
-    '(() => { const shell = document.querySelector(".app-shell").getBoundingClientRect(); const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const arrow = document.querySelector("[data-context-help] > [data-side]").getBoundingClientRect(); const anchor = document.querySelector("form[aria-label=\\"New task\\"] [data-slot=tooltip-trigger]").getBoundingClientRect(); return shell.width <= 704 && help.width < 320 && help.left >= 0 && help.right < anchor.left && arrow.right > help.right && arrow.right < anchor.left && Math.abs((arrow.top + arrow.height / 2) - (anchor.top + anchor.height / 2)) < 3; })()',
-  );
-  check(
-    'document.querySelector("[data-context-help] [aria-label=\\"Use basic keyboard help\\"]") !== null',
-  );
-  browser("click", '[data-context-help] [aria-label="Use basic keyboard help"]');
-  waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
-  check(
-    'document.body.textContent.includes("Hide task editor help?") && document.body.textContent.includes("Restore Full anytime in Settings → General → Keyboard help.")',
-  );
-  browser("click", "[data-disable-help-cancel]");
-  waitFor('document.querySelector("[data-disable-help-confirm]") === null');
-  check('document.querySelector("[data-context-help]") !== null');
-  waitFor(
-    'document.querySelector("[data-context-help]")?.getAttribute("data-context-help") === "title"',
-  );
-  browser("press", "Tab");
-  waitFor('document.activeElement.matches("[role=radiogroup]")');
-  waitFor(
-    'document.querySelector("[data-context-help]")?.getAttribute("data-context-help") === "priority"',
-  );
-  check(
-    '(() => { const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const field = document.querySelector("[data-priority-section]").closest("[data-slot=field]").getBoundingClientRect(); return help.right < field.left; })()',
-  );
-  browser("press", "Tab");
-  waitFor('document.activeElement.name === "description"');
-  waitFor(
-    'document.querySelector("[data-context-help]")?.getAttribute("data-context-help") === "description"',
-  );
-  check(
-    '(() => { const help = document.querySelector("[data-context-help]").getBoundingClientRect(); const field = document.querySelector("form[aria-label=\\"New task\\"] textarea").closest("[data-slot=field]").getBoundingClientRect(); return help.right < field.left; })()',
-  );
-  browser("set", "viewport", "720", "500");
-  check('getComputedStyle(document.querySelector("[data-context-help]")).display !== "none"');
-  check(
-    '(() => { const help = document.querySelector("[data-context-help]").getBoundingClientRect(); return help.left >= 0 && help.right <= innerWidth && help.top >= 0 && help.bottom <= innerHeight; })()',
+    '(() => { const nudge = document.querySelector("[data-move-nudge]").getBoundingClientRect(); const form = document.querySelector("form[aria-label=\\"New task\\"]").getBoundingClientRect(); return nudge.left >= form.left && nudge.right <= form.right && document.documentElement.scrollWidth <= innerWidth; })()',
   );
   browser("set", "viewport", "1280", "844");
-  browser("click", '[data-context-help] [aria-label="Use basic keyboard help"]');
-  waitFor('document.querySelector("[data-disable-help-confirm]") !== null');
-  browser("click", "[data-disable-help-confirm]");
-  waitFor(
-    'document.querySelector("[data-context-help]") === null && document.querySelector("[data-disable-help-confirm]") === null',
-  );
-  browser("press", "Escape");
   browser("press", "Escape");
   waitFor('document.querySelector("[data-inline-task-editor]") === null');
+  // Without hints there is no lesson and no progress ring; the mode guides stay.
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor(
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
   );
-  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
-  browser("click", "[data-help-mode]");
-  waitFor('document.querySelector("[data-slot=select-content]") !== null');
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "None").click(); true',
+  browser("click", "#settings-show-hints");
+  waitFor(
+    'document.querySelector("#settings-show-hints")?.getAttribute("aria-checked") === "false"',
   );
-  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])")');
+  check('document.querySelector("[data-learn-progress]") === null');
+  browser("press", "c");
+  waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
+  check('document.querySelector("[data-move-nudge]") === null');
+  browser("press", "Escape");
+  waitFor('document.querySelector("[data-inline-task-editor]") === null');
   focus("[role=listbox]");
   browser("press", "f");
-  waitFor('document.activeElement.matches("[data-toolbar=filters]")');
-  check('document.querySelector("[data-shortcut-guide]") === null');
+  waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
   browser("press", "f");
   waitFor('document.activeElement.matches("[role=listbox]")');
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor(
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
   );
-  check('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "none"');
-  browser("click", "[data-help-mode]");
-  waitFor('document.querySelector("[data-slot=select-content]") !== null');
-  evaluate(
-    '[...document.querySelectorAll("[data-slot=select-item]")].find((item) => item.textContent.trim() === "Basic").click(); true',
+  browser("click", "#settings-show-hints");
+  waitFor(
+    'document.querySelector("#settings-show-hints")?.getAttribute("aria-checked") === "true"',
   );
-  waitFor('document.querySelector("[data-help-mode]")?.getAttribute("data-help-mode") === "basic"');
   evaluate(
     '[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Data").click(); true',
   );
+
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   evaluate(
     '[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "General").click(); true',

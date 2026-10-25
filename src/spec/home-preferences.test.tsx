@@ -45,3 +45,23 @@ test("platform.prefs-scope: preferences live in the home and survive cleared bro
   // The browser keeps a copy only so the next start paints the right theme and font size.
   expect(localStorage.getItem("tasks.showDetails")).toBe("true");
 });
+
+test("learn.practice: a learned move is kept in the home and still checked after a reload", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render({ home: true });
+  await user.keyboard("v");
+  await waitFor(async () =>
+    expect((await savedPreferences())["tasks.learnedMoves"]).toBe(
+      JSON.stringify(["details.toggle-active"]),
+    ),
+  );
+
+  cleanup();
+  localStorage.clear();
+  const again = await workspace.render({ home: true });
+  await again.user.keyboard("?");
+  const panel = await screen.findByRole("complementary", { name: "Learn" });
+  expect(
+    panel.querySelector('[data-move="details.toggle-active"]')?.hasAttribute("data-learned"),
+  ).toBe(true);
+});

@@ -9,7 +9,6 @@ import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage } from
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "./TaskComposer";
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
-import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { TaskItem } from "@/components/variants/item";
 import { TaskContextMenu, type TaskContextActions } from "./TaskContextMenu";
 
@@ -183,8 +182,6 @@ export function InlineTaskComposer({
   onSaved,
   onCreatePending,
   onCreateFailed,
-  helpMode,
-  onDisableHelp,
   onCopyImage,
   inList = false,
 }: {
@@ -193,8 +190,6 @@ export function InlineTaskComposer({
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
   onCreateFailed: () => void;
-  helpMode: KeyboardHelpMode;
-  onDisableHelp: () => void;
   onCopyImage: (name: string) => void;
   inList?: boolean;
 }): ReactElement {
@@ -220,8 +215,6 @@ export function InlineTaskComposer({
         onCreatePending={onCreatePending}
         onCreateFailed={onCreateFailed}
         onCancel={onClose}
-        helpMode={helpMode}
-        onDisableHelp={onDisableHelp}
         onCopyImage={onCopyImage}
       />
     </TaskItem>

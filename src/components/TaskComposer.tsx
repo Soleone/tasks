@@ -42,17 +42,16 @@ import {
 import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { X } from "lucide-react";
-import type { KeyboardHelpMode } from "@/keyboardHelp";
-import { preventFocusSteal } from "@/navigation";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import type { MoveId } from "@/learning/moves";
+import { practice, useLearning } from "@/learning/progress";
 import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
 import { QuietInput, QuietTextarea } from "@/components/variants/input";
 import { isAndroid } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
 import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
+import { MoveNudge } from "./MoveNudge";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -74,30 +73,15 @@ type TaskComposerProps = {
   onCreatePending: (draft: TaskCreateDraft) => void;
   onCreateFailed: () => void;
   onCancel: () => void;
-  helpMode: KeyboardHelpMode;
-  onDisableHelp: () => void;
   onCopyImage: (name: string) => void;
 };
 
 type ComposerField = "title" | "description" | "priority" | "images";
 
-const CONTEXTUAL_HELP: Record<ComposerField, { heading: string; text: string }> = {
-  title: {
-    heading: "Title",
-    text: "Type the task title; @category, #tags and ^dates (^fri, ^3d) become pills. Tab completes a suggestion or moves to priority, and Enter saves.",
-  },
-  description: {
-    heading: "Description",
-    text: "Add optional Markdown notes. Press Shift+Tab for priority, or Tab and Escape to return to the title.",
-  },
-  priority: {
-    heading: "Priority",
-    text: "Press 0–4 or ← → to choose a priority.",
-  },
-  images: {
-    heading: "Images",
-    text: "Press ← → to choose an image, Space to view it, Ctrl/⌘+C to copy it and Delete to remove it. Tab returns to the title.",
-  },
+const MARKER_MOVES: Record<Marker, MoveId> = {
+  "@": "shorthand.category",
+  "#": "shorthand.tags",
+  "^": "shorthand.due",
 };
 
 /**
@@ -116,58 +100,6 @@ function keepInView(element: HTMLElement): () => void {
     window.clearTimeout(timeout);
     window.removeEventListener("resize", scroll);
   };
-}
-
-function ComposerHelpTooltip({
-  target,
-  onDisableHelp,
-}: {
-  target: ComposerField;
-  onDisableHelp: () => void;
-}): ReactElement {
-  const help = CONTEXTUAL_HELP[target];
-
-  return (
-    <Tooltip open>
-      <TooltipTrigger
-        render={
-          <span
-            aria-hidden="true"
-            tabIndex={-1}
-            className="pointer-events-none absolute inset-x-0 top-6 bottom-0"
-          />
-        }
-      />
-      <TooltipContent
-        data-context-help={target}
-        role="status"
-        aria-live="polite"
-        side="left"
-        align="center"
-        sideOffset={8}
-        className="max-w-[16rem] whitespace-normal"
-      >
-        <span className="flex w-full flex-col items-start text-left">
-          <span className="flex w-full items-start justify-between gap-2">
-            <span className="font-medium">{help.heading}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              tabIndex={-1}
-              aria-label="Use basic keyboard help"
-              title="Use basic keyboard help"
-              onMouseDown={preventFocusSteal}
-              onClick={onDisableHelp}
-            >
-              <X aria-hidden="true" />
-            </Button>
-          </span>
-          <span>{help.text}</span>
-        </span>
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 // Arrow keys move the highlighted due date by a day or a week.
@@ -213,8 +145,6 @@ export function TaskComposer({
   onCreatePending,
   onCreateFailed,
   onCancel,
-  helpMode,
-  onDisableHelp,
   onCopyImage,
 }: TaskComposerProps): ReactElement {
   const id = useId();
@@ -259,8 +189,15 @@ export function TaskComposer({
   // A date picked with the arrow keys, until the typed word changes.
   const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
-  const showContextualHelp = helpMode === "full" && !pending;
-  const showPriorityHelp = helpMode === "basic" && !pending;
+  const { moves, learned, hints } = useLearning();
+  // One lesson per editor, kept while it is open so the line doesn't change under the typing.
+  const [nudge] = useState(() =>
+    hints
+      ? moves.find((move): move is typeof move & { nudge: string } =>
+          Boolean(move.nudge && !learned.has(move.id)),
+        )
+      : undefined,
+  );
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -339,8 +276,10 @@ export function TaskComposer({
   function commitLift(lift: Lift): void {
     commitTitle(lift.draft);
     lastLift.current = lift;
-    if (lift.change === "added" || lift.change === "replaced")
+    if (lift.change === "added" || lift.change === "replaced") {
       setLanding({ marker: lift.token.marker, slug: lift.token.slug, at: lift.token.start });
+      practice(MARKER_MOVES[lift.token.marker]);
+    }
   }
 
   // The chosen name replaces the partial one, as text.
@@ -366,6 +305,7 @@ export function TaskComposer({
 
   // Backspace right after a lift: the token goes back into the title, without the space that lifted it.
   function undoLift({ before, draft, token }: Lift): void {
+    practice("shorthand.unlift");
     lastLift.current = null;
     const typed = before.text.slice(token.start, token.end);
     const at = token.start;
@@ -437,6 +377,7 @@ export function TaskComposer({
 
   // The first Tab completes the name as text; a second one chooses it.
   function tabSuggestion(partial: PartialToken, row: SuggestionRow): void {
+    practice("shorthand.tab");
     if (row.slug === partial.query) chooseSuggestion(partial, row.slug);
     else {
       lastLift.current = null;
@@ -567,6 +508,7 @@ export function TaskComposer({
       !event.shiftKey
     ) {
       event.preventDefault();
+      practice("edit.priority");
       stepPriority(event.key === "ArrowLeft" ? -1 : 1);
       return;
     }
@@ -574,6 +516,7 @@ export function TaskComposer({
     const value = Number(event.key);
     if (!Number.isInteger(value) || value < 0 || value > 4) return;
     event.preventDefault();
+    practice("edit.priority");
     setPriority(value as TaskPriority);
   }
 
@@ -711,10 +654,7 @@ export function TaskComposer({
       className="flex w-full min-w-0 flex-col gap-4"
     >
       <FieldGroup>
-        <Field className="relative" data-invalid={titleError || undefined}>
-          {showContextualHelp && activeField === "title" ? (
-            <ComposerHelpTooltip target="title" onDisableHelp={onDisableHelp} />
-          ) : null}
+        <Field data-invalid={titleError || undefined}>
           <FieldLabel htmlFor={`${id}-title`}>Title</FieldLabel>
           {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
           <div className="relative">
@@ -730,7 +670,10 @@ export function TaskComposer({
               readOnly={pending}
               required
               aria-invalid={titleError || undefined}
-              aria-describedby={titleError ? `${id}-error` : undefined}
+              aria-describedby={
+                [titleError ? `${id}-error` : "", nudge ? `${id}-nudge` : ""].join(" ").trim() ||
+                undefined
+              }
               aria-expanded={
                 suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
               }
@@ -808,21 +751,18 @@ export function TaskComposer({
             titleInput={titleInput}
             onRemove={removePill}
           />
+          {nudge ? (
+            <MoveNudge id={`${id}-nudge`} move={nudge} done={learned.has(nudge.id)} />
+          ) : null}
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
-        <Field className="relative">
-          {showContextualHelp && activeField === "priority" ? (
-            <ComposerHelpTooltip target="priority" onDisableHelp={onDisableHelp} />
-          ) : null}
+        <Field>
           <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
           <div>
             <PriorityGroup
               ref={prioritySection}
               role="radiogroup"
               aria-labelledby={`${id}-priority-label`}
-              aria-describedby={
-                showContextualHelp || !showPriorityHelp ? undefined : `${id}-priority-help`
-              }
               aria-activedescendant={`${id}-priority-${priority}`}
               aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
               aria-disabled={pending || undefined}
@@ -859,17 +799,9 @@ export function TaskComposer({
               })}
             </PriorityGroup>
           </div>
-          {showPriorityHelp ? (
-            <FieldDescription id={`${id}-priority-help`}>
-              Focus here, then press 0–4 or ← → to choose.
-            </FieldDescription>
-          ) : null}
         </Field>
         {notesOpen ? (
-          <Field className="relative">
-            {showContextualHelp && activeField === "description" ? (
-              <ComposerHelpTooltip target="description" onDisableHelp={onDisableHelp} />
-            ) : null}
+          <Field>
             <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
             <QuietTextarea
               ref={notesInput}
@@ -910,10 +842,7 @@ export function TaskComposer({
           </Field>
         ) : null}
         {images.attachments.length > 0 ? (
-          <Field className="relative">
-            {showContextualHelp && activeField === "images" ? (
-              <ComposerHelpTooltip target="images" onDisableHelp={onDisableHelp} />
-            ) : null}
+          <Field>
             <FieldLabel>Images</FieldLabel>
             <AttachmentRow
               ref={imageRow}

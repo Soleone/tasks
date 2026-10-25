@@ -9,7 +9,8 @@ The desktop app and the web app are one client. This folder describes what a per
 | [capture-edit.md](capture-edit.md) | The inline editor, shorthand, the move and blocker pickers |
 | [status-undo.md](status-undo.md) | Status and priority shortcuts, batches, copy, undo and redo |
 | [lenses.md](lenses.md) | Lenses: the list as one question, done today and due now |
-| [settings.md](settings.md) | Settings, themes, help, font size and the Tasks home |
+| [settings.md](settings.md) | Settings, themes, the palette, font size and the Tasks home |
+| [learning.md](learning.md) | Moves, hints, the Learn panel and progress |
 | [platforms.md](platforms.md) | Desktop, web, Linux and Windows differences |
 
 ## Principles
@@ -54,7 +55,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `@` / `#` | Category / tag picker | `filter.category`, `filter.tags` |
 | `/` | Search | `filter.search` |
 | `Escape` | Close, go back, narrow the selection, then reset filters | `select.escape`, `filter.escape` |
-| `?` | Starter help panel | `help.starter` |
+| `?` | Learn panel | `learn.panel` |
 | `Ctrl/⌘+K` | Shortcut and syntax palette | `help.palette` |
 | `Ctrl/⌘+,` | Settings | `settings.open` |
 | `Alt+T` | Theme picker | `theme.picker` |

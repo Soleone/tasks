@@ -16,8 +16,11 @@ const PREFERENCE_KEYS = new Set([
   "tasks.completedSort",
   "tasks.showDetails",
   "tasks.foldedToolbarGroups",
-  "tasks.helpMode",
+  "tasks.hints",
+  "tasks.learnedMoves",
 ]);
+// Earlier versions kept these; they are dropped on load so those settings still open.
+const RETIRED_KEYS = new Set(["tasks.helpMode"]);
 const LEGACY_SHOW_TIMESTAMPS = "tasks.showTimestamps";
 
 /** `settings.json` exists but isn't a settings file this app can read. */
@@ -83,7 +86,7 @@ function parseSettings(text: string): Map<string, string> {
     Object.keys(settings).length !== 3
   )
     throw new DamagedSettingsError("settings.json isn't a Tasks settings file.");
-  const entries = Object.entries(preferences);
+  const entries = Object.entries(preferences).filter(([key]) => !RETIRED_KEYS.has(key));
   for (const [key, entry] of entries)
     if (!PREFERENCE_KEYS.has(key) || typeof entry !== "string")
       throw new DamagedSettingsError(`settings.json has an unknown or invalid ${key}.`);

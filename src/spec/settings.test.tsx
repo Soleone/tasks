@@ -174,13 +174,6 @@ test("home.dialog-return: closing the palette returns focus to the list", async 
   await expectListFocused();
 });
 
-test("help.starter: ? opens the starter help panel", async () => {
-  await workspace.create("Task");
-  const { user } = await workspace.render();
-  await user.keyboard("?");
-  await screen.findByRole("button", { name: "Close help" });
-});
-
 test("theme.picker: Alt+T opens the shared ring, selection persists and focus returns", async () => {
   const task = await workspace.create("Task");
   const { user } = await workspace.render();

@@ -69,7 +69,8 @@ import {
 import { EditorError } from "@/platform/editorClient";
 import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
-import type { KeyboardHelpMode } from "@/keyboardHelp";
+import { practice } from "@/learning/progress";
+import { isAndroid } from "@/platform/runtime";
 import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useCompletionSheen } from "./useCompletionSheen";
@@ -146,9 +147,6 @@ type TaskListProps = {
   onSortFieldChange: (field: SortField) => void;
   onReverseSort: () => void;
   showDetails: boolean;
-  helpMode: KeyboardHelpMode;
-  onDisableHelp: () => void;
-  onDisableComposerHelp: () => void;
   onToggleDetails: () => void;
   foldedToolbarGroups: readonly ToolbarFoldGroup[];
   onToolbarGroupFoldedChange: (group: ToolbarFoldGroup, folded: boolean) => void;
@@ -242,9 +240,6 @@ export function TaskList({
   onSortFieldChange,
   onReverseSort,
   showDetails,
-  helpMode,
-  onDisableHelp,
-  onDisableComposerHelp,
   onToggleDetails,
   foldedToolbarGroups,
   onToolbarGroupFoldedChange,
@@ -442,7 +437,10 @@ export function TaskList({
     activeTaskRequest,
     composerOpen: composer !== null,
     onAnnounce,
-    onEdit,
+    onEdit: (task) => {
+      practice("home.open-editor", "pointer");
+      onEdit(task);
+    },
   });
 
   // Paging is invisible: the next page loads once navigation or scrolling nears
@@ -1386,27 +1384,48 @@ export function TaskList({
     return {
       disabled:
         composer !== null || mutationPendingIds.has(row.task.id) || exitingTaskIds.has(row.task.id),
-      onTarget: () => activate(index),
-      onEdit,
-      onStatus: (task) => void toggleStatus(task),
-      onPause: (task) => void pauseTask(task),
+      onTarget: () => {
+        practice("home.task-context-menu", "pointer");
+        activate(index);
+      },
+      onEdit: (task) => {
+        practice("home.open-editor", "pointer");
+        onEdit(task);
+      },
+      onStatus: (task) => {
+        practice("status.forward", "pointer");
+        void toggleStatus(task);
+      },
+      onPause: (task) => {
+        practice("status.pause", "pointer");
+        void pauseTask(task);
+      },
       onAddBlocker: (task) => {
+        practice("pick.blocker", "pointer");
         returnToList();
         onAddBlocker(task);
       },
       onMoveUnder: (task) => {
+        practice("pick.parent", "pointer");
         returnToList();
         onMoveUnder(task);
       },
       onCreateChild: (task) => {
+        practice("capture.child", "pointer");
         returnToList();
         onCreate(task.id);
       },
       detailsShown: detailsShownFor(row.task.id),
-      onToggleDetails: toggleTaskDetails,
+      onToggleDetails: (task) => {
+        practice("details.toggle-active", "pointer");
+        toggleTaskDetails(task);
+      },
       onCopy: (task) => void copyActiveTask(task),
       onDelete: (task) => void deleteTaskRecord(task),
-      onReorder: (direction) => void reorderSelection(direction),
+      onReorder: (direction) => {
+        practice("reorder.step", "pointer");
+        void reorderSelection(direction);
+      },
       reorderDisabledReason: reorderDisabledReason(row),
       finalFocus: () =>
         composerOpenRef.current || isDialogOpen() ? false : (list.current ?? section.current),
@@ -1414,6 +1433,7 @@ export function TaskList({
   }
 
   const handleOptionToggleStatus = useStableHandler((task: TaskView): void => {
+    practice("status.forward", "pointer");
     void toggleStatus(task);
   });
   const handleOptionToggleExpanded = useStableHandler(toggleExpanded);
@@ -1469,8 +1489,8 @@ export function TaskList({
   // Matching tasks, including those under a collapsed row; context ancestors don't count.
   const summaryTaskCount = total + (optimisticTask ? 1 : 0);
 
-  const captureHint =
-    helpMode === "none" ? "Choose New task to capture." : "Press C or choose New task to capture.";
+  const touch = isAndroid();
+  const captureHint = touch ? "Tap New task to capture." : "Press C or choose New task to capture.";
   // Clearing the list after real work earns a warmer word than "no tasks".
   const activeEmptyTitle = doneTodayCount > 0 ? "All clear" : "No active tasks";
   const activeEmptyHint =
@@ -1487,8 +1507,8 @@ export function TaskList({
       ? "Try different filters or clear them."
       : lens.kind === "due"
         ? "Nothing is due today or late."
-        : helpMode === "none"
-          ? "Choose the count to look further back."
+        : touch
+          ? "Tap the count to look further back."
           : "Press Shift+D or choose the count to look further back.";
   const isDefaultActiveEmpty =
     !loading &&
@@ -1549,8 +1569,6 @@ export function TaskList({
     >
       <TaskListToolbar
         toolbarMode={toolbarMode}
-        helpMode={helpMode}
-        onDisableHelp={onDisableHelp}
         returnToList={returnToList}
         filterToolbar={filterToolbar}
         sortToolbar={sortToolbar}
@@ -1560,29 +1578,41 @@ export function TaskList({
         foldedGroups={foldedToolbarGroups}
         setGroupFolded={onToolbarGroupFoldedChange}
         composerOpen={composer !== null}
-        onCreate={onCreate}
+        onCreate={() => {
+          practice("capture.open", "pointer");
+          onCreate();
+        }}
         taskActions={{
           activeTask,
           disabled: composer !== null,
           canUndo: Boolean(canUndoStatus),
-          onUndo: () => onUndoStatus?.(),
+          onUndo: () => {
+            practice("undo.latest", "pointer");
+            onUndoStatus?.();
+          },
           canRedo: Boolean(canRedo),
           onRedo: () => onRedo?.(),
           onAddBlocker: (task) => {
+            practice("pick.blocker", "pointer");
             returnToList();
             onAddBlocker(task);
           },
           onMoveUnder: (task) => {
+            practice("pick.parent", "pointer");
             returnToList();
             onMoveUnder(task);
           },
           onCreateChild: (task) => {
+            practice("capture.child", "pointer");
             returnToList();
             onCreate(task.id);
           },
           onCopy: (task) => void copyActiveTask(task),
           onCopyImage: copyNewestImage,
-          onPause: () => void pauseSelectedTasks(),
+          onPause: () => {
+            practice("status.pause", "pointer");
+            void pauseSelectedTasks();
+          },
           finalFocus: () =>
             composerOpenRef.current || isDialogOpen() ? false : (list.current ?? section.current),
         }}
@@ -1601,7 +1631,10 @@ export function TaskList({
         setUnblockedFeedbackOpen={unblockedFeedback.onOpenChange}
         searchQuery={searchQuery}
         searchInput={searchInput}
-        openSearch={openSearch}
+        openSearch={() => {
+          practice("filter.search", "pointer");
+          openSearch();
+        }}
         sortField={sortField}
         sortDirection={sortDirection}
         applySortField={applySortField}
@@ -1645,8 +1678,6 @@ export function TaskList({
             onSaved={onComposerSaved}
             onCreatePending={onCreatePending}
             onCreateFailed={onCreateFailed}
-            helpMode={helpMode}
-            onDisableHelp={onDisableComposerHelp}
             onCopyImage={copyEditorImage}
           />
         </div>
@@ -1703,8 +1734,6 @@ export function TaskList({
                     onSaved={onComposerSaved}
                     onCreatePending={onCreatePending}
                     onCreateFailed={onCreateFailed}
-                    helpMode={helpMode}
-                    onDisableHelp={onDisableComposerHelp}
                     onCopyImage={copyEditorImage}
                     inList
                   />

@@ -1,9 +1,8 @@
-import type { ReactElement } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState, type ReactElement } from "react";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { preventFocusSteal } from "@/navigation";
+import type { MoveId } from "@/learning/moves";
+import { useLearning } from "@/learning/progress";
 import { Popover, PopoverDescription, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { GuidePopoverContent, InlinePopoverHeader } from "@/components/variants/popover";
 
@@ -80,16 +79,28 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   },
 };
 
+const MODE_MOVES: Record<TaskListMode, MoveId> = { filter: "filter.mode", sort: "sort.mode" };
+
+// How long a practiced mode waits for its next key before showing the guide (`learn.hesitation`).
+const HESITATION_MS = 600;
+
 export function TaskListModeHelp({
   mode,
   onDismiss,
-  onDisableHelp,
 }: {
   mode: TaskListMode;
   onDismiss: () => void;
-  onDisableHelp: () => void;
-}): ReactElement {
+}): ReactElement | null {
   const guide = MODE_GUIDES[mode];
+  const { learned } = useLearning();
+  // Decided once per mode: choosing an option, which learns the mode, also ends it.
+  const [shown, setShown] = useState(() => !learned.has(MODE_MOVES[mode]));
+  useEffect(() => {
+    if (shown) return undefined;
+    const timer = window.setTimeout(() => setShown(true), HESITATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [shown]);
+  if (!shown) return null;
 
   return (
     <Popover
@@ -123,18 +134,6 @@ export function TaskListModeHelp({
               <Kbd data-shortcut-key="Escape">Esc</Kbd>
             </KbdGroup>
             <span>close</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              tabIndex={-1}
-              aria-label="Disable keyboard help"
-              title="Disable keyboard help"
-              onMouseDown={preventFocusSteal}
-              onClick={onDisableHelp}
-            >
-              <X aria-hidden="true" />
-            </Button>
           </span>
         </InlinePopoverHeader>
         <PopoverDescription className="sr-only">{guide.description}</PopoverDescription>

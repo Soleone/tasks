@@ -48,7 +48,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collap
 import { Popover, PopoverTrigger } from "./ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
-import type { KeyboardHelpMode } from "@/keyboardHelp";
 import { ButtonRow, ToolbarGroup } from "@/components/variants/button-group";
 import {
   ToolbarCommand,
@@ -163,8 +162,6 @@ function FoldableGroup({
 // Keep refs and actions list-owned so mouse controls and shortcuts share one path.
 type TaskListToolbarProps = {
   toolbarMode: ToolbarMode | null;
-  helpMode: KeyboardHelpMode;
-  onDisableHelp: () => void;
   returnToList: () => void;
   filterToolbar: RefObject<HTMLDivElement | null>;
   sortToolbar: RefObject<HTMLDivElement | null>;
@@ -216,8 +213,6 @@ type TaskListToolbarProps = {
 
 export function TaskListToolbar({
   toolbarMode,
-  helpMode,
-  onDisableHelp,
   returnToList,
   filterToolbar,
   sortToolbar,
@@ -433,12 +428,8 @@ export function TaskListToolbar({
             tooltip={feedbackTooltip("fold-filter")}
           >
             <div className="relative">
-              {toolbarMode === "filter" && helpMode !== "none" ? (
-                <TaskListModeHelp
-                  mode="filter"
-                  onDismiss={returnToList}
-                  onDisableHelp={onDisableHelp}
-                />
+              {toolbarMode === "filter" ? (
+                <TaskListModeHelp mode="filter" onDismiss={returnToList} />
               ) : null}
               <ToolbarGroup
                 ref={filterToolbar}
@@ -579,12 +570,8 @@ export function TaskListToolbar({
           </FoldableGroup>
           {/* Sort has one value at a time, so it needs no fold: its menu is already one cell. */}
           <div className="relative">
-            {toolbarMode === "sort" && helpMode !== "none" ? (
-              <TaskListModeHelp
-                mode="sort"
-                onDismiss={returnToList}
-                onDisableHelp={onDisableHelp}
-              />
+            {toolbarMode === "sort" ? (
+              <TaskListModeHelp mode="sort" onDismiss={returnToList} />
             ) : null}
             <ToolbarGroup
               ref={sortToolbar}
