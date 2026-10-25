@@ -374,6 +374,17 @@ describe("shorthand", () => {
     await waitFor(async () => expect((await taskTitled("Buy")).tags).toEqual(["errand"]));
   });
 
+  test("shorthand.tab: a second Tab chooses the completed name, and the editor stays open", async () => {
+    await createTagged("Old #errand");
+    const { user } = await workspace.render();
+    await capture(user, "Buy #e");
+    await suggestion(/errand/);
+    await user.keyboard("{Tab}{Tab}");
+    expect(pills()).toEqual(["errand"]);
+    expect(titleField().value).toBe("Buy ");
+    await focusedTitleField();
+  });
+
   describe("on Android", () => {
     beforeEach(() => {
       vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Linux; Android 16)");

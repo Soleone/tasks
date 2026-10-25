@@ -46,7 +46,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { formatDueDate } from "@/backend/taskDates";
 import type { MoveId } from "@/learning/moves";
 import { practice } from "@/learning/progress";
-import { leaveEditor } from "@/learning/questProgress";
+import { enterEditor, leaveEditor } from "@/learning/questProgress";
 import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
 import { QuietInput, QuietTextarea } from "@/components/variants/input";
 import { isAndroid } from "@/platform/runtime";
@@ -212,6 +212,12 @@ export function TaskComposer({
   const [activeField, setActiveField] = useState<ComposerField>("title");
   // Saving teaches `Enter` unless the Add task button did it.
   const saveVia = useRef<"keys" | "pointer">("keys");
+
+  // Quest steps inside the editor wait for it to be open (`quest.reopen`).
+  useEffect(() => {
+    enterEditor();
+    return leaveEditor;
+  }, []);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -494,7 +500,7 @@ export function TaskComposer({
     if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      cancel();
+      onCancel();
       return;
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -566,7 +572,7 @@ export function TaskComposer({
     if (event.key === "Escape") {
       if (pending) return;
       event.preventDefault();
-      cancel();
+      onCancel();
       return;
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -584,12 +590,6 @@ export function TaskComposer({
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
     }
-  }
-
-  // Leaving without saving: a quest step inside the editor goes back to the step that opens it.
-  function cancel(): void {
-    leaveEditor();
-    onCancel();
   }
 
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -645,7 +645,6 @@ export function TaskComposer({
         : await createTask(draft, { ...options, parentId });
       receipt.current = null;
       onSaved(result);
-      leaveEditor();
     } catch (caught) {
       setError(
         caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
@@ -896,7 +895,7 @@ export function TaskComposer({
             size="sm"
             tabIndex={-1}
             disabled={pending}
-            onClick={cancel}
+            onClick={onCancel}
           >
             Cancel
           </Button>

@@ -10,13 +10,15 @@ export type QuestStep = {
   success: string;
   /** The key caps to show, when the move's own keys say too little. */
   keys?: readonly string[];
-  /** Done inside the editor, so a step left with the editor closed goes back to the step that opens it. */
+  /** Done inside the editor, so with the editor closed the card asks to open it first. */
   inEditor?: true;
 };
 
 type QuestDefinition = {
   id: string;
   title: string;
+  /** What the quest teaches, shown under its offer (`quest.offer`). */
+  summary: string;
   keyboard: readonly QuestStep[];
   touch?: readonly QuestStep[];
 };
@@ -26,11 +28,17 @@ const QUEST_DEFINITIONS = [
   {
     id: "first-task",
     title: "First task",
+    summary: "Learn the basics in about two minutes",
     keyboard: [
-      { move: "capture.open", prompt: "Press `C` for a new task", success: "A fresh task" },
+      {
+        move: "capture.open",
+        prompt: "Press `C` to create your first task",
+        success: "A fresh task",
+      },
       {
         move: "shorthand.category",
-        prompt: "Type what needs doing, then `@` and a word for its category, like `@home`",
+        prompt:
+          "Type what needs doing, then `@` and a word for its category, like `@life`. `Space` selects it, `Enter` saves the task",
         success: "Filed under {}",
         inEditor: true,
       },
@@ -55,11 +63,16 @@ const QUEST_DEFINITIONS = [
       {
         move: "done.lens",
         prompt: "Press `D` to see what you finished today",
-        success: "That's your day so far. `D` takes you back",
+        success: "That's your day so far",
+      },
+      {
+        move: "done.lens",
+        prompt: "Press `D` again to go back to your list",
+        success: "Back to your list",
       },
     ],
     touch: [
-      { move: "capture.open", prompt: "Tap + for a new task", success: "A fresh task" },
+      { move: "capture.open", prompt: "Tap + to create your first task", success: "A fresh task" },
       {
         move: "shorthand.category",
         prompt: "Type what needs doing, then tap `@` above the keyboard and add a category",
@@ -80,13 +93,23 @@ const QUEST_DEFINITIONS = [
         prompt: "Tap the done count up top to see what you finished today",
         success: "That's your day so far",
       },
+      {
+        move: "done.lens",
+        prompt: "Tap the done count again to go back to your list",
+        success: "Back to your list",
+      },
     ],
   },
   {
     id: "plan-ahead",
     title: "Plan ahead",
+    summary: "Due dates, priorities, pausing and undo",
     keyboard: [
-      { move: "capture.open", prompt: "Press `C` for another task", success: "A fresh task" },
+      {
+        move: "capture.open",
+        prompt: "Press `C` for a new task",
+        success: "A fresh task",
+      },
       {
         move: "shorthand.due",
         prompt: "Type what needs doing, then give it a due date with `^`, like `^today`",
@@ -113,11 +136,20 @@ const QUEST_DEFINITIONS = [
       {
         move: "due.lens",
         prompt: "Press `N` to see everything that's due",
-        success: "That's what's due. `N` takes you back",
+        success: "That's what's due",
+      },
+      {
+        move: "due.lens",
+        prompt: "Press `N` again to go back to your list",
+        success: "Back to your list",
       },
     ],
     touch: [
-      { move: "capture.open", prompt: "Tap + for another task", success: "A fresh task" },
+      {
+        move: "capture.open",
+        prompt: "Tap + for a new task",
+        success: "A fresh task",
+      },
       {
         move: "shorthand.due",
         prompt: "Type what needs doing, then tap `^` and pick a due date",
@@ -130,11 +162,17 @@ const QUEST_DEFINITIONS = [
         prompt: "Tap the due count up top to see everything that's due",
         success: "That's what's due",
       },
+      {
+        move: "due.lens",
+        prompt: "Tap the due count again to go back to your list",
+        success: "Back to your list",
+      },
     ],
   },
   {
     id: "find-your-way",
     title: "Find your way",
+    summary: "Filters, sorting and search",
     keyboard: [
       {
         move: "filter.mode",
@@ -166,6 +204,7 @@ const QUEST_DEFINITIONS = [
   {
     id: "shape-your-list",
     title: "Shape your list",
+    summary: "Child tasks, blockers and reordering",
     keyboard: [
       {
         move: "capture.child",
@@ -220,6 +259,7 @@ const QUEST_DEFINITIONS = [
   {
     id: "fast-hands",
     title: "Fast hands",
+    summary: "Quicker edits and every shortcut there is",
     keyboard: [
       {
         move: "home.open-editor",
@@ -229,12 +269,13 @@ const QUEST_DEFINITIONS = [
       {
         move: "shorthand.tab",
         prompt: "Type `@` and the first letters of a category, then `Tab` to complete it",
-        success: "Completed. `Tab` again makes it a pill",
+        success: "Completed",
         inEditor: true,
       },
       {
         move: "shorthand.unlift",
-        prompt: "Right after a pill, `Backspace` puts it back as text",
+        prompt:
+          "Press `Backspace` right after a pill to turn it back into text. `Tab` again makes your completed name a pill",
         success: "Back to text",
         inEditor: true,
       },
@@ -263,19 +304,31 @@ const QUEST_DEFINITIONS = [
 export type QuestId = (typeof QUEST_DEFINITIONS)[number]["id"];
 
 /** A quest as one device plays it. */
-export type Quest = { id: QuestId; title: string; steps: readonly QuestStep[] };
+export type Quest = { id: QuestId; title: string; summary: string; steps: readonly QuestStep[] };
 
 /** This device's quests, in teaching order. */
 export function questsFor(device: Device): Quest[] {
   return QUEST_DEFINITIONS.flatMap((definition: QuestDefinition) => {
     const steps = definition[device];
-    return steps ? [{ id: definition.id as QuestId, title: definition.title, steps }] : [];
+    const { id, title, summary } = definition;
+    return steps ? [{ id: id as QuestId, title, summary, steps }] : [];
   });
 }
 
-/** Where a step left with the editor closed starts again: the step that opens the editor. */
-export function resumeStep(steps: readonly QuestStep[], index: number): number {
-  let step = index;
-  while (step > 0 && steps[step]?.inEditor) step -= 1;
-  return step;
+const REOPEN_STEPS: Record<Device, QuestStep> = {
+  keyboard: {
+    move: "home.open-editor",
+    prompt: "Press `Enter` to open the active task, or `C` for a new one",
+    success: "Editing",
+  },
+  touch: {
+    move: "home.open-editor",
+    prompt: "Tap a task to open it, or + for a new one",
+    success: "Editing",
+  },
+};
+
+/** Shown in place of an editor step while the editor is closed (`quest.reopen`). */
+export function reopenStep(device: Device): QuestStep {
+  return REOPEN_STEPS[device];
 }

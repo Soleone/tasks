@@ -1,18 +1,19 @@
 import { useEffect, useState, type ReactElement } from "react";
-import { CircleCheck, Pointer, Trophy } from "lucide-react";
+import { CircleCheck, CircleHelp, Pointer, Trophy } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { KeyCap } from "@/components/variants/kbd";
 import { currentDevice, movesFor } from "@/learning/moves";
 import {
-  dismissMoment,
+  dismissComplete,
   pauseQuest,
   stepKeys,
   useQuests,
   type QuestView,
 } from "@/learning/questProgress";
-import type { Quest } from "@/learning/quests";
+import { reopenStep, type Quest } from "@/learning/quests";
 import { preventFocusSteal } from "@/navigation";
 
 // Recap keys pop in one after another (`quest.complete`).
@@ -32,32 +33,43 @@ function KeyedText({ text }: { text: string }): ReactElement {
   );
 }
 
+/** The sentence to act on, and the muted one after it (`quest.card`). */
+function splitHint(text: string): [line: string, hint: string | undefined] {
+  const end = text.indexOf(". ");
+  return end < 0 ? [text, undefined] : [text.slice(0, end), text.slice(end + 2)];
+}
+
 /**
  * The quest card (`quest.card`): the step to do now, its reward once done, and the finished
  * quest's recap. It never takes focus or handles a key; Later puts the quest aside.
  */
-export function QuestCard(): ReactElement | null {
-  const { quests, active, offer, moment, ahead } = useQuests();
+export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | null {
+  const { quests, active, offer, moment, ahead, editorOpen } = useQuests();
   if (moment?.kind === "complete") {
     const quest = quests.find((entry) => entry.id === moment.quest);
-    return quest ? <QuestComplete quest={quest} quests={quests} /> : null;
+    return quest ? <QuestComplete quest={quest} quests={quests} onLearn={onLearn} /> : null;
   }
   const quest = active ?? offer;
   if (!quest) return null;
   const index = active?.step ?? 0;
   const step = quest.steps[index];
   if (!step) return null;
-  const keys = stepKeys(step);
+  const reopen = Boolean(active && step.inEditor && !editorOpen);
+  const shown = reopen ? reopenStep(currentDevice()) : step;
+  const keys = stepKeys(shown);
   const success = moment?.kind === "success" ? moment : null;
-  const prompt = active
-    ? step.prompt
-    : `Learn the basics in about two minutes. ${keys ? `Press \`${keys.join("+")}\`` : "Tap +"} to begin`;
+  const [line, hint] = success
+    ? splitHint(success.line)
+    : active
+      ? splitHint(shown.prompt)
+      : [step.prompt, quest.summary];
 
   return (
     <section
       aria-label="Quest"
       data-quest-card={quest.id}
       data-quest-step={active ? index : undefined}
+      data-quest-reopen={reopen || undefined}
       className={CARD}
     >
       <div
@@ -89,24 +101,58 @@ export function QuestCard(): ReactElement | null {
             success ? "font-medium" : "motion-safe:slide-in-from-bottom-1",
           )}
         >
-          <KeyedText text={success ? success.line : prompt} />
+          <KeyedText text={line} />
         </p>
+        {hint ? (
+          <p className="mt-0.5 text-sm text-muted-foreground" data-quest-hint>
+            <KeyedText text={hint} />
+          </p>
+        ) : null}
         {success?.tryKeys ? (
           <p className="mt-0.5 text-xs text-muted-foreground" data-quest-try>
             Next time, try <Kbd>{success.tryKeys.join("+")}</Kbd>
           </p>
         ) : null}
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        tabIndex={-1}
-        onMouseDown={preventFocusSteal}
-        onClick={pauseQuest}
-      >
-        Later
-      </Button>
+      <div className="-my-2 -mr-2 flex shrink-0 flex-col items-end justify-between gap-2 self-stretch">
+        <LearnButton onLearn={onLearn} />
+        <Button
+          variant="ghost"
+          size="sm"
+          tabIndex={-1}
+          onMouseDown={preventFocusSteal}
+          onClick={pauseQuest}
+        >
+          Later
+        </Button>
+      </div>
     </section>
+  );
+}
+
+/** Opens the Learn panel, where every quest and its progress live (`quest.card`). */
+function LearnButton({ onLearn }: { onLearn: () => void }): ReactElement {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            tabIndex={-1}
+            aria-keyshortcuts="Shift+/"
+            onMouseDown={preventFocusSteal}
+            onClick={onLearn}
+          />
+        }
+      >
+        <CircleHelp aria-hidden="true" />
+        <span className="sr-only">All quests</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        All quests <Kbd>?</Kbd>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -133,10 +179,18 @@ function StepDots({
   );
 }
 
-function QuestComplete({ quest, quests }: { quest: QuestView; quests: QuestView[] }): ReactElement {
+function QuestComplete({
+  quest,
+  quests,
+  onLearn,
+}: {
+  quest: QuestView;
+  quests: QuestView[];
+  onLearn: () => void;
+}): ReactElement {
   useEffect(() => {
-    window.addEventListener("keydown", dismissMoment);
-    return () => window.removeEventListener("keydown", dismissMoment);
+    window.addEventListener("keydown", dismissComplete);
+    return () => window.removeEventListener("keydown", dismissComplete);
   }, []);
   const moves = movesFor(currentDevice());
   const recap = [
@@ -181,6 +235,9 @@ function QuestComplete({ quest, quests }: { quest: QuestView; quests: QuestView[
         <p className="mt-1.5 text-sm text-muted-foreground">
           {next ? `Next: ${next.title}, whenever you like` : "Every quest complete"}
         </p>
+      </div>
+      <div className="-my-2 -mr-2 shrink-0 self-start">
+        <LearnButton onLearn={onLearn} />
       </div>
     </section>
   );

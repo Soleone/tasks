@@ -3,12 +3,12 @@ import { CirclePause } from "lucide-react";
 import { showTaskToast } from "@/components/TaskToaster";
 import { readPreference, writePreference } from "@/platform/preferences";
 import { currentDevice, movesFor, type MoveId } from "./moves";
-import { questsFor, resumeStep, type Quest, type QuestId, type QuestStep } from "./quests";
+import { questsFor, type Quest, type QuestId, type QuestStep } from "./quests";
 
 const PROGRESS_KEY = "tasks.questProgress";
 const SHOW_KEY = "tasks.showQuests";
 // How long a step's success line shows (`quest.success`) and a finished quest's card stays.
-const SUCCESS_MS = 1000;
+const SUCCESS_MS = 2000;
 const COMPLETE_MS = 5000;
 
 /** What is saved: the quest under way, the step each started quest is at, and the finished ones. */
@@ -31,8 +31,13 @@ let moment: QuestMoment | null = null;
 let momentTimer: ReturnType<typeof setTimeout> | undefined;
 // Editor steps done before their turn in this editor, so typing `#` before `@` still counts.
 let ahead: readonly number[] = [];
-// What React reads of the two above; replaced on every change so it sees one.
-let live: { moment: QuestMoment | null; ahead: readonly number[] } = { moment, ahead };
+let editorOpen = false;
+// What React reads of the three above; replaced on every change so it sees one.
+let live: { moment: QuestMoment | null; ahead: readonly number[]; editorOpen: boolean } = {
+  moment,
+  ahead,
+  editorOpen,
+};
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -40,7 +45,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 function notify(): void {
-  live = { moment, ahead };
+  live = { moment, ahead, editorOpen };
   for (const listener of listeners) listener();
 }
 
@@ -77,10 +82,10 @@ function write(stored: Stored): void {
   writePreference(PROGRESS_KEY, JSON.stringify(stored));
 }
 
-function untouched(stored: Stored): boolean {
-  return (
-    stored.active === null && Object.keys(stored.steps).length === 0 && !stored.complete.length
-  );
+/** The first unfinished quest, while quests are shown and none is under way or put aside. */
+function offered(stored: Stored, quests: Quest[], shown: boolean): Quest | null {
+  if (!shown || stored.active !== null || Object.keys(stored.steps).length) return null;
+  return quests.find((quest) => !stored.complete.includes(quest.id)) ?? null;
 }
 
 function showMoment(next: QuestMoment | null, ms = SUCCESS_MS): void {
@@ -98,26 +103,22 @@ export function stepKeys(step: QuestStep): readonly string[] | undefined {
   return step.keys ?? movesFor(currentDevice()).find((move) => move.id === step.move)?.keys;
 }
 
-/** Puts the quest under way aside where its prompt still makes sense. */
-function setAside(stored: Stored, quests: Quest[]): Stored {
-  const quest = quests.find((entry) => entry.id === stored.active);
-  if (!quest) return stored;
+/** Puts the quest under way aside at its step. */
+function setAside(stored: Stored): Stored {
+  if (!stored.active) return stored;
   ahead = [];
-  return {
-    ...stored,
-    active: null,
-    steps: { ...stored.steps, [quest.id]: resumeStep(quest.steps, stored.steps[quest.id] ?? 0) },
-  };
+  return { ...stored, active: null };
 }
 
 type Quests = {
   quests: QuestView[];
   active: QuestView | null;
-  /** The first quest, while nothing was ever started or put aside and quests are shown. */
+  /** The first unfinished quest, while none is under way or put aside (`quest.offer`). */
   offer: Quest | null;
   moment: QuestMoment | null;
   /** Steps of the active quest done ahead of their turn. */
   ahead: readonly number[];
+  editorOpen: boolean;
   shown: boolean;
 };
 
@@ -142,9 +143,10 @@ export function useQuests(): Quests {
     return {
       quests,
       active: quests.find((quest) => quest.state === "active") ?? null,
-      offer: shown && untouched(progress) ? (quests[0] ?? null) : null,
+      offer: offered(progress, quests, shown),
       moment: current.moment,
       ahead: current.ahead,
+      editorOpen: current.editorOpen,
       shown,
     };
   }, [stored, shown, current]);
@@ -154,24 +156,19 @@ export function useQuests(): Quests {
 export function advanceQuest(move: MoveId, via: "keys" | "pointer", detail?: string): void {
   const quests = questsFor(currentDevice());
   let stored = read();
-  const first = quests[0];
-  if (first && untouched(stored) && questsShown() && first.steps[0]?.move === move)
-    stored = { ...stored, active: first.id, steps: { [first.id]: 0 } };
+  const offer = offered(stored, quests, questsShown());
+  if (offer?.steps[0]?.move === move)
+    stored = { ...stored, active: offer.id, steps: { [offer.id]: 0 } };
   const quest = quests.find((entry) => entry.id === stored.active);
   if (!quest) return;
-  let index = stored.steps[quest.id] ?? 0;
-  const opener = resumeStep(quest.steps, index);
-  // The editor opened again for a step that was left inside it.
-  if (opener !== index && quest.steps[opener]?.move === move) {
-    index = opener;
-    ahead = [];
-  }
+  const index = stored.steps[quest.id] ?? 0;
   const step = quest.steps[index];
   if (!step) return;
   const tryKeys = via === "pointer" && currentDevice() === "keyboard" ? stepKeys(step) : undefined;
   const line = (done: QuestStep) => done.success.replace("{}", detail ?? "");
   if (step.move !== move) {
-    const later = laterEditorStep(quest.steps, index, move);
+    // Saving closes the editor, so a save ahead of its turn would only be forgotten.
+    const later = move === "capture.save" ? null : laterEditorStep(quest.steps, index, move);
     if (later === null) return;
     ahead = [...ahead, later];
     showMoment({ kind: "success", line: line(quest.steps[later]!), tryKeys });
@@ -205,22 +202,22 @@ function laterEditorStep(steps: readonly QuestStep[], index: number, move: MoveI
   return null;
 }
 
-/** The editor closed: a step inside it goes back to the step that opens it (`quest.resume`). */
+/** The editor opened, so an editor step's own prompt shows (`quest.reopen`). */
+export function enterEditor(): void {
+  editorOpen = true;
+  notify();
+}
+
+/** The editor closed: steps done ahead in it are forgotten, the rest stay done (`quest.reopen`). */
 export function leaveEditor(): void {
-  const stored = read();
-  const quest = questsFor(currentDevice()).find((entry) => entry.id === stored.active);
-  if (!quest) return;
-  const step = stored.steps[quest.id] ?? 0;
-  const opener = resumeStep(quest.steps, step);
-  if (opener === step && !ahead.length) return;
+  editorOpen = false;
   ahead = [];
-  write({ ...stored, steps: { ...stored.steps, [quest.id]: opener } });
   notify();
 }
 
 /** Starts a quest from its first step (`quest.one-at-a-time`). */
 export function startQuest(id: QuestId): void {
-  const stored = setAside(read(), questsFor(currentDevice()));
+  const stored = setAside(read());
   showMoment(null);
   write({ ...stored, active: id, steps: { ...stored.steps, [id]: 0 } });
   notify();
@@ -228,7 +225,7 @@ export function startQuest(id: QuestId): void {
 
 /** Picks a paused quest up where it was left (`quest.resume`). */
 export function resumeQuest(id: QuestId): void {
-  const stored = setAside(read(), questsFor(currentDevice()));
+  const stored = setAside(read());
   showMoment(null);
   write({ ...stored, active: id, steps: { ...stored.steps, [id]: stored.steps[id] ?? 0 } });
   notify();
@@ -236,18 +233,19 @@ export function resumeQuest(id: QuestId): void {
 
 /** Later, or Pause quest: the quest under way, or the offered one, waits for `?` (`quest.pause`). */
 export function pauseQuest(): void {
-  const quests = questsFor(currentDevice());
   const stored = read();
-  const first = quests[0];
-  if (stored.active) write(setAside(stored, quests));
-  else if (first && untouched(stored)) write({ ...stored, steps: { [first.id]: 0 } });
+  const offer = offered(stored, questsFor(currentDevice()), questsShown());
+  if (stored.active) write(setAside(stored));
+  else if (offer) write({ ...stored, steps: { [offer.id]: 0 } });
   else return;
   showMoment(null);
   notify();
   showTaskToast("Quest paused. Pick it up from ? whenever you like.", { icon: CirclePause });
 }
 
-export function dismissMoment(): void {
+/** Closes a finished quest's card; a step's success line started by the same key stays. */
+export function dismissComplete(): void {
+  if (moment?.kind !== "complete") return;
   showMoment(null);
   notify();
 }
@@ -256,7 +254,7 @@ export function dismissMoment(): void {
 export function setQuestsShown(on: boolean): void {
   writePreference(SHOW_KEY, on ? "on" : "off");
   if (!on) {
-    write(setAside(read(), questsFor(currentDevice())));
+    write(setAside(read()));
     showMoment(null);
   }
   notify();

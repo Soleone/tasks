@@ -247,6 +247,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
+  const toggleLearn = () => setLearnOpen((open) => !open);
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
@@ -401,7 +402,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
     if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
       event.preventDefault();
-      setLearnOpen((open) => !open);
+      toggleLearn();
       return;
     }
     if (event.key === "Escape" && learnOpen) {
@@ -789,7 +790,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                       tabIndex={-1}
                       aria-keyshortcuts="Shift+/"
                       onMouseDown={preventFocusSteal}
-                      onClick={() => setLearnOpen((open) => !open)}
+                      onClick={toggleLearn}
                     />
                   }
                 >
@@ -847,7 +848,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         </header>
 
         {/* Under the header on Android, so the soft keyboard never hides it (`platform.quest-card`). */}
-        {android ? <QuestCard /> : null}
+        {android ? <QuestCard onLearn={toggleLearn} /> : null}
         <TaskList
           ref={taskListRef}
           tasks={tasks}
@@ -937,7 +938,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />
-        {android ? null : <QuestCard />}
+        {android ? null : <QuestCard onLearn={toggleLearn} />}
         <p role="status" className="sr-only">
           {announcement}
         </p>

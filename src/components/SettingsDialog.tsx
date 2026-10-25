@@ -190,12 +190,12 @@ export function SettingsDialog({
               </section>
 
               <section
-                aria-labelledby="settings-quests"
+                aria-labelledby="settings-help"
                 className="flex flex-col gap-4 rounded-lg border p-4"
               >
                 <div className="flex flex-col gap-1">
-                  <h2 id="settings-quests" className="text-sm font-medium">
-                    Quests
+                  <h2 id="settings-help" className="text-sm font-medium">
+                    Help
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     Short quests teach the keys a few at a time. Pause one whenever you like; it
