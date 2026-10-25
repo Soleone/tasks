@@ -20,13 +20,12 @@ import { stripClassificationTokens } from "@/backend/taskText";
 import {
   EXACT_STATUS_META,
   PRIORITY_META,
-  doneWindowPhrase,
   taskStatusMeta,
-  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
 } from "@/components/taskFilters";
+import { lensPhrase, type ListLens } from "./listLens";
 import { InlineTaskComposer, OptimisticTaskOption, TaskOption } from "./TaskListRows";
 import { isDialogOpen, useTaskListKeyboard } from "./useTaskListKeyboard";
 import { useTaskListSelection, type ActiveTaskRequest } from "./useTaskListSelection";
@@ -127,9 +126,9 @@ type TaskListProps = {
   total: number;
   /** Tasks done in the last 24 hours, for the empty Active view. */
   doneTodayCount: number;
-  /** How far back the done lens looks, or null outside it. */
-  doneWindow: DoneWindow | null;
-  onToggleDoneLens: () => void;
+  /** The open lens, or null outside one. */
+  lens: ListLens | null;
+  onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: () => void;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
@@ -224,8 +223,8 @@ export function TaskList({
   contextOrder,
   total,
   doneTodayCount,
-  doneWindow,
-  onToggleDoneLens,
+  lens,
+  onToggleLens,
   onWidenDoneLens,
   statusPreset,
   exactStatus,
@@ -365,10 +364,10 @@ export function TaskList({
     () => contextTasks.map((task) => pendingTasks.get(task.id) ?? task),
     [contextTasks, pendingTasks],
   );
-  // The done lens opens each tree its done subtasks sit in, once, so none hides behind a
+  // A lens opens each tree its subtasks sit in, once, so none hides behind a
   // collapsed parent. Leaving the lens restores the expansion it set aside.
   const [lensOpenedIds, setLensOpenedIds] = useState<ReadonlySet<string> | null>(null);
-  if (doneWindow === null) {
+  if (lens === null) {
     if (lensOpenedIds !== null) setLensOpenedIds(null);
   } else if (!loading) {
     const unopened = [...rootIdsAboveTasks(tasks, [...shownContextTasks, ...tasks])].filter(
@@ -1466,7 +1465,7 @@ export function TaskList({
       openCategoryPicker,
       openTagPicker,
       addBlocker: onAddBlocker,
-      toggleDoneLens: onToggleDoneLens,
+      toggleLens: onToggleLens,
       widenDoneLens: onWidenDoneLens,
       moveUnder: onMoveUnder,
       toggleSelectedStatus,
@@ -1493,6 +1492,21 @@ export function TaskList({
   const activeEmptyTitle = doneTodayCount > 0 ? "All clear" : "No active tasks";
   const activeEmptyHint =
     doneTodayCount > 0 ? `${doneTodayCount} done today. ${captureHint}` : captureHint;
+  // An emptied due lens is the same good news as an emptied Active view.
+  const filteredEmptyTitle =
+    lens === null
+      ? "No tasks match the current filters"
+      : lens.kind === "due"
+        ? "All clear"
+        : `Nothing ${lensPhrase(lens)}`;
+  const filteredEmptyHint =
+    lens === null
+      ? "Try different filters or clear them."
+      : lens.kind === "due"
+        ? "Nothing is due today or late."
+        : helpMode === "none"
+          ? "Choose the count to look further back."
+          : "Press Shift+D or choose the count to look further back.";
   const isDefaultActiveEmpty =
     !loading &&
     !error &&
@@ -1618,7 +1632,7 @@ export function TaskList({
         reorderAvailabilityReason={reorderAvailabilityReason}
         reorderSelection={reorderSelection}
         summaryTaskCount={summaryTaskCount}
-        doneWindow={doneWindow}
+        lens={lens}
         widenDoneLens={() => {
           returnToList();
           onWidenDoneLens();
@@ -1752,18 +1766,8 @@ export function TaskList({
           {isFilteredEmpty ? (
             <TaskItem data-empty-state="filtered" size="sm" state="empty">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">
-                  {doneWindow
-                    ? `Nothing done ${doneWindowPhrase(doneWindow)}`
-                    : "No tasks match the current filters"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {doneWindow
-                    ? helpMode === "none"
-                      ? "Choose the count to look further back."
-                      : "Press Shift+D or choose the count to look further back."
-                    : "Try different filters or clear them."}
-                </p>
+                <p className="text-sm font-medium">{filteredEmptyTitle}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{filteredEmptyHint}</p>
               </div>
               <Button
                 variant="outline"
@@ -1774,7 +1778,7 @@ export function TaskList({
                   list.current?.focus();
                 }}
               >
-                {doneWindow ? "Go back" : "Clear filters"}
+                {lens ? "Go back" : "Clear filters"}
               </Button>
             </TaskItem>
           ) : null}

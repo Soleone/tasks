@@ -105,8 +105,9 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Rule | Then |
 | --- | --- |
-| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `closedSince`, `includeAncestors`, `includeDescendants` |
+| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `closedSince`, `dueBefore`, `includeAncestors`, `includeDescendants` |
 | `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
+| `list.due-before` | `dueBefore` is a `YYYY-MM-DD` date. It matches tasks due earlier than that day, whatever their status; undated tasks never match |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
 | `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.sort-closed` | `closed` orders by `closedAt`. Tasks that were never closed come last in either direction |

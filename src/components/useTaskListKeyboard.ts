@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, type RefObject } from "react";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import { EXACT_STATUS_META, type SortField } from "./taskFilters";
+import type { ListLens } from "./listLens";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import type { TaskView } from "./taskView";
@@ -60,7 +61,7 @@ type HomeShortcutActions = {
   openCategoryPicker: () => void;
   openTagPicker: () => void;
   addBlocker: (task: TaskView) => void;
-  toggleDoneLens: () => void;
+  toggleLens: (kind: ListLens["kind"]) => void;
   widenDoneLens: () => void;
   moveUnder: (task: TaskView) => void;
   toggleSelectedStatus: () => Promise<void>;
@@ -384,7 +385,11 @@ export function useTaskListKeyboard(
       if (event.repeat) return;
       event.preventDefault();
       if (event.shiftKey) actions.widenDoneLens();
-      else actions.toggleDoneLens();
+      else actions.toggleLens("done");
+    } else if (event.key.toLowerCase() === "n") {
+      if (event.repeat || event.shiftKey) return;
+      event.preventDefault();
+      actions.toggleLens("due");
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();

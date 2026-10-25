@@ -1,6 +1,6 @@
 import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
-import { useDoneToday } from "./useDoneToday";
+import { useHeaderCounts } from "./useHeaderCounts";
 import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
 import { CircleHelp, Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
@@ -9,11 +9,9 @@ import type { MainWorkspace } from "@/platform/mainWorkspace";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
+import { lensPhrase, widerDoneWindow, type ListLens } from "@/components/listLens";
 import {
-  doneWindowPhrase,
   sortSummary,
-  widerDoneWindow,
-  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
@@ -27,7 +25,7 @@ import type { ComposerState } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { StarterHelp } from "@/components/StarterHelp";
 import { DisableKeyboardHelpDialog } from "@/components/DisableKeyboardHelpDialog";
-import { DoneToday } from "@/components/DoneToday";
+import { DoneToday, DueNow } from "@/components/LensCounts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
 import { ThemePicker } from "@/components/soleone/theme-picker";
@@ -190,8 +188,8 @@ const VIEW_PREFERENCES: [key: string, stored: (view: ListView) => string][] = [
   [COMPLETED_SORT_KEY, (view) => String(view.completedSort)],
 ];
 
-/** The done lens and the way back from it. Never remembered between launches. */
-type DoneLens = { window: DoneWindow; returnTo: ListView; place: TaskListPlace | null };
+/** The lens on screen and the way back from it. Switching lenses keeps the way back. */
+type OpenLens = { lens: ListLens; returnTo: ListView; place: TaskListPlace | null };
 
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
@@ -236,7 +234,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [completedSort, setCompletedSort] = useState(
     () => readPreference(COMPLETED_SORT_KEY) !== "false",
   );
-  const [doneLens, setDoneLens] = useState<DoneLens | null>(null);
+  const [openLens, setOpenLens] = useState<OpenLens | null>(null);
+  const lens = openLens?.lens ?? null;
   const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(
     readInitialCategoryFilter,
   );
@@ -292,7 +291,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   // The lens is never remembered, so a relaunch inside it returns to the view it set aside.
   const rememberedView = useRef(listView);
   useEffect(() => {
-    if (doneLens) return;
+    if (openLens) return;
     for (const [key, stored] of VIEW_PREFERENCES) {
       const value = stored(listView);
       if (value !== stored(rememberedView.current)) writePreference(key, value);
@@ -310,7 +309,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     sortField: shownSortField,
     sortDirection,
     categoryFilter,
-    doneWindow: doneLens?.window ?? null,
+    lens,
     setCategoryFilter,
     setTagFilter,
     taskListRef,
@@ -327,7 +326,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     refreshTasks,
     isCurrentViewMatch,
   } = taskView;
-  const doneTodayCount = useDoneToday(tasks);
+  const { doneToday: doneTodayCount, dueNow: dueNowCount } = useHeaderCounts(tasks);
   const {
     optimisticCreate,
     setOptimisticCreate,
@@ -481,53 +480,59 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     setCompletedSort(view.completedSort);
   }
 
-  function enterDoneLens(doneWindow: DoneWindow): void {
-    setHelpOpen(false);
-    setDoneLens({
-      window: doneWindow,
-      returnTo: listView,
-      place: taskListRef.current?.currentPlace() ?? null,
-    });
-    showListView({
-      statusPreset: "active",
-      exactStatus: "done",
+  /** The view a lens shows: every other filter cleared, in the lens's own order. */
+  function lensView(next: ListLens): ListView {
+    const cleared = {
+      statusPreset: "active" as const,
       priorityFilter: null,
       tagFilter: [],
       searchQuery: "",
       showUnblocked: false,
       categoryFilter: null,
-      sortField,
-      sortDirection: "desc",
-      completedSort: true,
-    });
-    requestActiveTask();
-    setAnnouncement(`Showing tasks done ${doneWindowPhrase(doneWindow)}`);
+      sortDirection: "desc" as const,
+    };
+    // Done sorts by its own Completed order; due sorts soonest first.
+    return next.kind === "done"
+      ? { ...cleared, exactStatus: "done", sortField, completedSort: true }
+      : { ...cleared, exactStatus: null, sortField: "due", completedSort };
   }
 
-  function leaveDoneLens(): void {
-    if (!doneLens) return;
-    setDoneLens(null);
-    showListView(doneLens.returnTo);
-    if (doneLens.place) taskListRef.current?.restorePlace(doneLens.place);
-    requestActiveTask(doneLens.place?.activeTaskId ?? null, true);
+  function enterLens(next: ListLens): void {
+    setHelpOpen(false);
+    setOpenLens({
+      lens: next,
+      returnTo: openLens?.returnTo ?? listView,
+      place: openLens ? openLens.place : (taskListRef.current?.currentPlace() ?? null),
+    });
+    showListView(lensView(next));
+    requestActiveTask();
+    setAnnouncement(`Showing tasks ${lensPhrase(next)}`);
+  }
+
+  function leaveLens(): void {
+    if (!openLens) return;
+    setOpenLens(null);
+    showListView(openLens.returnTo);
+    if (openLens.place) taskListRef.current?.restorePlace(openLens.place);
+    requestActiveTask(openLens.place?.activeTaskId ?? null, true);
     setAnnouncement("Back to your list");
   }
 
-  function toggleDoneLens(): void {
-    if (doneLens) leaveDoneLens();
-    else enterDoneLens("day");
+  function toggleLens(kind: ListLens["kind"]): void {
+    if (lens?.kind === kind) leaveLens();
+    else enterLens(kind === "done" ? { kind, window: "day" } : { kind });
   }
 
   function widenDoneLens(): void {
-    if (!doneLens) {
-      enterDoneLens("week");
+    if (openLens?.lens.kind !== "done") {
+      enterLens({ kind: "done", window: "week" });
       return;
     }
-    const next = widerDoneWindow(doneLens.window);
+    const next: ListLens = { kind: "done", window: widerDoneWindow(openLens.lens.window) };
     setHelpOpen(false);
-    setDoneLens({ ...doneLens, window: next });
+    setOpenLens({ ...openLens, lens: next });
     requestActiveTask();
-    setAnnouncement(`Showing tasks done ${doneWindowPhrase(next)}`);
+    setAnnouncement(`Showing tasks ${lensPhrase(next)}`);
   }
 
   // From the palette the active element is its search field, which unmounts
@@ -608,7 +613,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
 
   function toggleStatusPreset(): void {
     // A status change inside the lens settles on that ordinary view.
-    setDoneLens(null);
+    setOpenLens(null);
     // Clearing an exact status returns to the current preset; otherwise toggle.
     if (exactStatus !== null) setExactStatus(null);
     else setStatusPreset(statusPreset === "active" ? "inactive" : "active");
@@ -674,7 +679,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
 
   function chooseExactStatus(status: TaskStatus | null): void {
     setStatusMenuOpen(false);
-    setDoneLens(null);
+    setOpenLens(null);
     setExactStatus(status);
     requestActiveTask();
   }
@@ -684,7 +689,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     exact: TaskStatus | null | undefined,
   ): void {
     setStatusMenuOpen(false);
-    setDoneLens(null);
+    setOpenLens(null);
     if (exact !== undefined) setExactStatus(exact);
     if (preset !== undefined) {
       setStatusPreset(preset);
@@ -717,8 +722,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
 
   function clearAllFilters(): void {
     // The lens's reset is its way back.
-    if (doneLens) {
-      leaveDoneLens();
+    if (openLens) {
+      leaveLens();
       return;
     }
     setExactStatus(null);
@@ -739,7 +744,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     tagFilter.length > 0 ||
     searchQuery.trim() !== "" ||
     categoryFilter !== null ||
-    showUnblocked;
+    showUnblocked ||
+    lens !== null;
 
   function clearCategoryFilter(
     _category: ClassificationToken | null = null,
@@ -771,10 +777,15 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           </h1>
           {/* The count stands apart from the joined group, so its pressed state keeps round corners. */}
           <div className="flex items-center">
+            <DueNow
+              total={dueNowCount}
+              lensOn={lens?.kind === "due"}
+              onToggleLens={() => toggleLens("due")}
+            />
             <DoneToday
               total={doneTodayCount}
-              lensOn={doneLens !== null}
-              onToggleLens={toggleDoneLens}
+              lensOn={lens?.kind === "done"}
+              onToggleLens={() => toggleLens("done")}
             />
             <ButtonRow
               onKeyDown={(event) => {
@@ -864,8 +875,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           contextOrder={contextOrder}
           total={total}
           doneTodayCount={doneTodayCount}
-          doneWindow={doneLens?.window ?? null}
-          onToggleDoneLens={toggleDoneLens}
+          lens={lens}
+          onToggleLens={toggleLens}
           onWidenDoneLens={widenDoneLens}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
@@ -968,7 +979,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         finalFocus={() => focusStack.restore("help")}
         onOpenSettings={openSettings}
         onOpenThemes={openThemes}
-        onToggleDoneLens={toggleDoneLens}
+        onToggleLens={toggleLens}
         onWidenDoneLens={widenDoneLens}
         onCreate={openCreate}
         onCreateChild={(task) => openCreate(task.id)}

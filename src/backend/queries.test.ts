@@ -50,6 +50,25 @@ test("list.closed-since: closed tasks at or after the time match; active tasks n
   }
 });
 
+test("list.due-before: tasks due earlier than the date match; undated tasks never do", () => {
+  const dated = [
+    { ...task("late", "open", null), due: "2026-10-19" },
+    { ...task("today", "open", null), due: "2026-10-20" },
+    { ...task("undated", "open", null) },
+  ];
+  const ids = (args: Record<string, unknown>): string[] =>
+    (executeQuery("task.list", args, dated, 1) as { tasks: TaskProjection[] }).tasks.map(
+      (entry) => entry.id,
+    );
+  assert.deepEqual(ids({ dueBefore: "2026-10-20" }), ["late"]);
+  for (const dueBefore of ["2026-10-20T00:00:00.000Z", "2026-02-30", 0, null]) {
+    assert.throws(
+      () => ids({ dueBefore }),
+      (error: unknown) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+    );
+  }
+});
+
 test("list.sort-due: soonest first, same day by priority, undated last either way", () => {
   const dated = [
     { ...task("late", "open", null), due: "2026-11-02" },

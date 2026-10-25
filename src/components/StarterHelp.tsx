@@ -10,6 +10,7 @@ const STARTER_SHORTCUTS = [
   { keys: ["S"], label: "Sort tasks" },
   { keys: ["V"], label: "Show details of the active task" },
   { keys: ["D"], label: "See what you did today" },
+  { keys: ["N"], label: "See what's due now" },
   { keys: ["Escape"], label: "Reset filters / clear multi-selection" },
   { keys: ["@"], label: "Filter by category" },
   { keys: ["→"], label: "Filter its category (no children)" },

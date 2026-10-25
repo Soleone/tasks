@@ -14,14 +14,13 @@ import type { ClassificationOption, TaskView } from "@/components/taskView";
 import { contextTaskIds, taskGroupOrder } from "@/components/taskTree";
 import {
   compareTasksForViewSort,
-  doneSince,
   presetStatuses,
   taskMatchesViewFilters,
-  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
 } from "@/components/taskFilters";
+import { lensFilter, type ListLens } from "@/components/listLens";
 import { closeBackendSession, getWorkspaceRevision, listTasks } from "@/platform/backendClient";
 
 const WORKSPACE_REVISION_POLL_MS = 1500;
@@ -38,8 +37,8 @@ type WorkspaceTasksView = {
   sortField: SortField;
   sortDirection: SortDirection;
   categoryFilter: ClassificationToken | null;
-  /** How far back the done lens looks, or null outside it. */
-  doneWindow: DoneWindow | null;
+  /** The open lens, or null outside one. */
+  lens: ListLens | null;
   setCategoryFilter: Dispatch<SetStateAction<ClassificationToken | null>>;
   setTagFilter: Dispatch<SetStateAction<ClassificationOption[]>>;
   taskListRef: RefObject<TaskListHandle | null>;
@@ -55,7 +54,7 @@ export function useWorkspaceTasks({
   sortField,
   sortDirection,
   categoryFilter,
-  doneWindow,
+  lens,
   setCategoryFilter,
   setTagFilter,
   taskListRef,
@@ -77,7 +76,7 @@ export function useWorkspaceTasks({
   const sortFieldRef = useRef<SortField>(sortField);
   const sortDirectionRef = useRef<SortDirection>(sortDirection);
   const categoryFilterRef = useRef<string | null>(categoryFilter?.slug ?? null);
-  const doneWindowRef = useRef(doneWindow);
+  const lensRef = useRef(lens);
   const restoredMetadataRef = useRef(false);
   const workspaceRevisionRef = useRef<number | null>(null);
   // Saves reply after later renders; their count changes must compare against the current list.
@@ -90,7 +89,10 @@ export function useWorkspaceTasks({
       const sequence = ++querySequence.current;
       try {
         const exact = exactStatusRef.current;
-        const statuses = exact !== null ? [exact] : presetStatuses(statusPresetRef.current);
+        const { statuses: lensStatuses, ...lensBounds } =
+          lensRef.current === null ? { statuses: undefined } : lensFilter(lensRef.current);
+        const statuses =
+          lensStatuses ?? (exact !== null ? [exact] : presetStatuses(statusPresetRef.current));
         const result = await listTasks(
           statuses,
           offset,
@@ -102,9 +104,7 @@ export function useWorkspaceTasks({
             ...(searchQueryRef.current.trim() !== ""
               ? { search: searchQueryRef.current.trim() }
               : {}),
-            ...(doneWindowRef.current !== null
-              ? { closedSince: doneSince(doneWindowRef.current) }
-              : {}),
+            ...lensBounds,
             limit,
             sort: sortFieldRef.current,
             direction: sortDirectionRef.current,
@@ -223,7 +223,7 @@ export function useWorkspaceTasks({
     sortFieldRef.current = sortField;
     sortDirectionRef.current = sortDirection;
     categoryFilterRef.current = categoryFilter?.slug ?? null;
-    doneWindowRef.current = doneWindow;
+    lensRef.current = lens;
     tasksRef.current = tasks;
     contextTasksRef.current = contextTasks;
   });
@@ -240,7 +240,7 @@ export function useWorkspaceTasks({
     sortField,
     sortDirection,
     categoryFilter?.slug ?? null,
-    doneWindow,
+    lens,
   ]);
   const [loadingViewKey, setLoadingViewKey] = useState(viewKey);
   if (loadingViewKey !== viewKey) {
@@ -438,7 +438,7 @@ export function useWorkspaceTasks({
       priorityFilter,
       tagSlugs: tagFilter.map((tag) => tag.slug),
       searchQuery,
-      closedSince: doneWindow === null ? null : doneSince(doneWindow),
+      lens: lens === null ? null : lensFilter(lens),
     });
   }
 

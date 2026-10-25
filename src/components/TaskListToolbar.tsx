@@ -31,15 +31,13 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption } from "./taskView";
 import {
-  doneWindowPhrase,
   EXACT_STATUS_META,
   PRIORITY_META,
-  widerDoneWindow,
-  type DoneWindow,
   type SortDirection,
   type SortField,
   type StatusPreset,
 } from "./taskFilters";
+import { lensPhrase, widerDoneWindow, type ListLens } from "./listLens";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import { SortMenu } from "./SortMenu";
@@ -207,7 +205,7 @@ type TaskListToolbarProps = {
   reorderAvailabilityReason: string | null;
   reorderSelection: (direction: TaskMoveDirection) => Promise<void>;
   summaryTaskCount: number;
-  doneWindow: DoneWindow | null;
+  lens: ListLens | null;
   widenDoneLens: () => void;
   clearStatusFilter: () => void;
   clearCategoryFilter: () => void;
@@ -260,7 +258,7 @@ export function TaskListToolbar({
   reorderAvailabilityReason,
   reorderSelection,
   summaryTaskCount,
-  doneWindow,
+  lens,
   widenDoneLens,
   clearStatusFilter,
   clearCategoryFilter,
@@ -344,8 +342,8 @@ export function TaskListToolbar({
       : tagFilter.length > 0
         ? tagFilter.map((tag) => `#${tag.label}`).join(" ")
         : null;
-  const summaryBase = doneWindow
-    ? `${summaryTaskCount} done ${doneWindowPhrase(doneWindow)}`
+  const summaryBase = lens
+    ? `${summaryTaskCount} ${lensPhrase(lens)}`
     : `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
   const summarySuffixParts: FilterSummaryPart[] = [
@@ -818,11 +816,11 @@ export function TaskListToolbar({
               <FilterSummaryAction
                 filter="status"
                 label={
-                  doneWindow
-                    ? `Show tasks done ${doneWindowPhrase(widerDoneWindow(doneWindow))}`
+                  lens?.kind === "done"
+                    ? `Show tasks ${lensPhrase({ kind: "done", window: widerDoneWindow(lens.window) })}`
                     : "Reset status filter to Active"
                 }
-                onClear={doneWindow ? widenDoneLens : clearStatusFilter}
+                onClear={lens?.kind === "done" ? widenDoneLens : clearStatusFilter}
                 className="text-sm font-medium text-foreground"
               >
                 {summaryBase}

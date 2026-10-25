@@ -174,7 +174,7 @@ function sheenStep(title: string): string | null {
 }
 
 function doneTodayButton(): HTMLElement | null {
-  return document.querySelector("[data-done-today]");
+  return document.querySelector("[data-lens-count=done]");
 }
 
 function countLine(): string | null | undefined {
@@ -272,7 +272,7 @@ describe("completion", () => {
     await expectListFocused();
   });
 
-  test("done.lens-back: D and Escape restore the filters, active task, expanded parent and scroll", async () => {
+  test("lens.back: D and Escape restore the filters, active task, expanded parent and scroll", async () => {
     const parent = await workspace.create("Parent");
     await workspace.create("Child", { parentId: parent.id });
     await workspace.create("Other");
@@ -340,7 +340,7 @@ describe("completion", () => {
     }
   });
 
-  test("done.lens-status: a status change inside the lens settles on that ordinary view", async () => {
+  test("lens.status: a status change inside the lens settles on that ordinary view", async () => {
     const finished = await workspace.create("Finished");
     await workspace.change("task.complete", finished.id);
     await workspace.create("Open");
@@ -356,7 +356,7 @@ describe("completion", () => {
     await expectRows(["Finished"]);
   });
 
-  test("done.lens-launch: relaunching with the lens on opens the view it set aside", async () => {
+  test("lens.launch: relaunching with the lens on opens the view it set aside", async () => {
     const finished = await workspace.create("Finished");
     await workspace.change("task.complete", finished.id);
     await workspace.create("Still open");

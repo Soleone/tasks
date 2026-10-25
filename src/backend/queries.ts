@@ -1,4 +1,5 @@
 import { CommandError } from "./errors.js";
+import { isDueDate } from "./dueDate.js";
 import { assertArgs, TASK_LIST_MAX_LIMIT } from "./protocol.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { compareTasks, isTimestamp } from "./taskModel.js";
@@ -81,6 +82,7 @@ function listTasks(
     "search",
     "unblocked",
     "closedSince",
+    "dueBefore",
     "includeAncestors",
     "includeDescendants",
     "sort",
@@ -113,6 +115,9 @@ function listTasks(
   // Stored times share this exact form, so text order is time order.
   const closedSince = args.closedSince;
   if (closedSince !== undefined && !isTimestamp(closedSince)) invalidFilter("closedSince");
+  // Due dates are `YYYY-MM-DD`, so text order is day order too.
+  const dueBefore = args.dueBefore;
+  if (dueBefore !== undefined && !isDueDate(dueBefore)) invalidFilter("dueBefore");
   const sort = args.sort === undefined ? "created" : args.sort;
   if (!["created", "updated", "priority", "due", "closed", "manual"].includes(sort as string))
     invalidFilter("sort");
@@ -135,6 +140,7 @@ function listTasks(
       tags.every((tag) => task.tags.includes(tag)) &&
       (args.unblocked !== true || task.blockedByIds.length === 0) &&
       (closedSince === undefined || (task.closedAt !== null && task.closedAt >= closedSince)) &&
+      (dueBefore === undefined || (task.due !== null && task.due < dueBefore)) &&
       (search === undefined ||
         asciiLower(task.title).includes(search) ||
         asciiLower(task.description).includes(search)),

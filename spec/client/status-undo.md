@@ -34,17 +34,14 @@ Status keys act on the selection, or on the active task when nothing else is sel
 
 ## Completion
 
-Finishing work should feel like it. The reward stays quiet: a moment on the row, a count in the header, a warmer empty list. Looking back at what was done is a lens on the task list, not a second list.
+Finishing work should feel like it. The reward stays quiet: a moment on the row, a count in the header, a warmer empty list. Looking back at what was done is a [lens](lenses.md) on the task list, not a second list.
 
 | Rule | When | Then |
 | --- | --- | --- |
 | `done.sheen` | This client completes tasks with a status key, a glyph click or a batch | As the check draws, the glyph gets a brief sheen in the theme accent. A batch plays it as a wave down the rows. A completed row that leaves the view stays until its sheen has played. Undo, redo and changes from elsewhere never play it, and reduced motion turns it off |
-| `done.today` | Any task was completed in the last 24 hours, from any client | The header shows a quiet count, e.g. "3 done today". It is hidden at zero, except while the done lens is on,, rises with a short pop and falls quietly when an undo takes a completion back. "Today" is always the last 24 hours, with no setting |
-| `done.lens` | `D`, clicking the count, or Done today in the `Ctrl/⌘+K` palette | The list itself shows the tasks done in the last 24 hours, most recently done first, with every other filter cleared. The count stays pressed and the count line reads e.g. "3 done today". Rows work as anywhere else, and filters and sorts narrow or reorder the lens. A done subtask shows under its parent, which the lens expands once and leaves to you after that. With nothing done, the empty list says so and offers to look further back |
-| `done.lens-back` | `D` again, clicking the count, `Escape` with no selection to clear, or Go back on an empty lens | The list returns to the view it showed before: filters, search, sort, the active task, expanded parents and scroll position. Anything changed inside the lens is dropped |
+| `done.today` | Any task was completed in the last 24 hours, from any client | The header shows a quiet count, e.g. "3 done today". It is hidden at zero (`lens.count`), rises with a short pop and falls quietly when an undo takes a completion back. "Today" is always the last 24 hours, with no setting |
+| `done.lens` | `D`, clicking the count, or Done today in the `Ctrl/⌘+K` palette | A [lens](lenses.md) on the tasks done in the last 24 hours, most recently done first. The count line reads e.g. "3 done today". With nothing done, the empty list says so and offers to look further back |
 | `done.lens-window` | `Shift+D`, clicking the count line in the lens, or Look further back in the palette | The lens looks back 7 days, then 30, then 24 hours again, and the count line says which. Outside the lens, `Shift+D` opens it at 7 days. The header count always means the last 24 hours |
-| `done.lens-status` | Changing the status filter in the lens | The lens ends and the new status view becomes the ordinary view, remembered as usual |
-| `done.lens-launch` | Launching after quitting with the lens on | The lens is never remembered; the list opens on the view it set aside |
 | `done.completed-at` | The list is sorted by Completed | Each done row shows when it was done in a trailing column on its title line: the time today, the weekday within the week, the date before that, and the full time on hover. The column never adds a line, and other sorts don't show it |
 | `done.all-clear` | The default Active view is empty and something was completed in the last 24 hours | The empty shell reads "All clear" with the day's count instead of "No active tasks" |
 

@@ -89,6 +89,7 @@ export type TaskListFilters = {
   includeAncestors?: boolean;
   includeDescendants?: boolean;
   closedSince?: string;
+  dueBefore?: string;
   limit?: number;
 };
 
@@ -141,6 +142,7 @@ export async function listTasks(
     ...(filters.includeAncestors ? { includeAncestors: true } : {}),
     ...(filters.includeDescendants ? { includeDescendants: true } : {}),
     ...(filters.closedSince !== undefined ? { closedSince: filters.closedSince } : {}),
+    ...(filters.dueBefore !== undefined ? { dueBefore: filters.dueBefore } : {}),
     ...(filters.limit !== undefined ? { limit: filters.limit } : {}),
     offset,
   });
