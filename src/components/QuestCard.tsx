@@ -269,8 +269,15 @@ function QuestComplete({
           {next ? `${quest.title} complete` : "Every quest complete"}
         </p>
         <div className="mt-1.5 flex min-h-5 flex-wrap gap-1" data-quest-recap>
-          {recap.slice(0, revealed).map((label) => (
-            <span key={label} className="flex motion-safe:animate-in motion-safe:zoom-in-50">
+          {/* Every key takes its place from the start, so a wrapping recap never grows the card. */}
+          {recap.map((label, index) => (
+            <span
+              key={label}
+              className={cn(
+                "flex",
+                index < revealed ? "motion-safe:animate-in motion-safe:zoom-in-50" : "invisible",
+              )}
+            >
               <Kbd>{label}</Kbd>
             </span>
           ))}
