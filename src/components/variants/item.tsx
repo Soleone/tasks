@@ -45,6 +45,25 @@ export function TaskItemTitle({ className, ...props }: ComponentProps<typeof Ite
   return <ItemTitle className={cn("line-clamp-none", className)} {...props} />;
 }
 
+/**
+ * A task's notes under Details: the small size of the row's facts but brighter,
+ * since notes are content. Line breaks kept, a long note cut at four lines.
+ */
+export function TaskItemDescription({
+  className,
+  ...props
+}: ComponentProps<typeof ItemDescription>) {
+  return (
+    <ItemDescription
+      className={cn(
+        "line-clamp-4 text-xs whitespace-pre-line text-foreground/80 wrap-anywhere",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 /** The quiet classification row for category and tag badges. */
 export function TaskItemMetadata({ className, ...props }: ComponentProps<typeof ItemDescription>) {
   return (

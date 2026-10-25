@@ -621,6 +621,29 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").textContent).toMatch(/Blocked by.*Blocker/));
   });
 
+  test("details.layout: Details adds the footer on the blocker's line and the description last", async () => {
+    const blocker = await workspace.create("Blocker");
+    const task = await workspace.create("Task", { category: "work", description: "First\nSecond" });
+    await workspace.change("task.dependency.add", task.id, { dependsOnId: blocker.id });
+    const { user } = await workspace.render();
+    await user.keyboard("{Shift>}v{/Shift}");
+    const description = await waitFor(() => {
+      const found = row("Task").querySelector("[data-task-description]");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    expect(description.textContent).toBe("First\nSecond");
+    const blocked = row("Task").querySelector("[data-task-blocker]")!;
+    expect(blocked.textContent).toMatch(/Blocked by.*Blocker/);
+    expect(blocked.parentElement?.querySelector("[title^=Created]")).not.toBeNull();
+    const order = [row("Task").querySelector("[data-task-category]")!, blocked, description];
+    for (const [earlier, later] of [order.slice(0, 2), order.slice(1)]) {
+      expect(
+        earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
   test("details.footer: with Details on, each due date shows once and Created shows", async () => {
     const today = localToday();
     const later = addDays(today, 7);

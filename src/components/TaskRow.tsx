@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
-import { CalendarDays, Clock3, Folder, Images, RotateCcwClock, ShieldBan } from "lucide-react";
+import { CalendarDays, Folder, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
@@ -14,10 +14,14 @@ import {
 } from "@/backend/taskDates";
 import { priorityMeta, statusGlyphColor, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
-import { ItemDescription } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClassificationBadge } from "@/components/variants/badge";
-import { TaskItemMetadata, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
+import {
+  TaskItemDescription,
+  TaskItemMetadata,
+  TaskItemTitle,
+  TaskItemTrailing,
+} from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
@@ -152,11 +156,8 @@ function TaskRowMetadata({
   const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
   if (!category && task.tags.length === 0) {
     if (!task.category) {
-      return (
-        <TaskItemMetadata>
-          <span className="sr-only">No category or tags</span>
-        </TaskItemMetadata>
-      );
+      // Hidden as a whole, so the empty line takes no gap in the row.
+      return <TaskItemMetadata className="sr-only">No category or tags</TaskItemMetadata>;
     }
     return null;
   }
@@ -245,14 +246,8 @@ function TaskRowTrailing({
   );
 }
 
-/** Quiet relationship context for the full row. Never color-only. */
-function TaskRowRelationships({
-  task,
-  blockedByLabels,
-}: {
-  task: TaskView;
-  blockedByLabels?: string[];
-}): ReactElement | null {
+/** Who blocks the task, for the full row, or null when nothing does. Never color-only. */
+function taskBlocker(task: TaskView, blockedByLabels?: string[]): ReactElement | null {
   const blockerCount = task.blockedByIds.length;
   if (blockerCount === 0) return null;
 
@@ -268,13 +263,11 @@ function TaskRowRelationships({
         : `${blockerCount} blockers`;
 
   return (
-    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
-      <span className="inline-flex min-w-0 items-center gap-1">
-        <ShieldBan className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
-        <span className="sr-only">Blocked by </span>
-        <span>{blockerText}</span>
-      </span>
-    </p>
+    <span data-task-blocker className="inline-flex min-w-0 items-center gap-1">
+      <ShieldBan className="size-3.5 shrink-0 text-warning" aria-hidden="true" />
+      <span className="sr-only">Blocked by </span>
+      <span>{blockerText}</span>
+    </span>
   );
 }
 
@@ -291,62 +284,75 @@ function dueNow(task: TaskView, today: string): boolean {
 }
 
 /**
- * Quiet footer: a due date the row doesn't mark, created and updated (leading
- * when it differs) and the image count.
+ * Quiet facts between dots, where the blocker line sits: the blocker, then a
+ * due date the row doesn't mark, updated (when it differs), created and the image count.
  */
 function TaskRowFooter({
   task,
+  blocker,
   onCopyImage,
 }: {
   task: TaskView;
+  blocker: ReactElement | null;
   onCopyImage?: (task: TaskView) => void;
 }): ReactElement {
-  const showUpdated = !sameTaskDay(task.createdAt, task.updatedAt);
   const imageCount = task.attachments.length;
   const today = localToday();
-  return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-      {task.due === null || rowDueLabel(task, today) !== null ? null : (
-        <span data-task-due className="inline-flex min-w-0 items-center gap-1">
-          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-          <span>Due {formatDueDate(task.due, today)}</span>
-        </span>
-      )}
-      {showUpdated ? (
-        <span
-          className="inline-flex min-w-0 items-center gap-1"
-          title={`Updated ${formatTaskDateTime(task.updatedAt)}`}
-        >
-          <RotateCcwClock className="size-3.5 shrink-0" aria-hidden="true" />
-          <span>Updated {formatTaskDate(task.updatedAt)}</span>
-        </span>
-      ) : null}
+  const facts: ReactElement[] = blocker ? [blocker] : [];
+  if (task.due !== null && rowDueLabel(task, today) === null) {
+    facts.push(
+      <span key="due" data-task-due className="inline-flex min-w-0 items-center gap-1">
+        <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+        <span>Due {formatDueDate(task.due, today)}</span>
+      </span>,
+    );
+  }
+  if (!sameTaskDay(task.createdAt, task.updatedAt)) {
+    facts.push(
+      <span key="updated" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
+        Updated {formatTaskDate(task.updatedAt)}
+      </span>,
+    );
+  }
+  facts.push(
+    <span key="created" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
+      Created {formatTaskDate(task.createdAt)}
+    </span>,
+  );
+  if (imageCount > 0) {
+    const imageText = imageCount === 1 ? "1 image" : `${imageCount} images`;
+    facts.push(
+      // A pointer shortcut inside a list option, like the category badge.
       <span
-        className="inline-flex min-w-0 items-center gap-1"
-        title={`Created ${formatTaskDateTime(task.createdAt)}`}
+        key="images"
+        role="img"
+        tabIndex={-1}
+        data-task-images
+        aria-label={`${imageText}. Click to copy the newest; press Ctrl/⌘+Shift+C.`}
+        title="Copy the newest image"
+        onMouseDown={preventFocusSteal}
+        onClick={(event) => {
+          event.stopPropagation();
+          onCopyImage?.(task);
+        }}
+        className={cn(onCopyImage && "cursor-pointer hover:text-foreground")}
       >
-        <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
-        <span>Created {formatTaskDate(task.createdAt)}</span>
-      </span>
-      {imageCount > 0 ? (
-        // A pointer shortcut inside a list option, like the category badge.
-        <span
-          role="img"
-          tabIndex={-1}
-          data-task-images
-          aria-label={`${imageCount === 1 ? "1 image" : `${imageCount} images`}. Click to copy the newest; press Ctrl/⌘+Shift+C.`}
-          title="Copy the newest image"
-          onMouseDown={preventFocusSteal}
-          onClick={(event) => {
-            event.stopPropagation();
-            onCopyImage?.(task);
-          }}
-          className={cn("inline-flex min-w-0 items-center gap-1", onCopyImage && "cursor-pointer")}
-        >
-          <Images className="size-3.5 shrink-0" aria-hidden="true" />
-          <span>{imageCount === 1 ? "1 image" : `${imageCount} images`}</span>
-        </span>
-      ) : null}
+        {imageText}
+      </span>,
+    );
+  }
+  return (
+    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
+      {facts.flatMap((fact, index) =>
+        index === 0
+          ? [fact]
+          : [
+              <span key={`dot-${fact.key}`} aria-hidden="true">
+                ·
+              </span>,
+              fact,
+            ],
+      )}
     </p>
   );
 }
@@ -386,6 +392,7 @@ export function TaskRow({
   onSelectCategory?: (category: ClassificationToken) => void;
   onCopyImage?: (task: TaskView) => void;
 }): ReactElement {
+  const blocker = variant === "full" ? taskBlocker(task, blockedByLabels) : null;
   return (
     <div
       className={cn(
@@ -404,11 +411,6 @@ export function TaskRow({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
-        {variant === "full" && showDetails && task.description ? (
-          <ItemDescription data-task-description className="wrap-anywhere">
-            {task.description}
-          </ItemDescription>
-        ) : null}
         {variant === "full" ? (
           <TaskRowMetadata
             task={task}
@@ -416,8 +418,10 @@ export function TaskRow({
             onSelectCategory={onSelectCategory}
           />
         ) : null}
-        {variant === "full" ? (
-          <TaskRowRelationships task={task} blockedByLabels={blockedByLabels} />
+        {variant === "full" && showDetails ? (
+          <TaskRowFooter task={task} blocker={blocker} onCopyImage={onCopyImage} />
+        ) : variant === "full" && blocker ? (
+          <p className="flex text-xs text-muted-foreground">{blocker}</p>
         ) : null}
         {variant === "full" && contextOnly ? (
           <p
@@ -428,8 +432,8 @@ export function TaskRow({
             {taskContextMessage(indented)}
           </p>
         ) : null}
-        {variant === "full" && showDetails ? (
-          <TaskRowFooter task={task} onCopyImage={onCopyImage} />
+        {variant === "full" && showDetails && task.description ? (
+          <TaskItemDescription data-task-description>{task.description}</TaskItemDescription>
         ) : null}
       </div>
       {variant === "full" && disclosureSlot ? (
