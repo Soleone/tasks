@@ -183,6 +183,29 @@ describe("inside the editor", () => {
     await expectListFocused();
     await expectRows(["Existing task"]);
   });
+
+  test("undo.scope: an edit to title, category and description is undone and redone as one step", async () => {
+    const { task } = await workspace.command<{ task: { id: string } }>("task.create", {
+      text: "Call @home",
+      description: "Old note",
+    });
+    const fields = async () => {
+      const saved = await workspace.task(task.id);
+      return [saved.title, saved.category, saved.description];
+    };
+    const { user } = await workspace.render();
+    await user.click(row("Call"));
+    await focusedTitleField();
+    await user.keyboard("back @work {Tab}{Tab}{Control>}{End}{/Control} and more");
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    await expectListFocused();
+    const edited = ["Call back", "work", "Old note and more"];
+    await waitFor(async () => expect(await fields()).toEqual(edited));
+    await user.keyboard("{Control>}z{/Control}");
+    await waitFor(async () => expect(await fields()).toEqual(["Call", "home", "Old note"]));
+    await user.keyboard("{Control>}y{/Control}");
+    await waitFor(async () => expect(await fields()).toEqual(edited));
+  });
 });
 
 describe("shorthand", () => {
