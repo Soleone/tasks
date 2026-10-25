@@ -427,9 +427,7 @@ export function TaskList({
     selectedIds,
     visibleRowsRef,
     selectedIdsRef,
-    setActiveTaskIndex,
-    setSelection,
-    selectOnly,
+    activate,
     moveActive,
     selectBoundary,
     clearSelection,
@@ -667,10 +665,6 @@ export function TaskList({
   }
 
   function clearCategoryFilter(activeTaskId?: string): void {
-    if (activeTaskId !== undefined) {
-      const row = visibleRowsRef.current.find((candidate) => candidate.task.id === activeTaskId);
-      if (row && !row.contextOnly) selectOnly(row);
-    }
     returnToList();
     if (!categoryFilter) return;
     onCategoryFilterChange(null, activeTaskId);
@@ -686,10 +680,6 @@ export function TaskList({
   }
 
   function selectCategory(category: ClassificationToken, activeTaskId?: string): void {
-    if (activeTaskId !== undefined) {
-      const row = visibleRowsRef.current.find((candidate) => candidate.task.id === activeTaskId);
-      if (row && !row.contextOnly) selectOnly(row);
-    }
     returnToList();
     onSelectCategory(category, activeTaskId);
   }
@@ -990,7 +980,7 @@ export function TaskList({
     const parentIndex = visibleRows.findIndex(
       (candidate) => candidate.task.id === row.task.parentId,
     );
-    if (parentIndex >= 0) setActiveTaskIndex(parentIndex);
+    if (parentIndex >= 0) activate(parentIndex);
   }
 
   function handleHorizontalNavigation(key: "ArrowLeft" | "ArrowRight"): void {
@@ -1322,9 +1312,6 @@ export function TaskList({
         if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
         onStatusChanged?.(task, result.task, activeTask?.id === task.id);
       }
-      // Remove the selected styling before the parent starts the exit animation.
-      // Otherwise the moving border makes the cancellation transition look wrong.
-      setSelection([], null);
       onCanceled(result.task);
     } catch (caught) {
       if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
@@ -1361,7 +1348,6 @@ export function TaskList({
       batchTransitionReceiptRef.current = null;
       if (result.operationId) onOperation?.(result.operationId, selected, result.tasks);
       onStatusBatchChanged?.(selected, result.tasks, activeTask?.id ?? null);
-      setSelection([], null);
       if (onCanceledMany) onCanceledMany(selected, result.tasks);
       else result.tasks.forEach((task) => onCanceled(task));
       onAnnounce(`Canceled ${result.tasks.length} tasks`);
@@ -1400,10 +1386,7 @@ export function TaskList({
     return {
       disabled:
         composer !== null || mutationPendingIds.has(row.task.id) || exitingTaskIds.has(row.task.id),
-      onTarget: () => {
-        setActiveTaskIndex(index);
-        selectOnly(row);
-      },
+      onTarget: () => activate(index),
       onEdit,
       onStatus: (task) => void toggleStatus(task),
       onPause: (task) => void pauseTask(task),
@@ -1731,7 +1714,8 @@ export function TaskList({
                     row={row}
                     index={index}
                     active={index === activeIndex}
-                    selected={selectedIds.has(row.task.id)}
+                    // A leaving row drops its selected styling before it slides out.
+                    selected={selectedIds.has(row.task.id) && !exitingTaskIds.has(row.task.id)}
                     expanded={expandedIds.has(row.task.id)}
                     pending={mutationPendingIds.has(row.task.id)}
                     feedbackVersion={

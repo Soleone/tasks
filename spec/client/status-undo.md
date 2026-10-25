@@ -1,6 +1,6 @@
 # Status, undo and redo
 
-Status keys act on the selection, or on the active task when nothing else is selected.
+Status keys act on the selection: the active task, or the several tasks selected with Shift or Ctrl/⌘ ([home.md](home.md#selection)).
 
 ## Status
 

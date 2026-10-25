@@ -55,14 +55,16 @@ The list shows two levels: root tasks and their children.
 
 ## Selection
 
-Selection always stays within one visible sibling scope: the children of one parent, or the root tasks.
+The active task is the row the cursor is on: `Enter`, arrows, priority and copy act on it. The selection is what status keys, `Delete` and reorder act on. Without Shift or Ctrl/⌘ the two are the same task, so no other row is ever selected by accident. Only Shift and Ctrl/⌘ select several tasks; the active task is always one of them, and they stay within one visible sibling scope: the children of one parent, or the root tasks.
 
 | Rule | When | Then |
 | --- | --- | --- |
+| `select.single` | The active task changes without Shift or Ctrl/⌘: arrows, a click, `Left`/`Right`, undo or redo, a refresh, a filter change or a new task | It becomes the only selection |
+| `select.includes-active` | Several tasks are selected | The active task is one of them. Removing it with `Ctrl/⌘+click` makes the nearest selected sibling active |
 | `select.extend` | `Shift+Up` / `Shift+Down` | The selection extends through visible siblings |
 | `select.extend-edge` | `Shift+Home` / `Shift+End` | The selection extends to the first or last sibling |
 | `select.pointer` | `Ctrl/⌘+click` / `Shift+click` | Toggles one task, or selects a sibling range |
-| `select.escape` | `Escape` on the list with several tasks selected | The selection clears. With one or none selected, `Escape` resets filters instead |
+| `select.escape` | `Escape` on the list with several tasks selected | The selection narrows to the active task. With one or none selected, `Escape` resets filters instead |
 
 ## Reorder
 

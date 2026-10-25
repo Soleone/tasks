@@ -53,7 +53,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `S`, then a key | Sort (see toolbar) | `sort.mode` |
 | `@` / `#` | Category / tag picker | `filter.category`, `filter.tags` |
 | `/` | Search | `filter.search` |
-| `Escape` | Close, go back, clear selection, then reset filters | `select.escape`, `filter.escape` |
+| `Escape` | Close, go back, narrow the selection, then reset filters | `select.escape`, `filter.escape` |
 | `?` | Starter help panel | `help.starter` |
 | `Ctrl/⌘+K` | Shortcut and syntax palette | `help.palette` |
 | `Ctrl/⌘+,` | Settings | `settings.open` |

@@ -149,6 +149,7 @@ describe("moving around", () => {
     await expectActive("Child");
     await user.keyboard("{ArrowLeft}");
     await expectActive("Parent");
+    expect(selectedTitles()).toEqual(["Parent"]);
   });
 
   test("home.left-collapse: Left on an expanded parent collapses it", async () => {
@@ -211,6 +212,27 @@ describe("moving around", () => {
 });
 
 describe("selection", () => {
+  test("select.single: a task brought back by undo is the only selection, so Space acts on it", async () => {
+    const below = await workspace.create("Below");
+    const working = await workspace.create("Working");
+    await workspace.create("Above");
+    await workspace.change("task.start", working.id);
+    const { user } = await workspace.render();
+    await expectActive("Above");
+    await user.keyboard("{ArrowDown}");
+    await expectActive("Working");
+    await user.keyboard(" ");
+    await expectRows(["Above", "Below"]);
+    expect(selectedTitles()).toEqual([activeTitle()]);
+    await user.keyboard("{Control>}z{/Control}");
+    await expectRows(["Above", "Working", "Below"]);
+    await expectActive("Working");
+    expect(selectedTitles()).toEqual(["Working"]);
+    await user.keyboard(" ");
+    await waitFor(async () => expect((await workspace.task(working.id)).status).toBe("done"));
+    expect((await workspace.task(below.id)).status).toBe("open");
+  });
+
   test("select.extend: Shift+Down extends the selection through siblings", async () => {
     await seed("C", "B", "A");
     const { user } = await workspace.render();
@@ -228,32 +250,48 @@ describe("selection", () => {
   });
 
   test("select.pointer: Ctrl+click toggles one task and Shift+click selects a range", async () => {
-    await seed("C", "B", "A");
+    await seed("D", "C", "B", "A");
     const { user } = await workspace.render();
     await expectActive("A");
     await user.keyboard("{Control>}");
     await user.click(row("C"));
     await user.keyboard("{/Control}");
     await waitFor(() => expect(selectedTitles()).toEqual(["A", "C"]));
+    await user.keyboard("{Shift>}");
+    await user.click(row("D"));
+    await user.keyboard("{/Shift}");
+    // The range runs from the last clicked task.
+    await waitFor(() => expect(selectedTitles()).toEqual(["C", "D"]));
+    await expectActive("D");
+  });
+
+  test("select.includes-active: Ctrl+click on the active task hands the active row to the nearest selected sibling", async () => {
+    await seed("D", "C", "B", "A");
+    const { user } = await workspace.render();
+    await expectActive("A");
     await user.keyboard("{Control>}");
+    await user.click(row("C"));
+    await user.click(row("D"));
+    await waitFor(() => expect(selectedTitles()).toEqual(["A", "C", "D"]));
+    await expectActive("D");
+    await user.click(row("D"));
+    await waitFor(() => expect(selectedTitles()).toEqual(["A", "C"]));
+    await expectActive("C");
     await user.click(row("C"));
     await user.keyboard("{/Control}");
     await waitFor(() => expect(selectedTitles()).toEqual(["A"]));
-    await user.keyboard("{Shift>}");
-    await user.click(row("B"));
-    await user.keyboard("{/Shift}");
-    // The range runs from the last clicked task.
-    await waitFor(() => expect(selectedTitles()).toEqual(["B", "C"]));
+    await expectActive("A");
   });
 
-  test("select.escape: Escape with several selected clears the selection, not filters", async () => {
+  test("select.escape: Escape with several selected narrows to the active task, not filters", async () => {
     await seed("C", "B", "A");
     const { user } = await workspace.render();
     await expectActive("A");
     await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
     await waitFor(() => expect(selectedTitles()).toEqual(["A", "B"]));
     await user.keyboard("{Escape}");
-    await waitFor(() => expect(selectedTitles().length).toBeLessThanOrEqual(1));
+    await waitFor(() => expect(selectedTitles()).toEqual(["B"]));
+    await expectActive("B");
   });
 });
 

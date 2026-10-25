@@ -22,6 +22,11 @@ type TaskListSelectionView = {
   onEdit: (task: TaskView) => void;
 };
 
+/** The selection when no Shift or Ctrl/⌘ gesture widened it: the active task alone. */
+function activeOnly(row: VisibleTaskRow | undefined): ReadonlySet<string> {
+  return new Set(row && !row.contextOnly ? [row.task.id] : []);
+}
+
 export function useTaskListSelection({
   tasks,
   visibleRows,
@@ -39,14 +44,16 @@ export function useTaskListSelection({
     id: null,
   });
   const activeTaskIndex = active.index;
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // Only Shift and Ctrl/⌘ gestures set a range: several siblings that always
+  // include the active task. Without one, the active task is the selection, so
+  // every move of the active row moves the selection with it.
+  const [range, setRange] = useState<ReadonlySet<string> | null>(null);
+  const rangeRef = useRef<ReadonlySet<string> | null>(null);
   const visibleRowsRef = useRef<VisibleTaskRow[]>([]);
-  const selectedIdsRef = useRef<Set<string>>(new Set());
+  const selectedIdsRef = useRef<ReadonlySet<string>>(new Set());
   const previousFilterIdentityRef = useRef<string | null>(null);
-  const selectionClearedRef = useRef(false);
   const selectionAnchorRef = useRef<string | null>(null);
   const restoreActiveIdRef = useRef<string | null>(null);
-  const restoreSelectionIdsRef = useRef<Set<string> | null>(null);
   const identityRefreshPendingRef = useRef(false);
   const activeTaskIndexRef = useRef(0);
   const activeTaskIdRef = useRef<string | null>(null);
@@ -55,17 +62,30 @@ export function useTaskListSelection({
   const activeScrollFrameRef = useRef<number | null>(null);
   const activeScrollTargetRef = useRef<string | null>(null);
 
-  function setActiveTaskIndex(nextIndex: number): void {
+  /** Moves the active row and keeps the range; callers settle the range next. */
+  function setActiveRow(nextIndex: number): void {
     activeTaskIdRef.current = visibleRowsRef.current[nextIndex]?.task.id ?? null;
     activeTaskIndexRef.current = nextIndex;
     setActive({ index: nextIndex, id: activeTaskIdRef.current });
   }
 
+  function setRangeIds(ids: ReadonlySet<string> | null): void {
+    const next = ids && ids.size > 1 ? ids : null;
+    rangeRef.current = next;
+    setRange(next);
+    selectedIdsRef.current = next ?? activeOnly(visibleRowsRef.current[activeTaskIndexRef.current]);
+  }
+
+  /** Makes one row active and the only selection. */
+  function activate(index: number): void {
+    setActiveRow(index);
+    setRangeIds(null);
+    selectionAnchorRef.current = activeTaskIdRef.current;
+  }
+
   function clearActiveTaskSelection(): void {
     restoreActiveIdRef.current = null;
-    restoreSelectionIdsRef.current = null;
-    setActiveTaskIndex(-1);
-    setSelection([], null);
+    activate(-1);
   }
 
   // The active row is list state, not focus state, so it survives toolbar
@@ -79,6 +99,7 @@ export function useTaskListSelection({
   const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
   const activeTask = activeRow?.task;
   const activeTaskId = activeTask?.id ?? null;
+  const selectedIds = range ?? activeOnly(activeRow);
 
   // Event handlers read these between renders.
   useLayoutEffect(() => {
@@ -90,19 +111,15 @@ export function useTaskListSelection({
   });
 
   useEffect(() => {
-    if (activeIndex !== activeTaskIndex || activeTaskId !== active.id)
-      setActiveTaskIndex(activeIndex);
+    if (activeIndex !== activeTaskIndex || activeTaskId !== active.id) setActiveRow(activeIndex);
 
-    const selectableIds = new Set(
-      visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id),
-    );
     const restoredActiveId = restoreActiveIdRef.current;
     if (restoredActiveId !== null) {
       const restoredIndex = visibleRows.findIndex((row) => row.task.id === restoredActiveId);
       if (restoredIndex >= 0) {
-        setActiveTaskIndex(restoredIndex);
+        setActiveRow(restoredIndex);
       } else if (visibleRows.length > 0) {
-        setActiveTaskIndex(Math.min(activeTaskIndex, visibleRows.length - 1));
+        setActiveRow(Math.min(activeTaskIndex, visibleRows.length - 1));
         onAnnounce("The moved task is outside the loaded page.");
       }
       if (!identityRefreshPendingRef.current) restoreActiveIdRef.current = null;
@@ -112,52 +129,36 @@ export function useTaskListSelection({
       previousFilterIdentityRef.current !== null &&
       previousFilterIdentityRef.current !== filterIdentity;
     previousFilterIdentityRef.current = filterIdentity;
-    const requestedSelection = filterChanged
-      ? new Set<string>()
-      : (restoreSelectionIdsRef.current ?? selectedIdsRef.current);
-    // Apply the new-task selection once. The highlight id remains set briefly,
-    // but it must not restore the selection after the user starts another create.
+    const selectableIds = new Set(
+      visibleRows.filter((row) => !row.contextOnly).map((row) => row.task.id),
+    );
+    // Select a new task once. The highlight id remains set briefly, but it
+    // must not select the task again after the user starts another create.
     if (newTaskId == null) lastSelectedNewTaskIdRef.current = null;
-    const createdTaskId =
+    if (
       newTaskId != null &&
       newTaskId !== lastSelectedNewTaskIdRef.current &&
       selectableIds.has(newTaskId)
-        ? newTaskId
-        : null;
-    if (createdTaskId !== null) lastSelectedNewTaskIdRef.current = createdTaskId;
-    const nextSelection =
-      createdTaskId !== null
-        ? new Set<string>([createdTaskId])
-        : new Set([...requestedSelection].filter((id) => selectableIds.has(id)));
-    if (createdTaskId !== null) {
-      const createdTaskIndex = visibleRows.findIndex((row) => row.task.id === createdTaskId);
-      if (createdTaskIndex >= 0 && createdTaskIndex !== activeTaskIndex)
-        setActiveTaskIndex(createdTaskIndex);
-    }
-    const visibleActive = visibleRows[activeIndex];
-    if (
-      nextSelection.size === 0 &&
-      visibleActive &&
-      !visibleActive.contextOnly &&
-      !selectionClearedRef.current
-    )
-      nextSelection.add(visibleActive.task.id);
-    const changed =
-      nextSelection.size !== selectedIdsRef.current.size ||
-      [...nextSelection].some((id) => !selectedIdsRef.current.has(id));
-    if (changed) setSelectedIds(nextSelection);
-    selectedIdsRef.current = nextSelection;
-    if (createdTaskId !== null) {
-      selectionClearedRef.current = false;
-      selectionAnchorRef.current = createdTaskId;
-    } else if (
-      filterChanged ||
-      selectionAnchorRef.current === null ||
-      !selectableIds.has(selectionAnchorRef.current)
     ) {
-      selectionAnchorRef.current = [...nextSelection][0] ?? null;
+      lastSelectedNewTaskIdRef.current = newTaskId;
+      activate(visibleRows.findIndex((row) => row.task.id === newTaskId));
+      return;
     }
-    if (!identityRefreshPendingRef.current) restoreSelectionIdsRef.current = null;
+    if (filterChanged) {
+      activate(activeTaskIndexRef.current);
+      return;
+    }
+    // A range keeps its tasks that are still selectable, and ends once the
+    // active task leaves it. A pending refresh keeps it whole until it lands.
+    const current = rangeRef.current;
+    if (current !== null && !identityRefreshPendingRef.current) {
+      const kept = new Set([...current].filter((id) => selectableIds.has(id)));
+      if (!kept.has(activeTaskIdRef.current ?? "")) activate(activeTaskIndexRef.current);
+      else if (kept.size !== current.size) setRangeIds(kept);
+    }
+    const anchorId = selectionAnchorRef.current;
+    if (anchorId === null || !selectableIds.has(anchorId))
+      selectionAnchorRef.current = activeTaskIdRef.current;
   }, [
     active.id,
     activeIndex,
@@ -166,7 +167,6 @@ export function useTaskListSelection({
     filterIdentity,
     newTaskId,
     onAnnounce,
-    selectedIds,
     visibleRows,
   ]);
 
@@ -197,7 +197,7 @@ export function useTaskListSelection({
             visibleRows.findIndex((row) => row.task.id === activeTaskRequest.taskId),
             0,
           );
-    setActiveTaskIndex(requestedIndex);
+    activate(requestedIndex);
   }, [
     activeTaskRequest.key,
     activeTaskRequest.preserveTaskOnRefresh,
@@ -213,23 +213,8 @@ export function useTaskListSelection({
     [],
   );
 
-  function setSelection(ids: Iterable<string>, anchorId: string | null): void {
-    const next = new Set(ids);
-    selectedIdsRef.current = next;
-    selectionClearedRef.current = next.size === 0;
-    selectionAnchorRef.current = anchorId;
-    setSelectedIds(next);
-  }
-
-  function selectOnly(row: VisibleTaskRow): void {
-    if (row.contextOnly) {
-      setSelection([], null);
-      return;
-    }
-    setSelection([row.task.id], row.task.id);
-  }
-
-  function selectRangeTo(row: VisibleTaskRow): void {
+  /** Makes `row` active and selects the siblings from the anchor through it. */
+  function extendTo(row: VisibleTaskRow, index: number): void {
     if (row.contextOnly) {
       onAnnounce("Context-only tasks cannot be selected.");
       return;
@@ -239,23 +224,55 @@ export function useTaskListSelection({
     const anchorIndex =
       anchorId === null ? -1 : scope.findIndex((candidate) => candidate.task.id === anchorId);
     const targetIndex = scope.findIndex((candidate) => candidate.task.id === row.task.id);
-    if (anchorId === null || targetIndex < 0) {
-      selectOnly(row);
-      return;
-    }
-    if (anchorIndex < 0) {
-      selectOnly(row);
-      onAnnounce("Selection is limited to one visible sibling scope.");
+    if (anchorIndex < 0 || targetIndex < 0) {
+      activate(index);
+      if (anchorId !== null && targetIndex >= 0)
+        onAnnounce("Selection is limited to one visible sibling scope.");
       return;
     }
     const start = Math.min(anchorIndex, targetIndex);
     const end = Math.max(anchorIndex, targetIndex);
     const count = end - start + 1;
-    setSelection(
-      scope.slice(start, end + 1).map((candidate) => candidate.task.id),
-      anchorId,
-    );
+    setActiveRow(index);
+    setRangeIds(new Set(scope.slice(start, end + 1).map((candidate) => candidate.task.id)));
     onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
+  }
+
+  /** Ctrl/⌘+click: adds or removes one sibling while the active task stays selected. */
+  function toggleSelected(row: VisibleTaskRow, index: number): void {
+    const scope = selectableSiblingRows(row, visibleRowsRef.current);
+    const sameScope =
+      scope.length > 0 &&
+      [...selectedIdsRef.current].every((id) =>
+        scope.some((candidate) => candidate.task.id === id),
+      );
+    if (!sameScope) {
+      activate(index);
+      return;
+    }
+    const next = new Set(selectedIdsRef.current);
+    if (!next.delete(row.task.id)) {
+      next.add(row.task.id);
+      setActiveRow(index);
+      selectionAnchorRef.current = row.task.id;
+    } else if (next.size === 0) {
+      activate(index);
+      return;
+    } else if (row.task.id === activeTaskIdRef.current) {
+      // Removing the active task hands the active row to the nearest selected sibling.
+      const at = scope.findIndex((candidate) => candidate.task.id === row.task.id);
+      const nearest = scope
+        .filter((candidate) => next.has(candidate.task.id))
+        .reduce((best, candidate) =>
+          Math.abs(scope.indexOf(candidate) - at) < Math.abs(scope.indexOf(best) - at)
+            ? candidate
+            : best,
+        );
+      setActiveRow(visibleRowsRef.current.indexOf(nearest));
+      selectionAnchorRef.current = nearest.task.id;
+    }
+    setRangeIds(next);
+    onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
   }
 
   function scheduleActiveScroll(taskId: string): void {
@@ -275,10 +292,8 @@ export function useTaskListSelection({
     if (currentIndex < 0) {
       const firstIndex = visibleRows.findIndex((row) => !row.contextOnly);
       if (firstIndex < 0) return;
-      const firstTask = visibleRows[firstIndex];
-      setActiveTaskIndex(firstIndex);
-      selectOnly(firstTask);
-      scheduleActiveScroll(firstTask.task.id);
+      activate(firstIndex);
+      scheduleActiveScroll(visibleRows[firstIndex].task.id);
       return;
     }
     const requestedIndex =
@@ -305,17 +320,14 @@ export function useTaskListSelection({
         (candidate) => candidate.task.id === target.task.id,
       );
       if (targetIndex < 0) return;
-      setActiveTaskIndex(targetIndex);
-      selectRangeTo(target);
+      extendTo(target, targetIndex);
       scheduleActiveScroll(target.task.id);
       return;
     }
 
     const wrapped = (requestedIndex + visibleRows.length) % visibleRows.length;
-    const target = visibleRows[wrapped];
-    setActiveTaskIndex(wrapped);
-    selectOnly(target);
-    scheduleActiveScroll(target.task.id);
+    activate(wrapped);
+    scheduleActiveScroll(visibleRows[wrapped].task.id);
   }
 
   function selectBoundary(end: "start" | "end"): void {
@@ -327,52 +339,37 @@ export function useTaskListSelection({
     const scope = selectableSiblingRows(current, visibleRowsRef.current);
     const target = end === "start" ? scope[0] : scope[scope.length - 1];
     if (!target) return;
-    setActiveTaskIndex(visibleRows.findIndex((candidate) => candidate.task.id === target.task.id));
-    selectRangeTo(target);
+    extendTo(
+      target,
+      visibleRows.findIndex((candidate) => candidate.task.id === target.task.id),
+    );
     scheduleActiveScroll(target.task.id);
   }
 
+  /** Narrows a range to the active task. Returns false when there was no range. */
   function clearSelection(): boolean {
     if (selectedIdsRef.current.size < 2) return false;
-    setSelection([], null);
+    activate(activeTaskIndexRef.current);
     onAnnounce("Selection cleared");
     return true;
   }
 
   const handleOptionClick = useStableHandler<Parameters<TaskOptionClick>>((row, index, event) => {
     if (composerOpen) return;
-    const { task } = row;
     if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
       onAnnounce("Context-only tasks cannot be selected.");
       return;
     }
     if (event.shiftKey) {
-      setActiveTaskIndex(index);
-      selectRangeTo(row);
+      extendTo(row, index);
       return;
     }
     if (event.ctrlKey || event.metaKey) {
-      setActiveTaskIndex(index);
-      const scope = selectableSiblingRows(row, visibleRowsRef.current);
-      const sameScope =
-        scope.length > 0 &&
-        [...selectedIdsRef.current].every((id) =>
-          scope.some((candidate) => candidate.task.id === id),
-        );
-      if (!sameScope) {
-        selectOnly(row);
-        return;
-      }
-      const next = new Set(selectedIdsRef.current);
-      if (next.has(task.id)) next.delete(task.id);
-      else next.add(task.id);
-      setSelection(next, task.id);
-      onAnnounce(`${next.size} task${next.size === 1 ? "" : "s"} selected`);
+      toggleSelected(row, index);
       return;
     }
-    setActiveTaskIndex(index);
-    selectOnly(row);
-    onEdit(task);
+    activate(index);
+    onEdit(row.task);
   });
 
   return {
@@ -382,9 +379,7 @@ export function useTaskListSelection({
     selectedIds,
     visibleRowsRef,
     selectedIdsRef,
-    setActiveTaskIndex,
-    setSelection,
-    selectOnly,
+    activate,
     moveActive,
     selectBoundary,
     clearSelection,
@@ -394,12 +389,10 @@ export function useTaskListSelection({
       startIdentityPreservingRefresh: () => {
         identityRefreshPendingRef.current = true;
         restoreActiveIdRef.current = activeTaskIdRef.current;
-        restoreSelectionIdsRef.current = new Set(selectedIdsRef.current);
       },
       finishIdentityPreservingRefresh: () => {
         identityRefreshPendingRef.current = false;
         restoreActiveIdRef.current = null;
-        restoreSelectionIdsRef.current = null;
       },
       clearActiveTaskSelection,
       getActiveTask: () => activeTaskRef.current,
