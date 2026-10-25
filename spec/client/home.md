@@ -48,8 +48,8 @@ The list shows two levels: root tasks and their children.
 | `home.left` | `Left` on a child | The parent becomes active |
 | `home.left-collapse` | `Left` on an expanded parent | It collapses |
 | `home.left-clear-category` | `Left` on a collapsed or childless root task while filtered by category | The category filter clears and the task stays active |
-| `home.right-expand` | `Right` on a collapsed parent with no category, or while filtered by category | It expands. On an expanded parent, nothing happens |
-| `home.right-category` | `Right` on a categorized childless task, or on a categorized parent while no category filter is active; also `Right` on a childless task without a category | A categorized task filters the list to its category and stays the only selection. A parent stays collapsed; another `Right` expands it. A childless task without a category stays put and the app says so |
+| `home.right-expand` | `Right` on a collapsed parent with no category, one shown only because a child matches, or any parent while filtered by category | It expands. On an expanded parent, nothing happens |
+| `home.right-category` | `Right` on a categorized childless task, or on a categorized parent that matches the filters itself while no category filter is active; also `Right` on a childless task without a category | A categorized task filters the list to its category and stays the only selection. A parent stays collapsed; another `Right` expands it. A childless task without a category stays put and the app says so |
 | `home.open-editor` | `Enter`, or clicking a row | The task's inline editor replaces its row with the title focused |
 | `home.task-context-menu` | Long-pressing or right-clicking a saved task | Opens a task-actions menu for that row without opening its editor. Moving a touch to scroll cancels the hold. Actions target that task alone; release never also edits it. Dismissal returns focus to the list unless an action opened an editor or dialog. Every action has an icon matching the existing action where available. Cancel task changes status to canceled, rather than deleting the task. The existing toolbar remains an alternative path |
 
@@ -83,7 +83,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `home.context-ancestor` | A matching task's ancestor doesn't match the filters | The ancestor shows as a muted row explaining that a child matches. It isn't counted and can still be expanded |
+| `home.context-ancestor` | A matching task's ancestor doesn't match the filters | The ancestor shows as a muted row explaining that a child matches, expanded so that child is in view. It isn't counted. Collapsing it sticks while it stays a context row |
 | `home.context-children` | A loaded tree has children outside the current results | The parent keeps its expand arrow. Expanding reveals all descendants, including paused, done and canceled tasks, in the two-level outline. Outside-result children are muted and labeled as shown with their parent. Context rows don't change the matching count or join bulk selection or reorder; their individual actions still work |
 | `home.filtered-empty` | Filters match nothing | A focusable, row-sized shell says "No tasks match the current filters" with a mouse-only Clear filters action. `Escape` clears filters from the keyboard |
 

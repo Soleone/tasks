@@ -293,6 +293,7 @@ export function useTaskListKeyboard(
       )
         return;
       event.preventDefault();
+      practice("status.cancel");
       void actions.deleteSelectedTasks();
       return;
     }
@@ -309,6 +310,7 @@ export function useTaskListKeyboard(
     } else if (event.key === "#") {
       if (event.repeat) return;
       event.preventDefault();
+      practice("filter.tags");
       actions.openTagPicker();
     } else if (event.key.toLowerCase() === "c") {
       if (event.repeat) return;
@@ -326,8 +328,10 @@ export function useTaskListKeyboard(
     } else if (event.key.toLowerCase() === "v") {
       if (event.repeat) return;
       event.preventDefault();
-      if (event.shiftKey) actions.toggleAllDetails();
-      else if (actions.activeTask) {
+      if (event.shiftKey) {
+        practice("details.toggle-all");
+        actions.toggleAllDetails();
+      } else if (actions.activeTask) {
         practice("details.toggle-active");
         actions.toggleActiveDetails(actions.activeTask);
       }
@@ -374,7 +378,7 @@ export function useTaskListKeyboard(
       if (event.repeat || isNativeButtonAction(event.target)) return;
       event.preventDefault();
       if (actions.activeTask) {
-        if (!event.shiftKey) practice("status.forward");
+        practice(event.shiftKey ? "status.back" : "status.forward");
         void (event.shiftKey ? actions.reverseSelectedStatus() : actions.toggleSelectedStatus());
       }
     } else if (event.key === "ArrowDown") {

@@ -51,8 +51,8 @@ test("learn.practice: a learned move is kept in the home and still checked after
   const { user } = await workspace.render({ home: true });
   await user.keyboard("v");
   await waitFor(async () =>
-    expect((await savedPreferences())["tasks.learnedMoves"]).toBe(
-      JSON.stringify(["details.toggle-active"]),
+    expect(JSON.parse((await savedPreferences())["tasks.learnedMoves"] ?? "[]")).toContain(
+      "details.toggle-active",
     ),
   );
 

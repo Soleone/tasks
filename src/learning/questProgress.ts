@@ -8,8 +8,10 @@ import { questsFor, type Quest, type QuestId, type QuestStep } from "./quests";
 const PROGRESS_KEY = "tasks.questProgress";
 const SHOW_KEY = "tasks.showQuests";
 // How long a step's success line shows (`quest.success`) and a finished quest's card stays.
-const SUCCESS_MS = 2000;
+const SUCCESS_MS = 1500;
 const COMPLETE_MS = 5000;
+// Matches quest-card-leave in styles.css.
+const LEAVE_MS = 300;
 
 /** What is saved: the quest under way, the step each started quest is at, and the finished ones. */
 type Stored = {
@@ -21,7 +23,7 @@ type Stored = {
 /** A reward the card is showing right now. */
 type QuestMoment =
   | { kind: "success"; line: string; tryKeys?: readonly string[] }
-  | { kind: "complete"; quest: QuestId };
+  | { kind: "complete"; quest: QuestId; leaving?: boolean };
 
 type QuestState = "new" | "active" | "paused" | "complete";
 export type QuestView = Quest & { state: QuestState; step: number };
@@ -93,6 +95,7 @@ function showMoment(next: QuestMoment | null, ms = SUCCESS_MS): void {
   moment = next;
   if (next)
     momentTimer = setTimeout(() => {
+      if (moment?.kind === "complete" && !moment.leaving) return dismissComplete();
       moment = null;
       notify();
     }, ms);
@@ -120,6 +123,8 @@ type Quests = {
   ahead: readonly number[];
   editorOpen: boolean;
   shown: boolean;
+  /** Every quest on this device is complete, so the help icon is plain (`learn.progress-ring`). */
+  allComplete: boolean;
 };
 
 export function useQuests(): Quests {
@@ -148,6 +153,7 @@ export function useQuests(): Quests {
       ahead: current.ahead,
       editorOpen: current.editorOpen,
       shown,
+      allComplete: quests.every((quest) => progress.complete.includes(quest.id)),
     };
   }, [stored, shown, current]);
 }
@@ -243,10 +249,10 @@ export function pauseQuest(): void {
   showTaskToast("Quest paused. Pick it up from ? whenever you like.", { icon: CirclePause });
 }
 
-/** Closes a finished quest's card; a step's success line started by the same key stays. */
+/** Sends a finished quest's card off to the right; the next quest's offer comes up after it. */
 export function dismissComplete(): void {
-  if (moment?.kind !== "complete") return;
-  showMoment(null);
+  if (moment?.kind !== "complete" || moment.leaving) return;
+  showMoment({ ...moment, leaving: true }, LEAVE_MS);
   notify();
 }
 

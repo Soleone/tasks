@@ -1,5 +1,6 @@
 import { useRef, useState, type ClipboardEvent } from "react";
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/backend/taskModel";
+import { practice } from "@/learning/progress";
 import { writeAttachment } from "@/platform/backendClient";
 
 function refusal(file: File, count: number): string | null {
@@ -46,7 +47,10 @@ export function useDraftImages(initial: readonly string[]) {
       .then(() => readDataUrl(file))
       .then(writeAttachment)
       .then(
-        (name) => change([...latest.current, name]),
+        (name) => {
+          practice("attach.paste");
+          change([...latest.current, name]);
+        },
         (caught: unknown) => setError(caught instanceof Error ? caught.message : String(caught)),
       )
       .finally(() => {

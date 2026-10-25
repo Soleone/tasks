@@ -47,7 +47,7 @@ describe("opening and closing", () => {
     await focusedTitleField();
   });
 
-  test("capture.child: Shift+C saves the new task as a child of the active task", async () => {
+  test("capture.child: Shift+C saves the new task as a child of the active task, shown and active", async () => {
     const parent = await workspace.create("Parent");
     const { user } = await workspace.render();
     await expectActive("Parent");
@@ -55,6 +55,8 @@ describe("opening and closing", () => {
     await focusedTitleField();
     await user.keyboard("Child{Enter}");
     await expectListFocused();
+    await expectRows(["Parent", "Child"]);
+    await expectActive("Child");
     const { tasks } = await workspace.command<{
       tasks: { title: string; parentId: string | null }[];
     }>("task.list", {});

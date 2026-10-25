@@ -27,52 +27,52 @@ type QuestDefinition = {
 const QUEST_DEFINITIONS = [
   {
     id: "first-task",
-    title: "First task",
-    summary: "Learn the basics in about two minutes",
+    title: "Task basics",
+    summary: "Create, tag and complete a task in about two minutes",
     keyboard: [
       {
         move: "capture.open",
         prompt: "Press `C` to create your first task",
-        success: "A fresh task",
+        success: "New task",
       },
       {
         move: "shorthand.category",
         prompt:
-          "Type what needs doing, then `@` and a word for its category, like `@life`. `Space` selects it, `Enter` saves the task",
+          "Type what needs doing, then `@` and a word for its category, like `@life`. `Space` turns it into a pill",
         success: "Filed under {}",
         inEditor: true,
       },
       {
         move: "shorthand.tags",
-        prompt: "Add a tag with `#`, like `#quick`",
+        prompt: "Add a tag with `#`, like `#quick`. `Space` turns it into a pill",
         success: "Tagged {}",
         inEditor: true,
       },
       {
         move: "capture.save",
-        prompt: "Press `Enter` to save it",
+        prompt: "Press `Enter` to save the task. Trailing spaces are trimmed automatically",
         success: "Saved",
         inEditor: true,
       },
-      { move: "status.forward", prompt: "Press `Space` to start it", success: "In progress" },
+      { move: "status.forward", prompt: "Press `Space` to start the task", success: "In progress" },
       {
         move: "status.forward",
-        prompt: "Press `Space` again when it's done",
+        prompt: "Press `Space` again to complete it",
         success: "Done",
       },
       {
         move: "done.lens",
-        prompt: "Press `D` to see what you finished today",
-        success: "That's your day so far",
+        prompt: "Press `D` to see what you've done today",
+        success: "Done today",
       },
       {
         move: "done.lens",
-        prompt: "Press `D` again to go back to your list",
-        success: "Back to your list",
+        prompt: "Press `D` again to go back to your previous view",
+        success: "Back where you were",
       },
     ],
     touch: [
-      { move: "capture.open", prompt: "Tap + to create your first task", success: "A fresh task" },
+      { move: "capture.open", prompt: "Tap + to create your first task", success: "New task" },
       {
         move: "shorthand.category",
         prompt: "Type what needs doing, then tap `@` above the keyboard and add a category",
@@ -85,47 +85,106 @@ const QUEST_DEFINITIONS = [
         success: "Tagged {}",
         inEditor: true,
       },
-      { move: "capture.save", prompt: "Save it", success: "Saved", inEditor: true },
+      { move: "capture.save", prompt: "Save the task", success: "Saved", inEditor: true },
       { move: "status.forward", prompt: "Tap its status icon to start it", success: "In progress" },
-      { move: "status.forward", prompt: "Tap it again when it's done", success: "Done" },
+      { move: "status.forward", prompt: "Tap it again to complete it", success: "Done" },
       {
         move: "done.lens",
-        prompt: "Tap the done count up top to see what you finished today",
-        success: "That's your day so far",
+        prompt: "Tap the done count up top to see what you've done today",
+        success: "Done today",
       },
       {
         move: "done.lens",
-        prompt: "Tap the done count again to go back to your list",
-        success: "Back to your list",
+        prompt: "Tap the done count again to go back to your previous view",
+        success: "Back where you were",
       },
     ],
   },
   {
     id: "plan-ahead",
     title: "Plan ahead",
-    summary: "Due dates, priorities, pausing and undo",
+    summary: "Due dates, priorities and what's due now",
     keyboard: [
       {
         move: "capture.open",
         prompt: "Press `C` for a new task",
-        success: "A fresh task",
+        success: "New task",
       },
       {
         move: "shorthand.due",
-        prompt: "Type what needs doing, then give it a due date with `^`, like `^today`",
+        prompt:
+          "Type what needs doing, then give it a due date with `^`, like `^today`. `Enter` picks the highlighted date",
         success: "Due {}",
         inEditor: true,
       },
       {
         move: "capture.save",
-        prompt: "Press `Enter` to save it",
+        prompt: "Press `Enter` to save the task",
         success: "Saved",
         inEditor: true,
       },
       {
         move: "priority.set",
         prompt: "Press a number from `0` to `4` to set its priority. `0` is the most urgent",
-        success: "{} it is",
+        success: "Priority set to {}",
+      },
+      {
+        move: "due.lens",
+        prompt: "Press `N` to see what's due now",
+        success: "Due now",
+      },
+      {
+        move: "due.lens",
+        prompt: "Press `N` again to go back to your previous view",
+        success: "Back where you were",
+      },
+    ],
+    touch: [
+      {
+        move: "capture.open",
+        prompt: "Tap + for a new task",
+        success: "New task",
+      },
+      {
+        move: "shorthand.due",
+        prompt: "Type what needs doing, then tap `^` and pick a due date",
+        success: "Due {}",
+        inEditor: true,
+      },
+      { move: "capture.save", prompt: "Save the task", success: "Saved", inEditor: true },
+      {
+        move: "due.lens",
+        prompt: "Tap the due count up top to see what's due now",
+        success: "Due now",
+      },
+      {
+        move: "due.lens",
+        prompt: "Tap the due count again to go back to your previous view",
+        success: "Back where you were",
+      },
+    ],
+  },
+  {
+    id: "change-of-plans",
+    title: "Change of plans",
+    summary: "Step back, pause, undo and cancel, on a task made to practice on",
+    keyboard: [
+      {
+        move: "capture.open",
+        prompt: "Press `C` to create a task to practice on",
+        success: "New task",
+      },
+      {
+        move: "capture.save",
+        prompt: "Type anything, then press `Enter` to save the task",
+        success: "Saved",
+        inEditor: true,
+      },
+      { move: "status.forward", prompt: "Press `Space` to start it", success: "In progress" },
+      {
+        move: "status.back",
+        prompt: "Started too soon? Press `Shift`+`Space` to step back",
+        success: "Open",
       },
       { move: "status.pause", prompt: "Press `P` to pause it", success: "Paused" },
       {
@@ -134,38 +193,9 @@ const QUEST_DEFINITIONS = [
         success: "Undone",
       },
       {
-        move: "due.lens",
-        prompt: "Press `N` to see everything that's due",
-        success: "That's what's due",
-      },
-      {
-        move: "due.lens",
-        prompt: "Press `N` again to go back to your list",
-        success: "Back to your list",
-      },
-    ],
-    touch: [
-      {
-        move: "capture.open",
-        prompt: "Tap + for a new task",
-        success: "A fresh task",
-      },
-      {
-        move: "shorthand.due",
-        prompt: "Type what needs doing, then tap `^` and pick a due date",
-        success: "Due {}",
-        inEditor: true,
-      },
-      { move: "capture.save", prompt: "Save it", success: "Saved", inEditor: true },
-      {
-        move: "due.lens",
-        prompt: "Tap the due count up top to see everything that's due",
-        success: "That's what's due",
-      },
-      {
-        move: "due.lens",
-        prompt: "Tap the due count again to go back to your list",
-        success: "Back to your list",
+        move: "status.cancel",
+        prompt: "Press `Delete` to cancel the practice task",
+        success: "Canceled",
       },
     ],
   },
@@ -187,45 +217,61 @@ const QUEST_DEFINITIONS = [
       {
         move: "filter.category",
         prompt: "Press `@` and pick a category to see only its tasks",
-        success: "Pick one with `Enter`",
+        success: "Category filter. `Enter` picks one",
       },
       {
-        move: "filter.escape",
-        prompt: "Press `Esc` on the list to clear every filter",
-        success: "Everything's back",
+        move: "filter.tags",
+        prompt: "Press `#` and pick a tag to see only tasks with it",
+        success: "Tag filter. `Enter` picks one",
       },
       {
         move: "filter.search",
         prompt: "Press `/` to search",
-        success: "Type to search. `Esc` closes it",
+        success: "Searching. `Enter` applies it",
+      },
+      {
+        move: "filter.escape",
+        prompt: "Press `Esc` to clear the search and every filter",
+        success: "Filters cleared",
       },
     ],
   },
   {
     id: "shape-your-list",
     title: "Shape your list",
-    summary: "Child tasks, blockers and reordering",
+    summary: "Child tasks, collapsing, blockers and reordering",
     keyboard: [
       {
         move: "capture.child",
         prompt: "Press `Shift`+`C` for a task under the active one",
-        success: "A child task",
+        success: "New child task",
       },
       {
         move: "capture.save",
-        prompt: "Press `Enter` to save it",
+        prompt: "Type what needs doing, then press `Enter` to save the task",
         success: "Saved",
         inEditor: true,
       },
       {
+        move: "home.left-collapse",
+        prompt: "Press `←` to reach its parent, then `←` again to collapse it",
+        success: "Collapsed",
+      },
+      {
+        move: "home.right-expand",
+        prompt:
+          "Press `→` until it expands again. With a category, the first `→` shows only that category",
+        success: "Expanded",
+      },
+      {
         move: "pick.parent",
         prompt: "Press `M` to move the active task under another one",
-        success: "Pick its new parent",
+        success: "Moving. Pick its new parent",
       },
       {
         move: "pick.blocker",
         prompt: "Press `B` to say which task blocks the active one",
-        success: "Pick what's in the way",
+        success: "Adding a blocker. Pick what's in the way",
       },
       {
         move: "select.extend",
@@ -242,24 +288,24 @@ const QUEST_DEFINITIONS = [
       {
         move: "home.task-context-menu",
         prompt: "Long-press a task for everything you can do with it",
-        success: "Its actions",
+        success: "Task actions",
       },
       {
         move: "pick.parent",
         prompt: "Tap Move under, then pick another task",
-        success: "Pick its new parent",
+        success: "Moving. Pick its new parent",
       },
       {
         move: "pick.blocker",
         prompt: "Long-press again and tap Blockers",
-        success: "Pick what's in the way",
+        success: "Adding a blocker. Pick what's in the way",
       },
     ],
   },
   {
     id: "fast-hands",
     title: "Fast hands",
-    summary: "Quicker edits and every shortcut there is",
+    summary: "Descriptions, images, quicker edits and every shortcut there is",
     keyboard: [
       {
         move: "home.open-editor",
@@ -274,9 +320,9 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "shorthand.unlift",
-        prompt:
-          "Press `Backspace` right after a pill to turn it back into text. `Tab` again makes your completed name a pill",
+        prompt: "Press `Tab` again to make it a pill, then `Backspace` to turn it back into text",
         success: "Back to text",
+        keys: ["Tab", "Backspace"],
         inEditor: true,
       },
       {
@@ -286,16 +332,39 @@ const QUEST_DEFINITIONS = [
         keys: ["Tab", "0–4"],
         inEditor: true,
       },
-      { move: "capture.save", prompt: "Press `Enter` to save", success: "Saved", inEditor: true },
       {
-        move: "details.toggle-active",
-        prompt: "Press `V` to see the active task's details",
-        success: "`V` again hides them",
+        move: "edit.description",
+        prompt: "Press `Tab` again and write a description. It can be as long as you like",
+        success: "Description added",
+        inEditor: true,
+      },
+      {
+        move: "attach.paste",
+        prompt: "Copy any image, then press `Ctrl/⌘`+`V` here to attach it",
+        success: "Image added",
+        inEditor: true,
+      },
+      {
+        move: "capture.save",
+        prompt: "Press `Ctrl/⌘`+`Enter` to save. `Enter` alone starts a new line here",
+        success: "Saved",
+        keys: ["Ctrl/⌘", "Enter"],
+        inEditor: true,
       },
       {
         move: "help.palette",
-        prompt: "Press `Ctrl/⌘`+`K` for every shortcut there is",
-        success: "It's all in here",
+        prompt: "Press `Ctrl/⌘`+`K` for every shortcut there is. `Esc` closes it",
+        success: "Every shortcut",
+      },
+      {
+        move: "details.toggle-active",
+        prompt: "Press `V` to see its description in the list",
+        success: "Details shown. `V` again hides them",
+      },
+      {
+        move: "details.toggle-all",
+        prompt: "Press `Shift`+`V` to show the details of every task",
+        success: "Details for every task. `Shift`+`V` again hides them",
       },
     ],
   },

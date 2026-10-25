@@ -373,6 +373,32 @@ export function TaskList({
       setExpandedIds((previous) => new Set([...previous, ...unopened]));
     }
   }
+  // A new child opens its tree, so the list can make it active (`capture.child`).
+  const [revealedTaskId, setRevealedTaskId] = useState<string | null>(null);
+  const newTask =
+    newTaskId && newTaskId !== revealedTaskId
+      ? tasks.find((task) => task.id === newTaskId)
+      : undefined;
+  if (newTask) {
+    setRevealedTaskId(newTask.id);
+    const roots = rootIdsAboveTasks([newTask], [...shownContextTasks, ...tasks]);
+    if ([...roots].some((id) => !expandedIds.has(id)))
+      setExpandedIds((previous) => new Set([...previous, ...roots]));
+  }
+  // A parent shown only because a child matches opens once, so that child isn't hidden behind it.
+  // Collapsing it sticks until it stops being such a parent.
+  const [contextOpenedIds, setContextOpenedIds] = useState<ReadonlySet<string>>(() => new Set());
+  if (!loading) {
+    const matchingIds = new Set(tasks.map((task) => task.id));
+    const contextRoots = [...rootIdsAboveTasks(tasks, [...shownContextTasks, ...tasks])].filter(
+      (id) => !matchingIds.has(id),
+    );
+    const unopened = contextRoots.filter((id) => !contextOpenedIds.has(id));
+    if (unopened.length > 0 || contextRoots.length !== contextOpenedIds.size) {
+      setContextOpenedIds(new Set(contextRoots));
+      if (unopened.length > 0) setExpandedIds((previous) => new Set([...previous, ...unopened]));
+    }
+  }
   const savedRows = useMemo(
     () => visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
     [tasks, expandedIds, shownContextTasks, contextOrder],
@@ -970,7 +996,9 @@ export function TaskList({
 
   function toggleExpanded(row: VisibleTaskRow): void {
     if (!row.hasChildren) return;
-    setExpanded(row.task.id, !expandedIds.has(row.task.id));
+    const expanded = expandedIds.has(row.task.id);
+    practice(expanded ? "home.left-collapse" : "home.right-expand", "pointer");
+    setExpanded(row.task.id, !expanded);
   }
 
   function moveToParent(row: VisibleTaskRow): void {
@@ -985,14 +1013,13 @@ export function TaskList({
     if (!activeRow) return;
     if (key === "ArrowRight") {
       if (activeRow.hasChildren) {
-        if (!categoryFilter && activeRow.task.category) {
-          selectCategory(
-            activeRow.task.category,
-            activeRow.contextOnly ? undefined : activeRow.task.id,
-          );
+        // A parent shown only for its children would drop out of its own category filter.
+        if (!categoryFilter && activeRow.task.category && !activeRow.contextOnly) {
+          selectCategory(activeRow.task.category, activeRow.task.id);
           return;
         }
         if (!expandedIds.has(activeRow.task.id)) {
+          practice("home.right-expand");
           setExpanded(activeRow.task.id, true);
           onAnnounce(`Expanded ${activeRow.task.title}`);
         }
@@ -1013,6 +1040,7 @@ export function TaskList({
       return;
     }
     if (expandedIds.has(activeRow.task.id)) {
+      practice("home.left-collapse");
       setExpanded(activeRow.task.id, false);
       onAnnounce(`Collapsed ${activeRow.task.title}`);
       return;
@@ -1421,7 +1449,10 @@ export function TaskList({
         toggleTaskDetails(task);
       },
       onCopy: (task) => void copyActiveTask(task),
-      onDelete: (task) => void deleteTaskRecord(task),
+      onDelete: (task) => {
+        practice("status.cancel", "pointer");
+        void deleteTaskRecord(task);
+      },
       onReorder: (direction) => {
         practice("reorder.step", "pointer");
         void reorderSelection(direction);
@@ -1641,7 +1672,10 @@ export function TaskList({
         reverseSort={reverseSort}
         showDetails={showDetails}
         mixedDetails={flippedDetailIds.size > 0}
-        onToggleDetails={toggleAllDetails}
+        onToggleDetails={() => {
+          practice("details.toggle-all", "pointer");
+          toggleAllDetails();
+        }}
         moveControlsOpen={moveControlsOpen}
         setMoveControlsOpen={setMoveControlsOpen}
         moveSubjectLabel={moveSubjectLabel}

@@ -217,7 +217,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [foldedToolbarGroups, setFoldedToolbarGroups] = useState(readFoldedToolbarGroups);
   const learning = useLearning();
-  const questsShown = useQuests().shown;
+  const { shown: questsShown, moment: questMoment, allComplete: questsAllComplete } = useQuests();
+  const questCelebrating = questMoment?.kind === "complete" && !questMoment.leaving;
   const android = isAndroid();
   const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(
     readStoredFontSizeIncrease,
@@ -795,7 +796,13 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                   }
                 >
                   <LearnIcon
-                    progress={questsShown ? learning.learnedCount / learning.moves.length : 1}
+                    progress={
+                      questsShown && !questsAllComplete
+                        ? learning.learnedCount / learning.moves.length
+                        : 1
+                    }
+                    celebrate={questCelebrating}
+                    finale={questCelebrating && questsAllComplete}
                   />
                   <span className="sr-only">Learn</span>
                 </TooltipTrigger>

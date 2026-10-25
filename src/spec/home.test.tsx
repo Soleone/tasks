@@ -191,6 +191,21 @@ describe("moving around", () => {
     expect(row("Child").getAttribute("data-context-child")).toBe("true");
   });
 
+  test("home.right-expand: Right expands a parent shown only because a child matches, even with a category", async () => {
+    const parent = await workspace.create("Parent", { category: "work" });
+    await workspace.create("Child", { parentId: parent.id });
+    const { user } = await workspace.render();
+    await expectActive("Parent");
+    await user.keyboard("p");
+    await waitFor(async () => expect((await workspace.task(parent.id)).status).toBe("paused"));
+    await waitFor(() => expect(row("Parent").hasAttribute("data-context-parent")).toBe(true));
+    await user.keyboard("{ArrowLeft}");
+    await expectRows(["Parent"]);
+    await user.keyboard("{ArrowRight}");
+    await expectRows(["Parent", "Child"]);
+    expect(screen.queryByRole("button", { name: "Clear category filter: work" })).toBeNull();
+  });
+
   test("home.left-clear-category: Left on a root task clears the category filter and keeps it active", async () => {
     await workspace.create("Elsewhere");
     await workspace.create("Work item", { category: "work" });
@@ -492,7 +507,7 @@ describe("reorder", () => {
 });
 
 describe("hierarchy in a filtered list", () => {
-  test("home.context-ancestor: a non-matching ancestor shows as an uncounted context row", async () => {
+  test("home.context-ancestor: a non-matching ancestor shows as an uncounted context row, open on its matching child", async () => {
     const parent = await workspace.create("Parent", { priority: 4 });
     await workspace.create("Urgent child", { parentId: parent.id, priority: 0 });
     const { user } = await workspace.render();
@@ -500,6 +515,8 @@ describe("hierarchy in a filtered list", () => {
     await waitFor(() =>
       expect(document.querySelector("[data-filter-summary]")?.textContent).toMatch(/^1 /),
     );
+    await expectRows(["Parent", "Urgent child"]);
+    await user.keyboard("{Home}{ArrowLeft}");
     await expectRows(["Parent"]);
     await user.keyboard("{ArrowRight}");
     await expectRows(["Parent", "Urgent child"]);

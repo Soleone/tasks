@@ -48,13 +48,21 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Set priority in the editor", keys: ["Tab", "0–4"] },
   },
   {
+    id: "edit.description",
+    keyboard: { label: "Write a description", keys: ["Tab"] },
+  },
+  {
+    id: "attach.paste",
+    keyboard: { label: "Paste an image", keys: ["Ctrl/⌘", "V"] },
+  },
+  {
     id: "shorthand.unlift",
     keyboard: { label: "Put a pill back as text", keys: ["Backspace"] },
   },
   {
     id: "status.forward",
-    keyboard: { label: "Start, then finish the active task", keys: ["Space"] },
-    touch: { label: "Tap a status icon to start or finish a task" },
+    keyboard: { label: "Start, then complete the active task", keys: ["Space"] },
+    touch: { label: "Tap a status icon to start or complete a task" },
   },
   {
     id: "home.open-editor",
@@ -64,6 +72,14 @@ const MOVE_DEFINITIONS = [
   {
     id: "priority.set",
     keyboard: { label: "Set priority from the list", keys: ["0–4"] },
+  },
+  {
+    id: "status.back",
+    keyboard: { label: "Step a status back", keys: ["Shift", "Space"] },
+  },
+  {
+    id: "status.cancel",
+    keyboard: { label: "Cancel a task", keys: ["Delete"] },
   },
   {
     id: "status.pause",
@@ -94,12 +110,24 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Filter by category", keys: ["@"] },
   },
   {
+    id: "filter.tags",
+    keyboard: { label: "Filter by tag", keys: ["#"] },
+  },
+  {
     id: "filter.escape",
     keyboard: { label: "Reset filters", keys: ["Esc"] },
   },
   {
     id: "capture.child",
     keyboard: { label: "New child of the active task", keys: ["Shift", "C"] },
+  },
+  {
+    id: "home.left-collapse",
+    keyboard: { label: "Collapse a parent", keys: ["←"] },
+  },
+  {
+    id: "home.right-expand",
+    keyboard: { label: "Expand a parent", keys: ["→"] },
   },
   {
     id: "pick.parent",
@@ -121,17 +149,21 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "done.lens",
-    keyboard: { label: "What you finished today", keys: ["D"] },
+    keyboard: { label: "What you've done today", keys: ["D"] },
     touch: { label: "Tap the done count to see today's work" },
   },
   {
     id: "due.lens",
     keyboard: { label: "What's due now", keys: ["N"] },
-    touch: { label: "Tap the due count to see what's due" },
+    touch: { label: "Tap the due count to see what's due now" },
   },
   {
     id: "details.toggle-active",
     keyboard: { label: "Show details of the active task", keys: ["V"] },
+  },
+  {
+    id: "details.toggle-all",
+    keyboard: { label: "Show details of every task", keys: ["Shift", "V"] },
   },
   {
     id: "help.palette",

@@ -7,7 +7,7 @@ Capture and edit use the same inline editor. Its stops are title, priority, an o
 | Rule | When | Then |
 | --- | --- | --- |
 | `capture.open` | `C`, the palette, or the New task button | The editor opens above the list with the title focused |
-| `capture.child` | `Shift+C` on a task, or New child in Task actions | The editor opens under the active task and saves the new task as its child |
+| `capture.child` | `Shift+C` on a task, or New child in Task actions | The editor opens under the active task and saves the new task as its child. Its parent expands, so the new task shows and becomes active |
 | `capture.child-canceled` | `Shift+C` on a canceled task | Refused with a message. Canceled tasks can't take new children |
 | `edit.inline` | `Enter`, or clicking a row | The editor replaces that row with the title focused |
 | `edit.save` | `Enter` in the title, or `Ctrl/⌘+Enter` anywhere | Saves. Focus returns to the list on the saved task. While suggestions are open, `Enter` follows `shorthand.enter`. A soft keyboard's action key in the title is Go, which saves, even when a description follows |
@@ -20,6 +20,7 @@ Capture and edit use the same inline editor. Its stops are title, priority, an o
 | --- | --- | --- |
 | `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description, then the image row when there are images. `Tab` from priority, or `Shift+Tab` from the image row, opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
 | `edit.priority` | `0`–`4` or `Left`/`Right` on the priority stop | Sets the priority. New tasks start at P2 |
+| `edit.description` | Typing in the description | Markdown notes kept with the task, shown in the list with its details (`details.toggle-active`). `Enter` starts a new line, so `Ctrl/⌘+Enter` saves from here |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
 | `edit.buttons` | Save and Cancel buttons | Mouse fallbacks, not Tab stops. The dismissal button always says Cancel and sits before Add description |

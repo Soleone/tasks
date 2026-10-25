@@ -235,7 +235,194 @@
   }
 }
 
+/* A finished quest (`quest.complete`) gets a bigger moment than a step: the trophy pops with a
+ * wobble, sparks burst from it, the card glows once in the accent and the header's help icon pops
+ * along. The help ring sweeps to its new fill rather than jumping (`learn.progress-ring`). */
+[data-quest-trophy] {
+  animation: quest-trophy-pop 650ms ease-out both;
+}
+
+[data-quest-sparks] > span {
+  --spark-angle: 0deg;
+  --spark-distance: 2.25rem;
+  opacity: 0;
+  animation: quest-spark 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both;
+}
+
+[data-quest-sparks] > span:nth-child(even) {
+  --spark-distance: 1.6rem;
+  animation-duration: 500ms;
+}
+
+[data-quest-sparks] > span:nth-child(2) {
+  --spark-angle: 45deg;
+}
+[data-quest-sparks] > span:nth-child(3) {
+  --spark-angle: 90deg;
+}
+[data-quest-sparks] > span:nth-child(4) {
+  --spark-angle: 135deg;
+}
+[data-quest-sparks] > span:nth-child(5) {
+  --spark-angle: 180deg;
+}
+[data-quest-sparks] > span:nth-child(6) {
+  --spark-angle: 225deg;
+}
+[data-quest-sparks] > span:nth-child(7) {
+  --spark-angle: 270deg;
+}
+[data-quest-sparks] > span:nth-child(8) {
+  --spark-angle: 315deg;
+}
+
+[data-quest-glow] {
+  animation: quest-card-glow 900ms ease-out 150ms both;
+}
+
+/* Every quest complete: a second, wider wave of sparks between the first ones, a second glow, and
+ * in the header the ring fills, bursts outward and leaves the plain help icon. */
+[data-quest-sparks="wave"] {
+  rotate: 22.5deg;
+}
+
+[data-quest-sparks="wave"] > span {
+  --spark-distance: 3.5rem;
+  animation-delay: 450ms;
+  animation-duration: 800ms;
+}
+
+[data-quest-sparks="wave"] > span:nth-child(even) {
+  --spark-distance: 2.75rem;
+}
+
+[data-quest-finale] [data-quest-glow] {
+  animation-iteration-count: 2;
+}
+
+[data-learn-finale] {
+  overflow: visible;
+}
+
+[data-learn-finale] [data-learn-ring] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: learn-ring-burst 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 650ms both;
+}
+
+[data-learn-finale] [data-learn-track] {
+  animation: learn-track-settle 400ms ease-out 900ms both;
+}
+
+[data-learn-finale][data-learn-celebrate] {
+  animation-delay: 900ms;
+}
+
+[data-learn-celebrate] {
+  animation: quest-help-pop 700ms ease-out 250ms both;
+}
+
+[data-learn-ring] {
+  transition: stroke-dasharray 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Then the card leaves to the right, and the next quest's offer comes up from below. */
+[data-quest-leaving] {
+  animation: quest-card-leave 300ms ease-in forwards;
+}
+
+@keyframes quest-card-leave {
+  to {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+@keyframes quest-card-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes quest-trophy-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-25deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.25) rotate(10deg);
+  }
+  70% {
+    transform: scale(0.95) rotate(-5deg);
+  }
+  to {
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes quest-spark {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--spark-angle))
+      translateY(calc(-1 * var(--spark-distance))) scale(0.2);
+  }
+}
+
+@keyframes quest-card-glow {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 50%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0.75rem transparent;
+  }
+}
+
+@keyframes learn-ring-burst {
+  from {
+    opacity: 1;
+    transform: rotate(-90deg) scale(1);
+  }
+  to {
+    opacity: 0;
+    stroke-width: 0.5;
+    transform: rotate(-90deg) scale(1.8);
+  }
+}
+
+@keyframes learn-track-settle {
+  to {
+    stroke-opacity: 1;
+  }
+}
+
+@keyframes quest-help-pop {
+  from {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.35) rotate(-12deg);
+    color: var(--primary);
+  }
+  65% {
+    transform: scale(0.92) rotate(6deg);
+  }
+  to {
+    transform: scale(1) rotate(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  [data-quest-trophy],
+  [data-quest-sparks] > span,
+  [data-quest-glow],
+  [data-learn-celebrate],
+  [data-learn-finale] [data-learn-ring],
+  [data-learn-finale] [data-learn-track],
   [data-new-task="true"],
   [data-exiting-task="true"],
   .task-completion-icon,
@@ -246,6 +433,14 @@
   [data-priority-enter],
   [data-count-enter] {
     animation: none;
+  }
+
+  [data-learn-ring] {
+    transition: none;
+  }
+
+  [data-quest-leaving] {
+    animation-name: quest-card-fade;
   }
 }
 

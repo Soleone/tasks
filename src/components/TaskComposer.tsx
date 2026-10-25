@@ -200,6 +200,8 @@ export function TaskComposer({
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
   const images = useDraftImages(task?.attachments ?? []);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
+  // Writing in the description counts once per editor (`edit.description`).
+  const described = useRef(false);
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -830,7 +832,13 @@ export function TaskComposer({
               rows={4}
               value={description}
               readOnly={pending}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) => {
+                if (!described.current && event.target.value.trim()) {
+                  described.current = true;
+                  practice("edit.description");
+                }
+                setDescription(event.target.value);
+              }}
               onFocus={() => setActiveField("description")}
               onPaste={pending ? undefined : images.paste}
               onBlur={(event) => {

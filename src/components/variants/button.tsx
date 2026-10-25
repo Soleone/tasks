@@ -18,3 +18,14 @@ export function ToggleButton({
 }: ButtonProps & { selected?: boolean }) {
   return <Button className={cn(selected && SELECTED, className)} {...props} />;
 }
+
+/** A minor action beside a primary one, muted until hovered so it doesn't compete. */
+export function QuietButton({ className, ...props }: ButtonProps) {
+  return (
+    <Button
+      variant="ghost"
+      className={cn("text-muted-foreground hover:text-foreground", className)}
+      {...props}
+    />
+  );
+}

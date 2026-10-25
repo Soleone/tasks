@@ -4,6 +4,7 @@ import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { QuietButton } from "@/components/variants/button";
 import { KeyCap } from "@/components/variants/kbd";
 import { currentDevice, movesFor } from "@/learning/moves";
 import {
@@ -18,6 +19,8 @@ import { preventFocusSteal } from "@/navigation";
 
 // Recap keys pop in one after another (`quest.complete`).
 const RECAP_STEP_MS = 150;
+// One per nth-child angle in styles.css.
+const SPARK_COUNT = 8;
 
 const CARD =
   "flex items-center gap-4 rounded-xl border bg-card p-4 text-card-foreground shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4";
@@ -47,7 +50,14 @@ export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | 
   const { quests, active, offer, moment, ahead, editorOpen } = useQuests();
   if (moment?.kind === "complete") {
     const quest = quests.find((entry) => entry.id === moment.quest);
-    return quest ? <QuestComplete quest={quest} quests={quests} onLearn={onLearn} /> : null;
+    return quest ? (
+      <QuestComplete
+        quest={quest}
+        quests={quests}
+        leaving={Boolean(moment.leaving)}
+        onLearn={onLearn}
+      />
+    ) : null;
   }
   const quest = active ?? offer;
   if (!quest) return null;
@@ -136,8 +146,7 @@ function LearnButton({ onLearn }: { onLearn: () => void }): ReactElement {
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button
-            variant="ghost"
+          <QuietButton
             size="icon-sm"
             tabIndex={-1}
             aria-keyshortcuts="Shift+/"
@@ -179,18 +188,42 @@ function StepDots({
   );
 }
 
+/**
+ * A burst from the trophy (`quest.complete`); styles.css gives each spark its angle. The `wave`
+ * follows the first one, further out, when every quest is complete.
+ */
+function Sparks({ wave = false }: { wave?: boolean }): ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      data-quest-sparks={wave ? "wave" : "burst"}
+      className="pointer-events-none absolute inset-0"
+    >
+      {Array.from({ length: SPARK_COUNT }, (_, index) => (
+        <span key={index} className="absolute top-1/2 left-1/2 size-1.5 rounded-full bg-primary" />
+      ))}
+    </span>
+  );
+}
+
 function QuestComplete({
   quest,
   quests,
+  leaving,
   onLearn,
 }: {
   quest: QuestView;
   quests: QuestView[];
+  leaving: boolean;
   onLearn: () => void;
 }): ReactElement {
   useEffect(() => {
-    window.addEventListener("keydown", dismissComplete);
-    return () => window.removeEventListener("keydown", dismissComplete);
+    // Listens from the next tick: the key that finished the quest is still bubbling to window.
+    const timer = setTimeout(() => window.addEventListener("keydown", dismissComplete));
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", dismissComplete);
+    };
   }, []);
   const moves = movesFor(currentDevice());
   const recap = [
@@ -214,16 +247,26 @@ function QuestComplete({
   );
 
   return (
-    <section aria-label="Quest" data-quest-complete={quest.id} className={CARD}>
-      <div className="flex min-w-16 shrink-0 justify-center">
-        <Trophy
-          aria-hidden="true"
-          className="size-10 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:spin-in-12 motion-safe:duration-500"
-        />
+    <section
+      aria-label="Quest"
+      data-quest-complete={quest.id}
+      data-quest-finale={next ? undefined : true}
+      data-quest-leaving={leaving || undefined}
+      className={cn(CARD, "relative")}
+    >
+      <span
+        aria-hidden="true"
+        data-quest-glow
+        className="pointer-events-none absolute inset-0 rounded-xl"
+      />
+      <div className="relative flex min-w-16 shrink-0 justify-center">
+        <Trophy aria-hidden="true" data-quest-trophy className="size-10 text-primary" />
+        <Sparks />
+        {next ? null : <Sparks wave />}
       </div>
       <div className="min-w-0 flex-1">
         <p aria-live="polite" className="font-semibold">
-          {quest.title} complete
+          {next ? `${quest.title} complete` : "Every quest complete"}
         </p>
         <div className="mt-1.5 flex min-h-5 flex-wrap gap-1" data-quest-recap>
           {recap.slice(0, revealed).map((label) => (
@@ -233,7 +276,13 @@ function QuestComplete({
           ))}
         </div>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          {next ? `Next: ${next.title}, whenever you like` : "Every quest complete"}
+          {next ? (
+            `Next: ${next.title}, whenever you like`
+          ) : (
+            <>
+              Replay any of them from <Kbd>?</Kbd>
+            </>
+          )}
         </p>
       </div>
       <div className="-my-2 -mr-2 shrink-0 self-start">
