@@ -16,7 +16,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { build } from "esbuild";
-import { startDevServer } from "../dist/backend/devServer.js";
+import { startDevServer } from "../test-dist/backend/devServer.js";
 import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundle = await build({
@@ -562,7 +562,7 @@ test("simulated withheld host refuses the explicit editor launcher before storag
   writeFileSync(loader, 'Object.defineProperty(process,"platform",{value:"darwin"});\n');
   const result = spawnSync(
     process.execPath,
-    ["--import", loader, "dist/backend/devServer.js", "--home", selected.directory],
+    ["--import", loader, "test-dist/backend/devServer.js", "--home", selected.directory],
     { env: process.env, encoding: "utf8" },
   );
   assert.equal(result.status, 1);
@@ -773,7 +773,7 @@ async function processDev(t, selected, loader, port = 0) {
     process.execPath,
     [
       ...(loader ? ["--import", loader] : []),
-      "dist/backend/devServer.js",
+      "test-dist/backend/devServer.js",
       "--port",
       String(port),
       "--home",
@@ -822,7 +822,7 @@ function manualLine(selected, envelope) {
     execFileSync(
       process.execPath,
       [
-        "dist/backend/tasks-cli.js",
+        "test-dist/backend/tasks-cli.js",
         "--stdio",
         "--root",
         selected.root,
@@ -855,8 +855,8 @@ for (const command of ["task.create", "task.update", ...statusCommands]) {
             closedAt: statusSources[command] === "done" ? originalTask.closedAt : null,
           }) + "\n",
         );
-      const { inspectCanonicalRoot } = await import("../dist/backend/canonicalReader.js");
-      const { pendingIntentPath } = await import("../dist/backend/localDomain.js");
+      const { inspectCanonicalRoot } = await import("../test-dist/backend/canonicalReader.js");
+      const { pendingIntentPath } = await import("../test-dist/backend/localDomain.js");
       const pendingPath = pendingIntentPath(inspectCanonicalRoot(selected.root));
       const loader = path.join(selected.directory, "cut.mjs");
       writeFileSync(

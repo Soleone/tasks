@@ -157,7 +157,7 @@ const http = await build({
 const httpClient = await import(
   `data:text/javascript;base64,${Buffer.from(http.outputFiles[0].text).toString("base64")}`
 );
-const { startDevServer } = await import("../dist/backend/devServer.js");
+const { startDevServer } = await import("../test-dist/backend/devServer.js");
 
 async function selectedHttpWorkspace(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "taskdb-main-http-"));

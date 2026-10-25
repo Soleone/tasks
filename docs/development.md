@@ -57,12 +57,12 @@ Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to 
 | `pnpm lint` | `vp lint`, naming and spec-rule checks, and knip for dead code |
 | `pnpm test` | File-backed backend regressions, then client tests (`vp test`, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
 | `pnpm build` | Types, backend and frontend build |
-| `pnpm build:backend` | Prepare `dist/backend` for focused script tests |
+| `pnpm build:test` | Prepare `test-dist`, the backend build tests run from, for focused script tests |
 | `pnpm test:sidecar` | Bundled Node SEA smoke check on the actual host |
 | `pnpm test:ui` | UI Chromium regression over the dev bridge on disposable data |
 | `node --test scripts/mainClientRouting.test.mjs scripts/appearancePreferences.test.mjs` | Client routing and stored appearance checks |
 
-`pnpm build` builds the backend before Vite clears `dist/`; rebuild the backend before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.
+`pnpm build` builds the backend before Vite clears `dist/`. Tests run from their own `test-dist` build, so they never replace the `dist/backend` a running dev server uses; run `pnpm build:test` before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.
 
 Vite pre-optimizes the checkbox dependency to avoid a late dependency reload dropping in-memory requests. HMR, source edits, browser/native close and crashes can still lose drafts and uncertain requests. Do not reload during unresolved work.
 

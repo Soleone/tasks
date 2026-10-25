@@ -9,7 +9,7 @@ import { build } from "esbuild";
 // sidecar started as `node dist/backend/tasks-cli.js`, the pointer kept in memory and the user folder
 // answered from a scratch folder.
 const scratch = mkdtempSync(path.join(tmpdir(), "tasks-desktop-setup-"));
-const cli = path.resolve("dist/backend/tasks-cli.js");
+const cli = path.resolve("test-dist/backend/tasks-cli.js");
 
 const tauri = {
   "@tauri-apps/api/core": `

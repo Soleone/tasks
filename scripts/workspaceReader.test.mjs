@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { build } from "esbuild";
-import { startDevServer } from "../dist/backend/devServer.js";
+import { startDevServer } from "../test-dist/backend/devServer.js";
 import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundled = await build({
@@ -34,8 +34,8 @@ const client = await import(
 );
 const { WorkspaceReader, readEditorSelection, parseTaskPage, parseWorkspaceInfo, sidecarArgs } =
   client;
-const { parseTaskProjection } = await import("../dist/backend/taskResults.js");
-const { parseResponse } = await import("../dist/backend/protocol.js");
+const { parseTaskProjection } = await import("../test-dist/backend/taskResults.js");
+const { parseResponse } = await import("../test-dist/backend/protocol.js");
 const task = JSON.parse(
   readFileSync(
     "scripts/fixtures/workspace/root/tasks/c8d4206d-c25a-4317-baa4-a2c5443060e9.json",
@@ -102,7 +102,7 @@ function processCommand(args, launches, responses) {
         if (event === "error") error = callback;
       },
       async spawn() {
-        const child = spawn(process.execPath, ["dist/backend/tasks-cli.js", ...args], {
+        const child = spawn(process.execPath, ["test-dist/backend/tasks-cli.js", ...args], {
           env: process.env,
           stdio: ["pipe", "pipe", "pipe"],
         });
@@ -414,8 +414,8 @@ test("malformed pending evidence pauses queries without automatic repair or dele
   const selected = workspace(t);
   const { reader } = await devReader(t, selected);
   await reader.workspaceInfo();
-  const { inspectCanonicalRoot } = await import("../dist/backend/canonicalReader.js");
-  const { pendingIntentPath } = await import("../dist/backend/localDomain.js");
+  const { inspectCanonicalRoot } = await import("../test-dist/backend/canonicalReader.js");
+  const { pendingIntentPath } = await import("../test-dist/backend/localDomain.js");
   const pending = pendingIntentPath(inspectCanonicalRoot(selected.rootPath));
   mkdirSync(path.dirname(pending), { recursive: true });
   writeFileSync(pending, "{incomplete");
@@ -436,7 +436,7 @@ test("HTTP reader sees actual friendly CLI edits and retains query-only authorit
     execFileSync(
       process.execPath,
       [
-        "dist/backend/tasks-cli.js",
+        "test-dist/backend/tasks-cli.js",
         "--home",
         selected.home,
         "add",
