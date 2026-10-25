@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { resetProgress, setHints, useLearning } from "@/learning/progress";
+import { resetProgress, useLearning } from "@/learning/progress";
+import { setQuestsShown, useQuests } from "@/learning/questProgress";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
@@ -64,6 +65,7 @@ export function SettingsDialog({
   const [pathNotice, setPathNotice] = useState<string | null>(null);
   const [progressReset, setProgressReset] = useState(false);
   const learning = useLearning();
+  const questsShown = useQuests().shown;
   const settingsTab = useRef<HTMLButtonElement>(null);
 
   return (
@@ -97,7 +99,7 @@ export function SettingsDialog({
         <div className="pr-8">
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>Adjust appearance, hints, and workspace data.</DialogDescription>
+            <DialogDescription>Adjust appearance, quests, and workspace data.</DialogDescription>
           </DialogHeader>
         </div>
 
@@ -188,24 +190,25 @@ export function SettingsDialog({
               </section>
 
               <section
-                aria-labelledby="settings-hints"
+                aria-labelledby="settings-quests"
                 className="flex flex-col gap-4 rounded-lg border p-4"
               >
                 <div className="flex flex-col gap-1">
-                  <h2 id="settings-hints" className="text-sm font-medium">
-                    Hints
+                  <h2 id="settings-quests" className="text-sm font-medium">
+                    Quests
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Hints point out moves you haven't used yet and retire once you have.
+                    Short quests teach the keys a few at a time. Pause one whenever you like; it
+                    keeps your place.
                   </p>
                 </div>
                 <Field orientation="horizontal">
                   <Checkbox
-                    id="settings-show-hints"
-                    checked={learning.hints}
-                    onCheckedChange={setHints}
+                    id="settings-show-quests"
+                    checked={questsShown}
+                    onCheckedChange={setQuestsShown}
                   />
-                  <FieldLabel htmlFor="settings-show-hints">Show hints</FieldLabel>
+                  <FieldLabel htmlFor="settings-show-quests">Show quests</FieldLabel>
                 </Field>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground" data-settings-learned>
@@ -224,7 +227,7 @@ export function SettingsDialog({
                 </div>
                 {progressReset && learning.learnedCount === 0 ? (
                   <p role="status" className="text-sm text-muted-foreground">
-                    Progress reset. Hints start over.
+                    Progress reset. Quests start over.
                   </p>
                 ) : null}
               </section>

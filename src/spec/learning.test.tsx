@@ -6,7 +6,7 @@ import { expectListFocused, focusedTitleField, row } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
-  // Pointer tips are remembered per session, which is this whole file.
+  // Rewards on screen and editor steps done ahead live for the whole file.
   resetProgress();
   workspace = await AppWorkspace.start();
 });
@@ -14,73 +14,234 @@ afterEach(async () => {
   await workspace.stop();
 });
 
+type User = Awaited<ReturnType<AppWorkspace["render"]>>["user"];
+
 function learnedMoves(): string[] {
   return JSON.parse(localStorage.getItem("tasks.learnedMoves") ?? "[]") as string[];
+}
+
+function card(): HTMLElement | null {
+  return document.querySelector("[data-quest-card]");
+}
+
+function questLine(): string | null | undefined {
+  return card()?.querySelector("[data-quest-line]")?.textContent;
+}
+
+async function expectStep(step: number): Promise<void> {
+  await waitFor(() => expect(card()?.getAttribute("data-quest-step")).toBe(String(step)));
 }
 
 function guide(): Element | null {
   return document.querySelector("[data-shortcut-guide=filter]");
 }
 
-async function openSettings(user: Awaited<ReturnType<AppWorkspace["render"]>>["user"]) {
+async function openSettings(user: User) {
   await user.keyboard("{Control>},{/Control}");
   return within(await screen.findByRole("dialog", { name: "Settings" }));
 }
 
-test("learn.panel: ? opens the Learn panel by chapter without taking focus, and ? closes it", async () => {
-  await workspace.create("Task");
-  const { user } = await workspace.render();
-  await expectListFocused();
+async function openPanel(user: User) {
   await user.keyboard("?");
-  const panel = await screen.findByRole("complementary", { name: "Learn" });
-  expect(
-    within(panel)
-      .getAllByRole("heading", { level: 3 })
-      .map((heading) => heading.textContent),
-  ).toEqual(["Capture", "Editor", "Work", "Find", "Shape", "Look back"]);
-  expect(panel.querySelector("[data-learn-count]")?.textContent).toMatch(
-    /^0 of \d+ moves learned$/,
-  );
-  expect(panel.querySelector("[data-next]")?.getAttribute("data-move")).toBe("capture.open");
-  await expectListFocused();
-  await user.keyboard("?");
-  expect(screen.queryByRole("complementary", { name: "Learn" })).toBeNull();
-});
+  return within(await screen.findByRole("complementary", { name: "Learn" }));
+}
 
-test("learn.nudge: the editor teaches one unlearned move, checks it once done, then moves on", async () => {
-  const { user } = await workspace.render();
-  await user.keyboard("c");
-  const title = await focusedTitleField();
-  const nudge = document.querySelector("[data-move-nudge]");
-  expect(nudge?.getAttribute("data-move-nudge")).toBe("shorthand.category");
-  expect(title.getAttribute("aria-describedby")).toBe(nudge?.id);
-  expect(nudge?.hasAttribute("data-done")).toBe(false);
-  await user.keyboard("Call mom @home ");
-  await waitFor(() => expect(nudge?.hasAttribute("data-done")).toBe(true));
+async function saveEditor(user: User): Promise<void> {
   await user.keyboard("{Enter}");
   // The optimistic row shows before the save is confirmed and the editor closes.
   await waitFor(() => expect(document.querySelector("[data-inline-task-editor]")).toBeNull());
   await expectListFocused();
+}
+
+test("quest.offer: a fresh app offers First task, and doing its first step starts it", async () => {
+  const { user } = await workspace.render();
+  await waitFor(() => expect(card()?.getAttribute("data-quest-card")).toBe("first-task"));
+  expect(questLine()).toBe("Learn the basics in about two minutes. Press C to begin");
+  expect(card()?.hasAttribute("data-quest-step")).toBe(false);
   await user.keyboard("c");
   await focusedTitleField();
-  expect(document.querySelector("[data-move-nudge]")?.getAttribute("data-move-nudge")).toBe(
-    "shorthand.tags",
+  await expectStep(1);
+  expect(questLine()).toBe("A fresh task");
+});
+
+test("quest.step: First task by keys, with a success line naming what was typed", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("c");
+  await focusedTitleField();
+  await expectStep(1);
+  await user.keyboard("Call mom @home ");
+  await expectStep(2);
+  expect(questLine()).toBe("Filed under home");
+  await user.keyboard("#quick ");
+  await expectStep(3);
+  expect(questLine()).toBe("Tagged quick");
+  await saveEditor(user);
+  await expectStep(4);
+  expect(questLine()).toBe("Saved");
+  const glyph = () => row("Call mom").querySelector("[data-status]");
+  await user.keyboard(" ");
+  await expectStep(5);
+  expect(questLine()).toBe("In progress");
+  await waitFor(() => expect(glyph()?.getAttribute("data-status")).toBe("in_progress"));
+  await user.keyboard(" ");
+  await expectStep(6);
+  expect(questLine()).toBe("Done");
+  expect(learnedMoves()).toEqual(
+    expect.arrayContaining([
+      "capture.open",
+      "shorthand.category",
+      "shorthand.tags",
+      "capture.save",
+      "status.forward",
+    ]),
   );
 });
 
-test("learn.pointer-tip: the mouse names a move's keys once per session and never learns it", async () => {
-  await workspace.create("A");
-  await workspace.create("B");
+test("quest.step: editor steps done out of turn still count", async () => {
   const { user } = await workspace.render();
-  const glyph = (title: string) => row(title).querySelector("[data-status]")!;
-  await user.click(glyph("A"));
-  await screen.findByText("Next time, press Space");
-  await user.click(glyph("B"));
-  await waitFor(() => expect(glyph("B").getAttribute("data-status")).toBe("in_progress"));
-  expect(screen.getAllByText("Next time, press Space")).toHaveLength(1);
+  await user.keyboard("c");
+  await expectStep(1);
+  await user.keyboard("Call mom #quick ");
+  expect(card()?.getAttribute("data-quest-step")).toBe("1");
+  await waitFor(() => expect(questLine()).toBe("Tagged quick"));
+  await user.keyboard("@home ");
+  await expectStep(3);
+});
+
+test("quest.success: a step's line keeps showing for about a second, then the next prompt", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("c");
+  await expectStep(1);
+  expect(questLine()).toBe("A fresh task");
+  expect(card()?.querySelectorAll("[data-step-done]")).toHaveLength(1);
+  await waitFor(() => expect(questLine()).toMatch(/^Type what needs doing/), { timeout: 2000 });
+});
+
+test("quest.complete: the last step shows the recap and names the next quest without starting it", async () => {
+  await workspace.create("Task");
+  localStorage.setItem(
+    "tasks.questProgress",
+    JSON.stringify({ active: "first-task", steps: { "first-task": 6 }, complete: [] }),
+  );
+  const { user } = await workspace.render();
+  await expectStep(6);
+  await user.keyboard("d");
+  const complete = await waitFor(() => {
+    const element = document.querySelector("[data-quest-complete=first-task]");
+    expect(element).not.toBeNull();
+    return element as HTMLElement;
+  });
+  within(complete).getByText("First task complete");
+  within(complete).getByText("Next: Plan ahead, whenever you like");
+  await waitFor(() => within(complete).getByText("D"));
+  expect(card()).toBeNull();
+  const panel = await openPanel(user);
+  expect(panel.getByRole("region", { name: "First task" }).getAttribute("data-quest-state")).toBe(
+    "complete",
+  );
+  expect(panel.getByRole("region", { name: "Plan ahead" }).getAttribute("data-quest-state")).toBe(
+    "new",
+  );
+});
+
+test("quest.pointer: the mouse finishes a step but names its keys and doesn't learn them", async () => {
+  await workspace.create("Task");
+  localStorage.setItem(
+    "tasks.questProgress",
+    JSON.stringify({ active: "first-task", steps: { "first-task": 4 }, complete: [] }),
+  );
+  const { user } = await workspace.render();
+  await expectStep(4);
+  await user.click(row("Task").querySelector("[data-status]")!);
+  await expectStep(5);
+  expect(card()?.querySelector("[data-quest-try]")?.textContent).toBe("Next time, try Space");
   expect(learnedMoves()).not.toContain("status.forward");
-  await user.keyboard(" ");
-  await waitFor(() => expect(learnedMoves()).toContain("status.forward"));
+});
+
+test("quest.pause: Later puts the offer aside with a friendly toast, and nothing asks again", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  await waitFor(() => expect(card()).not.toBeNull());
+  await user.click(within(card()!).getByRole("button", { name: "Later" }));
+  await screen.findByText("Quest paused. Pick it up from ? whenever you like.");
+  expect(card()).toBeNull();
+  await expectListFocused();
+  await user.keyboard("c");
+  await focusedTitleField();
+  expect(card()).toBeNull();
+  await user.keyboard("{Escape}");
+  const panel = await openPanel(user);
+  panel.getByText("Paused at step 1 of 7");
+});
+
+test("quest.resume: an editor step left by Escape goes back to the step that opens the editor", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("c");
+  await user.keyboard("Call mom @home ");
+  await expectStep(2);
+  await user.keyboard("{Escape}");
+  await expectStep(0);
+  await user.keyboard("c");
+  await expectStep(1);
+});
+
+test("quest.resume: Resume in the Learn panel brings the card back where it was left", async () => {
+  await workspace.create("Task");
+  localStorage.setItem(
+    "tasks.questProgress",
+    JSON.stringify({ active: null, steps: { "first-task": 4 }, complete: [] }),
+  );
+  const { user } = await workspace.render();
+  const panel = await openPanel(user);
+  panel.getByText("Paused at step 5 of 7");
+  await user.click(panel.getByRole("button", { name: "Resume" }));
+  expect(screen.queryByRole("complementary", { name: "Learn" })).toBeNull();
+  await expectStep(4);
+  expect(questLine()).toBe("Press Space to start it");
+  await expectListFocused();
+});
+
+test("quest.one-at-a-time: starting a quest puts the one under way aside, quietly", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("c");
+  await user.keyboard("{Escape}");
+  await expectStep(0);
+  const panel = await openPanel(user);
+  await user.click(
+    within(panel.getByRole("region", { name: "Plan ahead" })).getByRole("button", {
+      name: "Start",
+    }),
+  );
+  await waitFor(() => expect(card()?.getAttribute("data-quest-card")).toBe("plan-ahead"));
+  expect(screen.queryByText(/^Quest paused/)).toBeNull();
+  const reopened = await openPanel(user);
+  reopened.getByText("Paused at step 1 of 7");
+});
+
+test("learn.panel: ? opens the quest log without taking focus, and ? closes it", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  await expectListFocused();
+  const panel = await openPanel(user);
+  expect(panel.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(
+    ["First task", "Plan ahead", "Find your way", "Shape your list", "Fast hands"],
+  );
+  expect(panel.getAllByText("New")).toHaveLength(5);
+  expect(
+    within(panel.getByRole("region", { name: "First task" }))
+      .getAllByRole("listitem")
+      .map((item) => item.getAttribute("data-move")),
+  ).toEqual([
+    "capture.open",
+    "shorthand.category",
+    "shorthand.tags",
+    "capture.save",
+    "status.forward",
+    "done.lens",
+  ]);
+  await expectListFocused();
+  await user.keyboard("?");
+  expect(screen.queryByRole("complementary", { name: "Learn" })).toBeNull();
 });
 
 test("learn.hesitation: the filter guide opens at once until a filter is chosen, then after a pause", async () => {
@@ -96,27 +257,35 @@ test("learn.hesitation: the filter guide opens at once until a filter is chosen,
   await waitFor(() => expect(guide()).not.toBeNull(), { timeout: 2000 });
 });
 
-test("learn.reset: Reset progress in Settings forgets every learned move", async () => {
+test("learn.reset: Reset progress forgets learned moves and quests, so the offer returns", async () => {
   await workspace.create("Task");
   const { user } = await workspace.render();
+  await user.click(within(card()!).getByRole("button", { name: "Later" }));
   await user.keyboard("v");
   const settings = await openSettings(user);
   settings.getByText(/^1 of \d+ moves learned$/);
   await user.click(settings.getByRole("button", { name: "Reset progress" }));
-  await settings.findByText("Progress reset. Hints start over.");
+  await settings.findByText("Progress reset. Quests start over.");
   settings.getByText(/^0 of \d+ moves learned$/);
   expect(learnedMoves()).toEqual([]);
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(card()?.getAttribute("data-quest-card")).toBe("first-task"));
 });
 
-test("learn.hints-off: without hints the editor has no nudge and the Help icon no ring", async () => {
+test("learn.quests: with quests off there is no offer or ring, but the panel still starts one", async () => {
   const { user } = await workspace.render();
   expect(document.querySelector("[data-learn-progress]")).not.toBeNull();
   const settings = await openSettings(user);
-  await user.click(settings.getByRole("checkbox", { name: "Show hints" }));
-  expect(localStorage.getItem("tasks.hints")).toBe("off");
-  expect(document.querySelector("[data-learn-progress]")).toBeNull();
+  await user.click(settings.getByRole("checkbox", { name: "Show quests" }));
+  expect(localStorage.getItem("tasks.showQuests")).toBe("off");
   await user.keyboard("{Escape}");
-  await user.keyboard("c");
-  await screen.findByRole("textbox", { name: "Title" });
-  expect(document.querySelector("[data-move-nudge]")).toBeNull();
+  expect(card()).toBeNull();
+  expect(document.querySelector("[data-learn-progress]")).toBeNull();
+  const panel = await openPanel(user);
+  await user.click(
+    within(panel.getByRole("region", { name: "First task" })).getByRole("button", {
+      name: "Start",
+    }),
+  );
+  await expectStep(0);
 });

@@ -43,15 +43,16 @@ import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { formatDueDate } from "@/backend/taskDates";
 import type { MoveId } from "@/learning/moves";
-import { practice, useLearning } from "@/learning/progress";
+import { practice } from "@/learning/progress";
+import { leaveEditor } from "@/learning/questProgress";
 import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
 import { QuietInput, QuietTextarea } from "@/components/variants/input";
 import { isAndroid } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
 import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
-import { MoveNudge } from "./MoveNudge";
 
 export type ComposerState =
   | { mode: "create"; parentId?: string; initialTitle?: string }
@@ -83,6 +84,26 @@ const MARKER_MOVES: Record<Marker, MoveId> = {
   "#": "shorthand.tags",
   "^": "shorthand.due",
 };
+
+// A pill's name as a quest's success line says it, like "Due tomorrow".
+function practiceMarker(marker: Marker, slug: string): void {
+  practice(MARKER_MOVES[marker], "keys", marker === "^" ? formatDueDate(slug, localToday()) : slug);
+}
+
+// Markers still in the title when it saves, in the order the pills show them.
+function savedMarkers(before: Classification, after: Classification): [Marker, string][] {
+  return [
+    ...(after.category !== null && after.category !== before.category
+      ? [["@", after.category] as [Marker, string]]
+      : []),
+    ...after.tags
+      .filter((tag) => !before.tags.includes(tag))
+      .map((tag): [Marker, string] => ["#", tag]),
+    ...(after.due !== null && after.due !== before.due
+      ? [["^", after.due] as [Marker, string]]
+      : []),
+  ];
+}
 
 /**
  * Scrolls `element` into view now and again once the on-screen keyboard has
@@ -189,15 +210,8 @@ export function TaskComposer({
   // A date picked with the arrow keys, until the typed word changes.
   const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
-  const { moves, learned, hints } = useLearning();
-  // One lesson per editor, kept while it is open so the line doesn't change under the typing.
-  const [nudge] = useState(() =>
-    hints
-      ? moves.find((move): move is typeof move & { nudge: string } =>
-          Boolean(move.nudge && !learned.has(move.id)),
-        )
-      : undefined,
-  );
+  // Saving teaches `Enter` unless the Add task button did it.
+  const saveVia = useRef<"keys" | "pointer">("keys");
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -278,7 +292,7 @@ export function TaskComposer({
     lastLift.current = lift;
     if (lift.change === "added" || lift.change === "replaced") {
       setLanding({ marker: lift.token.marker, slug: lift.token.slug, at: lift.token.start });
-      practice(MARKER_MOVES[lift.token.marker]);
+      practiceMarker(lift.token.marker, lift.token.slug);
     }
   }
 
@@ -480,7 +494,7 @@ export function TaskComposer({
     if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      onCancel();
+      cancel();
       return;
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -552,7 +566,7 @@ export function TaskComposer({
     if (event.key === "Escape") {
       if (pending) return;
       event.preventDefault();
-      onCancel();
+      cancel();
       return;
     }
     if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -572,9 +586,17 @@ export function TaskComposer({
     }
   }
 
+  // Leaving without saving: a quest step inside the editor goes back to the step that opens it.
+  function cancel(): void {
+    leaveEditor();
+    onCancel();
+  }
+
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (saving.current) return;
+    const via = saveVia.current;
+    saveVia.current = "keys";
     // A marker still in the title counts on save, but never removes a pill.
     const lifted = liftAll(title, classification);
     setTitle(lifted.text);
@@ -585,6 +607,9 @@ export function TaskComposer({
       titleInput.current?.focus();
       return;
     }
+    for (const [marker, slug] of savedMarkers(classification, lifted.classification))
+      practiceMarker(marker, slug);
+    practice("capture.save", via);
     const text = shorthandText(lifted.text, lifted.classification);
 
     saving.current = true;
@@ -620,6 +645,7 @@ export function TaskComposer({
         : await createTask(draft, { ...options, parentId });
       receipt.current = null;
       onSaved(result);
+      leaveEditor();
     } catch (caught) {
       setError(
         caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
@@ -670,10 +696,7 @@ export function TaskComposer({
               readOnly={pending}
               required
               aria-invalid={titleError || undefined}
-              aria-describedby={
-                [titleError ? `${id}-error` : "", nudge ? `${id}-nudge` : ""].join(" ").trim() ||
-                undefined
-              }
+              aria-describedby={titleError ? `${id}-error` : undefined}
               aria-expanded={
                 suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
               }
@@ -751,9 +774,6 @@ export function TaskComposer({
             titleInput={titleInput}
             onRemove={removePill}
           />
-          {nudge ? (
-            <MoveNudge id={`${id}-nudge`} move={nudge} done={learned.has(nudge.id)} />
-          ) : null}
           {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
         </Field>
         <Field>
@@ -876,7 +896,7 @@ export function TaskComposer({
             size="sm"
             tabIndex={-1}
             disabled={pending}
-            onClick={onCancel}
+            onClick={cancel}
           >
             Cancel
           </Button>
@@ -886,7 +906,15 @@ export function TaskComposer({
             </Button>
           ) : null}
         </div>
-        <Button type="submit" size="sm" tabIndex={-1} disabled={pending}>
+        <Button
+          type="submit"
+          size="sm"
+          tabIndex={-1}
+          disabled={pending}
+          onClick={() => {
+            saveVia.current = "pointer";
+          }}
+        >
           {pending ? "Saving…" : task ? "Save changes" : "Add task"}
         </Button>
       </div>

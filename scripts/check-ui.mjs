@@ -342,10 +342,12 @@ try {
   check('document.body.textContent.includes("Press C or choose New task")');
   check('document.querySelector("[data-slot=empty-title]")?.textContent === "No active tasks"');
   check('document.querySelector("[data-filter-summary]")?.textContent === "0 active tasks"');
+  // quest.offer: a fresh home offers First task below the list.
+  waitFor('document.querySelector("[data-quest-card=first-task]") !== null');
   browser("press", "?");
   waitFor('document.querySelector("[data-learn-panel]") !== null');
   check(
-    'document.querySelector("[data-learn-panel] [data-next]")?.getAttribute("data-move") === "capture.open"',
+    'document.querySelector("[data-learn-panel] [data-learn-quest=first-task]")?.getAttribute("data-quest-state") === "new"',
   );
   check('document.querySelector("[data-learn-panel]")?.textContent.includes("Filter by category")');
   check('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
@@ -354,8 +356,8 @@ try {
   // C opens the inline create editor with the title focused and notes closed.
   browser("press", "c");
   waitFor("document.querySelector('form[aria-label=\"New task\"]') !== null");
-  // The first editor teaches @ in a quiet line under the title.
-  check("document.querySelector(\"[data-move-nudge='shorthand.category']\") !== null");
+  // C was the offered quest's first step, so the quest is under way at its @ step.
+  waitFor('document.querySelector("[data-quest-card]")?.getAttribute("data-quest-step") === "1"');
   check(
     '(() => { const editor = document.querySelector("[data-inline-task-editor]"); if (!editor) return false; const style = getComputedStyle(editor); const transparentBorder = style.borderColor === "rgba(0, 0, 0, 0)" || style.borderColor === "transparent"; return transparentBorder && style.backgroundColor !== getComputedStyle(document.body).backgroundColor; })()',
   );
@@ -1084,41 +1086,35 @@ try {
   focus("[role=tab][aria-selected=true]");
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
-  // Hints replace help levels: one checkbox, the learned count and Reset progress.
-  check('document.querySelector("#settings-show-hints")?.getAttribute("aria-checked") === "true"');
+  // Quests replace help levels: one checkbox, the learned count and Reset progress.
+  check('document.querySelector("#settings-show-quests")?.getAttribute("aria-checked") === "true"');
   check(
     '/^\\d+ of \\d+ moves learned$/.test(document.querySelector("[data-settings-learned]")?.textContent ?? "")',
   );
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])")');
-  // The editor's lesson stays inside the editor at any width.
-  browser("press", "c");
-  waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
-  check('document.querySelector("form[aria-label=\\"New task\\"] [data-move-nudge]") !== null');
-  browser("set", "viewport", "320", "640");
-  check(
-    '(() => { const nudge = document.querySelector("[data-move-nudge]").getBoundingClientRect(); const form = document.querySelector("form[aria-label=\\"New task\\"]").getBoundingClientRect(); return nudge.left >= form.left && nudge.right <= form.right && document.documentElement.scrollWidth <= innerWidth; })()',
-  );
+  // quest.card: the card sits below the list, inside the window, at any width.
+  waitFor('document.querySelector("[data-quest-card]") !== null');
+  for (const width of ["1280", "320"]) {
+    browser("set", "viewport", width, "640");
+    check(
+      '(() => { const card = document.querySelector("[data-quest-card]").getBoundingClientRect(); const list = document.querySelector("[role=listbox]").getBoundingClientRect(); return card.top >= list.bottom && card.left >= 0 && card.right <= innerWidth && card.bottom <= innerHeight && document.documentElement.scrollWidth <= innerWidth; })()',
+    );
+  }
   browser("set", "viewport", "1280", "844");
-  browser("press", "Escape");
-  waitFor('document.querySelector("[data-inline-task-editor]") === null');
-  // Without hints there is no lesson and no progress ring; the mode guides stay.
+  // Without quests there is no card and no progress ring; the mode guides stay.
   browser("find", "role", "button", "click", "--name", "Settings");
   waitFor(
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
   );
-  browser("click", "#settings-show-hints");
+  browser("click", "#settings-show-quests");
   waitFor(
-    'document.querySelector("#settings-show-hints")?.getAttribute("aria-checked") === "false"',
+    'document.querySelector("#settings-show-quests")?.getAttribute("aria-checked") === "false"',
   );
   browser("press", "Escape");
   waitFor('!document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])")');
   check('document.querySelector("[data-learn-progress]") === null');
-  browser("press", "c");
-  waitFor('document.querySelector("form[aria-label=\\"New task\\"]") !== null');
-  check('document.querySelector("[data-move-nudge]") === null');
-  browser("press", "Escape");
-  waitFor('document.querySelector("[data-inline-task-editor]") === null');
+  check('document.querySelector("[data-quest-card]") === null');
   focus("[role=listbox]");
   browser("press", "f");
   waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
@@ -1128,9 +1124,9 @@ try {
   waitFor(
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
   );
-  browser("click", "#settings-show-hints");
+  browser("click", "#settings-show-quests");
   waitFor(
-    'document.querySelector("#settings-show-hints")?.getAttribute("aria-checked") === "true"',
+    'document.querySelector("#settings-show-quests")?.getAttribute("aria-checked") === "true"',
   );
   evaluate(
     '[...document.querySelectorAll("[role=tab]")].find((tab) => tab.textContent === "Data").click(); true',

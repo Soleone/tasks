@@ -335,7 +335,7 @@ export function useTaskListKeyboard(
       if (event.repeat) return;
       event.preventDefault();
       if (actions.activeTask) {
-        practice("priority.set");
+        practice("priority.set", "keys", `P${event.key}`);
         void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
       }
     } else if (event.key.toLowerCase() === "d") {

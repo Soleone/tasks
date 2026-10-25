@@ -25,6 +25,7 @@ import type { ComposerState } from "@/components/TaskComposer";
 import { HelpPalette } from "@/components/HelpPalette";
 import { LearnIcon } from "@/components/LearnIcon";
 import { LearnPanel } from "@/components/LearnPanel";
+import { QuestCard } from "@/components/QuestCard";
 import { DoneToday, DueNow } from "@/components/LensCounts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
@@ -52,7 +53,9 @@ import {
   type FontSizeIncrease,
 } from "@/fontSize";
 import { practice, useLearning } from "@/learning/progress";
+import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
+import { isAndroid } from "@/platform/runtime";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
@@ -214,6 +217,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [showDetails, setShowDetails] = useState(readShowDetails);
   const [foldedToolbarGroups, setFoldedToolbarGroups] = useState(readFoldedToolbarGroups);
   const learning = useLearning();
+  const questsShown = useQuests().shown;
+  const android = isAndroid();
   const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(
     readStoredFontSizeIncrease,
   );
@@ -789,7 +794,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                   }
                 >
                   <LearnIcon
-                    progress={learning.hints ? learning.learnedCount / learning.moves.length : 1}
+                    progress={questsShown ? learning.learnedCount / learning.moves.length : 1}
                   />
                   <span className="sr-only">Learn</span>
                 </TooltipTrigger>
@@ -841,6 +846,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           </div>
         </header>
 
+        {/* Under the header on Android, so the soft keyboard never hides it (`platform.quest-card`). */}
+        {android ? <QuestCard /> : null}
         <TaskList
           ref={taskListRef}
           tasks={tasks}
@@ -930,6 +937,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />
+        {android ? null : <QuestCard />}
         <p role="status" className="sr-only">
           {announcement}
         </p>

@@ -1,14 +1,26 @@
 import type { ReactElement } from "react";
-import { Check, Circle, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Check, Circle, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { CHAPTERS } from "@/learning/moves";
+import type { Move } from "@/learning/moves";
 import { useLearning } from "@/learning/progress";
+import {
+  pauseQuest,
+  resumeQuest,
+  startQuest,
+  useQuests,
+  type QuestView,
+} from "@/learning/questProgress";
 import { preventFocusSteal } from "@/navigation";
 import { LearnIcon } from "./LearnIcon";
 
-/** The quest log behind `?` (`learn.panel`): every move for this device, by chapter. */
+function questStatus(quest: QuestView): string {
+  if (quest.state === "active") return "Under way";
+  if (quest.state === "paused") return `Paused at step ${quest.step + 1} of ${quest.steps.length}`;
+  return quest.state === "complete" ? "Complete" : "New";
+}
+
+/** The quest log behind `?` (`learn.panel`): every quest, its state and the moves it teaches. */
 export function LearnPanel({
   open,
   onClose,
@@ -19,9 +31,31 @@ export function LearnPanel({
   onOpenPalette: () => void;
 }): ReactElement | null {
   const { moves, learned, learnedCount } = useLearning();
+  const { quests } = useQuests();
   if (!open) return null;
-  const next = moves.find((move) => !learned.has(move.id));
   const keyboard = moves.some((move) => move.keys);
+  // Each move is listed under the first quest that teaches it.
+  const taught = new Set<string>();
+  const questMoves = new Map(
+    quests.map((quest) => [
+      quest.id,
+      quest.steps.flatMap((step): Move[] => {
+        const move = moves.find((entry) => entry.id === step.move);
+        if (!move || taught.has(move.id)) return [];
+        taught.add(move.id);
+        return [move];
+      }),
+    ]),
+  );
+
+  function play(quest: QuestView): void {
+    if (quest.state === "active") pauseQuest();
+    else {
+      if (quest.state === "paused") resumeQuest(quest.id);
+      else startQuest(quest.id);
+      onClose();
+    }
+  }
 
   return (
     <aside
@@ -38,7 +72,7 @@ export function LearnPanel({
               Learn
             </h2>
             <p className="text-sm text-muted-foreground" data-learn-count>
-              {next
+              {learnedCount < moves.length
                 ? `${learnedCount} of ${moves.length} moves learned`
                 : `All ${moves.length} moves learned`}
             </p>
@@ -56,67 +90,84 @@ export function LearnPanel({
         </Button>
       </div>
       <p className="mt-3 text-sm text-muted-foreground">
-        Each move checks off the first time you use it, and its hints retire.
+        Short quests teach Tasks a few keys at a time. Pause one whenever you like; it keeps your
+        place.
       </p>
       <div className="mt-5 flex flex-col gap-5">
-        {CHAPTERS.map((chapter) => {
-          const chapterMoves = moves.filter((move) => move.chapter === chapter);
-          if (chapterMoves.length === 0) return null;
-          const done = chapterMoves.filter((move) => learned.has(move.id)).length;
-          return (
-            <section key={chapter} aria-label={chapter} data-learn-chapter={chapter}>
-              <div className="mb-1 flex items-center justify-between px-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
-                <h3>{chapter}</h3>
-                <span>
-                  {done}/{chapterMoves.length}
-                </span>
+        {quests.map((quest) => (
+          <section
+            key={quest.id}
+            aria-labelledby={`learn-quest-${quest.id}`}
+            data-learn-quest={quest.id}
+            data-quest-state={quest.state}
+          >
+            <div className="flex items-center justify-between gap-2 px-2">
+              <div className="min-w-0">
+                <h3
+                  id={`learn-quest-${quest.id}`}
+                  className="flex items-center gap-1.5 font-medium"
+                >
+                  {quest.state === "complete" ? (
+                    <Trophy aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                  ) : null}
+                  {quest.title}
+                </h3>
+                <p className="text-xs text-muted-foreground">{questStatus(quest)}</p>
               </div>
-              <ul className="flex flex-col">
-                {chapterMoves.map((move) => {
-                  const isLearned = learned.has(move.id);
-                  const isNext = move.id === next?.id;
-                  return (
-                    <li
-                      key={move.id}
-                      data-move={move.id}
-                      data-learned={isLearned || undefined}
-                      data-next={isNext || undefined}
+              <Button
+                variant={quest.state === "new" || quest.state === "paused" ? "default" : "outline"}
+                size="sm"
+                tabIndex={-1}
+                onMouseDown={preventFocusSteal}
+                onClick={() => play(quest)}
+              >
+                {quest.state === "active"
+                  ? "Pause"
+                  : quest.state === "paused"
+                    ? "Resume"
+                    : quest.state === "complete"
+                      ? "Replay"
+                      : "Start"}
+              </Button>
+            </div>
+            <ul className="mt-1 flex flex-col">
+              {questMoves.get(quest.id)?.map((move) => {
+                const isLearned = learned.has(move.id);
+                return (
+                  <li
+                    key={move.id}
+                    data-move={move.id}
+                    data-learned={isLearned || undefined}
+                    className="flex items-center gap-2 rounded-md px-2 py-1 text-sm"
+                  >
+                    {isLearned ? (
+                      <Check aria-label="Learned" className="size-3.5 shrink-0 text-primary" />
+                    ) : (
+                      <Circle
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                      />
+                    )}
+                    <span
                       className={
-                        isNext
-                          ? "flex items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-sm"
-                          : "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+                        isLearned ? "min-w-0 flex-1 text-muted-foreground" : "min-w-0 flex-1"
                       }
                     >
-                      {isLearned ? (
-                        <Check aria-label="Learned" className="size-3.5 shrink-0 text-primary" />
-                      ) : (
-                        <Circle
-                          aria-hidden="true"
-                          className="size-3.5 shrink-0 text-muted-foreground"
-                        />
-                      )}
-                      <span
-                        className={
-                          isLearned ? "min-w-0 flex-1 text-muted-foreground" : "min-w-0 flex-1"
-                        }
-                      >
-                        {move.label}
-                      </span>
-                      {isNext ? <Badge variant="outline">Next</Badge> : null}
-                      {move.keys ? (
-                        <KbdGroup>
-                          {move.keys.map((key) => (
-                            <Kbd key={key}>{key}</Kbd>
-                          ))}
-                        </KbdGroup>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          );
-        })}
+                      {move.label}
+                    </span>
+                    {move.keys ? (
+                      <KbdGroup>
+                        {move.keys.map((key) => (
+                          <Kbd key={key}>{key}</Kbd>
+                        ))}
+                      </KbdGroup>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
       </div>
       <Button
         variant="outline"

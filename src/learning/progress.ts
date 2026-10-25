@@ -1,15 +1,11 @@
 import { useMemo, useSyncExternalStore } from "react";
-import { Keyboard, Trophy } from "lucide-react";
-import { showTaskToast } from "@/components/TaskToaster";
 import { readPreference, writePreference } from "@/platform/preferences";
 import { currentDevice, movesFor, type Move, type MoveId } from "./moves";
+import { advanceQuest, resetQuests } from "./questProgress";
 
 const LEARNED_MOVES_KEY = "tasks.learnedMoves";
-const HINTS_KEY = "tasks.hints";
 
 const listeners = new Set<() => void>();
-// Moves whose pointer tip already showed this session (`learn.pointer-tip`).
-const tipped = new Set<MoveId>();
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -34,73 +30,40 @@ function parseLearned(stored: string): ReadonlySet<string> {
   }
 }
 
-function hintsOn(): boolean {
-  return readPreference(HINTS_KEY) !== "off";
-}
-
 export type Learning = {
-  /** This device's moves, in chapter order. */
+  /** This device's moves. */
   moves: Move[];
   learned: ReadonlySet<string>;
   learnedCount: number;
-  hints: boolean;
 };
 
 export function useLearning(): Learning {
   const stored = useSyncExternalStore(subscribe, storedLearned);
-  const hints = useSyncExternalStore(subscribe, hintsOn);
   return useMemo(() => {
     const learned = parseLearned(stored);
     const moves = movesFor(currentDevice());
-    return {
-      moves,
-      learned,
-      learnedCount: moves.filter((move) => learned.has(move.id)).length,
-      hints,
-    };
-  }, [stored, hints]);
+    return { moves, learned, learnedCount: moves.filter((move) => learned.has(move.id)).length };
+  }, [stored]);
 }
 
 /**
- * Records that a move was performed (`learn.practice`). On a keyboard device the mouse doesn't
- * learn a move; it earns a tip naming the keys instead.
+ * Records that a move was performed: it counts for the quest under way (`quest.step`), and is
+ * learned (`learn.practice`) unless the mouse did it on a keyboard device (`quest.pointer`).
+ * `detail` is what was typed, for the step's success line.
  */
-export function practice(id: MoveId, via: "keys" | "pointer" = "keys"): void {
+export function practice(id: MoveId, via: "keys" | "pointer" = "keys", detail?: string): void {
+  advanceQuest(id, via, detail);
   const device = currentDevice();
-  const moves = movesFor(device);
-  const move = moves.find((entry) => entry.id === id);
+  if (via === "pointer" && device === "keyboard") return;
   const learned = parseLearned(storedLearned());
-  if (!move || learned.has(id)) return;
-  if (via === "pointer" && device === "keyboard") {
-    tip(move);
-    return;
-  }
-  const next = new Set(learned).add(id);
-  writePreference(LEARNED_MOVES_KEY, JSON.stringify([...next]));
-  notify();
-  if (hintsOn()) celebrate(move, moves, next);
-}
-
-function tip(move: Move): void {
-  if (!hintsOn() || !move.keys || tipped.has(move.id)) return;
-  tipped.add(move.id);
-  showTaskToast(`Next time, press ${move.keys.join("+")}`, { icon: Keyboard });
-}
-
-function celebrate(move: Move, moves: Move[], learned: ReadonlySet<string>): void {
-  if (moves.every((entry) => learned.has(entry.id)))
-    showTaskToast("Every move learned", { icon: Trophy });
-  else if (moves.every((entry) => entry.chapter !== move.chapter || learned.has(entry.id)))
-    showTaskToast(`${move.chapter} chapter complete`, { icon: Trophy });
-}
-
-export function setHints(on: boolean): void {
-  writePreference(HINTS_KEY, on ? "on" : "off");
+  if (learned.has(id) || !movesFor(device).some((move) => move.id === id)) return;
+  writePreference(LEARNED_MOVES_KEY, JSON.stringify([...learned, id]));
   notify();
 }
 
+/** Forgets every learned move and every quest's progress (`learn.reset`). */
 export function resetProgress(): void {
   writePreference(LEARNED_MOVES_KEY, "[]");
-  tipped.clear();
   notify();
+  resetQuests();
 }

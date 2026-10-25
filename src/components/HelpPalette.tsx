@@ -20,6 +20,7 @@ import {
   ListPlus,
   MoveLeft,
   Palette,
+  Play,
   Redo2,
   SaveCheck,
   Search,
@@ -44,6 +45,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { ListLens } from "@/components/listLens";
 import { literalWordScore } from "@/components/commandFilter";
 import { PaletteDialog, KeysShortcut } from "@/components/variants/command";
+import { pauseQuest, resumeQuest, startQuest, useQuests } from "@/learning/questProgress";
 
 type HelpEntry = {
   label: string;
@@ -472,6 +474,7 @@ export function HelpPalette({
   onRedo?: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
+  const questEntry = useQuestEntry();
 
   return (
     <PaletteDialog
@@ -579,8 +582,46 @@ export function HelpPalette({
               </CommandGroup>
             </Fragment>
           ))}
+          {questEntry ? (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Quests">
+                <CommandItem
+                  value={`Quests ${questEntry.label}`}
+                  keywords={[questEntry.hint, "quest learn tutorial later pause resume start"]}
+                  onSelect={() => {
+                    onOpenChange(false);
+                    questEntry.run();
+                  }}
+                >
+                  {questEntry.label === "Pause quest" ? (
+                    <CirclePause aria-hidden="true" />
+                  ) : (
+                    <Play aria-hidden="true" />
+                  )}
+                  <span className="shrink-0 font-medium">{questEntry.label}</span>
+                  <span className="truncate text-muted-foreground">{questEntry.hint}</span>
+                </CommandItem>
+              </CommandGroup>
+            </>
+          ) : null}
         </CommandList>
       </Command>
     </PaletteDialog>
   );
+}
+
+/** Pause the quest under way, or resume or start one (`quest.pause`, `quest.resume`). */
+function useQuestEntry(): { label: string; hint: string; run: () => void } | null {
+  const { quests, active } = useQuests();
+  if (active) return { label: "Pause quest", hint: active.title, run: pauseQuest };
+  const paused = quests.find((quest) => quest.state === "paused");
+  if (paused)
+    return {
+      label: "Resume quest",
+      hint: `${paused.title}, step ${paused.step + 1} of ${paused.steps.length}`,
+      run: () => resumeQuest(paused.id),
+    };
+  const next = quests.find((quest) => quest.state === "new");
+  return next ? { label: "Start quest", hint: next.title, run: () => startQuest(next.id) } : null;
 }
