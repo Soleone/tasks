@@ -200,11 +200,9 @@ function TaskRowMetadata({
 /** The row's one short trailing fact, level with the title: when it was done, or when it's due soon. */
 function TaskRowTrailing({
   task,
-  showDetails,
   showCompletedAt,
 }: {
   task: TaskView;
-  showDetails: boolean;
   showCompletedAt: boolean;
 }): ReactElement | null {
   if (showCompletedAt && task.closedAt) {
@@ -223,10 +221,7 @@ function TaskRowTrailing({
     );
   }
   const today = localToday();
-  const closed = task.status === "done" || task.status === "canceled";
-  // Details shows the full date in its footer instead.
-  const dueLabel =
-    task.due === null || closed || showDetails ? null : dueSoonLabel(task.due, today);
+  const dueLabel = rowDueLabel(task, today);
   if (task.due === null || dueLabel === null) return null;
   return (
     <TaskItemTrailing>
@@ -279,13 +274,22 @@ function TaskRowRelationships({
   );
 }
 
+/** The row's due marker text for an open task due within the week or late; null otherwise. */
+function rowDueLabel(task: TaskView, today: string): string | null {
+  const closed = task.status === "done" || task.status === "canceled";
+  return task.due === null || closed ? null : dueSoonLabel(task.due, today);
+}
+
 /** Whether an open task is due today or already late. */
 function dueNow(task: TaskView, today: string): boolean {
   const closed = task.status === "done" || task.status === "canceled";
   return task.due !== null && !closed && daysBetween(today, task.due) <= 0;
 }
 
-/** Quiet footer: the due date, created and updated (leading when it differs) and the image count. */
+/**
+ * Quiet footer: a due date the row doesn't mark, created and updated (leading
+ * when it differs) and the image count.
+ */
 function TaskRowFooter({
   task,
   onCopyImage,
@@ -298,14 +302,8 @@ function TaskRowFooter({
   const today = localToday();
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-      {task.due === null ? null : (
-        <span
-          data-task-due
-          className={cn(
-            "inline-flex min-w-0 items-center gap-1",
-            dueNow(task, today) && "text-warning",
-          )}
-        >
+      {task.due === null || rowDueLabel(task, today) !== null ? null : (
+        <span data-task-due className="inline-flex min-w-0 items-center gap-1">
           <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
           <span>Due {formatDueDate(task.due, today)}</span>
         </span>
@@ -434,7 +432,7 @@ export function TaskRow({
         <div className="flex h-[1.375em] shrink-0 items-center self-start">{disclosureSlot}</div>
       ) : null}
       {variant === "full" ? (
-        <TaskRowTrailing task={task} showDetails={showDetails} showCompletedAt={showCompletedAt} />
+        <TaskRowTrailing task={task} showCompletedAt={showCompletedAt} />
       ) : null}
     </div>
   );

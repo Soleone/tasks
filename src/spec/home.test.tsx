@@ -621,16 +621,18 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").textContent).toMatch(/Blocked by.*Blocker/));
   });
 
-  test("details.footer: with Details on, the last row shows the due date once and Created", async () => {
-    const due = addDays(localToday(), 1);
-    await workspace.create("Task", { due });
+  test("details.footer: with Details on, each due date shows once and Created shows", async () => {
+    const today = localToday();
+    const later = addDays(today, 7);
+    await workspace.create("Soon", { due: addDays(today, 1) });
+    await workspace.create("Later", { due: later });
     const { user } = await workspace.render();
-    await user.keyboard("v");
-    await waitFor(() => expect(row("Task").querySelector("[title^=Created]")).not.toBeNull());
-    const markers = row("Task").querySelectorAll("[data-task-due]");
-    expect([...markers].map((marker) => marker.textContent)).toEqual([
-      `Due ${formatDueDate(due, localToday())}`,
-    ]);
+    await user.keyboard("{Shift>}v{/Shift}");
+    await waitFor(() => expect(row("Later").querySelector("[title^=Created]")).not.toBeNull());
+    const markers = (title: string): (string | null)[] =>
+      [...row(title).querySelectorAll("[data-task-due]")].map((marker) => marker.textContent);
+    expect(markers("Soon")).toEqual(["Due tomorrow"]);
+    expect(markers("Later")).toEqual([`Due ${formatDueDate(later, today)}`]);
   });
 
   test("home.due-soon: rows mark due dates within the week or past", async () => {
