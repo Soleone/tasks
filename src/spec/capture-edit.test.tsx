@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { addDays, localToday, parseDueWord } from "@/backend/dueDate";
@@ -300,6 +300,30 @@ describe("shorthand", () => {
     await user.click(within(editor()).getByRole("button", { name: "Remove tag books" }));
     expect(pills()).toEqual([]);
     await focusedTitleField();
+  });
+
+  test("shorthand.pill-exit: a removed pill fades out where it was, then goes", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read #books #later ");
+    let finish = () => {};
+    HTMLElement.prototype.animate = vi.fn(
+      () =>
+        ({
+          finished: new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+        }) as unknown as Animation,
+    );
+    try {
+      const row = within(editor()).getByRole("list", { name: "Category, tags and due date" });
+      await user.click(within(row).getByRole("button", { name: "Remove tag books" }));
+      expect(pills()).toEqual(["later"]);
+      expect(row.textContent).toBe("bookslater");
+      act(() => finish());
+      await waitFor(() => expect(row.textContent).toBe("later"));
+    } finally {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
+    }
   });
 
   test("shorthand.enter: Enter on a pill the task already has removes it", async () => {

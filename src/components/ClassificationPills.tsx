@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactElement, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type ReactElement, type RefObject } from "react";
 import { CalendarDays, Folder, X } from "lucide-react";
 import { localToday } from "@/backend/dueDate";
 import { formatDueDate } from "@/backend/taskDates";
@@ -9,7 +9,50 @@ import type { Classification, Marker } from "./composerShorthand";
 /** A pill that just lifted out of the title, and where its marker started in the title text. */
 export type PillLanding = { marker: Marker; slug: string; at: number };
 
+type Pill = { marker: Marker; slug: string; kind: "category" | "tag" | "due"; label: string };
+
+/** A pill on its way out, shown at `index` among the pills until its exit has played. */
+type LeavingPill = { id: number; pill: Pill; index: number };
+
+const PILL_EXIT_MS = 160;
+
 const pillKey = (marker: Marker, slug: string): string => `${marker}${slug}`;
+
+const removeNoun = { category: "category", tag: "tag", due: "due date" };
+
+function pillsOf({ category, tags, due }: Classification): Pill[] {
+  return [
+    ...(category === null
+      ? []
+      : [{ marker: "@", slug: category, kind: "category", label: category } as const]),
+    ...tags.map((tag) => ({ marker: "#", slug: tag, kind: "tag", label: tag }) as const),
+    ...(due === null
+      ? []
+      : [
+          {
+            marker: "^",
+            slug: due,
+            kind: "due",
+            label: formatDueDate(due, localToday()),
+          } as const,
+        ]),
+  ];
+}
+
+// The pills in order, with each leaving pill back where it was.
+function withLeaving(pills: Pill[], leaving: LeavingPill[]): (Pill | LeavingPill)[] {
+  const shown: (Pill | LeavingPill)[] = [...pills];
+  for (const exit of [...leaving].sort((a, b) => a.index - b.index))
+    shown.splice(Math.min(exit.index, shown.length), 0, exit);
+  return shown;
+}
+
+const exitsPlay = (): boolean =>
+  // jsdom has no Web Animations; there a removed pill simply goes.
+  typeof HTMLElement.prototype.animate === "function" &&
+  !matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let nextLeavingId = 0;
 
 // The x position of a code unit in the title field, measured with the field's own font.
 function titleOffset(input: HTMLInputElement, index: number): { x: number; y: number } | null {
@@ -21,6 +64,17 @@ function titleOffset(input: HTMLInputElement, index: number): { x: number; y: nu
   const lead = parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth);
   const x = box.left + lead + context.measureText(input.value.slice(0, index)).width;
   return { x: Math.min(x - input.scrollLeft, box.right), y: box.top + box.height / 2 };
+}
+
+function PillContent({ pill }: { pill: Pill }): ReactElement {
+  return (
+    <>
+      {pill.kind === "category" ? <Folder data-icon="inline-start" aria-hidden="true" /> : null}
+      {pill.kind === "due" ? <CalendarDays data-icon="inline-start" aria-hidden="true" /> : null}
+      {pill.label}
+      <X data-icon="inline-end" aria-hidden="true" />
+    </>
+  );
 }
 
 /** The pills under the title field. Clicking a pill removes it; pills are not Tab stops. */
@@ -36,6 +90,51 @@ export function ClassificationPills({
   onRemove: (marker: Marker, slug: string) => void;
 }): ReactElement {
   const row = useRef<HTMLDivElement>(null);
+  const pills = pillsOf(classification);
+  const signature = pills.map((pill) => pillKey(pill.marker, pill.slug)).join(" ");
+  const [exits, setExits] = useState(() => ({ signature, pills, leaving: [] as LeavingPill[] }));
+  const started = useRef(new Set<number>());
+
+  // A pill gone since the last render stays in its place while its exit plays.
+  let leaving = exits.leaving;
+  if (exits.signature !== signature) {
+    const kept = new Set(pills.map((pill) => pillKey(pill.marker, pill.slug)));
+    leaving = withLeaving(exits.pills, exits.leaving).flatMap((shown, index) => {
+      const pill = "pill" in shown ? shown.pill : shown;
+      if (kept.has(pillKey(pill.marker, pill.slug))) return [];
+      if ("pill" in shown) return [{ ...shown, index }];
+      return exitsPlay() ? [{ id: nextLeavingId++, pill, index }] : [];
+    });
+    setExits({ signature, pills, leaving });
+  }
+
+  useLayoutEffect(() => {
+    const gap = row.current ? parseFloat(getComputedStyle(row.current).columnGap) || 0 : 0;
+    for (const { id } of leaving) {
+      if (started.current.has(id)) continue;
+      const element = row.current?.querySelector<HTMLElement>(`[data-leaving-pill="${id}"]`);
+      if (!element) continue;
+      started.current.add(id);
+      // The negative margin closes its gap, so the pills after it slide over.
+      const width = element.getBoundingClientRect().width + gap;
+      const drop = () => {
+        started.current.delete(id);
+        setExits((current) => ({
+          ...current,
+          leaving: current.leaving.filter((exit) => exit.id !== id),
+        }));
+      };
+      element
+        .animate(
+          [
+            { opacity: 1, transform: "scale(1)", marginInlineEnd: "0px" },
+            { opacity: 0, transform: "scale(0.6)", marginInlineEnd: `${-width}px` },
+          ],
+          { duration: PILL_EXIT_MS, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" },
+        )
+        .finished.then(drop, drop);
+    }
+  }, [leaving]);
 
   // The new pill flies from where its marker was typed.
   useLayoutEffect(() => {
@@ -61,8 +160,7 @@ export function ClassificationPills({
     );
   }, [landing, titleInput]);
 
-  const { category, tags, due } = classification;
-  const dueLabel = due === null ? null : formatDueDate(due, localToday());
+  const shown = withLeaving(pills, leaving);
   return (
     <div
       ref={row}
@@ -70,70 +168,40 @@ export function ClassificationPills({
       aria-label="Category, tags and due date"
       className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5"
     >
-      {category === null && tags.length === 0 && due === null ? (
+      {shown.length === 0 ? (
         <span className="text-xs text-muted-foreground">@category #tags ^date</span>
       ) : null}
-      {category === null ? null : (
-        <span role="listitem" className="flex">
-          <ClassificationBadge
-            kind="category"
-            data-pill={pillKey("@", category)}
-            render={
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={`Remove category ${category}`}
-                onMouseDown={preventFocusSteal}
-                onClick={() => onRemove("@", category)}
-              />
-            }
+      {shown.map((entry) =>
+        "pill" in entry ? (
+          <span
+            key={`leaving-${entry.id}`}
+            data-leaving-pill={entry.id}
+            aria-hidden="true"
+            className="pointer-events-none flex"
           >
-            <Folder data-icon="inline-start" aria-hidden="true" />
-            {category}
-            <X data-icon="inline-end" aria-hidden="true" />
-          </ClassificationBadge>
-        </span>
-      )}
-      {tags.map((tag) => (
-        <span key={tag} role="listitem" className="flex">
-          <ClassificationBadge
-            kind="tag"
-            data-pill={pillKey("#", tag)}
-            render={
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={`Remove tag ${tag}`}
-                onMouseDown={preventFocusSteal}
-                onClick={() => onRemove("#", tag)}
-              />
-            }
-          >
-            {tag}
-            <X data-icon="inline-end" aria-hidden="true" />
-          </ClassificationBadge>
-        </span>
-      ))}
-      {due === null ? null : (
-        <span role="listitem" className="flex">
-          <ClassificationBadge
-            kind="due"
-            data-pill={pillKey("^", due)}
-            render={
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-label={`Remove due date ${dueLabel}`}
-                onMouseDown={preventFocusSteal}
-                onClick={() => onRemove("^", due)}
-              />
-            }
-          >
-            <CalendarDays data-icon="inline-start" aria-hidden="true" />
-            {dueLabel}
-            <X data-icon="inline-end" aria-hidden="true" />
-          </ClassificationBadge>
-        </span>
+            <ClassificationBadge kind={entry.pill.kind}>
+              <PillContent pill={entry.pill} />
+            </ClassificationBadge>
+          </span>
+        ) : (
+          <span key={pillKey(entry.marker, entry.slug)} role="listitem" className="flex">
+            <ClassificationBadge
+              kind={entry.kind}
+              data-pill={pillKey(entry.marker, entry.slug)}
+              render={
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={`Remove ${removeNoun[entry.kind]} ${entry.label}`}
+                  onMouseDown={preventFocusSteal}
+                  onClick={() => onRemove(entry.marker, entry.slug)}
+                />
+              }
+            >
+              <PillContent pill={entry} />
+            </ClassificationBadge>
+          </span>
+        ),
       )}
     </div>
   );
