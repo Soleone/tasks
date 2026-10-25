@@ -130,7 +130,11 @@ export function TaskStatusToggle({
         />
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
-        {status.label}, priority {priority.label}
+        {!feedback.flashing
+          ? `${status.label}, priority ${priority.label}`
+          : entrance === "priority"
+            ? priority.shortLabel
+            : status.label}
       </TooltipContent>
     </Tooltip>
   );

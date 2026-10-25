@@ -328,7 +328,8 @@ export function TaskList({
   });
   const [mutationPendingIds, setMutationPendingIds] = useState<Set<string>>(() => new Set());
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode | null>(null);
-  const [statusFeedback, setStatusFeedback] = useState<{ taskId: string; version: number } | null>(
+  // Flashes the status glyph's tooltip after this client changes its status or priority.
+  const [glyphFeedback, setGlyphFeedback] = useState<{ taskId: string; version: number } | null>(
     null,
   );
   const { sheenSteps, playSheen } = useCompletionSheen();
@@ -1145,7 +1146,7 @@ export function TaskList({
         if (result.changed !== false) {
           if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
           statusChanged(previous, result.task, wasActive);
-          setStatusFeedback({ taskId: task.id, version: result.task.version });
+          setGlyphFeedback({ taskId: task.id, version: result.task.version });
         }
         announce(`${task.title}: ${taskStatusMeta[result.task.status].label}`);
       },
@@ -1297,6 +1298,8 @@ export function TaskList({
       },
       (previous, result) => {
         if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
+        if (result.changed !== false)
+          setGlyphFeedback({ taskId: task.id, version: result.task.version });
         const label =
           PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
         announce(`${task.title}: priority ${label}`);
@@ -1718,7 +1721,7 @@ export function TaskList({
                     expanded={expandedIds.has(row.task.id)}
                     pending={mutationPendingIds.has(row.task.id)}
                     feedbackVersion={
-                      statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined
+                      glyphFeedback?.taskId === row.task.id ? glyphFeedback.version : undefined
                     }
                     sheenStep={sheenSteps.get(row.task.id)}
                     newTaskId={newTaskId}

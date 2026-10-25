@@ -22,13 +22,13 @@ Status keys act on the selection, or on the active task when nothing else is sel
 | `status.batch-pause` | `P` with done or canceled tasks in the selection | They are skipped; the rest pause or resume |
 | `status.immediate` | A status or priority key on one task | The row shows the change at once and saves it behind the scenes. Repeated keys apply in order |
 | `status.stale` | The task changed elsewhere since it was shown | Nothing is saved, the row goes back, and the app says to refresh and try again |
-| `status.feedback` | A status changes | The row confirms it briefly and a screen reader hears the new status |
+| `status.feedback` | A status or priority changes | The status glyph's tooltip flashes just the new status, or just the new priority like P0, and a screen reader hears it |
 
 ## Priority and copy
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `priority.set` | `0`–`4` on the list | Sets the active task's priority. While the task is open or in progress, the status glyph takes the priority's color, with normal priority in neutral gray; paused, done and canceled keep their status colors. The glyph's label and tooltip name both |
+| `priority.set` | `0`–`4` on the list | Sets the active task's priority. While the task is open or in progress, the status glyph takes the priority's color, with normal priority in neutral gray; paused, done and canceled keep their status colors. The glyph's label and hover tooltip name both |
 | `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` or images |
 | `attach.copy` | `Ctrl/⌘+Shift+C` on the list, Copy image in Task actions, or clicking the image badge | Copies the active task's most recently added image, whether details are shown or not, and a toast confirms it. A task without images, or whose image is missing, says so |
 

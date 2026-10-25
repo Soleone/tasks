@@ -409,6 +409,18 @@ describe("priority and copy", () => {
     expect(glyph()?.className).toContain("text-red-500");
   });
 
+  test("status.feedback: the glyph's tooltip flashes only what changed", async () => {
+    const task = await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    const tooltip = { selector: "[data-slot=tooltip-content][data-open]" };
+    await user.keyboard(" ");
+    await expectStatus(task.id, "in_progress");
+    await screen.findByText("In progress", tooltip);
+    await user.keyboard("0");
+    await screen.findByText("P0", tooltip);
+  });
+
   test("copy.text: Ctrl+C copies the title, description and tags without the category", async () => {
     await workspace.create("Call Sam", {
       description: "about the lease",
