@@ -72,20 +72,41 @@ export type PriorityMeta = {
   shortLabel: string;
   /** Dot color for the priority. Text stays neutral so contrast holds. */
   dot: string;
+  /** Color for an open or in-progress task's status glyph. Normal stays neutral so other priorities stand out. */
+  glyph: string;
 };
 
 export const PRIORITY_META: PriorityMeta[] = [
-  { value: 0, label: "highest", shortLabel: "P0", dot: "bg-red-500" },
-  { value: 1, label: "high", shortLabel: "P1", dot: "bg-yellow-500" },
-  { value: 2, label: "normal", shortLabel: "P2", dot: "bg-green-500" },
-  { value: 3, label: "low", shortLabel: "P3", dot: "bg-blue-500" },
-  { value: 4, label: "lowest", shortLabel: "P4", dot: "bg-muted-foreground" },
+  { value: 0, label: "highest", shortLabel: "P0", dot: "bg-red-500", glyph: "text-red-500" },
+  { value: 1, label: "high", shortLabel: "P1", dot: "bg-orange-500", glyph: "text-orange-500" },
+  {
+    value: 2,
+    label: "normal",
+    shortLabel: "P2",
+    dot: "bg-muted-foreground",
+    glyph: "text-muted-foreground",
+  },
+  { value: 3, label: "low", shortLabel: "P3", dot: "bg-green-500", glyph: "text-green-500" },
+  {
+    value: 4,
+    label: "lowest",
+    shortLabel: "P4",
+    dot: "bg-blue-500",
+    glyph: "text-blue-500",
+  },
 ];
 
 export function priorityMeta(value: TaskPriority): PriorityMeta {
   const found = PRIORITY_META.find((meta) => meta.value === value);
   if (!found) throw new Error(`unsupported priority ${String(value)}`);
   return found;
+}
+
+/** Active tasks show their priority as the glyph's color; paused and closed ones keep their status color. */
+export function statusGlyphColor(task: Pick<TaskView, "status" | "priority">): string {
+  return ACTIVE_TASK_STATUS_SET.has(task.status)
+    ? priorityMeta(task.priority).glyph
+    : taskStatusMeta[task.status].color;
 }
 
 export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: string }> = [

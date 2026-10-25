@@ -401,13 +401,12 @@ describe("priority and copy", () => {
     const task = await workspace.create("Task");
     const { user } = await workspace.render();
     await expectActive("Task");
+    const glyph = () => row("Task").querySelector("[data-priority]");
+    expect(glyph()?.className).toContain("text-muted-foreground");
     await user.keyboard("0");
     await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(0));
-    await waitFor(() =>
-      expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe(
-        "P0",
-      ),
-    );
+    await waitFor(() => expect(glyph()?.getAttribute("data-priority")).toBe("P0"));
+    expect(glyph()?.className).toContain("text-red-500");
   });
 
   test("copy.text: Ctrl+C copies the title, description and tags without the category", async () => {
@@ -537,9 +536,9 @@ describe("undo", () => {
     const toast = (await screen.findByText("Undo priority change to P2")).closest(
       "[data-slot=toast]",
     );
-    expect(toast?.querySelector("[data-priority=P2]")?.classList.contains("bg-green-500")).toBe(
-      true,
-    );
+    expect(
+      toast?.querySelector("[data-priority=P2]")?.classList.contains("bg-muted-foreground"),
+    ).toBe(true);
     await waitFor(() =>
       expect(row("Task").querySelector("[data-priority]")?.getAttribute("data-priority")).toBe(
         "P2",

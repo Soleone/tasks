@@ -28,7 +28,7 @@ Status keys act on the selection, or on the active task when nothing else is sel
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `priority.set` | `0`–`4` on the list | Sets the active task's priority. The row shows it as a colored dot with a label and tooltip |
+| `priority.set` | `0`–`4` on the list | Sets the active task's priority. While the task is open or in progress, the status glyph takes the priority's color, with normal priority in neutral gray; paused, done and canceled keep their status colors. The glyph's label and tooltip name both |
 | `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` or images |
 | `attach.copy` | `Ctrl/⌘+Shift+C` on the list, Copy image in Task actions, or clicking the image badge | Copies the active task's most recently added image, whether details are shown or not, and a toast confirms it. A task without images, or whose image is missing, says so |
 

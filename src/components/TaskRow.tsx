@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { CalendarDays, Clock3, Folder, Images, RotateCcwClock, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
@@ -12,13 +12,12 @@ import {
   formatTaskDateTime,
   sameTaskDay,
 } from "@/backend/taskDates";
-import { priorityMeta, taskStatusMeta } from "@/components/taskFilters";
+import { priorityMeta, statusGlyphColor, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
 import { ItemDescription } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClassificationBadge } from "@/components/variants/badge";
 import { TaskItemMetadata, TaskItemTitle } from "@/components/variants/item";
-import { useChangedAfterMount } from "./useChangedAfterMount";
 import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
@@ -30,47 +29,36 @@ export function taskContextMessage(indented: boolean): string {
 }
 
 /** Informational status icon. Interactive toggling stays with the list. */
-export function TaskStatusDisplay({ task }: { task: Pick<TaskView, "status"> }): ReactElement {
+export function TaskStatusDisplay({
+  task,
+}: {
+  task: Pick<TaskView, "status" | "priority">;
+}): ReactElement {
   const status = taskStatusMeta[task.status];
   const Icon = status.Icon;
   return (
     <span
       className={cn(
         "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
-        status.color,
+        statusGlyphColor(task),
       )}
       role="img"
-      aria-label={`Status: ${status.label}`}
+      aria-label={`Status: ${status.label}, priority ${priorityMeta(task.priority).label}`}
     >
       <Icon aria-hidden="true" />
     </span>
   );
 }
 
-function TaskPriorityDisplay({ task }: { task: TaskView }): ReactElement {
-  const meta = priorityMeta(task.priority ?? 2);
-  const changed = useChangedAfterMount(meta.shortLabel);
-  return (
-    <Tooltip>
-      {/* Keyed so a new priority remounts the dot and replays its entrance. */}
-      <TooltipTrigger
-        key={meta.shortLabel}
-        render={
-          <span
-            className={`inline-block size-2 shrink-0 rounded-full ${meta.dot}`}
-            role="img"
-            aria-label={`Priority ${meta.label}`}
-            data-priority={meta.shortLabel}
-            data-priority-enter={changed || undefined}
-            tabIndex={-1}
-          />
-        }
-      />
-      <TooltipContent side="top" sideOffset={8}>
-        Priority {meta.label}
-      </TooltipContent>
-    </Tooltip>
-  );
+/** Which of the glyph's two meanings changed last, so a fresh mount stays still. */
+function useGlyphEntrance(task: TaskView): "status" | "priority" | null {
+  const [seen, setSeen] = useState({ status: task.status, priority: task.priority });
+  const [entrance, setEntrance] = useState<"status" | "priority" | null>(null);
+  if (seen.status !== task.status || seen.priority !== task.priority) {
+    setSeen({ status: task.status, priority: task.priority });
+    setEntrance(seen.status !== task.status ? "status" : "priority");
+  }
+  return entrance;
 }
 
 const STATUS_FEEDBACK_DURATION_MS = 900;
@@ -94,8 +82,9 @@ export function TaskStatusToggle({
   onToggle: (task: TaskView) => void;
 }): ReactElement {
   const feedback = useFlashTooltip(feedbackVersion, STATUS_FEEDBACK_DURATION_MS);
-  const statusChanged = useChangedAfterMount(task.status);
+  const entrance = useGlyphEntrance(task);
   const status = taskStatusMeta[task.status];
+  const priority = priorityMeta(task.priority);
   const Icon = status.Icon;
   const pauseHint =
     task.status === "open" || task.status === "in_progress"
@@ -110,9 +99,10 @@ export function TaskStatusToggle({
         render={
           <span
             role="img"
-            aria-label={`Status: ${status.label}. Click or press Space to change it to ${nextLabel}; press Shift+Space to change it to ${previousLabel}.${pauseHint}`}
+            aria-label={`Status: ${status.label}, priority ${priority.label}. Click or press Space to change it to ${nextLabel}; press Shift+Space to change it to ${previousLabel}.${pauseHint}`}
             tabIndex={-1}
             data-status={task.status}
+            data-priority={priority.shortLabel}
             data-status-pending={pending || undefined}
             data-completion-sheen={sheenStep !== undefined || undefined}
             style={
@@ -120,7 +110,7 @@ export function TaskStatusToggle({
             }
             className={cn(
               "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
-              status.color,
+              statusGlyphColor(task),
               pending && "animate-pulse opacity-60",
             )}
             onMouseDown={preventFocusSteal}
@@ -131,15 +121,16 @@ export function TaskStatusToggle({
           />
         }
       >
-        {/* Keyed so each new status remounts the glyph and plays its entrance once. */}
+        {/* Keyed so each new status or priority remounts the glyph and plays its entrance once. */}
         <Icon
-          key={task.status}
+          key={`${task.status}-${priority.shortLabel}`}
           aria-hidden="true"
-          data-status-enter={statusChanged ? task.status : undefined}
+          data-status-enter={entrance === "status" ? task.status : undefined}
+          data-priority-enter={entrance === "priority" || undefined}
         />
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
-        {status.label}
+        {status.label}, priority {priority.label}
       </TooltipContent>
     </Tooltip>
   );
@@ -371,14 +362,11 @@ export function TaskRow({
     >
       <div
         className={cn(
-          "shrink-0 items-center justify-center",
-          variant === "full"
-            ? "grid h-[1.375em] w-16 grid-cols-2 grid-rows-1 justify-items-center"
-            : "flex",
+          "flex shrink-0 items-center justify-center",
+          variant === "full" && "h-[1.375em] w-8",
         )}
       >
         {statusSlot}
-        {variant === "full" ? <TaskPriorityDisplay task={task} /> : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {variant === "full" && showCompletedAt && task.closedAt ? (

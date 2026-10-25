@@ -118,8 +118,8 @@ function summaryFilterExpression(filter) {
 }
 // toolbar.layout and platform.toolbar-cell: 32px cells scale with the text size, sit on integer
 // columns from New task, groups never split, and rows after the first start one cell in. The logo
-// and root status icons share New task's centerline, priority dots use the next column, and the
-// count starts at the first cell's left edge.
+// and root status icons share New task's centerline, and the count starts at the first cell's left
+// edge.
 function toolbarGridExpression(rows) {
   return `(() => {
     const capture = document.querySelector('button[aria-label="New task"]').getBoundingClientRect();
@@ -136,10 +136,8 @@ function toolbarGridExpression(rows) {
     const centered = (box) => Math.abs(box.left + box.width / 2 - (capture.left + cell / 2)) < 0.5;
     const logo = document.querySelector("header .app-icon").getBoundingClientRect();
     const statuses = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-status]')].map((element) => element.getBoundingClientRect());
-    const priorities = [...document.querySelectorAll('#task-list > [data-depth="0"] [data-priority]')].map((element) => element.getBoundingClientRect());
-    const priorityAligned = priorities.every((box) => Math.abs(box.left + box.width / 2 - (capture.left + cell * 1.5)) < 0.5);
     const summary = document.querySelector("[data-filter-summary]").getBoundingClientRect();
-    const aligned = centered(logo) && statuses.every(centered) && priorityAligned && Math.abs(summary.left - capture.left) < 0.5;
+    const aligned = centered(logo) && statuses.every(centered) && Math.abs(summary.left - capture.left) < 0.5;
     return document.documentElement.scrollWidth <= innerWidth && sized && onGrid && whole && aligned && tops.length === ${rows} && starts.every((start, row) => start === (row === 0 ? 0 : 1));
   })()`;
 }
@@ -601,10 +599,7 @@ try {
   );
   check('document.querySelectorAll("#task-list [role=option] [data-slot=badge]").length === 2');
   check(
-    'document.querySelector("#task-list [role=option] [data-priority=\'P2\']")?.textContent === ""',
-  );
-  check(
-    'document.querySelector("#task-list [role=option] [data-priority=\'P2\']")?.getAttribute("aria-label") === "Priority normal"',
+    'document.querySelector("#task-list [role=option] [data-status][data-priority=\'P2\']")?.getAttribute("aria-label").startsWith("Status: Open, priority normal.")',
   );
   check(
     '![...document.querySelectorAll("#task-list [role=option] [data-slot=item-title]")].some((title) => title.textContent.includes("#planning"))',

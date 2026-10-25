@@ -164,7 +164,7 @@
 
 /* A status or priority change plays a short entrance on the new glyph, shaped
  * by what changed: in progress turns into place, done and canceled draw their
- * marks, paused raises its bars. A fresh mount stays still (useChangedAfterMount). The header's
+ * marks, paused raises its bars, a new priority pops. A fresh mount stays still. The header's
  * done-today count pops the same way when it rises. */
 [data-status-enter],
 [data-priority-enter],
