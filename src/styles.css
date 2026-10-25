@@ -104,7 +104,7 @@
 
 /* Keyboard navigation is input feedback, not decoration. Do not make the
  * active/selected row trail behind a held key at high refresh rates. */
-[role="listbox"] > [role="option"] {
+[role="listbox"] [role="option"] {
   transition: none;
 }
 

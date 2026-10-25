@@ -17,7 +17,7 @@ import { preventFocusSteal } from "@/navigation";
 import { ItemDescription } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClassificationBadge } from "@/components/variants/badge";
-import { TaskItemMetadata, TaskItemTitle } from "@/components/variants/item";
+import { TaskItemMetadata, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
@@ -138,22 +138,15 @@ export function TaskStatusToggle({
 
 function TaskRowMetadata({
   task,
-  showDetails,
   hiddenCategorySlug,
   onSelectCategory,
 }: {
   task: TaskView;
-  showDetails: boolean;
   hiddenCategorySlug?: string | null;
   onSelectCategory?: (category: ClassificationToken) => void;
 }): ReactElement | null {
   const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
-  const today = localToday();
-  const closed = task.status === "done" || task.status === "canceled";
-  // Details shows the full date in its footer instead, saving the line this marker may need.
-  const dueLabel =
-    task.due === null || closed || showDetails ? null : dueSoonLabel(task.due, today);
-  if (!category && task.tags.length === 0 && dueLabel === null) {
+  if (!category && task.tags.length === 0) {
     if (!task.category) {
       return (
         <TaskItemMetadata>
@@ -200,21 +193,56 @@ function TaskRowMetadata({
           {tag.label}
         </ClassificationBadge>
       ))}
-      {task.due !== null && dueLabel !== null ? (
-        <span
-          data-task-due
-          title={`Due ${formatDueDate(task.due, today)}`}
-          className={cn(
-            "inline-flex items-center gap-1 text-xs",
-            dueNow(task, today) ? "text-warning" : "text-muted-foreground",
-          )}
-        >
-          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="sr-only">Due </span>
-          {dueLabel}
-        </span>
-      ) : null}
     </TaskItemMetadata>
+  );
+}
+
+/** The row's one short trailing fact, level with the title: when it was done, or when it's due soon. */
+function TaskRowTrailing({
+  task,
+  showDetails,
+  showCompletedAt,
+}: {
+  task: TaskView;
+  showDetails: boolean;
+  showCompletedAt: boolean;
+}): ReactElement | null {
+  if (showCompletedAt && task.closedAt) {
+    return (
+      <TaskItemTrailing>
+        <time
+          dateTime={task.closedAt}
+          title={`Done ${formatTaskDateTime(task.closedAt)}`}
+          data-task-completed
+          className="text-xs text-muted-foreground tabular-nums"
+        >
+          <span className="sr-only">Done </span>
+          {formatCompletedTime(task.closedAt)}
+        </time>
+      </TaskItemTrailing>
+    );
+  }
+  const today = localToday();
+  const closed = task.status === "done" || task.status === "canceled";
+  // Details shows the full date in its footer instead.
+  const dueLabel =
+    task.due === null || closed || showDetails ? null : dueSoonLabel(task.due, today);
+  if (task.due === null || dueLabel === null) return null;
+  return (
+    <TaskItemTrailing>
+      <span
+        data-task-due
+        title={`Due ${formatDueDate(task.due, today)}`}
+        className={cn(
+          "inline-flex items-center gap-1 text-xs",
+          dueNow(task, today) ? "text-warning" : "text-muted-foreground",
+        )}
+      >
+        <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="sr-only">Due </span>
+        {dueLabel}
+      </span>
+    </TaskItemTrailing>
   );
 }
 
@@ -325,11 +353,14 @@ function TaskRowFooter({
  * Shared task presentation. The parent owns the outer wrapper (list option
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with optional details and metadata only in full mode.
+ * The disclosure sits just before the trailing date, so dates keep the row's end
+ * and an undated parent's chevron takes it instead.
  */
 export function TaskRow({
   task,
   variant,
   statusSlot,
+  disclosureSlot,
   blockedByLabels,
   indented = false,
   showDetails = false,
@@ -342,10 +373,11 @@ export function TaskRow({
   task: TaskView;
   variant: TaskRowVariant;
   statusSlot: ReactNode;
+  disclosureSlot?: ReactNode;
   blockedByLabels?: string[];
   indented?: boolean;
   showDetails?: boolean;
-  /** A trailing column on the title line, so the time costs no extra line. */
+  /** Puts the done time in the trailing column, so it costs no extra line. */
   showCompletedAt?: boolean;
   contextOnly?: boolean;
   hiddenCategorySlug?: string | null;
@@ -369,22 +401,7 @@ export function TaskRow({
         {statusSlot}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {variant === "full" && showCompletedAt && task.closedAt ? (
-          <div className="flex items-baseline gap-3">
-            <TaskItemTitle className="wrap-anywhere min-w-0 flex-1">{task.title}</TaskItemTitle>
-            <time
-              dateTime={task.closedAt}
-              title={`Done ${formatTaskDateTime(task.closedAt)}`}
-              data-task-completed
-              className="shrink-0 text-xs text-muted-foreground tabular-nums"
-            >
-              <span className="sr-only">Done </span>
-              {formatCompletedTime(task.closedAt)}
-            </time>
-          </div>
-        ) : (
-          <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
-        )}
+        <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
         {variant === "full" && showDetails && task.description ? (
           <ItemDescription data-task-description className="wrap-anywhere">
             {task.description}
@@ -393,7 +410,6 @@ export function TaskRow({
         {variant === "full" ? (
           <TaskRowMetadata
             task={task}
-            showDetails={showDetails}
             hiddenCategorySlug={hiddenCategorySlug}
             onSelectCategory={onSelectCategory}
           />
@@ -414,6 +430,12 @@ export function TaskRow({
           <TaskRowFooter task={task} onCopyImage={onCopyImage} />
         ) : null}
       </div>
+      {variant === "full" && disclosureSlot ? (
+        <div className="flex h-[1.375em] shrink-0 items-center self-start">{disclosureSlot}</div>
+      ) : null}
+      {variant === "full" ? (
+        <TaskRowTrailing task={task} showDetails={showDetails} showCompletedAt={showCompletedAt} />
+      ) : null}
     </div>
   );
 }

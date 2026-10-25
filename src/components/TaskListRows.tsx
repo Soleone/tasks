@@ -89,6 +89,7 @@ export const TaskOption = memo(function TaskOption({
         data-context-parent={(row.contextOnly && row.depth === 0) || undefined}
         data-context-child={(row.contextOnly && row.depth === 1) || undefined}
         data-depth={row.depth}
+        nested={row.depth === 1}
         data-new-task={task.id === newTaskId || undefined}
         data-exiting-task={exitingTaskIds.has(task.id) || undefined}
         size="sm"
@@ -118,24 +119,26 @@ export const TaskOption = memo(function TaskOption({
               onToggle={onToggleStatus}
             />
           }
+          disclosureSlot={
+            row.hasChildren ? (
+              <span
+                role="img"
+                aria-label={expanded ? "Collapse children" : "Expand children"}
+                className="inline-flex size-7 shrink-0 items-center justify-center text-muted-foreground"
+                onMouseDown={preventFocusSteal}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleExpanded(row);
+                }}
+              >
+                <DisclosureIcon aria-hidden="true" className="size-4" />
+              </span>
+            ) : null
+          }
         />
         {row.hasChildren ? (
           <span id={`task-children-${task.id}`} hidden>
             Children {expanded ? "expanded" : "collapsed"}.
-          </span>
-        ) : null}
-        {row.hasChildren ? (
-          <span
-            role="img"
-            aria-label={expanded ? "Collapse children" : "Expand children"}
-            className="inline-flex size-7 shrink-0 self-center items-center justify-center text-muted-foreground"
-            onMouseDown={preventFocusSteal}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleExpanded(row);
-            }}
-          >
-            <DisclosureIcon aria-hidden="true" className="size-4" />
           </span>
         ) : null}
       </TaskItem>

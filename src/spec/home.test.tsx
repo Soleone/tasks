@@ -641,7 +641,7 @@ describe("details", () => {
     await workspace.create("Later", { due: addDays(today, 7) });
     await workspace.render();
     const marker = (title: string): string | null =>
-      row(title).querySelector("[data-task-due]")?.textContent ?? null;
+      row(title).querySelector("[data-slot=item-actions] [data-task-due]")?.textContent ?? null;
     await waitFor(() => expect(marker("Late")).toBe("Due 2d late"));
     expect(marker("Today")).toBe("Due today");
     expect(marker("Soon")).toBe(`Due ${formatDueDate(addDays(today, 3), today).slice(0, 3)}`);

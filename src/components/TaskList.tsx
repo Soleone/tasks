@@ -39,7 +39,12 @@ import {
 import { TaskListToolbar, type ToolbarFoldGroup } from "./TaskListToolbar";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
-import { rootIdsAboveTasks, visibleTaskRows, type VisibleTaskRow } from "@/components/taskTree";
+import {
+  rootIdsAboveTasks,
+  rootRowRuns,
+  visibleTaskRows,
+  type VisibleTaskRow,
+} from "@/components/taskTree";
 import {
   movedTaskRows,
   orderedTaskRows,
@@ -66,7 +71,7 @@ import { EditorError } from "@/platform/editorClient";
 import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
 import type { KeyboardHelpMode } from "@/keyboardHelp";
-import { TaskItem } from "@/components/variants/item";
+import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useCompletionSheen } from "./useCompletionSheen";
 import { useFlashTooltip } from "./useFlashTooltip";
@@ -1682,48 +1687,57 @@ export function TaskList({
               hiddenCategorySlug={categoryFilter?.slug ?? null}
             />
           ) : null}
-          {visibleRows.map((row, index) =>
-            composer?.mode === "edit" && row.task.id === composer.task.id ? (
-              <InlineTaskComposer
-                key={`edit-${row.task.id}`}
-                composer={composer}
-                onClose={onCloseComposer}
-                onSaved={onComposerSaved}
-                onCreatePending={onCreatePending}
-                onCreateFailed={onCreateFailed}
-                helpMode={helpMode}
-                onDisableHelp={onDisableComposerHelp}
-                onCopyImage={copyEditorImage}
-                inList
-              />
-            ) : (
-              <TaskOption
-                key={row.task.id}
-                row={row}
-                index={index}
-                active={index === activeIndex}
-                selected={selectedIds.has(row.task.id)}
-                expanded={expandedIds.has(row.task.id)}
-                pending={mutationPendingIds.has(row.task.id)}
-                feedbackVersion={
-                  statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined
-                }
-                sheenStep={sheenSteps.get(row.task.id)}
-                newTaskId={newTaskId}
-                exitingTaskIds={exitingTaskIds}
-                showDetails={detailsShownFor(row.task.id)}
-                showCompletedAt={sortField === "closed"}
-                hiddenCategorySlug={categoryFilter?.slug ?? null}
-                taskById={taskById}
-                onClick={handleOptionClick}
-                contextActions={contextActions}
-                onToggleStatus={handleOptionToggleStatus}
-                onToggleExpanded={handleOptionToggleExpanded}
-                onSelectCategory={handleOptionSelectCategory}
-                onCopyImage={handleOptionCopyImage}
-              />
-            ),
-          )}
+          {rootRowRuns(visibleRows).map((run) => (
+            // A lone root stays a plain row to assistive tech; a family is a labeled group.
+            <TaskItemGroup
+              key={`run-${run[0].row.task.id}`}
+              role={run.length > 1 ? "group" : "none"}
+              aria-label={run.length > 1 ? run[0].row.task.title : undefined}
+            >
+              {run.map(({ row, index }) =>
+                composer?.mode === "edit" && row.task.id === composer.task.id ? (
+                  <InlineTaskComposer
+                    key={`edit-${row.task.id}`}
+                    composer={composer}
+                    onClose={onCloseComposer}
+                    onSaved={onComposerSaved}
+                    onCreatePending={onCreatePending}
+                    onCreateFailed={onCreateFailed}
+                    helpMode={helpMode}
+                    onDisableHelp={onDisableComposerHelp}
+                    onCopyImage={copyEditorImage}
+                    inList
+                  />
+                ) : (
+                  <TaskOption
+                    key={row.task.id}
+                    row={row}
+                    index={index}
+                    active={index === activeIndex}
+                    selected={selectedIds.has(row.task.id)}
+                    expanded={expandedIds.has(row.task.id)}
+                    pending={mutationPendingIds.has(row.task.id)}
+                    feedbackVersion={
+                      statusFeedback?.taskId === row.task.id ? statusFeedback.version : undefined
+                    }
+                    sheenStep={sheenSteps.get(row.task.id)}
+                    newTaskId={newTaskId}
+                    exitingTaskIds={exitingTaskIds}
+                    showDetails={detailsShownFor(row.task.id)}
+                    showCompletedAt={sortField === "closed"}
+                    hiddenCategorySlug={categoryFilter?.slug ?? null}
+                    taskById={taskById}
+                    onClick={handleOptionClick}
+                    contextActions={contextActions}
+                    onToggleStatus={handleOptionToggleStatus}
+                    onToggleExpanded={handleOptionToggleExpanded}
+                    onSelectCategory={handleOptionSelectCategory}
+                    onCopyImage={handleOptionCopyImage}
+                  />
+                ),
+              )}
+            </TaskItemGroup>
+          ))}
           {isDefaultActiveEmpty ? (
             <TaskItem data-empty-state="active" size="sm" state="empty">
               <div className="min-w-0 flex-1">

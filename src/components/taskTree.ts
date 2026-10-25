@@ -111,3 +111,15 @@ export function visibleTaskRows(
       ];
     });
 }
+
+/** Visible rows split into one run per root task, each row keeping its flat index. */
+export function rootRowRuns(
+  rows: VisibleTaskRow[],
+): Array<Array<{ row: VisibleTaskRow; index: number }>> {
+  const runs: Array<Array<{ row: VisibleTaskRow; index: number }>> = [];
+  rows.forEach((row, index) => {
+    if (row.depth === 0 || runs.length === 0) runs.push([]);
+    runs[runs.length - 1].push({ row, index });
+  });
+  return runs;
+}
