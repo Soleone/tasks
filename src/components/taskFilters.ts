@@ -76,9 +76,16 @@ export type PriorityMeta = {
   glyph: string;
 };
 
+// Yellow and green take a darker shade on light themes so the icons keep their contrast.
 export const PRIORITY_META: PriorityMeta[] = [
   { value: 0, label: "highest", shortLabel: "P0", dot: "bg-red-500", glyph: "text-red-500" },
-  { value: 1, label: "high", shortLabel: "P1", dot: "bg-orange-500", glyph: "text-orange-500" },
+  {
+    value: 1,
+    label: "high",
+    shortLabel: "P1",
+    dot: "bg-yellow-600 dark:bg-yellow-500",
+    glyph: "text-yellow-600 dark:text-yellow-500",
+  },
   {
     value: 2,
     label: "normal",
@@ -86,7 +93,13 @@ export const PRIORITY_META: PriorityMeta[] = [
     dot: "bg-muted-foreground",
     glyph: "text-muted-foreground",
   },
-  { value: 3, label: "low", shortLabel: "P3", dot: "bg-green-500", glyph: "text-green-500" },
+  {
+    value: 3,
+    label: "low",
+    shortLabel: "P3",
+    dot: "bg-green-600 dark:bg-green-500",
+    glyph: "text-green-600 dark:text-green-500",
+  },
   {
     value: 4,
     label: "lowest",
