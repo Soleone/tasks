@@ -49,7 +49,7 @@ export function TaskStatusDisplay({
       role="img"
       aria-label={`Status: ${status.label}, priority ${priorityMeta(task.priority).label}`}
     >
-      <Icon aria-hidden="true" />
+      <Icon className="size-5" aria-hidden="true" />
     </span>
   );
 }
@@ -128,6 +128,7 @@ export function TaskStatusToggle({
         {/* Keyed so each new status or priority remounts the glyph and plays its entrance once. */}
         <Icon
           key={`${task.status}-${priority.shortLabel}`}
+          className="size-5"
           aria-hidden="true"
           data-status-enter={entrance === "status" ? task.status : undefined}
           data-priority-enter={entrance === "priority" || undefined}
