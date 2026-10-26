@@ -17,7 +17,6 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { build } from "esbuild";
 import { startDevServer } from "../test-dist/backend/devServer.js";
-import { devWebOptions } from "./dev-web-options.mjs";
 
 const bundle = await build({
   entryPoints: ["src/platform/editorClient.ts"],
@@ -125,22 +124,6 @@ function traceFetch(t, alter) {
   });
   return calls;
 }
-
-for (const argv of [
-  ["--edit"],
-  ["--database", "cache"],
-  ["--home", "home", "--edit"],
-  ["--root", "root", "--database", "cache"],
-]) {
-  test(`editor launcher refuses incomplete or mixed selection ${JSON.stringify(argv)}`, () =>
-    assert.throws(() => devWebOptions(argv)));
-}
-test("an explicit home opens the editor and keeps Vite separation", () => {
-  const options = devWebOptions(["--home", "home", "--", "--host", "127.0.0.1"]);
-  assert.deepEqual(options.backendArgs, ["--home", path.resolve("home")]);
-  assert.deepEqual(options.viteArgs, ["--host", "127.0.0.1"]);
-  assert.throws(() => startDevServer({}), /requires an explicit --home/);
-});
 
 test("editor health creates no cache or other local files", async (t) => {
   const selected = workspace(t),

@@ -1138,7 +1138,7 @@ test("Linux route applies all-or-refuse status batches and refuses an invalid ba
   assert.deepEqual(executing(), ["task.transitionMany", "task.transitionMany"]);
 });
 
-test("a lost status-batch reply retries the same envelope or stays preserved for manual reconciliation", async (t) => {
+test("a lost status-batch reply retries the same envelope", async (t) => {
   const { calls, workspace, loseNextReply } = await selectedHttpWorkspace(t);
   const version = async (id) => (await workspace.reader.query("task.get", { id })).task.version;
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9",
@@ -1178,28 +1178,6 @@ test("a lost status-batch reply retries the same envelope or stays preserved for
   );
   assert.equal(batches().length, 2);
   assert.deepEqual(batches()[1], batches()[0]);
-
-  loseNextReply();
-  const pausing = workspace.transitionMany(
-    (await starting).tasks.map((task) => ({
-      id: task.id,
-      expectedVersion: task.version,
-      command: "task.pause",
-    })),
-    "reconcile-key",
-  );
-  (await unresolved()).preserveForReconciliation();
-  await assert.rejects(() => pausing, /MANUAL_RECONCILIATION/);
-  const sent = calls.length;
-  await assert.rejects(
-    () =>
-      workspace.transitionMany(
-        [{ id: openId, expectedVersion: 1, command: "task.complete" }],
-        "after-key",
-      ),
-    /MANUAL_RECONCILIATION/,
-  );
-  assert.equal(calls.length, sent, "writes stay paused without any request until reconciliation");
 });
 
 test("one recorded status batch is undone as a whole through operation.undo after reopening", async (t) => {

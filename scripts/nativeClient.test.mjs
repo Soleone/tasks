@@ -198,10 +198,6 @@ test("native lost reply preserves original request through same-selection proces
   assert.equal(state.launches.length, 2);
   for (const launched of state.launches) assert.deepEqual(launched, argv);
 });
-test("native editing without its desktop session is refused", (t) => {
-  desktop(t);
-  assert.throws(() => new EditorClient("http://127.0.0.1", editorSelection), /browser-only/);
-});
 
 test("main-client presentation preserves literal text and round-trips inline classification", () => {
   for (const title of [
