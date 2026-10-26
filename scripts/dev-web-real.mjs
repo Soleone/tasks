@@ -29,14 +29,15 @@ export async function realSnapshot(refresh) {
   let choice = existsSync(configFile)
     ? JSON.parse(readFileSync(configFile, "utf8")).source
     : undefined;
-  if (choice !== undefined) validateSource(choice ?? testData, snapshot, configFile);
-  if (choice === undefined || refresh) {
-    choice = await askSource(choice);
-    validateSource(choice ?? testData, snapshot, configFile);
+  const ask = choice === undefined || refresh;
+  // Asking first lets --refresh replace a saved folder that has gone missing or overlaps.
+  if (ask) choice = await askSource(choice);
+  const source = choice ?? testData;
+  validateSource(source, snapshot, configFile);
+  if (ask) {
     mkdirSync(home, { recursive: true });
     writeFileSync(configFile, `${JSON.stringify({ source: choice }, null, 2)}\n`);
   }
-  const source = choice ?? testData;
   const root = path.join(snapshot, "sync");
   if (refresh || !existsSync(root)) {
     rmSync(snapshot, { recursive: true, force: true });

@@ -362,6 +362,35 @@ function savedState(workspace) {
   }
 }
 
+test("platform.open-workspace: an unresolved or reconciling task change keeps the real home open", async (t) => {
+  const { workspace, loseNextReply } = await selectedHttpWorkspace(t);
+  const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
+  let closes = 0;
+  workspace.reader.close = async () => {
+    closes += 1;
+  };
+  httpClient.selectMainWorkspace(workspace);
+  t.after(() => httpClient.closeMainWorkspace());
+  const { task } = await workspace.reader.query("task.get", { id: openId });
+  loseNextReply();
+  const pending = workspace.status("task.start", openId, task.version, "switch-lost-key");
+  await new Promise((resolve) => {
+    const stop = workspace.subscribe(() => {
+      stop();
+      resolve();
+    });
+  });
+  assert.notEqual(workspace.getUnresolved(), null);
+  await assert.rejects(httpClient.switchHome(), /WRITE_IN_PROGRESS/);
+  const refused = assert.rejects(pending, /MANUAL_RECONCILIATION/);
+  workspace.getUnresolved().preserveForReconciliation();
+  await refused;
+  assert.equal(workspace.getUnresolved(), null);
+  await assert.rejects(httpClient.switchHome(), /WRITE_IN_PROGRESS/);
+  assert.equal(closes, 0);
+  assert.equal(typeof (await httpClient.getWorkspaceRevision()), "number");
+});
+
 test("main UI over the Linux HTTP bridge persists direct actions", async (t) => {
   const { root, calls, workspace } = await selectedHttpWorkspace(t);
   httpClient.selectMainWorkspace(workspace);

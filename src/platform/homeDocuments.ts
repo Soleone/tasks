@@ -9,6 +9,7 @@ export type HomeCommand = (
 ) => Promise<Record<string, unknown>>;
 
 type Pending = { text: string; replaceDamaged: boolean; waiters: (() => void)[] };
+type Failed = { text: string; replaceDamaged: boolean; error: unknown };
 
 /**
  * The home's own documents, read and saved through the backend. Saves run one at a time per
@@ -19,7 +20,7 @@ export class HomeDocuments {
   private readonly pending = new Map<HomeDocumentName, Pending>();
   private readonly running = new Set<HomeDocumentName>();
   private readonly idleWaiters = new Set<() => void>();
-  private readonly failures = new Map<HomeDocumentName, unknown>();
+  private readonly failures = new Map<HomeDocumentName, Failed>();
   private readonly failureListeners = new Set<(name: HomeDocumentName, error: unknown) => void>();
 
   constructor(private readonly send: HomeCommand) {}
@@ -51,16 +52,29 @@ export class HomeDocuments {
     };
   }
 
-  /** Waits for both document queues, refusing to leave a home with an unsaved document. */
+  /**
+   * Waits for both document queues, refusing to leave a home with an unsaved document. A save
+   * that failed earlier is tried once more, so a passing storage fault doesn't block leaving.
+   */
   async waitForIdle(): Promise<void> {
-    while (this.running.size > 0)
-      await new Promise<void>((resolve) => this.idleWaiters.add(resolve));
+    await this.drained();
+    await Promise.all(
+      [...this.failures].map(([name, failed]) =>
+        this.save(name, failed.text, failed.replaceDamaged),
+      ),
+    );
+    await this.drained();
     if (this.failures.size > 0) {
-      const [name, error] = this.failures.entries().next().value!;
+      const [name, { error }] = this.failures.entries().next().value!;
       throw new Error(
         `Couldn't save ${name}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private async drained(): Promise<void> {
+    while (this.running.size > 0)
+      await new Promise<void>((resolve) => this.idleWaiters.add(resolve));
   }
 
   private async drain(name: HomeDocumentName): Promise<void> {
@@ -76,7 +90,7 @@ export class HomeDocuments {
           });
           this.failures.delete(name);
         } catch (error) {
-          this.failures.set(name, error);
+          this.failures.set(name, { text: next.text, replaceDamaged: next.replaceDamaged, error });
           for (const listener of this.failureListeners) listener(name, error);
         }
         for (const resolve of next.waiters) resolve();

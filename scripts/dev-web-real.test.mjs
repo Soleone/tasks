@@ -36,8 +36,9 @@ function fixture(t) {
   writeFileSync(path.join(snapshot, "local", "app.db"), "local bytes");
   return { directory, data, snapshot, config };
 }
-function run(data, refresh) {
-  // Non-TTY child, explicit disposable saved choice and DATA; never launch the dev server.
+function run(data, refresh, typed) {
+  // Non-TTY child unless an answer is typed, explicit disposable saved choice and DATA; never
+  // launch the dev server.
   return spawnSync(
     process.execPath,
     [
@@ -45,10 +46,11 @@ function run(data, refresh) {
       "-e",
       `
     import { realSnapshot } from ${JSON.stringify(new URL("./dev-web-real.mjs", import.meta.url).href)};
+    process.stdin.isTTY = ${typed !== undefined};
     await realSnapshot(${refresh});
   `,
     ],
-    { env: { ...process.env, DATA: data }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    { env: { ...process.env, DATA: data }, encoding: "utf8", input: typed ?? "" },
   );
 }
 for (const relation of [
@@ -106,3 +108,24 @@ test("real copy refreshes a disjoint snapshot and reuses it without refresh", (t
   assert.equal(run(f.data, false).status, 0);
   assert.deepEqual(bytes(f.snapshot), before);
 });
+for (const saved of ["gone", "overlapping"]) {
+  test(`real copy --refresh replaces a saved folder that is ${saved} with the typed one`, (t) => {
+    const f = fixture(t);
+    const source = `${f.snapshot}-source`;
+    mkdirSync(source);
+    writeFileSync(path.join(source, "workspace.json"), "typed source");
+    const old = saved === "gone" ? path.join(f.directory, "gone") : f.snapshot;
+    writeFileSync(f.config, `${JSON.stringify({ source: old })}\n`);
+    const before = bytes(f.directory);
+    const reused = run(f.data, false);
+    assert.notEqual(reused.status, 0);
+    assert.match(reused.stderr, /is not a folder|Source and development home overlap/);
+    assert.deepEqual(bytes(f.directory), before);
+    const refreshed = run(f.data, true, `${source}\n`);
+    assert.equal(refreshed.status, 0, refreshed.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(f.config, "utf8")), { source });
+    assert.deepEqual(bytes(f.snapshot), {
+      "sync/workspace.json": Buffer.from("typed source").toString("base64"),
+    });
+  });
+}

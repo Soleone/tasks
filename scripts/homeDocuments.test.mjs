@@ -85,8 +85,14 @@ test("home.documents: idle waits for queued settings and undo, and refuses an un
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(idle, false);
   backend.release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(idle, false, "the failed undo is retried once before refusing");
+  backend.release();
   await waiting;
-  await assert.rejects(documents.waitForIdle(), /disk full/);
+  const refused = assert.rejects(documents.waitForIdle(), /disk full/);
+  await new Promise((resolve) => setImmediate(resolve));
+  backend.release();
+  await refused;
   const saved = documents.save("undo", "recovered");
   backend.release();
   await saved;
@@ -97,9 +103,27 @@ test("home.documents: idle waits for queued settings and undo, and refuses an un
       ["settings", "first"],
       ["undo", "fail"],
       ["settings", "last"],
+      ["undo", "fail"],
+      ["undo", "fail"],
       ["undo", "recovered"],
     ],
   );
+});
+
+test("home.documents: idle retries a failed save once and goes ahead when storage recovers", async () => {
+  const writes = [];
+  let healthy = false;
+  const documents = new HomeDocuments(async (_command, args) => {
+    writes.push(args);
+    if (!healthy) throw new Error("storage busy");
+    return {};
+  });
+  await documents.save("settings", "kept", true);
+  healthy = true;
+  await documents.waitForIdle();
+  await documents.waitForIdle();
+  const write = { name: "settings", text: "kept", replaceDamaged: true };
+  assert.deepEqual(writes, [write, write]);
 });
 
 test("home.documents: undo records are kept in the home in browser storage's shape", async () => {
