@@ -61,59 +61,49 @@ const caseIds = [
   "protocol-schema",
   "protocol-duplicate",
   "protocol-nonfinite",
-  "capability-refusal",
   "query-literal",
   "query-readiness",
 ];
 for (const entry of corpus.cases.filter((entry) => caseIds.includes(entry.id))) {
-  test(
-    `Node query gateway executes ${entry.id}`,
-    {
-      skip:
-        entry.id === "capability-refusal" && process.platform === "linux"
-          ? "Fixture requires withheld doctor.apply; Linux now advertises it. Do not substitute a different command."
-          : false,
-    },
-    (t) => {
-      const current = workspace(t, entry.given.records ?? { a: entry.given.patch ?? {} });
-      if (entry.given.manifest)
-        writeFileSync(
-          path.join(current.root, "workspace.json"),
-          JSON.stringify(entry.given.manifest),
-        );
-      const manifest = readFileSync(path.join(current.root, "workspace.json"));
-      const before = readdirSync(path.join(current.root, "tasks")).map((name) =>
+  test(`Node query gateway executes ${entry.id}`, (t) => {
+    const current = workspace(t, entry.given.records ?? { a: entry.given.patch ?? {} });
+    if (entry.given.manifest)
+      writeFileSync(
+        path.join(current.root, "workspace.json"),
+        JSON.stringify(entry.given.manifest),
+      );
+    const manifest = readFileSync(path.join(current.root, "workspace.json"));
+    const before = readdirSync(path.join(current.root, "tasks")).map((name) =>
+      readFileSync(path.join(current.root, "tasks", name)),
+    );
+    const envelope =
+      entry.action.rawEnvelope ??
+      JSON.stringify(
+        entry.action.envelope ?? {
+          version: 2,
+          command: entry.action.command,
+          args: entry.action.args,
+        },
+      );
+    const response = executeLine(Buffer.from(envelope), current.root, current.cache);
+    if (entry.expect.error) {
+      assert.equal(response.ok, false);
+      if (!response.ok) assert.equal(response.error.code, entry.expect.error);
+    } else {
+      const output = result(response);
+      if (entry.expect.categories) assert.deepEqual(output.categories, entry.expect.categories);
+      const task = output.task as Record<string, unknown>;
+      for (const [field, expected] of Object.entries(entry.expect.fields ?? {}))
+        assert.deepEqual(task[field], expected);
+    }
+    assert.deepEqual(readFileSync(path.join(current.root, "workspace.json")), manifest);
+    assert.deepEqual(
+      readdirSync(path.join(current.root, "tasks")).map((name) =>
         readFileSync(path.join(current.root, "tasks", name)),
-      );
-      const envelope =
-        entry.action.rawEnvelope ??
-        JSON.stringify(
-          entry.action.envelope ?? {
-            version: 2,
-            command: entry.action.command,
-            args: entry.action.args,
-          },
-        );
-      const response = executeLine(Buffer.from(envelope), current.root, current.cache);
-      if (entry.expect.error) {
-        assert.equal(response.ok, false);
-        if (!response.ok) assert.equal(response.error.code, entry.expect.error);
-      } else {
-        const output = result(response);
-        if (entry.expect.categories) assert.deepEqual(output.categories, entry.expect.categories);
-        const task = output.task as Record<string, unknown>;
-        for (const [field, expected] of Object.entries(entry.expect.fields ?? {}))
-          assert.deepEqual(task[field], expected);
-      }
-      assert.deepEqual(readFileSync(path.join(current.root, "workspace.json")), manifest);
-      assert.deepEqual(
-        readdirSync(path.join(current.root, "tasks")).map((name) =>
-          readFileSync(path.join(current.root, "tasks", name)),
-        ),
-        before,
-      );
-    },
-  );
+      ),
+      before,
+    );
+  });
 }
 
 test("envelope correlation, strict types, unsupported names and previews cannot enable writes", (t) => {
@@ -170,48 +160,43 @@ test("info inspects empty, partial and unsupported roots without creating canoni
   const current = workspace(t);
   const ready = result(query(current, "workspace.info"));
   assert.equal(ready.state, "ready");
-  assert.deepEqual(
-    ready.commands,
-    process.platform === "linux"
-      ? [
-          "activity.list",
-          "attachment.read",
-          "attachment.write",
-          "category.list",
-          "operation.redo",
-          "operation.undo",
-          "tag.list",
-          "task.cancel",
-          "task.clearDone",
-          "task.complete",
-          "task.create",
-          "task.delete",
-          "task.dependency.add",
-          "task.dependency.remove",
-          "task.get",
-          "task.list",
-          "task.move",
-          "task.order.normalize",
-          "task.pause",
-          "task.purgeCanceled",
-          "task.reopen",
-          "task.reorder",
-          "task.start",
-          "task.status.undo",
-          "task.status.undoMany",
-          "task.transitionMany",
-          "task.update",
-          "workspace.doctor.apply",
-          "workspace.doctor.inspect",
-          "workspace.doctor.plan",
-          "workspace.info",
-          "workspace.init",
-          "workspace.migrate",
-          "workspace.rebuild",
-          "workspace.recovery.resume",
-        ]
-      : ["category.list", "tag.list", "task.get", "task.list", "workspace.info"],
-  );
+  assert.deepEqual(ready.commands, [
+    "activity.list",
+    "attachment.read",
+    "attachment.write",
+    "category.list",
+    "operation.redo",
+    "operation.undo",
+    "tag.list",
+    "task.cancel",
+    "task.clearDone",
+    "task.complete",
+    "task.create",
+    "task.delete",
+    "task.dependency.add",
+    "task.dependency.remove",
+    "task.get",
+    "task.list",
+    "task.move",
+    "task.order.normalize",
+    "task.pause",
+    "task.purgeCanceled",
+    "task.reopen",
+    "task.reorder",
+    "task.start",
+    "task.status.undo",
+    "task.status.undoMany",
+    "task.transitionMany",
+    "task.update",
+    "workspace.doctor.apply",
+    "workspace.doctor.inspect",
+    "workspace.doctor.plan",
+    "workspace.info",
+    "workspace.init",
+    "workspace.migrate",
+    "workspace.rebuild",
+    "workspace.recovery.resume",
+  ]);
   writeFileSync(path.join(current.root, "tasks/a.json"), '{"title":"partial secret');
   const incomplete = result(query(current, "workspace.info"));
   assert.equal(incomplete.state, "incomplete");

@@ -117,7 +117,8 @@ describe("opening and closing", () => {
     const { user } = await workspace.render();
     await capture(user, "Half typed");
     await workspace.create("Arrived elsewhere");
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    fireEvent.focus(window);
+    await waitFor(() => expect(row("Arrived elsewhere")).toBeTruthy());
     expect((await focusedTitleField()).value).toBe("Half typed");
   });
 });

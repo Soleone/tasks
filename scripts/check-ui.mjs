@@ -1590,14 +1590,14 @@ try {
   check(
     '(() => { const row = [...document.querySelectorAll("#task-list [role=option]")].find((item) => item.textContent.includes("Blocked task")); if (!row) return false; const paragraphs = [...row.querySelectorAll("p")]; const relationship = paragraphs.find((entry) => entry.textContent.includes("Release blocker")); return relationship !== undefined && row.querySelector("[data-task-description]") === null && row.querySelector("[title^=\\"Created\\"]") === null; })()',
   );
-  browser("press", "v");
+  browser("press", "Shift+v");
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"',
   );
   check(
     '(() => { const row = [...document.querySelectorAll("#task-list [role=option]")].find((item) => item.textContent.includes("Blocked task")); if (!row) return false; const paragraphs = [...row.querySelectorAll("p")]; const relationship = paragraphs.find((entry) => entry.textContent.includes("Release blocker")); const timestamp = paragraphs.find((entry) => entry.querySelector("[title^=\\"Created\\"]")); return relationship !== undefined && timestamp !== undefined && paragraphs.indexOf(relationship) < paragraphs.indexOf(timestamp) && paragraphs.indexOf(timestamp) === paragraphs.length - 1; })()',
   );
-  browser("press", "v");
+  browser("press", "Shift+v");
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false"',
   );
@@ -1965,15 +1965,15 @@ try {
     'document.querySelector("[data-filter=task-search]").getAttribute("aria-pressed") === "false" && document.querySelectorAll("#task-list [role=option]").length === 12',
   );
   check(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
-  // Task details and sorting: V toggles descriptions plus the time footer,
-  // S drives the sort, and both survive a reload through localStorage.
+  // Task details and sorting: Shift+V toggles descriptions plus the time footer,
+  // S drives the sort, and both survive a reload through home preferences.
   check(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false"',
   );
   check('document.querySelector("[data-task-description]") === null');
   check('document.querySelector("[title^=\\"Created\\"]") === null');
   focus("[role=listbox]");
-  browser("press", "v");
+  browser("press", "Shift+v");
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "true"',
   );
@@ -2070,7 +2070,7 @@ try {
   );
   evaluate('document.querySelector("[data-sort=task-sort-reverse]").click(); true');
   waitFor(`document.querySelector("[data-filter-summary]")?.textContent === "${allActive}"`);
-  browser("press", "v");
+  browser("press", "Shift+v");
   waitFor(
     'document.querySelector("[data-view=task-details]").getAttribute("aria-pressed") === "false" && document.querySelector("[data-task-description]") === null && document.querySelector("[title^=\\"Created\\"]") === null',
   );
