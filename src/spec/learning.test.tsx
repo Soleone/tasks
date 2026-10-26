@@ -247,7 +247,7 @@ test("quest.success: a step's line keeps showing for about a second and a half, 
   await expectStep(1);
   expect(questLine()).toBe("New task");
   expect(card()?.querySelectorAll("[data-step-done]")).toHaveLength(1);
-  await waitFor(() => expect(questLine()).toMatch(/^Type what needs doing/), { timeout: 3000 });
+  await waitFor(() => expect(questLine()).toMatch(/^Type what needs doing/));
 });
 
 test("quest.complete: the recap names the next quest, then the card leaves and offers it without starting it", async () => {
@@ -261,9 +261,7 @@ test("quest.complete: the recap names the next quest, then the card leaves and o
   await user.keyboard("d");
   await expectStep(7);
   expect(questLine()).toBe("Done today");
-  await waitFor(() => expect(questLine()).toBe("Press D again to go back to your previous view"), {
-    timeout: 3000,
-  });
+  await waitFor(() => expect(questLine()).toBe("Press D again to go back to your previous view"));
   await user.keyboard("d");
   const complete = await waitFor(() => {
     const element = document.querySelector("[data-quest-complete=first-task]");
@@ -331,9 +329,8 @@ test("quest.reopen: saving before the tag keeps the category, and the edited tas
   await saveEditor(user);
   await expectStep(2);
   expect(questLine()).toBe("Filed under life");
-  await waitFor(
-    () => expect(questLine()).toBe("Press Enter to open the active task, or C for a new one"),
-    { timeout: 3000 },
+  await waitFor(() =>
+    expect(questLine()).toBe("Press Enter to open the active task, or C for a new one"),
   );
   expect(card()?.hasAttribute("data-quest-reopen")).toBe(true);
   await user.keyboard("{Enter}");
@@ -435,7 +432,7 @@ test("learn.hesitation: the filter guide opens at once until a filter is chosen,
   expect(learnedMoves()).toContain("filter.mode");
   await user.keyboard("f");
   expect(guide()).toBeNull();
-  await waitFor(() => expect(guide()).not.toBeNull(), { timeout: 2000 });
+  await waitFor(() => expect(guide()).not.toBeNull());
 });
 
 test("learn.reset: Reset progress forgets learned moves and quests, so the offer returns", async () => {

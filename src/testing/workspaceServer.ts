@@ -1,11 +1,14 @@
+import { build } from "esbuild";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 import type { TestProject } from "vite-plus/test/node";
-import { startDevServer, type DevServer } from "../backend/devServer";
 import { executeHomeLine } from "../backend/homeGateway";
+import type { BridgeCommand, BridgeReply, BridgeRequest } from "./workspaceBridge";
 
 declare module "vite-plus/test" {
   export interface ProvidedContext {
@@ -15,7 +18,41 @@ declare module "vite-plus/test" {
 
 // Client tests run as browser code in jsdom and can't start the dev bridge
 // themselves, so this Node-side server starts one per disposable workspace.
-const running = new Map<string, { dev: DevServer; directory: string }>();
+// A bridge runs commands synchronously, so each runs on a thread with no other workspace:
+// on one shared thread, parallel tests waited behind each other's durable writes.
+type BridgeThread = {
+  worker: Worker;
+  workspaces: number;
+  replies: Map<number, (reply: BridgeReply) => void>;
+};
+const threads: BridgeThread[] = [];
+const running = new Map<string, { thread: BridgeThread; directory: string }>();
+let bridgeScript = "";
+let nextRequest = 0;
+
+function startThread(): BridgeThread {
+  // Imported from an eval script: as the thread's main module, the bundle would run devServer's CLI.
+  const worker = new Worker(`import(${JSON.stringify(pathToFileURL(bridgeScript).href)})`, {
+    eval: true,
+  });
+  const thread: BridgeThread = { worker, workspaces: 0, replies: new Map() };
+  worker.on("message", (reply: BridgeReply) => {
+    thread.replies.get(reply.id)?.(reply);
+    thread.replies.delete(reply.id);
+  });
+  threads.push(thread);
+  return thread;
+}
+
+function ask(thread: BridgeThread, command: BridgeCommand): Promise<BridgeReply> {
+  const id = nextRequest++;
+  return new Promise((resolve, reject) => {
+    thread.replies.set(id, (reply) =>
+      reply.error === undefined ? resolve(reply) : reject(new Error(reply.error)),
+    );
+    thread.worker.postMessage({ id, ...command } satisfies BridgeRequest);
+  });
+}
 
 async function startWorkspace(): Promise<string> {
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-client-test-"));
@@ -23,16 +60,19 @@ async function startWorkspace(): Promise<string> {
   mkdirSync(path.join(root, "tasks"), { recursive: true });
   mkdirSync(path.join(directory, "local"));
   writeFileSync(path.join(root, "workspace.json"), JSON.stringify({ schemaVersion: 2 }));
-  const dev = await startDevServer({ port: 0, home: directory });
-  running.set(dev.url, { dev, directory });
-  return dev.url;
+  const thread = threads.find((candidate) => candidate.workspaces === 0) ?? startThread();
+  thread.workspaces += 1;
+  const { url } = await ask(thread, { start: directory });
+  running.set(url!, { thread, directory });
+  return url!;
 }
 
 async function stopWorkspace(url: string): Promise<void> {
   const entry = running.get(url);
   if (!entry) return;
   running.delete(url);
-  await new Promise<void>((resolve) => entry.dev.server.close(() => resolve()));
+  await ask(entry.thread, { stop: url });
+  entry.thread.workspaces -= 1;
   rmSync(entry.directory, { recursive: true, force: true });
 }
 
@@ -69,6 +109,16 @@ async function body(request: http.IncomingMessage): Promise<unknown> {
 }
 
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
+  const bundle = mkdtempSync(path.join(os.tmpdir(), "tasks-client-bridge-"));
+  bridgeScript = path.join(bundle, "workspaceBridge.mjs");
+  await build({
+    entryPoints: [path.resolve("src/testing/workspaceBridge.ts")],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    outfile: bridgeScript,
+    logLevel: "error",
+  });
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const workspace = url.searchParams.get("url") ?? "";
@@ -105,6 +155,8 @@ export default async function setup(project: TestProject): Promise<() => Promise
   );
   return async () => {
     await Promise.all([...running.keys()].map(stopWorkspace));
+    await Promise.all(threads.map((thread) => thread.worker.terminate()));
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(bundle, { recursive: true, force: true });
   };
 }

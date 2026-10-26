@@ -202,7 +202,7 @@ describe("completion", () => {
     await expectActive("Paused");
     await user.keyboard(" ");
     await waitFor(() => expect(sheenStep("Paused")).toBe("0"));
-    await waitFor(() => expect(sheenStep("Paused")).toBeNull(), { timeout: 2000 });
+    await waitFor(() => expect(sheenStep("Paused")).toBeNull());
     await expectStatus(paused.id, "done");
     await user.keyboard("{Control>}z{/Control}");
     await expectStatus(paused.id, "paused");

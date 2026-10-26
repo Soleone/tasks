@@ -130,6 +130,8 @@ export default defineConfig({
     exclude: ["src/backend/**", "src/migration/**", "**/node_modules/**"],
     setupFiles: ["src/testing/setup.ts"],
     globalSetup: ["src/testing/workspaceServer.ts"],
+    // Under parallel load a flow takes about twice its serial time; the 5 s default left no margin.
+    testTimeout: 15_000,
   },
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",

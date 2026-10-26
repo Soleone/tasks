@@ -191,9 +191,7 @@ describe("touch feedback", () => {
     await screen.findByText("Unblocked", tooltip);
     await tap("[data-filter=task-unblocked]", user);
     await screen.findByText("All tasks", tooltip);
-    await waitFor(() => expect(screen.queryByText("All tasks", tooltip)).toBeNull(), {
-      timeout: 2000,
-    });
+    await waitFor(() => expect(screen.queryByText("All tasks", tooltip)).toBeNull());
   });
 
   test("toolbar.touch-feedback: menus dismiss feedback, disabled reverse stays silent and mouse hover still works", async () => {

@@ -780,9 +780,11 @@ describe("images", () => {
     );
     await user.keyboard("{Enter}");
     await expectListFocused();
-    const task = await onlyTask();
-    expect(task.attachments).toEqual([expect.stringMatching(/\.png$/)]);
-    expect(task.description).toBe("");
+    await waitFor(async () => {
+      const task = await onlyTask();
+      expect(task.attachments).toEqual([expect.stringMatching(/\.png$/)]);
+      expect(task.description).toBe("");
+    });
   });
 
   test("attach.refused: other file types and an 11th image are refused with a message", async () => {

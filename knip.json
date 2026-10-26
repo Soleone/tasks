@@ -3,6 +3,7 @@
   "entry": [
     "src/backend/{cli,tasks-cli,devServer}.ts",
     "src/**/*.test.{ts,tsx}",
+    "src/testing/workspaceBridge.ts",
     "scripts/*.{mjs,ts}"
   ],
   "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{mjs,ts}"],
