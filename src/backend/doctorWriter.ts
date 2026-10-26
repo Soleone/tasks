@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { parseCanonicalJson } from "./strictJson.js";
 import { CommandError } from "./errors.js";
@@ -8,7 +7,8 @@ import { buildDoctorPlan, doctorCloneVersions, parseDoctorInput } from "./doctor
 import type { DoctorPlan } from "./doctorPlan.js";
 import { guardDoctorSource, readDoctorSource } from "./doctorSource.js";
 import type { DoctorLink } from "./doctorSource.js";
-import { localDomain, withRootWriterLock } from "./localDomain.js";
+import { withRootWriterLock } from "./localDomain.js";
+import { doctorRecoveryLocation } from "./doctorJournal.js";
 import { readPending } from "./pending.js";
 import { assertArgs, isRecord } from "./protocol.js";
 import type { Request } from "./protocol.js";
@@ -28,10 +28,7 @@ function planResult(plan: DoctorPlan): Record<string, unknown> {
             versionRef: choice.versionRef,
           }))
         : [],
-    recoveryLocation: path.join(
-      localDomain(plan.source.root),
-      `doctor-${plan.planId}.recovery.json`,
-    ),
+    recoveryLocation: doctorRecoveryLocation(plan),
     recoveryReady: false,
     changed: true,
     requiresQuiescedDevice: true,

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
@@ -14,12 +13,11 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
 import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
-import { fail, send, success } from "./copyTestWorkspace.js";
+import { fail, run, send, success } from "./copyTestWorkspace.js";
 import {
   createDoctorWorkspace as setup,
   doctorCorpus as corpus,
@@ -28,22 +26,6 @@ import {
   planDoctor,
 } from "./doctorTestWorkspace.js";
 import type { DoctorIntent } from "./doctorJournal.js";
-const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
-function run(w: ReturnType<typeof setup>, request: object, loader?: string) {
-  return spawnSync(
-    process.execPath,
-    [
-      ...(loader ? ["--import", loader] : []),
-      cli,
-      "--stdio",
-      "--root",
-      w.root,
-      "--database",
-      w.cache,
-    ],
-    { input: JSON.stringify(request), encoding: "utf8", env: process.env, timeout: 10000 },
-  );
-}
 function response(w: ReturnType<typeof setup>, request: object) {
   const child = run(w, request);
   assert.equal(child.status, 0, child.stderr);
