@@ -37,8 +37,6 @@ const draft = (text, description = "", priority = 2) => ({
 });
 
 const withheldActions = [
-  ["transitionTasks", [[{ id: "id", expectedVersion: 1, command: "task.start" }], {}]],
-  ["undoOperation", ["operation", {}]],
   ["redoOperation", ["operation", {}]],
   ["moveTask", ["id", null, 1, {}]],
   ["reorderTasks", [[{ id: "id", expectedVersion: 1 }], { first: true }, {}]],
@@ -90,14 +88,12 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
   });
   await client.updateTaskPriority({ id: "id", version: 3 }, 0, { idempotencyKey: "priority-key" });
   await client.transitionTask("task.start", "id", 3, { idempotencyKey: "status-key" });
-  await client.undoStatusChange("id", 4, { idempotencyKey: "undo-key" });
   assert.equal(await client.getWorkspaceRevision(), 7);
   assert.deepEqual(calls, [
     ["save", draft("Inline @work", "Notes", 1), "capture-key"],
     ["save", draft("Inline @work", "Notes", 1), "edit-key", "id", 3],
     ["priority", "id", 3, 0, "priority-key"],
     ["status", "task.start", "id", 3, "status-key"],
-    ["status", "task.status.undo", "id", 4, "undo-key"],
     ["revision"],
   ]);
 });
@@ -362,8 +358,8 @@ test("main UI over the Linux HTTP bridge persists direct actions", async (t) => 
   const { task } = await httpClient.getTask(openId);
   const completed = await httpClient.transitionTask("task.complete", openId, task.version, {});
   assert.equal(completed.task.status, "done");
-  const undone = await httpClient.undoStatusChange(openId, completed.task.version, {});
-  assert.equal(undone.task.status, "open");
+  const undone = await httpClient.undoOperation(completed.operationId, {});
+  assert.equal(undone.tasks[0].status, "open");
   assert.equal(
     JSON.parse(readFileSync(path.join(root, "tasks", `${openId}.json`), "utf8")).status,
     "open",
@@ -427,7 +423,7 @@ test("main UI over the Linux HTTP bridge persists direct actions", async (t) => 
     [
       "task.create",
       "task.complete",
-      "task.status.undo",
+      "operation.undo",
       "task.create",
       "task.move",
       "task.dependency.add",
@@ -653,7 +649,6 @@ test("Linux route undoes the latest content, capture, relationship and reorder o
     (await workspace.tasks({ sort: "manual", limit: 100 })).tasks
       .filter((task) => task.parentId === null)
       .map((task) => task.id);
-  assert.equal(workspace.supportsOperationUndo, true);
 
   const version = async (id) => (await workspace.reader.query("task.get", { id })).task.version;
   const original = stored(openId);
@@ -1061,7 +1056,6 @@ test("Linux route applies all-or-refuse status batches and refuses an invalid ba
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9",
     pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed",
     doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
-  assert.equal(workspace.supportsStatusBatch, true);
 
   // The gateway validates the whole batch; one ineligible item refuses every item, with no executing request.
   const original = [openId, pausedId, doneId].map(bytes);

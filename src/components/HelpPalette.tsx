@@ -440,7 +440,6 @@ export function HelpPalette({
   onPauseTask,
   onCopyTask,
   onCopyImage,
-  statusUndoOnly = false,
   canUndoStatus,
   onUndoStatus,
   canRedo,
@@ -466,7 +465,6 @@ export function HelpPalette({
   onPauseTask?: (task: TaskView) => void;
   onCopyTask?: (task: TaskView) => void;
   onCopyImage?: (task: TaskView) => void;
-  statusUndoOnly?: boolean;
   canUndoStatus?: boolean;
   onUndoStatus?: () => void;
   canRedo?: boolean;
@@ -495,14 +493,7 @@ export function HelpPalette({
               <CommandGroup heading={group.heading}>
                 {group.entries.map((entry) => {
                   const Icon = entry.icon;
-                  const label =
-                    statusUndoOnly && entry.action === "undo-status"
-                      ? "Undo last status change"
-                      : entry.label;
-                  const hint =
-                    statusUndoOnly && entry.action === "undo-status"
-                      ? "Restore the latest status change"
-                      : entry.hint;
+                  const { label, hint } = entry;
                   const onSelect =
                     entry.action === "open-themes"
                       ? onOpenThemes

@@ -45,15 +45,6 @@ export function classificationTokenRanges(text: string): Array<{ start: number; 
   return ranges;
 }
 
-export function stripClassificationTokens(text: string): string {
-  let stripped = text;
-  for (const { start, end } of classificationTokenRanges(text).reverse()) {
-    stripped = `${stripped.slice(0, start)}${stripped.slice(end)}`;
-  }
-
-  return stripped.replace(/[ \t]{2,}/g, " ").trim();
-}
-
 export function classifyTaskText(text: string): TaskClassification {
   const categories: ClassificationToken[] = [];
   const tags = new Map<string, ClassificationToken>();

@@ -311,23 +311,7 @@ export async function transitionTasks(
   tasks: TaskTransitionItem[],
   options: CommandOptions,
 ): Promise<TaskTransitionManyResult> {
-  return queued(async (workspace) => {
-    if (!workspace.supportsStatusBatch)
-      throw unsupported(
-        "Changing several tasks at once is not yet available in this selected workspace.",
-      );
-    return workspace.transitionMany(tasks, writeKey(options));
-  });
-}
-
-export async function undoStatusChange(
-  id: string,
-  expectedVersion: number,
-  options: CommandOptions,
-): Promise<TaskMutationResult> {
-  return queued((workspace) =>
-    workspace.status("task.status.undo", id, expectedVersion, writeKey(options)),
-  );
+  return queued((workspace) => workspace.transitionMany(tasks, writeKey(options)));
 }
 
 export async function undoOperation(
@@ -335,8 +319,6 @@ export async function undoOperation(
   options: CommandOptions,
 ): Promise<OperationUndoResult> {
   return queued(async (workspace) => {
-    if (!workspace.supportsOperationUndo)
-      throw unsupported("Undo is limited to status changes in this selected workspace.");
     const { removedIds, ...result } = await workspace.undo(operationId, writeKey(options));
     return { ...result, undoneOperationId: operationId, deletedTaskIds: removedIds };
   });

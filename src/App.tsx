@@ -982,7 +982,6 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         onCopyImage={(task) =>
           void copyImageMessage(task.attachments.at(-1)).then((message) => showTaskToast(message))
         }
-        statusUndoOnly={!workspace.supportsOperationUndo}
         canUndoStatus={statusUndo !== null && !historyBusy}
         canRedo={redoEntry !== null && !historyBusy}
         onRedo={() => {

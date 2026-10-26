@@ -16,7 +16,6 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
-import { stripClassificationTokens } from "@/backend/taskText";
 import {
   EXACT_STATUS_META,
   PRIORITY_META,
@@ -79,8 +78,7 @@ import { useStableHandler } from "./useStableHandler";
 import type { TaskContextActions } from "./TaskContextMenu";
 
 export async function copyTaskText(task: TaskView): Promise<void> {
-  const text = [selectedMainWorkspace() ? task.title : (task.text ?? task.title), task.description]
-    .map((value) => (selectedMainWorkspace() ? value : stripClassificationTokens(value)))
+  const text = [task.title, task.description]
     .concat(task.tags.map((tag) => `#${tag.slug}`))
     .filter(Boolean)
     .join(" ");

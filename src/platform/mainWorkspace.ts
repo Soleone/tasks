@@ -85,16 +85,8 @@ export class MainWorkspace {
   get supportsOrdering(): boolean {
     return this.editor.selection.writeCommands.includes("task.reorder");
   }
-  /** Capabilities come from the selected shared backend, not the shell platform. */
-  get supportsOperationUndo(): boolean {
-    return this.editor.selection.writeCommands.includes("operation.undo");
-  }
   get supportsOperationRedo(): boolean {
     return this.editor.selection.writeCommands.includes("operation.redo");
-  }
-  /** Only the Linux route advertises status batches. */
-  get supportsStatusBatch(): boolean {
-    return this.editor.selection.writeCommands.includes("task.transitionMany");
   }
   hasWriteInProgress = (): boolean => this.writing;
 
@@ -195,13 +187,6 @@ export class MainWorkspace {
 
   /** This client's history for the confirmed root/cache/profile and current write context. */
   undoHistory(): Promise<UndoHistory> {
-    if (!this.supportsOperationUndo)
-      return Promise.reject(
-        new EditorError(
-          "UNSUPPORTED_COMMAND",
-          "Undo is limited to status changes in this selected workspace.",
-        ),
-      );
     if (!this.history) {
       const { rootPath, databasePath, profilePath } = this.editor.selection;
       this.history = this.editor
