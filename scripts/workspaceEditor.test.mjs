@@ -864,7 +864,9 @@ function manualLine(selected, envelope) {
   );
 }
 
-for (const command of ["task.create", "task.update", ...statusCommands]) {
+// Status commands share one transition table and writer path, so complete (sets closedAt) and
+// reopen (clears it) cover their crash windows; taskWriter.test.ts runs every status command.
+for (const command of ["task.create", "task.update", "task.complete", "task.reopen"]) {
   for (const cut of ["stage-written", "published", "beforeCommit", "afterCommit", "lostReply"]) {
     test(`actual editor HTTP ${command} crash at ${cut} preserves original request for explicit recovery/manual replay`, async (t) => {
       const selected = workspace(t);

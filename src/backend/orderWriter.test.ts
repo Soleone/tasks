@@ -254,101 +254,86 @@ for (const id of ["key-invalid", "key-limit", "key-too-long", "key-byte-order"])
   });
 }
 
-test(
-  "all five-task selections/anchors preserve intended selected order and complete tied/untied scopes",
-  linuxOnly,
-  (t) => {
-    let checked = 0;
-    for (const tied of [false, true])
-      for (let mask = 1; mask < 32; mask++) {
-        const ids = ["a", "b", "c", "d", "e"],
-          selected = ids.filter((_, index) => mask & (1 << index));
-        const remaining = ids.filter((id) => !selected.includes(id));
-        const placements = [
-          { first: true },
-          { last: true },
-          ...remaining.flatMap((id) => [{ beforeId: id }, { afterId: id }]),
-        ];
-        for (const placement of placements) {
-          const w = materialize(
-            t,
-            Object.fromEntries(
-              ids.map((id, index) => [id, { orderKey: tied ? "a0" : `a${index}` }]),
-            ),
-          );
-          const at =
-            "first" in placement
-              ? 0
-              : "last" in placement
-                ? remaining.length
-                : remaining.indexOf(
-                    "beforeId" in placement ? placement.beforeId! : placement.afterId!,
-                  ) + ("afterId" in placement ? 1 : 0);
-          const expected = [...remaining.slice(0, at), ...selected, ...remaining.slice(at)];
-          const req = request(w, "task.reorder", {
-            tasks: selected.map((id) => ({ id })),
-            placement,
-          });
-          const result = success(send(w, req)).result;
-          assert.deepEqual(
-            list(w).map((task) => task.id),
-            expected,
-          );
-          assert.equal(result.changed, expected.join() !== ids.join());
-          checked++;
-        }
-      }
-    assert.equal(checked, 424);
+// Every permutation runs against the pure planner in taskOrdering.test.ts; these run through the
+// writer and check that only the planned keys reach disk.
+const untied = { a: "a0", b: "a1", c: "a2", d: "a3", e: "a4" };
+const tied = { a: "a0", b: "a0", c: "a0", d: "a0", e: "a0" };
+const mixed = { t0: "a0", t1: "a0", t2: "a1", t3: "a1", t4: "a1", t5: "a2" };
+const representativeReorders = [
+  {
+    name: "one untied task to first",
+    keys: untied,
+    selected: ["b"],
+    placement: { first: true },
+    order: ["b", "a", "c", "d", "e"],
+    rewrittenIds: ["b"],
   },
-);
-
-test(
-  "all 419 mixed-tie selections/positions preserve independently spliced ID order",
-  linuxOnly,
-  (t) => {
-    const keys = ["a0", "a0", "a1", "a1", "a1", "a2"];
-    let checked = 0;
-    for (let length = 2; length <= 6; length++) {
-      const ids = Array.from({ length }, (_, index) => `task-${index}`);
-      for (let mask = 1; mask < 2 ** length; mask++) {
-        const selected = ids.filter((_, index) => mask & (1 << index));
-        const remaining = ids.filter((id) => !selected.includes(id));
-        for (let insertAt = 0; insertAt <= remaining.length; insertAt++) {
-          const expected = [...remaining];
-          expected.splice(insertAt, 0, ...selected);
-          const placement =
-            insertAt === 0
-              ? { first: true }
-              : insertAt === remaining.length
-                ? { last: true }
-                : { beforeId: remaining[insertAt] };
-          const w = materialize(
-            t,
-            Object.fromEntries(ids.map((id, index) => [id, { orderKey: keys[index] }])),
-          );
-          assert.deepEqual(
-            list(w).map((task) => task.id),
-            ids,
-          );
-          const req = request(w, "task.reorder", {
-            tasks: selected.map((id) => ({ id })),
-            placement,
-          });
-          const result = success(send(w, req)).result;
-          const variant = `length=${length}, mask=${mask}, insertAt=${insertAt}`;
-          assert.deepEqual(
-            list(w).map((task) => task.id),
-            expected,
-            variant,
-          );
-          assert.equal(result.changed, expected.join() !== ids.join(), variant);
-          checked++;
-        }
-      }
-    }
-    assert.equal(checked, 419);
+  {
+    name: "non-contiguous untied tasks after the last",
+    keys: untied,
+    selected: ["a", "c"],
+    placement: { afterId: "e" },
+    order: ["b", "d", "e", "a", "c"],
+    rewrittenIds: ["a", "c"],
   },
-);
+  {
+    name: "one tied task before another",
+    keys: tied,
+    selected: ["d"],
+    placement: { beforeId: "b" },
+    order: ["a", "d", "b", "c", "e"],
+    rewrittenIds: ["d", "b", "c", "e"],
+  },
+  {
+    name: "tied ends to last",
+    keys: tied,
+    selected: ["a", "e"],
+    placement: { last: true },
+    order: ["b", "c", "d", "a", "e"],
+    rewrittenIds: ["a", "e"],
+  },
+  {
+    name: "mixed ties into an equal-key run",
+    keys: mixed,
+    selected: ["t0", "t5"],
+    placement: { beforeId: "t3" },
+    order: ["t1", "t2", "t0", "t5", "t3", "t4"],
+    rewrittenIds: ["t0", "t5", "t3", "t4"],
+  },
+  {
+    name: "tied tasks to where they are",
+    keys: tied,
+    selected: ["b", "c"],
+    placement: { afterId: "a" },
+    order: ["a", "b", "c", "d", "e"],
+    rewrittenIds: [],
+  },
+];
+for (const reorder of representativeReorders) {
+  test(`writer reorders ${reorder.name} and rewrites only planned keys`, linuxOnly, (t) => {
+    const w = materialize(
+      t,
+      Object.fromEntries(Object.entries(reorder.keys).map(([id, orderKey]) => [id, { orderKey }])),
+    );
+    const bytes = raw(w);
+    const req = request(w, "task.reorder", {
+      tasks: reorder.selected.map((id) => ({ id })),
+      placement: reorder.placement,
+    });
+    const result = success(send(w, req)).result;
+    assert.deepEqual(
+      list(w).map((task) => task.id),
+      reorder.order,
+    );
+    assert.equal(result.changed, reorder.order.join() !== Object.keys(reorder.keys).join());
+    assert.deepEqual(result.rewrittenIds, reorder.rewrittenIds);
+    const rewritten = new Set(reorder.rewrittenIds.map((id) => `${id}.json`));
+    assert.deepEqual(
+      raw(w).filter(([file]) => !rewritten.has(file)),
+      bytes.filter(([file]) => !rewritten.has(file)),
+    );
+  });
+}
 
 test(
   "ordering subtree keeps descendants/outside raw bytes and projects blockers outside the affected scope",
