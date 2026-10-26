@@ -1,6 +1,6 @@
 # Current support
 
-What runs where today. The target behavior is [the spec](../spec/README.md); what Windows doesn't have yet is listed once, in [spec/client/platforms.md](../spec/client/platforms.md). The previous detailed index, with per-family evidence, is frozen at [evidence/support-2026-10-14.md](evidence/support-2026-10-14.md).
+What runs where today. The target behavior is [the spec](../spec/README.md); platform differences are listed once, in [spec/client/platforms.md](../spec/client/platforms.md). The previous detailed index, with per-family evidence, is frozen at [evidence/support-2026-10-14.md](evidence/support-2026-10-14.md).
 
 ## Entry points
 
@@ -16,7 +16,6 @@ What runs where today. The target behavior is [the spec](../spec/README.md); wha
 
 - **Native coverage:** the owner confirmed native Windows 11 and Android apps work (2026-10-19). Linux desktop remains unverified; detailed workflow coverage and save-speed measurements were not reported. Global focus is deferred.
 - **Windows crash checks:** the proof-profile fault-injection checks were removed with the profile; crash recovery is tested on Linux only until they are rebuilt.
-- **Browser walkthrough:** no case-level interaction run exists for the dev:web route. The last attempt stopped before a page opened (missing `libglib-2.0.so.0` on the worker host).
 - **Owner acceptance:** native Windows 11 and Android smoke success is owner-confirmed; qualifying multi-day use and personal migration have not been reported.
 - **Migration:** `pnpm migrate`, owner-only, not part of the app ([runbook](migration.md)). Tested with disposable data only. No personal data has been read or converted.
 - **Corpus:** 101 of 112 original corpus cases execute in backend tests; the other 11 have no executor.

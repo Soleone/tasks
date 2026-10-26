@@ -267,7 +267,7 @@ describe("button kinds and folding", () => {
     const { user } = await workspace.render();
     expect(pressed("[data-filter=task-unblocked]")).toBe("false");
     expect(pressed("[data-view=task-details]")).toBe("false");
-    for (const name of ["New task", /^Sort:/, "Undo", "Reorder", "Task actions"])
+    for (const name of ["New task", /^Sort:/, "Undo", "Redo", "Reorder", "Task actions"])
       expect(screen.getByRole("button", { name }).hasAttribute("aria-pressed")).toBe(false);
     const actions = screen.getByRole("button", { name: "Task actions" });
     await user.click(actions);

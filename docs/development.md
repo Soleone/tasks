@@ -13,7 +13,7 @@ Friendly CLI / JSON-lines CLI -------------------------------> gateway
                                                                -> canonical JSON + local SQLite authority
 ```
 
-The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms the selected Tasks home before opening `App`. `MainWorkspace` routes supported actions and refuses the rest.
+The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms a hand-picked `--home` before opening `App`; fixture and kept development copies open directly. `MainWorkspace` routes supported actions and refuses the rest.
 
 `tasks-cli` requires `--home`, with verbs or with `--stdio` for JSON lines; there is no default home. (`--root` with `--database` selects a bare folder for tests and `pnpm migrate`.) `pnpm dev:web` without `--home` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
 

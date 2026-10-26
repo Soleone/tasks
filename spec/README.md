@@ -1,6 +1,6 @@
 # Tasks specification
 
-Tasks is a keyboard-first task list. Tasks live as plain JSON files in a folder you choose, one file per task, so they can be synced, backed up and edited by agents without a server. The desktop and web apps show that folder as a calm, filterable list.
+Tasks is a keyboard-first task list. Tasks live as plain JSON files in a folder you choose, one file per task, so they can be synced, backed up and edited by agents without a server. The desktop, Android and web apps show that folder as a calm, filterable list.
 
 This spec says what the app does. It doesn't say how it is built, what is proven on which machine, or why every decision was made. Evidence lives in [docs/evidence/](../docs/evidence/README.md).
 
@@ -10,9 +10,9 @@ This spec says what the app does. It doesn't say how it is built, what is proven
 | --- | --- | --- |
 | [Backend](backend/) | What is true about the data: files, fields, commands, rules, safety | You change what is stored or what a command does |
 | [Ecosystem](ecosystem/) | How other tools touch the folder: CLI, agents, sync, backup, migration | You script against Tasks or move data in or out |
-| [Client](client/README.md) | What a person sees and presses in the desktop and web app | You change the UI or a shortcut |
+| [Client](client/README.md) | What a person sees and presses in the desktop, Android and web apps | You change the UI or a shortcut |
 
-Desktop and web are one client. The few differences between them, and between Windows and Linux, are listed once in [client/platforms.md](client/platforms.md) and nowhere else.
+Desktop, Android and web are one client. The few platform differences are listed once in [client/platforms.md](client/platforms.md) and nowhere else.
 
 ## Reading a rule
 
@@ -45,4 +45,4 @@ Backend commands use a fixed block instead: **Input**, **Effect**, **Refuses whe
 | Blocker | A dependency that isn't canceled. A done blocker still blocks. A task with no blockers is **unblocked**. |
 | Manual order | A persistent order among siblings, shared by the app, CLI and agents. |
 | Cache | Local, rebuildable SQLite next to the app, never synced. Losing it costs write authority until the workspace is reconciled, never task data. |
-| Operation | One accepted change. Undo reverses an operation, only while nothing newer touched the same tasks. |
+| Operation | One accepted change. Undo eligibility follows the [backend undo rules](backend/rules.md#undo). |

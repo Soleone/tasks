@@ -1,6 +1,6 @@
 # Client
 
-The desktop app and the web app are one client. This folder describes what a person sees and presses. Platform differences live only in [platforms.md](platforms.md).
+The desktop, Android and web apps are one client. This folder describes what a person sees and presses. Platform differences live only in [platforms.md](platforms.md).
 
 | File | Covers |
 | --- | --- |
@@ -11,7 +11,7 @@ The desktop app and the web app are one client. This folder describes what a per
 | [lenses.md](lenses.md) | Lenses: the list as one question, done today and due now |
 | [settings.md](settings.md) | Settings, themes, the palette, font size and the Tasks home |
 | [learning.md](learning.md) | Moves, hints, the Learn panel and progress |
-| [platforms.md](platforms.md) | Desktop, web, Linux and Windows differences |
+| [platforms.md](platforms.md) | Desktop, Android and web differences |
 
 ## Principles
 
