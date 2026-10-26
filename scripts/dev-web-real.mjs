@@ -2,7 +2,9 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  lstatSync,
   readdirSync,
+  realpathSync,
   readFileSync,
   rmSync,
   statSync,
@@ -27,13 +29,14 @@ export async function realSnapshot(refresh) {
   let choice = existsSync(configFile)
     ? JSON.parse(readFileSync(configFile, "utf8")).source
     : undefined;
+  if (choice !== undefined) validateSource(choice ?? testData, snapshot, configFile);
   if (choice === undefined || refresh) {
     choice = await askSource(choice);
+    validateSource(choice ?? testData, snapshot, configFile);
     mkdirSync(home, { recursive: true });
     writeFileSync(configFile, `${JSON.stringify({ source: choice }, null, 2)}\n`);
   }
   const source = choice ?? testData;
-  if (!isFolder(source)) throw new Error(`${source} is not a folder; fix or delete ${configFile}`);
   const root = path.join(snapshot, "sync");
   if (refresh || !existsSync(root)) {
     rmSync(snapshot, { recursive: true, force: true });
@@ -42,6 +45,29 @@ export async function realSnapshot(refresh) {
     process.stdout.write(`[dev:web] copied ${describe(source)} to ${root}\n`);
   }
   return { home: snapshot };
+}
+
+function validateSource(source, snapshot, configFile) {
+  if (!isFolder(source)) throw new Error(`${source} is not a folder; fix or delete ${configFile}`);
+  const sourcePath = realpathSync(source);
+  const snapshotPath = physicalPath(snapshot);
+  if (contains(sourcePath, snapshotPath) || contains(snapshotPath, sourcePath)) {
+    throw new Error(`Source and development home overlap: ${source} and ${snapshot}`);
+  }
+}
+
+// Resolve missing destinations through their existing ancestors, including symlinks.
+function physicalPath(file) {
+  if (lstatSync(file, { throwIfNoEntry: false })) return realpathSync(file);
+  return path.join(physicalPath(path.dirname(file)), path.basename(file));
+}
+
+function contains(parent, child) {
+  const relative = path.relative(parent, child);
+  return (
+    relative === "" ||
+    (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
+  );
 }
 
 /** Enter takes the default. Without a terminal (agents, CI) it never asks and never picks a found folder. */
