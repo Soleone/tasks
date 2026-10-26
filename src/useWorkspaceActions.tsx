@@ -266,13 +266,14 @@ export function useWorkspaceActions({
         return before !== undefined && after !== undefined && before.priority !== after.priority;
       }),
       wasActiveTaskId:
-        options.wasActiveTaskId ??
-        (() => {
-          const activeTaskId = taskListRef.current?.getActiveTask()?.id ?? null;
-          return activeTaskId !== null && affectedTaskIds.includes(activeTaskId)
-            ? activeTaskId
-            : null;
-        })(),
+        options.wasActiveTaskId !== undefined
+          ? options.wasActiveTaskId
+          : (() => {
+              const activeTaskId = taskListRef.current?.getActiveTask()?.id ?? null;
+              return activeTaskId !== null && affectedTaskIds.includes(activeTaskId)
+                ? activeTaskId
+                : null;
+            })(),
     };
     setStatusUndo(entry);
     setRedoEntry(null);

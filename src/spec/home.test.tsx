@@ -248,6 +248,39 @@ describe("selection", () => {
     expect((await workspace.task(below.id)).status).toBe("open");
   });
 
+  test("undo.latest: a status change confirmed after its row left the view is undone back to the active task", async () => {
+    await workspace.create("Below");
+    const working = await workspace.create("Working");
+    await workspace.create("Above");
+    await workspace.change("task.start", working.id);
+    const { user } = await workspace.render();
+    await user.keyboard("{ArrowDown}");
+    await expectActive("Working");
+    const original = globalThis.fetch;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    globalThis.fetch = async (...args) => {
+      const body = typeof args[1]?.body === "string" ? JSON.parse(args[1].body) : null;
+      if (body?.command === "task.pause") await held;
+      return original(...args);
+    };
+    try {
+      await user.keyboard("p");
+      await expectRows(["Above", "Below"]);
+      expect(activeTitle()).not.toBe("Working");
+    } finally {
+      release();
+      globalThis.fetch = original;
+    }
+    await waitFor(() => expect(announcements()).toMatch(/Working: Paused/));
+    await user.keyboard("{Control>}z{/Control}");
+    await expectRows(["Above", "Working", "Below"]);
+    await expectActive("Working");
+    expect(selectedTitles()).toEqual(["Working"]);
+  });
+
   test("select.extend: Shift+Down extends the selection through siblings", async () => {
     await seed("C", "B", "A");
     const { user } = await workspace.render();

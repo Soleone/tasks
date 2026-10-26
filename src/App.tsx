@@ -931,8 +931,8 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onEdit={openEdit}
           onTaskUpdated={(task) => showTaskUpdates([task])}
           onTasksUpdated={showTaskUpdates}
-          onOperation={(operationId, previous, current) =>
-            recordOperationUndo(operationId, previous, current)
+          onOperation={(operationId, previous, current, wasActiveTaskId) =>
+            recordOperationUndo(operationId, previous, current, { wasActiveTaskId })
           }
           onStatusChanged={handleStatusChanged}
           onStatusBatchChanged={handleStatusBatchChanged}

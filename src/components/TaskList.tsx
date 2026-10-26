@@ -178,7 +178,13 @@ type TaskListProps = {
   onEdit: (task: TaskView) => void;
   onTaskUpdated: (task: TaskView) => void;
   onTasksUpdated: (tasks: TaskView[]) => void;
-  onOperation?: (operationId: string, previous: TaskView[], current: TaskView[]) => void;
+  /** `wasActiveTaskId` is the active task when the change began, before an optimistic row moved. */
+  onOperation?: (
+    operationId: string,
+    previous: TaskView[],
+    current: TaskView[],
+    wasActiveTaskId?: string | null,
+  ) => void;
   onStatusChanged?: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
   onStatusBatchChanged?: (
     previous: TaskView[],
@@ -304,8 +310,12 @@ export function TaskList({
   const showTaskUpdate = useStableHandler(onTaskUpdated);
   const announce = useStableHandler(onAnnounce);
   const recordOperation = useStableHandler(
-    (operationId: string, previous: TaskView[], current: TaskView[]) =>
-      onOperation?.(operationId, previous, current),
+    (
+      operationId: string,
+      previous: TaskView[],
+      current: TaskView[],
+      wasActiveTaskId?: string | null,
+    ) => onOperation?.(operationId, previous, current, wasActiveTaskId),
   );
   const statusChanged = useStableHandler(
     (previous: TaskView, current: TaskView, wasActive: boolean) =>
@@ -1157,7 +1167,13 @@ export function TaskList({
       },
       (previous, result) => {
         if (result.changed !== false) {
-          if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
+          if (result.operationId)
+            recordOperation(
+              result.operationId,
+              [previous],
+              [result.task],
+              wasActive ? task.id : null,
+            );
           statusChanged(previous, result.task, wasActive);
           setGlyphFeedback({ taskId: task.id, version: result.task.version });
         }
