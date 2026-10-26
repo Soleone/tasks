@@ -38,6 +38,7 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
   private starting: Promise<void> | null = null;
   private stdoutBuffer = "";
   private readonly pending = new Map<string, PendingRequest<Response>>();
+  private readonly exited = new WeakSet<BackendProcess>();
 
   constructor(
     private readonly makeCommand: () => Promise<BackendCommand>,
@@ -81,9 +82,14 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
 
     const spawnedAfterClose = this.child;
     this.child = null;
-    await this.kill(child);
-    if (spawnedAfterClose !== child) {
-      await this.kill(spawnedAfterClose);
+    for (const closingChild of new Set([child, spawnedAfterClose])) {
+      try {
+        await this.kill(closingChild);
+      } catch (error) {
+        // Keep the failed-close child selected so a retry cannot forget it and reload.
+        this.child = closingChild;
+        throw error;
+      }
     }
   }
 
@@ -115,6 +121,7 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
       if (isCurrent()) this.fail(new Error(message));
     });
     command.on("close", ({ code, signal }) => {
+      if (spawnedChild) this.exited.add(spawnedChild);
       if (!isCurrent()) return;
       const detail = signal === null ? `exit code ${code ?? "unknown"}` : `signal ${signal}`;
       this.fail(new Error(`backend process closed with ${detail}`));
@@ -163,7 +170,8 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
 
   private fail(value: unknown): void {
     const child = this.rejectPending(value);
-    void this.kill(child);
+    // Failure cleanup is best effort; an intentional close must report a live child's refusal.
+    void this.kill(child).catch(() => undefined);
   }
 
   private rejectPending(value: unknown): BackendProcess | null {
@@ -181,13 +189,11 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
   }
 
   private async kill(child: BackendProcess | null): Promise<void> {
-    if (!child) {
-      return;
-    }
+    if (!child || this.exited.has(child)) return;
     try {
       await child.kill();
-    } catch {
-      // The process may have exited between the failure and cleanup.
+    } catch (error) {
+      if (!this.exited.has(child)) throw error;
     }
   }
 }

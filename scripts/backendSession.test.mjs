@@ -39,7 +39,7 @@ function fakeCommand(
           queueMicrotask(() => receive(`${JSON.stringify(reply(requestId))}\n`));
         },
         async kill() {
-          onKill();
+          await onKill();
         },
       };
     },
@@ -84,6 +84,49 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
   } finally {
     await session.close();
   }
+});
+
+test("intentional close reports a live child's kill failure and retries that same child", async () => {
+  let launches = 0,
+    kills = 0;
+  const session = new JsonLineSession(
+    async () => {
+      launches++;
+      return fakeCommand(
+        true,
+        () => {
+          if (++kills === 1) throw new Error("could not stop backend");
+        },
+        () => {},
+      );
+    },
+    (value) => value,
+  );
+  await session.request({ requestId: "read" });
+  await assert.rejects(session.close(), /could not stop backend/);
+  await session.close();
+  assert.equal(kills, 2);
+  assert.equal(launches, 1);
+});
+
+test("intentional close tolerates a child that exits during kill", async () => {
+  let closed;
+  const session = new JsonLineSession(
+    async () =>
+      fakeCommand(
+        true,
+        () => {
+          closed({ code: 0, signal: null });
+          throw new Error("already exited");
+        },
+        (callback) => {
+          closed = callback;
+        },
+      ),
+    (value) => value,
+  );
+  await session.request({ requestId: "read" });
+  await session.close();
 });
 
 const { parseResponse } = await import("../test-dist/backend/protocol.js");
