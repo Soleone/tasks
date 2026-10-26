@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { CircleCheck, CircleHelp, Pointer, Trophy } from "lucide-react";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { QuietButton } from "@/components/variants/button";

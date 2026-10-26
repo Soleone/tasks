@@ -20,6 +20,28 @@ const noCva = {
   message:
     "Variants live in src/components/variants: wrap the primitive there and import the wrapper.",
 };
+const focusVariants = [
+  {
+    group: [
+      "**/components/ui/button",
+      "**/components/ui/input",
+      "**/components/ui/textarea",
+      "**/components/ui/checkbox",
+      "**/components/ui/calendar",
+    ],
+  },
+  { group: ["**/components/ui/select"], importNames: ["SelectTrigger"] },
+  { group: ["**/components/ui/input-group"], importNames: ["InputGroup"] },
+  { group: ["**/components/ui/command"], importNames: ["Command"] },
+  { group: ["**/components/ui/toast"], importNames: ["Toast"] },
+  { group: ["**/components/ui/tabs"], importNames: ["TabsTrigger"] },
+  { group: ["**/components/ui/radio-group"], importNames: ["RadioGroupItem"] },
+  { group: ["**/components/ui/badge"], importNames: ["Badge"] },
+  { group: ["**/components/ui/item"], importNames: ["Item"] },
+].map((pattern) => ({
+  ...pattern,
+  message: "Use the app wrapper in components/variants so keyboard focus keeps its solid 2px ring.",
+}));
 
 export default defineConfig({
   staged: { "*": "vp check --fix" },
@@ -53,7 +75,7 @@ export default defineConfig({
       "shadcn/no-arbitrary-values": ["error", { allow: ["layout"] }],
       "shadcn/no-inline-styles": "error",
       "shadcn/no-unknown-classes": ["error", { allow: ["app-icon", "wrap-anywhere"] }],
-      "no-restricted-imports": ["error", { patterns: [noBaseUi, noCva] }],
+      "no-restricted-imports": ["error", { patterns: [noBaseUi, noCva, ...focusVariants] }],
     },
     overrides: [
       {

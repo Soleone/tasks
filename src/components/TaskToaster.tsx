@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react";
+import { Toast } from "@/components/variants/toast";
 import type { TaskPriority } from "@/backend/taskModel";
 import { priorityMeta } from "@/components/taskFilters";
 import {
-  Toast,
   ToastClose,
   ToastContent,
   ToastPortal,

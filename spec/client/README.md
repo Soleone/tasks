@@ -20,6 +20,7 @@ The desktop app and the web app are one client. This folder describes what a per
 | `client.list-home` | The task list is the home screen. There is no dashboard and no required workspace switching |
 | `client.keyboard-first` | Every action has a keyboard path, and every keyboard action has a mouse path too |
 | `client.calm` | Compact toolbars, menus and progressive disclosure. No controls repeated on every row |
+| `client.focus-ring` | Keyboard focus on controls uses a solid 2px theme ring, without a translucent halo or extra outline. Composite controls have one ring around the keyboard stop, including filter/sort groups, priority and search. Task lists, menu results and the theme picker keep their own active-item treatments |
 | `client.no-tab-buttons` | Buttons are mouse fallbacks, not Tab stops. Each surface has one keyboard stop |
 | `client.literal-text` | Titles and descriptions show exactly what is stored. Category and tags are shown separately |
 

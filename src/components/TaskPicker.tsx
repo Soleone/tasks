@@ -3,7 +3,6 @@ import { Link2Off } from "lucide-react";
 import type { TaskView } from "./taskView";
 import { TaskRow, TaskStatusDisplay } from "@/components/TaskRow";
 import {
-  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -12,7 +11,7 @@ import {
 } from "@/components/ui/command";
 import { getTask, listTasks } from "@/platform/backendClient";
 import { literalWordScore } from "@/components/commandFilter";
-import { PaletteDialog } from "@/components/variants/command";
+import { Command, PaletteDialog } from "@/components/variants/command";
 import { useLoadOnOpen } from "./useLoadOnOpen";
 
 export type TaskPickerMode = "blocker" | "move";

@@ -2,7 +2,7 @@ import { createContext, useContext, useSyncExternalStore, type ReactElement } fr
 import type { WeekProps } from "react-day-picker";
 import { localToday } from "@/backend/dueDate";
 import { formatDueDate } from "@/backend/taskDates";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "@/components/variants/calendar";
 
 // Below this height, as on a phone with the keyboard up, the month shrinks to one week.
 const SHORT_WINDOW = "(max-height: 600px)";

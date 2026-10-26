@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { DialogContent } from "@/components/ui/dialog";
+import { NESTED_BUTTON_FOCUS } from "./focus";
 
 /**
  * Every popup shares one anchor: its top edge sits just below the header, so the eyes stay put
@@ -14,6 +15,7 @@ export function AnchoredDialogContent({
     <DialogContent
       className={cn(
         "top-16 max-h-[calc(100svh-5rem)] translate-y-0 md:top-20 md:max-h-[calc(100svh-6rem)]",
+        NESTED_BUTTON_FOCUS,
         className,
       )}
       {...props}
@@ -30,6 +32,7 @@ export function ImagePreviewContent({ className, ...props }: ComponentProps<type
     <DialogContent
       className={cn(
         "w-auto max-w-[calc(100svw-2rem)] p-2 data-open:zoom-in-50! data-closed:zoom-out-50! sm:max-w-[calc(100svw-2rem)]",
+        NESTED_BUTTON_FOCUS,
         className,
       )}
       {...props}

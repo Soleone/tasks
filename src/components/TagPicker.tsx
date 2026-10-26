@@ -2,7 +2,6 @@ import { useRef, type KeyboardEvent, type ReactElement } from "react";
 import { Check, Tags } from "lucide-react";
 import type { ClassificationOption } from "./taskView";
 import {
-  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -12,7 +11,7 @@ import {
 import { listTags } from "@/platform/backendClient";
 import { APP_NAME } from "@/backend/branding";
 import { literalWordScore } from "@/components/commandFilter";
-import { PaletteDialog } from "@/components/variants/command";
+import { Command, PaletteDialog } from "@/components/variants/command";
 import { useLoadOnOpen } from "./useLoadOnOpen";
 
 export function TagPicker({

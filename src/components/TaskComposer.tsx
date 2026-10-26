@@ -41,7 +41,7 @@ import {
 } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { formatDueDate } from "@/backend/taskDates";
 import type { MoveId } from "@/learning/moves";

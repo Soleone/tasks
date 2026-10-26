@@ -1,10 +1,23 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "cn";
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CommandShortcut } from "@/components/ui/command";
+import { Command as StockCommand, CommandShortcut } from "@/components/ui/command";
 import { AnchoredDialogContent } from "./dialog";
 
 type ContentProps = ComponentProps<typeof AnchoredDialogContent>;
+
+/** Palette search uses the same group ring as inline search, without outlining each result. */
+export function Command({ className, ...props }: ComponentProps<typeof StockCommand>) {
+  return (
+    <StockCommand
+      className={cn(
+        "[&_[data-slot=input-group]:has(input:focus-visible)]:ring-2 [&_[data-slot=input-group]:has(input:focus-visible)]:ring-ring",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
 
 /** A command palette on the shared dialog anchor, with explicit focus on open and on close. */
 export function PaletteDialog({

@@ -1,8 +1,14 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
+import { Button as StockButton } from "@/components/ui/button";
+import { FOCUS_RING } from "./focus";
 
-type ButtonProps = ComponentProps<typeof Button>;
+type ButtonProps = ComponentProps<typeof StockButton>;
+
+/** All app buttons share the toolbar's solid keyboard focus ring. */
+export function Button({ className, ...props }: ButtonProps) {
+  return <StockButton className={cn(FOCUS_RING, className)} {...props} />;
+}
 
 /**
  * The selected treatment for pressed toolbar controls and checked priority radios. Semantic primary

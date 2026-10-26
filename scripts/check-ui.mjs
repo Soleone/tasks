@@ -85,6 +85,20 @@ function waitFor(script) {
 function check(script) {
   assert.equal(evaluate(script), true, script);
 }
+// client.focus-ring: compare the computed ring with the same theme token as the filter group.
+function checkFocusRing(selector = ":focus-visible") {
+  waitFor(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!element) return false;
+    const probe = document.createElement("div");
+    probe.className = "ring-2 ring-ring";
+    document.body.append(probe);
+    const expected = getComputedStyle(probe).getPropertyValue("--tw-ring-shadow");
+    probe.remove();
+    const style = getComputedStyle(element);
+    return style.getPropertyValue("--tw-ring-shadow") === expected && style.outlineStyle === "none";
+  })()`);
+}
 function auditTaskList() {
   check(
     '[...document.querySelectorAll("#task-list [role=option]")].every(row => !row.hasAttribute("aria-expanded") && !row.querySelector("button, a[href], input, select, textarea, [role=button]"))',
@@ -362,16 +376,19 @@ try {
     '(() => { const editor = document.querySelector("[data-inline-task-editor]"); if (!editor) return false; const style = getComputedStyle(editor); const transparentBorder = style.borderColor === "rgba(0, 0, 0, 0)" || style.borderColor === "transparent"; return transparentBorder && style.backgroundColor !== getComputedStyle(document.body).backgroundColor; })()',
   );
   waitFor('document.activeElement.name === "title"');
+  checkFocusRing();
   check("document.querySelector('form[aria-label=\"New task\"] textarea') === null");
   browser("press", "Tab");
   // Regression: Tab from an empty title must focus priority without opening the description.
   waitFor('document.activeElement.matches("[role=radiogroup]")');
+  checkFocusRing();
   check(
     '(() => { const group = document.querySelector("[data-priority-section]"); const lastButton = group?.querySelector("[data-priority=\\"P4\\"]"); return Boolean(group && lastButton && Math.abs(group.getBoundingClientRect().right - lastButton.getBoundingClientRect().right) < 1); })()',
   );
   check("document.querySelector('form[aria-label=\"New task\"] textarea') === null");
   browser("press", "Tab");
   waitFor('document.activeElement.name === "description"');
+  checkFocusRing();
   check("document.querySelector('form[aria-label=\"New task\"] textarea') !== null");
   browser("click", 'form[aria-label="New task"] input');
   waitFor(
@@ -649,6 +666,7 @@ try {
   );
   browser("press", "f");
   waitFor('document.activeElement.matches("[data-toolbar=filters]")');
+  checkFocusRing();
   waitFor('document.querySelector("[data-shortcut-guide=filter]") !== null');
   browser("wait", "150");
   check(
@@ -1072,8 +1090,18 @@ try {
   check('document.querySelector("[data-theme-control]") === null');
   browser("press", "Tab");
   waitFor('document.activeElement.matches("[data-font-size-control]")');
+  checkFocusRing();
+  browser("press", "Tab");
+  waitFor('document.activeElement.matches("[role=checkbox]")');
+  checkFocusRing();
+  browser("press", "Tab");
+  waitFor('document.activeElement.textContent === "Reset progress"');
+  checkFocusRing();
+  browser("press", "Shift+Tab");
+  browser("press", "Shift+Tab");
   browser("press", "Shift+Tab");
   waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
+  checkFocusRing();
   browser("press", "ArrowRight");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   check(

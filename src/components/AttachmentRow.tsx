@@ -8,7 +8,7 @@ import {
 } from "react";
 import { ChevronLeft, ChevronRight, Copy, ImageOff, X } from "lucide-react";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ImagePreviewContent, PreviewImage } from "@/components/variants/dialog";
 import { preventFocusSteal } from "@/navigation";

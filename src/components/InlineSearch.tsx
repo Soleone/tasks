@@ -1,11 +1,7 @@
 import type { ReactElement, Ref } from "react";
 import { X } from "lucide-react";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
+import { InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import { InputGroup } from "@/components/variants/input-group";
 
 export function InlineSearch({
   ref,

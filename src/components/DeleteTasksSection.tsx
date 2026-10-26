@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 import {
   Dialog,
   DialogDescription,
@@ -10,13 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { RadioGroup } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectTrigger } from "@/components/variants/select";
+import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { ChoiceCard, ChoiceRadio } from "@/components/variants/radio-group";
 import {

@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { Check, Circle, Trophy, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { Move } from "@/learning/moves";
 import { useLearning } from "@/learning/progress";

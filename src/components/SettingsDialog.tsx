@@ -3,7 +3,7 @@ import { XIcon } from "lucide-react";
 import { selectedMainWorkspace } from "@/platform/backendClient";
 import { isAndroid, runtimeKind } from "@/platform/runtime";
 import { chooseHomeOnNextStart, revealHome } from "@/platform/desktopWorkspace";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 import {
   Dialog,
   DialogClose,
@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/components/variants/checkbox";
+import { RangeInput } from "@/components/variants/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { resetProgress, useLearning } from "@/learning/progress";
 import { setQuestsShown, useQuests } from "@/learning/questProgress";
@@ -155,10 +156,9 @@ export function SettingsDialog({
                       {fontSizeLabel(fontSizeIncrease)}
                     </output>
                   </div>
-                  <input
+                  <RangeInput
                     id="settings-font-size"
                     data-font-size-control
-                    type="range"
                     min={0}
                     max={FONT_SIZE_INCREASES.length - 1}
                     step={1}

@@ -4,7 +4,6 @@ import { cn } from "cn";
 import type { TaskStatus } from "@/backend/taskModel";
 import { EXACT_STATUS_META, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
 import {
-  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -12,7 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { literalWordScore } from "@/components/commandFilter";
-import { PaletteDialog } from "@/components/variants/command";
+import { Command, PaletteDialog } from "@/components/variants/command";
 
 export function StatusMenu({
   open,

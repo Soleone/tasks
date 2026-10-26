@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactElement } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { Marker } from "./composerShorthand";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/variants/button";
 
 type KeyboardBarProps = {
   disabled: boolean;

@@ -33,7 +33,6 @@ import {
 } from "lucide-react";
 import type { TaskView } from "./taskView";
 import {
-  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -44,7 +43,7 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { ListLens } from "@/components/listLens";
 import { literalWordScore } from "@/components/commandFilter";
-import { PaletteDialog, KeysShortcut } from "@/components/variants/command";
+import { Command, PaletteDialog, KeysShortcut } from "@/components/variants/command";
 import { pauseQuest, resumeQuest, startQuest, useQuests } from "@/learning/questProgress";
 
 type HelpEntry = {

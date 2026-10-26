@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Item, ItemActions, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { FOCUS_RING } from "./focus";
 
 /** Task row states. Active wins over selected; callers keep that precedence when choosing. */
 const STATES = {
@@ -27,6 +28,7 @@ export function TaskItem({
         props.role === "option" && "border-l-0 py-1.5 pl-0",
         nested &&
           "relative before:absolute before:-top-px before:-bottom-px before:left-4 before:w-px before:bg-border",
+        FOCUS_RING,
         state && STATES[state],
         className,
       )}

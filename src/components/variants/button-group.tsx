@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
+import { Button } from "./button";
+import { FOCUS_RING } from "./focus";
 
 /**
  * Buttons side by side. Unlike shadcn's ButtonGroup it leaves every button its own rounded
@@ -18,20 +19,19 @@ export function ToolbarGroup({
 }: ComponentProps<typeof ButtonRow> & { active?: boolean }) {
   return (
     <ButtonRow
-      className={cn(
-        "rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active && "ring-2 ring-ring",
-        className,
-      )}
+      className={cn("rounded-lg outline-none", FOCUS_RING, active && "ring-2 ring-ring", className)}
       {...props}
     />
   );
 }
 
-/** The composer's priority radios. No ring: focus shows as the checked radio taking the accent. */
+/** Priority is one keyboard stop, so its group carries the ring just like the filter toolbar. */
 export function PriorityGroup({ className, ...props }: ComponentProps<typeof ButtonRow>) {
   return (
-    <ButtonRow className={cn("group/priority rounded-lg outline-none", className)} {...props} />
+    <ButtonRow
+      className={cn("group/priority rounded-lg outline-none", FOCUS_RING, className)}
+      {...props}
+    />
   );
 }
 

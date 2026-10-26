@@ -3,7 +3,6 @@ import { Check, Flag } from "lucide-react";
 import type { TaskPriority } from "@/backend/taskModel";
 import { PRIORITY_META } from "@/components/taskFilters";
 import {
-  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -11,7 +10,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { literalWordScore } from "@/components/commandFilter";
-import { PaletteDialog } from "@/components/variants/command";
+import { Command, PaletteDialog } from "@/components/variants/command";
 
 export function PriorityMenu({
   open,

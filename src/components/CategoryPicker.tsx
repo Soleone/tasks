@@ -2,7 +2,6 @@ import { useRef, type CSSProperties, type ReactElement } from "react";
 import { Folder } from "lucide-react";
 import type { ClassificationOption } from "./taskView";
 import {
-  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -11,7 +10,7 @@ import {
 } from "@/components/ui/command";
 import { listCategories } from "@/platform/backendClient";
 import { literalWordScore } from "@/components/commandFilter";
-import { PaletteDialog } from "@/components/variants/command";
+import { Command, PaletteDialog } from "@/components/variants/command";
 import { useLoadOnOpen } from "./useLoadOnOpen";
 
 export function CategoryPicker({

@@ -10,9 +10,9 @@ import App from "./App";
 import { APP_NAME } from "./backend/branding";
 import { useTheme } from "./components/soleone/theme";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
-import { Button } from "./components/ui/button";
+import { Button } from "./components/variants/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./components/ui/field";
-import { Input } from "./components/ui/input";
+import { Input } from "./components/variants/input";
 import { applyStoredFontSizeIncrease } from "./fontSize";
 import { selectMainWorkspace } from "./platform/backendClient";
 import {
