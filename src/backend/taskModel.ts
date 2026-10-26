@@ -59,10 +59,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function matchesEntireString(value: string, pattern: RegExp): boolean {
-  return pattern.exec(value)?.[0] === value;
-}
-
 export function isTimestamp(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value))
     return false;
@@ -74,9 +70,7 @@ function isSortedStrings(value: unknown, pattern: RegExp): value is string[] {
   if (!Array.isArray(value)) return false;
   return value.every(
     (entry, index) =>
-      typeof entry === "string" &&
-      matchesEntireString(entry, pattern) &&
-      (index === 0 || value[index - 1] < entry),
+      typeof entry === "string" && pattern.test(entry) && (index === 0 || value[index - 1] < entry),
   );
 }
 
@@ -93,7 +87,7 @@ export function isOrderKey(value: unknown): value is string {
   if (typeof value !== "string" || value.length < 2 || value.length > 256) return false;
   const head = value.charCodeAt(0);
   if (!((head >= 65 && head <= 90) || (head >= 97 && head <= 122))) return false;
-  if (!matchesEntireString(value.slice(1), digits)) return false;
+  if (!digits.test(value.slice(1))) return false;
   const integerLength = head <= 90 ? 92 - head : head - 95;
   if (value.length < integerLength || value === `A${"0".repeat(26)}`) return false;
   return value.length === integerLength || !value.endsWith("0");
@@ -120,11 +114,7 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
       "UNSUPPORTED_SCHEMA",
       `task field ${unknown} was written by a newer version of Tasks; update Tasks`,
     );
-  if (
-    typeof value.id !== "string" ||
-    !matchesEntireString(value.id, safeId) ||
-    value.id !== filenameId
-  )
+  if (typeof value.id !== "string" || !safeId.test(value.id) || value.id !== filenameId)
     invalidTask("id/filename");
   if (
     typeof value.title !== "string" ||
@@ -157,15 +147,12 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
     value.priority > 4
   )
     invalidTask("priority");
-  if (
-    value.category !== null &&
-    (typeof value.category !== "string" || !matchesEntireString(value.category, slug))
-  )
+  if (value.category !== null && (typeof value.category !== "string" || !slug.test(value.category)))
     invalidTask("category");
   if (!isSortedStrings(value.tags, slug)) invalidTask("tags");
   if (
     value.parentId !== null &&
-    (typeof value.parentId !== "string" || !matchesEntireString(value.parentId, safeId))
+    (typeof value.parentId !== "string" || !safeId.test(value.parentId))
   )
     invalidTask("parentId");
   if (!isSortedStrings(value.dependencyIds, safeId)) invalidTask("dependencyIds");

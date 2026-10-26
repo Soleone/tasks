@@ -11,7 +11,7 @@ import {
   exactHash,
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
-import { directoryIdentity } from "./copyFiles.js";
+import { directoryIdentity, refuseDescriptorConflicts } from "./copyFiles.js";
 import { requireAddedAttachments } from "./attachments.js";
 import { buildCreatedTask, parseCreate } from "./createInputs.js";
 import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDomain.js";
@@ -84,14 +84,7 @@ export function executeCreate(request: Request, rootPath: string, cachePath: str
       const snapshot = readCanonicalRoot(root.rootPath);
       if (snapshot.rootIdentity !== root.rootIdentity)
         throw new CommandError("STALE_WRITE_CONTEXT", "physical root changed during observation");
-      if (
-        readdirSync(root.rootPath).some((name) => /^workspace\.sync-conflict-.+\.json$/.test(name))
-      ) {
-        throw new CommandError(
-          "INVALID_CANONICAL",
-          "descriptor conflict copies require explicit inspection before staging",
-        );
-      }
+      refuseDescriptorConflicts(root.rootPath);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
       const previewVersion = requireCreateBudget(database, snapshot.tasks.length);

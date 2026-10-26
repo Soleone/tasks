@@ -38,10 +38,7 @@ function convertSchema1Task(task: CanonicalTaskFile, orderKey: string): Canonica
     id: task.id,
     title,
     // Schema 1 stored titles as typed. Keep that text when the current shorthand reads it the same way.
-    text:
-      task.title.trim().length <= 1000
-        ? typedText({ title, text: task.title.trim(), category, tags })
-        : null,
+    text: typedText({ title, text: task.title.trim(), category, tags }),
     description: task.descriptionMarkdown,
     status: task.status,
     priority: task.priority,
