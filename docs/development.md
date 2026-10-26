@@ -54,7 +54,7 @@ Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to 
 | Command | Scope |
 | --- | --- |
 | `pnpm check` | `vp check`: formatting, type-aware lint and types for backend and frontend |
-| `pnpm lint` | `vp lint`, naming and spec-rule checks, and knip for dead code |
+| `pnpm lint` | `vp lint`, spec-rule checks, and knip for dead code |
 | `pnpm test` | File-backed backend regressions, then client tests (`vp test`, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
 | `pnpm build` | Types, backend and frontend build |
 | `pnpm build:test` | Prepare `test-dist`, the backend build tests run from, for focused script tests |

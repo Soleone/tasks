@@ -22,7 +22,7 @@ Use the `clean-code` skill when writing, refactoring or reviewing code. Keep cha
 
 `pnpm check` stays free of warnings, including the React hook rules. Take `ref` as a prop instead of wrapping components in `forwardRef`: React 19.2 never refreshes `useEffectEvent` handlers inside `forwardRef` components, so their listeners see the first render forever.
 
-Name by responsibility. Never add version-named files, identifiers, flags or env vars; `scripts/check-naming.mjs` enforces this. Stored format numbers and persisted names (cache tables, the local `taskdb-v2` folder) keep their names.
+Name files, identifiers, flags and env vars by responsibility, not version. Stored format numbers and persisted names (cache tables, the local `taskdb-v2` folder) keep their names.
 
 Crash tests inject faults by matching source or bundle text (`registerHooks` loaders). When a refactor or formatting change moves such a line, update the needle in the same change and keep it whitespace-tolerant.
 

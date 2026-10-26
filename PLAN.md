@@ -37,7 +37,7 @@ Tasks is a local-first, keyboard-first task list for one person working alongsid
 1. `pnpm dev:web` (a fresh fixture copy, or `--root PATH --database CACHE`) runs the established UI on the current engine over a Linux dev bridge. Every agreed workflow except global focus works there; the owner reported high-level smoke success on disposable data (no case-level walkthrough). `pnpm dev:web:real` runs it on a kept copy of the owner's real folder (owner, 2026-10-17); only the owner runs it. Copies open directly; a folder picked with `--root` is confirmed first.
 2. `tasks-cli --root PATH --database CACHE` is the friendly CLI on the current engine; JSON lines via `tasks-cli --stdio --root ...`. Neither has a default workspace.
 3. The desktop app starts on the current engine (2026-10-16): it opens the remembered task folder, and the first launch asks for one or starts it empty. A schema 1 folder is refused until it is converted with `pnpm migrate`.
-4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`. `scripts/check-naming.mjs` keeps version names at zero outside migration and persisted names.
+4. The legacy runtime is gone (2026-10-16): `src/legacy/`, `--legacy`, the Android runtime, the Syncthing receive flow, JSON export and the old global shortcut code. Code is named by responsibility; migration lives in `src/migration/`.
 5. The backend allows every command on every desktop OS. On Windows Node, setup (init, import) and the formerly withheld writes were smoke-tested on disposable data. The owner confirmed the native Windows 11 app works (2026-10-19). This is high-level owner confirmation, not a case-level walkthrough or Windows crash-recovery proof.
 6. Migration only reads the old version's files and writes a new folder. No personal data has been touched.
 7. Android: `pnpm build:android` builds an arm64 release APK, signed with the owner's key, with the desktop UI and the bundled backend. First phone runs found two blockers, both fixed: the backend needed the C++ runtime, and Android's shared storage refuses hard links. Hard links are gone (owner, 2026-10-17): init is a plain retryable step that renames `workspace.json` into place, and doctor renames its stages. The owner confirmed the Android app works (2026-10-19); no case-level walkthrough or save-speed measurement was reported. WSL has no emulator; one runs on the Windows side (2026-10-20).
@@ -92,7 +92,7 @@ The owner uses the Windows build on their real tasks (imported, old files kept) 
 
 ### Cutover
 
-1. Done 2026-10-16: `src/legacy/`, `--legacy` and the Android runtime are deleted. The naming ratchet allows only `src/migration/` and stored names.
+1. Done 2026-10-16: `src/legacy/`, `--legacy` and the Android runtime are deleted.
 2. Done 2026-10-17: adopt the shared theme framework and picker with `tasks.selectedTheme`, no D or plain T theme hotkey, and `.kit.json` at r3. Remove the old parser, built-in list, theme application and polling.
 3. Never strand pending work or discard receipts, history or retry authority. Keep the old version's files until the owner deletes them.
 

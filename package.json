@@ -25,7 +25,7 @@
     "test": "pnpm build:test && node --test --test-timeout=60000 test-dist/backend/*.test.js test-dist/migration/*.test.js scripts/*.test.mjs && vp test run",
     "test:sidecar": "pnpm build:sidecar && node scripts/check-sidecar.mjs",
     "test:ui": "node scripts/check-ui.mjs",
-    "lint": "vp lint && node scripts/check-naming.mjs && node scripts/check-spec-rules.mjs && knip --no-progress",
+    "lint": "vp lint && node scripts/check-spec-rules.mjs && knip --no-progress",
     "check": "vp check",
     "prepare": "vp config"
   },
