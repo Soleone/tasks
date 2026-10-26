@@ -372,6 +372,48 @@ for (const preview of [true, false]) {
   });
 }
 
+test("reorder preview validates its group without consuming authority, receipts, history or the prepared envelope", async (t) => {
+  const selected = workspace(t),
+    { editor } = await server(t, selected);
+  const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
+  const baseline = await editor.begin(id, "order");
+  const prepared = editor.prepareReorder(
+    baseline,
+    [{ id, expectedVersion: baseline.task.version }],
+    { first: true },
+    "order-preview",
+  );
+  const original = prepared.originalRequest;
+  const before = bytes(selected.root);
+  let malformed = true;
+  const calls = traceFetch(t, async (response) => {
+    if (!malformed) return response;
+    malformed = false;
+    const body = await response.json();
+    body.result.tasks[0].id = "another-task";
+    return new Response(JSON.stringify(body));
+  });
+  await assert.rejects(prepared.preview(), /returned other tasks/);
+  const preview = await prepared.preview();
+  assert.equal(preview.changed, true);
+  assert.equal(prepared.hasExecuted, false);
+  assert.equal(prepared.originalRequest, original);
+  assert.deepEqual(bytes(selected.root), before);
+  assert.deepEqual(counts(selected.cache), { receipts: 0, operations: 0 });
+  const result = await prepared.execute();
+  assert.equal(result.tasks[0].id, id);
+  assert.deepEqual(calls[2], JSON.parse(original));
+  assert.deepEqual(
+    calls.slice(0, 2).map((call) => [call.dryRun, call.idempotencyKey, call.args]),
+    [
+      [true, undefined, JSON.parse(original).args],
+      [true, undefined, JSON.parse(original).args],
+    ],
+  );
+  assert.deepEqual(counts(selected.cache), { receipts: 1, operations: 1 });
+  await assert.rejects(prepared.preview(), /cannot renew uncertain authority/);
+});
+
 test("stale edit never samples fresh authority or overwrites the concurrent bytes", async (t) => {
   const selected = workspace(t),
     { editor } = await server(t, selected);

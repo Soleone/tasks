@@ -1,8 +1,6 @@
 import { taskView } from "@/components/taskView";
 import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
 import type { TaskPriority } from "@/backend/taskModel";
-import { parseTaskProjection } from "@/backend/taskResults";
-import { compareTasks } from "@/backend/taskModel";
 import { WorkspaceReader } from "./workspaceReader";
 import {
   AnsweredRefusal,
@@ -155,9 +153,9 @@ export class MainWorkspace {
   ) {
     return this.write(async () => {
       const baseline = await this.baseline(id, version, "relationship");
-      if (target !== null && command !== "task.dependency.remove")
-        await this.assertRelationshipTarget(command, id, target);
-      return this.editor.prepareRelationship(baseline, command, target, key);
+      const prepared = this.editor.prepareRelationship(baseline, command, target, key);
+      await prepared.preview();
+      return prepared;
     });
   }
 
@@ -165,8 +163,9 @@ export class MainWorkspace {
   async reorder(tasks: readonly TaskReorderTask[], placement: TaskReorderPlacement, key: string) {
     const result = await this.run(async () => {
       const baseline = await this.baseline(tasks[0]?.id, tasks[0]?.expectedVersion, "order");
-      await this.assertReorderScope(tasks, placement);
-      return this.editor.prepareReorder(baseline, tasks, placement, key);
+      const prepared = this.editor.prepareReorder(baseline, tasks, placement, key);
+      await prepared.preview();
+      return prepared;
     });
     return { ...result, tasks: result.tasks.map(taskView) };
   }
@@ -262,78 +261,6 @@ export class MainWorkspace {
         "This task changed elsewhere. Your draft was not sent; reopen it before saving.",
       );
     return baseline;
-  }
-
-  // Writer refusals keep the original request like an uncertain reply, so reachable graph mistakes are refused before sending.
-  private async assertRelationshipTarget(
-    command: RelationshipAction,
-    id: string,
-    targetId: string,
-  ): Promise<void> {
-    const move = command === "task.move";
-    const seen = new Set<string>();
-    const pending = [targetId];
-    while (pending.length > 0) {
-      const current = pending.pop()!;
-      if (current === id)
-        throw new EditorError(
-          move ? "PARENT_CYCLE" : "DEPENDENCY_CYCLE",
-          move
-            ? "A task cannot move under itself or one of its subtasks. Nothing was sent."
-            : "This dependency would create a cycle. Nothing was sent.",
-        );
-      if (seen.has(current)) continue;
-      seen.add(current);
-      const task = parseTaskProjection((await this.reader.query("task.get", { id: current })).task);
-      if (current === targetId && task.status === "canceled")
-        throw new EditorError(
-          move ? "INVALID_PARENT" : "INVALID_DEPENDENCY",
-          "Reopen the canceled task before linking to it. Nothing was sent.",
-        );
-      pending.push(
-        ...(move ? (task.parentId === null ? [] : [task.parentId]) : task.dependencyIds),
-      );
-    }
-  }
-
-  // Like relationship edits, reachable ordering refusals are checked before sending so they cannot lock the request.
-  private async assertReorderScope(
-    tasks: readonly TaskReorderTask[],
-    placement: TaskReorderPlacement,
-  ): Promise<void> {
-    const changed = () =>
-      new EditorError(
-        "STALE_TASK_VERSION",
-        "A selected task changed elsewhere. Nothing was sent; refresh and try again.",
-      );
-    const current = async (id: string) =>
-      parseTaskProjection((await this.reader.query("task.get", { id })).task);
-    const selected = await Promise.all(tasks.map((task) => current(task.id)));
-    if (selected.some((task, index) => task.version !== tasks[index].expectedVersion))
-      throw changed();
-    const parentId = selected[0].parentId;
-    if (
-      new Set(tasks.map((task) => task.id)).size !== tasks.length ||
-      selected.some((task) => task.parentId !== parentId) ||
-      selected.some((task, index) => index > 0 && compareTasks(selected[index - 1], task) >= 0)
-    )
-      throw changed();
-    const anchorId =
-      "beforeId" in placement
-        ? placement.beforeId
-        : "afterId" in placement
-          ? placement.afterId
-          : null;
-    if (
-      anchorId !== null &&
-      (tasks.some((task) => task.id === anchorId) ||
-        (await current(anchorId)).parentId !== parentId)
-    ) {
-      throw new EditorError(
-        "STALE_TASK_VERSION",
-        "The move target changed elsewhere. Nothing was sent; refresh and try again.",
-      );
-    }
   }
 
   private publishUnresolved(request: UnresolvedTaskRequest | null): void {

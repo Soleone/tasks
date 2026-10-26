@@ -71,5 +71,5 @@ Typing stays the same as the CLI's shorthand, but the title field keeps only the
 | `pick.parent` | `M`, or Move under in Task actions | The move picker opens. Choosing a task nests the selection under it |
 | `pick.remove-parent` | `M` on a child | A Remove parent action sits in its own group above the results |
 | `pick.blocker` | `B`, or Blockers in Task actions | The blocker picker adds a blocker, or removes an existing one. Done and canceled tasks aren't offered as new blockers |
-| `pick.refusals` | Choosing a canceled task, or a choice that would create a cycle | Refused before anything is sent |
+| `pick.refusals` | Choosing a new canceled target, or a choice that would create a cycle | The backend's non-consuming preview refuses it before an executing mutation is sent. A link already in place can remain a no-op even if its target was canceled; execution revalidates after preview |
 | `pick.existing-links` | A task already links to a canceled task | The link can still be removed |

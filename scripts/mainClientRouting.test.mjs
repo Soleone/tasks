@@ -5,11 +5,14 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
+  writeFileSync,
   renameSync,
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { build } from "esbuild";
 
@@ -340,6 +343,25 @@ async function selectedHttpWorkspace(t) {
   };
 }
 
+function savedState(workspace) {
+  const { rootPath, databasePath } = workspace.reader.selection;
+  const database = new DatabaseSync(databasePath, { readOnly: true });
+  try {
+    return {
+      files: Object.fromEntries(
+        [
+          "workspace.json",
+          ...readdirSync(path.join(rootPath, "tasks")).map((name) => `tasks/${name}`),
+        ].map((name) => [name, readFileSync(path.join(rootPath, name), "base64")]),
+      ),
+      receipts: database.prepare("SELECT COUNT(*) AS n FROM v2_receipts").get().n,
+      operations: database.prepare("SELECT COUNT(*) AS n FROM v2_operations").get().n,
+    };
+  } finally {
+    database.close();
+  }
+}
+
 test("main UI over the Linux HTTP bridge persists direct actions", async (t) => {
   const { root, calls, workspace } = await selectedHttpWorkspace(t);
   httpClient.selectMainWorkspace(workspace);
@@ -439,7 +461,10 @@ test("main UI over the Linux HTTP bridge persists direct actions", async (t) => 
 test("Linux route persists child capture, parent moves and dependency edits with current blocking rules", async (t) => {
   const { root, calls, workspace } = await selectedHttpWorkspace(t);
   const stored = (id) => JSON.parse(readFileSync(path.join(root, "tasks", `${id}.json`), "utf8"));
-  const writes = () => calls.filter((call) => call.readOnly === false).map((call) => call.command);
+  const writes = () =>
+    calls
+      .filter((call) => call.readOnly === false && call.dryRun === false)
+      .map((call) => call.command);
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9",
     childId = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
   const pausedId = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed",
@@ -478,6 +503,18 @@ test("Linux route persists child capture, parent moves and dependency edits with
     [[pausedId, doneId].sort(), [doneId]],
     "a canceled dependency does not block",
   );
+  const noop = await workspace.relationship(
+    "task.dependency.add",
+    moved.id,
+    blockedByBoth.version,
+    pausedId,
+    "already-linked-key",
+  );
+  assert.deepEqual(
+    [noop.changed, noop.operationId],
+    [false, undefined],
+    "an existing canceled link stays a no-op",
+  );
   const unblocked = (
     await workspace.relationship(
       "task.dependency.remove",
@@ -494,10 +531,13 @@ test("Linux route persists child capture, parent moves and dependency edits with
     "task.dependency.add",
     "task.dependency.add",
     "task.cancel",
+    "task.dependency.add",
     "task.dependency.remove",
   ]);
 
   const sent = writes().length;
+  const beforeRefusals = savedState(workspace);
+  const previewsBefore = calls.filter((call) => call.dryRun).length;
   const parent = (await workspace.reader.query("task.get", { id: openId })).task;
   await assert.rejects(
     () => workspace.relationship("task.move", openId, parent.version, childId, "cycle-key"),
@@ -529,14 +569,27 @@ test("Linux route persists child capture, parent moves and dependency edits with
     () => workspace.relationship("task.move", moved.id, moved.version, openId, "stale-key"),
     /STALE_TASK_VERSION/,
   );
-  assert.equal(writes().length, sent, "refused relationship edits send no write");
+  assert.equal(writes().length, sent, "refused previews send no executing relationship write");
+  assert.equal(calls.filter((call) => call.dryRun).length - previewsBefore, 3);
+  assert.deepEqual(savedState(workspace), beforeRefusals);
   assert.equal(workspace.getUnresolved(), null);
+  assert.equal(workspace.hasWriteInProgress(), false);
+  await workspace.relationship(
+    "task.move",
+    moved.id,
+    unblocked.version,
+    openId,
+    "valid-after-refusal",
+  );
 });
 
-test("Linux route persists manual reorder across reopen and refuses reachable ordering mistakes before sending", async (t) => {
+test("Linux route persists manual reorder across reopen and previews ordering refusals before executing", async (t) => {
   const { root, calls, workspace, reopen } = await selectedHttpWorkspace(t);
   const bytes = (id) => readFileSync(path.join(root, "tasks", `${id}.json`), "utf8");
-  const writes = () => calls.filter((call) => call.readOnly === false).map((call) => call.command);
+  const writes = () =>
+    calls
+      .filter((call) => call.readOnly === false && call.dryRun === false)
+      .map((call) => call.command);
   const topLevel = async (selected) =>
     (await selected.tasks({ sort: "manual", limit: 100 })).tasks
       .filter((task) => task.parentId === null)
@@ -574,6 +627,7 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
   assert.deepEqual([noop.changed, noop.operationId], [false, undefined]);
   assert.deepEqual(writes(), ["task.reorder", "task.reorder"]);
 
+  const beforeRefusals = savedState(workspace);
   const stale = [{ id: pausedId, expectedVersion: (await version(pausedId)) + 1 }];
   const pausedVersion = await version(pausedId),
     doneVersion = await version(doneId),
@@ -592,7 +646,7 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
         { first: true },
         "order-key",
       ),
-    /STALE_TASK_VERSION/,
+    /INVALID_ARGUMENT/,
   );
   await assert.rejects(
     () =>
@@ -604,7 +658,7 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
         { last: true },
         "mixed-key",
       ),
-    /STALE_TASK_VERSION/,
+    /INVALID_ARGUMENT/,
   );
   await assert.rejects(
     () =>
@@ -613,7 +667,7 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
         { afterId: childId },
         "anchor-key",
       ),
-    /move target changed/,
+    /INVALID_ARGUMENT/,
   );
   await assert.rejects(
     () =>
@@ -622,10 +676,17 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
         { beforeId: pausedId },
         "self-key",
       ),
-    /move target changed/,
+    /INVALID_ARGUMENT/,
   );
-  assert.equal(writes().length, 2, "refused reorders send no write");
+  assert.equal(writes().length, 2, "refused previews send no executing reorder");
+  assert.deepEqual(savedState(workspace), beforeRefusals);
   assert.equal(workspace.getUnresolved(), null);
+  assert.equal(workspace.hasWriteInProgress(), false);
+  await workspace.reorder(
+    [{ id: openId, expectedVersion: moved.tasks[0].version }],
+    { first: true },
+    "valid-after-refusal",
+  );
 
   const reopened = await reopen();
   assert.deepEqual(
@@ -633,6 +694,61 @@ test("Linux route persists manual reorder across reopen and refuses reachable or
     [openId, pausedId, doneId],
     "manual order persists after reopening with a fresh cache",
   );
+});
+
+test("reorder preview stays inside the write guard and execution revalidates the same prepared request", async (t) => {
+  const { root, calls, workspace } = await selectedHttpWorkspace(t);
+  const id = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
+  const version = (await workspace.reader.query("task.get", { id })).task.version;
+  const originalFetch = globalThis.fetch;
+  let afterRace;
+  globalThis.fetch = async (...args) => {
+    const request = args[1]?.body ? JSON.parse(args[1].body) : null;
+    const response = await originalFetch(...args);
+    if (request?.command === "task.reorder" && request.dryRun) {
+      assert.equal(workspace.hasWriteInProgress(), true);
+      const before = calls.length;
+      await assert.rejects(
+        workspace.status("task.start", id, version, "during-preview"),
+        /WRITE_IN_PROGRESS/,
+      );
+      assert.equal(calls.length, before);
+      const file = path.join(root, "tasks", `${id}.json`);
+      const task = JSON.parse(readFileSync(file, "utf8"));
+      writeFileSync(file, JSON.stringify({ ...task, title: "Changed after preview" }));
+      afterRace = savedState(workspace);
+    }
+    return response;
+  };
+  try {
+    const unresolved = new Promise((resolve) => {
+      const stop = workspace.subscribe(() => {
+        if (workspace.getUnresolved()) {
+          stop();
+          resolve(workspace.getUnresolved());
+        }
+      });
+    });
+    const reordering = workspace.reorder(
+      [{ id, expectedVersion: version }],
+      { first: true },
+      "race-key",
+    );
+    const refused = assert.rejects(reordering, /MANUAL_RECONCILIATION/);
+    const locked = await unresolved;
+    assert.match(locked.error, /STALE_TASK_VERSION/);
+    const [preview, execution] = calls.filter((call) => call.command === "task.reorder");
+    assert.deepEqual(preview.args, execution.args);
+    assert.equal(preview.writeContext, execution.writeContext);
+    assert.equal(preview.idempotencyKey, undefined);
+    assert.equal(execution.idempotencyKey, "race-key");
+    assert.notEqual(preview.requestId, execution.requestId);
+    assert.deepEqual(savedState(workspace), afterRace);
+    locked.preserveForReconciliation();
+    await refused;
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("Linux route undoes the latest content, capture, relationship and reorder operations through operation.undo", async (t) => {
@@ -755,7 +871,7 @@ test("a lost bridge reply locks the original request and Retry same request reus
   const result = await pending;
   assert.equal(result.task.status, "in_progress");
   assert.equal(workspace.getUnresolved(), null);
-  const writes = calls.filter((call) => call.readOnly === false);
+  const writes = calls.filter((call) => call.readOnly === false && call.dryRun === false);
   assert.equal(writes.length, 2);
   assert.deepEqual(writes[1], writes[0]);
 
@@ -775,7 +891,9 @@ test("a lost bridge reply locks the original request and Retry same request reus
   });
   await workspace.getUnresolved().retry();
   assert.deepEqual((await linking).task.blockedByIds, ["f3e5499b-402e-4d7d-8b61-eefc4409ca32"]);
-  const links = calls.filter((call) => call.command === "task.dependency.add");
+  const links = calls.filter(
+    (call) => call.command === "task.dependency.add" && call.dryRun === false,
+  );
   assert.equal(links.length, 2);
   assert.deepEqual(links[1], links[0]);
 
@@ -806,7 +924,7 @@ test("a lost bridge reply locks the original request and Retry same request reus
     (await reordering).tasks.map((task) => task.id),
     [openId],
   );
-  const orders = calls.filter((call) => call.command === "task.reorder");
+  const orders = calls.filter((call) => call.command === "task.reorder" && call.dryRun === false);
   assert.equal(orders.length, 2);
   assert.deepEqual(orders[1], orders[0]);
 

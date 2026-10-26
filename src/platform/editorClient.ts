@@ -239,8 +239,6 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
       throw new Error(
         "An executing request has already been sent; preview cannot renew uncertain authority.",
       );
-    if ((JSON.parse(this.serialized) as Request).command === "task.reorder")
-      throw new Error("Manual reorder has no preview; nothing was sent.");
     return this.send(true);
   }
 

@@ -725,7 +725,7 @@ describe("pickers", () => {
     await waitFor(async () => expect((await workspace.task(task.id)).dependencyIds).toEqual([]));
   });
 
-  test("pick.refusals: a choice that would create a cycle is refused before sending", async () => {
+  test("pick.refusals: backend preview refuses a cycle before an executing mutation", async () => {
     const first = await workspace.create("First");
     const second = await workspace.create("Second");
     await workspace.change("task.dependency.add", first.id, { dependsOnId: second.id });
