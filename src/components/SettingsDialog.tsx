@@ -1,8 +1,8 @@
 import { useRef, useState, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
-import { selectedMainWorkspace } from "@/platform/backendClient";
+import { selectedMainWorkspace, switchHome } from "@/platform/backendClient";
 import { isAndroid, runtimeKind } from "@/platform/runtime";
-import { chooseHomeOnNextStart, revealHome } from "@/platform/desktopWorkspace";
+import { revealHome } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/variants/button";
 import {
   Dialog,
@@ -64,14 +64,22 @@ export function SettingsDialog({
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
   const [pathNotice, setPathNotice] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const switchStarted = useRef(false);
   const [progressReset, setProgressReset] = useState(false);
   const learning = useLearning();
   const questsShown = useQuests().shown;
   const settingsTab = useRef<HTMLButtonElement>(null);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!switchStarted.current) onOpenChange(next);
+      }}
+    >
       <AnchoredDialogContent
+        inert={switching}
         showCloseButton={false}
         className="h-[calc(100svh-6rem)] max-h-[40rem] content-start overflow-y-auto sm:max-w-3xl md:max-h-[40rem]"
         initialFocus={settingsTab}
@@ -302,9 +310,17 @@ export function SettingsDialog({
                   <Button
                     variant="outline"
                     className="w-fit"
+                    disabled={switching}
                     onClick={() => {
-                      chooseHomeOnNextStart();
-                      window.location.reload();
+                      if (switchStarted.current) return;
+                      switchStarted.current = true;
+                      setSwitching(true);
+                      setPathNotice("Saving this home before opening setup…");
+                      void switchHome().catch((error: unknown) => {
+                        switchStarted.current = false;
+                        setSwitching(false);
+                        setPathNotice(error instanceof Error ? error.message : String(error));
+                      });
                     }}
                   >
                     Open another home…

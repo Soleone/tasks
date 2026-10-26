@@ -18,6 +18,8 @@ type Pending = { text: string; replaceDamaged: boolean; waiters: (() => void)[] 
 export class HomeDocuments {
   private readonly pending = new Map<HomeDocumentName, Pending>();
   private readonly running = new Set<HomeDocumentName>();
+  private readonly idleWaiters = new Set<() => void>();
+  private readonly failures = new Map<HomeDocumentName, unknown>();
   private readonly failureListeners = new Set<(name: HomeDocumentName, error: unknown) => void>();
 
   constructor(private readonly send: HomeCommand) {}
@@ -49,6 +51,18 @@ export class HomeDocuments {
     };
   }
 
+  /** Waits for both document queues, refusing to leave a home with an unsaved document. */
+  async waitForIdle(): Promise<void> {
+    while (this.running.size > 0)
+      await new Promise<void>((resolve) => this.idleWaiters.add(resolve));
+    if (this.failures.size > 0) {
+      const [name, error] = this.failures.entries().next().value!;
+      throw new Error(
+        `Couldn't save ${name}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   private async drain(name: HomeDocumentName): Promise<void> {
     this.running.add(name);
     try {
@@ -60,13 +74,17 @@ export class HomeDocuments {
             text: next.text,
             ...(next.replaceDamaged ? { replaceDamaged: true } : {}),
           });
+          this.failures.delete(name);
         } catch (error) {
+          this.failures.set(name, error);
           for (const listener of this.failureListeners) listener(name, error);
         }
         for (const resolve of next.waiters) resolve();
       }
     } finally {
       this.running.delete(name);
+      for (const resolve of this.idleWaiters) resolve();
+      this.idleWaiters.clear();
     }
   }
 }

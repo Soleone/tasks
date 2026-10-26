@@ -66,6 +66,42 @@ test("home.documents: a failed save is reported and later saves still run", asyn
   assert.equal(backend.writes.length, 2);
 });
 
+test("home.documents: idle waits for queued settings and undo, and refuses an unsaved document", async () => {
+  const backend = slowBackend();
+  const documents = new HomeDocuments(backend.send);
+  void documents.save("settings", "first");
+  void documents.save("settings", "last");
+  void documents.save("undo", "fail");
+  let idle = false;
+  const waiting = assert
+    .rejects(documents.waitForIdle(), /Couldn't save undo: disk full/)
+    .then(() => {
+      idle = true;
+    });
+  backend.release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(idle, false);
+  backend.release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(idle, false);
+  backend.release();
+  await waiting;
+  await assert.rejects(documents.waitForIdle(), /disk full/);
+  const saved = documents.save("undo", "recovered");
+  backend.release();
+  await saved;
+  await documents.waitForIdle();
+  assert.deepEqual(
+    backend.writes.map(({ name, text }) => [name, text]),
+    [
+      ["settings", "first"],
+      ["undo", "fail"],
+      ["settings", "last"],
+      ["undo", "recovered"],
+    ],
+  );
+});
+
 test("home.documents: undo records are kept in the home in browser storage's shape", async () => {
   const backend = slowBackend();
   const storage = homeUndoStorage(new HomeDocuments(backend.send), null);

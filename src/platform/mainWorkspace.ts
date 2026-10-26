@@ -98,6 +98,14 @@ export class MainWorkspace {
   }
   hasWriteInProgress = (): boolean => this.writing;
 
+  assertHomeSwitchAllowed(): void {
+    if (this.writing || this.unresolved || this.reconciliationRequired)
+      throw new EditorError(
+        "WRITE_IN_PROGRESS",
+        "Finish or reconcile the current task change before opening another home.",
+      );
+  }
+
   async tasks(args: Record<string, unknown>) {
     // The UI's "desc" means most pressing first (P0, soonest due); the engine sorts the value.
     const direction =

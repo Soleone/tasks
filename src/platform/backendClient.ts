@@ -6,8 +6,10 @@ import type { TaskPriority } from "@/backend/taskModel";
 import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
 import type { SortField } from "@/components/taskFilters";
 import { parseTaskProjection } from "../backend/taskResults";
+import { chooseHomeOnNextStart } from "./desktopWorkspace";
 
 let mainWorkspace: MainWorkspace | null = null;
+let switchingHome = false;
 
 export function selectMainWorkspace(workspace: MainWorkspace): void {
   if (mainWorkspace && mainWorkspace !== workspace)
@@ -17,6 +19,7 @@ export function selectMainWorkspace(workspace: MainWorkspace): void {
 
 export function closeMainWorkspace(): void {
   mainWorkspace = null;
+  switchingHome = false;
 }
 
 export function selectedMainWorkspace(): MainWorkspace | null {
@@ -24,6 +27,8 @@ export function selectedMainWorkspace(): MainWorkspace | null {
 }
 
 function selected(): MainWorkspace {
+  if (switchingHome)
+    throw new EditorError("HOME_SWITCH_IN_PROGRESS", "Opening another home; wait for setup.");
   if (!mainWorkspace) throw new EditorError("NO_WORKSPACE", "No task folder is open.");
   return mainWorkspace;
 }
@@ -417,4 +422,29 @@ export async function getWorkspaceRevision(): Promise<number> {
 
 export async function closeBackendSession(): Promise<void> {
   await mainWorkspace?.reader.close();
+}
+
+/** Intentional native reload only: stop new UI requests and finish durable saves before closing. */
+export async function switchHome(): Promise<void> {
+  const workspace = selected();
+  workspace.assertHomeSwitchAllowed();
+  switchingHome = true;
+  const recheck = () => {
+    if (mainWorkspace !== workspace)
+      throw new EditorError("NO_WORKSPACE", "The selected home changed while preparing to close.");
+    workspace.assertHomeSwitchAllowed();
+  };
+  try {
+    await writeQueues.get(workspace);
+    recheck();
+    await workspace.documents?.waitForIdle();
+    recheck();
+    await closeBackendSession();
+    recheck();
+    chooseHomeOnNextStart();
+    window.location.reload();
+  } catch (error) {
+    switchingHome = false;
+    throw error;
+  }
 }

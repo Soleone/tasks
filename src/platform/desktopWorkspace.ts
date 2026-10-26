@@ -45,11 +45,7 @@ export function revealExports(): Promise<void> {
 
 /** Settings' "Open another home" shows setup on the next start without forgetting this home. */
 export function chooseHomeOnNextStart(): void {
-  try {
-    sessionStorage.setItem(CHOOSE_HOME_KEY, "1");
-  } catch {
-    // Without session storage the remembered home opens again.
-  }
+  sessionStorage.setItem(CHOOSE_HOME_KEY, "1");
 }
 
 /** Whether this start should show setup instead of opening the remembered home; asks only once. */

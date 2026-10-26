@@ -143,6 +143,130 @@ test("queued writes stay with the folder selected when they were made", async ()
   client.closeMainWorkspace();
 });
 
+test("platform.open-workspace: switching drains queued tasks and home saves before close, choice and reload", async (t) => {
+  client.closeMainWorkspace();
+  const events = [];
+  let releaseTask, releaseDocuments, releaseClose;
+  let busy = false;
+  const workspace = {
+    assertHomeSwitchAllowed() {
+      if (busy) throw new Error("Finish current task change");
+    },
+    async save() {
+      busy = true;
+      events.push("task");
+      await new Promise((resolve) => {
+        releaseTask = resolve;
+      });
+      busy = false;
+    },
+    documents: {
+      async waitForIdle() {
+        events.push("documents");
+        await new Promise((resolve) => {
+          releaseDocuments = resolve;
+        });
+      },
+    },
+    reader: {
+      async close() {
+        events.push("close");
+        await new Promise((resolve) => {
+          releaseClose = resolve;
+        });
+      },
+    },
+  };
+  const oldWindow = globalThis.window;
+  const oldStorage = globalThis.sessionStorage;
+  globalThis.window = {
+    location: {
+      reload() {
+        events.push("reload");
+      },
+    },
+  };
+  globalThis.sessionStorage = {
+    setItem(key, value) {
+      events.push([key, value]);
+    },
+  };
+  t.after(() => {
+    globalThis.window = oldWindow;
+    globalThis.sessionStorage = oldStorage;
+    client.closeMainWorkspace();
+  });
+  client.selectMainWorkspace(workspace);
+  const queued = client.createTask(draft("Queued"), {});
+  const switching = client.switchHome();
+  await assert.rejects(client.switchHome(), /HOME_SWITCH_IN_PROGRESS/);
+  await assert.rejects(client.createTask(draft("Blocked"), {}), /HOME_SWITCH_IN_PROGRESS/);
+  await assert.rejects(client.getWorkspaceRevision(), /HOME_SWITCH_IN_PROGRESS/);
+  assert.deepEqual(events, ["task"]);
+  releaseTask();
+  await queued;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(events, ["task", "documents"]);
+  releaseDocuments();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(events, ["task", "documents", "close"]);
+  await assert.rejects(client.getWorkspaceRevision(), /HOME_SWITCH_IN_PROGRESS/);
+  releaseClose();
+  await switching;
+  assert.deepEqual(events, ["task", "documents", "close", ["tasks.chooseHome", "1"], "reload"]);
+  await assert.rejects(client.getWorkspaceRevision(), /HOME_SWITCH_IN_PROGRESS/);
+});
+
+test("platform.open-workspace: active, unresolved, unsaved and failed-close homes stay open", async (t) => {
+  t.after(() => client.closeMainWorkspace());
+  for (const failure of [
+    "active",
+    "unresolved",
+    "reconciliation",
+    "save",
+    "close",
+    "selection changed",
+  ]) {
+    client.closeMainWorkspace();
+    const events = [];
+    const workspace = {
+      assertHomeSwitchAllowed() {
+        if (["active", "unresolved", "reconciliation"].includes(failure)) throw new Error(failure);
+      },
+      documents: {
+        async waitForIdle() {
+          events.push("documents");
+          if (failure === "save") throw new Error("disk full");
+          if (failure === "selection changed") client.closeMainWorkspace();
+        },
+      },
+      reader: {
+        async close() {
+          events.push("close");
+          throw new Error("close failed");
+        },
+      },
+      async revision() {
+        return 4;
+      },
+    };
+    client.selectMainWorkspace(workspace);
+    await assert.rejects(
+      client.switchHome(),
+      /active|unresolved|reconciliation|disk full|close failed|selected home changed/,
+    );
+    assert.deepEqual(
+      events,
+      ["active", "unresolved", "reconciliation"].includes(failure)
+        ? []
+        : failure === "close"
+          ? ["documents", "close"]
+          : ["documents"],
+    );
+    if (failure !== "selection changed") assert.equal(await client.getWorkspaceRevision(), 4);
+  }
+});
+
 const http = await build({
   stdin: {
     contents: `export * from './src/platform/backendClient'; export {MainWorkspace} from './src/platform/mainWorkspace'; export {WorkspaceReader} from './src/platform/workspaceReader'; export {readEditorSelection, EditorClient} from './src/platform/editorClient'; export {UndoHistory, UNDO_HISTORY_LIMIT} from './src/platform/undoHistory';`,

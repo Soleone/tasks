@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
+import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows } from "@/testing/taskList";
 
@@ -8,6 +9,8 @@ beforeEach(async () => {
   workspace = await AppWorkspace.start();
 });
 afterEach(async () => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   await workspace.stop();
 });
 
@@ -85,6 +88,32 @@ test("settings.home: Data shows the home and copies its sync folder's path", asy
   expect(await navigator.clipboard.readText()).toMatch(/[\\/]sync$/);
   // The web client has no file manager to open.
   expect(panel.queryByRole("button", { name: "Open folder" })).toBeNull();
+});
+
+test("platform.open-workspace: home switching blocks duplicate actions and shows failure without closing Settings", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  vi.stubGlobal("__TAURI_INTERNALS__", {});
+  let refuse!: (error: Error) => void;
+  const switching = vi.spyOn(backendClient, "switchHome").mockImplementation(
+    () =>
+      new Promise((_resolve, reject) => {
+        refuse = reject;
+      }),
+  );
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Data" }));
+  const button = screen.getByRole("button", { name: "Open another home…" });
+  await user.dblClick(button);
+  expect(switching).toHaveBeenCalledTimes(1);
+  expect(button).toHaveProperty("disabled", true);
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+  refuse(new Error("Couldn't save undo: disk full"));
+  await screen.findByText("Couldn't save undo: disk full");
+  expect(button).toHaveProperty("disabled", false);
+  await user.keyboard("{Escape}");
+  await expectListFocused();
 });
 
 async function openCleanup(user: Awaited<ReturnType<AppWorkspace["render"]>>["user"]) {
