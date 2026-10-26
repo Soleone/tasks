@@ -142,18 +142,6 @@ export class MainWorkspace {
     return (await this.ready()).workspaceRevision;
   }
 
-  async info() {
-    const workspace = await this.ready();
-    const all = await this.reader.tasks({ limit: 1 });
-    const canceled = await this.reader.tasks({ status: "canceled", limit: 1 });
-    return {
-      databasePath: this.reader.selection.databasePath,
-      taskCount: all.total,
-      canceledTaskCount: canceled.total,
-      workspaceRevision: workspace.workspaceRevision,
-    };
-  }
-
   async save(draft: InlineDraft, key: string, id?: string, version?: number) {
     return this.write(async () =>
       this.editor.prepareInline(await this.baseline(id, version), draft, key),

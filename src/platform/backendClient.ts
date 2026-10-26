@@ -56,7 +56,7 @@ function queued<T>(write: (workspace: MainWorkspace) => Promise<T>): Promise<T> 
       : Promise.reject(
           new EditorError("NO_WORKSPACE", "The task folder closed before this change was sent."),
         );
-  const next = (writeQueues.get(workspace) ?? Promise.resolve()).then(send, send);
+  const next = (writeQueues.get(workspace) ?? Promise.resolve()).then(send);
   writeQueues.set(
     workspace,
     next.catch(() => undefined),
