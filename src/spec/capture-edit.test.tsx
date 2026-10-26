@@ -733,7 +733,15 @@ describe("pickers", () => {
     await expectActive("Second");
     await user.keyboard("b");
     await screen.findByRole("dialog");
-    await user.keyboard("First{Enter}");
+    await user.keyboard("First");
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("dialog"))
+          .getByRole("option", { name: /First/ })
+          .getAttribute("aria-selected"),
+      ).toBe("true"),
+    );
+    await user.keyboard("{Enter}");
     await waitFor(() => expect(announcements()).toMatch(/cycle|refused|can't|cannot/i));
     expect((await workspace.task(second.id)).dependencyIds).toEqual([]);
   });
