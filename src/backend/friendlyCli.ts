@@ -5,7 +5,7 @@ import { detectAttachmentType } from "./attachments.js";
 import { CommandError } from "./errors.js";
 import { executeLine } from "./gateway.js";
 import { executeHomeLine } from "./homeGateway.js";
-import { humanOptionIndex, parseHumanArgs, HumanUsageError, humanUsage } from "./friendlyArgs.js";
+import { hasHumanOption, parseHumanArgs, HumanUsageError, humanUsage } from "./friendlyArgs.js";
 import type { HumanInvocation } from "./friendlyArgs.js";
 import { printHumanResult } from "./friendlyOutput.js";
 import type { Request, Response } from "./protocol.js";
@@ -77,11 +77,6 @@ function prepare(invocation: HumanInvocation): Request {
   }
   if (request.writeContext === undefined) {
     const info = query(invocation, "workspace.info");
-    if (!(info.result.commands as string[]).includes(request.command))
-      throw new CommandError(
-        "UNSUPPORTED_COMMAND",
-        "selected platform does not advertise this command",
-      );
     request.writeContext = info.writeContext;
   }
   if (invocation.versioned && request.args.expectedVersion === undefined) {
@@ -204,7 +199,7 @@ export function runHumanCli(argv: string[]): void {
                 : "tasks-cli could not complete; preserve retry metadata and inspect pending work",
           };
     // JSON mode can still report a malformed argv invocation without echoing its values.
-    if (!json) json = humanOptionIndex(argv, "json") !== -1;
+    if (!json) json = hasHumanOption(argv, "json");
     process.stderr.write(
       json
         ? `${JSON.stringify({ ok: false, error: failure })}\n`

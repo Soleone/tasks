@@ -95,15 +95,15 @@ export type HumanInvocation = {
 };
 export type HumanArgs = HumanInvocation | { help: true; json: boolean };
 
-/** Index of an actual --NAME option. A flag value or a word after -- never counts. */
-export function humanOptionIndex(argv: readonly string[], name: string): number {
+/** An actual --NAME option: a flag value or a word after -- never counts. */
+export function hasHumanOption(argv: readonly string[], name: string): boolean {
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
-    if (token === "--") return -1;
-    if (token === `--${name}` || token.startsWith(`--${name}=`)) return index;
+    if (token === "--") return false;
+    if (token === `--${name}` || token.startsWith(`--${name}=`)) return true;
     if (token.startsWith("--") && !token.includes("=") && VALUE_FLAGS.has(token.slice(2))) index++;
   }
-  return -1;
+  return false;
 }
 function tokenize(argv: string[]): { flags: Flags; words: string[] } {
   const flags: Flags = new Map(),
