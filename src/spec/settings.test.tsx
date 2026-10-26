@@ -17,7 +17,11 @@ test("settings.open: Ctrl+, opens Settings with focus on its tabs", async () => 
   await expectListFocused();
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.getAttribute("role")).toBe("tab"));
-  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["General", "Data"]);
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+    "General",
+    "Data",
+    "Cleanup",
+  ]);
   const settings = within(screen.getByRole("dialog", { name: "Settings" }));
   expect(settings.queryByText("Theme", { exact: true })).toBeNull();
   expect(settings.queryByRole("combobox", { name: /theme/i })).toBeNull();
@@ -34,7 +38,9 @@ test("settings.close: Escape closes Settings and returns focus to the list", asy
   await expectListFocused();
 });
 
-test("settings.tabs: Left and Right switch sections", async () => {
+test("settings.tabs: arrows switch sections and Tab enters Cleanup without passing Data controls", async () => {
+  const canceled = await workspace.create("Canceled");
+  await workspace.change("task.cancel", canceled.id);
   const { user } = await workspace.render();
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
@@ -46,6 +52,20 @@ test("settings.tabs: Left and Right switch sections", async () => {
   expect(panel.queryByRole("heading", { name: "Launch time" })).toBeNull();
   expect(panel.queryByRole("heading", { name: "Local" })).toBeNull();
   expect(panel.queryByText("Local cache", { exact: true })).toBeNull();
+  expect(panel.queryByRole("region", { name: "Delete tasks" })).toBeNull();
+  await user.keyboard("{ArrowRight}");
+  await waitFor(() => expect(document.activeElement?.textContent).toBe("Cleanup"));
+  const cleanup = within(screen.getByRole("tabpanel"));
+  expect(cleanup.queryByRole("heading", { name: "Tasks home" })).toBeNull();
+  await cleanup.findByText("1 canceled task, kept until you delete them.");
+  await user.tab();
+  expect(document.activeElement).toBe(
+    cleanup.getByRole("button", { name: "Delete canceled tasks" }),
+  );
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Cleanup" }));
+  await user.keyboard("{ArrowLeft}");
+  await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   await user.keyboard("{ArrowLeft}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.tab();
@@ -67,9 +87,9 @@ test("settings.home: Data shows the home and copies its sync folder's path", asy
   expect(panel.queryByRole("button", { name: "Open folder" })).toBeNull();
 });
 
-async function openData(user: Awaited<ReturnType<AppWorkspace["render"]>>["user"]) {
+async function openCleanup(user: Awaited<ReturnType<AppWorkspace["render"]>>["user"]) {
   await user.keyboard("{Control>},{/Control}");
-  await user.click(await screen.findByRole("tab", { name: "Data" }));
+  await user.click(await screen.findByRole("tab", { name: "Cleanup" }));
   return within(screen.getByRole("region", { name: "Delete tasks" }));
 }
 
@@ -78,7 +98,7 @@ test("settings.delete-canceled: counts canceled tasks and deletes them after ask
   const drop = await workspace.create("Drop");
   await workspace.change("task.cancel", drop.id);
   const { user } = await workspace.render();
-  const section = await openData(user);
+  const section = await openCleanup(user);
   await section.findByText("1 canceled task, kept until you delete them.");
   await user.click(section.getByRole("button", { name: "Delete canceled tasks" }));
   section.getByText("Delete 1 canceled task for good? This can't be undone.");
@@ -98,7 +118,7 @@ test("settings.delete-canceled: links to canceled tasks are named and nothing is
   await workspace.change("task.dependency.add", blocked.id, { dependsOnId: blocker.id });
   await workspace.change("task.cancel", blocker.id);
   const { user } = await workspace.render();
-  const section = await openData(user);
+  const section = await openCleanup(user);
   await section.findByText("“Still open” is blocked by canceled “Old blocker”");
   expect(section.getByRole("button", { name: "Delete canceled tasks" })).toHaveProperty(
     "disabled",
@@ -113,7 +133,7 @@ test("settings.delete-done: the dialog previews both choices and deletes the cho
   await workspace.change("task.complete", finished.id);
   await workspace.create("Open");
   const { user } = await workspace.render();
-  const section = await openData(user);
+  const section = await openCleanup(user);
   await user.click(section.getByRole("button", { name: "Delete done tasks…" }));
   const dialog = within(await screen.findByRole("dialog", { name: "Delete done tasks" }));
   dialog.getByText(/can't be undone/);
@@ -140,7 +160,7 @@ test("settings.delete-result: the result names the export and what was kept", as
   await workspace.change("task.complete", parent.id);
   await workspace.change("task.complete", loose.id);
   const { user } = await workspace.render();
-  const section = await openData(user);
+  const section = await openCleanup(user);
   await user.click(section.getByRole("button", { name: "Delete done tasks…" }));
   const dialog = within(await screen.findByRole("dialog", { name: "Delete done tasks" }));
   await user.click(dialog.getByRole("combobox", { name: "Done" }));

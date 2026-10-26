@@ -386,12 +386,12 @@ function DeleteDone(): ReactElement {
   );
 }
 
-/** Settings > Data's one place for deleting tasks for good. */
+/** Settings > Cleanup's one place for deleting tasks for good. */
 export function DeleteTasksSection(): ReactElement {
   return (
     <section
       aria-labelledby="settings-delete"
-      className="flex flex-col gap-4 rounded-lg border p-4 md:col-span-2"
+      className="flex flex-col gap-4 rounded-lg border p-4"
     >
       <div className="flex flex-col gap-1">
         <h2 id="settings-delete" className="text-sm font-medium">

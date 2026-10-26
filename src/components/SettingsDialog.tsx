@@ -114,6 +114,7 @@ export function SettingsDialog({
                 General
               </ReadableTabsTrigger>
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
+              <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
             </TabsList>
             <span id="settings-tabs-help" className="sr-only">
               Use the Left and Right Arrow keys to switch sections. Press Tab to enter the selected
@@ -310,8 +311,11 @@ export function SettingsDialog({
                   </Button>
                 )}
               </section>
-              {workspace && <DeleteTasksSection />}
             </div>
+          </TabsContent>
+
+          <TabsContent value="cleanup" tabIndex={-1}>
+            {workspace && <DeleteTasksSection />}
           </TabsContent>
         </Tabs>
 

@@ -1058,7 +1058,7 @@ try {
     'document.querySelector("[data-slot=dialog-content] [data-slot=dialog-title]")?.textContent === "Settings"',
   );
   check('document.activeElement.matches("[role=tab][aria-selected=true]")');
-  check('document.querySelectorAll("[role=tab]").length === 2');
+  check('document.querySelectorAll("[role=tab]").length === 3');
   check(
     'document.querySelector("[data-slot=dialog-content]")?.getBoundingClientRect().width >= 700',
   );
@@ -1083,7 +1083,18 @@ try {
   check('!document.querySelector("[role=tabpanel]")?.textContent.includes("Launch time")');
   check(`!document.body.textContent.includes(${JSON.stringify(cachePath)})`);
   check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');
+  check('document.querySelector("#settings-delete") === null');
   focus("[role=tab][aria-selected=true]");
+  browser("press", "ArrowRight");
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Cleanup"');
+  check('document.querySelector("#settings-delete")?.textContent === "Delete tasks"');
+  check('document.querySelector("#settings-sync") === null');
+  browser("press", "Tab");
+  waitFor('document.activeElement.closest("[role=tabpanel]") !== null');
+  browser("press", "Shift+Tab");
+  waitFor('document.activeElement.matches("[role=tab][aria-selected=true]")');
+  browser("press", "ArrowLeft");
+  waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "Data"');
   browser("press", "ArrowLeft");
   waitFor('document.querySelector("[role=tab][aria-selected=true]")?.textContent === "General"');
   // Quests replace help levels: one checkbox, the learned count and Reset progress.

@@ -4,7 +4,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General and Data. Theme selection is only in the dedicated theme picker, not Settings |
+| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 
@@ -23,9 +23,9 @@
 | --- | --- | --- |
 | `settings.home` | Data | Shows the Tasks home's path with Open folder (desktop) and its sync folder's path with Copy path, and warns to add only the sync folder to Syncthing, because syncing the home copies this device's database and locks |
 
-## Deleting tasks
+## Cleanup
 
-The Data tab has one Delete tasks section, below the home and sync folder, with two items.
+The Cleanup tab has one Delete tasks section with two items. Deletion controls are separate from the home and sync folder in Data.
 
 | Rule | When | Then |
 | --- | --- | --- |
