@@ -1,25 +1,40 @@
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import release from "release-it";
 
-// `pnpm release` asks for the bump, writes CHANGELOG.md from feat/fix commits, tags and creates
-// the GitHub release (.release-it.json). `pnpm release:windows` and `pnpm release:android` then
-// build that tag on their own host and attach the result. Everything goes through a logged-in `gh`.
+// All three steps run in WSL. `pnpm release` asks for the bump, writes CHANGELOG.md from feat/fix
+// commits, tags and creates the GitHub release (.release-it.json). `pnpm release:windows` and
+// `pnpm release:android` then build that tag and attach the result with WSL's logged-in `gh`.
 const root = path.resolve(import.meta.dirname, "..");
+// Where the owner's `win-sync` copies this checkout; Windows builds there, without git.
+const windowsCopy = "/mnt/d/src/wsl/tasks";
 
 const platforms = {
   windows: {
-    build: "build:tauri",
-    output: (version) => `src-tauri/target/release/bundle/nsis/Tasks_${version}_x64-setup.exe`,
+    build(version) {
+      execFileSync("win-sync", [root], { stdio: "inherit" });
+      execFileSync("cmd.exe", ["/c", "pnpm install --frozen-lockfile && pnpm build:tauri"], {
+        cwd: windowsCopy,
+        stdio: "inherit",
+      });
+      return path.join(
+        windowsCopy,
+        `src-tauri/target/release/bundle/nsis/Tasks_${version}_x64-setup.exe`,
+      );
+    },
     asset: (version) => `Tasks_${version}_x64-setup.exe`,
   },
   android: {
-    build: "build:android",
-    output: () =>
-      "src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk",
+    build() {
+      execFileSync("pnpm", ["run", "build:android"], { cwd: root, stdio: "inherit" });
+      return path.join(
+        root,
+        "src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk",
+      );
+    },
     asset: (version) => `Tasks_${version}_arm64.apk`,
   },
 };
@@ -43,16 +58,16 @@ function attach(platform) {
   if (git("status", "--porcelain"))
     throw new Error("Commit or stash local changes first: the build must match the tag.");
   if (!git("tag", "--points-at", "HEAD").split("\n").includes(tag))
-    throw new Error(`HEAD is not ${tag}. Run \`git pull --tags\` and check out ${tag} first.`);
+    throw new Error(`HEAD is not ${tag}. Check out ${tag} first.`);
   gh("release", "view", tag, "--json", "tagName");
 
-  execSync(`pnpm run ${platform.build}`, { cwd: root, stdio: "inherit" });
+  const output = platform.build(version);
 
   const file = path.join(
     mkdtempSync(path.join(tmpdir(), "tasks-release-")),
     platform.asset(version),
   );
-  copyFileSync(path.join(root, platform.output(version)), file);
+  copyFileSync(output, file);
   gh("release", "upload", tag, file, "--clobber");
   console.log(`Attached ${path.basename(file)} to ${tag}.`);
 }

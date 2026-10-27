@@ -113,11 +113,13 @@ WSL has no emulator (no KVM). An emulator runs on the Windows side: the SDK is i
 
 One version covers every platform. It lives in `package.json`; Tauri reads it from there and derives the Android `versionCode` from it, so every release installs over the last. Each release attaches whichever builds were made for it.
 
-1. `pnpm release` on `main` with a clean tree asks for patch, minor or major, prepends the `feat`, `fix` and `perf` commits since the last tag to `CHANGELOG.md`, commits, tags `vX.Y.Z`, pushes and creates the GitHub release with the same notes. `pnpm release --dry-run` shows what it would do.
-2. On the Windows host: `git pull --tags`, then `pnpm release:windows` builds the installer and attaches `Tasks_X.Y.Z_x64-setup.exe`.
-3. In WSL: `pnpm release:android` builds the signed APK and attaches it as `Tasks_X.Y.Z_arm64.apk`.
+All three steps run in WSL with the GitHub CLI logged in (`gh auth login`).
 
-The platform steps refuse a dirty tree or a HEAD that isn't the tag of the current version, and running one again replaces its file. All three need the GitHub CLI logged in (`gh auth login`). The repository is private, so downloading a release needs a signed-in GitHub account. Windows installers are unsigned for now.
+1. `pnpm release` on `main` with a clean tree asks for patch, minor or major, prepends the `feat`, `fix` and `perf` commits since the last tag to `CHANGELOG.md`, commits, tags `vX.Y.Z`, pushes and creates the GitHub release with the same notes. `pnpm release --dry-run` shows what it would do.
+2. `pnpm release:windows` copies the checkout to `D:\src\wsl\tasks` with the owner's `win-sync`, runs `pnpm install --frozen-lockfile` and `pnpm build:tauri` there through `cmd.exe`, and attaches `Tasks_X.Y.Z_x64-setup.exe`. The Windows copy has no git; the tag check happens in WSL before the copy.
+3. `pnpm release:android` builds the signed APK and attaches it as `Tasks_X.Y.Z_arm64.apk`.
+
+The platform steps refuse a dirty tree or a HEAD that isn't the tag of the current version, and running one again replaces its file. The repository is private, so downloading a release needs a signed-in GitHub account. Windows installers are unsigned for now.
 
 ## Storage and retry safety
 
