@@ -57,8 +57,10 @@ async function openPanel(user: User) {
   return within(await screen.findByRole("complementary", { name: "Learn" }));
 }
 
-async function saveEditor(user: User): Promise<void> {
+/** `success` is the quest's line for the save, shown for only 1.5 s, so it's checked before the close. */
+async function saveEditor(user: User, success?: string): Promise<void> {
   await user.keyboard("{Enter}");
+  if (success) await waitFor(() => expect(questLine()).toBe(success));
   // The optimistic row shows before the save is confirmed and the editor closes.
   await waitFor(() => expect(document.querySelector("[data-inline-task-editor]")).toBeNull());
   await expectListFocused();
@@ -90,9 +92,8 @@ test("quest.step: Task basics by keys, with a success line naming what was typed
   await user.keyboard("#quick ");
   await expectStep(3);
   expect(questLine()).toBe("Tagged quick");
-  await saveEditor(user);
+  await saveEditor(user, "Saved");
   await expectStep(4);
-  expect(questLine()).toBe("Saved");
   const glyph = () => row("Call mom").querySelector("[data-status]");
   await user.keyboard(" ");
   await expectStep(5);
@@ -127,9 +128,8 @@ test("quest.step: Enter right after the tag saves, finishing the tag and save st
   const { user } = await workspace.render();
   await user.keyboard("c");
   await user.keyboard("Call mom @life #quick");
-  await saveEditor(user);
+  await saveEditor(user, "Saved");
   await expectStep(4);
-  expect(questLine()).toBe("Saved");
 });
 
 test("quest.step: a description counts even when the task has one, then an image, and Ctrl+Enter saves", async () => {
@@ -326,9 +326,8 @@ test("quest.reopen: saving before the tag keeps the category, and the edited tas
   const { user } = await workspace.render();
   await user.keyboard("c");
   await user.keyboard("Call mom @life");
-  await saveEditor(user);
+  await saveEditor(user, "Filed under life");
   await expectStep(2);
-  expect(questLine()).toBe("Filed under life");
   await waitFor(() =>
     expect(questLine()).toBe("Press Enter to open the active task, or C for a new one"),
   );

@@ -242,9 +242,13 @@ test("redo.scope: a pending selected status batch stays one step in both directi
     for (const id of [first.id, second.id]) expect((await workspace.task(id)).status).toBe("open");
     expect((await workspace.task(second.id)).priority).toBe(0);
     await user.keyboard("{Control>}y{/Control}");
-    await waitFor(() => expect(historyButton("Redo").disabled).toBe(true));
-    for (const id of [first.id, second.id])
-      expect((await workspace.task(id)).status).toBe("in_progress");
+    // Redo is also disabled while it runs, so the saved result is the signal that it finished.
+    await waitFor(async () => {
+      for (const id of [first.id, second.id])
+        expect((await workspace.task(id)).status).toBe("in_progress");
+    });
+    await waitFor(() => expect(historyButton("Undo").disabled).toBe(false));
+    expect(historyButton("Redo").disabled).toBe(true);
   } finally {
     release();
     globalThis.fetch = original;

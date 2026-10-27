@@ -2,7 +2,12 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
-import { expectActive, expectListFocused, focusedTitleField } from "@/testing/taskList";
+import {
+  expectActive,
+  expectListFocused,
+  focusedTitleField,
+  searchPicker,
+} from "@/testing/taskList";
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
@@ -53,7 +58,8 @@ test("home.task-context-menu: moving another row opens its picker and preserves 
   fireEvent.contextMenu(row, { clientX: 30, clientY: 60 });
   await user.click(await screen.findByRole("menuitem", { name: "Move under…" }));
   await screen.findByRole("dialog", { name: "Move Moved task under…" });
-  await user.keyboard("Parent{Enter}");
+  await searchPicker(user, "Parent");
+  await user.keyboard("{Enter}");
   await waitFor(async () => expect((await workspace.task(moved.id)).parentId).toBe(parent.id));
   await expectListFocused();
 });
@@ -140,7 +146,8 @@ test("pick.blocker: Task actions opens the blocker picker without stealing its f
   await user.click(screen.getByRole("button", { name: "Task actions" }));
   await user.click(await screen.findByRole("menuitem", { name: /Blockers/ }));
   await screen.findByRole("dialog", { name: "Blocked by: Task" });
-  await user.keyboard("Blocker{Enter}");
+  await searchPicker(user, "Blocker");
+  await user.keyboard("{Enter}");
   await waitFor(async () =>
     expect((await workspace.task(task.id)).dependencyIds).toEqual([blocker.id]),
   );
@@ -155,7 +162,8 @@ test("pick.parent: Task actions moves the active task under a parent", async () 
   await user.click(screen.getByRole("button", { name: "Task actions" }));
   await user.click(await screen.findByRole("menuitem", { name: /Move under/ }));
   await screen.findByRole("dialog", { name: "Move Task under…" });
-  await user.keyboard("Parent{Enter}");
+  await searchPicker(user, "Parent");
+  await user.keyboard("{Enter}");
   await waitFor(async () => expect((await workspace.task(task.id)).parentId).toBe(parent.id));
   await expectListFocused();
 });

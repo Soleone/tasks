@@ -214,6 +214,10 @@ describe("moving around", () => {
     const { user } = await workspace.render();
 
     await user.keyboard("{ArrowRight}");
+    // The collapsed list already shows only Parent; wait for the filtered result itself.
+    await waitFor(() =>
+      expect(taskList().getAttribute("aria-label")).toMatch(/ 1 matching tasks,/),
+    );
     await expectRows(["Parent"]);
     expect(
       screen

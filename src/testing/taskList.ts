@@ -1,4 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import { expect } from "vite-plus/test";
 
 /** Reads the rendered task list the way a screen reader would. */
@@ -49,6 +50,21 @@ export async function focusedTitleField(): Promise<HTMLInputElement> {
     expect(document.activeElement?.getAttribute("placeholder")).toBe("What needs doing?"),
   );
   return document.activeElement as HTMLInputElement;
+}
+
+/**
+ * Types a search into the open picker and waits until an option shows it. Pickers load their
+ * options from the backend after opening, and a key pressed before then has nothing to select.
+ */
+export async function searchPicker(user: UserEvent, text: string): Promise<void> {
+  await user.keyboard(text);
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole("dialog"))
+        .queryAllByRole("option")
+        .some((option) => option.textContent?.includes(text)),
+    ).toBe(true),
+  );
 }
 
 /** Everything announced to screen readers so far. */

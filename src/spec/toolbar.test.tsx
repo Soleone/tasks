@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { addDays, localToday } from "@/backend/dueDate";
 import { AppWorkspace } from "@/testing/appWorkspace";
-import { expectListFocused, expectRows, focusedTitleField } from "@/testing/taskList";
+import { expectListFocused, expectRows, focusedTitleField, searchPicker } from "@/testing/taskList";
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
@@ -383,7 +383,8 @@ describe("filters", () => {
         "INPUT",
       ),
     );
-    await user.keyboard("work{Enter}");
+    await searchPicker(user, "work");
+    await user.keyboard("{Enter}");
     await expectRows(["Work item"]);
     await expectListFocused();
   });
@@ -394,10 +395,10 @@ describe("filters", () => {
     const { user } = await workspace.render();
     await user.keyboard("#");
     await screen.findByRole("dialog");
-    await user.keyboard("x");
+    await searchPicker(user, "x");
     await user.keyboard(" ");
     await user.clear(document.activeElement as HTMLInputElement);
-    await user.keyboard("y");
+    await searchPicker(user, "y");
     await user.keyboard(" {Escape}");
     await expectRows(["Both"]);
   });
@@ -410,9 +411,11 @@ describe("filters", () => {
       const { user } = await workspace.render();
       await user.keyboard("#");
       await screen.findByRole("dialog");
-      await user.keyboard("x ");
+      await searchPicker(user, "x");
+      await user.keyboard(" ");
       await user.clear(document.activeElement as HTMLInputElement);
-      await user.keyboard("y {Escape}");
+      await searchPicker(user, "y");
+      await user.keyboard(" {Escape}");
       await expectRows(["Both"]);
 
       await user.keyboard("#");

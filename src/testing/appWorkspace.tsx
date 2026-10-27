@@ -192,10 +192,11 @@ export class AppWorkspace {
         </TooltipProvider>
       </ThemeProvider>,
     );
+    // An empty Active view reads "All clear" once the done-today count arrives, which can be first.
     await waitFor(
       () =>
         expect(
-          screen.queryByRole("listbox") ?? screen.queryByText("No active tasks"),
+          screen.queryByRole("listbox") ?? screen.queryByText(/^(No active tasks|All clear)$/),
         ).not.toBeNull(),
       { timeout: 5000 },
     );
