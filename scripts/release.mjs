@@ -4,6 +4,7 @@ import os, { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import release from "release-it";
+import { releaseSecrets } from "./releaseSecrets.mjs";
 
 // `pnpm release` asks for the bump, writes CHANGELOG.md from feat/fix commits, tags and creates
 // the GitHub release (.release-it.json). `pnpm release:windows` and `pnpm release:android` then
@@ -12,14 +13,12 @@ import release from "release-it";
 const root = path.resolve(import.meta.dirname, "..");
 // Where the owner's `win-sync` copies this checkout; Windows builds there, without git.
 const windowsCopy = "/mnt/d/src/wsl/tasks";
-// The key that signs desktop updates and its password, kept outside the repo. Installed apps
-// trust only its public half in tauri.conf.json, so losing it means one manual install everywhere.
-const releaseSecrets = path.join(
-  process.env.DATA ?? path.join(os.homedir(), "data"),
-  "apps/tasks/release",
-);
 
-/** Signing variables for Tauri's build, passed through to Windows by WSLENV. */
+/**
+ * The key that signs desktop updates and its password, passed through to Windows by WSLENV.
+ * Installed apps trust only its public half in tauri.conf.json, so losing it means one manual
+ * install everywhere.
+ */
 function signingEnv() {
   const signing = {
     TAURI_SIGNING_PRIVATE_KEY: readFileSync(

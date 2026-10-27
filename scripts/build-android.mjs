@@ -3,11 +3,12 @@ import { existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSyn
 import { availableParallelism, homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { releaseSecrets } from "./releaseSecrets.mjs";
 import { bakeSea } from "./sea.mjs";
 
 // Builds a signed release APK for arm64 phones: `pnpm build:android`. Needs JAVA_HOME, the Android
 // SDK with build-tools and an NDK (ANDROID_HOME, default ~/Android/Sdk) and the signing key in
-// src-tauri/gen/android/keystore.properties. The first run compiles Node for Android, which
+// the release secrets folder (android.jks and android.properties). The first run compiles Node for Android, which
 // takes about half an hour; later runs reuse it from ~/.cache/tasks-android.
 const root = path.resolve(import.meta.dirname, "..");
 const sdk = process.env.ANDROID_HOME ?? path.join(homedir(), "Android", "Sdk");
@@ -20,7 +21,7 @@ const buildTools = path.join(
   "build-tools",
   readdirSync(path.join(sdk, "build-tools")).sort().at(-1) ?? "missing",
 );
-const keystore = path.join(root, "src-tauri/gen/android/keystore.properties");
+const signing = path.join(releaseSecrets, "android.properties");
 const apk = path.join(
   root,
   "src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk",
@@ -30,8 +31,8 @@ const NODE_ANDROID_API = "28";
 
 if (!process.env.JAVA_HOME) throw new Error("Set JAVA_HOME to a JDK 17 or later.");
 if (!existsSync(toolchain)) throw new Error(`No Android NDK toolchain at ${toolchain}.`);
-if (!existsSync(keystore))
-  throw new Error(`No signing key: create ${keystore} as docs/development.md describes.`);
+if (!existsSync(signing))
+  throw new Error(`No signing key: create ${signing} as docs/development.md describes.`);
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: "inherit", ...options });
@@ -93,7 +94,7 @@ bakeSea({
 
 run("pnpm", ["tauri", "android", "build", "--apk", "-t", "aarch64"], {
   cwd: root,
-  env: { ...process.env, ANDROID_HOME: sdk, NDK_HOME: ndk },
+  env: { ...process.env, ANDROID_HOME: sdk, NDK_HOME: ndk, TASKS_ANDROID_SIGNING: signing },
 });
 run(path.join(buildTools, "apksigner"), ["verify", apk], {
   env: {

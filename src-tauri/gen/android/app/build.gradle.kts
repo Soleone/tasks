@@ -13,14 +13,13 @@ val tauriProperties = Properties().apply {
     }
 }
 
-// Release APKs carry the owner's key so each one installs over the last. The ignored
-// keystore.properties holds storeFile, storePassword, keyAlias and keyPassword; without it,
-// Gradle refuses to sign. See docs/development.md.
+// Release APKs carry the owner's key so each one installs over the last. scripts/build-android.mjs
+// points TASKS_ANDROID_SIGNING at android.properties in the release secrets folder, holding
+// storeFile (beside it), storePassword, keyAlias and keyPassword; without it, Gradle refuses to
+// sign. See docs/development.md.
+val signing = System.getenv("TASKS_ANDROID_SIGNING")?.let(::File)?.takeIf { it.exists() }
 val keystoreProperties = Properties().apply {
-    val propFile = rootProject.file("keystore.properties")
-    if (propFile.exists()) {
-        propFile.inputStream().use { load(it) }
-    }
+    signing?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -36,7 +35,7 @@ android {
     }
     signingConfigs {
         create("release") {
-            keystoreProperties.getProperty("storeFile")?.let { storeFile = file(it) }
+            keystoreProperties.getProperty("storeFile")?.let { storeFile = signing?.resolveSibling(it) }
             storePassword = keystoreProperties.getProperty("storePassword")
             keyAlias = keystoreProperties.getProperty("keyAlias")
             keyPassword = keystoreProperties.getProperty("keyPassword")

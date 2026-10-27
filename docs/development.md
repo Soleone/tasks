@@ -92,14 +92,14 @@ The Android app is the desktop UI with the same backend. Node publishes no Andro
 
 Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. Then:
 
-Release APKs are signed with your own key, so each build installs over the last. Create the key once, in a private place, and enter the passwords when `keytool` asks (never on the command line):
+Release APKs are signed with your own key, so each build installs over the last. It lives with the other [release secrets](#release-secrets) as `android.jks` and `android.properties`. To create it once, enter the passwords when `keytool` asks (never on the command line):
 
 ```bash
-keytool -genkeypair -v -keystore "$HOME/.android/tasks-release.jks" \
+keytool -genkeypair -v -keystore "$DATA/secrets/tasks/android.jks" \
   -alias tasks-release -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-Then create `src-tauri/gen/android/keystore.properties` (ignored by git) with `storeFile` (absolute, or relative to `src-tauri/gen/android/app`), `storePassword`, `keyAlias` and `keyPassword`, and `chmod 600` it. Back the keystore up somewhere safe: an APK signed with a different key won't install over the old one. Then:
+Then create `android.properties` beside it with `storeFile=android.jks`, `storePassword`, `keyAlias` and `keyPassword`, and `chmod 600` both. `build:android` passes its path to Gradle as `TASKS_ANDROID_SIGNING`. Then:
 
 ```bash
 pnpm build:android
@@ -126,7 +126,13 @@ The platform steps refuse a dirty tree or a HEAD that isn't the tag of the curre
 
 Installed Windows and Linux apps check `releases/latest/download/latest.json` on GitHub once per start and offer the newer version (`platform.update`). On Windows the installer runs in update mode: no pages, no uninstall, and Tasks restarts. On Linux the AppImage replaces itself and the app relaunches. Each desktop step adds its own platform to the release's `latest.json`, so run them one after the other. Until a platform's step has run, that platform's apps find no update.
 
-The update signing key and its password live in `$DATA/apps/tasks/release/` (`updater.key`, `updater.password`), outside the repo; `release:windows` passes them to the Windows build through `WSLENV`. The Omarchy machine needs its own copy of that folder at the same place under its `$DATA` (or `~/data`), kept private (`chmod 700`). Installed apps trust only the public key in `src-tauri/tauri.conf.json`. Keep a backup of that folder: without the key, no installed app accepts a new update, and each one needs a manual install of a build with a new key.
+The update signing key and its password are [release secrets](#release-secrets) (`updater.key`, `updater.password`); `release:windows` passes them to the Windows build through `WSLENV`. Installed apps trust only the public key in `src-tauri/tauri.conf.json`.
+
+### Release secrets
+
+Every signing key and password lives in one folder outside the repo, `$DATA/secrets/tasks/` (or `~/data/secrets/tasks/` without `DATA`; `scripts/releaseSecrets.mjs`). It stays out of the repo on purpose: `git clean -fdx` would delete an ignored folder, worktrees wouldn't share it, and win-sync would copy it to Windows. Its `README.md` lists each file and what losing it costs. Nothing in the repo or elsewhere on disk holds a copy, so back up the whole folder (the owner keeps it in 1Password) and restore it by putting the folder back. Keep it private: `chmod 700` on the folder, `chmod 600` on the files. The Omarchy machine keeps its own copy at the same place.
+
+Losing the update key means no installed desktop app accepts a new update, and each needs a manual install of a build with a new key. Losing the Android key means new APKs won't install over the old app.
 
 ## Storage and retry safety
 
