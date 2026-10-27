@@ -132,6 +132,30 @@ test("quest.step: Enter right after the tag saves, finishing the tag and save st
   await expectStep(4);
 });
 
+test("quest.step: Fast hands goes from the un-lifted category to the description as its prompts say", async () => {
+  await workspace.create("Plan", { category: "work" });
+  startAt("fast-hands", 0);
+  const { user } = await workspace.render();
+  await user.keyboard("{Enter}");
+  await focusedTitleField();
+  await expectStep(1);
+  await user.keyboard("@wo{Tab}");
+  await expectStep(2);
+  await user.keyboard("{Tab}{Backspace}");
+  await expectStep(3);
+  await waitFor(() =>
+    expect(questLine()).toBe("Press Tab until the description opens, then write in it"),
+  );
+  // The first Tab finishes the category the suggestions still show; the second opens the description.
+  await user.keyboard("{Tab}{Tab}");
+  await waitFor(() =>
+    expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
+  );
+  await user.keyboard("Notes");
+  await expectStep(4);
+  expect(questLine()).toBe("Description added");
+});
+
 test("quest.step: a description counts even when the task has one, then an image, and Ctrl+Enter saves", async () => {
   await workspace.create("Task", { description: "Already here" });
   startAt("fast-hands", 3);

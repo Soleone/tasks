@@ -85,7 +85,12 @@ const QUEST_DEFINITIONS = [
         success: "Tagged {}",
         inEditor: true,
       },
-      { move: "capture.save", prompt: "Save the task", success: "Saved", inEditor: true },
+      {
+        move: "capture.save",
+        prompt: "Tap Go on the keyboard to save the task",
+        success: "Saved",
+        inEditor: true,
+      },
       { move: "status.forward", prompt: "Tap its status icon to start it", success: "In progress" },
       { move: "status.forward", prompt: "Tap it again to complete it", success: "Done" },
       {
@@ -151,7 +156,12 @@ const QUEST_DEFINITIONS = [
         success: "Due {}",
         inEditor: true,
       },
-      { move: "capture.save", prompt: "Save the task", success: "Saved", inEditor: true },
+      {
+        move: "capture.save",
+        prompt: "Tap Go on the keyboard to save the task",
+        success: "Saved",
+        inEditor: true,
+      },
       {
         move: "due.lens",
         prompt: "Tap the due count up top to see what's due now",
@@ -327,7 +337,8 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "edit.description",
-        prompt: "Press `Tab` and write a description. It can be as long as you like",
+        prompt:
+          "Press `Tab` until the description opens, then write in it. It can be as long as you like",
         success: "Description added",
         inEditor: true,
       },
