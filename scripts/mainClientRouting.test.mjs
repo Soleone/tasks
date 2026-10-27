@@ -148,7 +148,7 @@ test("platform.open-workspace: switching drains queued tasks and home saves befo
   let releaseTask, releaseDocuments, releaseClose;
   let busy = false;
   const workspace = {
-    assertHomeSwitchAllowed() {
+    assertCanClose() {
       if (busy) throw new Error("Finish current task change");
     },
     async save() {
@@ -198,9 +198,9 @@ test("platform.open-workspace: switching drains queued tasks and home saves befo
   client.selectMainWorkspace(workspace);
   const queued = client.createTask(draft("Queued"), {});
   const switching = client.switchHome();
-  await assert.rejects(client.switchHome(), /HOME_SWITCH_IN_PROGRESS/);
-  await assert.rejects(client.createTask(draft("Blocked"), {}), /HOME_SWITCH_IN_PROGRESS/);
-  await assert.rejects(client.getWorkspaceRevision(), /HOME_SWITCH_IN_PROGRESS/);
+  await assert.rejects(client.switchHome(), /HOME_CLOSING/);
+  await assert.rejects(client.createTask(draft("Blocked"), {}), /HOME_CLOSING/);
+  await assert.rejects(client.getWorkspaceRevision(), /HOME_CLOSING/);
   assert.deepEqual(events, ["task"]);
   releaseTask();
   await queued;
@@ -209,11 +209,11 @@ test("platform.open-workspace: switching drains queued tasks and home saves befo
   releaseDocuments();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(events, ["task", "documents", "close"]);
-  await assert.rejects(client.getWorkspaceRevision(), /HOME_SWITCH_IN_PROGRESS/);
+  await assert.rejects(client.getWorkspaceRevision(), /HOME_CLOSING/);
   releaseClose();
   await switching;
   assert.deepEqual(events, ["task", "documents", "close", ["tasks.chooseHome", "1"], "reload"]);
-  await assert.rejects(client.getWorkspaceRevision(), /HOME_SWITCH_IN_PROGRESS/);
+  await assert.rejects(client.getWorkspaceRevision(), /HOME_CLOSING/);
 });
 
 test("platform.open-workspace: active, unresolved, unsaved and failed-close homes stay open", async (t) => {
@@ -229,7 +229,7 @@ test("platform.open-workspace: active, unresolved, unsaved and failed-close home
     client.closeMainWorkspace();
     const events = [];
     const workspace = {
-      assertHomeSwitchAllowed() {
+      assertCanClose() {
         if (["active", "unresolved", "reconciliation"].includes(failure)) throw new Error(failure);
       },
       documents: {

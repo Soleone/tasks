@@ -9,7 +9,8 @@ import { parseTaskProjection } from "../backend/taskResults";
 import { chooseHomeOnNextStart } from "./desktopWorkspace";
 
 let mainWorkspace: MainWorkspace | null = null;
-let switchingHome = false;
+/** Why the UI's requests are refused while the home closes for a reload or an update. */
+let closingHome: string | null = null;
 
 export function selectMainWorkspace(workspace: MainWorkspace): void {
   if (mainWorkspace && mainWorkspace !== workspace)
@@ -19,7 +20,7 @@ export function selectMainWorkspace(workspace: MainWorkspace): void {
 
 export function closeMainWorkspace(): void {
   mainWorkspace = null;
-  switchingHome = false;
+  closingHome = null;
 }
 
 export function selectedMainWorkspace(): MainWorkspace | null {
@@ -27,8 +28,7 @@ export function selectedMainWorkspace(): MainWorkspace | null {
 }
 
 function selected(): MainWorkspace {
-  if (switchingHome)
-    throw new EditorError("HOME_SWITCH_IN_PROGRESS", "Opening another home; wait for setup.");
+  if (closingHome) throw new EditorError("HOME_CLOSING", closingHome);
   if (!mainWorkspace) throw new EditorError("NO_WORKSPACE", "No task folder is open.");
   return mainWorkspace;
 }
@@ -406,15 +406,18 @@ export async function closeBackendSession(): Promise<void> {
   await mainWorkspace?.reader.close();
 }
 
-/** Intentional native reload only: stop new UI requests and finish durable saves before closing. */
-export async function switchHome(): Promise<void> {
+/**
+ * Stops new UI requests, finishes durable saves and closes the backend, before a reload or an
+ * update replaces the page. `reason` is what refused requests say meanwhile.
+ */
+export async function closeHome(reason: string): Promise<void> {
   const workspace = selected();
-  workspace.assertHomeSwitchAllowed();
-  switchingHome = true;
+  workspace.assertCanClose();
+  closingHome = reason;
   const recheck = () => {
     if (mainWorkspace !== workspace)
       throw new EditorError("NO_WORKSPACE", "The selected home changed while preparing to close.");
-    workspace.assertHomeSwitchAllowed();
+    workspace.assertCanClose();
   };
   try {
     await writeQueues.get(workspace);
@@ -423,10 +426,15 @@ export async function switchHome(): Promise<void> {
     recheck();
     await closeBackendSession();
     recheck();
-    chooseHomeOnNextStart();
-    window.location.reload();
   } catch (error) {
-    switchingHome = false;
+    closingHome = null;
     throw error;
   }
+}
+
+/** Intentional native reload only: closes this home, then shows setup. */
+export async function switchHome(): Promise<void> {
+  await closeHome("Opening another home; wait for setup.");
+  chooseHomeOnNextStart();
+  window.location.reload();
 }

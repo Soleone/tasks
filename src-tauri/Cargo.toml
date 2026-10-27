@@ -21,6 +21,8 @@ serde_json = "1"
 # 2.8 needs tauri 2.12, and its fs dependency is pinned to 2.5 in Cargo.lock for the same reason.
 tauri-plugin-dialog = "~2.7"
 tauri-plugin-shell = "2"
+# 2.13 needs tauri 2.12.
+tauri-plugin-updater = "~2.12"
 # 2.5 needs tauri 2.12, ahead of @tauri-apps/api.
 tauri-plugin-window-state = "~2.4"
 

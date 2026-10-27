@@ -3,6 +3,7 @@ import { Toast } from "@/components/variants/toast";
 import type { TaskPriority } from "@/backend/taskModel";
 import { priorityMeta } from "@/components/taskFilters";
 import {
+  ToastAction,
   ToastClose,
   ToastContent,
   ToastPortal,
@@ -21,7 +22,10 @@ export function showTaskToast(title: string, data: TaskToastData = {}): void {
   toast.add({ title, data, timeout: TOAST_TIMEOUT_MS });
 }
 
-/** The stock toaster, with task status icons and priority dots in place of the stock type icons. */
+/**
+ * The stock toaster, with task status icons and priority dots in place of the stock type icons.
+ * A toast added with `actionProps` shows its one action button.
+ */
 export function TaskToaster() {
   return (
     <ToastProvider toastManager={toast}>
@@ -60,6 +64,7 @@ function TaskToastList() {
           <div className="min-w-0 flex-1">
             <ToastTitle />
           </div>
+          <ToastAction />
           <ToastClose />
         </ToastContent>
       </Toast>

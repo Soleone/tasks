@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
 import { selectedMainWorkspace, switchHome } from "@/platform/backendClient";
-import { isAndroid, runtimeKind } from "@/platform/runtime";
+import { isDesktopApp, runtimeKind } from "@/platform/runtime";
 import { revealHome } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/variants/button";
 import {
@@ -263,7 +263,7 @@ export function SettingsDialog({
                     <code className="wrap-anywhere text-xs">
                       {workspace.editor.selection.profilePath}
                     </code>
-                    {runtimeKind() === "native" && !isAndroid() && (
+                    {isDesktopApp() && (
                       <Button
                         variant="outline"
                         className="w-fit"

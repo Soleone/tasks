@@ -88,11 +88,11 @@ export class MainWorkspace {
   }
   hasWriteInProgress = (): boolean => this.writing;
 
-  assertHomeSwitchAllowed(): void {
+  assertCanClose(): void {
     if (this.writing || this.unresolved || this.reconciliationRequired)
       throw new EditorError(
         "WRITE_IN_PROGRESS",
-        "Finish or reconcile the current task change before opening another home.",
+        "Finish or reconcile the current task change first.",
       );
   }
 

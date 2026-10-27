@@ -80,6 +80,7 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // Not decorations or visibility: Linux drops decorations in setup and the window always shows.
         .plugin(
             tauri_plugin_window_state::Builder::default()

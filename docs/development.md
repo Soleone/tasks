@@ -116,10 +116,16 @@ One version covers every platform. It lives in `package.json`; Tauri reads it fr
 All three steps run in WSL with the GitHub CLI logged in (`gh auth login`).
 
 1. `pnpm release` on `main` with a clean tree asks for patch, minor or major, prepends the `feat`, `fix` and `perf` commits since the last tag to `CHANGELOG.md`, commits, tags `vX.Y.Z`, pushes and creates the GitHub release with the same notes. `pnpm release --dry-run` shows what it would do.
-2. `pnpm release:windows` copies the checkout to `D:\src\wsl\tasks` with the owner's `win-sync`, runs `pnpm install --frozen-lockfile` and `pnpm build:tauri` there through `cmd.exe`, and attaches `Tasks_X.Y.Z_x64-setup.exe`. The Windows copy has no git; the tag check happens in WSL before the copy.
+2. `pnpm release:windows` copies the checkout to `D:\src\wsl\tasks` with the owner's `win-sync`, runs `pnpm install --frozen-lockfile` and `pnpm build:tauri` there through `cmd.exe` with `src-tauri/tauri.release.conf.json`, which signs the installer for updates. It attaches `Tasks_X.Y.Z_x64-setup.exe`, then `latest.json`, the manifest installed apps check. The Windows copy has no git; the tag check happens in WSL before the copy.
 3. `pnpm release:android` builds the signed APK and attaches it as `Tasks_X.Y.Z_arm64.apk`.
 
-The platform steps refuse a dirty tree or a HEAD that isn't the tag of the current version, and running one again replaces its file. The repository is private, so downloading a release needs a signed-in GitHub account. Windows installers are unsigned for now.
+The platform steps refuse a dirty tree or a HEAD that isn't the tag of the current version, and running one again replaces its file. Windows installers are not code signed yet, so SmartScreen warns on a manual install.
+
+### Updates
+
+Installed Windows apps check `releases/latest/download/latest.json` on GitHub once per start and offer the newer version (`platform.update`). The installer runs in update mode: no pages, no uninstall, and Tasks restarts. A release counts only once `release:windows` has uploaded `latest.json`; until then installed apps see the previous one.
+
+The update signing key and its password live in `$DATA/apps/tasks/release/` (`updater.key`, `updater.password`), outside the repo; `release:windows` passes them to the Windows build through `WSLENV`. Installed apps trust only the public key in `src-tauri/tauri.conf.json`. Keep a backup of that folder: without the key, no installed app accepts a new update, and each one needs a manual install of a build with a new key.
 
 ## Storage and retry safety
 

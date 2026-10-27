@@ -15,6 +15,7 @@
     "dialog:allow-open",
     "shell:allow-kill",
     "shell:allow-stdin-write",
+    "updater:default",
     {
       "identifier": "shell:allow-spawn",
       "allow": [

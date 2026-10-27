@@ -8,3 +8,8 @@ export function runtimeKind(): RuntimeKind {
 export function isAndroid(): boolean {
   return typeof navigator !== "undefined" && /\bAndroid\b/.test(navigator.userAgent);
 }
+
+/** The Tauri app on Windows, macOS or Linux. */
+export function isDesktopApp(): boolean {
+  return runtimeKind() === "native" && !isAndroid();
+}

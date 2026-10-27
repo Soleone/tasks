@@ -23,7 +23,7 @@ import {
 } from "@/platform/backendClient";
 import { revealExports } from "@/platform/desktopWorkspace";
 import { EditorError } from "@/platform/editorClient";
-import { isAndroid, runtimeKind } from "@/platform/runtime";
+import { isDesktopApp } from "@/platform/runtime";
 
 function errorText(caught: unknown): string {
   return caught instanceof Error ? caught.message : String(caught);
@@ -360,7 +360,7 @@ function DeleteDone(): ReactElement {
             <>
               <p>Exported to:</p>
               <code className="wrap-anywhere text-xs">{exportLocation}</code>
-              {runtimeKind() === "native" && !isAndroid() && (
+              {isDesktopApp() && (
                 <Button
                   variant="outline"
                   className="w-fit"
