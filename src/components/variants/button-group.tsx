@@ -1,6 +1,5 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
-import { Button } from "./button";
 import { FOCUS_RING } from "./focus";
 
 /**
@@ -20,36 +19,6 @@ export function ToolbarGroup({
   return (
     <ButtonRow
       className={cn("rounded-lg outline-none", FOCUS_RING, active && "ring-2 ring-ring", className)}
-      {...props}
-    />
-  );
-}
-
-/** Priority is one keyboard stop, so its group carries the ring just like the filter toolbar. */
-export function PriorityGroup({ className, ...props }: ComponentProps<typeof ButtonRow>) {
-  return (
-    <ButtonRow
-      className={cn("group/priority rounded-lg outline-none", FOCUS_RING, className)}
-      {...props}
-    />
-  );
-}
-
-const FOCUSED_CHECKED =
-  "group-focus/priority:border-primary/50 group-focus/priority:bg-primary/10 group-focus/priority:text-primary dark:group-focus/priority:border-primary/60 dark:group-focus/priority:bg-primary/20";
-
-/** A radio inside `PriorityGroup`: checked is a muted outline until the group has focus. */
-export function PriorityRadio({
-  checked,
-  className,
-  ...props
-}: Omit<ComponentProps<typeof Button>, "variant" | "role"> & { checked: boolean }) {
-  return (
-    <Button
-      role="radio"
-      aria-checked={checked}
-      variant={checked ? "outline" : "ghost"}
-      className={cn(checked && FOCUSED_CHECKED, className)}
       {...props}
     />
   );

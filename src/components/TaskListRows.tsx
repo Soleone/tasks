@@ -10,6 +10,7 @@ import { TaskComposer, type ComposerState, type TaskCreateDraft } from "./TaskCo
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
 import { TaskItem } from "@/components/variants/item";
+import { cn } from "cn";
 import { TaskContextMenu, type TaskContextActions } from "./TaskContextMenu";
 
 export type TaskOptionClick = (
@@ -176,6 +177,9 @@ export function OptimisticTaskOption({
   );
 }
 
+// What a new task starts as, so capture shows the glyph it will save with.
+const NEW_TASK_STATUS = { status: "open", priority: 2 } as const;
+
 export function InlineTaskComposer({
   composer,
   onClose,
@@ -196,27 +200,37 @@ export function InlineTaskComposer({
   const task = composer.mode === "edit" ? composer.task : undefined;
   const parentId = composer.mode === "create" ? composer.parentId : undefined;
   const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
+  const indented = (task ? task.parentId : parentId) != null;
 
+  // Laid out like the row it replaces: the status glyph, then the title, so nothing shifts when
+  // editing starts.
   return (
     <TaskItem
       role="group"
       aria-label={task ? `Editing ${task.title}` : "New task inline"}
       data-inline-task-editor
-      state="selected"
+      editor
+      nested={indented}
+      state="active"
       size="sm"
-      className={inList ? "w-full shrink-0" : "w-full max-h-[50vh] overflow-y-auto"}
+      className={inList ? "w-full shrink-0" : "w-full"}
     >
-      <TaskComposer
-        key={task ? task.id : `create-${parentId ?? "root"}`}
-        task={task}
-        parentId={parentId}
-        initialTitle={initialTitle}
-        onSaved={onSaved}
-        onCreatePending={onCreatePending}
-        onCreateFailed={onCreateFailed}
-        onCancel={onClose}
-        onCopyImage={onCopyImage}
-      />
+      <div className={cn("flex min-w-0 flex-1 items-start gap-2.5", indented && "pl-6")}>
+        <div className="flex h-[1.375em] w-8 shrink-0 items-center justify-center">
+          <TaskStatusDisplay task={task ?? NEW_TASK_STATUS} />
+        </div>
+        <TaskComposer
+          key={task ? task.id : `create-${parentId ?? "root"}`}
+          task={task}
+          parentId={parentId}
+          initialTitle={initialTitle}
+          onSaved={onSaved}
+          onCreatePending={onCreatePending}
+          onCreateFailed={onCreateFailed}
+          onCancel={onClose}
+          onCopyImage={onCopyImage}
+        />
+      </div>
     </TaskItem>
   );
 }

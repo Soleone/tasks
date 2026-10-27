@@ -16,16 +16,18 @@ export type TaskItemState = keyof typeof STATES;
 export function TaskItem({
   state,
   nested = false,
+  editor = false,
   className,
   ...props
-}: ComponentProps<typeof Item> & { state?: TaskItemState; nested?: boolean }) {
-  // List status slots share the first toolbar cell's center; editors keep their inset.
+}: ComponentProps<typeof Item> & { state?: TaskItemState; nested?: boolean; editor?: boolean }) {
+  // List status slots share the first toolbar cell's center; an inline editor keeps the row's
+  // inset so its text stays where the row's was.
   // Rows are tighter than the stock Item, which spaces outlined cards; states are fills.
   // A child's rail runs under its parent's status glyph, through both transparent borders.
   return (
     <Item
       className={cn(
-        props.role === "option" && "border-l-0 py-1.5 pl-0",
+        (props.role === "option" || editor) && "border-l-0 py-1.5 pl-0",
         nested &&
           "relative before:absolute before:-top-px before:-bottom-px before:left-4 before:w-px before:bg-border",
         FOCUS_RING,

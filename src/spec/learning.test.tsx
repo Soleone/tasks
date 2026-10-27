@@ -134,21 +134,21 @@ test("quest.step: Enter right after the tag saves, finishing the tag and save st
 
 test("quest.step: a description counts even when the task has one, then an image, and Ctrl+Enter saves", async () => {
   await workspace.create("Task", { description: "Already here" });
-  startAt("fast-hands", 4);
+  startAt("fast-hands", 3);
   const { user } = await workspace.render();
-  await expectStep(4);
+  await expectStep(3);
   await user.keyboard("{Enter}");
   await focusedTitleField();
-  await user.keyboard("{Tab}{Tab} more");
-  await expectStep(5);
+  await user.keyboard("{Tab} more");
+  await expectStep(4);
   expect(questLine()).toBe("Description added");
   const image = new File([new Uint8Array(pngBytes())], "shot.png", { type: "image/png" });
   fireEvent.paste(document.activeElement!, {
     clipboardData: { files: [image], getData: () => "" },
   });
-  await expectStep(6);
+  await expectStep(5);
   await user.keyboard("{Control>}{Enter}{/Control}");
-  await expectStep(7);
+  await expectStep(6);
 });
 
 function startAt(quest: string, step: number, complete: string[] = []): void {
@@ -210,7 +210,7 @@ test("quest.step: Shape your list collapses the new child's parent, then expands
 
 test("quest.complete: the last quest, ending on Shift+V after the palette, is the finale and leaves the plain help icon", async () => {
   await workspace.create("Task", { description: "Notes" });
-  startAt("fast-hands", 7, [
+  startAt("fast-hands", 6, [
     "first-task",
     "plan-ahead",
     "change-of-plans",
@@ -218,14 +218,14 @@ test("quest.complete: the last quest, ending on Shift+V after the palette, is th
     "shape-your-list",
   ]);
   const { user } = await workspace.render();
-  await expectStep(7);
+  await expectStep(6);
   await user.keyboard("{Control>}k{/Control}");
   await screen.findByRole("dialog");
-  await expectStep(8);
+  await expectStep(7);
   await user.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await user.keyboard("v");
-  await expectStep(9);
+  await expectStep(8);
   await user.keyboard("{Shift>}v{/Shift}");
   const finale = await waitFor(() => {
     const element = document.querySelector("[data-quest-complete=fast-hands][data-quest-finale]");

@@ -1,6 +1,6 @@
 # Capture and edit
 
-Capture and edit use the same inline editor. Its stops are title, priority, an optional description and, when the task has images, the image row.
+Capture and edit use the same inline editor, laid out like the row it replaces: the status glyph, the title in the row's type and place, then the pills where the row shows its badges, so nothing moves when editing starts. The fields have no box; the caret, the key hints and the active row's fill show that it is open. Its stops are the title, an optional description and, when the task has images, the image row. Priority isn't in the editor; it is one key on the list after saving (`priority.set`).
 
 ## Opening and closing
 
@@ -18,12 +18,12 @@ Capture and edit use the same inline editor. Its stops are title, priority, an o
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then priority, then description, then the image row when there are images. `Tab` from priority, or `Shift+Tab` from the image row, opens the description if it is closed. While suggestions are open, `Tab` follows `shorthand.tab` |
-| `edit.priority` | `0`–`4` or `Left`/`Right` on the priority stop | Sets the priority. New tasks start at P2 |
-| `edit.description` | Typing in the description | Markdown notes kept with the task, shown in the list with its details (`details.toggle-active`). `Enter` starts a new line, so `Ctrl/⌘+Enter` saves from here |
+| `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then description, then the image row when there are images, wrapping around. Landing on a closed description opens it. While suggestions are open, `Tab` follows `shorthand.tab` |
+| `edit.priority` | Saving | The editor keeps the task's priority. New tasks start at P2 |
+| `edit.description` | Typing in the description | Markdown notes kept with the task, shown in the list with its details (`details.toggle-active`). The field sits where Details shows the description, in the same type, and grows with its text. `Enter` starts a new line, so `Ctrl/⌘+Enter` saves from here |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
-| `edit.buttons` | Save and Cancel buttons | Mouse fallbacks, not Tab stops. The dismissal button always says Cancel and sits before Add description |
+| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the pills line, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title, `Ctrl+Enter` before Save in the description, and none on touch. The dismissal button always says Cancel and sits before Add description |
 
 ## Images
 

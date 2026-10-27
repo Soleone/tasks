@@ -166,7 +166,7 @@ export function ClassificationPills({
       ref={row}
       role="list"
       aria-label="Category, tags and due date"
-      className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5"
+      className="flex min-h-5 flex-wrap items-center gap-1.5"
     >
       {shown.length === 0 ? (
         <span className="text-xs text-muted-foreground">@category #tags ^date</span>

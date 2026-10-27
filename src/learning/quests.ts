@@ -326,15 +326,8 @@ const QUEST_DEFINITIONS = [
         inEditor: true,
       },
       {
-        move: "edit.priority",
-        prompt: "Press `Tab` until you reach priority, then a number from `0` to `4`",
-        success: "Priority set",
-        keys: ["Tab", "0–4"],
-        inEditor: true,
-      },
-      {
         move: "edit.description",
-        prompt: "Press `Tab` again and write a description. It can be as long as you like",
+        prompt: "Press `Tab` and write a description. It can be as long as you like",
         success: "Description added",
         inEditor: true,
       },

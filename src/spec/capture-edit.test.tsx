@@ -101,7 +101,7 @@ describe("opening and closing", () => {
     const { user } = await workspace.render();
     await user.keyboard("{Enter}");
     await focusedTitleField();
-    await user.keyboard("{Tab}{Tab}");
+    await user.keyboard("{Tab}");
     await waitFor(() =>
       expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
     );
@@ -124,28 +124,35 @@ describe("opening and closing", () => {
 });
 
 describe("inside the editor", () => {
-  test("edit.tab-order: Tab goes title, priority, description", async () => {
+  test("edit.tab-order: Tab goes title, description and wraps; Shift+Tab opens it too", async () => {
     const { user } = await workspace.render();
     await capture(user, "Task");
-    await user.keyboard("{Tab}");
-    await waitFor(() =>
-      expect(document.activeElement?.getAttribute("aria-keyshortcuts")).toBe(
-        "0 1 2 3 4 ArrowLeft ArrowRight",
-      ),
-    );
     await user.keyboard("{Tab}");
     await waitFor(() =>
       expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
     );
-    await user.keyboard("{Shift>}{Tab}{Tab}{/Shift}");
+    await user.keyboard("{Tab}");
     await focusedTitleField();
+    await waitFor(() => expect(screen.queryByPlaceholderText("Write in Markdown…")).toBeNull());
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
+    );
   });
 
-  test("edit.priority: new tasks start at P2; a digit on the priority stop sets it", async () => {
+  test("edit.priority: new tasks start at P2 and an edit keeps the task's priority", async () => {
     const { user } = await workspace.render();
     await capture(user, "Task");
-    await user.keyboard("{Tab}0{Control>}{Enter}{/Control}");
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await onlyTask()).priority).toBe(2));
+    await expectListFocused();
+    await user.keyboard("0");
     await waitFor(async () => expect((await onlyTask()).priority).toBe(0));
+    await user.keyboard("{Enter}");
+    await focusedTitleField();
+    await user.keyboard("renamed{Enter}");
+    await waitFor(async () => expect((await onlyTask()).title).toBe("Task renamed"));
+    expect((await onlyTask()).priority).toBe(0);
   });
 
   test("edit.description-button: Add description opens the description for the mouse", async () => {
@@ -187,6 +194,17 @@ describe("inside the editor", () => {
     await expectRows(["Existing task"]);
   });
 
+  test("edit.buttons: each fallback shows the key that does the same from the focused field", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Task");
+    const keyOf = (name: string) =>
+      within(editor()).getByRole("button", { name }).querySelector("kbd")?.textContent ?? null;
+    expect(["Cancel", "Add description", "Add task"].map(keyOf)).toEqual(["Esc", "Tab", "↵"]);
+    await user.keyboard("{Tab}");
+    await waitFor(() => expect(keyOf("Add task")).toBe("Ctrl ↵"));
+    expect(keyOf("Cancel")).toBeNull();
+  });
+
   test("undo.scope: an edit to title, category and description is undone and redone as one step", async () => {
     const { task } = await workspace.command<{ task: { id: string } }>("task.create", {
       text: "Call @home",
@@ -199,7 +217,7 @@ describe("inside the editor", () => {
     const { user } = await workspace.render();
     await user.click(row("Call"));
     await focusedTitleField();
-    await user.keyboard("back @work {Tab}{Tab}{Control>}{End}{/Control} and more");
+    await user.keyboard("back @work {Tab}{Control>}{End}{/Control} and more");
     await user.keyboard("{Control>}{Enter}{/Control}");
     await expectListFocused();
     const edited = ["Call back", "work", "Old note and more"];
@@ -423,9 +441,6 @@ describe("shorthand", () => {
       expect(titleField().value).toBe("Buy #milk");
       await focusedTitleField();
       await user.keyboard("{Tab}");
-      await barKey(user, "@");
-      await focusedTitleField();
-      await user.keyboard("{Tab}{Tab}");
       const notes =
         within(editor()).getByPlaceholderText<HTMLTextAreaElement>("Write in Markdown…");
       await user.keyboard("A😀B");
@@ -444,13 +459,9 @@ describe("shorthand", () => {
       await barKey(user, "Escape");
       expect(titleField().value).toBe("Buy ");
       await focusedTitleField();
-      await user.keyboard("{Tab}{Tab}Notes");
+      await user.keyboard("{Tab}Notes");
       await barKey(user, "Escape");
       await focusedTitleField();
-      await barKey(user, "Escape");
-      expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
-      await capture(user, "Another task");
-      await user.keyboard("{Tab}");
       await barKey(user, "Escape");
       expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
     });

@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Button as StockButton } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { FOCUS_RING } from "./focus";
 
 type ButtonProps = ComponentProps<typeof StockButton>;
@@ -33,5 +34,19 @@ export function QuietButton({ className, ...props }: ButtonProps) {
       className={cn("text-muted-foreground hover:text-foreground", className)}
       {...props}
     />
+  );
+}
+
+/** A mouse fallback that teaches its shortcut: the key cap, then the action. */
+export function KeyHintButton({
+  keys,
+  children,
+  ...props
+}: Omit<ButtonProps, "size"> & { keys?: string }) {
+  return (
+    <QuietButton size="xs" {...props}>
+      {keys ? <Kbd aria-hidden="true">{keys}</Kbd> : null}
+      {children}
+    </QuietButton>
   );
 }

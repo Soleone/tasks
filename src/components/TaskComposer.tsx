@@ -12,7 +12,6 @@ import {
 import { addDays, localToday } from "@/backend/dueDate";
 import type { TaskPriority } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "./taskView";
-import { PRIORITY_META } from "@/components/taskFilters";
 import {
   dueCompletion,
   enterAction,
@@ -41,14 +40,13 @@ import {
 } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/variants/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { KeyHintButton } from "@/components/variants/button";
+import { FieldError } from "@/components/ui/field";
 import { formatDueDate } from "@/backend/taskDates";
 import type { MoveId } from "@/learning/moves";
 import { practice } from "@/learning/progress";
 import { enterEditor, leaveEditor } from "@/learning/questProgress";
-import { PriorityGroup, PriorityRadio } from "@/components/variants/button-group";
-import { QuietInput, QuietTextarea } from "@/components/variants/input";
+import { InlineDescription, InlineTitleInput } from "@/components/variants/input";
 import { isAndroid } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
 import { AttachmentRow } from "./AttachmentRow";
@@ -77,7 +75,7 @@ type TaskComposerProps = {
   onCopyImage: (name: string) => void;
 };
 
-type ComposerField = "title" | "description" | "priority" | "images";
+type ComposerField = "title" | "description" | "images";
 
 const MARKER_MOVES: Record<Marker, MoveId> = {
   "@": "shorthand.category",
@@ -171,7 +169,6 @@ export function TaskComposer({
   const id = useId();
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
-  const prioritySection = useRef<HTMLDivElement>(null);
   const imageRow = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
@@ -197,7 +194,8 @@ export function TaskComposer({
   // The latest lift, so a Backspace right after it can put the token back.
   const lastLift = useRef<Lift | null>(null);
   const [description, setDescription] = useState(task?.description ?? "");
-  const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 2);
+  // Priority is set on the list after saving (`priority.set`), so the editor only carries it.
+  const priority: TaskPriority = task?.priority ?? 2;
   const images = useDraftImages(task?.attachments ?? []);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
   // Writing in the description counts once per editor (`edit.description`).
@@ -212,6 +210,9 @@ export function TaskComposer({
   // A date picked with the arrow keys, until the typed word changes.
   const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
+  // Each fallback shows the key that does the same from the focused field. Touch has no keys to
+  // teach, so its fallbacks show only their actions.
+  const keyHints = !isAndroid();
   // Saving teaches `Enter` unless the Add task button did it.
   const saveVia = useRef<"keys" | "pointer">("keys");
 
@@ -412,31 +413,13 @@ export function TaskComposer({
     setNotesOpen(true);
   }
 
-  function focusPrioritySection(): void {
-    prioritySection.current?.focus();
-  }
-
-  function stepPriority(delta: -1 | 1): void {
-    setPriority((current) => Math.min(4, Math.max(0, current + delta)) as TaskPriority);
-  }
-
-  // Tab order: title, priority, description, images. Tab from priority, or Shift+Tab from the
-  // images, opens a closed description.
+  // Tab order: title, description, images. Landing on a closed description opens it.
   function focusAfter(field: ComposerField, backward: boolean): void {
-    const hasImages = images.attachments.length > 0;
-    if (field === "title") {
-      if (backward && hasImages) imageRow.current?.focus();
-      else if (backward && notesOpen) notesInput.current?.focus();
-      else focusPrioritySection();
-    } else if (field === "priority") {
-      if (backward) titleInput.current?.focus();
-      else if (notesOpen) notesInput.current?.focus();
-      else showNotes();
-    } else if (field === "description") {
-      if (backward) focusPrioritySection();
-      else if (hasImages) imageRow.current?.focus();
-      else titleInput.current?.focus();
-    } else if (!backward) titleInput.current?.focus();
+    const stops: ComposerField[] =
+      images.attachments.length > 0 ? ["title", "description", "images"] : ["title", "description"];
+    const next = stops[(stops.indexOf(field) + (backward ? stops.length - 1 : 1)) % stops.length];
+    if (next === "title") titleInput.current?.focus();
+    else if (next === "images") imageRow.current?.focus();
     else if (notesOpen) notesInput.current?.focus();
     else showNotes();
   }
@@ -486,7 +469,7 @@ export function TaskComposer({
   }
 
   // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
-  // description keeps it as text; from priority it goes to the title.
+  // description keeps it as text; from the image row it goes to the title.
   function insertMarker(marker: Marker): void {
     const field = activeField === "description" ? notesInput.current : titleInput.current;
     if (!field) return;
@@ -496,50 +479,6 @@ export function TaskComposer({
     field.dispatchEvent(
       new InputEvent("input", { bubbles: true, inputType: "insertText", data: marker }),
     );
-  }
-
-  function handlePriorityKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.nativeEvent.isComposing || event.keyCode === 229 || pending) return;
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onCancel();
-      return;
-    }
-    if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      event.preventDefault();
-      focusAfter("priority", event.shiftKey);
-      return;
-    }
-    if (
-      event.key === "Enter" &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey &&
-      !event.shiftKey
-    ) {
-      if (event.repeat) return;
-      event.preventDefault();
-      event.currentTarget.closest("form")?.requestSubmit();
-      return;
-    }
-    if (
-      (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-      practice("edit.priority");
-      stepPriority(event.key === "ArrowLeft" ? -1 : 1);
-      return;
-    }
-    if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
-    const value = Number(event.key);
-    if (!Number.isInteger(value) || value < 0 || value > 4) return;
-    event.preventDefault();
-    practice("edit.priority");
-    setPriority(value as TaskPriority);
   }
 
   function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
@@ -678,252 +617,212 @@ export function TaskComposer({
           event.currentTarget.requestSubmit();
         }
       }}
-      className="flex w-full min-w-0 flex-col gap-4"
+      // One wrapping flow, so a narrow editor moves the key hints under everything else.
+      className="@container flex w-full min-w-0 flex-wrap items-start gap-x-2 gap-y-1"
     >
-      <FieldGroup>
-        <Field data-invalid={titleError || undefined}>
-          <FieldLabel htmlFor={`${id}-title`}>Title</FieldLabel>
-          {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
-          <div className="relative">
-            <QuietInput
-              ref={titleInput}
-              id={`${id}-title`}
-              name="title"
-              autoComplete="off"
-              // Without a hint, a soft keyboard offers Next when the description follows.
-              enterKeyHint="go"
-              placeholder="What needs doing?"
-              value={title}
-              readOnly={pending}
-              required
-              aria-invalid={titleError || undefined}
-              aria-describedby={titleError ? `${id}-error` : undefined}
-              aria-expanded={
-                suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
-              }
-              aria-autocomplete="list"
-              onChange={(event) => {
-                setTitleError(false);
-                lastLift.current = null;
-                const draft = {
-                  text: event.target.value,
-                  caret: event.target.selectionStart ?? event.target.value.length,
-                  classification,
-                };
-                // Pasted text adds what it names; only typing a pill again takes it off.
-                const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
-                const lift = liftFinished(draft, toggle);
-                if (lift) commitLift(lift);
-                else {
-                  setTitle(draft.text);
-                  updateSuggestion(draft.text, draft.caret);
-                }
-              }}
-              onFocus={() => setActiveField("title")}
-              onKeyDown={handleTitleKeyDown}
-              onPaste={pending ? undefined : images.paste}
-              onClick={(event) =>
-                updateSuggestion(
-                  event.currentTarget.value,
-                  event.currentTarget.selectionStart ?? event.currentTarget.value.length,
-                )
-              }
-            />
-            {suggestion?.marker === "^" ? (
-              <DueDatePicker
-                key={dueChoice ?? "none"}
-                choice={dueChoice}
-                current={classification.due}
-                onPick={(due) => chooseSuggestion(suggestion, due)}
-              />
-            ) : null}
-            {suggestion && suggestionItems.length > 0 ? (
-              <div
-                role="listbox"
-                aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
-                className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-              >
-                {suggestionItems.map((item, index) => (
-                  <button
-                    key={item.slug}
-                    type="button"
-                    role="option"
-                    aria-selected={index === suggestionIndex}
-                    tabIndex={-1}
-                    className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => chooseSuggestion(suggestion, item.slug)}
-                  >
-                    <span>
-                      {suggestion.marker}
-                      {item.label}
-                    </span>
-                    <SuggestionNote
-                      row={item}
-                      action={
-                        index === suggestionIndex ? enterAction(item, suggestion.query) : null
-                      }
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <ClassificationPills
-            classification={classification}
-            landing={landing}
-            titleInput={titleInput}
-            onRemove={removePill}
+      {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
+      <div className="relative basis-full">
+        <InlineTitleInput
+          ref={titleInput}
+          aria-label="Title"
+          name="title"
+          autoComplete="off"
+          // Without a hint, a soft keyboard offers Next when the description follows.
+          enterKeyHint="go"
+          placeholder="What needs doing?"
+          value={title}
+          readOnly={pending}
+          required
+          aria-invalid={titleError || undefined}
+          aria-describedby={titleError ? `${id}-error` : undefined}
+          aria-expanded={
+            suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
+          }
+          aria-autocomplete="list"
+          onChange={(event) => {
+            setTitleError(false);
+            lastLift.current = null;
+            const draft = {
+              text: event.target.value,
+              caret: event.target.selectionStart ?? event.target.value.length,
+              classification,
+            };
+            // Pasted text adds what it names; only typing a pill again takes it off.
+            const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
+            const lift = liftFinished(draft, toggle);
+            if (lift) commitLift(lift);
+            else {
+              setTitle(draft.text);
+              updateSuggestion(draft.text, draft.caret);
+            }
+          }}
+          onFocus={() => setActiveField("title")}
+          onKeyDown={handleTitleKeyDown}
+          onPaste={pending ? undefined : images.paste}
+          onClick={(event) =>
+            updateSuggestion(
+              event.currentTarget.value,
+              event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+            )
+          }
+        />
+        {suggestion?.marker === "^" ? (
+          <DueDatePicker
+            key={dueChoice ?? "none"}
+            choice={dueChoice}
+            current={classification.due}
+            onPick={(due) => chooseSuggestion(suggestion, due)}
           />
-          {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
-        </Field>
-        <Field>
-          <FieldLabel id={`${id}-priority-label`}>Priority</FieldLabel>
-          <div>
-            <PriorityGroup
-              ref={prioritySection}
-              role="radiogroup"
-              aria-labelledby={`${id}-priority-label`}
-              aria-activedescendant={`${id}-priority-${priority}`}
-              aria-keyshortcuts="0 1 2 3 4 ArrowLeft ArrowRight"
-              aria-disabled={pending || undefined}
-              tabIndex={0}
-              data-priority-section
-              onFocus={() => setActiveField("priority")}
-              onKeyDown={handlePriorityKeyDown}
-            >
-              {PRIORITY_META.map((meta) => {
-                const selected = priority === meta.value;
-                return (
-                  <PriorityRadio
-                    key={meta.value}
-                    id={`${id}-priority-${meta.value}`}
-                    type="button"
-                    checked={selected}
-                    size="sm"
-                    tabIndex={-1}
-                    aria-label={`${meta.shortLabel}: ${meta.label}`}
-                    data-priority={meta.shortLabel}
-                    disabled={pending}
-                    onClick={() => {
-                      setPriority(meta.value);
-                      prioritySection.current?.focus();
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`inline-block size-2 rounded-full ${meta.dot}`}
-                    />
-                    {meta.shortLabel}
-                  </PriorityRadio>
-                );
-              })}
-            </PriorityGroup>
-          </div>
-        </Field>
-        {notesOpen ? (
-          <Field>
-            <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
-            <QuietTextarea
-              ref={notesInput}
-              id={`${id}-description`}
-              name="description"
-              placeholder="Write in Markdown…"
-              rows={4}
-              value={description}
-              readOnly={pending}
-              onChange={(event) => {
-                if (!described.current && event.target.value.trim()) {
-                  described.current = true;
-                  practice("edit.description");
-                }
-                setDescription(event.target.value);
-              }}
-              onFocus={() => setActiveField("description")}
-              onPaste={pending ? undefined : images.paste}
-              onBlur={(event) => {
-                const nextFocus = event.relatedTarget;
-                if (
-                  !description.trim() &&
-                  nextFocus instanceof HTMLElement &&
-                  event.currentTarget.form?.contains(nextFocus)
-                )
-                  setNotesOpen(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-                if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                  event.preventDefault();
-                  focusAfter("description", event.shiftKey);
-                  return;
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (pending) return;
-                  if (!description.trim()) setNotesOpen(false);
-                  titleInput.current?.focus();
-                }
-              }}
-            />
-          </Field>
         ) : null}
-        {images.attachments.length > 0 ? (
-          <Field>
-            <FieldLabel>Images</FieldLabel>
-            <AttachmentRow
-              ref={imageRow}
-              id={id}
-              names={images.attachments}
-              onRemove={removeImage}
-              onCopy={onCopyImage}
-              onFocus={() => setActiveField("images")}
-              onKeyDown={handleImageKeyDown}
-            />
-          </Field>
-        ) : null}
-      </FieldGroup>
-      {images.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Image not added</AlertTitle>
-          <AlertDescription>{images.error}</AlertDescription>
-        </Alert>
-      ) : null}
-      {error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Could not save</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            tabIndex={-1}
-            disabled={pending}
-            onClick={onCancel}
+        {suggestion && suggestionItems.length > 0 ? (
+          <div
+            role="listbox"
+            aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
+            className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
           >
-            Cancel
-          </Button>
-          {!notesOpen ? (
-            <Button type="button" variant="ghost" size="sm" tabIndex={-1} onClick={showNotes}>
-              Add description
-            </Button>
-          ) : null}
-        </div>
-        <Button
-          type="submit"
-          size="sm"
+            {suggestionItems.map((item, index) => (
+              <button
+                key={item.slug}
+                type="button"
+                role="option"
+                aria-selected={index === suggestionIndex}
+                tabIndex={-1}
+                className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => chooseSuggestion(suggestion, item.slug)}
+              >
+                <span>
+                  {suggestion.marker}
+                  {item.label}
+                </span>
+                <SuggestionNote
+                  row={item}
+                  action={index === suggestionIndex ? enterAction(item, suggestion.query) : null}
+                />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {/* The metadata line, where the row shows its badges; the mouse fallbacks sit at its end. */}
+      <div className="min-w-0 grow">
+        <ClassificationPills
+          classification={classification}
+          landing={landing}
+          titleInput={titleInput}
+          onRemove={removePill}
+        />
+      </div>
+      <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
+        <KeyHintButton
+          keys={keyHints && activeField !== "description" ? "Esc" : undefined}
+          disabled={pending}
+          onClick={onCancel}
           tabIndex={-1}
+          type="button"
+        >
+          Cancel
+        </KeyHintButton>
+        {!notesOpen ? (
+          <KeyHintButton
+            keys={keyHints ? "Tab" : undefined}
+            aria-label="Add description"
+            onClick={showNotes}
+            tabIndex={-1}
+            type="button"
+          >
+            Description
+          </KeyHintButton>
+        ) : null}
+        <KeyHintButton
+          keys={keyHints ? (activeField === "description" ? "Ctrl ↵" : "↵") : undefined}
+          aria-label={task ? "Save changes" : "Add task"}
           disabled={pending}
           onClick={() => {
             saveVia.current = "pointer";
           }}
+          tabIndex={-1}
+          type="submit"
         >
-          {pending ? "Saving…" : task ? "Save changes" : "Add task"}
-        </Button>
+          {pending ? "Saving…" : task ? "Save" : "Add"}
+        </KeyHintButton>
+      </div>
+      {titleError ? (
+        <div className="basis-full">
+          <FieldError id={`${id}-error`}>Write a title first.</FieldError>
+        </div>
+      ) : null}
+      {notesOpen ? (
+        <div className="basis-full pt-1 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
+          <InlineDescription
+            ref={notesInput}
+            aria-label="Description"
+            name="description"
+            placeholder="Write in Markdown…"
+            value={description}
+            readOnly={pending}
+            onChange={(event) => {
+              if (!described.current && event.target.value.trim()) {
+                described.current = true;
+                practice("edit.description");
+              }
+              setDescription(event.target.value);
+            }}
+            onFocus={() => setActiveField("description")}
+            onPaste={pending ? undefined : images.paste}
+            onBlur={(event) => {
+              const nextFocus = event.relatedTarget;
+              if (
+                !description.trim() &&
+                nextFocus instanceof HTMLElement &&
+                event.currentTarget.form?.contains(nextFocus)
+              )
+                setNotesOpen(false);
+            }}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+              if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+                focusAfter("description", event.shiftKey);
+                return;
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                if (pending) return;
+                if (!description.trim()) setNotesOpen(false);
+                titleInput.current?.focus();
+              }
+            }}
+          />
+        </div>
+      ) : null}
+      {images.attachments.length > 0 ? (
+        <div className="basis-full pt-1">
+          <AttachmentRow
+            ref={imageRow}
+            id={id}
+            names={images.attachments}
+            onRemove={removeImage}
+            onCopy={onCopyImage}
+            onFocus={() => setActiveField("images")}
+            onKeyDown={handleImageKeyDown}
+          />
+        </div>
+      ) : null}
+      <div className="flex basis-full flex-col gap-2 empty:hidden">
+        {images.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Image not added</AlertTitle>
+            <AlertDescription>{images.error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Could not save</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
       </div>
       {isAndroid() ? (
         <KeyboardBar disabled={pending} onMarker={insertMarker} onMoveCursor={moveCursor} />

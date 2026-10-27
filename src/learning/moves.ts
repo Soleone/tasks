@@ -44,10 +44,6 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Complete a suggestion", keys: ["Tab"] },
   },
   {
-    id: "edit.priority",
-    keyboard: { label: "Set priority in the editor", keys: ["Tab", "0–4"] },
-  },
-  {
     id: "edit.description",
     keyboard: { label: "Write a description", keys: ["Tab"] },
   },
