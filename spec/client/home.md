@@ -23,7 +23,7 @@ The task list is the home screen. Everything starts and ends there: launching, c
 | `home.due-soon` | An open, in-progress or paused task is due within 6 days, or overdue | A quiet calendar marker at the end of its title line reads `today`, `tomorrow`, the weekday (`Fri`) or `2d late`, with the full date on hover. Today and overdue use the warning color. Dates further out show only in Details; done and canceled tasks never show the marker |
 | `home.click-keeps-focus` | Clicking a toolbar button, row glyph or header button | The button doesn't take focus; the current keyboard surface keeps it |
 | `home.dialog-return` | A dialog closes | Focus returns to the surface that opened it, never to the button that was clicked |
-| `home.refresh-keeps-focus` | The workspace changes elsewhere (CLI, agent, another device) | The list reloads without moving focus, closing an editor or losing unsaved editor text. The active task stays active while it is still visible |
+| `home.refresh-keeps-focus` | The workspace changes elsewhere (CLI, agent, another device) | The list reloads without moving focus, closing an editor or losing unsaved editor text. The active task stays active while it is still visible, including a task made active by arrows, a click or undo while the reload was on its way |
 | `home.auto-load` | Navigation or scrolling comes within a screenful of the end of the loaded tasks, and more match | The next page loads without a button or a visible change. Reloads after an edit or a workspace change keep every row already loaded |
 
 ## Shortcut scope

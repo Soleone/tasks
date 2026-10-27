@@ -32,6 +32,42 @@ async function seed(...titles: string[]): Promise<void> {
   for (const title of titles) await workspace.create(title);
 }
 
+describe("refresh", () => {
+  test("home.refresh-keeps-focus: a task made active while a background reload is in flight stays active", async () => {
+    await seed("C", "B", "A");
+    const { user } = await workspace.render();
+    await expectActive("A");
+    await workspace.create("Elsewhere");
+    const original = globalThis.fetch;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reloads = 0;
+    globalThis.fetch = async (...args) => {
+      const body = typeof args[1]?.body === "string" ? JSON.parse(args[1].body) : null;
+      if (body?.command === "task.list") {
+        reloads += 1;
+        await held;
+      }
+      return original(...args);
+    };
+    try {
+      // Coming back to the window finds the outside change and starts a reload that keeps the active task.
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      await waitFor(() => expect(reloads).toBeGreaterThan(0));
+      await user.keyboard("{ArrowDown}");
+      await expectActive("B");
+    } finally {
+      release();
+      globalThis.fetch = original;
+    }
+    await expectRows(["Elsewhere", "A", "B", "C"]);
+    await expectActive("B");
+    expect(selectedTitles()).toEqual(["B"]);
+  });
+});
+
 describe("launch", () => {
   test("home.launch-focus: the list has focus and the first visible task is active", async () => {
     await seed("Older", "Newer");

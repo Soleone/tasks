@@ -69,6 +69,12 @@ export function useTaskListSelection({
     setActive({ index: nextIndex, id: activeTaskIdRef.current });
   }
 
+  /** A row chosen by a key, click or request; a pending identity-preserving refresh keeps it. */
+  function chooseActiveRow(nextIndex: number): void {
+    setActiveRow(nextIndex);
+    if (restoreActiveIdRef.current !== null) restoreActiveIdRef.current = activeTaskIdRef.current;
+  }
+
   function setRangeIds(ids: ReadonlySet<string> | null): void {
     const next = ids && ids.size > 1 ? ids : null;
     rangeRef.current = next;
@@ -78,7 +84,7 @@ export function useTaskListSelection({
 
   /** Makes one row active and the only selection. */
   function activate(index: number): void {
-    setActiveRow(index);
+    chooseActiveRow(index);
     setRangeIds(null);
     selectionAnchorRef.current = activeTaskIdRef.current;
   }
@@ -233,7 +239,7 @@ export function useTaskListSelection({
     const start = Math.min(anchorIndex, targetIndex);
     const end = Math.max(anchorIndex, targetIndex);
     const count = end - start + 1;
-    setActiveRow(index);
+    chooseActiveRow(index);
     setRangeIds(new Set(scope.slice(start, end + 1).map((candidate) => candidate.task.id)));
     onAnnounce(`${count} task${count === 1 ? "" : "s"} selected`);
   }
@@ -253,7 +259,7 @@ export function useTaskListSelection({
     const next = new Set(selectedIdsRef.current);
     if (!next.delete(row.task.id)) {
       next.add(row.task.id);
-      setActiveRow(index);
+      chooseActiveRow(index);
       selectionAnchorRef.current = row.task.id;
     } else if (next.size === 0) {
       activate(index);
@@ -268,7 +274,7 @@ export function useTaskListSelection({
             ? candidate
             : best,
         );
-      setActiveRow(visibleRowsRef.current.indexOf(nearest));
+      chooseActiveRow(visibleRowsRef.current.indexOf(nearest));
       selectionAnchorRef.current = nearest.task.id;
     }
     setRangeIds(next);
