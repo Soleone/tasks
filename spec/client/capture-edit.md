@@ -9,7 +9,7 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | `capture.open` | `C`, the palette, or the New task button | The editor opens above the list with the title focused |
 | `capture.child` | `Shift+C` on a task, or New child in Task actions | The editor opens under the active task and saves the new task as its child. Its parent expands, so the new task shows and becomes active |
 | `capture.child-canceled` | `Shift+C` on a canceled task | Refused with a message. Canceled tasks can't take new children |
-| `edit.inline` | `Enter`, or clicking a row | The editor replaces that row with the title focused |
+| `edit.inline` | `Enter`, or clicking a row | The editor replaces that row with the title focused and scrolls fully into view, again once an on-screen keyboard has resized the window |
 | `edit.save` | `Enter` in the title, or `Ctrl/⌘+Enter` anywhere | Saves. Focus returns to the list on the saved task. While suggestions are open, `Enter` follows `shorthand.enter`. A soft keyboard's action key in the title is Go, which saves, even when a description follows |
 | `edit.cancel` | `Escape` | Cancels. From the description, the first `Escape` returns to the title. While a marker is being typed, it follows `shorthand.escape` |
 | `edit.keeps-draft` | The workspace changes while the editor is open | The draft stays as typed |
@@ -23,7 +23,7 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | `edit.description` | Typing in the description | Markdown notes kept with the task, shown in the list with its details (`details.toggle-active`). The field sits where Details shows the description, in the same type, and grows with its text. `Enter` starts a new line, so `Ctrl/⌘+Enter` saves from here |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
-| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the pills line, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title, `Ctrl+Enter` before Save in the description, and none on touch. The dismissal button always says Cancel and sits before Add description |
+| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the pills line, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title and `Ctrl+Enter` before Save in the description. The dismissal button always says Cancel and sits before Add description. Touch differs (`platform.editor-buttons`) |
 
 ## Images
 

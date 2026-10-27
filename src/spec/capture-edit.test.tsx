@@ -80,6 +80,17 @@ describe("opening and closing", () => {
     expect((await focusedTitleField()).value).toBe("Click me ");
   });
 
+  test("edit.inline: the whole editor scrolls into view, not only the title", async () => {
+    await workspace.create("Low on the list");
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    const { user } = await workspace.render();
+    await user.click(row("Low on the list"));
+    await focusedTitleField();
+    const form = editor();
+    await waitFor(() => expect(scroll.mock.contexts).toContain(form));
+    scroll.mockRestore();
+  });
+
   test("edit.save: Enter saves and focus returns to the list on the saved task", async () => {
     const task = await workspace.create("Old title");
     await workspace.create("Other");
@@ -412,6 +423,17 @@ describe("shorthand", () => {
     });
     afterEach(() => {
       vi.restoreAllMocks();
+    });
+
+    test("platform.editor-buttons: no Cancel or Save; the description line opens the description", async () => {
+      const { user } = await workspace.render();
+      await capture(user, "Task");
+      for (const name of ["Cancel", "Add task"])
+        expect(within(editor()).queryByRole("button", { name })).toBeNull();
+      await user.click(within(editor()).getByRole("button", { name: "Add a description…" }));
+      const notes = await screen.findByPlaceholderText("Write in Markdown…");
+      await waitFor(() => expect(document.activeElement).toBe(notes));
+      expect(within(editor()).queryByRole("button", { name: "Add a description…" })).toBeNull();
     });
 
     function barKey(user: UserEvent, name: string): Promise<void> {

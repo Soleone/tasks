@@ -70,6 +70,7 @@ import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
 import { practice } from "@/learning/progress";
 import { isAndroid } from "@/platform/runtime";
+import { cn } from "cn";
 import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useCompletionSheen } from "./useCompletionSheen";
@@ -1749,7 +1750,11 @@ export function TaskList({
             activeTask && !editingActiveTask ? `task-option-${activeTask.id}` : undefined
           }
           tabIndex={0}
-          className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-x-clip overflow-y-auto overscroll-y-contain outline-none"
+          // While the keyboard bar covers the list's foot, the last row can still scroll above it.
+          className={cn(
+            "flex min-h-0 w-full flex-1 flex-col gap-2 overflow-x-clip overflow-y-auto overscroll-y-contain outline-none",
+            touch && composer && "pb-12",
+          )}
           onFocus={() => setListFocused(true)}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);

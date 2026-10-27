@@ -50,3 +50,21 @@ export function KeyHintButton({
     </QuietButton>
   );
 }
+
+/**
+ * Muted text standing where a field will open, like an empty field's placeholder, at the field's
+ * height so nothing moves when it opens. Its hit area reaches mostly downward, away from the
+ * controls above, so a finger finds it.
+ */
+export function PlaceholderButton({ className, ...props }: Omit<ButtonProps, "variant" | "size">) {
+  return (
+    <Button
+      variant="ghost"
+      className={cn(
+        "relative flex h-auto w-full justify-start border-0 p-0 text-xs leading-normal font-normal text-muted-foreground after:absolute after:inset-x-0 after:-top-1 after:-bottom-4 hover:bg-transparent",
+        className,
+      )}
+      {...props}
+    />
+  );
+}

@@ -40,7 +40,8 @@ import {
 } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { KeyHintButton } from "@/components/variants/button";
+import { KeyHintButton, PlaceholderButton } from "@/components/variants/button";
+import { cn } from "cn";
 import { FieldError } from "@/components/ui/field";
 import { formatDueDate } from "@/backend/taskDates";
 import type { MoveId } from "@/learning/moves";
@@ -167,6 +168,7 @@ export function TaskComposer({
   onCopyImage,
 }: TaskComposerProps): ReactElement {
   const id = useId();
+  const form = useRef<HTMLFormElement>(null);
   const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   const imageRow = useRef<HTMLDivElement>(null);
@@ -210,9 +212,8 @@ export function TaskComposer({
   // A date picked with the arrow keys, until the typed word changes.
   const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
-  // Each fallback shows the key that does the same from the focused field. Touch has no keys to
-  // teach, so its fallbacks show only their actions.
-  const keyHints = !isAndroid();
+  // Touch cancels and saves from the keyboard bar and the soft keyboard (`platform.editor-buttons`).
+  const touch = isAndroid();
   // Saving teaches `Enter` unless the Add task button did it.
   const saveVia = useRef<"keys" | "pointer">("keys");
 
@@ -222,13 +223,20 @@ export function TaskComposer({
     return leaveEditor;
   }, []);
 
+  // The whole editor comes into view, not only the title, so a row at the bottom of the list
+  // opens in full above a soft keyboard (`edit.inline`).
   useEffect(() => {
+    let release: (() => void) | undefined;
     const frame = requestAnimationFrame(() => {
       const input = titleInput.current;
       input?.focus();
       input?.setSelectionRange(input.value.length, input.value.length);
+      if (form.current) release = keepInView(form.current);
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      release?.();
+    };
   }, [task?.id]);
 
   // Focus the notes after they commit, not in the click frame.
@@ -606,6 +614,7 @@ export function TaskComposer({
 
   return (
     <form
+      ref={form}
       aria-label={task ? "Edit task" : "New task"}
       aria-busy={pending}
       noValidate
@@ -617,8 +626,12 @@ export function TaskComposer({
           event.currentTarget.requestSubmit();
         }
       }}
-      // One wrapping flow, so a narrow editor moves the key hints under everything else.
-      className="@container flex w-full min-w-0 flex-wrap items-start gap-x-2 gap-y-1"
+      // One wrapping flow, so a narrow editor moves the key hints under everything else. On touch
+      // it keeps clear of the keyboard bar when scrolled into view.
+      className={cn(
+        "@container flex w-full min-w-0 flex-wrap items-start gap-x-2 gap-y-1",
+        touch && "scroll-mb-12",
+      )}
     >
       {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
       <div className="relative basis-full">
@@ -713,40 +726,42 @@ export function TaskComposer({
           onRemove={removePill}
         />
       </div>
-      <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
-        <KeyHintButton
-          keys={keyHints && activeField !== "description" ? "Esc" : undefined}
-          disabled={pending}
-          onClick={onCancel}
-          tabIndex={-1}
-          type="button"
-        >
-          Cancel
-        </KeyHintButton>
-        {!notesOpen ? (
+      {!touch ? (
+        <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
           <KeyHintButton
-            keys={keyHints ? "Tab" : undefined}
-            aria-label="Add description"
-            onClick={showNotes}
+            keys={activeField === "description" ? undefined : "Esc"}
+            disabled={pending}
+            onClick={onCancel}
             tabIndex={-1}
             type="button"
           >
-            Description
+            Cancel
           </KeyHintButton>
-        ) : null}
-        <KeyHintButton
-          keys={keyHints ? (activeField === "description" ? "Ctrl ↵" : "↵") : undefined}
-          aria-label={task ? "Save changes" : "Add task"}
-          disabled={pending}
-          onClick={() => {
-            saveVia.current = "pointer";
-          }}
-          tabIndex={-1}
-          type="submit"
-        >
-          {pending ? "Saving…" : task ? "Save" : "Add"}
-        </KeyHintButton>
-      </div>
+          {!notesOpen ? (
+            <KeyHintButton
+              keys="Tab"
+              aria-label="Add description"
+              onClick={showNotes}
+              tabIndex={-1}
+              type="button"
+            >
+              Description
+            </KeyHintButton>
+          ) : null}
+          <KeyHintButton
+            keys={activeField === "description" ? "Ctrl ↵" : "↵"}
+            aria-label={task ? "Save changes" : "Add task"}
+            disabled={pending}
+            onClick={() => {
+              saveVia.current = "pointer";
+            }}
+            tabIndex={-1}
+            type="submit"
+          >
+            {pending ? "Saving…" : task ? "Save" : "Add"}
+          </KeyHintButton>
+        </div>
+      ) : null}
       {titleError ? (
         <div className="basis-full">
           <FieldError id={`${id}-error`}>Write a title first.</FieldError>
@@ -756,6 +771,7 @@ export function TaskComposer({
         <div className="basis-full pt-1 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
           <InlineDescription
             ref={notesInput}
+            className={cn(touch && "scroll-mb-12")}
             aria-label="Description"
             name="description"
             placeholder="Write in Markdown…"
@@ -796,6 +812,12 @@ export function TaskComposer({
             }}
           />
         </div>
+      ) : touch ? (
+        <div className="basis-full pt-1">
+          <PlaceholderButton type="button" tabIndex={-1} disabled={pending} onClick={showNotes}>
+            Add a description…
+          </PlaceholderButton>
+        </div>
       ) : null}
       {images.attachments.length > 0 ? (
         <div className="basis-full pt-1">
@@ -824,7 +846,7 @@ export function TaskComposer({
           </Alert>
         ) : null}
       </div>
-      {isAndroid() ? (
+      {touch ? (
         <KeyboardBar disabled={pending} onMarker={insertMarker} onMoveCursor={moveCursor} />
       ) : null}
     </form>

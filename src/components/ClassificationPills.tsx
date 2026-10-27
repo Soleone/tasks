@@ -187,6 +187,7 @@ export function ClassificationPills({
           <span key={pillKey(entry.marker, entry.slug)} role="listitem" className="flex">
             <ClassificationBadge
               kind={entry.kind}
+              touchTarget
               data-pill={pillKey(entry.marker, entry.slug)}
               render={
                 <button
