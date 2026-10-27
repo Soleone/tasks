@@ -26,6 +26,7 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Sparkles,
   Tags,
   Trash2,
   Undo2,
@@ -44,7 +45,13 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { ListLens } from "@/components/listLens";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog, KeysShortcut } from "@/components/variants/command";
-import { pauseQuest, resumeQuest, startQuest, useQuests } from "@/learning/questProgress";
+import {
+  pauseQuest,
+  replayWelcome,
+  resumeQuest,
+  startQuest,
+  useQuests,
+} from "@/learning/questProgress";
 
 type HelpEntry = {
   label: string;
@@ -572,26 +579,45 @@ export function HelpPalette({
               </CommandGroup>
             </Fragment>
           ))}
-          {questEntry ? (
+          {questEntry || import.meta.env.DEV ? (
             <>
               <CommandSeparator />
               <CommandGroup heading="Quests">
-                <CommandItem
-                  value={`Quests ${questEntry.label}`}
-                  keywords={[questEntry.hint, "quest learn tutorial later pause resume start"]}
-                  onSelect={() => {
-                    onOpenChange(false);
-                    questEntry.run();
-                  }}
-                >
-                  {questEntry.label === "Pause quest" ? (
-                    <CirclePause aria-hidden="true" />
-                  ) : (
-                    <Play aria-hidden="true" />
-                  )}
-                  <span className="shrink-0 font-medium">{questEntry.label}</span>
-                  <span className="truncate text-muted-foreground">{questEntry.hint}</span>
-                </CommandItem>
+                {questEntry ? (
+                  <CommandItem
+                    value={`Quests ${questEntry.label}`}
+                    keywords={[questEntry.hint, "quest learn tutorial later pause resume start"]}
+                    onSelect={() => {
+                      onOpenChange(false);
+                      questEntry.run();
+                    }}
+                  >
+                    {questEntry.label === "Pause quest" ? (
+                      <CirclePause aria-hidden="true" />
+                    ) : (
+                      <Play aria-hidden="true" />
+                    )}
+                    <span className="shrink-0 font-medium">{questEntry.label}</span>
+                    <span className="truncate text-muted-foreground">{questEntry.hint}</span>
+                  </CommandItem>
+                ) : null}
+                {/* A testing aid for the welcome, so release builds leave it out. */}
+                {import.meta.env.DEV ? (
+                  <CommandItem
+                    value="Quests Replay welcome"
+                    keywords={["welcome intro greeting first start quest"]}
+                    onSelect={() => {
+                      onOpenChange(false);
+                      replayWelcome();
+                    }}
+                  >
+                    <Sparkles aria-hidden="true" />
+                    <span className="shrink-0 font-medium">Replay welcome</span>
+                    <span className="truncate text-muted-foreground">
+                      The greeting on first start
+                    </span>
+                  </CommandItem>
+                ) : null}
               </CommandGroup>
             </>
           ) : null}

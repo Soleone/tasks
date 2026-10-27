@@ -235,6 +235,103 @@
   }
 }
 
+/* The welcome (`quest.welcome`): the card comes up over the first task greeting the person while
+ * the rest of the app dims, holds there about two seconds, then the greeting fades into the quest
+ * as the card glides down into its dock, overshoots a little and settles back. QuestCard sets the
+ * offset to the list; WELCOME_MS matches the duration. */
+[data-quest-welcome] {
+  animation: quest-card-welcome 2800ms both;
+}
+
+[data-quest-greeting] {
+  animation: quest-greeting-fade 2800ms both;
+}
+
+/* The hand waves twice from the wrist once the card is in. */
+[data-quest-wave] {
+  transform-origin: 70% 90%;
+  animation: quest-wave 1400ms ease-in-out 300ms both;
+}
+
+[data-quest-spotlight] {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  animation: quest-spotlight 2800ms both;
+}
+
+@keyframes quest-card-welcome {
+  from {
+    opacity: 0;
+    transform: translate(var(--welcome-x), var(--welcome-y)) scale(0.96);
+    animation-timing-function: ease-out;
+  }
+  10% {
+    opacity: 1;
+    transform: translate(var(--welcome-x), var(--welcome-y)) scale(1.04);
+    box-shadow:
+      0 0 0 2px var(--primary),
+      0 0 0.75rem color-mix(in oklab, var(--primary) 30%, transparent);
+  }
+  72% {
+    transform: translate(var(--welcome-x), var(--welcome-y)) scale(1.04);
+    box-shadow:
+      0 0 0 2px var(--primary),
+      0 0 0.75rem color-mix(in oklab, var(--primary) 30%, transparent);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(0.5rem);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.25, 1);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes quest-greeting-fade {
+  68% {
+    opacity: 1;
+  }
+  82%,
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes quest-wave {
+  15%,
+  45% {
+    transform: rotate(16deg);
+  }
+  30% {
+    transform: rotate(-8deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes quest-spotlight {
+  from {
+    opacity: 0;
+  }
+  10%,
+  72% {
+    opacity: 1;
+  }
+  88%,
+  to {
+    opacity: 0;
+  }
+}
+
 /* A finished quest (`quest.complete`) gets a bigger moment than a step: the trophy pops with a
  * wobble, sparks burst from it, the card glows once in the accent and the header's help icon pops
  * along. The help ring sweeps to its new fill rather than jumping (`learn.progress-ring`). */
@@ -417,6 +514,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  [data-quest-spotlight] {
+    display: none;
+  }
+
+  [data-quest-welcome],
+  [data-quest-wave],
   [data-quest-trophy],
   [data-quest-sparks] > span,
   [data-quest-glow],

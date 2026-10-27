@@ -7,11 +7,14 @@ import { questsFor, type Quest, type QuestId, type QuestStep } from "./quests";
 
 const PROGRESS_KEY = "tasks.questProgress";
 const SHOW_KEY = "tasks.showQuests";
+const WELCOMED_KEY = "tasks.welcomed";
 // How long a step's success line shows (`quest.success`) and a finished quest's card stays.
 const SUCCESS_MS = 1500;
 const COMPLETE_MS = 5000;
 // Matches quest-card-leave in styles.css.
 const LEAVE_MS = 300;
+// Matches quest-card-welcome in styles.css.
+const WELCOME_MS = 2800;
 
 /** What is saved: the quest under way, the step each started quest is at, and the finished ones. */
 type Stored = {
@@ -34,12 +37,16 @@ let momentTimer: ReturnType<typeof setTimeout> | undefined;
 // Editor steps done before their turn in this editor, so typing `#` before `@` still counts.
 let ahead: readonly number[] = [];
 let editorOpen = false;
-// What React reads of the three above; replaced on every change so it sees one.
-let live: { moment: QuestMoment | null; ahead: readonly number[]; editorOpen: boolean } = {
-  moment,
-  ahead,
-  editorOpen,
-};
+// The welcome is playing on the card (`quest.welcome`).
+let welcome = false;
+let welcomeTimer: ReturnType<typeof setTimeout> | undefined;
+// What React reads of the four above; replaced on every change so it sees one.
+let live: {
+  moment: QuestMoment | null;
+  ahead: readonly number[];
+  editorOpen: boolean;
+  welcome: boolean;
+} = { moment, ahead, editorOpen, welcome };
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -47,7 +54,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 function notify(): void {
-  live = { moment, ahead, editorOpen };
+  live = { moment, ahead, editorOpen, welcome };
   for (const listener of listeners) listener();
 }
 
@@ -122,6 +129,7 @@ type Quests = {
   /** Steps of the active quest done ahead of their turn. */
   ahead: readonly number[];
   editorOpen: boolean;
+  welcome: boolean;
   shown: boolean;
   /** Every quest on this device is complete, so the help icon is plain (`learn.progress-ring`). */
   allComplete: boolean;
@@ -152,10 +160,39 @@ export function useQuests(): Quests {
       moment: current.moment,
       ahead: current.ahead,
       editorOpen: current.editorOpen,
+      welcome: current.welcome,
       shown,
       allComplete: quests.every((quest) => progress.complete.includes(quest.id)),
     };
   }, [stored, shown, current]);
+}
+
+function playWelcome(): void {
+  clearTimeout(welcomeTimer);
+  welcome = true;
+  welcomeTimer = setTimeout(endWelcome, WELCOME_MS);
+  notify();
+}
+
+function endWelcome(): void {
+  clearTimeout(welcomeTimer);
+  welcome = false;
+  notify();
+}
+
+/** The first time a quest card shows on this Tasks home, it opens with the welcome (`quest.welcome`). */
+export function welcomeOnce(): void {
+  if (readPreference(WELCOMED_KEY) === "yes") return;
+  writePreference(WELCOMED_KEY, "yes");
+  playWelcome();
+}
+
+/** Replay welcome in the palette: over the card showing, or Task basics where it was left. */
+export function replayWelcome(): void {
+  const stored = read();
+  const quests = questsFor(currentDevice());
+  if (!stored.active && !offered(stored, quests, questsShown())) resumeQuest(quests[0]!.id);
+  playWelcome();
 }
 
 /** Records a move for the quest under way (`quest.step`); doing the offered step starts it. */
@@ -245,7 +282,7 @@ export function pauseQuest(): void {
   else if (offer) write({ ...stored, steps: { [offer.id]: 0 } });
   else return;
   showMoment(null);
-  notify();
+  endWelcome();
   showTaskToast("Quest paused. Pick it up from ? whenever you like.", { icon: CirclePause });
 }
 

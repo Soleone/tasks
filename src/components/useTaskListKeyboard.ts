@@ -201,6 +201,7 @@ export function useTaskListKeyboard(
     ) {
       if (event.repeat || event.isComposing || event.keyCode === 229) return;
       event.preventDefault();
+      practice("attach.copy");
       if (actions.activeTask) actions.copyImage(actions.activeTask);
       return;
     }
@@ -212,6 +213,7 @@ export function useTaskListKeyboard(
     ) {
       if (event.repeat || event.isComposing || event.keyCode === 229) return;
       event.preventDefault();
+      practice("copy.text");
       if (actions.activeTask) void actions.copyTask(actions.activeTask);
       return;
     }
@@ -229,7 +231,9 @@ export function useTaskListKeyboard(
       if (moveDirection !== null) {
         if (event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
-        practice("reorder.step");
+        if (moveDirection === "start" || moveDirection === "end")
+          practice("reorder.edge", "keys", moveDirection === "start" ? "top" : "bottom");
+        else practice("reorder.step");
         void actions.reorderSelection(moveDirection);
         return;
       }
@@ -345,8 +349,10 @@ export function useTaskListKeyboard(
     } else if (event.key.toLowerCase() === "d") {
       if (event.repeat) return;
       event.preventDefault();
-      if (event.shiftKey) actions.widenDoneLens();
-      else {
+      if (event.shiftKey) {
+        practice("done.lens-window");
+        actions.widenDoneLens();
+      } else {
         practice("done.lens");
         actions.toggleLens("done");
       }
@@ -383,18 +389,22 @@ export function useTaskListKeyboard(
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
+      practice("home.arrows");
       actions.moveActive("next");
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
+      practice("home.arrows");
       actions.moveActive("previous");
     } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       actions.handleHorizontalNavigation(event.key);
     } else if (event.key === "Home") {
       event.preventDefault();
+      practice("home.home-end", "keys", "First");
       actions.moveActive(0);
     } else if (event.key === "End") {
       event.preventDefault();
+      practice("home.home-end", "keys", "Last");
       actions.moveActive(actions.visibleRowCount - 1);
     } else if (event.key === "Enter") {
       if (isNativeButtonAction(event.target)) return;

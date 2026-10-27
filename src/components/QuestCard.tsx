@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactElement } from "react";
-import { CircleCheck, CircleHelp, Pointer, Trophy } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
+import { CircleCheck, CircleHelp, Hand, Pointer, Trophy } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/variants/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -12,6 +12,7 @@ import {
   pauseQuest,
   stepKeys,
   useQuests,
+  welcomeOnce,
   type QuestView,
 } from "@/learning/questProgress";
 import { reopenStep, type Quest } from "@/learning/quests";
@@ -23,7 +24,7 @@ const RECAP_STEP_MS = 150;
 const SPARK_COUNT = 8;
 
 const CARD =
-  "flex items-center gap-4 rounded-xl border bg-card p-4 text-card-foreground shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4";
+  "relative flex items-center gap-4 rounded-xl border bg-card p-4 text-card-foreground shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4";
 
 /** Quest text, with the parts in backticks shown as keys. */
 function KeyedText({ text }: { text: string }): ReactElement {
@@ -47,7 +48,34 @@ function splitHint(text: string): [line: string, hint: string | undefined] {
  * quest's recap. It never takes focus or handles a key; Later puts the quest aside.
  */
 export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | null {
-  const { quests, active, offer, moment, ahead, editorOpen } = useQuests();
+  const { quests, active, offer, moment, ahead, editorOpen, welcome } = useQuests();
+  const cardRef = useRef<HTMLElement>(null);
+  const showing = moment?.kind !== "complete" && Boolean(active ?? offer);
+  useLayoutEffect(() => {
+    if (showing) welcomeOnce();
+  }, [showing]);
+  // The welcome starts where the first task sits, so the card measures its dock before moving.
+  // Without a list on screen it plays in the dock.
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!welcome || !card) return undefined;
+    // Measured without the entrance slide, which would leave the start 1rem too high.
+    card.style.animation = "none";
+    const box = card.getBoundingClientRect();
+    card.style.animation = "";
+    const list = document.getElementById("task-list")?.getBoundingClientRect() ?? box;
+    card.style.setProperty(
+      "--welcome-x",
+      `${list.left + list.width / 2 - box.left - box.width / 2}px`,
+    );
+    card.style.setProperty("--welcome-y", `${list.top - box.top}px`);
+    card.dataset.questWelcome = "";
+    return () => {
+      // Already in the dock, so the entrance slide it falls back to must not play again.
+      card.style.animation = "none";
+      delete card.dataset.questWelcome;
+    };
+  }, [welcome]);
   if (moment?.kind === "complete") {
     const quest = quests.find((entry) => entry.id === moment.quest);
     return quest ? (
@@ -75,68 +103,89 @@ export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | 
       : [step.prompt, quest.summary];
 
   return (
-    <section
-      aria-label="Quest"
-      data-quest-card={quest.id}
-      data-quest-step={active ? index : undefined}
-      data-quest-reopen={reopen || undefined}
-      className={CARD}
-    >
-      <div
-        key={success ? `done-${index}` : index}
-        className="flex min-w-16 shrink-0 justify-center gap-1 motion-safe:animate-in motion-safe:fade-in"
+    <>
+      {welcome ? <div data-quest-spotlight aria-hidden="true" /> : null}
+      <section
+        ref={cardRef}
+        aria-label="Quest"
+        data-quest-card={quest.id}
+        data-quest-step={active ? index : undefined}
+        data-quest-reopen={reopen || undefined}
+        className={CARD}
       >
-        {success ? (
-          <CircleCheck
-            aria-hidden="true"
-            className="size-10 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300"
-          />
-        ) : keys ? (
-          keys.map((key) => <KeyCap key={key}>{key}</KeyCap>)
-        ) : (
-          <Pointer aria-hidden="true" className="size-8 text-muted-foreground" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-          <span>{quest.title}</span>
-          <StepDots quest={quest} done={(step) => step < index || ahead.includes(step)} />
-        </div>
-        <p
+        <div
           key={success ? `done-${index}` : index}
-          aria-live="polite"
-          data-quest-line
-          className={cn(
-            "mt-1 text-sm motion-safe:animate-in motion-safe:fade-in",
-            success ? "font-medium" : "motion-safe:slide-in-from-bottom-1",
+          className="flex min-w-16 shrink-0 justify-center gap-1 motion-safe:animate-in motion-safe:fade-in"
+        >
+          {success ? (
+            <CircleCheck
+              aria-hidden="true"
+              className="size-10 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300"
+            />
+          ) : keys ? (
+            keys.map((key) => <KeyCap key={key}>{key}</KeyCap>)
+          ) : (
+            <Pointer aria-hidden="true" className="size-8 text-muted-foreground" />
           )}
-        >
-          <KeyedText text={line} />
-        </p>
-        {hint ? (
-          <p className="mt-0.5 text-sm text-muted-foreground" data-quest-hint>
-            <KeyedText text={hint} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span>{quest.title}</span>
+            <StepDots quest={quest} done={(step) => step < index || ahead.includes(step)} />
+          </div>
+          <p
+            key={success ? `done-${index}` : index}
+            aria-live="polite"
+            data-quest-line
+            className={cn(
+              "mt-1 text-sm motion-safe:animate-in motion-safe:fade-in",
+              success ? "font-medium" : "motion-safe:slide-in-from-bottom-1",
+            )}
+          >
+            <KeyedText text={line} />
           </p>
-        ) : null}
-        {success?.tryKeys ? (
-          <p className="mt-0.5 text-xs text-muted-foreground" data-quest-try>
-            Next time, try <Kbd>{success.tryKeys.join("+")}</Kbd>
-          </p>
-        ) : null}
+          {hint ? (
+            <p className="mt-0.5 text-sm text-muted-foreground" data-quest-hint>
+              <KeyedText text={hint} />
+            </p>
+          ) : null}
+          {success?.tryKeys ? (
+            <p className="mt-0.5 text-xs text-muted-foreground" data-quest-try>
+              Next time, try <Kbd>{success.tryKeys.join("+")}</Kbd>
+            </p>
+          ) : null}
+        </div>
+        <div className="-my-2 -mr-2 flex shrink-0 flex-col items-end justify-between gap-2 self-stretch">
+          <LearnButton onLearn={onLearn} />
+          <Button
+            variant="ghost"
+            size="sm"
+            tabIndex={-1}
+            onMouseDown={preventFocusSteal}
+            onClick={pauseQuest}
+          >
+            Later
+          </Button>
+        </div>
+        {welcome ? <Welcome /> : null}
+      </section>
+    </>
+  );
+}
+
+/** Covers the card's own content until it fades into it (`quest.welcome`). */
+function Welcome(): ReactElement {
+  return (
+    <div
+      data-quest-greeting
+      className="pointer-events-none absolute inset-0 flex items-center justify-center gap-4 rounded-xl bg-card"
+    >
+      <Hand data-quest-wave aria-hidden="true" className="size-8 shrink-0 text-primary" />
+      <div>
+        <p className="text-lg font-semibold">Welcome to Tasks</p>
+        <p className="text-sm text-muted-foreground">Let's learn it one key at a time</p>
       </div>
-      <div className="-my-2 -mr-2 flex shrink-0 flex-col items-end justify-between gap-2 self-stretch">
-        <LearnButton onLearn={onLearn} />
-        <Button
-          variant="ghost"
-          size="sm"
-          tabIndex={-1}
-          onMouseDown={preventFocusSteal}
-          onClick={pauseQuest}
-        >
-          Later
-        </Button>
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -252,7 +301,7 @@ function QuestComplete({
       data-quest-complete={quest.id}
       data-quest-finale={next ? undefined : true}
       data-quest-leaving={leaving || undefined}
-      className={cn(CARD, "relative")}
+      className={CARD}
     >
       <span
         aria-hidden="true"

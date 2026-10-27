@@ -54,6 +54,27 @@ const QUEST_DEFINITIONS = [
         success: "Saved",
         inEditor: true,
       },
+      {
+        move: "home.right-category",
+        prompt: "Press `→` to see only its category",
+        success: "Showing {} tasks",
+      },
+      {
+        move: "capture.open",
+        prompt: "Press `C` for another task. While you see one category, new tasks start in it",
+        success: "New task",
+      },
+      {
+        move: "capture.save",
+        prompt: "Type what needs doing, then press `Enter` to save it",
+        success: "Saved",
+        inEditor: true,
+      },
+      {
+        move: "home.left-clear-category",
+        prompt: "Press `←` to see every category again",
+        success: "All categories",
+      },
       { move: "status.forward", prompt: "Press `Space` to start the task", success: "In progress" },
       {
         move: "status.forward",
@@ -143,6 +164,16 @@ const QUEST_DEFINITIONS = [
         prompt: "Press `N` again to go back to your previous view",
         success: "Back where you were",
       },
+      {
+        move: "filter.category",
+        prompt: "Press `@` and pick a category to see only its tasks",
+        success: "Category filter. `Enter` picks one",
+      },
+      {
+        move: "home.left-clear-category",
+        prompt: "Press `←` to see every category again",
+        success: "All categories",
+      },
     ],
     touch: [
       {
@@ -212,8 +243,18 @@ const QUEST_DEFINITIONS = [
   {
     id: "find-your-way",
     title: "Find your way",
-    summary: "Filters, sorting and search",
+    summary: "Moving around, filters, sorting and search",
     keyboard: [
+      {
+        move: "home.arrows",
+        prompt: "Press `↑` or `↓` to move between tasks",
+        success: "Moved",
+      },
+      {
+        move: "home.home-end",
+        prompt: "Press `Home` or `End` to jump to the first or last task",
+        success: "{} task",
+      },
       {
         move: "filter.mode",
         prompt: "Press `F`, then one of the keys it shows to filter the list",
@@ -223,11 +264,6 @@ const QUEST_DEFINITIONS = [
         move: "sort.mode",
         prompt: "Press `S`, then one of its keys to sort",
         success: "Sorted",
-      },
-      {
-        move: "filter.category",
-        prompt: "Press `@` and pick a category to see only its tasks",
-        success: "Category filter. `Enter` picks one",
       },
       {
         move: "filter.tags",
@@ -293,6 +329,12 @@ const QUEST_DEFINITIONS = [
         prompt: "Press `Ctrl/⌘`+`↑` or `↓` to move tasks up or down",
         success: "Moved",
       },
+      {
+        move: "reorder.edge",
+        prompt: "Press `Ctrl/⌘`+`Home` or `End` to move them to the top or bottom",
+        success: "Moved to the {}",
+        keys: ["Ctrl/⌘", "Home", "End"],
+      },
     ],
     touch: [
       {
@@ -356,6 +398,16 @@ const QUEST_DEFINITIONS = [
         inEditor: true,
       },
       {
+        move: "copy.text",
+        prompt: "Press `Ctrl/⌘`+`C` to copy the task's text, ready to paste anywhere",
+        success: "Copied",
+      },
+      {
+        move: "attach.copy",
+        prompt: "Press `Ctrl/⌘`+`Shift`+`C` to copy its image",
+        success: "Image copied",
+      },
+      {
         move: "help.palette",
         prompt: "Press `Ctrl/⌘`+`K` for every shortcut there is. `Esc` closes it",
         success: "Every shortcut",
@@ -369,6 +421,43 @@ const QUEST_DEFINITIONS = [
         move: "details.toggle-all",
         prompt: "Press `Shift`+`V` to show the details of every task",
         success: "Details for every task. `Shift`+`V` again hides them",
+      },
+    ],
+  },
+  {
+    id: "make-it-yours",
+    title: "Make it yours",
+    summary: "Themes, settings, your progress and a longer look back",
+    keyboard: [
+      {
+        move: "theme.picker",
+        prompt: "Press `Alt`+`T` to pick a theme. `Esc` closes it without changing anything",
+        success: "Themes",
+      },
+      {
+        move: "settings.open",
+        prompt: "Press `Ctrl/⌘`+`,` for settings. `Esc` closes them",
+        success: "Settings",
+      },
+      {
+        move: "learn.panel",
+        prompt: "Press `?` to see every quest and the keys you've learned",
+        success: "Your progress",
+      },
+      {
+        move: "learn.panel",
+        prompt: "Press `?` again to close it",
+        success: "Closed",
+      },
+      {
+        move: "done.lens-window",
+        prompt: "Press `Shift`+`D` to see what you've done this week",
+        success: "Done this week. `Shift`+`D` again looks further back",
+      },
+      {
+        move: "done.lens",
+        prompt: "Press `D` to go back to your previous view",
+        success: "Back where you were",
       },
     ],
   },

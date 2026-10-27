@@ -30,6 +30,7 @@ test("platform.prefs-scope: preferences live in the home and survive cleared bro
       "tasks.sortField": "priority",
       "tasks.showDetails": "false",
       "tasks.selectedTheme": document.documentElement.dataset.theme,
+      "tasks.welcomed": "yes",
     }),
   );
   await user.keyboard("{Shift>}v{/Shift}");

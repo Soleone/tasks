@@ -1024,6 +1024,7 @@ export function TaskList({
       if (activeRow.hasChildren) {
         // A parent shown only for its children would drop out of its own category filter.
         if (!categoryFilter && activeRow.task.category && !activeRow.contextOnly) {
+          practice("home.right-category", "keys", activeRow.task.category.label);
           selectCategory(activeRow.task.category, activeRow.task.id);
           return;
         }
@@ -1035,6 +1036,7 @@ export function TaskList({
         return;
       }
       if (activeRow.task.category) {
+        practice("home.right-category", "keys", activeRow.task.category.label);
         selectCategory(
           activeRow.task.category,
           activeRow.contextOnly ? undefined : activeRow.task.id,
@@ -1055,6 +1057,7 @@ export function TaskList({
       return;
     }
     if (categoryFilter) {
+      practice("home.left-clear-category");
       clearCategoryFilter(activeRow.contextOnly ? undefined : activeRow.task.id);
     }
   }
@@ -1483,7 +1486,10 @@ export function TaskList({
     void toggleStatus(task);
   });
   const handleOptionToggleExpanded = useStableHandler(toggleExpanded);
-  const handleOptionSelectCategory = useStableHandler(selectCategory);
+  const handleOptionSelectCategory = useStableHandler((category: ClassificationToken): void => {
+    practice("home.right-category", "pointer", category.label);
+    selectCategory(category);
+  });
   const handleOptionCopyImage = useStableHandler(copyNewestImage);
 
   useTaskListKeyboard(

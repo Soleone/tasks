@@ -118,8 +118,24 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "New child of the active task", keys: ["Shift", "C"] },
   },
   {
+    id: "home.arrows",
+    keyboard: { label: "Move between tasks", keys: ["↑↓"] },
+  },
+  {
+    id: "home.home-end",
+    keyboard: { label: "Jump to the first or last task", keys: ["Home", "End"] },
+  },
+  {
     id: "home.left-collapse",
     keyboard: { label: "Collapse a parent", keys: ["←"] },
+  },
+  {
+    id: "home.right-category",
+    keyboard: { label: "Show only the active task's category", keys: ["→"] },
+  },
+  {
+    id: "home.left-clear-category",
+    keyboard: { label: "Show every category again", keys: ["←"] },
   },
   {
     id: "home.right-expand",
@@ -144,9 +160,25 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Reorder", keys: ["Ctrl/⌘", "↑↓"] },
   },
   {
+    id: "reorder.edge",
+    keyboard: { label: "Move to the top or bottom", keys: ["Ctrl/⌘", "Home/End"] },
+  },
+  {
+    id: "copy.text",
+    keyboard: { label: "Copy the active task's text", keys: ["Ctrl/⌘", "C"] },
+  },
+  {
+    id: "attach.copy",
+    keyboard: { label: "Copy its newest image", keys: ["Ctrl/⌘", "Shift", "C"] },
+  },
+  {
     id: "done.lens",
     keyboard: { label: "What you've done today", keys: ["D"] },
     touch: { label: "Tap the done count to see today's work" },
+  },
+  {
+    id: "done.lens-window",
+    keyboard: { label: "Look further back for done tasks", keys: ["Shift", "D"] },
   },
   {
     id: "due.lens",
@@ -164,6 +196,18 @@ const MOVE_DEFINITIONS = [
   {
     id: "help.palette",
     keyboard: { label: "Every shortcut", keys: ["Ctrl/⌘", "K"] },
+  },
+  {
+    id: "learn.panel",
+    keyboard: { label: "Quests and the keys you've learned", keys: ["?"] },
+  },
+  {
+    id: "theme.picker",
+    keyboard: { label: "Pick a theme", keys: ["Alt", "T"] },
+  },
+  {
+    id: "settings.open",
+    keyboard: { label: "Settings", keys: ["Ctrl/⌘", ","] },
   },
 ] as const satisfies readonly MoveDefinition[];
 

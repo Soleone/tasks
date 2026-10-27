@@ -81,6 +81,24 @@ test("quest.offer: a fresh app offers Task basics, and doing its first step star
   expect(questLine()).toBe("New task");
 });
 
+test("quest.welcome: only the first card ever opens with the welcome, and the palette replays it", async () => {
+  const { user } = await workspace.render();
+  await waitFor(() => expect(card()?.hasAttribute("data-quest-welcome")).toBe(true));
+  within(card()!).getByText("Welcome to Tasks");
+  await user.click(within(card()!).getByRole("button", { name: "Later" }));
+  const panel = await openPanel(user);
+  await user.click(panel.getByRole("button", { name: "Resume" }));
+  await waitFor(() => expect(card()).not.toBeNull());
+  expect(card()?.hasAttribute("data-quest-welcome")).toBe(false);
+  expect(within(card()!).queryByText("Welcome to Tasks")).toBeNull();
+  await user.keyboard("{Control>}k{/Control}");
+  await user.click(await screen.findByRole("option", { name: /Replay welcome/ }));
+  await waitFor(() => expect(card()?.hasAttribute("data-quest-welcome")).toBe(true));
+  await waitFor(() => expect(card()?.hasAttribute("data-quest-welcome")).toBe(false), {
+    timeout: 4000,
+  });
+});
+
 test("quest.step: Task basics by keys, with a success line naming what was typed", async () => {
   const { user } = await workspace.render();
   await user.keyboard("c");
@@ -94,13 +112,28 @@ test("quest.step: Task basics by keys, with a success line naming what was typed
   expect(questLine()).toBe("Tagged quick");
   await saveEditor(user, "Saved");
   await expectStep(4);
-  const glyph = () => row("Call mom").querySelector("[data-status]");
-  await user.keyboard(" ");
+  await user.keyboard("{ArrowRight}");
   await expectStep(5);
+  expect(questLine()).toBe("Showing life tasks");
+  await user.keyboard("c");
+  await focusedTitleField();
+  await expectStep(6);
+  // A new task under a category filter starts in that category.
+  expect(document.querySelector("[data-inline-task-editor]")?.textContent).toContain("life");
+  await user.keyboard("Water plants");
+  await saveEditor(user, "Saved");
+  await expectStep(7);
+  await user.keyboard("{ArrowLeft}");
+  await expectStep(8);
+  expect(questLine()).toBe("All categories");
+  await expectActive("Water plants");
+  const glyph = () => row("Water plants").querySelector("[data-status]");
+  await user.keyboard(" ");
+  await expectStep(9);
   expect(questLine()).toBe("In progress");
   await waitFor(() => expect(glyph()?.getAttribute("data-status")).toBe("in_progress"));
   await user.keyboard(" ");
-  await expectStep(6);
+  await expectStep(10);
   expect(questLine()).toBe("Done");
   expect(learnedMoves()).toEqual(
     expect.arrayContaining([
@@ -108,6 +141,8 @@ test("quest.step: Task basics by keys, with a success line naming what was typed
       "shorthand.category",
       "shorthand.tags",
       "capture.save",
+      "home.right-category",
+      "home.left-clear-category",
       "status.forward",
     ]),
   );
@@ -173,6 +208,39 @@ test("quest.step: a description counts even when the task has one, then an image
   await expectStep(5);
   await user.keyboard("{Control>}{Enter}{/Control}");
   await expectStep(6);
+  await expectListFocused();
+  await user.keyboard("{Control>}c{/Control}");
+  await expectStep(7);
+  await user.keyboard("{Control>}{Shift>}c{/Shift}{/Control}");
+  await expectStep(8);
+});
+
+test("quest.step: Plan ahead ends on the category picker, then Left shows every category again", async () => {
+  await workspace.create("Plan", { category: "work" });
+  await workspace.create("Rest", { category: "life" });
+  startAt("plan-ahead", 6);
+  const { user } = await workspace.render();
+  await user.keyboard("@");
+  await expectStep(7);
+  await user.keyboard("work{Enter}");
+  await expectRows(["Plan"]);
+  await user.keyboard("{ArrowLeft}");
+  await waitFor(() =>
+    expect(document.querySelector("[data-quest-complete=plan-ahead]")).not.toBeNull(),
+  );
+  await expectRows(["Rest", "Plan"]);
+});
+
+test("quest.step: Find your way starts by moving around the list", async () => {
+  await workspace.create("One");
+  await workspace.create("Two");
+  startAt("find-your-way", 0);
+  const { user } = await workspace.render();
+  await user.keyboard("{ArrowDown}");
+  await expectStep(1);
+  await user.keyboard("{Home}");
+  await expectStep(2);
+  expect(questLine()).toBe("First task");
 });
 
 function startAt(quest: string, step: number, complete: string[] = []): void {
@@ -232,27 +300,39 @@ test("quest.step: Shape your list collapses the new child's parent, then expands
   expect(activeTitle()).toBe("Parent");
 });
 
-test("quest.complete: the last quest, ending on Shift+V after the palette, is the finale and leaves the plain help icon", async () => {
-  await workspace.create("Task", { description: "Notes" });
-  startAt("fast-hands", 6, [
+test("quest.complete: Make it yours, the last quest, is the finale and leaves the plain help icon", async () => {
+  await workspace.create("Task");
+  startAt("make-it-yours", 0, [
     "first-task",
     "plan-ahead",
     "change-of-plans",
     "find-your-way",
     "shape-your-list",
+    "fast-hands",
   ]);
   const { user } = await workspace.render();
-  await expectStep(6);
-  await user.keyboard("{Control>}k{/Control}");
-  await screen.findByRole("dialog");
-  await expectStep(7);
+  await expectStep(0);
+  await user.keyboard("{Alt>}t{/Alt}");
+  await expectStep(1);
   await user.keyboard("{Escape}");
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  await user.keyboard("v");
-  await expectStep(8);
-  await user.keyboard("{Shift>}v{/Shift}");
+  await expectListFocused();
+  await user.keyboard("{Control>},{/Control}");
+  await screen.findByRole("dialog", { name: "Settings" });
+  await expectStep(2);
+  await user.keyboard("{Escape}");
+  await expectListFocused();
+  await user.keyboard("?");
+  await screen.findByRole("complementary", { name: "Learn" });
+  await expectStep(3);
+  await user.keyboard("?");
+  await expectStep(4);
+  await user.keyboard("{Shift>}d{/Shift}");
+  await expectStep(5);
+  await user.keyboard("d");
   const finale = await waitFor(() => {
-    const element = document.querySelector("[data-quest-complete=fast-hands][data-quest-finale]");
+    const element = document.querySelector(
+      "[data-quest-complete=make-it-yours][data-quest-finale]",
+    );
     expect(element).not.toBeNull();
     return element as HTMLElement;
   });
@@ -278,12 +358,12 @@ test("quest.complete: the recap names the next quest, then the card leaves and o
   await workspace.create("Task");
   localStorage.setItem(
     "tasks.questProgress",
-    JSON.stringify({ active: "first-task", steps: { "first-task": 6 }, complete: [] }),
+    JSON.stringify({ active: "first-task", steps: { "first-task": 10 }, complete: [] }),
   );
   const { user } = await workspace.render();
-  await expectStep(6);
+  await expectStep(10);
   await user.keyboard("d");
-  await expectStep(7);
+  await expectStep(11);
   expect(questLine()).toBe("Done today");
   await waitFor(() => expect(questLine()).toBe("Press D again to go back to your previous view"));
   await user.keyboard("d");
@@ -320,12 +400,12 @@ test("quest.pointer: the mouse finishes a step but names its keys and doesn't le
   await workspace.create("Task");
   localStorage.setItem(
     "tasks.questProgress",
-    JSON.stringify({ active: "first-task", steps: { "first-task": 4 }, complete: [] }),
+    JSON.stringify({ active: "first-task", steps: { "first-task": 8 }, complete: [] }),
   );
   const { user } = await workspace.render();
-  await expectStep(4);
+  await expectStep(8);
   await user.click(row("Task").querySelector("[data-status]")!);
-  await expectStep(5);
+  await expectStep(9);
   expect(card()?.querySelector("[data-quest-try]")?.textContent).toBe("Next time, try Space");
   expect(learnedMoves()).not.toContain("status.forward");
 });
@@ -343,7 +423,7 @@ test("quest.pause: Later puts the offer aside with a friendly toast, and nothing
   expect(card()).toBeNull();
   await user.keyboard("{Escape}");
   const panel = await openPanel(user);
-  panel.getByText("Paused at step 1 of 8");
+  panel.getByText("Paused at step 1 of 12");
 });
 
 test("quest.reopen: saving before the tag keeps the category, and the edited task takes the tag", async () => {
@@ -383,14 +463,14 @@ test("quest.resume: Resume in the Learn panel brings the card back where it was 
   await workspace.create("Task");
   localStorage.setItem(
     "tasks.questProgress",
-    JSON.stringify({ active: null, steps: { "first-task": 4 }, complete: [] }),
+    JSON.stringify({ active: null, steps: { "first-task": 8 }, complete: [] }),
   );
   const { user } = await workspace.render();
   const panel = await openPanel(user);
-  panel.getByText("Paused at step 5 of 8");
+  panel.getByText("Paused at step 9 of 12");
   await user.click(panel.getByRole("button", { name: "Resume" }));
   expect(screen.queryByRole("complementary", { name: "Learn" })).toBeNull();
-  await expectStep(4);
+  await expectStep(8);
   expect(questLine()).toBe("Press Space to start the task");
   await expectListFocused();
 });
@@ -409,7 +489,7 @@ test("quest.one-at-a-time: starting a quest puts the one under way aside, quietl
   await waitFor(() => expect(card()?.getAttribute("data-quest-card")).toBe("plan-ahead"));
   expect(screen.queryByText(/^Quest paused/)).toBeNull();
   const reopened = await openPanel(user);
-  reopened.getByText("Paused at step 2 of 8");
+  reopened.getByText("Paused at step 2 of 12");
 });
 
 test("learn.panel: ? opens the quest log without taking focus, and ? closes it", async () => {
@@ -425,9 +505,10 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
       "Find your way",
       "Shape your list",
       "Fast hands",
+      "Make it yours",
     ],
   );
-  expect(panel.getAllByText("New")).toHaveLength(6);
+  expect(panel.getAllByText("New")).toHaveLength(7);
   expect(
     within(panel.getByRole("region", { name: "Task basics" }))
       .getAllByRole("listitem")
@@ -437,6 +518,8 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
     "shorthand.category",
     "shorthand.tags",
     "capture.save",
+    "home.right-category",
+    "home.left-clear-category",
     "status.forward",
     "done.lens",
   ]);
@@ -464,7 +547,8 @@ test("learn.reset: Reset progress forgets learned moves and quests, so the offer
   await user.click(within(card()!).getByRole("button", { name: "Later" }));
   await user.keyboard("v");
   const settings = await openSettings(user);
-  settings.getByText(/^1 of \d+ moves learned$/);
+  // V, and Ctrl+, itself.
+  settings.getByText(/^2 of \d+ moves learned$/);
   await user.click(settings.getByRole("button", { name: "Reset progress" }));
   await settings.findByText("Progress reset. Quests start over.");
   settings.getByText(/^0 of \d+ moves learned$/);

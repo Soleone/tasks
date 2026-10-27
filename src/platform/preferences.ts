@@ -18,6 +18,7 @@ const PREFERENCE_KEYS = new Set([
   "tasks.foldedToolbarGroups",
   "tasks.showQuests",
   "tasks.questProgress",
+  "tasks.welcomed",
   "tasks.learnedMoves",
 ]);
 // Earlier versions kept these; they are dropped on load so those settings still open.

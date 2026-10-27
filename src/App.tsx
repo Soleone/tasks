@@ -250,7 +250,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   const [announcement, setAnnouncement] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [learnOpen, setLearnOpen] = useState(false);
-  const toggleLearn = () => setLearnOpen((open) => !open);
+  const toggleLearn = (via: "keys" | "pointer") => {
+    practice("learn.panel", via);
+    setLearnOpen((open) => !open);
+  };
   const [themesOpen, setThemesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [picker, setPicker] = useState<{ mode: TaskPickerMode; subject: TaskView } | null>(null);
@@ -323,6 +326,9 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     isCurrentViewMatch,
   } = taskView;
   const { doneToday: doneTodayCount, dueNow: dueNowCount } = useHeaderCounts(tasks);
+  // The quest card waits for the first load, so the welcome starts over the first task.
+  const [tasksLoaded, setTasksLoaded] = useState(false);
+  if (!tasksLoaded && !loading) setTasksLoaded(true);
   const {
     optimisticCreate,
     setOptimisticCreate,
@@ -405,7 +411,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
     if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
       event.preventDefault();
-      toggleLearn();
+      toggleLearn("keys");
       return;
     }
     if (event.key === "Escape" && learnOpen) {
@@ -416,13 +422,19 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ",") {
       event.preventDefault();
       if (settingsOpen) setSettingsOpen(false);
-      else openSettings();
+      else {
+        practice("settings.open");
+        openSettings();
+      }
       return;
     }
     if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
       event.preventDefault();
       if (themesOpen) setThemesOpen(false);
-      else openThemes();
+      else {
+        practice("theme.picker");
+        openThemes();
+      }
       return;
     }
     if (event.altKey) return;
@@ -793,7 +805,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                       tabIndex={-1}
                       aria-keyshortcuts="Shift+/"
                       onMouseDown={preventFocusSteal}
-                      onClick={toggleLearn}
+                      onClick={() => toggleLearn("pointer")}
                     />
                   }
                 >
@@ -822,7 +834,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                       tabIndex={-1}
                       aria-keyshortcuts="Alt+t"
                       onMouseDown={preventFocusSteal}
-                      onClick={openThemes}
+                      onClick={() => {
+                        practice("theme.picker", "pointer");
+                        openThemes();
+                      }}
                     />
                   }
                 >
@@ -843,7 +858,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                       tabIndex={-1}
                       aria-keyshortcuts="Control+, Meta+,"
                       onMouseDown={preventFocusSteal}
-                      onClick={openSettings}
+                      onClick={() => {
+                        practice("settings.open", "pointer");
+                        openSettings();
+                      }}
                     />
                   }
                 >
@@ -857,7 +875,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         </header>
 
         {/* Under the header on Android, so the soft keyboard never hides it (`platform.quest-card`). */}
-        {android ? <QuestCard onLearn={toggleLearn} /> : null}
+        {android && tasksLoaded ? <QuestCard onLearn={() => toggleLearn("pointer")} /> : null}
         <TaskList
           ref={taskListRef}
           tasks={tasks}
@@ -947,7 +965,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />
-        {android ? null : <QuestCard onLearn={toggleLearn} />}
+        {android || !tasksLoaded ? null : <QuestCard onLearn={() => toggleLearn("pointer")} />}
         <p role="status" className="sr-only">
           {announcement}
         </p>
