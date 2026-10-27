@@ -1,5 +1,7 @@
 #[cfg(target_os = "android")]
 mod android_backend;
+#[cfg(target_os = "linux")]
+mod linux_launcher;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -79,6 +81,7 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Not decorations or visibility: Linux drops decorations in setup and the window always shows.
@@ -114,6 +117,8 @@ pub fn run() {
             app.get_webview_window("main")
                 .expect("main window should exist")
                 .set_decorations(false)?;
+            #[cfg(target_os = "linux")]
+            linux_launcher::register();
 
             #[cfg(debug_assertions)]
             app.get_webview_window("main")

@@ -32,7 +32,7 @@ pnpm exec node --version
 
 To deliberately upgrade Node, update `devEngines.runtime.version`, run `pnpm install` to refresh the runtime lock, and rerun validation. The first Android build for that version recompiles Node; later builds reuse it.
 
-Native development additionally needs [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Windows is the first release platform; native validation is deferred to the owner's host. Linux/WSL backend success is not a desktop acceptance pass.
+Native development additionally needs [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Windows is the first release platform and Omarchy the second; native validation is deferred to the owner's hosts. Linux/WSL backend success is not a desktop acceptance pass.
 
 ## Linux development on disposable data
 
@@ -84,7 +84,7 @@ Build on the machine the app runs on, from a local checkout (on Windows an NTFS 
 
 The app opens the remembered Tasks home. Everything it keeps lives in that home (settings, `sync/`, and `local/` with its cache `app.db`, the writer lock, recovery files and undo records); the app's own config folder (`%APPDATA%\com.soleone.tasks` on Windows) holds only `home.json`, the pointer to the home, `.window-state.json`, the window's size and position, and the WebView's storage. The first launch asks to create a home (suggested: `Tasks` in the user folder, since Windows `Documents` is often inside OneDrive) or open an existing one. The old version's tasks are converted outside the app with `pnpm migrate` ([runbook](migration.md)). Uninstalling never touches the home. The Windows uninstaller also keeps the app's own data when its "Delete the application data" box is ticked and says so (`src-tauri/windows/installer-hooks.nsh`); on Android, uninstalling drops only the private pointer, and a reinstall opens the home on shared storage again. Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
 
-On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. A browser or WSLg session does not establish Omarchy desktop support. Global focus is deferred; the old implementation is in git (`src/platform/globalShortcut.ts` before the legacy removal). Separately approve native work before pursuing it.
+On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. The Linux release is an AppImage built on the Omarchy machine; started from anywhere, it writes its own app menu entry and icon under `~/.local/share` (`src-tauri/src/linux_launcher.rs`). If it refuses to start with a FUSE error, install `fuse2`. A browser or WSLg session does not establish Omarchy desktop support. Global focus is deferred; the old implementation is in git (`src/platform/globalShortcut.ts` before the legacy removal). Separately approve native work before pursuing it.
 
 ## Android
 
@@ -113,19 +113,20 @@ WSL has no emulator (no KVM). An emulator runs on the Windows side: the SDK is i
 
 One version covers every platform. It lives in `package.json`; Tauri reads it from there and derives the Android `versionCode` from it, so every release installs over the last. Each release attaches whichever builds were made for it.
 
-All three steps run in WSL with the GitHub CLI logged in (`gh auth login`).
+Each step needs the GitHub CLI logged in (`gh auth login`). All run in WSL except Linux, which builds on the Omarchy machine so the AppImage matches its libraries.
 
 1. `pnpm release` on `main` with a clean tree asks for patch, minor or major, prepends the `feat`, `fix` and `perf` commits since the last tag to `CHANGELOG.md`, commits, tags `vX.Y.Z`, pushes and creates the GitHub release with the same notes. `pnpm release --dry-run` shows what it would do.
 2. `pnpm release:windows` copies the checkout to `D:\src\wsl\tasks` with the owner's `win-sync`, runs `pnpm install --frozen-lockfile` and `pnpm build:tauri` there through `cmd.exe` with `src-tauri/tauri.release.conf.json`, which signs the installer for updates. It attaches `Tasks_X.Y.Z_x64-setup.exe`, then `latest.json`, the manifest installed apps check. The Windows copy has no git; the tag check happens in WSL before the copy.
-3. `pnpm release:android` builds the signed APK and attaches it as `Tasks_X.Y.Z_arm64.apk`.
+3. `pnpm release:linux`, on the Omarchy machine in a checkout of the tag, runs `pnpm install --frozen-lockfile` and builds the signed AppImage with the same release config, then attaches `Tasks_X.Y.Z_amd64.AppImage` and `latest.json`. It needs the [Tauri prerequisites for Arch](https://v2.tauri.app/start/prerequisites/#linux), Rust and pnpm, and refuses to run in WSL.
+4. `pnpm release:android` builds the signed APK and attaches it as `Tasks_X.Y.Z_arm64.apk`.
 
 The platform steps refuse a dirty tree or a HEAD that isn't the tag of the current version, and running one again replaces its file. Windows installers are not code signed yet, so SmartScreen warns on a manual install.
 
 ### Updates
 
-Installed Windows apps check `releases/latest/download/latest.json` on GitHub once per start and offer the newer version (`platform.update`). The installer runs in update mode: no pages, no uninstall, and Tasks restarts. A release counts only once `release:windows` has uploaded `latest.json`; until then installed apps see the previous one.
+Installed Windows and Linux apps check `releases/latest/download/latest.json` on GitHub once per start and offer the newer version (`platform.update`). On Windows the installer runs in update mode: no pages, no uninstall, and Tasks restarts. On Linux the AppImage replaces itself and the app relaunches. Each desktop step adds its own platform to the release's `latest.json`, so run them one after the other. Until a platform's step has run, that platform's apps find no update.
 
-The update signing key and its password live in `$DATA/apps/tasks/release/` (`updater.key`, `updater.password`), outside the repo; `release:windows` passes them to the Windows build through `WSLENV`. Installed apps trust only the public key in `src-tauri/tauri.conf.json`. Keep a backup of that folder: without the key, no installed app accepts a new update, and each one needs a manual install of a build with a new key.
+The update signing key and its password live in `$DATA/apps/tasks/release/` (`updater.key`, `updater.password`), outside the repo; `release:windows` passes them to the Windows build through `WSLENV`. The Omarchy machine needs its own copy of that folder at the same place under its `$DATA` (or `~/data`), kept private (`chmod 700`). Installed apps trust only the public key in `src-tauri/tauri.conf.json`. Keep a backup of that folder: without the key, no installed app accepts a new update, and each one needs a manual install of a build with a new key.
 
 ## Storage and retry safety
 

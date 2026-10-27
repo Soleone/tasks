@@ -1,3 +1,4 @@
+import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { closeHome } from "./backendClient";
 import { isDesktopApp } from "./runtime";
@@ -13,7 +14,7 @@ export async function availableUpdate(): Promise<Update | null> {
 
 /**
  * Downloads first, so a failed download leaves the home open. Then it saves and closes the home
- * before the installer replaces the backend, and Windows restarts Tasks once it is done.
+ * before the update replaces the backend, and Tasks restarts once it is done.
  */
 export async function installUpdate(update: Update): Promise<void> {
   await update.download();
@@ -23,4 +24,7 @@ export async function installUpdate(update: Update): Promise<void> {
     window.location.reload();
     throw error;
   });
+  // Windows never gets here: its installer quits Tasks and starts it again. A Linux AppImage is
+  // swapped in place, so the app restarts itself.
+  await relaunch();
 }

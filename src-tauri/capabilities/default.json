@@ -13,6 +13,7 @@
   "permissions": [
     "core:default",
     "dialog:allow-open",
+    "process:allow-restart",
     "shell:allow-kill",
     "shell:allow-stdin-write",
     "updater:default",

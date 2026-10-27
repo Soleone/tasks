@@ -5,13 +5,14 @@ import path from "node:path";
 import process from "node:process";
 import release from "release-it";
 
-// All three steps run in WSL. `pnpm release` asks for the bump, writes CHANGELOG.md from feat/fix
-// commits, tags and creates the GitHub release (.release-it.json). `pnpm release:windows` and
-// `pnpm release:android` then build that tag and attach the result with WSL's logged-in `gh`.
+// `pnpm release` asks for the bump, writes CHANGELOG.md from feat/fix commits, tags and creates
+// the GitHub release (.release-it.json). `pnpm release:windows` and `pnpm release:android` then
+// build that tag in WSL, and `pnpm release:linux` on the Omarchy machine, each attaching its
+// result with that host's logged-in `gh`.
 const root = path.resolve(import.meta.dirname, "..");
 // Where the owner's `win-sync` copies this checkout; Windows builds there, without git.
 const windowsCopy = "/mnt/d/src/wsl/tasks";
-// The key that signs Windows updates and its password, kept outside the repo. Installed apps
+// The key that signs desktop updates and its password, kept outside the repo. Installed apps
 // trust only its public half in tauri.conf.json, so losing it means one manual install everywhere.
 const releaseSecrets = path.join(
   process.env.DATA ?? path.join(os.homedir(), "data"),
@@ -51,21 +52,26 @@ const platforms = {
       const installer = `Tasks_${version}_x64-setup.exe`;
       const output = path.join(windowsCopy, "src-tauri/target/release/bundle/nsis", installer);
       copyFileSync(output, path.join(dir, installer));
-      // The manifest the installed apps poll through releases/latest; uploaded last, so it
-      // never names an installer that isn't there yet.
-      const url = gh("repo", "view", "--json", "url", "--jq", ".url").trim();
-      const manifest = {
-        version,
-        pub_date: new Date().toISOString(),
-        platforms: {
-          "windows-x86_64": {
-            signature: readFileSync(`${output}.sig`, "utf8"),
-            url: `${url}/releases/download/v${version}/${installer}`,
-          },
-        },
-      };
-      writeFileSync(path.join(dir, "latest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+      writeManifest(version, dir, "windows-x86_64", installer, `${output}.sig`);
       return [installer, "latest.json"];
+    },
+  },
+  linux: {
+    build(version, dir) {
+      if (process.platform !== "linux" || os.release().toLowerCase().includes("microsoft"))
+        throw new Error("Build the Linux release on the Omarchy machine, not in WSL or elsewhere.");
+      execFileSync("pnpm", ["install", "--frozen-lockfile"], { cwd: root, stdio: "inherit" });
+      execFileSync(
+        "pnpm",
+        ["build:tauri", "--config", "src-tauri/tauri.release.conf.json", "--bundles", "appimage"],
+        // linuxdeploy's own strip is too old for Arch's libraries and fails the bundle.
+        { cwd: root, stdio: "inherit", env: { ...signingEnv(), NO_STRIP: "true" } },
+      );
+      const appimage = `Tasks_${version}_amd64.AppImage`;
+      const output = path.join(root, "src-tauri/target/release/bundle/appimage", appimage);
+      copyFileSync(output, path.join(dir, appimage));
+      writeManifest(version, dir, "linux-x86_64", appimage, `${output}.sig`);
+      return [appimage, "latest.json"];
     },
   },
   android: {
@@ -83,6 +89,30 @@ const platforms = {
     },
   },
 };
+
+/**
+ * Writes `latest.json`, the manifest installed apps poll through releases/latest, adding this
+ * platform's entry to the one the release already has. It is uploaded after the build it names,
+ * so it never points at a file that isn't there yet. Run the desktop steps one after the other:
+ * two at once would each upload a manifest without the other's entry.
+ */
+function writeManifest(version, dir, platform, asset, signature) {
+  const tag = `v${version}`;
+  const file = path.join(dir, "latest.json");
+  const uploaded = gh("release", "view", tag, "--json", "assets", "--jq", ".assets[].name");
+  let platforms = {};
+  if (uploaded.split("\n").includes("latest.json")) {
+    gh("release", "download", tag, "--pattern", "latest.json", "--dir", dir);
+    platforms = JSON.parse(readFileSync(file, "utf8")).platforms;
+  }
+  const url = gh("repo", "view", "--json", "url", "--jq", ".url").trim();
+  platforms[platform] = {
+    signature: readFileSync(signature, "utf8"),
+    url: `${url}/releases/download/${tag}/${asset}`,
+  };
+  const manifest = { version, pub_date: new Date().toISOString(), platforms };
+  writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
+}
 
 function git(...args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -117,7 +147,7 @@ const args = process.argv.slice(2);
 const target = args.find((arg) => !arg.startsWith("--"));
 if (target) {
   const platform = platforms[target];
-  if (!platform) throw new Error(`Unknown platform ${target}; use windows or android.`);
+  if (!platform) throw new Error(`Unknown platform ${target}; use windows, linux or android.`);
   attach(platform);
 } else {
   process.env.GITHUB_TOKEN ??= gh("auth", "token").trim();

@@ -29,6 +29,7 @@
     "check": "vp check",
     "release": "node scripts/release.mjs",
     "release:windows": "node scripts/release.mjs windows",
+    "release:linux": "node scripts/release.mjs linux",
     "release:android": "node scripts/release.mjs android",
     "prepare": "vp config"
   },
@@ -37,6 +38,7 @@
     "@fontsource-variable/geist": "^5.3.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "~2.7.3",
+    "@tauri-apps/plugin-process": "~2.3.1",
     "@tauri-apps/plugin-shell": "^2.3.6",
     "@tauri-apps/plugin-updater": "~2.12.0",
     "class-variance-authority": "^0.7.1",
