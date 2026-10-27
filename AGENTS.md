@@ -36,6 +36,10 @@ The project follows the `web` template of `kit` (`.kit.json` records the revisio
 - Keyboard focus uses the solid 2px theme ring from `src/components/variants/focus.ts`. Import focusable app controls from their `variants` wrappers, not the stock primitives; lint guards those imports. Composite controls show one ring around their keyboard stop. Lists, menu results and the shared theme picker retain their active-item treatments.
 - A look the stock variants don't have is a wrapper in `src/components/variants/` (for example `ToggleButton` around `Button`), named for its job and with a one-line reason. A plain class map plus `cn()` covers one state or one small set of kinds; reach for `cva` when a wrapper has several variant axes or compound variants, or exports its classes for use without the component. That folder is the only place allowed to restyle primitives or import `class-variance-authority`. Behavior that isn't styling, such as the palette search scorer in `components/commandFilter.ts`, lives outside both folders.
 
+## Commits
+
+Write commit subjects as Conventional Commits: `feat(scope): …`, `fix(scope): …`, `perf: …`, or `refactor`, `test`, `docs`, `chore`. `pnpm release` writes CHANGELOG.md and the GitHub release notes from `feat`, `fix` and `perf` commits only, so a change a user would notice needs one of those, worded for them.
+
 ## Development tracking
 
 Development tasks use pi-tasks with the `sq` backend, separate from the product's own task storage. Use `sq prime` for CLI guidance. Store pi-tasks metadata under `pi_tasks`, for example `--merge-metadata '{"pi_tasks":{"taskType":"TYPE"}}'`.
