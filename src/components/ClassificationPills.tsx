@@ -1,26 +1,36 @@
 import { useLayoutEffect, useRef, useState, type ReactElement, type RefObject } from "react";
-import { CalendarDays, Folder, X } from "lucide-react";
-import { localToday } from "@/backend/dueDate";
-import { formatDueDate } from "@/backend/taskDates";
+import { X } from "lucide-react";
+import { cn } from "cn";
+import { daysBetween, localToday } from "@/backend/dueDate";
+import { formatDueDate, shortDueDate } from "@/backend/taskDates";
 import { ClassificationBadge } from "@/components/variants/badge";
+import { CategoryFact, DueFact } from "./TaskRow";
 import { preventFocusSteal } from "@/navigation";
 import type { Classification, Marker } from "./composerShorthand";
 
 /** A pill that just lifted out of the title, and where its marker started in the title text. */
 export type PillLanding = { marker: Marker; slug: string; at: number };
 
-type Pill = { marker: Marker; slug: string; kind: "category" | "tag" | "due"; label: string };
+type PillKind = "category" | "tag" | "due";
+
+type Pill = { marker: Marker; slug: string; kind: PillKind; label: string };
 
 /** A pill on its way out, shown at `index` among the pills until its exit has played. */
 type LeavingPill = { id: number; pill: Pill; index: number };
 
 const PILL_EXIT_MS = 160;
 
+/** On touch, a pill reaches past its 20px so a finger can hit it. */
+const TOUCH_TARGET =
+  "relative pointer-coarse:after:absolute pointer-coarse:after:-inset-x-0.5 pointer-coarse:after:-inset-y-2";
+
 const pillKey = (marker: Marker, slug: string): string => `${marker}${slug}`;
 
 const removeNoun = { category: "category", tag: "tag", due: "due date" };
 
-function pillsOf({ category, tags, due }: Classification): Pill[] {
+const listName = { category: "Category", tag: "Tags", due: "Due date" };
+
+function pillsOf({ category, tags, due }: Classification, today: string): Pill[] {
   return [
     ...(category === null
       ? []
@@ -33,7 +43,7 @@ function pillsOf({ category, tags, due }: Classification): Pill[] {
             marker: "^",
             slug: due,
             kind: "due",
-            label: formatDueDate(due, localToday()),
+            label: shortDueDate(due, today),
           } as const,
         ]),
   ];
@@ -66,31 +76,49 @@ function titleOffset(input: HTMLInputElement, index: number): { x: number; y: nu
   return { x: Math.min(x - input.scrollLeft, box.right), y: box.top + box.height / 2 };
 }
 
-function PillContent({ pill }: { pill: Pill }): ReactElement {
+// Tags are badges under the title; the category and due date read as the row's quiet end facts.
+function PillContent({ pill, today }: { pill: Pill; today: string }): ReactElement {
+  const remove = <X className="size-3 shrink-0" aria-hidden="true" />;
+  if (pill.kind === "category") return <CategoryFact label={pill.label}>{remove}</CategoryFact>;
+  if (pill.kind === "due") {
+    return (
+      <DueFact
+        label={pill.label}
+        now={daysBetween(today, pill.slug) <= 0}
+        title={`Due ${formatDueDate(pill.slug, today)}`}
+      >
+        {remove}
+      </DueFact>
+    );
+  }
   return (
-    <>
-      {pill.kind === "category" ? <Folder data-icon="inline-start" aria-hidden="true" /> : null}
-      {pill.kind === "due" ? <CalendarDays data-icon="inline-start" aria-hidden="true" /> : null}
+    <ClassificationBadge kind="tag">
       {pill.label}
       <X data-icon="inline-end" aria-hidden="true" />
-    </>
+    </ClassificationBadge>
   );
 }
 
-/** The pills under the title field. Clicking a pill removes it; pills are not Tab stops. */
+/**
+ * One kind of pill: tags under the title field, or the category or due date at its end.
+ * Clicking a pill removes it; pills are not Tab stops.
+ */
 export function ClassificationPills({
+  kind,
   classification,
   landing,
   titleInput,
   onRemove,
 }: {
+  kind: PillKind;
   classification: Classification;
   landing: PillLanding | null;
   titleInput: RefObject<HTMLInputElement | null>;
   onRemove: (marker: Marker, slug: string) => void;
 }): ReactElement {
   const row = useRef<HTMLDivElement>(null);
-  const pills = pillsOf(classification);
+  const today = localToday();
+  const pills = pillsOf(classification, today).filter((pill) => pill.kind === kind);
   const signature = pills.map((pill) => pillKey(pill.marker, pill.slug)).join(" ");
   const [exits, setExits] = useState(() => ({ signature, pills, leaving: [] as LeavingPill[] }));
   const started = useRef(new Set<number>());
@@ -165,42 +193,35 @@ export function ClassificationPills({
     <div
       ref={row}
       role="list"
-      aria-label="Category, tags and due date"
-      className="flex min-h-5 flex-wrap items-center gap-1.5"
+      aria-label={listName[kind]}
+      className={cn(
+        "flex min-w-0 items-center gap-1.5",
+        kind === "tag" ? "flex-wrap empty:hidden" : "h-[1.375em]",
+      )}
     >
-      {shown.length === 0 ? (
-        <span className="text-xs text-muted-foreground">@category #tags ^date</span>
-      ) : null}
       {shown.map((entry) =>
         "pill" in entry ? (
           <span
             key={`leaving-${entry.id}`}
             data-leaving-pill={entry.id}
             aria-hidden="true"
-            className="pointer-events-none flex"
+            className="pointer-events-none flex min-w-0"
           >
-            <ClassificationBadge kind={entry.pill.kind}>
-              <PillContent pill={entry.pill} />
-            </ClassificationBadge>
+            <PillContent pill={entry.pill} today={today} />
           </span>
         ) : (
-          <span key={pillKey(entry.marker, entry.slug)} role="listitem" className="flex">
-            <ClassificationBadge
-              kind={entry.kind}
-              touchTarget
+          <span key={pillKey(entry.marker, entry.slug)} role="listitem" className="flex min-w-0">
+            <button
+              type="button"
+              tabIndex={-1}
               data-pill={pillKey(entry.marker, entry.slug)}
-              render={
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={`Remove ${removeNoun[entry.kind]} ${entry.label}`}
-                  onMouseDown={preventFocusSteal}
-                  onClick={() => onRemove(entry.marker, entry.slug)}
-                />
-              }
+              aria-label={`Remove ${removeNoun[entry.kind]} ${entry.label}`}
+              onMouseDown={preventFocusSteal}
+              onClick={() => onRemove(entry.marker, entry.slug)}
+              className={cn("group/fact flex min-w-0 cursor-pointer", TOUCH_TARGET)}
             >
-              <PillContent pill={entry} />
-            </ClassificationBadge>
+              <PillContent pill={entry} today={today} />
+            </button>
           </span>
         ),
       )}

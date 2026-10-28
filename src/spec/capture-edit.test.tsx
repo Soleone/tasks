@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { addDays, localToday, parseDueWord } from "@/backend/dueDate";
-import { formatDueDate } from "@/backend/taskDates";
+import { formatDueDate, shortDueDate } from "@/backend/taskDates";
 import { AppWorkspace, pngBytes } from "@/testing/appWorkspace";
 import { fakeImageClipboard } from "@/testing/imageClipboard";
 import {
@@ -246,9 +246,11 @@ describe("shorthand", () => {
   }
 
   function pills(): string[] {
-    return within(within(editor()).getByRole("list", { name: "Category, tags and due date" }))
-      .queryAllByRole("listitem")
-      .map((item) => item.textContent ?? "");
+    return ["Category", "Tags", "Due date"].flatMap((name) =>
+      within(within(editor()).getByRole("list", { name }))
+        .queryAllByRole("listitem")
+        .map((item) => item.textContent ?? ""),
+    );
   }
 
   async function suggestion(name: RegExp): Promise<HTMLElement> {
@@ -370,7 +372,7 @@ describe("shorthand", () => {
         }) as unknown as Animation,
     );
     try {
-      const row = within(editor()).getByRole("list", { name: "Category, tags and due date" });
+      const row = within(editor()).getByRole("list", { name: "Tags" });
       await user.click(within(row).getByRole("button", { name: "Remove tag books" }));
       expect(pills()).toEqual(["later"]);
       expect(row.textContent).toBe("bookslater");
@@ -553,7 +555,7 @@ describe("shorthand", () => {
     const { user } = await workspace.render();
     await capture(user, "Pay x^2 ^tmr rent");
     expect(titleField().value).toBe("Pay x^2 rent");
-    expect(pills()).toEqual([formatDueDate(tomorrow, localToday())]);
+    expect(pills()).toEqual([shortDueDate(tomorrow, localToday())]);
     await user.keyboard("{Enter}");
     await waitFor(async () => {
       const task = await onlyTask();
@@ -584,7 +586,7 @@ describe("shorthand", () => {
     expect(footer()).toBe(`${formatDueDate(picked, today)}↵ select`);
     await user.keyboard("{Enter}");
     expect(titleField().value).toBe("Pay ");
-    expect(pills()).toEqual([formatDueDate(picked, today)]);
+    expect(pills()).toEqual([shortDueDate(picked, today)]);
     expect(screen.queryByRole("group", { name: "Due date picker" })).toBeNull();
     await user.keyboard("{Enter}");
     await waitFor(async () => expect((await onlyTask()).due).toBe(picked));
@@ -596,7 +598,7 @@ describe("shorthand", () => {
     await capture(user, "Pay ^");
     const picker = await screen.findByRole("group", { name: "Due date picker" });
     await user.click(picker.querySelector(`[data-day="${tomorrow}"] button`)!);
-    expect(pills()).toEqual([formatDueDate(tomorrow, localToday())]);
+    expect(pills()).toEqual([shortDueDate(tomorrow, localToday())]);
     await user.keyboard("^tmr");
     const again = await screen.findByRole("group", { name: "Due date picker" });
     expect(again.querySelector("p")?.textContent).toMatch(/↵ remove$/);
@@ -609,14 +611,14 @@ describe("shorthand", () => {
     const tomorrow = addDays(today, 1);
     const { user } = await workspace.render();
     await capture(user, "Pay ^tmr ");
-    expect(pills()).toEqual([formatDueDate(tomorrow, today)]);
+    expect(pills()).toEqual([shortDueDate(tomorrow, today)]);
     await user.keyboard("^");
     const picker = await screen.findByRole("group", { name: "Due date picker" });
     expect(picker.querySelector("p")?.textContent).toBe(
       `${formatDueDate(tomorrow, today)}↵ remove`,
     );
     await user.keyboard("{ArrowRight}{Enter}");
-    expect(pills()).toEqual([formatDueDate(addDays(today, 2), today)]);
+    expect(pills()).toEqual([shortDueDate(addDays(today, 2), today)]);
     await user.keyboard("^{Enter}");
     expect(pills()).toEqual([]);
   });
@@ -650,7 +652,7 @@ describe("shorthand", () => {
     await screen.findByRole("group", { name: "Due date picker" });
     await user.keyboard("{Tab}");
     expect(titleField().value).toBe("Pay ");
-    expect(pills()).toEqual([formatDueDate(addDays(localToday(), 1), localToday())]);
+    expect(pills()).toEqual([shortDueDate(addDays(localToday(), 1), localToday())]);
   });
 
   test("shorthand.escape: Escape drops the marker being typed and keeps the editor open", async () => {

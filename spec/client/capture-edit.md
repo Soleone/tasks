@@ -1,6 +1,6 @@
 # Capture and edit
 
-Capture and edit use the same inline editor, laid out like the row it replaces: the status glyph, the title in the row's type and place, then the pills where the row shows its badges, so nothing moves when editing starts. The fields have no box; the caret, the key hints and the active row's fill show that it is open. Its stops are the title, an optional description and, when the task has images, the image row. Priority isn't in the editor; it is one key on the list after saving (`priority.set`).
+Capture and edit use the same inline editor, laid out like the row it replaces: the status glyph, the title in the row's type and place, then the due date and the category column where the row ends (`home.row-layout`), so the title line doesn't move when editing starts. Tags sit on the line under it. When the editor is too narrow for the one-line title field and both, the due date and category drop under the title, still in their columns. The fields have no box; the caret, the key hints and the active row's fill show that it is open. Its stops are the title, an optional description and, when the task has images, the image row. Priority isn't in the editor; it is one key on the list after saving (`priority.set`).
 
 ## Opening and closing
 
@@ -23,7 +23,7 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | `edit.description` | Typing in the description | Markdown notes kept with the task, shown in the list with its details (`details.toggle-active`). The field sits where Details shows the description, in the same type, and grows with its text. `Enter` starts a new line, so `Ctrl/⌘+Enter` saves from here |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
-| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the pills line, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title and `Ctrl+Enter` before Save in the description. The dismissal button always says Cancel and sits before Add description. Touch differs (`platform.editor-buttons`) |
+| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the tags line, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title and `Ctrl+Enter` before Save in the description. The dismissal button always says Cancel and sits before Add description. Touch differs (`platform.editor-buttons`) |
 
 ## Images
 
@@ -42,13 +42,13 @@ Images are kept beside the text, never inside it. The description stays exactly 
 
 ## Shorthand
 
-Typing stays the same as the CLI's shorthand, but the title field keeps only the words. Category, tags and the due date sit as pills under it.
+Typing stays the same as the CLI's shorthand, but the title field keeps only the words. What it lifts out becomes a pill: the due date and the category where the row shows them, quiet text with an ×, and tags as badges under the title. With none set, that line hints `@category #tags ^date`.
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into a pill under it. The space before it stays, so typing continues. `\@`, `\#`, text in backticks and joined markers such as `#one@two` stay in the title |
+| `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into its pill. The space before it stays, so typing continues. `\@`, `\#`, text in backticks and joined markers such as `#one@two` stay in the title |
 | `shorthand.category` | `@word` | Sets the category pill. A second category replaces the first |
-| `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space or chosen from suggestions | Lifts into a due date pill reading `Fri, Oct 23`, resolved against today. A second date replaces the first. A word that names no date stays text |
+| `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space or chosen from suggestions | Lifts into a due date pill reading like the row's marker (`tomorrow`, `Fri`, `2d late`) or, further out, `Nov 14`, resolved against today, with the full date on hover. A second date replaces the first. A word that names no date stays text |
 | `shorthand.tags` | `#word` | Adds a tag pill |
 | `shorthand.toggle` | Typing or choosing a category or tag the task already has | Removes that pill |
 | `shorthand.unlift` | `Backspace` right after a lift | The pill goes back into the title as text, with the caret after it, ready to fix |

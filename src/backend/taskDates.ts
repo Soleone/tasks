@@ -20,6 +20,15 @@ export function dueSoonLabel(due: string, today: string): string | null {
   return days < 7 ? WEEKDAYS[weekdayOf(due)] : null;
 }
 
+/** A due date short enough for the row's end: the week's words, else Nov 14, with the year outside the current one. */
+export function shortDueDate(due: string, today: string): string {
+  const soon = dueSoonLabel(due, today);
+  if (soon !== null) return soon;
+  const [year, month, day] = due.split("-").map(Number);
+  const date = `${MONTHS[month - 1]} ${day}`;
+  return due.slice(0, 4) === today.slice(0, 4) ? date : `${date}, ${year}`;
+}
+
 /** Recent past dates use relative wording; older dates use calendar dates. */
 export function formatTaskDate(iso: string, now = new Date()): string {
   const date = new Date(iso);

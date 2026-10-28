@@ -30,6 +30,7 @@ import {
   type TitleDraft,
 } from "./composerShorthand";
 import { ClassificationPills, type PillLanding } from "./ClassificationPills";
+import { CategoryColumn } from "./TaskRow";
 import { DueDatePicker } from "./DueDatePicker";
 import {
   createTask,
@@ -612,6 +613,7 @@ export function TaskComposer({
     }
   }
 
+  const pillProps = { classification, landing, titleInput, onRemove: removePill };
   return (
     <form
       ref={form}
@@ -633,98 +635,109 @@ export function TaskComposer({
         touch && "scroll-mb-12",
       )}
     >
-      {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
-      <div className="relative basis-full">
-        <InlineTitleInput
-          ref={titleInput}
-          aria-label="Title"
-          name="title"
-          autoComplete="off"
-          // Without a hint, a soft keyboard offers Next when the description follows.
-          enterKeyHint="go"
-          placeholder="What needs doing?"
-          value={title}
-          readOnly={pending}
-          required
-          aria-invalid={titleError || undefined}
-          aria-describedby={titleError ? `${id}-error` : undefined}
-          aria-expanded={
-            suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
-          }
-          aria-autocomplete="list"
-          onChange={(event) => {
-            setTitleError(false);
-            lastLift.current = null;
-            const draft = {
-              text: event.target.value,
-              caret: event.target.selectionStart ?? event.target.value.length,
-              classification,
-            };
-            // Pasted text adds what it names; only typing a pill again takes it off.
-            const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
-            const lift = liftFinished(draft, toggle);
-            if (lift) commitLift(lift);
-            else {
-              setTitle(draft.text);
-              updateSuggestion(draft.text, draft.caret);
+      {/* The title line mirrors the row: the field, then the due date and the category column. A
+          narrow editor gives the one-line field the whole line and drops the two below it, still
+          in their columns. */}
+      <div className="flex min-w-0 basis-full flex-wrap items-start gap-x-2.5 gap-y-1">
+        {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
+        <div className="relative min-w-0 flex-1 @max-md:basis-full">
+          <InlineTitleInput
+            ref={titleInput}
+            aria-label="Title"
+            name="title"
+            autoComplete="off"
+            // Without a hint, a soft keyboard offers Next when the description follows.
+            enterKeyHint="go"
+            placeholder="What needs doing?"
+            value={title}
+            readOnly={pending}
+            required
+            aria-invalid={titleError || undefined}
+            aria-describedby={titleError ? `${id}-error` : undefined}
+            aria-expanded={
+              suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
             }
-          }}
-          onFocus={() => setActiveField("title")}
-          onKeyDown={handleTitleKeyDown}
-          onPaste={pending ? undefined : images.paste}
-          onClick={(event) =>
-            updateSuggestion(
-              event.currentTarget.value,
-              event.currentTarget.selectionStart ?? event.currentTarget.value.length,
-            )
-          }
-        />
-        {suggestion?.marker === "^" ? (
-          <DueDatePicker
-            key={dueChoice ?? "none"}
-            choice={dueChoice}
-            current={classification.due}
-            onPick={(due) => chooseSuggestion(suggestion, due)}
+            aria-autocomplete="list"
+            onChange={(event) => {
+              setTitleError(false);
+              lastLift.current = null;
+              const draft = {
+                text: event.target.value,
+                caret: event.target.selectionStart ?? event.target.value.length,
+                classification,
+              };
+              // Pasted text adds what it names; only typing a pill again takes it off.
+              const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
+              const lift = liftFinished(draft, toggle);
+              if (lift) commitLift(lift);
+              else {
+                setTitle(draft.text);
+                updateSuggestion(draft.text, draft.caret);
+              }
+            }}
+            onFocus={() => setActiveField("title")}
+            onKeyDown={handleTitleKeyDown}
+            onPaste={pending ? undefined : images.paste}
+            onClick={(event) =>
+              updateSuggestion(
+                event.currentTarget.value,
+                event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+              )
+            }
           />
-        ) : null}
-        {suggestion && suggestionItems.length > 0 ? (
-          <div
-            role="listbox"
-            aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
-            className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-          >
-            {suggestionItems.map((item, index) => (
-              <button
-                key={item.slug}
-                type="button"
-                role="option"
-                aria-selected={index === suggestionIndex}
-                tabIndex={-1}
-                className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => chooseSuggestion(suggestion, item.slug)}
-              >
-                <span>
-                  {suggestion.marker}
-                  {item.label}
-                </span>
-                <SuggestionNote
-                  row={item}
-                  action={index === suggestionIndex ? enterAction(item, suggestion.query) : null}
-                />
-              </button>
-            ))}
-          </div>
-        ) : null}
+          {suggestion?.marker === "^" ? (
+            <DueDatePicker
+              key={dueChoice ?? "none"}
+              choice={dueChoice}
+              current={classification.due}
+              onPick={(due) => chooseSuggestion(suggestion, due)}
+            />
+          ) : null}
+          {suggestion && suggestionItems.length > 0 ? (
+            <div
+              role="listbox"
+              aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
+              className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            >
+              {suggestionItems.map((item, index) => (
+                <button
+                  key={item.slug}
+                  type="button"
+                  role="option"
+                  aria-selected={index === suggestionIndex}
+                  tabIndex={-1}
+                  className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => chooseSuggestion(suggestion, item.slug)}
+                >
+                  <span>
+                    {suggestion.marker}
+                    {item.label}
+                  </span>
+                  <SuggestionNote
+                    row={item}
+                    action={index === suggestionIndex ? enterAction(item, suggestion.query) : null}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="ml-auto flex gap-2.5">
+          <ClassificationPills kind="due" {...pillProps} />
+          <CategoryColumn>
+            <ClassificationPills kind="category" {...pillProps} />
+          </CategoryColumn>
+        </div>
       </div>
-      {/* The metadata line, where the row shows its badges; the mouse fallbacks sit at its end. */}
-      <div className="min-w-0 grow">
-        <ClassificationPills
-          classification={classification}
-          landing={landing}
-          titleInput={titleInput}
-          onRemove={removePill}
-        />
+      {/* The tags, or the shorthand hint on a bare task; the mouse fallbacks sit at its end. */}
+      <div className="flex min-h-5 min-w-0 grow items-center">
+        <ClassificationPills kind="tag" {...pillProps} />
+        {classification.category === null &&
+        classification.tags.length === 0 &&
+        classification.due === null ? (
+          <span className="text-xs text-muted-foreground">@category #tags ^date</span>
+        ) : null}
       </div>
       {!touch ? (
         <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
