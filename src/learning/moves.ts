@@ -182,7 +182,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "due.lens",
-    keyboard: { label: "What's due now", keys: ["N"] },
+    keyboard: { label: "What's due now", keys: ["!"] },
     touch: { label: "Tap the due count to see what's due now" },
   },
   {

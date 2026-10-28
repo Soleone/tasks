@@ -77,7 +77,7 @@ export function DoneToday(props: LensCountProps): ReactElement | null {
 /** Open tasks due today or late, in the warning color rows use for those dates. */
 export function DueNow(props: LensCountProps): ReactElement | null {
   return (
-    <LensCount {...props} kind="due" label="due now" shortcut="N" showLabel="Show what's due">
+    <LensCount {...props} kind="due" label="due now" shortcut="!" showLabel="Show what's due">
       <CalendarDays data-icon="inline-start" aria-hidden="true" className="text-warning" />
       <span className="text-warning">{props.total}</span>
     </LensCount>

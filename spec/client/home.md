@@ -98,7 +98,7 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | `details.mixed-marker` | Some tasks differ from the all-tasks setting | The Details button shows a dot, and its tooltip says some tasks differ |
 | `details.keep-active-visible` | Details toggles while a task is active | The active task scrolls back into view, since its row height changed |
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |
-| `details.layout` | Details is on | Below the title, the footer takes the place of the "Blocked by" line and the description comes last, so the top of the row looks the same with Details off. The description keeps its line breaks and is cut after four lines |
+| `details.layout` | Details is on | The description follows the title, as in the editor, and the footer comes after it in place of the "Blocked by" line. The description keeps its line breaks and is cut after four lines |
 | `details.footer` | Details is on | One quiet row of plain facts separated by dots shows "Blocked by" first when the task has active blockers, then the due date in full when the row has no due marker (further out than the week, or on a done or canceled task), Created, and Updated before Created when it falls on a different day. The row's due marker looks the same as with Details off, so the date shows once and takes no line of its own |
 | `details.relative-dates` | A date in the footer | Reads `today`, `yesterday` or `2 days ago`; older dates read `Sep 8`, or `Dec 10, 2025` outside the current year. Hover shows the full local time |
 | `attach.badge` | Details is on and a task has images | The footer shows the image count, known from the task alone. Clicking it copies the newest image |

@@ -316,6 +316,11 @@ export function useTaskListKeyboard(
       event.preventDefault();
       practice("filter.tags");
       actions.openTagPicker();
+    } else if (event.key === "!") {
+      if (event.repeat) return;
+      event.preventDefault();
+      practice("due.lens");
+      actions.toggleLens("due");
     } else if (event.key.toLowerCase() === "c") {
       if (event.repeat) return;
       event.preventDefault();
@@ -356,11 +361,6 @@ export function useTaskListKeyboard(
         practice("done.lens");
         actions.toggleLens("done");
       }
-    } else if (event.key.toLowerCase() === "n") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      practice("due.lens");
-      actions.toggleLens("due");
     } else if (event.key.toLowerCase() === "b") {
       if (event.repeat || event.shiftKey) return;
       event.preventDefault();

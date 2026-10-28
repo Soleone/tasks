@@ -49,15 +49,15 @@ describe("due now", () => {
     });
   });
 
-  test("due.lens: N, the count and the palette show what's due, most overdue first", async () => {
+  test("due.lens: !, the count and the palette show what's due, most overdue first", async () => {
     await createDueTasks();
     const { user } = await workspace.render();
     await expectRows(["Undated", "Late", "Today", "Later"]);
-    await user.keyboard("n");
+    await user.keyboard("!");
     await expectRows(["Late", "Paused late", "Today"]);
     expect(countLine()).toBe("3 due now");
     expect(dueNowButton()?.getAttribute("aria-pressed")).toBe("true");
-    await user.keyboard("n");
+    await user.keyboard("!");
     await expectRows(["Undated", "Late", "Today", "Later"]);
 
     await user.click(dueNowButton()!);
@@ -77,7 +77,7 @@ describe("due now", () => {
     await expectRows(["Undated"]);
     await user.keyboard("d");
     await expectRows(["Finished late"]);
-    await user.keyboard("n");
+    await user.keyboard("!");
     await expectRows(["Late", "Paused late", "Today"]);
     await user.keyboard("{Escape}");
     await expectRows(["Undated"]);
@@ -87,7 +87,7 @@ describe("due now", () => {
     await workspace.create("Someday");
     await workspace.create("Today", { due: localToday() });
     const { user } = await workspace.render();
-    await user.keyboard("n");
+    await user.keyboard("!");
     await expectRows(["Today"]);
     await expectActive("Today");
     await user.keyboard("{Shift>} {/Shift}");

@@ -523,6 +523,9 @@ export function TaskRow({
               ))
             : null}
         </div>
+        {variant === "full" && showDetails && task.description ? (
+          <TaskItemDescription data-task-description>{task.description}</TaskItemDescription>
+        ) : null}
         {variant === "full" && showDetails ? (
           <TaskRowFooter task={task} blocker={blocker} onCopyImage={onCopyImage} />
         ) : variant === "full" && blocker ? (
@@ -536,9 +539,6 @@ export function TaskRow({
           >
             {taskContextMessage(indented)}
           </p>
-        ) : null}
-        {variant === "full" && showDetails && task.description ? (
-          <TaskItemDescription data-task-description>{task.description}</TaskItemDescription>
         ) : null}
       </div>
       {variant === "full" ? (

@@ -131,20 +131,23 @@ describe("opening and closing", () => {
     await waitFor(() => expect(saved("Old title")).toBe(false));
   });
 
-  test("edit.cancel: Escape cancels; from the description the first Escape returns to the title", async () => {
-    await workspace.create("Keep me");
+  test("edit.cancel: Escape cancels from the title and from the description", async () => {
+    const task = await workspace.create("Keep me");
     const { user } = await workspace.render();
+    await user.keyboard("{Enter}");
+    await focusedTitleField();
+    await user.keyboard(" changed{Escape}");
+    await expectListFocused();
     await user.keyboard("{Enter}");
     await focusedTitleField();
     await user.keyboard("{Tab}");
     await waitFor(() =>
       expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
     );
-    await user.keyboard("{Escape}");
-    await focusedTitleField();
-    await user.keyboard(" changed{Escape}");
+    await user.keyboard("Note{Escape}");
     await expectListFocused();
     await expectRows(["Keep me"]);
+    expect((await workspace.task(task.id)).description).toBe("");
   });
 
   test("edit.keeps-draft: a workspace change while editing keeps the draft", async () => {
@@ -237,7 +240,7 @@ describe("inside the editor", () => {
     expect(["Cancel", "Add description", "Add task"].map(keyOf)).toEqual(["Esc", "Tab", "↵"]);
     await user.keyboard("{Tab}");
     await waitFor(() => expect(keyOf("Add task")).toBe("Ctrl ↵"));
-    expect(keyOf("Cancel")).toBeNull();
+    expect(keyOf("Cancel")).toBe("Esc");
   });
 
   test("undo.scope: an edit to title, category and description is undone and redone as one step", async () => {
@@ -521,9 +524,6 @@ describe("shorthand", () => {
       await capture(user, "Buy #er");
       await barKey(user, "Escape");
       expect(titleField().value).toBe("Buy ");
-      await focusedTitleField();
-      await user.keyboard("{Tab}Notes");
-      await barKey(user, "Escape");
       await focusedTitleField();
       await barKey(user, "Escape");
       expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();

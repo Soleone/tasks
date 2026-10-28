@@ -157,12 +157,12 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "due.lens",
-        prompt: "Press `N` to see what's due now",
+        prompt: "Press `!` to see what's due now",
         success: "Due now",
       },
       {
         move: "due.lens",
-        prompt: "Press `N` again to go back to your previous view",
+        prompt: "Press `!` again to go back to your previous view",
         success: "Back where you were",
       },
       {

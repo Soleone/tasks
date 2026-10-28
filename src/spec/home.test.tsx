@@ -749,7 +749,7 @@ describe("details", () => {
     await waitFor(() => expect(row("Task").textContent).toMatch(/Blocked by.*Blocker/));
   });
 
-  test("details.layout: Details adds the footer on the blocker's line and the description last", async () => {
+  test("details.layout: Details puts the description under the title, then the footer on the blocker's line", async () => {
     const blocker = await workspace.create("Blocker");
     const task = await workspace.create("Task", { category: "work", description: "First\nSecond" });
     await workspace.change("task.dependency.add", task.id, { dependsOnId: blocker.id });
@@ -764,7 +764,7 @@ describe("details", () => {
     const blocked = row("Task").querySelector("[data-task-blocker]")!;
     expect(blocked.textContent).toMatch(/Blocked by.*Blocker/);
     expect(blocked.parentElement?.querySelector("[title^=Created]")).not.toBeNull();
-    const order = [row("Task").querySelector("[data-slot=item-title]")!, blocked, description];
+    const order = [row("Task").querySelector("[data-slot=item-title]")!, description, blocked];
     for (const [earlier, later] of [order.slice(0, 2), order.slice(1)]) {
       expect(
         earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING,

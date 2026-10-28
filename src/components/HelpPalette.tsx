@@ -368,7 +368,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         hint: "Due today or late",
         action: "toggle-due-lens",
         icon: CalendarDays,
-        keys: ["N"],
+        keys: ["!"],
         keywords: "overdue late deadline today calendar date count",
       },
       {

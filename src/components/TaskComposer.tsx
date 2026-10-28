@@ -775,7 +775,7 @@ export function TaskComposer({
       {!touch ? (
         <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
           <KeyHintButton
-            keys={activeField === "description" ? undefined : "Esc"}
+            keys="Esc"
             disabled={pending}
             onClick={onCancel}
             tabIndex={-1}
@@ -851,9 +851,7 @@ export function TaskComposer({
               if (event.key === "Escape") {
                 event.preventDefault();
                 event.stopPropagation();
-                if (pending) return;
-                if (!description.trim()) setNotesOpen(false);
-                titleInput.current?.focus();
+                if (!pending) onCancel();
               }
             }}
           />
