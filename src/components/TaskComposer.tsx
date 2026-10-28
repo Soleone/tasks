@@ -615,7 +615,13 @@ export function TaskComposer({
     }
   }
 
-  const pillProps = { classification, landing, titleInput, onRemove: removePill };
+  const pillProps = {
+    classification,
+    landing,
+    typing: suggestion,
+    titleInput,
+    onRemove: removePill,
+  };
   return (
     <form
       ref={form}

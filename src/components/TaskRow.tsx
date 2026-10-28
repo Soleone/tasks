@@ -144,18 +144,27 @@ export function CategoryColumn({ children }: { children?: ReactNode }): ReactEle
   return <div className="flex h-[1.375em] w-20 shrink-0 items-center sm:w-28">{children}</div>;
 }
 
+// Letters matching what is typed after `@` or `#`: finishing that name would remove the pill.
+const TYPED = "bg-transparent text-warning";
+
 /** A category as quiet text at the row's end, cut short when it outgrows the column. */
 export function CategoryFact({
   label,
+  typed = 0,
   children,
 }: {
   label: string;
+  /** How many leading letters match a name being typed in the editor. */
+  typed?: number;
   children?: ReactNode;
 }): ReactElement {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground group-hover/fact:text-foreground">
       <Folder className="size-3.5 shrink-0 text-classification-category" aria-hidden="true" />
-      <span className="truncate">{label}</span>
+      <span className="truncate">
+        {typed > 0 && <mark className={TYPED}>{label.slice(0, typed)}</mark>}
+        {label.slice(typed)}
+      </span>
       {children}
     </span>
   );
@@ -164,18 +173,28 @@ export function CategoryFact({
 /** A tag as quiet text after the title. */
 export function TagFact({
   label,
+  typed = 0,
   children,
 }: {
   label: string;
+  /** How many leading letters match a name being typed in the editor. */
+  typed?: number;
   children?: ReactNode;
 }): ReactElement {
   return (
     <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground group-hover/fact:text-foreground">
       <span>
-        <span aria-hidden="true" className="text-muted-foreground/60">
-          #
-        </span>
-        {label}
+        {typed > 0 ? (
+          <mark className={TYPED}>
+            <span aria-hidden="true">#</span>
+            {label.slice(0, typed)}
+          </mark>
+        ) : (
+          <span aria-hidden="true" className="text-muted-foreground/60">
+            #
+          </span>
+        )}
+        {label.slice(typed)}
       </span>
       {children}
     </span>

@@ -339,6 +339,20 @@ describe("shorthand", () => {
     await waitFor(async () => expect((await onlyTask()).tags).toEqual(["later"]));
   });
 
+  test("shorthand.match: typed letters light up in the pills they start", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Read @home #books #bonus ^tomorrow #b");
+    const lit = () =>
+      [...editor().querySelectorAll("[data-pill] mark")].map((mark) => mark.textContent);
+    expect(lit()).toEqual(["#b", "#b"]);
+    await user.keyboard("oo");
+    expect(lit()).toEqual(["#boo"]);
+    await user.keyboard("{Backspace}{Backspace}{Backspace}{Backspace}@ho");
+    expect(lit()).toEqual(["ho"]);
+    await user.keyboard("{Backspace}{Backspace}{Backspace}^t");
+    expect(lit()).toEqual([]);
+  });
+
   test("shorthand.unlift: Backspace right after a lift puts the marker back to fix", async () => {
     const { user } = await workspace.render();
     await capture(user, "Read #bokos ");

@@ -52,6 +52,7 @@ Typing stays the same as the CLI's shorthand, but the title field keeps only the
 | `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space or chosen from suggestions | Lifts into a due date pill reading like the row's marker (`tomorrow`, `Fri`, `2d late`) or, further out, `Nov 14`, resolved against today, with the full date on hover. A second date replaces the first. A word that names no date stays text |
 | `shorthand.tags` | `#word` | Adds a tag pill |
 | `shorthand.toggle` | Typing or choosing a category or tag the task already has | Removes that pill |
+| `shorthand.match` | Typing `@` or `#` and the start of a category or tag the task already has | The typed letters light up in that pill in the warning color, with the tag's `#`, since finishing the name removes it |
 | `shorthand.unlift` | `Backspace` right after a lift | The pill goes back into the title as text, with the caret after it, ready to fix |
 | `shorthand.pill-click` | Clicking a pill | Removes it. Pills aren't Tab stops |
 | `shorthand.pill-exit` | A pill goes away: clicked, toggled off, replaced or put back in the title | It shrinks and fades where it was while the pills after it close the gap. Reduced motion turns it off |

@@ -5,7 +5,7 @@ import { daysBetween, localToday } from "@/backend/dueDate";
 import { formatDueDate, shortDueDate } from "@/backend/taskDates";
 import { CategoryFact, DueFact, TagFact } from "./TaskRow";
 import { preventFocusSteal } from "@/navigation";
-import type { Classification, Marker } from "./composerShorthand";
+import type { Classification, Marker, PartialToken } from "./composerShorthand";
 
 /** A pill that just lifted out of the title, and where its marker started in the title text. */
 export type PillLanding = { marker: Marker; slug: string; at: number };
@@ -75,10 +75,33 @@ function titleOffset(input: HTMLInputElement, index: number): { x: number; y: nu
   return { x: Math.min(x - input.scrollLeft, box.right), y: box.top + box.height / 2 };
 }
 
+// A due date's slug is the date, not the word typed, so only names light up.
+const typedLength = (pill: Pill, typing: PartialToken | null): number =>
+  pill.kind !== "due" &&
+  typing?.marker === pill.marker &&
+  typing.query !== "" &&
+  pill.slug.startsWith(typing.query)
+    ? typing.query.length
+    : 0;
+
 // Each pill reads as the row's own quiet fact, with an × to remove it.
-function PillContent({ pill, today }: { pill: Pill; today: string }): ReactElement {
+function PillContent({
+  pill,
+  today,
+  typed = 0,
+}: {
+  pill: Pill;
+  today: string;
+  typed?: number;
+}): ReactElement {
   const remove = <X className="size-3 shrink-0" aria-hidden="true" />;
-  if (pill.kind === "category") return <CategoryFact label={pill.label}>{remove}</CategoryFact>;
+  if (pill.kind === "category") {
+    return (
+      <CategoryFact label={pill.label} typed={typed}>
+        {remove}
+      </CategoryFact>
+    );
+  }
   if (pill.kind === "due") {
     return (
       <DueFact
@@ -90,7 +113,11 @@ function PillContent({ pill, today }: { pill: Pill; today: string }): ReactEleme
       </DueFact>
     );
   }
-  return <TagFact label={pill.label}>{remove}</TagFact>;
+  return (
+    <TagFact label={pill.label} typed={typed}>
+      {remove}
+    </TagFact>
+  );
 }
 
 /**
@@ -101,12 +128,15 @@ export function ClassificationPills({
   kind,
   classification,
   landing,
+  typing,
   titleInput,
   onRemove,
 }: {
   kind: PillKind;
   classification: Classification;
   landing: PillLanding | null;
+  /** The marker and name being typed, which light up in a pill they start. */
+  typing: PartialToken | null;
   titleInput: RefObject<HTMLInputElement | null>;
   onRemove: (marker: Marker, slug: string) => void;
 }): ReactElement {
@@ -214,7 +244,7 @@ export function ClassificationPills({
               onClick={() => onRemove(entry.marker, entry.slug)}
               className={cn("group/fact flex min-w-0 cursor-pointer", TOUCH_TARGET)}
             >
-              <PillContent pill={entry} today={today} />
+              <PillContent pill={entry} today={today} typed={typedLength(entry, typing)} />
             </button>
           </span>
         ),
