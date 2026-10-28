@@ -813,6 +813,22 @@ describe("details", () => {
     expect(row("Parent").textContent).not.toContain("No category");
   });
 
+  test("home.tag-click: clicking a tag filters by it instead of editing", async () => {
+    await workspace.create("Pack", { tags: ["trip", "urgent"] });
+    await workspace.create("Book flights", { tags: ["trip"] });
+    await workspace.create("Pay rent", { tags: ["urgent"] });
+    const { user } = await workspace.render();
+    await user.click(await waitFor(() => row("Pack").querySelector("[data-task-tag=urgent]")!));
+    await waitFor(() => expect(screen.queryByText("Book flights")).toBeNull());
+    expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    await user.click(row("Pack").querySelector("[data-task-tag=trip]")!);
+    await waitFor(() => expect(screen.queryByText("Pay rent")).toBeNull());
+    await user.click(row("Pack").querySelector("[data-slot=item-title]")!);
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Title" })).value).toBe(
+      "Pack ",
+    );
+  });
+
   test("home.due-soon: rows mark due dates within the week or past", async () => {
     const today = localToday();
     await workspace.create("Late", { due: addDays(today, -2) });

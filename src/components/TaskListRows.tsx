@@ -39,6 +39,7 @@ type TaskOptionProps = {
   onToggleStatus: (task: TaskView) => void;
   onToggleExpanded: (row: VisibleTaskRow) => void;
   onSelectCategory: (category: ClassificationToken) => void;
+  onSelectTag: (tag: ClassificationToken) => void;
   onCopyImage: (task: TaskView) => void;
 };
 
@@ -62,6 +63,7 @@ export const TaskOption = memo(function TaskOption({
   onToggleStatus,
   onToggleExpanded,
   onSelectCategory,
+  onSelectTag,
   onCopyImage,
 }: TaskOptionProps): ReactElement {
   const { task } = row;
@@ -106,6 +108,7 @@ export const TaskOption = memo(function TaskOption({
           contextOnly={row.contextOnly}
           hiddenCategorySlug={hiddenCategorySlug}
           onSelectCategory={onSelectCategory}
+          onSelectTag={onSelectTag}
           onCopyImage={onCopyImage}
           statusSlot={
             <TaskStatusToggle

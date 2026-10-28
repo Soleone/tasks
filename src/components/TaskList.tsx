@@ -1493,6 +1493,12 @@ export function TaskList({
     practice("home.right-category", "pointer", category.label);
     selectCategory(category);
   });
+  const handleOptionSelectTag = useStableHandler((tag: ClassificationToken): void => {
+    returnToList();
+    if (tagFilter.some((entry) => entry.slug === tag.slug)) return;
+    onTagFilterChange([...tagFilter, { ...tag, taskCount: 0 }]);
+    onAnnounce(`Showing tasks tagged ${tag.label}`);
+  });
   const handleOptionCopyImage = useStableHandler(copyNewestImage);
 
   useTaskListKeyboard(
@@ -1824,6 +1830,7 @@ export function TaskList({
                     onToggleStatus={handleOptionToggleStatus}
                     onToggleExpanded={handleOptionToggleExpanded}
                     onSelectCategory={handleOptionSelectCategory}
+                    onSelectTag={handleOptionSelectTag}
                     onCopyImage={handleOptionCopyImage}
                   />
                 ),

@@ -272,6 +272,40 @@ function TaskRowCategory({
   );
 }
 
+function TaskRowTag({
+  tag,
+  onSelectTag,
+}: {
+  tag: ClassificationToken;
+  onSelectTag?: (tag: ClassificationToken) => void;
+}): ReactElement {
+  if (!onSelectTag) {
+    return (
+      <span data-task-tag>
+        <TagFact label={tag.label} />
+      </span>
+    );
+  }
+  return (
+    // A pointer shortcut inside a list option, like the category.
+    <span
+      role="img"
+      tabIndex={-1}
+      data-task-tag={tag.slug}
+      aria-label={`Tag ${tag.label}. Click to filter; press # to choose tags.`}
+      title={`Filter by #${tag.label}`}
+      onMouseDown={preventFocusSteal}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelectTag(tag);
+      }}
+      className="group/fact cursor-pointer"
+    >
+      <TagFact label={tag.label} />
+    </span>
+  );
+}
+
 /** The row's one short trailing fact, level with the title: when it was done, or when it's due soon. */
 function TaskRowTrailing({
   task,
@@ -438,6 +472,7 @@ export function TaskRow({
   contextOnly = false,
   hiddenCategorySlug,
   onSelectCategory,
+  onSelectTag,
   onCopyImage,
 }: {
   task: TaskView;
@@ -452,6 +487,7 @@ export function TaskRow({
   contextOnly?: boolean;
   hiddenCategorySlug?: string | null;
   onSelectCategory?: (category: ClassificationToken) => void;
+  onSelectTag?: (tag: ClassificationToken) => void;
   onCopyImage?: (task: TaskView) => void;
 }): ReactElement {
   const blocker = variant === "full" ? taskBlocker(task, blockedByLabels) : null;
@@ -481,9 +517,7 @@ export function TaskRow({
             ? task.tags.map((tag) => (
                 <Fragment key={tag.slug}>
                   {" "}
-                  <span data-task-tag>
-                    <TagFact label={tag.label} />
-                  </span>
+                  <TaskRowTag tag={tag} onSelectTag={onSelectTag} />
                 </Fragment>
               ))
             : null}
