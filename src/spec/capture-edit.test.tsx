@@ -425,7 +425,7 @@ describe("shorthand", () => {
       vi.restoreAllMocks();
     });
 
-    test("platform.editor-buttons: no Cancel or Save; the description line opens the description", async () => {
+    test("platform.editor-buttons: no Cancel or Save in the editor; the description line opens the description", async () => {
       const { user } = await workspace.render();
       await capture(user, "Task");
       for (const name of ["Cancel", "Add task"])
@@ -451,7 +451,7 @@ describe("shorthand", () => {
         within(bar)
           .getAllByRole("button")
           .map((button) => button.getAttribute("aria-label")),
-      ).toEqual(["Escape", "@", "#", "^", "Move cursor left", "Move cursor right"]);
+      ).toEqual(["Escape", "@", "#", "^", "Move cursor left", "Move cursor right", "Add task"]);
       await barKey(user, "Move cursor left");
       expect(titleField().selectionStart).toBe(7);
       await barKey(user, "Move cursor right");
@@ -503,6 +503,19 @@ describe("shorthand", () => {
       fireEvent.click(within(row("Buy milk")).getByRole("img", { name: /^Status: Open/ }));
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect((await onlyTask()).status).toBe("open");
+    });
+
+    test("platform.keyboard-bar: Save saves from the description", async () => {
+      await workspace.create("Buy milk");
+      const { user } = await workspace.render();
+      await user.keyboard("{ArrowDown}");
+      await expectActive("Buy milk");
+      await user.keyboard("{Enter}");
+      await focusedTitleField();
+      await user.keyboard("{Tab}Oat, not dairy");
+      await barKey(user, "Save changes");
+      await waitFor(async () => expect((await onlyTask()).description).toBe("Oat, not dairy"));
+      expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
     });
 
     test("platform.keyboard-bar: holding a touch arrow repeats and release stops it", async () => {

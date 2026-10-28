@@ -212,7 +212,7 @@ export function TaskComposer({
   // A date picked with the arrow keys, until the typed word changes.
   const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
-  // Touch cancels and saves from the keyboard bar and the soft keyboard (`platform.editor-buttons`).
+  // Touch cancels and saves from the keyboard bar (`platform.editor-buttons`).
   const touch = isAndroid();
   // Saving teaches `Enter` unless the Add task button did it.
   const saveVia = useRef<"keys" | "pointer">("keys");
@@ -758,7 +758,7 @@ export function TaskComposer({
             tabIndex={-1}
             type="submit"
           >
-            {pending ? "Saving…" : task ? "Save" : "Add"}
+            {pending ? "Saving…" : "Save"}
           </KeyHintButton>
         </div>
       ) : null}
@@ -847,7 +847,14 @@ export function TaskComposer({
         ) : null}
       </div>
       {touch ? (
-        <KeyboardBar disabled={pending} onMarker={insertMarker} onMoveCursor={moveCursor} />
+        <KeyboardBar
+          disabled={pending}
+          onMarker={insertMarker}
+          onMoveCursor={moveCursor}
+          saveLabel="Save"
+          saveName={task ? "Save changes" : "Add task"}
+          onSave={() => form.current?.requestSubmit()}
+        />
       ) : null}
     </form>
   );

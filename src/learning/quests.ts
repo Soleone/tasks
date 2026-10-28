@@ -108,7 +108,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "capture.save",
-        prompt: "Tap Go on the keyboard to save the task",
+        prompt: "Tap Add to save the task",
         success: "Saved",
         inEditor: true,
       },
@@ -189,7 +189,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "capture.save",
-        prompt: "Tap Go on the keyboard to save the task",
+        prompt: "Tap Add to save the task",
         success: "Saved",
         inEditor: true,
       },

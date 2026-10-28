@@ -8,6 +8,9 @@ type KeyboardBarProps = {
   disabled: boolean;
   onMarker: (marker: Marker) => void;
   onMoveCursor: (direction: -1 | 1) => void;
+  saveLabel: string;
+  saveName: string;
+  onSave: () => void;
 };
 
 // Escape can close the editor, and this bar with it, before the finger lifts. The tap's click then
@@ -22,7 +25,14 @@ function swallowNextClick(): void {
 }
 
 // Portaled so an animated row can't anchor the bar above the soft keyboard.
-export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarProps): ReactElement {
+export function KeyboardBar({
+  disabled,
+  onMarker,
+  onMoveCursor,
+  saveLabel,
+  saveName,
+  onSave,
+}: KeyboardBarProps): ReactElement {
   const repeatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function stopRepeat(): void {
     if (repeatTimer.current !== null) clearTimeout(repeatTimer.current);
@@ -63,18 +73,20 @@ export function KeyboardBar({ disabled, onMarker, onMoveCursor }: KeyboardBarPro
       direction: 1 as const,
       press: () => onMoveCursor(1),
     },
+    // The description's Enter starts a new line, so touch needs a visible way to save.
+    { label: saveLabel, name: saveName, press: onSave, closesBar: true, primary: true },
   ];
   return createPortal(
     <div
       role="toolbar"
       aria-label="Keyboard keys"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 gap-1 border-t bg-background p-1"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 gap-1 border-t bg-background p-1"
     >
       {keys.map((key) => (
         <Button
           key={key.name}
           type="button"
-          variant="ghost"
+          variant={key.primary ? "default" : "ghost"}
           tabIndex={-1}
           aria-label={key.name}
           disabled={disabled}
