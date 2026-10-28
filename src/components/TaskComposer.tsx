@@ -194,7 +194,12 @@ export function TaskComposer({
   );
   const [title, setTitle] = useState(initialDraft.text);
   const [classification, setClassification] = useState<Classification>(initialDraft.classification);
-  const [landing, setLanding] = useState<PillLanding | null>(null);
+  // A new task's category comes from the category filter, so its pill flies in from there.
+  const [landing, setLanding] = useState<PillLanding | null>(() =>
+    !task && initialDraft.classification.category !== null
+      ? { marker: "@", slug: initialDraft.classification.category, from: "filter" }
+      : null,
+  );
   // The caret to restore after a lift rewrites the title.
   const pendingCaret = useRef<number | null>(null);
   // The latest lift, so a Backspace right after it can put the token back.
