@@ -57,7 +57,7 @@ import {
 } from "@/components/variants/toolbar";
 import { CompactPopoverContent } from "@/components/variants/popover";
 import { CompactBreadcrumbList } from "@/components/variants/breadcrumb";
-import { ClassificationBadge } from "@/components/variants/badge";
+import { CategoryBadge } from "@/components/variants/badge";
 
 export const TOOLBAR_FOLD_GROUPS = ["filter", "actions"] as const;
 export type ToolbarFoldGroup = (typeof TOOLBAR_FOLD_GROUPS)[number];
@@ -824,14 +824,10 @@ export function TaskListToolbar({
                   onClear={clearCategoryFilter}
                   className="shrink-0 rounded-full"
                 >
-                  <ClassificationBadge
-                    kind="category"
-                    data-filter-category="true"
-                    className="shrink-0"
-                  >
+                  <CategoryBadge data-filter-category="true" className="shrink-0">
                     <Folder data-icon="inline-start" aria-hidden="true" />
                     {categoryFilter.label}
-                  </ClassificationBadge>
+                  </CategoryBadge>
                 </FilterSummaryAction>
               </BreadcrumbItem>
             </>

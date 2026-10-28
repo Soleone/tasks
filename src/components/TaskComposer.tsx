@@ -124,6 +124,8 @@ function keepInView(element: HTMLElement): () => void {
 }
 
 // Arrow keys move the highlighted due date by a day or a week.
+const TITLE_PLACEHOLDER = "What needs doing?";
+
 const dueSteps: Partial<Record<string, number>> = {
   ArrowLeft: -1,
   ArrowRight: 1,
@@ -641,50 +643,75 @@ export function TaskComposer({
       <div className="flex min-w-0 basis-full flex-wrap items-start gap-x-2.5 gap-y-1">
         {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
         <div className="relative min-w-0 flex-1 @max-md:basis-full">
-          <InlineTitleInput
-            ref={titleInput}
-            aria-label="Title"
-            name="title"
-            autoComplete="off"
-            // Without a hint, a soft keyboard offers Next when the description follows.
-            enterKeyHint="go"
-            placeholder="What needs doing?"
-            value={title}
-            readOnly={pending}
-            required
-            aria-invalid={titleError || undefined}
-            aria-describedby={titleError ? `${id}-error` : undefined}
-            aria-expanded={
-              suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
-            }
-            aria-autocomplete="list"
-            onChange={(event) => {
-              setTitleError(false);
-              lastLift.current = null;
-              const draft = {
-                text: event.target.value,
-                caret: event.target.selectionStart ?? event.target.value.length,
-                classification,
-              };
-              // Pasted text adds what it names; only typing a pill again takes it off.
-              const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
-              const lift = liftFinished(draft, toggle);
-              if (lift) commitLift(lift);
-              else {
-                setTitle(draft.text);
-                updateSuggestion(draft.text, draft.caret);
-              }
+          {/* The field is as wide as its text, so the tags follow it as they do in the row. A click on
+              the rest of the line still lands in the field, at its end. */}
+          <div
+            className="flex min-w-0 flex-wrap items-center gap-1"
+            onMouseDown={(event) => {
+              const input = titleInput.current;
+              if (event.target !== event.currentTarget || !input) return;
+              event.preventDefault();
+              input.focus();
+              input.setSelectionRange(input.value.length, input.value.length);
             }}
-            onFocus={() => setActiveField("title")}
-            onKeyDown={handleTitleKeyDown}
-            onPaste={pending ? undefined : images.paste}
-            onClick={(event) =>
-              updateSuggestion(
-                event.currentTarget.value,
-                event.currentTarget.selectionStart ?? event.currentTarget.value.length,
-              )
-            }
-          />
+          >
+            <div className="inline-grid max-w-full grid-cols-1">
+              <span
+                aria-hidden="true"
+                className="invisible col-start-1 row-start-1 overflow-hidden text-sm leading-snug font-medium whitespace-pre"
+              >
+                {title || TITLE_PLACEHOLDER}
+              </span>
+              <InlineTitleInput
+                className="col-start-1 row-start-1"
+                // A field's natural width is 20 characters; the text sizer beside it sets the width.
+                size={1}
+                ref={titleInput}
+                aria-label="Title"
+                name="title"
+                autoComplete="off"
+                // Without a hint, a soft keyboard offers Next when the description follows.
+                enterKeyHint="go"
+                placeholder={TITLE_PLACEHOLDER}
+                value={title}
+                readOnly={pending}
+                required
+                aria-invalid={titleError || undefined}
+                aria-describedby={titleError ? `${id}-error` : undefined}
+                aria-expanded={
+                  suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
+                }
+                aria-autocomplete="list"
+                onChange={(event) => {
+                  setTitleError(false);
+                  lastLift.current = null;
+                  const draft = {
+                    text: event.target.value,
+                    caret: event.target.selectionStart ?? event.target.value.length,
+                    classification,
+                  };
+                  // Pasted text adds what it names; only typing a pill again takes it off.
+                  const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
+                  const lift = liftFinished(draft, toggle);
+                  if (lift) commitLift(lift);
+                  else {
+                    setTitle(draft.text);
+                    updateSuggestion(draft.text, draft.caret);
+                  }
+                }}
+                onFocus={() => setActiveField("title")}
+                onKeyDown={handleTitleKeyDown}
+                onPaste={pending ? undefined : images.paste}
+                onClick={(event) =>
+                  updateSuggestion(
+                    event.currentTarget.value,
+                    event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+                  )
+                }
+              />
+            </div>
+            <ClassificationPills kind="tag" {...pillProps} />
+          </div>
           {suggestion?.marker === "^" ? (
             <DueDatePicker
               key={dueChoice ?? "none"}
@@ -731,15 +758,14 @@ export function TaskComposer({
           </CategoryColumn>
         </div>
       </div>
-      {/* The tags, or the shorthand hint on a bare task; the mouse fallbacks sit at its end. */}
-      <div className="flex min-h-5 min-w-0 grow items-center">
-        <ClassificationPills kind="tag" {...pillProps} />
-        {classification.category === null &&
-        classification.tags.length === 0 &&
-        classification.due === null ? (
-          <span className="text-xs text-muted-foreground">@category #tags ^date</span>
-        ) : null}
-      </div>
+      {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}
+      {classification.category === null &&
+      classification.tags.length === 0 &&
+      classification.due === null ? (
+        <span className="flex min-h-5 grow items-center text-xs text-muted-foreground">
+          @category #tags ^date
+        </span>
+      ) : null}
       {!touch ? (
         <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
           <KeyHintButton

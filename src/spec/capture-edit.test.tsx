@@ -273,7 +273,8 @@ describe("shorthand", () => {
     return ["Category", "Tags", "Due date"].flatMap((name) =>
       within(within(editor()).getByRole("list", { name }))
         .queryAllByRole("listitem")
-        .map((item) => item.textContent ?? ""),
+        // A tag's leading # is decoration.
+        .map((item) => item.textContent?.replace(/^#/, "") ?? ""),
     );
   }
 
@@ -399,9 +400,9 @@ describe("shorthand", () => {
       const row = within(editor()).getByRole("list", { name: "Tags" });
       await user.click(within(row).getByRole("button", { name: "Remove tag books" }));
       expect(pills()).toEqual(["later"]);
-      expect(row.textContent).toBe("bookslater");
+      expect(row.textContent).toBe("#books#later");
       act(() => finish());
-      await waitFor(() => expect(row.textContent).toBe("later"));
+      await waitFor(() => expect(row.textContent).toBe("#later"));
     } finally {
       delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
     }

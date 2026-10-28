@@ -15,7 +15,6 @@ import {
 import { priorityMeta, statusGlyphColor, taskStatusMeta } from "@/components/taskFilters";
 import { preventFocusSteal } from "@/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ClassificationBadge } from "@/components/variants/badge";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 
@@ -157,6 +156,27 @@ export function CategoryFact({
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground group-hover/fact:text-foreground">
       <Folder className="size-3.5 shrink-0 text-classification-category" aria-hidden="true" />
       <span className="truncate">{label}</span>
+      {children}
+    </span>
+  );
+}
+
+/** A tag as quiet text after the title. */
+export function TagFact({
+  label,
+  children,
+}: {
+  label: string;
+  children?: ReactNode;
+}): ReactElement {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground group-hover/fact:text-foreground">
+      <span>
+        <span aria-hidden="true" className="text-muted-foreground/60">
+          #
+        </span>
+        {label}
+      </span>
       {children}
     </span>
   );
@@ -434,17 +454,17 @@ export function TaskRow({
         {statusSlot}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* The title's own line box, so tag badges flow after its last word. The spaces between
-            them, unlike margins, drop where a line breaks. */}
+        {/* The title's own line box, so tags flow after its last word. The spaces between them,
+            unlike margins, drop where a line breaks. */}
         <div className="text-sm leading-snug wrap-anywhere">
           <TaskItemTitle>{task.title}</TaskItemTitle>
           {variant === "full"
             ? task.tags.map((tag) => (
                 <Fragment key={tag.slug}>
                   {" "}
-                  <ClassificationBadge kind="tag" className="align-top">
-                    {tag.label}
-                  </ClassificationBadge>
+                  <span data-task-tag>
+                    <TagFact label={tag.label} />
+                  </span>
                 </Fragment>
               ))
             : null}

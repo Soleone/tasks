@@ -796,7 +796,7 @@ describe("details", () => {
     await workspace.create("Bare");
     const { user } = await workspace.render();
     const title = await waitFor(() => row("Parent").querySelector("[data-slot=item-title]")!);
-    expect(title.parentElement?.textContent).toBe("Parent urgent");
+    expect(title.parentElement?.textContent).toBe("Parent #urgent");
     const end = [
       row("Parent").querySelector("[data-task-due]")!,
       row("Parent").querySelector('[aria-label="Expand children"]')!,

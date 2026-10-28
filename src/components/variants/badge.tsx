@@ -3,25 +3,16 @@ import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
 import { FOCUS_RING } from "./focus";
 
-const KINDS = {
-  category: "border-classification-category bg-classification-category",
-  tag: "border-classification-tag bg-classification-tag",
-};
-
-/** Compact category and tag badges: semantic tokens, 20px high, quiet density. */
-export function ClassificationBadge({
-  kind,
+/** Compact category badge: semantic token, 20px high, quiet density. */
+export function CategoryBadge({
   className,
   ...props
-}: Omit<ComponentProps<typeof Badge>, "variant"> & {
-  kind: keyof typeof KINDS;
-}) {
+}: Omit<ComponentProps<typeof Badge>, "variant">) {
   return (
     <Badge
       className={cn(
-        "h-5 px-1.5 text-xs font-normal text-classification-foreground",
+        "h-5 border-classification-category bg-classification-category px-1.5 text-xs font-normal text-classification-foreground",
         FOCUS_RING,
-        KINDS[kind],
         className,
       )}
       {...props}

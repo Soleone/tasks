@@ -3,8 +3,7 @@ import { X } from "lucide-react";
 import { cn } from "cn";
 import { daysBetween, localToday } from "@/backend/dueDate";
 import { formatDueDate, shortDueDate } from "@/backend/taskDates";
-import { ClassificationBadge } from "@/components/variants/badge";
-import { CategoryFact, DueFact } from "./TaskRow";
+import { CategoryFact, DueFact, TagFact } from "./TaskRow";
 import { preventFocusSteal } from "@/navigation";
 import type { Classification, Marker } from "./composerShorthand";
 
@@ -76,7 +75,7 @@ function titleOffset(input: HTMLInputElement, index: number): { x: number; y: nu
   return { x: Math.min(x - input.scrollLeft, box.right), y: box.top + box.height / 2 };
 }
 
-// Tags are badges under the title; the category and due date read as the row's quiet end facts.
+// Each pill reads as the row's own quiet fact, with an × to remove it.
 function PillContent({ pill, today }: { pill: Pill; today: string }): ReactElement {
   const remove = <X className="size-3 shrink-0" aria-hidden="true" />;
   if (pill.kind === "category") return <CategoryFact label={pill.label}>{remove}</CategoryFact>;
@@ -91,16 +90,11 @@ function PillContent({ pill, today }: { pill: Pill; today: string }): ReactEleme
       </DueFact>
     );
   }
-  return (
-    <ClassificationBadge kind="tag">
-      {pill.label}
-      <X data-icon="inline-end" aria-hidden="true" />
-    </ClassificationBadge>
-  );
+  return <TagFact label={pill.label}>{remove}</TagFact>;
 }
 
 /**
- * One kind of pill: tags under the title field, or the category or due date at its end.
+ * One kind of pill: tags after the title's text, or the category or due date at the line's end.
  * Clicking a pill removes it; pills are not Tab stops.
  */
 export function ClassificationPills({
@@ -195,8 +189,8 @@ export function ClassificationPills({
       role="list"
       aria-label={listName[kind]}
       className={cn(
-        "flex min-w-0 items-center gap-1.5",
-        kind === "tag" ? "flex-wrap empty:hidden" : "h-[1.375em]",
+        "flex min-w-0 items-center",
+        kind === "tag" ? "flex-wrap gap-x-2 empty:hidden" : "h-[1.375em] gap-1.5",
       )}
     >
       {shown.map((entry) =>

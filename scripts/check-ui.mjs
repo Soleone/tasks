@@ -618,7 +618,7 @@ try {
     'document.querySelector("[data-filter=task-category]").getAttribute("aria-pressed") === "false"',
   );
   check(
-    'document.querySelectorAll("#task-list [role=option] [data-slot=badge]").length === 1 && document.querySelectorAll("#task-list [role=option] [data-task-category]").length === 1',
+    'document.querySelectorAll("#task-list [role=option] [data-task-tag]").length === 1 && document.querySelectorAll("#task-list [role=option] [data-task-category]").length === 1',
   );
   check(
     'document.querySelector("#task-list [role=option] [data-status][data-priority=\'P2\']")?.getAttribute("aria-label").startsWith("Status: Open, priority normal.")',
