@@ -1,5 +1,5 @@
 import { memo, type MouseEvent, type ReactElement } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
@@ -28,7 +28,7 @@ type TaskOptionProps = {
   pending: boolean;
   feedbackVersion?: number;
   sheenStep?: number;
-  newTaskId?: string | null;
+  saved: boolean;
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   showCompletedAt: boolean;
@@ -51,7 +51,7 @@ export const TaskOption = memo(function TaskOption({
   pending,
   feedbackVersion,
   sheenStep,
-  newTaskId,
+  saved,
   exitingTaskIds,
   showDetails,
   showCompletedAt,
@@ -90,7 +90,7 @@ export const TaskOption = memo(function TaskOption({
         data-context-child={(row.contextOnly && row.depth === 1) || undefined}
         data-depth={row.depth}
         nested={row.depth === 1}
-        data-new-task={task.id === newTaskId || undefined}
+        data-saved-task={saved || undefined}
         data-exiting-task={exitingTaskIds.has(task.id) || undefined}
         size="sm"
         state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
@@ -135,6 +135,11 @@ export const TaskOption = memo(function TaskOption({
             ) : null
           }
         />
+        {saved ? (
+          <span data-save-tick aria-hidden="true" className="text-primary">
+            <Check className="size-4" />
+          </span>
+        ) : null}
         {row.hasChildren ? (
           <span id={`task-children-${task.id}`} hidden>
             Children {expanded ? "expanded" : "collapsed"}.

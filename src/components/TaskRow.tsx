@@ -471,7 +471,9 @@ export function TaskRow({
         <TaskRowTrailing task={task} showCompletedAt={showCompletedAt} />
       ) : null}
       {variant === "full" && disclosureSlot ? (
-        <div className="flex h-[1.375em] shrink-0 items-center self-start">{disclosureSlot}</div>
+        <div data-task-disclosure className="flex h-[1.375em] shrink-0 items-center self-start">
+          {disclosureSlot}
+        </div>
       ) : null}
       {variant === "full" && (category || !hiddenCategorySlug) ? (
         <TaskRowCategory category={category} onSelectCategory={onSelectCategory} />

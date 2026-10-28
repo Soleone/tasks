@@ -31,6 +31,9 @@ import type { useWorkspaceTasks } from "./useWorkspaceTasks";
  */
 const STATUS_EXIT_LINGER_MS = 250;
 
+/** The saved row's sweep and check (task-save-sweep and task-save-tick in styles.css). */
+const SAVE_FEEDBACK_MS = 1300;
+
 function statusExitLinger(leaving: readonly TaskView[] = []): number {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
   const completed = leaving.filter((task) => task.status === "done").length;
@@ -95,6 +98,7 @@ export function useWorkspaceActions({
   const [historyBusy, setHistoryBusy] = useState(false);
   const historyBusyRef = useRef(false);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
+  const [savedTaskId, setSavedTaskId] = useState<string | null>(null);
   const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(updateVisibleTasks);
 
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
@@ -419,6 +423,12 @@ export function useWorkspaceActions({
     return () => window.clearTimeout(timeout);
   }, [newTaskId]);
 
+  useEffect(() => {
+    if (savedTaskId === null) return;
+    const timeout = window.setTimeout(() => setSavedTaskId(null), SAVE_FEEDBACK_MS);
+    return () => window.clearTimeout(timeout);
+  }, [savedTaskId]);
+
   function showOptimisticCreate(draft: TaskCreateDraft): void {
     const literal = parseShorthand(draft.title);
     const now = new Date().toISOString();
@@ -451,6 +461,7 @@ export function useWorkspaceActions({
     const creating = composerBeforeSave?.mode === "create";
     const previous = composerBeforeSave?.mode === "edit" ? [composerBeforeSave.task] : [];
     const visible = isCurrentViewMatch(task);
+    if (visible) setSavedTaskId(task.id);
     if (creating) {
       setOptimisticCreate(null);
       if (visible) {
@@ -576,6 +587,7 @@ export function useWorkspaceActions({
     redoEntry,
     historyBusy,
     newTaskId,
+    savedTaskId,
     exitingTaskIds,
     pickerRemoveBlocker,
     pickerRemoveParent,

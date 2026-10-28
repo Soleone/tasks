@@ -11,6 +11,7 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | `capture.child-canceled` | `Shift+C` on a canceled task | Refused with a message. Canceled tasks can't take new children |
 | `edit.inline` | `Enter`, or clicking a row | The editor replaces that row with the title focused and scrolls fully into view, again once an on-screen keyboard has resized the window |
 | `edit.save` | `Enter` in the title, or `Ctrl/⌘+Enter` anywhere | Saves. Focus returns to the list on the saved task. While suggestions are open, `Enter` follows `shorthand.enter`. A soft keyboard's action key in the title is Go, which saves, even when a description follows |
+| `edit.saved` | This client saves a new or edited task from the editor | A band of the theme accent sweeps across the saved row, and as it reaches the end a check draws there, holds and fades. Undo, redo and changes from elsewhere never play it, and reduced motion turns it off |
 | `edit.cancel` | `Escape` | Cancels. From the description, the first `Escape` returns to the title. While a marker is being typed, it follows `shorthand.escape` |
 | `edit.keeps-draft` | The workspace changes while the editor is open | The draft stays as typed |
 

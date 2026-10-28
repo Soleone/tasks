@@ -34,6 +34,10 @@ function editor(): HTMLElement {
   return screen.getByRole("form", { name: /New task|Edit task/ });
 }
 
+function saved(title: string): boolean {
+  return row(title).hasAttribute("data-saved-task");
+}
+
 async function capture(user: UserEvent, text: string): Promise<void> {
   await user.keyboard("c");
   await focusedTitleField();
@@ -105,6 +109,26 @@ describe("opening and closing", () => {
     await waitFor(async () => expect((await workspace.task(task.id)).title).toBe("New title"));
     await expectListFocused();
     await expectActive("New title");
+  });
+
+  test("edit.saved: saving plays on the saved row, new or edited, and undo never does", async () => {
+    await workspace.create("Old title");
+    const { user } = await workspace.render();
+    await capture(user, "Fresh{Enter}");
+    await waitFor(() => expect(saved("Fresh")).toBe(true));
+    await waitFor(() => expect(saved("Fresh")).toBe(false), { timeout: 2000 });
+
+    await user.keyboard("{ArrowDown}");
+    await expectActive("Old title");
+    await user.keyboard("{Enter}");
+    await user.clear(await focusedTitleField());
+    await user.keyboard("New title{Enter}");
+    await waitFor(() => expect(saved("New title")).toBe(true));
+    expect(saved("Fresh")).toBe(false);
+    await waitFor(() => expect(saved("New title")).toBe(false), { timeout: 2000 });
+
+    await user.keyboard("{Control>}z{/Control}");
+    await waitFor(() => expect(saved("Old title")).toBe(false));
   });
 
   test("edit.cancel: Escape cancels; from the description the first Escape returns to the title", async () => {

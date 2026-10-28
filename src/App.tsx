@@ -336,6 +336,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     redoEntry,
     historyBusy,
     newTaskId,
+    savedTaskId,
     exitingTaskIds,
     pickerRemoveBlocker,
     pickerRemoveParent,
@@ -880,6 +881,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           ref={taskListRef}
           tasks={tasks}
           newTaskId={newTaskId}
+          savedTaskId={savedTaskId}
           exitingTaskIds={exitingTaskIds}
           contextTasks={contextTasks}
           contextOrder={contextOrder}

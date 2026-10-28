@@ -120,6 +120,8 @@ export type TaskListHandle = {
 type TaskListProps = {
   tasks: TaskView[];
   newTaskId?: string | null;
+  /** The task this client just saved from the editor, while its row plays `edit.saved`. */
+  savedTaskId?: string | null;
   exitingTaskIds: ReadonlySet<string>;
   contextTasks: TaskView[];
   contextOrder: ReadonlyMap<string, number>;
@@ -221,6 +223,7 @@ export function TaskList({
   ref,
   tasks: queriedTasks,
   newTaskId,
+  savedTaskId,
   exitingTaskIds,
   contextTasks,
   contextOrder,
@@ -1810,7 +1813,7 @@ export function TaskList({
                       glyphFeedback?.taskId === row.task.id ? glyphFeedback.version : undefined
                     }
                     sheenStep={sheenSteps.get(row.task.id)}
-                    newTaskId={newTaskId}
+                    saved={row.task.id === savedTaskId}
                     exitingTaskIds={exitingTaskIds}
                     showDetails={detailsShownFor(row.task.id)}
                     showCompletedAt={sortField === "closed"}
