@@ -1,5 +1,7 @@
 #[cfg(target_os = "android")]
 mod android_backend;
+#[cfg(target_os = "android")]
+mod android_images;
 #[cfg(target_os = "linux")]
 mod linux_launcher;
 
@@ -25,11 +27,18 @@ fn home_pointer_read(app: AppHandle) -> Result<Option<String>, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(format!("Could not read {}: {error}", path.display())),
     };
-    let value: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|_| format!("{} is damaged; choose the Tasks home again.", path.display()))?;
+    let value: serde_json::Value = serde_json::from_str(&text).map_err(|_| {
+        format!(
+            "{} is damaged; choose the Tasks home again.",
+            path.display()
+        )
+    })?;
     match value.get("home").and_then(|home| home.as_str()) {
         Some(home) if !home.trim().is_empty() => Ok(Some(home.to_string())),
-        _ => Err(format!("{} is damaged; choose the Tasks home again.", path.display())),
+        _ => Err(format!(
+            "{} is damaged; choose the Tasks home again.",
+            path.display()
+        )),
     }
 }
 
@@ -103,12 +112,15 @@ pub fn run() {
     #[cfg(target_os = "android")]
     let builder = builder
         .manage(android_backend::Backends::default())
+        .plugin(android_images::init())
         .invoke_handler(tauri::generate_handler![
             home_pointer_read,
             home_pointer_write,
             android_backend::backend_start,
             android_backend::backend_write,
             android_backend::backend_kill,
+            android_images::image_pick,
+            android_images::image_share,
         ]);
 
     builder

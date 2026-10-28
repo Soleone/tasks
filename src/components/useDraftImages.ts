@@ -2,6 +2,7 @@ import { useRef, useState, type ClipboardEvent } from "react";
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/backend/taskModel";
 import { practice } from "@/learning/progress";
 import { writeAttachment } from "@/platform/backendClient";
+import { pickImage } from "@/platform/androidImages";
 
 function refusal(file: File, count: number): string | null {
   if (!(ATTACHMENT_TYPES as readonly string[]).includes(file.type))
@@ -27,6 +28,7 @@ function readDataUrl(file: File): Promise<string> {
 export function useDraftImages(initial: readonly string[]) {
   const [attachments, setAttachments] = useState(initial);
   const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const latest = useRef(initial);
   const writes = useRef(Promise.resolve());
   const queued = useRef(0);
@@ -36,7 +38,7 @@ export function useDraftImages(initial: readonly string[]) {
     setAttachments(next);
   }
 
-  function add(file: File): void {
+  function add(file: File, fromClipboard: boolean): void {
     const refused = refusal(file, latest.current.length + queued.current);
     if (refused) {
       setError(refused);
@@ -48,7 +50,7 @@ export function useDraftImages(initial: readonly string[]) {
       .then(writeAttachment)
       .then(
         (name) => {
-          practice("attach.paste");
+          if (fromClipboard) practice("attach.paste");
           change([...latest.current, name]);
         },
         (caught: unknown) => setError(caught instanceof Error ? caught.message : String(caught)),
@@ -65,7 +67,20 @@ export function useDraftImages(initial: readonly string[]) {
     if (files.length === 0 || clipboardData.getData("text/plain")) return;
     event.preventDefault();
     setError(null);
-    for (const file of files) add(file);
+    for (const file of files) add(file, true);
+  }
+
+  async function pick(): Promise<void> {
+    setError(null);
+    setPicking(true);
+    try {
+      const file = await pickImage();
+      if (file) add(file, false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setPicking(false);
+    }
   }
 
   function remove(name: string): void {
@@ -78,5 +93,5 @@ export function useDraftImages(initial: readonly string[]) {
     return latest.current;
   }
 
-  return { attachments, error, paste, remove, settled };
+  return { attachments, error, paste, pick, picking, remove, settled };
 }

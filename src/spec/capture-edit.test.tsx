@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { addDays, localToday, parseDueWord } from "@/backend/dueDate";
@@ -13,6 +14,11 @@ import {
   focusedTitleField,
   row,
 } from "@/testing/taskList";
+
+vi.mock("@tauri-apps/api/core", async (original) => ({
+  ...(await original<typeof import("@tauri-apps/api/core")>()),
+  invoke: vi.fn(),
+}));
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
@@ -1000,5 +1006,136 @@ describe("images", () => {
     await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([name]));
     await user.keyboard("{Control>}y{/Control}");
     await waitFor(async () => expect((await workspace.task(task.id)).attachments).toEqual([]));
+  });
+});
+
+describe("Android image actions", () => {
+  const imageUrl = (pixel = 1) =>
+    `data:image/png;base64,${btoa(String.fromCharCode(...pngBytes(pixel)))}`;
+
+  beforeEach(() => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Linux; Android 16)");
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(invoke).mockReset();
+  });
+
+  function nativeImages(handler: (command: string, args?: unknown) => unknown): void {
+    // Mock only Tauri's native boundary; attachment storage uses the real disposable backend.
+    vi.mocked(invoke).mockImplementation(async (command, args) => handler(command, args));
+  }
+
+  test("platform.add-image: picking adds a draft attachment, which saves and can be shared as image bytes", async () => {
+    const task = await workspace.create("Screenshot");
+    const { user } = await workspace.render();
+    const shared: string[] = [];
+    nativeImages((command, args) => {
+      if (command === "image_pick") return { dataUrl: imageUrl(2) };
+      if (command === "image_share") shared.push((args as { dataUrl: string }).dataUrl);
+    });
+    await expectActive("Screenshot");
+    await user.keyboard("{Enter}");
+    await focusedTitleField();
+    await user.click(screen.getByRole("button", { name: "Add image" }));
+    const images = await screen.findByRole("listbox", { name: "Images" });
+    await waitFor(() => expect(images.querySelector("img")?.getAttribute("src")).toBe(imageUrl(2)));
+    expect((await workspace.task(task.id)).attachments).toEqual([]);
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    await expectListFocused();
+    await waitFor(async () => expect((await workspace.task(task.id)).attachments).toHaveLength(1));
+    await user.keyboard("{Enter}");
+    await focusedTitleField();
+    const thumbnail = within(await screen.findByRole("listbox", { name: "Images" })).getByRole(
+      "option",
+    );
+    await waitFor(() => expect(thumbnail.querySelector("img")).not.toBeNull());
+    await user.click(thumbnail);
+    const preview = await screen.findByRole("dialog", { name: "Image 1 of 1" });
+    await user.click(within(preview).getByRole("button", { name: "Share image…" }));
+    await waitFor(() => expect(shared).toEqual([imageUrl(2)]));
+    expect((await workspace.task(task.id)).attachments).toHaveLength(1);
+  });
+
+  test("platform.add-image: canceling the picker keeps the draft, and picker failures can be retried", async () => {
+    const task = await workspace.create("Keep me");
+    const { user } = await workspace.render();
+    let fail = false;
+    nativeImages((command) => {
+      if (command !== "image_pick") return;
+      if (fail) throw new Error("The selected image could not be read.");
+      return { dataUrl: null };
+    });
+    await expectActive("Keep me");
+    await user.keyboard("{Enter}");
+    const title = await focusedTitleField();
+    const add = screen.getByRole<HTMLButtonElement>("button", { name: "Add image" });
+    await user.click(add);
+    await waitFor(() => expect(add.disabled).toBe(false));
+    expect(title.value.trim()).toBe("Keep me");
+    expect(screen.queryByRole("listbox", { name: "Images" })).toBeNull();
+    expect(screen.queryByText("Image not added")).toBeNull();
+    fail = true;
+    await user.click(add);
+    await screen.findByText("The selected image could not be read.");
+    fail = false;
+    await user.click(add);
+    await waitFor(() => expect(screen.queryByText("Image not added")).toBeNull());
+    await user.keyboard("{Escape}");
+    expect((await workspace.task(task.id)).attachments).toEqual([]);
+  });
+
+  test("platform.add-image: an eleventh picked image is refused and saving cannot race the picker", async () => {
+    const attachments = await Promise.all(Array.from({ length: 10 }, () => workspace.storeImage()));
+    const task = await workspace.create("Full", { attachments });
+    const { user } = await workspace.render();
+    let finish!: (result: { dataUrl: string }) => void;
+    nativeImages((command) => {
+      if (command === "image_pick")
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+    });
+    await expectActive("Full");
+    await user.keyboard("{Enter}");
+    const title = await focusedTitleField();
+    await user.click(screen.getByRole("button", { name: "Add image" }));
+    fireEvent.submit(title.form!);
+    expect(screen.getByRole("form", { name: "Edit task" })).not.toBeNull();
+    finish({ dataUrl: imageUrl() });
+    await screen.findByText("A task can have at most 10 images.");
+    expect((await workspace.task(task.id)).attachments).toEqual(attachments);
+  });
+
+  test("platform.share-image: sharing follows the displayed image; errors leave the preview open", async () => {
+    await workspace.create("Two images", {
+      attachments: [await workspace.storeImage(1), await workspace.storeImage(2)],
+    });
+    const { user } = await workspace.render();
+    let shared = "";
+    let fail = false;
+    nativeImages((command, args) => {
+      if (command !== "image_share") return;
+      if (fail) throw new Error("No app could open the image.");
+      shared = (args as { dataUrl: string }).dataUrl;
+    });
+    await expectActive("Two images");
+    await user.keyboard("{Enter}");
+    await focusedTitleField();
+    const images = await screen.findByRole("listbox", { name: "Images" });
+    await waitFor(() => expect(images.querySelectorAll("img")).toHaveLength(2));
+    await user.click(within(images).getAllByRole("option")[0]);
+    await screen.findByRole("dialog", { name: "Image 1 of 2" });
+    await user.click(screen.getByRole("button", { name: "Next image" }));
+    const preview = await screen.findByRole("dialog", { name: "Image 2 of 2" });
+    const share = within(preview).getByRole("button", { name: "Share image…" });
+    await user.tab();
+    expect(document.activeElement).toBe(share);
+    await user.keyboard(" ");
+    await waitFor(() => expect(shared).toBe(imageUrl(2)));
+    fail = true;
+    await user.click(share);
+    await screen.findByText("No app could open the image.");
+    expect(screen.getByRole("dialog", { name: "Image 2 of 2" })).toBe(preview);
   });
 });

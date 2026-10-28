@@ -6,7 +6,7 @@ import {
   type ReactElement,
   type Ref,
 } from "react";
-import { ChevronLeft, ChevronRight, Copy, ImageOff, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, ImageOff, Share2, X } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/variants/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -14,6 +14,9 @@ import { ImagePreviewContent, PreviewImage } from "@/components/variants/dialog"
 import { preventFocusSteal } from "@/navigation";
 import { readAttachment } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
+import { shareImage } from "@/platform/androidImages";
+import { isAndroid } from "@/platform/runtime";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type ImageState = { url: string } | { missing: true } | { failed: string };
 
@@ -84,12 +87,17 @@ export function AttachmentRow({
   const [active, setActive] = useState(0);
   const [previewing, setPreviewing] = useState<number | null>(null);
   const previewPopup = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const current = Math.min(active, names.length - 1);
   const previewImage = previewing === null ? undefined : images[names[previewing]];
 
   function preview(index: number): void {
     const image = images[names[index]];
-    if (image && "url" in image) setPreviewing(index);
+    if (image && "url" in image) {
+      setShareError(null);
+      setPreviewing(index);
+    }
   }
 
   // Browsing wraps around and also moves the row, so closing lands on the last image viewed.
@@ -97,6 +105,19 @@ export function AttachmentRow({
     const next = (from + step + names.length) % names.length;
     setPreviewing(next);
     setActive(next);
+    setShareError(null);
+  }
+
+  async function share(name: string): Promise<void> {
+    setShareError(null);
+    setSharing(true);
+    try {
+      await shareImage(name);
+    } catch (caught) {
+      setShareError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSharing(false);
+    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
@@ -219,19 +240,37 @@ export function AttachmentRow({
               if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                 event.preventDefault();
                 stepPreview(previewing, event.key === "ArrowLeft" ? -1 : 1);
-              } else if (event.key === " ") {
+              } else if (event.key === " " && event.target === event.currentTarget) {
                 event.preventDefault();
                 setPreviewing(null);
               }
             }}
           >
             {previewImage && "url" in previewImage ? (
-              <PreviewImage src={previewImage.url} />
+              <PreviewImage src={previewImage.url} withActions={isAndroid()} />
             ) : (
               <span className="block size-64 overflow-hidden rounded-md">
                 <Thumbnail image={previewImage} />
               </span>
             )}
+            {isAndroid() ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={sharing || !previewImage || !("url" in previewImage)}
+                onClick={() => void share(names[previewing])}
+              >
+                <Share2 data-icon="inline-start" aria-hidden="true" />
+                Share image…
+              </Button>
+            ) : null}
+            {shareError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Could not share image</AlertTitle>
+                <AlertDescription>{shareError}</AlertDescription>
+              </Alert>
+            ) : null}
             {names.length > 1 ? (
               <>
                 <span className="absolute top-1/2 left-3 -translate-y-1/2">

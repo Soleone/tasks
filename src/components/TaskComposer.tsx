@@ -41,7 +41,8 @@ import {
 } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { KeyHintButton, PlaceholderButton } from "@/components/variants/button";
+import { Button, KeyHintButton, PlaceholderButton } from "@/components/variants/button";
+import { ImagePlus } from "lucide-react";
 import { cn } from "cn";
 import { FieldError } from "@/components/ui/field";
 import { formatDueDate } from "@/backend/taskDates";
@@ -546,7 +547,7 @@ export function TaskComposer({
 
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (saving.current) return;
+    if (saving.current || images.picking) return;
     const via = saveVia.current;
     saveVia.current = "keys";
     // A marker still in the title counts on save, but never removes a pill.
@@ -863,6 +864,22 @@ export function TaskComposer({
           </PlaceholderButton>
         </div>
       ) : null}
+      {touch ? (
+        <div className="basis-full pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            tabIndex={-1}
+            disabled={pending || images.picking}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => void images.pick()}
+          >
+            <ImagePlus data-icon="inline-start" aria-hidden="true" />
+            Add image
+          </Button>
+        </div>
+      ) : null}
       {images.attachments.length > 0 ? (
         <div className="basis-full pt-1">
           <AttachmentRow
@@ -892,7 +909,7 @@ export function TaskComposer({
       </div>
       {touch ? (
         <KeyboardBar
-          disabled={pending}
+          disabled={pending || images.picking}
           onMarker={insertMarker}
           onMoveCursor={moveCursor}
           saveLabel="Save"

@@ -31,7 +31,7 @@ export function ImagePreviewContent({ className, ...props }: ComponentProps<type
   return (
     <DialogContent
       className={cn(
-        "w-auto max-w-[calc(100svw-2rem)] p-2 data-open:zoom-in-50! data-closed:zoom-out-50! sm:max-w-[calc(100svw-2rem)]",
+        "max-h-[calc(100svh-2rem)] w-auto max-w-[calc(100svw-2rem)] overflow-y-auto p-2 data-open:zoom-in-50! data-closed:zoom-out-50! sm:max-w-[calc(100svw-2rem)]",
         NESTED_BUTTON_FOCUS,
         className,
       )}
@@ -41,12 +41,17 @@ export function ImagePreviewContent({ className, ...props }: ComponentProps<type
 }
 
 /** The image in `ImagePreviewContent`: its own size, or shrunk to fit the window. */
-export function PreviewImage({ className, ...props }: ComponentProps<"img">) {
+export function PreviewImage({
+  withActions = false,
+  className,
+  ...props
+}: ComponentProps<"img"> & { withActions?: boolean }) {
   return (
     <img
       alt=""
       className={cn(
-        "max-h-[calc(100svh-3rem)] max-w-[calc(100svw-3rem)] rounded-md object-contain",
+        "max-w-[calc(100svw-3rem)] rounded-md object-contain",
+        withActions ? "max-h-[calc(100svh-7rem)]" : "max-h-[calc(100svh-3rem)]",
         className,
       )}
       {...props}
