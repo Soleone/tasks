@@ -764,7 +764,7 @@ describe("details", () => {
     const blocked = row("Task").querySelector("[data-task-blocker]")!;
     expect(blocked.textContent).toMatch(/Blocked by.*Blocker/);
     expect(blocked.parentElement?.querySelector("[title^=Created]")).not.toBeNull();
-    const order = [row("Task").querySelector("[data-task-category]")!, blocked, description];
+    const order = [row("Task").querySelector("[data-slot=item-title]")!, blocked, description];
     for (const [earlier, later] of [order.slice(0, 2), order.slice(1)]) {
       expect(
         earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -784,6 +784,33 @@ describe("details", () => {
       [...row(title).querySelectorAll("[data-task-due]")].map((marker) => marker.textContent);
     expect(markers("Soon")).toEqual(["Due tomorrow"]);
     expect(markers("Later")).toEqual([`Due ${formatDueDate(later, today)}`]);
+  });
+
+  test("home.row-layout: tags follow the title; the row ends with date, arrow and category", async () => {
+    const parent = await workspace.create("Parent", {
+      category: "work",
+      tags: ["urgent"],
+      due: addDays(localToday(), 1),
+    });
+    await workspace.create("Child", { parentId: parent.id });
+    await workspace.create("Bare");
+    const { user } = await workspace.render();
+    const title = await waitFor(() => row("Parent").querySelector("[data-slot=item-title]")!);
+    expect(title.parentElement?.textContent).toBe("Parent urgent");
+    const end = [
+      row("Parent").querySelector("[data-task-due]")!,
+      row("Parent").querySelector('[aria-label="Expand children"]')!,
+      row("Parent").querySelector("[data-task-category]")!,
+    ];
+    for (const [earlier, later] of [end.slice(0, 2), end.slice(1)]) {
+      expect(
+        earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    expect(row("Bare").textContent).toContain("No category");
+    await user.click(end[2]);
+    await waitFor(() => expect(row("Parent").querySelector("[data-task-category]")).toBeNull());
+    expect(row("Parent").textContent).not.toContain("No category");
   });
 
   test("home.due-soon: rows mark due dates within the week or past", async () => {

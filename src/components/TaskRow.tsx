@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { Fragment, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { CalendarDays, Folder, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
@@ -16,12 +16,7 @@ import { priorityMeta, statusGlyphColor, taskStatusMeta } from "@/components/tas
 import { preventFocusSteal } from "@/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClassificationBadge } from "@/components/variants/badge";
-import {
-  TaskItemDescription,
-  TaskItemMetadata,
-  TaskItemTitle,
-  TaskItemTrailing,
-} from "@/components/variants/item";
+import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 
 export type TaskRowVariant = "full" | "compact";
@@ -145,61 +140,96 @@ export function TaskStatusToggle({
   );
 }
 
-function TaskRowMetadata({
-  task,
-  hiddenCategorySlug,
+/** The category column: one width down the list, so the due dates and chevrons before it line up. */
+export function CategoryColumn({ children }: { children?: ReactNode }): ReactElement {
+  return <div className="flex h-[1.375em] w-20 shrink-0 items-center sm:w-28">{children}</div>;
+}
+
+/** A category as quiet text at the row's end, cut short when it outgrows the column. */
+export function CategoryFact({
+  label,
+  children,
+}: {
+  label: string;
+  children?: ReactNode;
+}): ReactElement {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground group-hover/fact:text-foreground">
+      <Folder className="size-3.5 shrink-0 text-classification-category" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+      {children}
+    </span>
+  );
+}
+
+/** A due date as quiet text at the row's end; today and late use the warning color. */
+export function DueFact({
+  label,
+  now,
+  title,
+  children,
+}: {
+  label: string;
+  now: boolean;
+  title?: string;
+  children?: ReactNode;
+}): ReactElement {
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1 text-xs whitespace-nowrap",
+        now ? "text-warning" : "text-muted-foreground",
+      )}
+    >
+      <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+      {label}
+      {children}
+    </span>
+  );
+}
+
+function TaskRowCategory({
+  category,
   onSelectCategory,
 }: {
-  task: TaskView;
-  hiddenCategorySlug?: string | null;
+  category: ClassificationToken | null;
   onSelectCategory?: (category: ClassificationToken) => void;
-}): ReactElement | null {
-  const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
-  if (!category && task.tags.length === 0) {
-    if (!task.category) {
-      // Hidden as a whole, so the empty line takes no gap in the row.
-      return <TaskItemMetadata className="sr-only">No category or tags</TaskItemMetadata>;
-    }
-    return null;
+}): ReactElement {
+  if (!category) {
+    return (
+      <CategoryColumn>
+        <span className="sr-only">No category</span>
+      </CategoryColumn>
+    );
   }
-
+  if (!onSelectCategory) {
+    return (
+      <CategoryColumn>
+        <CategoryFact label={category.label} />
+      </CategoryColumn>
+    );
+  }
   return (
-    <TaskItemMetadata>
-      {category ? (
-        onSelectCategory ? (
-          // A pointer shortcut inside a list option, like the status glyph.
-          // Keyboard filtering belongs to the list/toolbar, not a nested button.
-          <span
-            role="img"
-            tabIndex={-1}
-            data-task-category={category.slug}
-            aria-label={`Category ${category.label}. Click to filter; press @ to choose a category.`}
-            title={`Filter by ${category.label}`}
-            onMouseDown={preventFocusSteal}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelectCategory(category);
-            }}
-            className="flex cursor-pointer rounded-full"
-          >
-            <ClassificationBadge kind="category">
-              <Folder data-icon="inline-start" aria-hidden="true" />
-              {category.label}
-            </ClassificationBadge>
-          </span>
-        ) : (
-          <ClassificationBadge kind="category">
-            <Folder data-icon="inline-start" aria-hidden="true" />
-            {category.label}
-          </ClassificationBadge>
-        )
-      ) : null}
-      {task.tags.map((tag) => (
-        <ClassificationBadge key={tag.slug} kind="tag">
-          {tag.label}
-        </ClassificationBadge>
-      ))}
-    </TaskItemMetadata>
+    <CategoryColumn>
+      {/* A pointer shortcut inside a list option, like the status glyph.
+          Keyboard filtering belongs to the list/toolbar, not a nested button. */}
+      <span
+        role="img"
+        tabIndex={-1}
+        data-task-category={category.slug}
+        aria-label={`Category ${category.label}. Click to filter; press @ to choose a category.`}
+        title={`Filter by ${category.label}`}
+        onMouseDown={preventFocusSteal}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelectCategory(category);
+        }}
+        className="group/fact flex min-w-0 cursor-pointer"
+      >
+        <CategoryFact label={category.label} />
+      </span>
+    </CategoryColumn>
   );
 }
 
@@ -231,17 +261,9 @@ function TaskRowTrailing({
   if (task.due === null || dueLabel === null) return null;
   return (
     <TaskItemTrailing>
-      <span
-        data-task-due
-        title={`Due ${formatDueDate(task.due, today)}`}
-        className={cn(
-          "inline-flex items-center gap-1 text-xs",
-          dueNow(task, today) ? "text-warning" : "text-muted-foreground",
-        )}
-      >
-        <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+      <span data-task-due title={`Due ${formatDueDate(task.due, today)}`} className="flex">
         <span className="sr-only">Due </span>
-        {dueLabel}
+        <DueFact label={dueLabel} now={dueNow(task, today)} />
       </span>
     </TaskItemTrailing>
   );
@@ -361,9 +383,9 @@ function TaskRowFooter({
 /**
  * Shared task presentation. The parent owns the outer wrapper (list option
  * or picker result), selection styling, and activation; this renders the
- * status slot plus title, with optional details and metadata only in full mode.
- * The disclosure sits just before the trailing date, so dates keep the row's end
- * and an undated parent's chevron takes it instead.
+ * status slot plus title, with tags, details and the row's end only in full mode.
+ * The end reads date, chevron, category; the category column keeps one width so
+ * the dates and chevrons line up. Filtering by a category drops the column.
  */
 export function TaskRow({
   task,
@@ -394,6 +416,7 @@ export function TaskRow({
   onCopyImage?: (task: TaskView) => void;
 }): ReactElement {
   const blocker = variant === "full" ? taskBlocker(task, blockedByLabels) : null;
+  const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
   return (
     <div
       className={cn(
@@ -411,14 +434,21 @@ export function TaskRow({
         {statusSlot}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <TaskItemTitle className="wrap-anywhere w-full">{task.title}</TaskItemTitle>
-        {variant === "full" ? (
-          <TaskRowMetadata
-            task={task}
-            hiddenCategorySlug={hiddenCategorySlug}
-            onSelectCategory={onSelectCategory}
-          />
-        ) : null}
+        {/* The title's own line box, so tag badges flow after its last word. The spaces between
+            them, unlike margins, drop where a line breaks. */}
+        <div className="text-sm leading-snug wrap-anywhere">
+          <TaskItemTitle>{task.title}</TaskItemTitle>
+          {variant === "full"
+            ? task.tags.map((tag) => (
+                <Fragment key={tag.slug}>
+                  {" "}
+                  <ClassificationBadge kind="tag" className="align-top">
+                    {tag.label}
+                  </ClassificationBadge>
+                </Fragment>
+              ))
+            : null}
+        </div>
         {variant === "full" && showDetails ? (
           <TaskRowFooter task={task} blocker={blocker} onCopyImage={onCopyImage} />
         ) : variant === "full" && blocker ? (
@@ -437,11 +467,14 @@ export function TaskRow({
           <TaskItemDescription data-task-description>{task.description}</TaskItemDescription>
         ) : null}
       </div>
+      {variant === "full" ? (
+        <TaskRowTrailing task={task} showCompletedAt={showCompletedAt} />
+      ) : null}
       {variant === "full" && disclosureSlot ? (
         <div className="flex h-[1.375em] shrink-0 items-center self-start">{disclosureSlot}</div>
       ) : null}
-      {variant === "full" ? (
-        <TaskRowTrailing task={task} showCompletedAt={showCompletedAt} />
+      {variant === "full" && (category || !hiddenCategorySlug) ? (
+        <TaskRowCategory category={category} onSelectCategory={onSelectCategory} />
       ) : null}
     </div>
   );

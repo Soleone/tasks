@@ -44,9 +44,9 @@ export function TaskItemGroup({ className, ...props }: ComponentProps<typeof Ite
   return <ItemGroup className={cn("gap-0 has-data-[size=sm]:gap-0", className)} {...props} />;
 }
 
-/** Task titles stay complete at narrow widths. */
+/** Task titles stay complete at narrow widths, and run inline so tag badges can follow the words. */
 export function TaskItemTitle({ className, ...props }: ComponentProps<typeof ItemTitle>) {
-  return <ItemTitle className={cn("line-clamp-none", className)} {...props} />;
+  return <ItemTitle className={cn("line-clamp-none inline", className)} {...props} />;
 }
 
 /**
@@ -65,13 +65,6 @@ export function TaskItemDescription({
       )}
       {...props}
     />
-  );
-}
-
-/** The quiet classification row for category and tag badges. */
-export function TaskItemMetadata({ className, ...props }: ComponentProps<typeof ItemDescription>) {
-  return (
-    <ItemDescription className={cn("flex flex-wrap items-center gap-1.5", className)} {...props} />
   );
 }
 
