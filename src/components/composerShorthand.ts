@@ -1,10 +1,10 @@
 import { addDays, localToday, parseDueWord, weekdayNames, weekdayOf } from "@/backend/dueDate";
 import type { ClassificationOption } from "./taskView";
 
-export type Marker = "@" | "#" | "^";
+export type Marker = "@" | "#" | "!";
 
 /**
- * A `@category`, `#tag` or `^due` in the title field, with its code-unit range. The slug of a due
+ * A `@category`, `#tag` or `!due` in the title field, with its code-unit range. The slug of a due
  * marker is the date it names.
  */
 type ShorthandToken = { marker: Marker; slug: string; start: number; end: number };
@@ -31,9 +31,9 @@ export type SuggestionRow = { slug: string; label: string; kind: "add" | "remove
 
 // Same marker grammar as parseShorthand in the backend.
 const TOKEN = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)\b(?![\w-]*[@#])/g;
-const DUE_TOKEN = /(^|[^A-Za-z0-9_/@^])\^([A-Za-z0-9][A-Za-z0-9-]*)\b/g;
+const DUE_TOKEN = /(^|[^A-Za-z0-9_/@!])!([A-Za-z0-9][A-Za-z0-9-]*)\b/g;
 const TOKEN_BEFORE_CARET = /(^|[^A-Za-z0-9_/@])([@#])([A-Za-z][A-Za-z0-9_-]*)?$/;
-const DUE_BEFORE_CARET = /(^|[^A-Za-z0-9_/@^])(\^)([A-Za-z0-9][A-Za-z0-9-]*)?$/;
+const DUE_BEFORE_CARET = /(^|[^A-Za-z0-9_/@!])(!)([A-Za-z0-9][A-Za-z0-9-]*)?$/;
 
 // Escapes and code spans never classify, as in parseShorthand.
 function protectedUnits(text: string): boolean[] {
@@ -54,7 +54,7 @@ function protectedUnits(text: string): boolean[] {
         continue;
       }
     }
-    if (text[index] === "\\" && ["@", "#", "^", "\\"].includes(text[index + 1])) {
+    if (text[index] === "\\" && ["@", "#", "!", "\\"].includes(text[index + 1])) {
       units.fill(true, index, index + 2);
       index += 2;
       continue;
@@ -78,7 +78,7 @@ function shorthandTokens(text: string): ShorthandToken[] {
     const start = match.index + match[1].length;
     const due = isProtected[start] ? null : parseDueWord(match[2], today);
     if (due !== null)
-      tokens.push({ marker: "^", slug: due, start, end: start + 1 + match[2].length });
+      tokens.push({ marker: "!", slug: due, start, end: start + 1 + match[2].length });
   }
   return tokens.sort((a, b) => a.start - b.start);
 }
@@ -128,7 +128,7 @@ function applyToken(
   toggle: boolean,
 ): { classification: Classification; change: LiftChange } {
   const { category, tags, due } = classification;
-  if (token.marker === "@" || token.marker === "^") {
+  if (token.marker === "@" || token.marker === "!") {
     const field = token.marker === "@" ? "category" : "due";
     const current = token.marker === "@" ? category : due;
     if (current === token.slug)
@@ -214,7 +214,7 @@ export function suggestionRows(
 }
 
 /**
- * The date a partial `^word` points at while it is typed: the date it already names, a count of days
+ * The date a partial `!word` points at while it is typed: the date it already names, a count of days
  * for a bare number, or the first of today, tomorrow and the weekdays ahead that it starts. Null
  * when it points at none.
  */
@@ -238,7 +238,7 @@ export function enterAction(row: SuggestionRow, query: string): "select" | "save
   return row.slug === query ? "save" : "select";
 }
 
-// A `^` in a saved title is escaped only where it would set a due date, so `x^2` reads as typed.
+// A `!` in a saved title is escaped only where it would set a due date, so `Done!` reads as typed.
 function isDueMarker(title: string, index: number): boolean {
   DUE_TOKEN.lastIndex = Math.max(0, index - 1);
   const match = DUE_TOKEN.exec(title);
@@ -266,7 +266,7 @@ export function shorthandTitle(title: string): string {
     }
     const character = title[index];
     const literalMarker =
-      ["\\", "@", "#"].includes(character) || (character === "^" && isDueMarker(title, index));
+      ["\\", "@", "#"].includes(character) || (character === "!" && isDueMarker(title, index));
     escaped += literalMarker ? `\\${character}` : character;
     index += 1;
   }
@@ -278,7 +278,7 @@ export function shorthandText(title: string, classification: Classification): st
   const markers = [
     ...(classification.category ? [`@${classification.category}`] : []),
     ...classification.tags.map((tag) => `#${tag}`),
-    ...(classification.due ? [`^${classification.due}`] : []),
+    ...(classification.due ? [`!${classification.due}`] : []),
   ];
   // Markers go first so an unclosed code fence in the title cannot swallow them.
   return [...markers, title.trim()].filter(Boolean).join(" ");

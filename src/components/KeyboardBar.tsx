@@ -60,7 +60,7 @@ export function KeyboardBar({
     },
     { label: "@", name: "@", press: () => onMarker("@") },
     { label: "#", name: "#", press: () => onMarker("#") },
-    { label: "^", name: "^", press: () => onMarker("^") },
+    { label: "!", name: "!", press: () => onMarker("!") },
     {
       label: <ArrowLeft aria-hidden="true" />,
       name: "Move cursor left",

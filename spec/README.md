@@ -40,7 +40,7 @@ Backend commands use a fixed block instead: **Input**, **Effect**, **Refuses whe
 | Priority | `P0` (highest) to `P4`. New tasks are `P2`. |
 | Category | At most one `@category` per task. |
 | Tags | Any number of `#tags`. Filters combine them with AND. |
-| Due date | At most one `^date` per task: a calendar day, with no time and no start date. |
+| Due date | At most one `!date` per task: a calendar day, with no time and no start date. |
 | Parent | The task a task is nested under. Moving a root task carries its children. |
 | Blocker | A dependency that isn't canceled. A done blocker still blocks. A task with no blockers is **unblocked**. |
 | Manual order | A persistent order among siblings, shared by the app, CLI and agents. |

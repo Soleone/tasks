@@ -82,7 +82,7 @@ function addMonths(date: string, count: number): string {
 }
 
 /**
- * The date a word after `^` names, or null when it names none. Weekdays and month days mean the
+ * The date a word after `!` names, or null when it names none. Weekdays and month days mean the
  * next one after or on today, except a weekday never means today.
  */
 export function parseDueWord(word: string, today: string): string | null {

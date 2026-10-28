@@ -467,7 +467,7 @@ WRITES
     content flags: --description TEXT, --priority 0..4, --category SLUG,
                    --clear-category, --tag SLUG (repeat), --clear-tags,
                    --due DATE (2026-10-31, today, tmr, fri, 3d, 2w, oct31), --clear-due
-    add also allows --parent ID. Shorthand (^fri sets the due date) cannot mix
+    add also allows --parent ID. Shorthand (!fri sets the due date) cannot mix
     classification or due overrides.
   start|pause|complete|reopen|cancel|delete|undo ID
   undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled

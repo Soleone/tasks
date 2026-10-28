@@ -17,7 +17,7 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | Quest | Summary | Keyboard steps | Touch steps |
 | --- | --- | --- | --- |
 | Task basics | Create, tag and complete a task in about two minutes | `C`, `@`, `#`, `Enter`, `→`, `C`, `Enter`, `←`, `Space`, `Space`, `D`, `D` | +, `@`, `#`, save, status icon, status icon, the done count, the done count |
-| Plan ahead | Due dates, priorities and what's due now | `C`, `^`, `Enter`, `0`–`4`, `N`, `N`, `@`, `←` | +, `^`, save, the due count, the due count |
+| Plan ahead | Due dates, priorities and what's due now | `C`, `!`, `Enter`, `0`–`4`, `N`, `N`, `@`, `←` | +, `!`, save, the due count, the due count |
 | Change of plans | Step back, pause, undo and cancel, on a task made to practice on | `C`, `Enter`, `Space`, `Shift+Space`, `P`, `Ctrl/⌘+Z`, `Delete` | |
 | Find your way | Moving around, filters, sorting and search | `↑↓`, `Home`/`End`, `F` then a key, `S` then a key, `#`, `/`, `Escape` | |
 | Shape your list | Child tasks, collapsing, blockers and reordering | `Shift+C`, `Enter`, `←` twice, `→`, `M`, `B`, `Shift+↓`, `Ctrl/⌘+↑↓`, `Ctrl/⌘+Home/End` | long-press, Move under, Blockers |

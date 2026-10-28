@@ -43,13 +43,13 @@ Images are kept beside the text, never inside it. The description stays exactly 
 
 ## Shorthand
 
-Typing stays the same as the CLI's shorthand, but the title field keeps only the words. What it lifts out becomes a pill: the due date and the category where the row shows them, and the tags after the title's text, all as quiet text with an ×. With none set, the line under the title hints `@category #tags ^date`.
+Typing stays the same as the CLI's shorthand, but the title field keeps only the words. What it lifts out becomes a pill: the due date and the category where the row shows them, and the tags after the title's text, all as quiet text with an ×. With none set, the line under the title hints `@category #tags !date`.
 
 | Rule | When | Then |
 | --- | --- | --- |
 | `shorthand.lift` | `@word` or `#word` in the title, finished with a space or chosen from suggestions | It leaves the title and flies into its pill. The space before it stays, so typing continues. `\@`, `\#`, text in backticks and joined markers such as `#one@two` stay in the title |
 | `shorthand.category` | `@word` | Sets the category pill. A second category replaces the first |
-| `shorthand.due` | `^word` naming a date (see `text.due`), finished with a space or chosen from suggestions | Lifts into a due date pill reading like the row's marker (`tomorrow`, `Fri`, `2d late`) or, further out, `Nov 14`, resolved against today, with the full date on hover. A second date replaces the first. A word that names no date stays text |
+| `shorthand.due` | `!word` naming a date (see `text.due`), finished with a space or chosen from suggestions | Lifts into a due date pill reading like the row's marker (`tomorrow`, `Fri`, `2d late`) or, further out, `Nov 14`, resolved against today, with the full date on hover. A second date replaces the first. A word that names no date stays text |
 | `shorthand.tags` | `#word` | Adds a tag pill |
 | `shorthand.toggle` | Typing or choosing a category or tag the task already has | Removes that pill |
 | `shorthand.match` | Typing `@` or `#` and the start of a category or tag the task already has | The typed letters light up in that pill in the warning color, with the tag's `#`, since finishing the name removes it |
@@ -57,8 +57,8 @@ Typing stays the same as the CLI's shorthand, but the title field keeps only the
 | `shorthand.pill-click` | Clicking a pill | Removes it. Pills aren't Tab stops |
 | `shorthand.pill-exit` | A pill goes away: clicked, toggled off, replaced or put back in the title | It shrinks and fades where it was while the pills after it close the gap. Reduced motion turns it off |
 | `shorthand.suggest` | Typing `@` or `#` | Suggestions list matching names, then pills the task already has (marked remove), then the typed name if it is new. An exact match comes first. The highlighted row shows what `Enter` does |
-| `shorthand.suggest-due` | Typing `^` | A month opens under the title and highlights the date the word points at as you type: the date it names, a count of days for a bare number, or the first of today, tomorrow and the weekdays ahead that it starts (`^fr` is Friday). A bare `^` starts on the date already set, so `Enter` removes it, or on today when there is none. Arrow keys move the highlight by a day or a week, and clicking a day picks it. A line under the month shows the date and what `Enter` does, which is remove when it is the date already set. A word that points at no date leaves `Enter` saving as usual |
-| `shorthand.due-strip` | Typing `^` when vertical space is limited, such as on a phone with the on-screen keyboard open | The month shrinks to the week holding the highlighted date, without month arrows. Typing and the arrow keys still reach any date, and the strip follows |
+| `shorthand.suggest-due` | Typing `!` | A month opens under the title and highlights the date the word points at as you type: the date it names, a count of days for a bare number, or the first of today, tomorrow and the weekdays ahead that it starts (`!fr` is Friday). A bare `!` starts on the date already set, so `Enter` removes it, or on today when there is none. Arrow keys move the highlight by a day or a week, and clicking a day picks it. A line under the month shows the date and what `Enter` does, which is remove when it is the date already set. A word that points at no date leaves `Enter` saving as usual |
+| `shorthand.due-strip` | Typing `!` when vertical space is limited, such as on a phone with the on-screen keyboard open | The month shrinks to the week holding the highlighted date, without month arrows. Typing and the arrow keys still reach any date, and the strip follows |
 | `shorthand.enter` | `Enter` with suggestions open | Chooses the highlighted row, or removes it if it is already a pill. A category or tag row that only repeats what is typed saves instead; a date always lifts first |
 | `shorthand.tab` | `Tab` with suggestions open | Completes the highlighted name as text. A second `Tab` chooses it. A date is chosen at once |
 | `shorthand.escape` | `Escape` while typing a marker | Drops that marker and name. The editor stays open |

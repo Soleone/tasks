@@ -49,7 +49,7 @@ export function parseShorthand(input: string, today = localToday()): ParsedShort
         continue;
       }
     }
-    if (input[index] === "\\" && ["@", "#", "^", "\\"].includes(input[index + 1])) {
+    if (input[index] === "\\" && ["@", "#", "!", "\\"].includes(input[index + 1])) {
       const escaped = input[index + 1];
       append(escaped, escaped !== "\\", index);
       index += 2;
@@ -75,7 +75,7 @@ export function parseShorthand(input: string, today = localToday()): ParsedShort
   const dues = new Set<string>();
   let text = input;
   for (const match of [
-    ...decoded.matchAll(/(^|[^A-Za-z0-9_/@^])\^([A-Za-z0-9][A-Za-z0-9-]*)\b/g),
+    ...decoded.matchAll(/(^|[^A-Za-z0-9_/@!])!([A-Za-z0-9][A-Za-z0-9-]*)\b/g),
   ].reverse()) {
     const start = match.index + match[1].length;
     const end = start + 1 + match[2].length;

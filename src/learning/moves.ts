@@ -36,8 +36,8 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "shorthand.due",
-    keyboard: { label: "Set a due date while typing", keys: ["^"] },
-    touch: { label: "Tap ^ for a due date" },
+    keyboard: { label: "Set a due date while typing", keys: ["!"] },
+    touch: { label: "Tap ! for a due date" },
   },
   {
     id: "shorthand.tab",

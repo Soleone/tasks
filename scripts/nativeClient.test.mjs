@@ -210,7 +210,7 @@ test("main-client presentation preserves literal text and round-trips inline cla
     "Two  spaces",
     "Unclosed ` @alice",
     "Mixed `code` @literal",
-    "Meet ^fri and x^2",
+    "Meet !fri and done!",
   ]) {
     const canonical = { ...task, title, category: "work", tags: ["alpha", "todo"] };
     const view = taskView(canonical);

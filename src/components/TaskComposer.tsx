@@ -82,12 +82,12 @@ type ComposerField = "title" | "description" | "images";
 const MARKER_MOVES: Record<Marker, MoveId> = {
   "@": "shorthand.category",
   "#": "shorthand.tags",
-  "^": "shorthand.due",
+  "!": "shorthand.due",
 };
 
 // A pill's name as a quest's success line says it, like "Due tomorrow".
 function practiceMarker(marker: Marker, slug: string): void {
-  practice(MARKER_MOVES[marker], "keys", marker === "^" ? formatDueDate(slug, localToday()) : slug);
+  practice(MARKER_MOVES[marker], "keys", marker === "!" ? formatDueDate(slug, localToday()) : slug);
 }
 
 // Markers still in the title when it saves, in the order the pills show them.
@@ -100,7 +100,7 @@ function savedMarkers(before: Classification, after: Classification): [Marker, s
       .filter((tag) => !before.tags.includes(tag))
       .map((tag): [Marker, string] => ["#", tag]),
     ...(after.due !== null && after.due !== before.due
-      ? [["^", after.due] as [Marker, string]]
+      ? [["!", after.due] as [Marker, string]]
       : []),
   ];
 }
@@ -285,9 +285,9 @@ export function TaskComposer({
       : suggestion.marker === "#"
         ? suggestionRows(suggestion.query, tags, classification.tags)
         : [];
-  // A bare `^` starts on the date already set, so Enter removes it and the arrows shift it.
+  // A bare `!` starts on the date already set, so Enter removes it and the arrows shift it.
   const dueChoice =
-    suggestion?.marker !== "^"
+    suggestion?.marker !== "!"
       ? null
       : (dueCursor ??
         (suggestion.query === "" && classification.due !== null
@@ -355,7 +355,7 @@ export function TaskComposer({
     setClassification((current) =>
       marker === "@"
         ? { ...current, category: null }
-        : marker === "^"
+        : marker === "!"
           ? { ...current, due: null }
           : { ...current, tags: current.tags.filter((tag) => tag !== slug) },
     );
@@ -363,7 +363,7 @@ export function TaskComposer({
 
   function handleSuggestionKeyDown(event: KeyboardEvent<HTMLInputElement>): boolean {
     if (!suggestion || event.ctrlKey || event.metaKey || event.altKey) return false;
-    if (suggestion.marker === "^") return handleDueKeyDown(event, suggestion);
+    if (suggestion.marker === "!") return handleDueKeyDown(event, suggestion);
     if (suggestionItems.length === 0) return false;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
@@ -685,7 +685,7 @@ export function TaskComposer({
                 aria-invalid={titleError || undefined}
                 aria-describedby={titleError ? `${id}-error` : undefined}
                 aria-expanded={
-                  suggestion !== null && (suggestion.marker === "^" || suggestionItems.length > 0)
+                  suggestion !== null && (suggestion.marker === "!" || suggestionItems.length > 0)
                 }
                 aria-autocomplete="list"
                 onChange={(event) => {
@@ -718,7 +718,7 @@ export function TaskComposer({
             </div>
             <ClassificationPills kind="tag" {...pillProps} />
           </div>
-          {suggestion?.marker === "^" ? (
+          {suggestion?.marker === "!" ? (
             <DueDatePicker
               key={dueChoice ?? "none"}
               choice={dueChoice}
@@ -769,7 +769,7 @@ export function TaskComposer({
       classification.tags.length === 0 &&
       classification.due === null ? (
         <span className="flex min-h-5 grow items-center text-xs text-muted-foreground">
-          @category #tags ^date
+          @category #tags !date
         </span>
       ) : null}
       {!touch ? (

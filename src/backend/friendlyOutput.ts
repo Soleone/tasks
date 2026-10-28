@@ -11,7 +11,7 @@ function taskLine(task: TaskProjection): string {
     `(p${task.priority})`,
     ...(task.category === null ? [] : [`@${task.category}`]),
     ...task.tags.map((tag) => `#${tag}`),
-    ...(task.due === null ? [] : [`^${task.due}`]),
+    ...(task.due === null ? [] : [`!${task.due}`]),
     ...(task.blockedByIds.length ? [`blocked-by:${task.blockedByIds.length}`] : []),
     `v${task.version}`,
   ].join(" ");

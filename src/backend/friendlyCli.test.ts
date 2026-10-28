@@ -218,15 +218,15 @@ test(
 );
 
 test(
-  "cli.due: --due takes a date word, --clear-due clears it and ^ shorthand sets it",
+  "cli.due: --due takes a date word, --clear-due clears it and ! shorthand sets it",
   linux,
   (t) => {
     const workspace = setup(t);
     const today = localToday();
-    const added = ok(workspace, ["add", "Pay rent ^tmr"]).task as TaskProjection;
+    const added = ok(workspace, ["add", "Pay rent !tmr"]).task as TaskProjection;
     assert.equal(added.title, "Pay rent");
     assert.equal(added.due, addDays(today, 1));
-    assert.equal(added.text, `Pay rent ^${addDays(today, 1)}`);
+    assert.equal(added.text, `Pay rent !${addDays(today, 1)}`);
     const moved = ok(workspace, ["update", added.id, "--due", "2026-12-24"]).task as TaskProjection;
     assert.equal(moved.due, "2026-12-24");
     const sorted = ok(workspace, ["list", "--sort", "due"]).tasks as TaskProjection[];
@@ -236,7 +236,7 @@ test(
     for (const argv of [
       ["update", added.id, "--due", "someday"],
       ["update", added.id, "--due", "fri", "--clear-due"],
-      ["add", "Pay ^fri", "--due", "mon"],
+      ["add", "Pay !fri", "--due", "mon"],
     ])
       assert.equal(run(workspace, argv).status, 2, argv.join(" "));
   },

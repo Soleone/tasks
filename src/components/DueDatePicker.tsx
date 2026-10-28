@@ -31,7 +31,7 @@ function StripWeek({ week, ...props }: WeekProps): ReactElement {
 }
 
 /**
- * The month under the title field while a `^word` is typed, in the flow so the editor grows
+ * The month under the title field while a `!word` is typed, in the flow so the editor grows
  * around it instead of clipping it. It highlights the date the word points
  * at and shows what Enter does; clicking a day picks it. Focus stays in the title field.
  * In a short window it shows only the highlighted week.

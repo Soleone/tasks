@@ -39,7 +39,7 @@ function pillsOf({ category, tags, due }: Classification, today: string): Pill[]
       ? []
       : [
           {
-            marker: "^",
+            marker: "!",
             slug: due,
             kind: "due",
             label: shortDueDate(due, today),

@@ -87,7 +87,7 @@ test("text.remove-span: a marker between two spaces leaves one; other spacing st
 const today = "2026-10-22";
 
 test("text.due: due words resolve against today; anything else stays text", () => {
-  const due = (word: string): string | null => parseShorthand(`Pay ^${word}`, today).due;
+  const due = (word: string): string | null => parseShorthand(`Pay !${word}`, today).due;
   assert.equal(due("today"), "2026-10-22");
   assert.equal(due("tmr"), "2026-10-23");
   assert.equal(due("Tomorrow"), "2026-10-23");
@@ -95,37 +95,37 @@ test("text.due: due words resolve against today; anything else stays text", () =
   assert.equal(due("thursday"), "2026-10-29");
   assert.equal(due("3d"), "2026-10-25");
   assert.equal(due("2w"), "2026-11-05");
-  assert.equal(parseShorthand("Pay ^1m", "2026-01-31").due, "2026-02-28");
+  assert.equal(parseShorthand("Pay !1m", "2026-01-31").due, "2026-02-28");
   assert.equal(due("1y"), "2027-10-22");
-  assert.equal(parseShorthand("Pay ^1y", "2028-02-29").due, "2029-02-28");
+  assert.equal(parseShorthand("Pay !1y", "2028-02-29").due, "2029-02-28");
   assert.equal(due("oct31"), "2026-10-31");
   assert.equal(due("october22"), "2026-10-22");
   assert.equal(due("oct21"), "2027-10-21");
   assert.equal(due("2026-02-03"), "2026-02-03");
-  for (const text of ["x^2 = 4", "Pay ^soon", "Pay ^feb30", "Pay \\^fri", "Pay `^fri`", "a^fri"])
+  for (const text of ["Done!", "Pay !soon", "Pay !feb30", "Pay \\!fri", "Pay `!fri`", "a!fri"])
     assert.deepEqual(parseShorthand(text, today).due, null, text);
-  assert.equal(parseShorthand("Pay \\^fri", today).title, "Pay ^fri");
-  assert.equal(parseShorthand("Pay ^fri rent", today).title, "Pay rent");
+  assert.equal(parseShorthand("Pay \\!fri", today).title, "Pay !fri");
+  assert.equal(parseShorthand("Pay !fri rent", today).title, "Pay rent");
 });
 
 test("text.due-fixed: the stored text holds the date, not the relative word", () => {
   assert.equal(
-    parseShorthand(" Pay ^fri \\@home #bills ", today).text,
-    "Pay ^2026-10-23 \\@home #bills",
+    parseShorthand(" Pay !fri \\@home #bills ", today).text,
+    "Pay !2026-10-23 \\@home #bills",
   );
-  assert.equal(parseShorthand("`^x` Pay ^tmr", today).text, "`^x` Pay ^2026-10-23");
+  assert.equal(parseShorthand("`!x` Pay !tmr", today).text, "`!x` Pay !2026-10-23");
   assert.throws(
-    () => parseUpdate({ id: "a", expectedVersion: 1, text: `${"a".repeat(995)} ^1d` }),
+    () => parseUpdate({ id: "a", expectedVersion: 1, text: `${"a".repeat(995)} !1d` }),
     (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
   );
 });
 
 test("text.one-due: two different due dates are refused; the same one twice is fine", () => {
   assert.throws(
-    () => parseShorthand("Pay ^fri ^mon", today),
+    () => parseShorthand("Pay !fri !mon", today),
     (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
   );
-  assert.equal(parseShorthand("Pay ^fri ^2026-10-23", today).due, "2026-10-23");
+  assert.equal(parseShorthand("Pay !fri !2026-10-23", today).due, "2026-10-23");
 });
 
 const at = "2026-10-01T00:00:00.000Z";

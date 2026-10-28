@@ -410,10 +410,10 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keywords: "#planning #calls title",
       },
       {
-        label: "^date",
-        hint: "Due: ^fri ^tmr ^3d ^oct31",
+        label: "!date",
+        hint: "Due: !fri !tmr !3d !oct31",
         icon: CalendarDays,
-        keywords: "^ due date deadline today tomorrow weekday week month year",
+        keywords: "! due date deadline today tomorrow weekday week month year",
       },
     ],
   },
@@ -486,7 +486,7 @@ export function HelpPalette({
       onOpenChange={onOpenChange}
       wide
       title="Shortcuts and syntax"
-      description="Keyboard help, @categories, #tags and ^dates."
+      description="Keyboard help, @categories, #tags and !dates."
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >

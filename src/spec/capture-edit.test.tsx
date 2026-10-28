@@ -341,7 +341,7 @@ describe("shorthand", () => {
 
   test("shorthand.match: typed letters light up in the pills they start", async () => {
     const { user } = await workspace.render();
-    await capture(user, "Read @home #books #bonus ^tomorrow #b");
+    await capture(user, "Read @home #books #bonus !tomorrow #b");
     const lit = () =>
       [...editor().querySelectorAll("[data-pill] mark")].map((mark) => mark.textContent);
     expect(lit()).toEqual(["#b", "#b"]);
@@ -349,7 +349,7 @@ describe("shorthand", () => {
     expect(lit()).toEqual(["#boo"]);
     await user.keyboard("{Backspace}{Backspace}{Backspace}{Backspace}@ho");
     expect(lit()).toEqual(["ho"]);
-    await user.keyboard("{Backspace}{Backspace}{Backspace}^t");
+    await user.keyboard("{Backspace}{Backspace}{Backspace}!t");
     expect(lit()).toEqual([]);
   });
 
@@ -492,7 +492,7 @@ describe("shorthand", () => {
         within(bar)
           .getAllByRole("button")
           .map((button) => button.getAttribute("aria-label")),
-      ).toEqual(["Escape", "@", "#", "^", "Move cursor left", "Move cursor right", "Add task"]);
+      ).toEqual(["Escape", "@", "#", "!", "Move cursor left", "Move cursor right", "Add task"]);
       await barKey(user, "Move cursor left");
       expect(titleField().selectionStart).toBe(7);
       await barKey(user, "Move cursor right");
@@ -589,31 +589,31 @@ describe("shorthand", () => {
     expect(screen.queryByRole("toolbar", { name: "Keyboard keys" })).toBeNull();
   });
 
-  test("shorthand.due: ^tmr lifts into a date pill, saves the date and comes off with a click", async () => {
+  test("shorthand.due: !tmr lifts into a date pill, saves the date and comes off with a click", async () => {
     const tomorrow = addDays(localToday(), 1);
     const { user } = await workspace.render();
-    await capture(user, "Pay x^2 ^tmr rent");
-    expect(titleField().value).toBe("Pay x^2 rent");
+    await capture(user, "Pay now! !tmr rent");
+    expect(titleField().value).toBe("Pay now! rent");
     expect(pills()).toEqual([shortDueDate(tomorrow, localToday())]);
     await user.keyboard("{Enter}");
     await waitFor(async () => {
       const task = await onlyTask();
-      expect([task.title, task.due]).toEqual(["Pay x^2 rent", tomorrow]);
+      expect([task.title, task.due]).toEqual(["Pay now! rent", tomorrow]);
     });
     await expectListFocused();
     await user.keyboard("{Enter}");
-    expect((await focusedTitleField()).value).toBe("Pay x^2 rent ");
+    expect((await focusedTitleField()).value).toBe("Pay now! rent ");
     await user.click(within(editor()).getByRole("button", { name: /^Remove due date/ }));
     expect(pills()).toEqual([]);
     await user.keyboard("{Enter}");
     await waitFor(async () => expect((await onlyTask()).due).toBeNull());
   });
 
-  test("shorthand.suggest-due: ^ opens a month that follows the typed word and the arrow keys", async () => {
+  test("shorthand.suggest-due: ! opens a month that follows the typed word and the arrow keys", async () => {
     const today = localToday();
     const friday = parseDueWord("fri", today)!;
     const { user } = await workspace.render();
-    await capture(user, "Pay ^");
+    await capture(user, "Pay !");
     await screen.findByRole("group", { name: "Due date picker" });
     const footer = (): string =>
       screen.getByRole("group", { name: "Due date picker" }).querySelector("p")?.textContent ?? "";
@@ -634,31 +634,31 @@ describe("shorthand", () => {
   test("shorthand.suggest-due: clicking a day picks it, and the date already set offers remove", async () => {
     const tomorrow = addDays(localToday(), 1);
     const { user } = await workspace.render();
-    await capture(user, "Pay ^");
+    await capture(user, "Pay !");
     const picker = await screen.findByRole("group", { name: "Due date picker" });
     await user.click(picker.querySelector(`[data-day="${tomorrow}"] button`)!);
     expect(pills()).toEqual([shortDueDate(tomorrow, localToday())]);
-    await user.keyboard("^tmr");
+    await user.keyboard("!tmr");
     const again = await screen.findByRole("group", { name: "Due date picker" });
     expect(again.querySelector("p")?.textContent).toMatch(/↵ remove$/);
     await user.keyboard("{Enter}");
     expect(pills()).toEqual([]);
   });
 
-  test("shorthand.suggest-due: a bare ^ starts on the date already set, so arrows shift it and Enter removes it", async () => {
+  test("shorthand.suggest-due: a bare ! starts on the date already set, so arrows shift it and Enter removes it", async () => {
     const today = localToday();
     const tomorrow = addDays(today, 1);
     const { user } = await workspace.render();
-    await capture(user, "Pay ^tmr ");
+    await capture(user, "Pay !tmr ");
     expect(pills()).toEqual([shortDueDate(tomorrow, today)]);
-    await user.keyboard("^");
+    await user.keyboard("!");
     const picker = await screen.findByRole("group", { name: "Due date picker" });
     expect(picker.querySelector("p")?.textContent).toBe(
       `${formatDueDate(tomorrow, today)}↵ remove`,
     );
     await user.keyboard("{ArrowRight}{Enter}");
     expect(pills()).toEqual([shortDueDate(addDays(today, 2), today)]);
-    await user.keyboard("^{Enter}");
+    await user.keyboard("!{Enter}");
     expect(pills()).toEqual([]);
   });
 
@@ -675,7 +675,7 @@ describe("shorthand", () => {
     try {
       const nextWeek = addDays(localToday(), 7);
       const { user } = await workspace.render();
-      await capture(user, "Pay ^{ArrowDown}");
+      await capture(user, "Pay !{ArrowDown}");
       const picker = screen.getByRole("group", { name: "Due date picker" });
       expect(picker.querySelectorAll("tbody tr")).toHaveLength(1);
       expect(picker.querySelector(`[data-day="${nextWeek}"]`)).not.toBeNull();
@@ -687,7 +687,7 @@ describe("shorthand", () => {
 
   test("shorthand.tab: Tab lifts a date at once", async () => {
     const { user } = await workspace.render();
-    await capture(user, "Pay ^tm");
+    await capture(user, "Pay !tm");
     await screen.findByRole("group", { name: "Due date picker" });
     await user.keyboard("{Tab}");
     expect(titleField().value).toBe("Pay ");

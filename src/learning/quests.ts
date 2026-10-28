@@ -139,7 +139,7 @@ const QUEST_DEFINITIONS = [
       {
         move: "shorthand.due",
         prompt:
-          "Type what needs doing, then give it a due date with `^`, like `^today`. `Enter` picks the highlighted date",
+          "Type what needs doing, then give it a due date with `!`, like `!today`. `Enter` picks the highlighted date",
         success: "Due {}",
         inEditor: true,
       },
@@ -183,7 +183,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "shorthand.due",
-        prompt: "Type what needs doing, then tap `^` and pick a due date",
+        prompt: "Type what needs doing, then tap `!` and pick a due date",
         success: "Due {}",
         inEditor: true,
       },

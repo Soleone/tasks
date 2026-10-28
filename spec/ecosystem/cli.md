@@ -39,7 +39,7 @@ Reorder, status batches, doctor, removing attachments and deleting done tasks ar
 | Rule | Then |
 | --- | --- |
 | `cli.shorthand` | Positional `add` text is shorthand. It can't be combined with `--category`, `--tag` or `--due` |
-| `cli.due` | `--due` takes any word `^` accepts (see `text.due`) and sends the date it names today. A word that names no date is a usage error |
+| `cli.due` | `--due` takes any word `!` accepts (see `text.due`) and sends the date it names today. A word that names no date is a usage error |
 | `cli.flags-checked` | A flag that doesn't belong to the verb is a usage error |
 | `cli.attachment-paths` | `show` prints each attachment as an absolute path into the home's `sync/attachments/`, so agents can open the image. A missing file is marked missing |
 | `cli.actor` | `--actor-kind` (`human` or `agent`, default agent) and `--actor-label` set the actor |
