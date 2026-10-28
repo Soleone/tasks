@@ -203,6 +203,20 @@
   }
 }
 
+/* Canceling strikes the title through, drawn left to right while the row lingers before its exit.
+ * A background line rather than text-decoration, so it can grow; slice carries it across wraps. */
+[role="option"]:has([data-status-enter="canceled"]) [data-slot="item-title"] {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 55% / 100% 1px;
+  box-decoration-break: slice;
+  animation: task-title-strike 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes task-title-strike {
+  from {
+    background-size: 0 1px;
+  }
+}
+
 .task-completion-icon {
   transform-box: fill-box;
   transform-origin: center;
@@ -609,6 +623,7 @@
   [data-saved-task] [data-task-disclosure],
   [data-saved-task] [data-slot="item-actions"],
   [data-exiting-task="true"],
+  [role="option"]:has([data-status-enter="canceled"]) [data-slot="item-title"],
   .task-completion-icon,
   .task-completion-icon path,
   [data-status-enter],
