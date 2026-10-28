@@ -109,7 +109,7 @@
 }
 
 [data-exiting-task="true"] {
-  animation: task-list-exit 150ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation: task-list-exit 300ms cubic-bezier(0.4, 0, 1, 1) both;
   pointer-events: none;
   will-change: opacity, transform;
 }

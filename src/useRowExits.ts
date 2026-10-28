@@ -3,7 +3,7 @@ import type { TaskView } from "@/components/taskView";
 import { useStableHandler } from "@/components/useStableHandler";
 
 /** How long a leaving row slides out (task-list-exit in styles.css). */
-const ROW_EXIT_MS = 150;
+const ROW_EXIT_MS = 300;
 
 type RowExit = { tasks: Map<string, TaskView>; timers: number[] };
 
