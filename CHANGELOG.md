@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Soleone/tasks/compare/v0.3.0...v0.3.1) (2026-10-28)
+
+### Features
+
+* **android:** add and share task images ([1e9eee5](https://github.com/Soleone/tasks/commit/1e9eee5b354b316dc4b88c63d208d3dd265c1788))
+* **composer:** fly category filter badge into new task pill ([233157e](https://github.com/Soleone/tasks/commit/233157e065c840f331550150fb4fcc1281f6ba9f))
+
 ## [0.3.0](https://github.com/Soleone/tasks/compare/v0.2.2...v0.3.0) (2026-10-28)
 
 ### Features
