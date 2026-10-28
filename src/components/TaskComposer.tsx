@@ -635,9 +635,9 @@ export function TaskComposer({
         touch && "scroll-mb-12",
       )}
     >
-      {/* The title line mirrors the row: the field, then the due date and the category column. A
-          narrow editor gives the one-line field the whole line and drops the two below it, still
-          in their columns. */}
+      {/* The title line mirrors the row: the field, the due date, the empty arrow slot and the
+          category column. A narrow editor gives the one-line field the whole line and drops the
+          rest below it, still in their columns. */}
       <div className="flex min-w-0 basis-full flex-wrap items-start gap-x-2.5 gap-y-1">
         {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
         <div className="relative min-w-0 flex-1 @max-md:basis-full">
@@ -725,6 +725,7 @@ export function TaskComposer({
         </div>
         <div className="ml-auto flex gap-2.5">
           <ClassificationPills kind="due" {...pillProps} />
+          <span className="w-7 shrink-0" />
           <CategoryColumn>
             <ClassificationPills kind="category" {...pillProps} />
           </CategoryColumn>

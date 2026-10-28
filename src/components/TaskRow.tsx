@@ -384,8 +384,8 @@ function TaskRowFooter({
  * Shared task presentation. The parent owns the outer wrapper (list option
  * or picker result), selection styling, and activation; this renders the
  * status slot plus title, with tags, details and the row's end only in full mode.
- * The end reads date, chevron, category; the category column keeps one width so
- * the dates and chevrons line up. Filtering by a category drops the column.
+ * The end reads date, chevron, category; the chevron slot and the category column keep
+ * their width without content, so the dates line up. Filtering by a category drops the column.
  */
 export function TaskRow({
   task,
@@ -470,8 +470,8 @@ export function TaskRow({
       {variant === "full" ? (
         <TaskRowTrailing task={task} showCompletedAt={showCompletedAt} />
       ) : null}
-      {variant === "full" && disclosureSlot ? (
-        <div data-task-disclosure className="flex h-[1.375em] shrink-0 items-center self-start">
+      {variant === "full" ? (
+        <div data-task-disclosure className="flex h-[1.375em] w-7 shrink-0 items-center self-start">
           {disclosureSlot}
         </div>
       ) : null}
