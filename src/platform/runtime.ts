@@ -13,3 +13,7 @@ export function isAndroid(): boolean {
 export function isDesktopApp(): boolean {
   return runtimeKind() === "native" && !isAndroid();
 }
+
+/** The modifier key that shortcut hints name: ⌘ on macOS, Ctrl elsewhere. */
+export const modKey =
+  typeof navigator !== "undefined" && /\bMacintosh\b/.test(navigator.userAgent) ? "⌘" : "Ctrl";

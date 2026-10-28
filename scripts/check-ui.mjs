@@ -501,7 +501,7 @@ try {
     '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Select a task range") && item.textContent.includes("Shift+↑/↓"))',
   );
   check(
-    '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move selected tasks") && item.textContent.includes("Ctrl/⌘+↑/↓"))',
+    '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Move selected tasks") && item.textContent.includes("Ctrl+↑/↓"))',
   );
   check(
     '[...document.querySelectorAll("[data-slot=command-item]")].some((item) => item.textContent.includes("Show task details") && item.textContent.includes("V"))',

@@ -1,4 +1,4 @@
-import { isAndroid } from "@/platform/runtime";
+import { isAndroid, modKey } from "@/platform/runtime";
 
 /** Keyboard devices learn shortcuts; touch devices learn taps and gestures. */
 export type Device = "keyboard" | "touch";
@@ -49,7 +49,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "attach.paste",
-    keyboard: { label: "Paste an image", keys: ["Ctrl/⌘", "V"] },
+    keyboard: { label: "Paste an image", keys: [modKey, "V"] },
   },
   {
     id: "shorthand.unlift",
@@ -87,7 +87,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "undo.latest",
-    keyboard: { label: "Undo", keys: ["Ctrl/⌘", "Z"] },
+    keyboard: { label: "Undo", keys: [modKey, "Z"] },
   },
   {
     id: "filter.mode",
@@ -157,19 +157,19 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "reorder.step",
-    keyboard: { label: "Reorder", keys: ["Ctrl/⌘", "↑↓"] },
+    keyboard: { label: "Reorder", keys: [modKey, "↑↓"] },
   },
   {
     id: "reorder.edge",
-    keyboard: { label: "Move to the top or bottom", keys: ["Ctrl/⌘", "Home/End"] },
+    keyboard: { label: "Move to the top or bottom", keys: [modKey, "Home/End"] },
   },
   {
     id: "copy.text",
-    keyboard: { label: "Copy the active task's text", keys: ["Ctrl/⌘", "C"] },
+    keyboard: { label: "Copy the active task's text", keys: [modKey, "C"] },
   },
   {
     id: "attach.copy",
-    keyboard: { label: "Copy its newest image", keys: ["Ctrl/⌘", "Shift", "C"] },
+    keyboard: { label: "Copy its newest image", keys: [modKey, "Shift", "C"] },
   },
   {
     id: "done.lens",
@@ -195,7 +195,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "help.palette",
-    keyboard: { label: "Every shortcut", keys: ["Ctrl/⌘", "K"] },
+    keyboard: { label: "Every shortcut", keys: [modKey, "K"] },
   },
   {
     id: "learn.panel",
@@ -207,7 +207,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "settings.open",
-    keyboard: { label: "Settings", keys: ["Ctrl/⌘", ","] },
+    keyboard: { label: "Settings", keys: [modKey, ","] },
   },
 ] as const satisfies readonly MoveDefinition[];
 

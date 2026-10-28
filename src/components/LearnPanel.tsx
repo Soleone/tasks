@@ -11,6 +11,7 @@ import {
   useQuests,
   type QuestView,
 } from "@/learning/questProgress";
+import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
 import { LearnIcon } from "./LearnIcon";
 
@@ -177,7 +178,7 @@ export function LearnPanel({
         onClick={onOpenPalette}
       >
         All shortcuts
-        {keyboard ? <Kbd>Ctrl/⌘ K</Kbd> : null}
+        {keyboard ? <Kbd>{modKey} K</Kbd> : null}
       </Button>
     </aside>
   );

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { ToolbarMenuContent } from "./variants/dropdown-menu";
+import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
 
 type TaskActionsProps = {
@@ -59,7 +60,7 @@ export function TaskActions({
     <>
       <ToolbarTooltip
         tooltip={tooltipFor("undo")}
-        hint="Undo (Ctrl/⌘+Z)"
+        hint={`Undo (${modKey}+Z)`}
         render={
           <ToolbarCommand
             disabled={disabled || !canUndo}
@@ -74,7 +75,7 @@ export function TaskActions({
       </ToolbarTooltip>
       <ToolbarTooltip
         tooltip={tooltipFor("redo")}
-        hint="Redo (Ctrl+Y or Ctrl/⌘+Shift+Z)"
+        hint={`Redo (Ctrl+Y or ${modKey}+Shift+Z)`}
         render={
           <ToolbarCommand
             disabled={disabled || !canRedo}
@@ -130,12 +131,12 @@ export function TaskActions({
               <DropdownMenuItem onClick={() => onCopy(activeTask)}>
                 <Copy aria-hidden="true" />
                 Copy text
-                <DropdownMenuShortcut>Ctrl/⌘+C</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{`${modKey}+C`}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onCopyImage(activeTask)}>
                 <Image aria-hidden="true" />
                 Copy image
-                <DropdownMenuShortcut>Ctrl/⌘+Shift+C</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{`${modKey}+Shift+C`}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onPause}>
                 <CirclePause aria-hidden="true" />

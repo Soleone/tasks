@@ -1,4 +1,5 @@
 import type { Device, MoveId } from "./moves";
+import { modKey } from "@/platform/runtime";
 
 /**
  * One step of a quest (`quest.step`). Text in backticks shows as keys, and `{}` in the success
@@ -230,7 +231,7 @@ const QUEST_DEFINITIONS = [
       { move: "status.pause", prompt: "Press `P` to pause it", success: "Paused" },
       {
         move: "undo.latest",
-        prompt: "Changed your mind? Press `Ctrl/⌘`+`Z` to undo",
+        prompt: `Changed your mind? Press \`${modKey}\`+\`Z\` to undo`,
         success: "Undone",
       },
       {
@@ -326,14 +327,14 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "reorder.step",
-        prompt: "Press `Ctrl/⌘`+`↑` or `↓` to move tasks up or down",
+        prompt: `Press \`${modKey}\`+\`↑\` or \`↓\` to move tasks up or down`,
         success: "Moved",
       },
       {
         move: "reorder.edge",
-        prompt: "Press `Ctrl/⌘`+`Home` or `End` to move them to the top or bottom",
+        prompt: `Press \`${modKey}\`+\`Home\` or \`End\` to move them to the top or bottom`,
         success: "Moved to the {}",
-        keys: ["Ctrl/⌘", "Home", "End"],
+        keys: [modKey, "Home", "End"],
       },
     ],
     touch: [
@@ -386,30 +387,30 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "attach.paste",
-        prompt: "Copy any image, then press `Ctrl/⌘`+`V` here to attach it",
+        prompt: `Copy any image, then press \`${modKey}\`+\`V\` here to attach it`,
         success: "Image added",
         inEditor: true,
       },
       {
         move: "capture.save",
-        prompt: "Press `Ctrl/⌘`+`Enter` to save. `Enter` alone starts a new line here",
+        prompt: `Press \`${modKey}\`+\`Enter\` to save. \`Enter\` alone starts a new line here`,
         success: "Saved",
-        keys: ["Ctrl/⌘", "Enter"],
+        keys: [modKey, "Enter"],
         inEditor: true,
       },
       {
         move: "copy.text",
-        prompt: "Press `Ctrl/⌘`+`C` to copy the task's text, ready to paste anywhere",
+        prompt: `Press \`${modKey}\`+\`C\` to copy the task's text, ready to paste anywhere`,
         success: "Copied",
       },
       {
         move: "attach.copy",
-        prompt: "Press `Ctrl/⌘`+`Shift`+`C` to copy its image",
+        prompt: `Press \`${modKey}\`+\`Shift\`+\`C\` to copy its image`,
         success: "Image copied",
       },
       {
         move: "help.palette",
-        prompt: "Press `Ctrl/⌘`+`K` for every shortcut there is. `Esc` closes it",
+        prompt: `Press \`${modKey}\`+\`K\` for every shortcut there is. \`Esc\` closes it`,
         success: "Every shortcut",
       },
       {
@@ -436,7 +437,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "settings.open",
-        prompt: "Press `Ctrl/⌘`+`,` for settings. `Esc` closes them",
+        prompt: `Press \`${modKey}\`+\`,\` for settings. \`Esc\` closes them`,
         success: "Settings",
       },
       {

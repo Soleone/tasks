@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { ListLens } from "@/components/listLens";
+import { modKey } from "@/platform/runtime";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog, KeysShortcut } from "@/components/variants/command";
 import {
@@ -119,7 +120,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Save the inline editor",
-        hint: "Ctrl/⌘+Enter in the description",
+        hint: `${modKey}+Enter in the description`,
         icon: SaveCheck,
         keys: ["Enter"],
         keywords: "enter ctrl cmd save create edit title description inline",
@@ -143,7 +144,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Copy task text",
         hint: "Title, description and #tags",
         icon: Copy,
-        keys: ["Ctrl/⌘", "C"],
+        keys: [modKey, "C"],
         action: "copy-task",
         keywords:
           "ctrl cmd c copy title description clipboard selected active task category tags metadata",
@@ -152,7 +153,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Copy newest image",
         hint: "The image added last",
         icon: Image,
-        keys: ["Ctrl/⌘", "Shift", "C"],
+        keys: [modKey, "Shift", "C"],
         action: "copy-image",
         keywords: "ctrl cmd shift c copy image picture screenshot attachment clipboard paste agent",
       },
@@ -160,14 +161,14 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Undo last change",
         hint: "Restore the latest task change",
         icon: Undo2,
-        keys: ["Ctrl/⌘", "Z"],
+        keys: [modKey, "Z"],
         action: "undo-status",
         keywords:
           "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order",
       },
       {
         label: "Redo last change",
-        hint: "Ctrl/⌘+Shift+Z also works",
+        hint: `${modKey}+Shift+Z also works`,
         icon: Redo2,
         keys: ["Ctrl", "Y"],
         action: "redo",
@@ -262,7 +263,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Move selected tasks",
         hint: "In manual order",
         icon: ArrowDownUp,
-        keys: ["Ctrl/⌘+↑/↓", "Ctrl/⌘+Home/End"],
+        keys: [`${modKey}+↑/↓`, `${modKey}+Home/End`],
         keywords: "manual reorder move selected group beginning end up down",
       },
       {
@@ -342,7 +343,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Settings",
         hint: "Storage and export",
         icon: Settings2,
-        keys: ["Ctrl/⌘", ","],
+        keys: [modKey, ","],
         action: "open-settings",
         keywords: "ctrl cmd comma data export json sqlite database storage path",
       },
@@ -381,7 +382,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       {
         label: "Toggle this palette",
         icon: CircleHelp,
-        keys: ["Ctrl/⌘", "K"],
+        keys: [modKey, "K"],
         keywords: "ctrl cmd open close help syntax",
       },
       {

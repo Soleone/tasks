@@ -13,6 +13,7 @@ import {
   sameTaskDay,
 } from "@/backend/taskDates";
 import { priorityMeta, statusGlyphColor, taskStatusMeta } from "@/components/taskFilters";
+import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
@@ -424,7 +425,7 @@ function TaskRowFooter({
         role="img"
         tabIndex={-1}
         data-task-images
-        aria-label={`${imageText}. Click to copy the newest; press Ctrl/⌘+Shift+C.`}
+        aria-label={`${imageText}. Click to copy the newest; press ${modKey}+Shift+C.`}
         title="Copy the newest image"
         onMouseDown={preventFocusSteal}
         onClick={(event) => {
