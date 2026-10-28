@@ -17,9 +17,7 @@ import { UNDO_COMMANDS } from "./undoPlan.js";
 import { executeOrder } from "./orderWriter.js";
 import { ORDER_COMMANDS } from "./taskOrdering.js";
 import { RELATIONSHIP_COMMANDS } from "./taskRelationships.js";
-import { executeMigration } from "../migration/writer.js";
 import { executeLifecycle } from "./lifecycleWriter.js";
-import { Schema1MigrationSourceError } from "../migration/schema1Source.js";
 import { resumeOperation } from "./recovery.js";
 import { executeHistoryChoice } from "./historyChoice.js";
 import { readPending } from "./pending.js";
@@ -38,7 +36,6 @@ const writeCommands = [
   ...UNDO_COMMANDS,
   ...REMOVAL_COMMANDS,
   "workspace.recovery.resume",
-  "workspace.migrate",
   "workspace.init",
   "workspace.rebuild",
   "workspace.doctor.plan",
@@ -81,9 +78,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
                         ? executeUpdate(request, rootPath, cachePath)
                         : request.command === "workspace.recovery.resume"
                           ? resumeOperation(request, rootPath, cachePath)
-                          : request.command === "workspace.migrate"
-                            ? executeMigration(request, rootPath, cachePath)
-                            : executeLifecycle(request, rootPath, cachePath);
+                          : executeLifecycle(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     const inspection = inspectCanonicalRoot(rootPath);
@@ -135,18 +130,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
             state: pending || pendingIssue ? "recovery_pending" : inspection.state,
             schemaVersion: inspection.schemaVersion,
             commands,
-            issues: [
-              ...inspection.issues,
-              ...(pendingIssue ? [pendingIssue] : []),
-              ...(pending?.format === "taskdb.pending-copy-target"
-                ? [
-                    {
-                      code: "RECOVERY_PENDING",
-                      message: `resume copy from its original selected root: ${pending.owner.rootPath}`,
-                    },
-                  ]
-                : []),
-            ],
+            issues: [...inspection.issues, ...(pendingIssue ? [pendingIssue] : [])],
             pendingOperationId: pending?.operationId ?? null,
             workspaceRevision: authority.workspaceRevision,
           }
@@ -199,9 +183,7 @@ export function failureResponse(requestId: string | null, error: unknown): Respo
     error: {
       code,
       message,
-      ...(error instanceof Schema1MigrationSourceError || error instanceof PurgeReferencedError
-        ? { details: error.details }
-        : {}),
+      ...(error instanceof PurgeReferencedError ? { details: error.details } : {}),
     },
   };
 }

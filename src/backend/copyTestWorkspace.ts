@@ -12,15 +12,13 @@ export type CopyTestWorkspace = {
   directory: string;
   root: string;
   cache: string;
-  destination: string;
 };
 
-export function createCopyTestWorkspace(
-  t: TestContext,
-  fixtureDirectory = fileURLToPath(
-    new URL("../../scripts/fixtures/workspace/root/", import.meta.url),
-  ),
-): CopyTestWorkspace {
+const fixtureDirectory = fileURLToPath(
+  new URL("../../scripts/fixtures/workspace/root/", import.meta.url),
+);
+
+export function createCopyTestWorkspace(t: TestContext): CopyTestWorkspace {
   // The directory is a Tasks home, so the root's lock and recovery files are in its local folder.
   const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-copy-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -31,7 +29,6 @@ export function createCopyTestWorkspace(
     directory,
     root,
     cache: path.join(directory, "local", "cache.db"),
-    destination: path.join(directory, "archive"),
   };
 }
 

@@ -377,7 +377,7 @@ test("reader selection is a fixed private snapshot, not a mutable caller referen
   assert.ok(Object.isFrozen(reader.selection));
 });
 
-test("empty and schema 1 roots are inspected without initialization or fallback", async (t) => {
+test("empty and old-schema roots are inspected without initialization or fallback", async (t) => {
   const selected = workspace(t);
   const emptyHome = homeIn(selected.directory, "empty-home");
   const empty = emptyHome.rootPath;
@@ -385,7 +385,7 @@ test("empty and schema 1 roots are inspected without initialization or fallback"
   assert.equal((await emptyReader.workspaceInfo()).state, "empty");
   await assert.rejects(emptyReader.tasks(), /complete schema-2/);
   assert.deepEqual(readdirSync(empty), []);
-  const legacyHome = homeIn(selected.directory, "legacy-home", "scripts/fixtures/schema1/sync");
+  const legacyHome = homeIn(selected.directory, "legacy-home", "scripts/fixtures/old-schema");
   const legacy = legacyHome.rootPath;
   const legacyBefore = canonicalBytes(legacy);
   const { reader } = await devReader(t, legacyHome);

@@ -3,7 +3,7 @@ import { renameSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { exactHash, readCanonicalRoot, readRootDescriptor } from "./canonicalReader.js";
-import { guardObservedRoot, refuseDescriptorConflicts } from "./copyFiles.js";
+import { guardObservedRoot, refuseDescriptorConflicts } from "./rootGuards.js";
 import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDomain.js";
 import { projectTasks } from "./queries.js";
 import { decodeTaskEdit } from "./taskEditRequest.js";

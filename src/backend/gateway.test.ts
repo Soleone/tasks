@@ -193,7 +193,6 @@ test("info inspects empty, partial and unsupported roots without creating canoni
     "workspace.doctor.plan",
     "workspace.info",
     "workspace.init",
-    "workspace.migrate",
     "workspace.rebuild",
     "workspace.recovery.resume",
   ]);

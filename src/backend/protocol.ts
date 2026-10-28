@@ -68,7 +68,6 @@ const KNOWN_COMMANDS = [
   "workspace.exportTasks",
   "workspace.info",
   "workspace.init",
-  "workspace.migrate",
   "workspace.newHistory",
   "workspace.rebind",
   "workspace.rebuild",

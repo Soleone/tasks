@@ -11,7 +11,7 @@ import {
   exactHash,
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
-import { directoryIdentity, refuseDescriptorConflicts } from "./copyFiles.js";
+import { directoryIdentity, refuseDescriptorConflicts } from "./rootGuards.js";
 import { requireAddedAttachments } from "./attachments.js";
 import { buildCreatedTask, parseCreate } from "./createInputs.js";
 import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDomain.js";

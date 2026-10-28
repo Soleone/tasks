@@ -125,7 +125,6 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | --- | --- | --- |
 | `workspace.init` | none | `schemaVersion`, `changed` |
 | `workspace.rebuild` | none | `taskCount`, `changed`, `workspaceRevision` (cache only) |
-| `workspace.migrate` | `destinationDirectory` | completion report |
 | `workspace.recovery.resume` | `operationId` | `operationId`, `outcome`, original result when available |
 | `workspace.doctor.inspect` / `.plan` / `.apply` | see [sharing](../ecosystem/sharing.md#doctor) | issues, plan, repair result |
 
@@ -150,4 +149,3 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `AMBIGUOUS_LINK` / `STALE_REPAIR_PLAN` | Doctor needs a link choice, or its plan is out of date |
 | `RECOVERY_PENDING` / `RECOVERY_CONFLICT` | Unfinished work blocks writes, or can't be safely finished |
 | `FOLDER_IN_USE` | Another window or the CLI holds the folder's lock or cache; try again |
-| `MIGRATION_INVALID_SOURCE` / `MIGRATION_CONFLICT` / `DESTINATION_NOT_EMPTY` | Bad migration source, source changed, destination occupied |

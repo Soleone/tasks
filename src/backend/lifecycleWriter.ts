@@ -8,7 +8,7 @@ import {
   readPhysicalRoot,
   readRootDescriptor,
 } from "./canonicalReader.js";
-import { guardObservedRoot } from "./copyFiles.js";
+import { guardObservedRoot } from "./rootGuards.js";
 import { withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { assertArgs } from "./protocol.js";

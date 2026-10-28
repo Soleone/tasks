@@ -10,7 +10,7 @@ import {
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { attachmentPath } from "./attachments.js";
-import { directoryIdentity } from "./copyFiles.js";
+import { directoryIdentity } from "./rootGuards.js";
 import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
 import { isRecord, parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";

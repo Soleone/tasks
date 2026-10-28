@@ -10,7 +10,7 @@ import {
   readRootDescriptor,
   exactHash,
 } from "./canonicalReader.js";
-import { directoryIdentity, guardObservedRoot } from "./copyFiles.js";
+import { directoryIdentity, guardObservedRoot } from "./rootGuards.js";
 import { writeExport } from "./exportArchive.js";
 import { homeOfRoot } from "./home.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";

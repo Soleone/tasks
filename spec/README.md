@@ -9,7 +9,7 @@ This spec says what the app does. It doesn't say how it is built, what is proven
 | Layer | Covers | Read it when |
 | --- | --- | --- |
 | [Backend](backend/) | What is true about the data: files, fields, commands, rules, safety | You change what is stored or what a command does |
-| [Ecosystem](ecosystem/) | How other tools touch the folder: CLI, agents, sync, backup, migration | You script against Tasks or move data in or out |
+| [Ecosystem](ecosystem/) | How other tools touch the folder: CLI, agents, sync, backup | You script against Tasks or move data in or out |
 | [Client](client/README.md) | What a person sees and presses in the desktop, Android and web apps | You change the UI or a shortcut |
 
 Desktop, Android and web are one client. The few platform differences are listed once in [client/platforms.md](client/platforms.md) and nowhere else.

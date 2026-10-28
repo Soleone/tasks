@@ -1,6 +1,6 @@
 # Development and validation
 
-[PLAN.md](../PLAN.md) owns work order and gates. [Current support](support.md) owns the live client/platform matrix; [the client spec](../spec/client/README.md) owns keyboard, mouse and focus behavior. This guide covers development, not release acceptance.
+[PLAN.md](../PLAN.md) owns what is next; [the client spec](../spec/client/README.md) owns keyboard, mouse and focus behavior. This guide covers development, not release acceptance.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ Friendly CLI / JSON-lines CLI -------------------------------> gateway
 
 The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms a hand-picked `--home` before opening `App`; fixture and kept development copies open directly. `MainWorkspace` routes supported actions and refuses the rest.
 
-`tasks-cli` requires `--home`, with verbs or with `--stdio` for JSON lines; there is no default home. (`--root` with `--database` selects a bare folder for tests and `pnpm migrate`.) `pnpm dev:web` without `--home` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
+`tasks-cli` requires `--home`, with verbs or with `--stdio` for JSON lines; there is no default home. (`--root` with `--database` selects a bare folder for tests.) `pnpm dev:web` without `--home` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
 
 Keep domain rules independent of React, Tauri and transport. The gateway owns validation, command execution and storage effects; clients own presentation and immutable request preparation. Reuse the existing UI instead of another workbench or a generic adapter/writer framework.
 
@@ -82,7 +82,7 @@ Build on the machine the app runs on, from a local checkout (on Windows an NTFS 
 - `pnpm dev:native` builds the sidecar if needed and runs `tauri dev` with hot reload.
 - `pnpm build:tauri` builds the sidecar and the release app. The app is `src-tauri/target/release/tasks(.exe)`; installers land in `src-tauri/target/release/bundle/`.
 
-The app opens the remembered Tasks home. Everything it keeps lives in that home (settings, `sync/`, and `local/` with its cache `app.db`, the writer lock, recovery files and undo records); the app's own config folder (`%APPDATA%\com.soleone.tasks` on Windows) holds only `home.json`, the pointer to the home, `.window-state.json`, the window's size and position, and the WebView's storage. The first launch asks to create a home (suggested: `Tasks` in the user folder, since Windows `Documents` is often inside OneDrive) or open an existing one. The old version's tasks are converted outside the app with `pnpm migrate` ([runbook](migration.md)). Uninstalling never touches the home. The Windows uninstaller also keeps the app's own data when its "Delete the application data" box is ticked and says so (`src-tauri/windows/installer-hooks.nsh`); on Android, uninstalling drops only the private pointer, and a reinstall opens the home on shared storage again. Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
+The app opens the remembered Tasks home. Everything it keeps lives in that home (settings, `sync/`, and `local/` with its cache `app.db`, the writer lock, recovery files and undo records); the app's own config folder (`%APPDATA%\com.soleone.tasks` on Windows) holds only `home.json`, the pointer to the home, `.window-state.json`, the window's size and position, and the WebView's storage. The first launch asks to create a home (suggested: `Tasks` in the user folder, since Windows `Documents` is often inside OneDrive) or open an existing one. Uninstalling never touches the home. The Windows uninstaller also keeps the app's own data when its "Delete the application data" box is ticked and says so (`src-tauri/windows/installer-hooks.nsh`); on Android, uninstalling drops only the private pointer, and a reinstall opens the home on shared storage again. Building is not release approval. See [Tauri shell notes](../src-tauri/README.md) for icons.
 
 On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. The Linux release is an AppImage built on the Omarchy machine; started from anywhere, it writes its own app menu entry and icon under `~/.local/share` (`src-tauri/src/linux_launcher.rs`). If it refuses to start with a FUSE error, install `fuse2`. A browser or WSLg session does not establish Omarchy desktop support. Global focus is deferred; the old implementation is in git (`src/platform/globalShortcut.ts` before the legacy removal). Separately approve native work before pursuing it.
 

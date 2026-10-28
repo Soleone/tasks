@@ -123,11 +123,11 @@ export default defineConfig({
     },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],
-  // Client tests render the app in jsdom. Backend and migration tests run under node --test.
+  // Client tests render the app in jsdom. Backend tests run under node --test.
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
-    exclude: ["src/backend/**", "src/migration/**", "**/node_modules/**"],
+    exclude: ["src/backend/**", "**/node_modules/**"],
     setupFiles: ["src/testing/setup.ts"],
     globalSetup: ["src/testing/workspaceServer.ts"],
     // Under parallel load a flow takes about twice its serial time; the 5 s default left no margin.

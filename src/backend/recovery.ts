@@ -1,15 +1,13 @@
 import { commitDoctor } from "./doctorApply.js";
 import { retireDoctorStages } from "./doctorJournal.js";
 import { CommandError } from "./errors.js";
-import { readControlRoot } from "./controlRoot.js";
-import { retireCopy } from "./copyJournal.js";
-import { commitCopy } from "./copyWriter.js";
 import { retireBatchStages } from "./batchJournal.js";
 import { commitUndo } from "./undoWriter.js";
 import { retirePurgeQuarantines } from "./purgeJournal.js";
 import { commitPurge } from "./purgeWriter.js";
 import { retireOrderStages } from "./orderJournal.js";
 import { commitOrder } from "./orderWriter.js";
+import { readRootDescriptor } from "./canonicalReader.js";
 import { retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import type { PendingIntent } from "./pending.js";
@@ -19,7 +17,7 @@ import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 
 export function resumeOperation(request: Request, rootPath: string, cachePath: string) {
-  const root = readControlRoot(rootPath);
+  const root = readRootDescriptor(rootPath);
   return withRootWriterLock(root, () => {
     let completed: PendingIntent | undefined;
     let replayed = false;
@@ -44,11 +42,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
       const intent = readPending(root);
       if (!intent || intent.operationId !== request.args.operationId)
         throw new CommandError("OPERATION_UNAVAILABLE", "pending operation is unavailable");
-      if (intent.format === "taskdb.pending-copy-target")
-        throw new CommandError(
-          "RECOVERY_CONFLICT",
-          `resume copy from its original selected root: ${intent.owner.rootPath}`,
-        );
       if (request.dryRun || request.readOnly)
         throw new CommandError(
           "UNSUPPORTED_COMMAND",
@@ -63,8 +56,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
         authority.writeContext !== intent.request.writeContext
           ? undefined
           : findReceipt(database, intent.request);
-      if (!originalResult && intent.format === "taskdb.pending-copy")
-        originalResult = commitCopy(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-order")
         originalResult = commitOrder(database, intent);
       if (!originalResult && intent.format === "taskdb.pending-batch")
@@ -82,9 +73,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
     if (completed) {
       try {
         switch (completed.format) {
-          case "taskdb.pending-copy":
-            retireCopy(completed);
-            break;
           case "taskdb.pending-order":
             retireOrderStages(completed);
             retirePending(root);
@@ -101,11 +89,6 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
             retireDoctorStages(completed);
             retirePending(root);
             break;
-          case "taskdb.pending-copy-target":
-            throw new CommandError(
-              "RECOVERY_CONFLICT",
-              "copy target must be retired by its original owner",
-            );
         }
       } catch (error) {
         // Historical success remains replayable; corrupt cleanup evidence stays pending for inspection.

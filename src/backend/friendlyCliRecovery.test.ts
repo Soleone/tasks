@@ -1,14 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -331,39 +323,3 @@ for (const cut of ["prepared", "beforeCommit", "afterCommit", "lostReply"]) {
     },
   );
 }
-
-test(
-  "human retained directory request hash rejects changed relative-path resolution before dispatch",
-  linux,
-  (t) => {
-    const workspace = setup(t),
-      firstDirectory = path.join(workspace.directory, "first"),
-      laterDirectory = path.join(workspace.directory, "later");
-    mkdirSync(firstDirectory);
-    mkdirSync(laterDirectory);
-    const command = [
-      cli,
-      "--root",
-      workspace.root,
-      "--database",
-      workspace.cache,
-      "migrate",
-      "relative-target",
-      "--json",
-    ];
-    const killed = spawnSync(
-      process.execPath,
-      ["--import", loaderFor(workspace, "prepared"), ...command],
-      { cwd: firstDirectory, env: process.env, encoding: "utf8" },
-    );
-    assert.equal(killed.signal, "SIGKILL", killed.stderr);
-    const retry = spawnSync(process.execPath, [...command, ...retained(killed)], {
-      cwd: laterDirectory,
-      env: process.env,
-      encoding: "utf8",
-    });
-    fail(retry, "IDEMPOTENCY_KEY_REUSED");
-    assert.equal(existsSync(path.join(firstDirectory, "relative-target")), false);
-    assert.equal(existsSync(path.join(laterDirectory, "relative-target")), false);
-  },
-);

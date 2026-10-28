@@ -160,10 +160,6 @@ function integer(
 function requirePositionals(words: string[], n: number, verb: string): void {
   if (words.length !== n) usage(`wrong arguments for ${verb}; use --help`);
 }
-function directoryArgument(text: string): string {
-  if (!text.trim()) usage("directory arguments must be explicit and nonempty");
-  return path.resolve(text);
-}
 function classification(flags: Flags, args: Record<string, unknown>): void {
   if (flags.has("category") && flags.has("clear-category"))
     usage("choose --category or --clear-category, not both");
@@ -384,11 +380,6 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       command = `workspace.${verb}`;
       requirePositionals(positionals, 0, verb);
       break;
-    case "migrate":
-      command = "workspace.migrate";
-      requirePositionals(positionals, 1, verb);
-      args.destinationDirectory = directoryArgument(positionals[0]);
-      break;
     case "recover":
       command = "workspace.recovery.resume";
       requirePositionals(positionals, 1, verb);
@@ -478,7 +469,6 @@ WRITES
   recover OPERATION_ID
   rebind: keep history after the home moved | new-history: set aside a cache that
   came with a copy of the home and start a new history here
-  Old-version folders are converted with pnpm migrate.
   Ordering, batches, doctor, removing attachments and deleting done tasks remain
   advanced JSON-lines controls, not new verbs.
 

@@ -82,7 +82,5 @@ export function printHumanResult(
   if (typeof result.operationId === "string") lines.push(`operation: ${result.operationId}`);
   if (typeof result.recoveryLocation === "string")
     lines.push(`recovery: ${result.recoveryLocation}`);
-  if (command === "workspace.migrate")
-    lines.push("Selection and sharing are unchanged. Retain the source and recovery evidence.");
   process.stdout.write(`${lines.join("\n")}\n`);
 }

@@ -6,7 +6,6 @@ import test from "node:test";
 
 const fixtureDirectory = fileURLToPath(new URL("./fixtures/workspace/", import.meta.url));
 const specDirectory = fileURLToPath(new URL("../spec/", import.meta.url));
-const schema1Directory = fileURLToPath(new URL("./fixtures/schema1/sync/", import.meta.url));
 const corpus = JSON.parse(readFileSync(path.join(fixtureDirectory, "cases.json"), "utf8"));
 const specFiles = [
   "backend/data.md",
@@ -16,7 +15,6 @@ const specFiles = [
   "ecosystem/cli.md",
   "ecosystem/sharing.md",
   "ecosystem/backup.md",
-  "ecosystem/migration.md",
 ];
 const specs = new Map(
   specFiles.map((name) => [name, readFileSync(path.join(specDirectory, name), "utf8")]),
@@ -54,7 +52,7 @@ function referencedCases(value) {
   if (Array.isArray(value)) return value.flatMap(referencedCases);
   if (value === null || typeof value !== "object") return [];
   return Object.entries(value).flatMap(([key, child]) => {
-    if (["fixtureCase", "sameFinalAs", "migrate"].includes(key)) return [child];
+    if (["fixtureCase", "sameFinalAs"].includes(key)) return [child];
     if (
       key === "operation" &&
       typeof child === "string" &&
@@ -83,7 +81,6 @@ test("target corpus integrity: case shapes, profiles, rule anchors and error nam
   assert.deepEqual([...new Set(corpus.cases.map((entry) => entry.profile))].sort(), [
     "cli",
     "inputs",
-    "migration",
     "model",
     "mutations",
     "ordering",
@@ -149,73 +146,4 @@ test("golden fixture integrity: exact fields, literal data, local-state exclusio
     }
   }
   assert.equal(existsSync(path.join(root, "order")), false);
-});
-
-test("golden fixture integrity: complete legacy field and sibling-sequence mapping, not converter proof", () => {
-  const byId = new Map(goldenTasks.map(({ record }) => [record.id, record]));
-  const classifications = {
-    "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed": {
-      title: "Park release notes",
-      category: "operations",
-      tags: [],
-    },
-    "f3e5499b-402e-4d7d-8b61-eefc4409ca32": { title: "Inbox note", category: null, tags: [] },
-    "c8d4206d-c25a-4317-baa4-a2c5443060e9": {
-      title: "Plan launch",
-      category: "planning",
-      tags: ["product"],
-    },
-    "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1": {
-      title: "Review checklist",
-      category: "planning",
-      tags: [],
-    },
-  };
-  const sourceNames = readdirSync(path.join(schema1Directory, "tasks"));
-  assert.deepEqual(sourceNames.sort(), goldenTasks.map(({ name }) => name).sort());
-  for (const name of sourceNames) {
-    const source = JSON.parse(readFileSync(path.join(schema1Directory, "tasks", name), "utf8"));
-    const target = byId.get(source.id);
-    for (const field of [
-      "id",
-      "status",
-      "priority",
-      "parentId",
-      "dependencyIds",
-      "createdAt",
-      "updatedAt",
-    ]) {
-      assert.deepEqual(target[field], source[field], `${name}: ${field}`);
-    }
-    assert.equal(target.description, source.descriptionMarkdown);
-    assert.equal(target.closedAt, source.completedAt ?? source.canceledAt);
-    for (const [field, expected] of Object.entries(classifications[source.id]))
-      assert.deepEqual(target[field], expected);
-  }
-  for (const name of readdirSync(path.join(schema1Directory, "order"))) {
-    const source = JSON.parse(readFileSync(path.join(schema1Directory, "order", name), "utf8"));
-    const scope = goldenTasks
-      .map(({ record }) => record)
-      .filter((record) => record.parentId === source.parentId);
-    scope.sort((a, b) =>
-      a.orderKey < b.orderKey
-        ? -1
-        : a.orderKey > b.orderKey
-          ? 1
-          : a.id < b.id
-            ? -1
-            : a.id > b.id
-              ? 1
-              : 0,
-    );
-    assert.deepEqual(
-      scope.map((record) => record.id),
-      source.taskIds,
-      name,
-    );
-    assert.deepEqual(
-      scope.map((record) => record.orderKey),
-      source.taskIds.map((_, index) => `a${index}`),
-    );
-  }
 });

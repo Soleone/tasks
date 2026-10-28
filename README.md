@@ -2,7 +2,7 @@
 
 A local-first, keyboard-first task list for one person and their agents. Tasks live as plain JSON files, one file per task, in the sync folder of a Tasks home you choose, so they can be synced, backed up and edited by scripts. A React app, a CLI and a JSON-lines interface for agents all share one TypeScript backend; the desktop shell is Tauri with a bundled Node runtime.
 
-The web, desktop and Android apps and `tasks-cli` share the current engine. The owner confirmed the native Windows 11 and Android apps work (2026-10-19). [PLAN.md](PLAN.md) has the state and remaining gates.
+The web, desktop and Android apps and `tasks-cli` share the current engine. The owner confirmed the native Windows 11 and Android apps work (2026-10-19). [PLAN.md](PLAN.md) has what is next.
 
 ## Install and check
 
@@ -42,7 +42,7 @@ For a full backup, close Tasks and the CLI and copy the whole home. When a copy 
 
 ### Moving a task folder from before homes
 
-A folder whose `workspace.json` says `"schemaVersion":2` moves by copying; older folders are converted with `pnpm migrate` instead. Do this once on each device:
+A task folder moves into a home by copying. Do this once on each device:
 
 1. Create the home in setup, then close Tasks and the CLI and pause the folder in Syncthing.
 2. Copy `workspace.json` and `tasks/` from the old folder into the home's `sync/` folder and open Tasks again. The tasks come over; undo and activity history from before the move don't.
@@ -83,13 +83,12 @@ On Windows that produces one installer, `src-tauri/target/release/bundle/nsis/Ta
 
 ## Data safety
 
-The JSON files own task state. The local SQLite cache also holds receipts, undo history and write authority, so deleting it is not a harmless rebuild. Never sync the home or its `local/` folder. A copied or restored home never inherits or wipes history silently: the app asks to start a new history. Converting the old version's tasks is an owner-only step: `pnpm migrate OLD NEW_HOME` ([runbook](docs/migration.md)).
+The JSON files own task state. The local SQLite cache also holds receipts, undo history and write authority, so deleting it is not a harmless rebuild. Never sync the home or its `local/` folder. A copied or restored home never inherits or wipes history silently: the app asks to start a new history.
 
 ## Documentation
 
 - [Specification](spec/README.md): how the app works, in three layers (backend, ecosystem, client).
 - [Development](docs/development.md): setup, validation, native tooling and signing.
-- [Current support](docs/support.md): what runs where today, with evidence.
 - [Plan](PLAN.md), [guidelines](GUIDELINES.md), [agent instructions](AGENTS.md).
 - [Evidence](docs/evidence/README.md): dated reports, frozen.
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
 import { readPhysicalRoot, readRegularFile, exactHash } from "./canonicalReader.js";
-import { directoryIdentity } from "./copyFiles.js";
+import { directoryIdentity } from "./rootGuards.js";
 import type { RootBinding } from "./queryCache.js";
 import { isRecord } from "./protocol.js";
 import { validateGraph, validateManifest, validateTask } from "./taskModel.js";

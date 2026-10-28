@@ -267,7 +267,6 @@ const invalid: string[][] = [
   ["add", "New", "--request-hash", "not-a-hash"],
   ["purge-canceled", parent],
   ["recover"],
-  ["migrate"],
 ];
 for (const argv of invalid)
   test(`CLI refuses conflicting/unknown/unsafe argv ${JSON.stringify(argv)}`, linux, (t) => {
@@ -543,29 +542,6 @@ test(
     assert.equal(ok(workspace, ["rebuild"]).taskCount, 4);
     assert.equal(ok(workspace, ["info"]).writeContext, ctx);
     assert.deepEqual(raw(workspace), snapshot);
-  },
-);
-
-test(
-  "human migration only reads the schema 1 folder, and later edits stay in the new one",
-  linux,
-  (t) => {
-    const fixture = fileURLToPath(new URL("../../scripts/fixtures/schema1/sync/", import.meta.url)),
-      workspace = setup(t, fixture),
-      before = raw(workspace);
-    const order = readFileSync(path.join(workspace.root, "order/root.json"));
-    const migrated = run(workspace, ["migrate", workspace.destination]);
-    assert.equal(migrated.status, 0, migrated.stderr);
-    assert.match(migrated.stdout, /Rollback selects the preserved pre-migration schema 1 folder/);
-    assert.deepEqual(raw(workspace), before);
-    assert.deepEqual(readFileSync(path.join(workspace.root, "order/root.json")), order);
-    const adopted = {
-      ...workspace,
-      root: workspace.destination,
-      cache: path.join(workspace.directory, "adopted-cache.db"),
-    };
-    ok(adopted, ["update", parent, "--title", "Later only"]);
-    assert.deepEqual(raw(workspace), before);
   },
 );
 

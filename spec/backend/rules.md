@@ -94,7 +94,7 @@ Example: siblings `lower:a0, a:a1, b:a1 (canceled), upper:a2`. Moving `move` bef
 | `undo.order` | Undoing a reorder fails if siblings arrived, left or changed keys since |
 | `undo.create` | Undoing a create removes the file only while the task is unchanged and nothing links to it. A copy of the file is kept outside the folder |
 | `undo.graph` | The whole resulting graph is checked before any write |
-| `undo.not-destructive` | Purge, clear done, doctor and migration can't be undone. Their recovery copies replace undo |
+| `undo.not-destructive` | Purge, clear done and doctor can't be undone. Their recovery copies replace undo |
 | `undo.unavailable` | Ineligible undo fails `UNDO_UNAVAILABLE` or `OPERATION_UNAVAILABLE` and changes nothing |
 | `undo.direction` | `operation.undo` reverses an original supported change or a completed `operation.redo`, never an undo. `operation.redo` reverses a completed `operation.undo` |
 

@@ -19,7 +19,7 @@ import {
   readRootDescriptor,
   exactHash,
 } from "./canonicalReader.js";
-import { refuseDescriptorConflicts } from "./copyFiles.js";
+import { refuseDescriptorConflicts } from "./rootGuards.js";
 import { persistPending, retirePending, withRootWriterLock } from "./localDomain.js";
 import { readPending } from "./pending.js";
 import { isRecord } from "./protocol.js";

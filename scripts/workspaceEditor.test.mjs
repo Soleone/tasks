@@ -176,7 +176,6 @@ for (const command of [
   "task.status.undoMany",
   "task.order.normalize",
   "workspace.init",
-  "workspace.migrate",
   "workspace.recovery.resume",
   "workspace.doctor.apply",
 ]) {
@@ -554,12 +553,12 @@ test("lost receipt authority after a committed/lost reply refuses original creat
   assert.equal(readdirSync(path.join(selected.root, "tasks")).length, 5);
 });
 
-for (const kind of ["empty", "schema 1"]) {
+for (const kind of ["empty", "old-schema"]) {
   test(`editor preparation refuses ${kind} roots without initialization/adoption/fallback`, async (t) => {
     const selected = workspace(t);
     rmSync(selected.root, { recursive: true });
     if (kind === "empty") mkdirSync(selected.root);
-    else cpSync("scripts/fixtures/schema1/sync", selected.root, { recursive: true });
+    else cpSync("scripts/fixtures/old-schema", selected.root, { recursive: true });
     const original = readdirSync(selected.root, { recursive: true });
     const { editor } = await server(t, selected);
     await assert.rejects(editor.begin(), /UNSUPPORTED_SCHEMA/);

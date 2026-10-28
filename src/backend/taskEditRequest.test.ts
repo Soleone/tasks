@@ -64,12 +64,7 @@ test("single-file request decoding chooses one existing content/status/relations
     assert.equal(edit.input.expectedVersion, 1);
     if (edit.kind === "status") assert.equal(edit.command, command);
   }
-  for (const command of [
-    "task.create",
-    "task.status.undo",
-    "workspace.migrate",
-    "workspace.recovery.resume",
-  ]) {
+  for (const command of ["task.create", "task.status.undo", "workspace.recovery.resume"]) {
     assert.equal(isTaskEditRequest(request(command, {})), false);
   }
 });

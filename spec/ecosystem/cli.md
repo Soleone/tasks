@@ -31,7 +31,6 @@ There are two ways in from outside the app, both through `tasks-cli`, the same e
 | `categories`, `tags`, `info` | `category.list`, `tag.list`, `workspace.info` |
 | `init`, `rebuild` | `workspace.init` (creating the home first), `workspace.rebuild` |
 | `rebind`, `new-history` | `workspace.rebind`, `workspace.newHistory` |
-| `migrate DEST` | `workspace.migrate` |
 | `recover OPERATION_ID` | `workspace.recovery.resume` |
 
 Reorder, status batches, doctor, removing attachments and deleting done tasks are JSON lines only.
