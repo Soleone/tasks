@@ -80,6 +80,7 @@ import { cn } from "cn";
 import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useCompletionSheen } from "./useCompletionSheen";
+import { flyCategoryToFilter } from "./categoryFlight";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { useStableHandler } from "./useStableHandler";
 import type { TaskContextActions } from "./TaskContextMenu";
@@ -1035,14 +1036,25 @@ export function TaskList({
     if (parentIndex >= 0) activate(parentIndex);
   }
 
+  function filterByRowCategory(
+    row: VisibleTaskRow,
+    category: ClassificationToken,
+    activeTaskId?: string,
+  ): void {
+    practice("home.right-category", "keys", category.label);
+    flyCategoryToFilter(
+      document.querySelector<HTMLElement>(`#task-option-${row.task.id} [data-task-category]`),
+    );
+    selectCategory(category, activeTaskId);
+  }
+
   function handleHorizontalNavigation(key: "ArrowLeft" | "ArrowRight"): void {
     if (!activeRow) return;
     if (key === "ArrowRight") {
       if (activeRow.hasChildren) {
         // A parent shown only for its children would drop out of its own category filter.
         if (!categoryFilter && activeRow.task.category && !activeRow.contextOnly) {
-          practice("home.right-category", "keys", activeRow.task.category.label);
-          selectCategory(activeRow.task.category, activeRow.task.id);
+          filterByRowCategory(activeRow, activeRow.task.category, activeRow.task.id);
           return;
         }
         if (!expandedIds.has(activeRow.task.id)) {
@@ -1053,8 +1065,8 @@ export function TaskList({
         return;
       }
       if (activeRow.task.category) {
-        practice("home.right-category", "keys", activeRow.task.category.label);
-        selectCategory(
+        filterByRowCategory(
+          activeRow,
           activeRow.task.category,
           activeRow.contextOnly ? undefined : activeRow.task.id,
         );

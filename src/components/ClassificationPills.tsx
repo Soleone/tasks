@@ -5,6 +5,7 @@ import { daysBetween, localToday } from "@/backend/dueDate";
 import { formatDueDate, shortDueDate } from "@/backend/taskDates";
 import { CategoryFact, DueFact, TagFact } from "./TaskRow";
 import { preventFocusSteal } from "@/navigation";
+import { centerY, flyFilterToPill, PILL_FLIGHT_MS } from "./categoryFlight";
 import type { Classification, Marker, PartialToken } from "./composerShorthand";
 
 /**
@@ -23,8 +24,6 @@ type Pill = { marker: Marker; slug: string; kind: PillKind; label: string };
 type LeavingPill = { id: number; pill: Pill; index: number };
 
 const PILL_EXIT_MS = 160;
-
-const PILL_FLIGHT_MS = 280;
 
 /** On touch, a pill reaches past its 20px so a finger can hit it. */
 const TOUCH_TARGET =
@@ -80,41 +79,6 @@ function titleOffset(input: HTMLInputElement, index: number): { x: number; y: nu
   const lead = parseFloat(style.paddingLeft) + parseFloat(style.borderLeftWidth);
   const x = box.left + lead + context.measureText(input.value.slice(0, index)).width;
   return { x: Math.min(x - input.scrollLeft, box.right), y: box.top + box.height / 2 };
-}
-
-const centerY = (box: DOMRect): number => box.top + box.height / 2;
-
-// A copy of the category filter's badge flies to the new pill and fades as the pill fades in, so
-// the filter reads as turning into the pill.
-function flyGhost(badge: HTMLElement, to: DOMRect): HTMLElement {
-  const from = badge.getBoundingClientRect();
-  const ghost = badge.cloneNode(true) as HTMLElement;
-  ghost.removeAttribute("data-filter-category");
-  ghost.setAttribute("aria-hidden", "true");
-  Object.assign(ghost.style, {
-    position: "fixed",
-    left: `${from.left}px`,
-    top: `${from.top}px`,
-    width: `${from.width}px`,
-    margin: "0",
-    pointerEvents: "none",
-    zIndex: "50",
-  });
-  document.body.append(ghost);
-  const remove = () => ghost.remove();
-  ghost
-    .animate(
-      [
-        { transform: "none", opacity: 1 },
-        {
-          transform: `translate(${to.left - from.left}px, ${centerY(to) - centerY(from)}px)`,
-          opacity: 0,
-        },
-      ],
-      { duration: PILL_FLIGHT_MS, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
-    )
-    .finished.then(remove, remove);
-  return ghost;
 }
 
 // A due date's slug is the date, not the word typed, so only names light up.
@@ -258,7 +222,7 @@ export function ClassificationPills({
       ],
       { duration: PILL_FLIGHT_MS, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
     );
-    const ghost = badge && flyGhost(badge, to);
+    const ghost = badge && flyFilterToPill(badge, to);
     // A rerun measures the pill without a flight still moving it.
     return () => {
       flight.cancel();

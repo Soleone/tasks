@@ -24,6 +24,7 @@ import { preventFocusSteal } from "@/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
+import { flyCategoryToFilter } from "./categoryFlight";
 
 export type TaskRowVariant = "full" | "compact";
 
@@ -293,6 +294,7 @@ function TaskRowCategory({
         onMouseDown={preventFocusSteal}
         onClick={(event) => {
           event.stopPropagation();
+          flyCategoryToFilter(event.currentTarget);
           onSelectCategory(category);
         }}
         className="group/fact flex min-w-0 cursor-pointer"
