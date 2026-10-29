@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.3](https://github.com/Soleone/tasks/compare/v0.3.2...v0.3.3) (2026-10-29)
+
+### Features
+
+* **filters:** add all-statuses preset to status filter ([3167d2c](https://github.com/Soleone/tasks/commit/3167d2caa2bead61884df605ac0109520b8d2122))
+* fly completed checks to the done-today count ([101374a](https://github.com/Soleone/tasks/commit/101374a1b8bf848d52cebfcac17cef1c56eb030a))
+* **home:** fly a row's category into the filter badge ([c74db12](https://github.com/Soleone/tasks/commit/c74db1262cbbe3cd85531b64e89fb3afddaa180b))
+* **layout:** widen desktop app shell max width ([7c1df88](https://github.com/Soleone/tasks/commit/7c1df88b16ee1050c7693073e08835569b1436a1))
+* **task-list:** show priority on done tasks ([27ae532](https://github.com/Soleone/tasks/commit/27ae5326fb9fefb021f29b04053c9d42402924ed))
+* **task-list:** switch or cancel inline edit on outside click ([4bc1725](https://github.com/Soleone/tasks/commit/4bc1725c27ac66fa2a5e60bf2096543c378d4442))
+* **tasks:** give newly captured tasks a distinct save animation ([4fc55b0](https://github.com/Soleone/tasks/commit/4fc55b0ae79185b22ccf3a16090eabd876248748))
+
+### Bug Fixes
+
+* **settings:** keep dialog height fixed across tabs ([de2ef9d](https://github.com/Soleone/tasks/commit/de2ef9dba30c7aaafb3e460ea6b346549e2e527e))
+
 ## [0.3.2](https://github.com/Soleone/tasks/compare/v0.3.1...v0.3.2) (2026-10-29)
 
 ### Features
