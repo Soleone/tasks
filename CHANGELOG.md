@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2](https://github.com/Soleone/tasks/compare/v0.3.1...v0.3.2) (2026-10-29)
+
+### Features
+
+* **ui:** priority redesign with accent colors for high and muted visuals for low ([6473e31](https://github.com/Soleone/tasks/commit/6473e319dd5a7f4310908c75981127f73359bd5e))
+
 ## [0.3.1](https://github.com/Soleone/tasks/compare/v0.3.0...v0.3.1) (2026-10-28)
 
 ### Features
