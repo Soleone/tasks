@@ -1,5 +1,5 @@
-import { memo, type MouseEvent, type ReactElement } from "react";
-import { Check, ChevronDown, ChevronRight } from "lucide-react";
+import { memo, type CSSProperties, type MouseEvent, type ReactElement } from "react";
+import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
@@ -12,6 +12,11 @@ import type { TaskMutationResult } from "@/platform/backendClient";
 import { TaskItem } from "@/components/variants/item";
 import { cn } from "cn";
 import { TaskContextMenu, type TaskContextActions } from "./TaskContextMenu";
+
+/** A task this client just saved from the editor, while its row plays `edit.saved` or `capture.saved`. */
+export type SavedTask = { id: string; kind: "created" | "updated" };
+
+const SPARK_ANGLES = [0, 60, 120, 180, 240, 300];
 
 export type TaskOptionClick = (
   row: VisibleTaskRow,
@@ -28,7 +33,7 @@ type TaskOptionProps = {
   pending: boolean;
   feedbackVersion?: number;
   sheenStep?: number;
-  saved: boolean;
+  saved?: SavedTask["kind"];
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   showCompletedAt: boolean;
@@ -92,7 +97,7 @@ export const TaskOption = memo(function TaskOption({
         data-context-child={(row.contextOnly && row.depth === 1) || undefined}
         data-depth={row.depth}
         nested={row.depth === 1}
-        data-saved-task={saved || undefined}
+        data-saved-task={saved}
         data-exiting-task={exitingTaskIds.has(task.id) || undefined}
         size="sm"
         state={selected ? "selected" : active ? "active" : row.contextOnly ? "context" : undefined}
@@ -139,8 +144,19 @@ export const TaskOption = memo(function TaskOption({
           }
         />
         {saved ? (
-          <span data-save-tick aria-hidden="true" className="text-primary">
-            <Check className="size-4" />
+          <span data-save-tick={saved} aria-hidden="true" className="text-primary">
+            {saved === "created" ? (
+              <>
+                <Plus className="size-4" />
+                <span data-save-sparks>
+                  {SPARK_ANGLES.map((angle) => (
+                    <span key={angle} style={{ "--spark-angle": `${angle}deg` } as CSSProperties} />
+                  ))}
+                </span>
+              </>
+            ) : (
+              <Check className="size-4" />
+            )}
           </span>
         ) : null}
         {row.hasChildren ? (

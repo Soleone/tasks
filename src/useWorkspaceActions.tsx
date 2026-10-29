@@ -3,6 +3,7 @@ import { randomUUID } from "@/lib/randomUUID";
 import type { TaskStatus } from "@/backend/taskModel";
 import { parseShorthand } from "@/backend/shorthand";
 import type { TaskListHandle } from "@/components/TaskList";
+import type { SavedTask } from "@/components/TaskListRows";
 import { showTaskToast } from "@/components/TaskToaster";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import type { TaskPickerMode } from "@/components/TaskPicker";
@@ -31,7 +32,7 @@ import type { useWorkspaceTasks } from "./useWorkspaceTasks";
  */
 const STATUS_EXIT_LINGER_MS = 250;
 
-/** The saved row's sweep and check (task-save-sweep and task-save-tick in styles.css). */
+/** The saved row's sweep and its check or plus (task-save-* in styles.css). */
 const SAVE_FEEDBACK_MS = 1300;
 
 function statusExitLinger(leaving: readonly TaskView[] = []): number {
@@ -98,7 +99,7 @@ export function useWorkspaceActions({
   const [historyBusy, setHistoryBusy] = useState(false);
   const historyBusyRef = useRef(false);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
-  const [savedTaskId, setSavedTaskId] = useState<string | null>(null);
+  const [savedTask, setSavedTask] = useState<SavedTask | null>(null);
   const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(updateVisibleTasks);
 
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
@@ -424,10 +425,10 @@ export function useWorkspaceActions({
   }, [newTaskId]);
 
   useEffect(() => {
-    if (savedTaskId === null) return;
-    const timeout = window.setTimeout(() => setSavedTaskId(null), SAVE_FEEDBACK_MS);
+    if (savedTask === null) return;
+    const timeout = window.setTimeout(() => setSavedTask(null), SAVE_FEEDBACK_MS);
     return () => window.clearTimeout(timeout);
-  }, [savedTaskId]);
+  }, [savedTask]);
 
   function showOptimisticCreate(draft: TaskCreateDraft): void {
     const literal = parseShorthand(draft.title);
@@ -461,7 +462,7 @@ export function useWorkspaceActions({
     const creating = composerBeforeSave?.mode === "create";
     const previous = composerBeforeSave?.mode === "edit" ? [composerBeforeSave.task] : [];
     const visible = isCurrentViewMatch(task);
-    if (visible) setSavedTaskId(task.id);
+    if (visible) setSavedTask({ id: task.id, kind: creating ? "created" : "updated" });
     if (creating) {
       setOptimisticCreate(null);
       if (visible) {
@@ -587,7 +588,7 @@ export function useWorkspaceActions({
     redoEntry,
     historyBusy,
     newTaskId,
-    savedTaskId,
+    savedTask,
     exitingTaskIds,
     pickerRemoveBlocker,
     pickerRemoveParent,

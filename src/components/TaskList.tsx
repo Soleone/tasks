@@ -25,7 +25,12 @@ import {
   type StatusPreset,
 } from "@/components/taskFilters";
 import { lensPhrase, type ListLens } from "./listLens";
-import { InlineTaskComposer, OptimisticTaskOption, TaskOption } from "./TaskListRows";
+import {
+  InlineTaskComposer,
+  OptimisticTaskOption,
+  TaskOption,
+  type SavedTask,
+} from "./TaskListRows";
 import { isDialogOpen, useTaskListKeyboard } from "./useTaskListKeyboard";
 import { useTaskListSelection, type ActiveTaskRequest } from "./useTaskListSelection";
 import {
@@ -120,8 +125,8 @@ export type TaskListHandle = {
 type TaskListProps = {
   tasks: TaskView[];
   newTaskId?: string | null;
-  /** The task this client just saved from the editor, while its row plays `edit.saved`. */
-  savedTaskId?: string | null;
+  /** The task this client just saved from the editor, while its row plays `edit.saved` or `capture.saved`. */
+  savedTask?: SavedTask | null;
   exitingTaskIds: ReadonlySet<string>;
   contextTasks: TaskView[];
   contextOrder: ReadonlyMap<string, number>;
@@ -223,7 +228,7 @@ export function TaskList({
   ref,
   tasks: queriedTasks,
   newTaskId,
-  savedTaskId,
+  savedTask,
   exitingTaskIds,
   contextTasks,
   contextOrder,
@@ -1819,7 +1824,7 @@ export function TaskList({
                       glyphFeedback?.taskId === row.task.id ? glyphFeedback.version : undefined
                     }
                     sheenStep={sheenSteps.get(row.task.id)}
-                    saved={row.task.id === savedTaskId}
+                    saved={row.task.id === savedTask?.id ? savedTask.kind : undefined}
                     exitingTaskIds={exitingTaskIds}
                     showDetails={detailsShownFor(row.task.id)}
                     showCompletedAt={sortField === "closed"}

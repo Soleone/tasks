@@ -40,8 +40,8 @@ function editor(): HTMLElement {
   return screen.getByRole("form", { name: /New task|Edit task/ });
 }
 
-function saved(title: string): boolean {
-  return row(title).hasAttribute("data-saved-task");
+function saved(title: string): string | null {
+  return row(title).getAttribute("data-saved-task");
 }
 
 async function capture(user: UserEvent, text: string): Promise<void> {
@@ -117,24 +117,28 @@ describe("opening and closing", () => {
     await expectActive("New title");
   });
 
-  test("edit.saved: saving plays on the saved row, new or edited, and undo never does", async () => {
+  test("edit.saved: saving an edit plays on the saved row, and undo never does", async () => {
     await workspace.create("Old title");
+    await workspace.create("Other");
     const { user } = await workspace.render();
-    await capture(user, "Fresh{Enter}");
-    await waitFor(() => expect(saved("Fresh")).toBe(true));
-    await waitFor(() => expect(saved("Fresh")).toBe(false), { timeout: 2000 });
-
     await user.keyboard("{ArrowDown}");
     await expectActive("Old title");
     await user.keyboard("{Enter}");
     await user.clear(await focusedTitleField());
     await user.keyboard("New title{Enter}");
-    await waitFor(() => expect(saved("New title")).toBe(true));
-    expect(saved("Fresh")).toBe(false);
-    await waitFor(() => expect(saved("New title")).toBe(false), { timeout: 2000 });
+    await waitFor(() => expect(saved("New title")).toBe("updated"));
+    expect(saved("Other")).toBeNull();
+    await waitFor(() => expect(saved("New title")).toBeNull(), { timeout: 2000 });
 
     await user.keyboard("{Control>}z{/Control}");
-    await waitFor(() => expect(saved("Old title")).toBe(false));
+    await waitFor(() => expect(saved("Old title")).toBeNull());
+  });
+
+  test("capture.saved: saving a new task plays its own feedback", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Fresh{Enter}");
+    await waitFor(() => expect(saved("Fresh")).toBe("created"));
+    await waitFor(() => expect(saved("Fresh")).toBeNull(), { timeout: 2000 });
   });
 
   test("edit.cancel: Escape cancels from the title and from the description", async () => {
