@@ -27,6 +27,12 @@ window.matchMedia ??= (query: string) => ({
   dispatchEvent: () => false,
 });
 
+// jsdom ignores inert and the app's CSS, so inactive tab panels kept mounted would stay focusable
+// and queryable; hide them as the browser does.
+const inertStyle = document.createElement("style");
+inertStyle.textContent = '[role="tabpanel"][inert] { visibility: hidden; }';
+document.head.append(inertStyle);
+
 const { themeScript } = createThemeHead(THEME_CONFIG);
 beforeEach(() => {
   // jsdom does not load index.html, where the Vite plugin installs this script.

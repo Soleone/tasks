@@ -16,11 +16,12 @@ import { RangeInput } from "@/components/variants/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { resetProgress, useLearning } from "@/learning/progress";
 import { setQuestsShown, useQuests } from "@/learning/questProgress";
-import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
+import { Tabs, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
-import { ReadableTabsTrigger } from "@/components/variants/tabs";
+import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
+import { version } from "../../package.json";
 
 type SettingsDialogProps = {
   open: boolean;
@@ -42,7 +43,7 @@ function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
     if (
       element.tabIndex < 0 ||
       element.hasAttribute("hidden") ||
-      element.closest("[hidden]") !== null
+      element.closest("[hidden], [inert]") !== null
     )
       return false;
     if (
@@ -81,7 +82,7 @@ export function SettingsDialog({
       <AnchoredDialogContent
         inert={switching}
         showCloseButton={false}
-        className="h-[calc(100svh-6rem)] max-h-[40rem] content-start overflow-y-auto sm:max-w-3xl md:max-h-[40rem]"
+        className="overflow-y-auto sm:max-w-3xl"
         initialFocus={settingsTab}
         finalFocus={finalFocus}
         onKeyDownCapture={(event) => {
@@ -112,7 +113,7 @@ export function SettingsDialog({
           </DialogHeader>
         </div>
 
-        <Tabs defaultValue="general" className="min-h-0">
+        <Tabs defaultValue="general">
           <div className="flex items-center justify-between gap-3">
             <TabsList
               aria-label="Settings sections"
@@ -137,203 +138,211 @@ export function SettingsDialog({
             </span>
           </div>
 
-          <TabsContent value="general" tabIndex={-1}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <section
-                aria-labelledby="settings-appearance"
-                className="flex flex-col gap-4 rounded-lg border p-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 id="settings-appearance" className="text-sm font-medium">
-                    Appearance
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Tune the interface for comfortable reading.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label htmlFor="settings-font-size" className="text-sm font-medium">
-                      Font size
-                    </label>
-                    <output
-                      htmlFor="settings-font-size"
-                      className="text-sm text-muted-foreground"
-                      aria-live="polite"
+          <div className="grid">
+            <StackedTabsContent value="general" tabIndex={-1}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <section
+                  aria-labelledby="settings-appearance"
+                  className="flex flex-col gap-4 rounded-lg border p-4"
+                >
+                  <div className="flex flex-col gap-1">
+                    <h2 id="settings-appearance" className="text-sm font-medium">
+                      Appearance
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Tune the interface for comfortable reading.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label htmlFor="settings-font-size" className="text-sm font-medium">
+                        Font size
+                      </label>
+                      <output
+                        htmlFor="settings-font-size"
+                        className="text-sm text-muted-foreground"
+                        aria-live="polite"
+                      >
+                        {fontSizeLabel(fontSizeIncrease)}
+                      </output>
+                    </div>
+                    <RangeInput
+                      id="settings-font-size"
+                      data-font-size-control
+                      min={0}
+                      max={FONT_SIZE_INCREASES.length - 1}
+                      step={1}
+                      value={FONT_SIZE_INCREASES.indexOf(fontSizeIncrease)}
+                      aria-valuetext={
+                        fontSizeIncrease === 0
+                          ? "Default font size"
+                          : `Font size increased by ${fontSizeIncrease}%`
+                      }
+                      aria-describedby="settings-font-size-description"
+                      className="w-full accent-primary"
+                      onChange={(event) => {
+                        const increase = FONT_SIZE_INCREASES[Number(event.target.value)];
+                        if (increase !== undefined) onFontSizeIncreaseChange(increase);
+                      }}
+                    />
+                    <div
+                      className="flex justify-between gap-2 text-xs text-muted-foreground"
+                      aria-hidden="true"
                     >
-                      {fontSizeLabel(fontSizeIncrease)}
-                    </output>
+                      {FONT_SIZE_INCREASES.map((increase) => (
+                        <span key={increase}>{fontSizeLabel(increase)}</span>
+                      ))}
+                    </div>
+                    <p
+                      id="settings-font-size-description"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Increase text and interface size. Changes apply immediately and are saved for
+                      future launches.
+                    </p>
                   </div>
-                  <RangeInput
-                    id="settings-font-size"
-                    data-font-size-control
-                    min={0}
-                    max={FONT_SIZE_INCREASES.length - 1}
-                    step={1}
-                    value={FONT_SIZE_INCREASES.indexOf(fontSizeIncrease)}
-                    aria-valuetext={
-                      fontSizeIncrease === 0
-                        ? "Default font size"
-                        : `Font size increased by ${fontSizeIncrease}%`
-                    }
-                    aria-describedby="settings-font-size-description"
-                    className="w-full accent-primary"
-                    onChange={(event) => {
-                      const increase = FONT_SIZE_INCREASES[Number(event.target.value)];
-                      if (increase !== undefined) onFontSizeIncreaseChange(increase);
-                    }}
-                  />
-                  <div
-                    className="flex justify-between gap-2 text-xs text-muted-foreground"
-                    aria-hidden="true"
-                  >
-                    {FONT_SIZE_INCREASES.map((increase) => (
-                      <span key={increase}>{fontSizeLabel(increase)}</span>
-                    ))}
+                </section>
+
+                <section
+                  aria-labelledby="settings-help"
+                  className="flex flex-col gap-4 rounded-lg border p-4"
+                >
+                  <div className="flex flex-col gap-1">
+                    <h2 id="settings-help" className="text-sm font-medium">
+                      Help
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Short quests teach the keys a few at a time. Pause one whenever you like; it
+                      keeps your place.
+                    </p>
                   </div>
-                  <p id="settings-font-size-description" className="text-sm text-muted-foreground">
-                    Increase text and interface size. Changes apply immediately and are saved for
-                    future launches.
-                  </p>
-                </div>
-              </section>
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id="settings-show-quests"
+                      checked={questsShown}
+                      onCheckedChange={setQuestsShown}
+                    />
+                    <FieldLabel htmlFor="settings-show-quests">Show quests</FieldLabel>
+                  </Field>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground" data-settings-learned>
+                      {learning.learnedCount} of {learning.moves.length} moves learned
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        resetProgress();
+                        setProgressReset(true);
+                      }}
+                    >
+                      Reset progress
+                    </Button>
+                  </div>
+                  {progressReset && learning.learnedCount === 0 ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      Progress reset. Quests start over.
+                    </p>
+                  ) : null}
+                </section>
+              </div>
+            </StackedTabsContent>
 
-              <section
-                aria-labelledby="settings-help"
-                className="flex flex-col gap-4 rounded-lg border p-4"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 id="settings-help" className="text-sm font-medium">
-                    Help
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Short quests teach the keys a few at a time. Pause one whenever you like; it
-                    keeps your place.
-                  </p>
-                </div>
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="settings-show-quests"
-                    checked={questsShown}
-                    onCheckedChange={setQuestsShown}
-                  />
-                  <FieldLabel htmlFor="settings-show-quests">Show quests</FieldLabel>
-                </Field>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground" data-settings-learned>
-                    {learning.learnedCount} of {learning.moves.length} moves learned
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      resetProgress();
-                      setProgressReset(true);
-                    }}
-                  >
-                    Reset progress
-                  </Button>
-                </div>
-                {progressReset && learning.learnedCount === 0 ? (
-                  <p role="status" className="text-sm text-muted-foreground">
-                    Progress reset. Quests start over.
-                  </p>
-                ) : null}
-              </section>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="workspace" tabIndex={-1}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <section
-                aria-labelledby="settings-sync"
-                className="flex flex-col gap-3 rounded-lg border p-4 md:col-span-2"
-              >
-                <div className="flex flex-col gap-1">
-                  <h2 id="settings-sync" className="text-sm font-medium">
-                    Tasks home
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Everything Tasks keeps on this device: tasks, settings, history and undo. For a
-                    full backup, close Tasks and the CLI and copy the whole folder.
-                  </p>
-                </div>
-                {workspace ? (
-                  <>
-                    <code className="wrap-anywhere text-xs">
-                      {workspace.editor.selection.profilePath}
-                    </code>
-                    {isDesktopApp() && (
+            <StackedTabsContent value="workspace" tabIndex={-1}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <section
+                  aria-labelledby="settings-sync"
+                  className="flex flex-col gap-3 rounded-lg border p-4 md:col-span-2"
+                >
+                  <div className="flex flex-col gap-1">
+                    <h2 id="settings-sync" className="text-sm font-medium">
+                      Tasks home
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Everything Tasks keeps on this device: tasks, settings, history and undo. For
+                      a full backup, close Tasks and the CLI and copy the whole folder.
+                    </p>
+                  </div>
+                  {workspace ? (
+                    <>
+                      <code className="wrap-anywhere text-xs">
+                        {workspace.editor.selection.profilePath}
+                      </code>
+                      {isDesktopApp() && (
+                        <Button
+                          variant="outline"
+                          className="w-fit"
+                          onClick={() =>
+                            void revealHome().catch((error: unknown) =>
+                              setPathNotice(error instanceof Error ? error.message : String(error)),
+                            )
+                          }
+                        >
+                          Open folder
+                        </Button>
+                      )}
+                      <h3 className="text-sm font-medium">Sync folder</h3>
+                      <code className="wrap-anywhere text-xs">
+                        {workspace.editor.selection.rootPath}
+                      </code>
                       <Button
                         variant="outline"
                         className="w-fit"
                         onClick={() =>
-                          void revealHome().catch((error: unknown) =>
-                            setPathNotice(error instanceof Error ? error.message : String(error)),
-                          )
+                          void navigator.clipboard
+                            .writeText(workspace.editor.selection.rootPath)
+                            .then(
+                              () => setPathNotice("Sync folder path copied."),
+                              () =>
+                                setPathNotice("The path couldn't be copied; select it instead."),
+                            )
                         }
                       >
-                        Open folder
+                        Copy path
                       </Button>
-                    )}
-                    <h3 className="text-sm font-medium">Sync folder</h3>
-                    <code className="wrap-anywhere text-xs">
-                      {workspace.editor.selection.rootPath}
-                    </code>
+                      <p className="text-sm text-muted-foreground">
+                        Add only this sync folder to Syncthing, not the Tasks home. Syncing the home
+                        would copy this device's database and locks to your other devices and can
+                        damage them.
+                      </p>
+                      {pathNotice && (
+                        <p role="status" className="text-sm text-muted-foreground">
+                          {pathNotice}
+                        </p>
+                      )}
+                    </>
+                  ) : null}
+                  {runtimeKind() === "native" && (
                     <Button
                       variant="outline"
                       className="w-fit"
-                      onClick={() =>
-                        void navigator.clipboard
-                          .writeText(workspace.editor.selection.rootPath)
-                          .then(
-                            () => setPathNotice("Sync folder path copied."),
-                            () => setPathNotice("The path couldn't be copied; select it instead."),
-                          )
-                      }
+                      disabled={switching}
+                      onClick={() => {
+                        if (switchStarted.current) return;
+                        switchStarted.current = true;
+                        setSwitching(true);
+                        setPathNotice("Saving this home before opening setup…");
+                        void switchHome().catch((error: unknown) => {
+                          switchStarted.current = false;
+                          setSwitching(false);
+                          setPathNotice(error instanceof Error ? error.message : String(error));
+                        });
+                      }}
                     >
-                      Copy path
+                      Open another home…
                     </Button>
-                    <p className="text-sm text-muted-foreground">
-                      Add only this sync folder to Syncthing, not the Tasks home. Syncing the home
-                      would copy this device's database and locks to your other devices and can
-                      damage them.
-                    </p>
-                    {pathNotice && (
-                      <p role="status" className="text-sm text-muted-foreground">
-                        {pathNotice}
-                      </p>
-                    )}
-                  </>
-                ) : null}
-                {runtimeKind() === "native" && (
-                  <Button
-                    variant="outline"
-                    className="w-fit"
-                    disabled={switching}
-                    onClick={() => {
-                      if (switchStarted.current) return;
-                      switchStarted.current = true;
-                      setSwitching(true);
-                      setPathNotice("Saving this home before opening setup…");
-                      void switchHome().catch((error: unknown) => {
-                        switchStarted.current = false;
-                        setSwitching(false);
-                        setPathNotice(error instanceof Error ? error.message : String(error));
-                      });
-                    }}
-                  >
-                    Open another home…
-                  </Button>
-                )}
-              </section>
-            </div>
-          </TabsContent>
+                  )}
+                </section>
+              </div>
+            </StackedTabsContent>
 
-          <TabsContent value="cleanup" tabIndex={-1}>
-            {workspace && <DeleteTasksSection />}
-          </TabsContent>
+            <StackedTabsContent value="cleanup" tabIndex={-1}>
+              {workspace && <DeleteTasksSection />}
+            </StackedTabsContent>
+          </div>
         </Tabs>
+
+        <p className="text-xs text-muted-foreground">Tasks {version}</p>
 
         <DialogClose
           render={

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows } from "@/testing/taskList";
+import { version } from "../../package.json";
 
 let workspace: AppWorkspace;
 beforeEach(async () => {
@@ -39,6 +40,13 @@ test("settings.close: Escape closes Settings and returns focus to the list", asy
   await screen.findByRole("tab", { name: "General" });
   await user.keyboard("{Escape}");
   await expectListFocused();
+});
+
+test("settings.version: the footer shows the app version", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("{Control>},{/Control}");
+  const settings = within(await screen.findByRole("dialog", { name: "Settings" }));
+  settings.getByText(`Tasks ${version}`);
 });
 
 test("settings.tabs: arrows switch sections and Tab enters Cleanup without passing Data controls", async () => {

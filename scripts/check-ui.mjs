@@ -1109,10 +1109,14 @@ try {
   check(
     'Math.round(parseFloat(getComputedStyle(document.querySelector("[data-slot=dialog-content]")).height)) === window.settingsDialogHeight',
   );
-  check('document.querySelector("[role=tabpanel]")?.textContent.includes("Tasks home")');
-  check('!document.querySelector("[role=tabpanel]")?.textContent.includes("Launch time")');
+  check(
+    'document.querySelector("[role=tabpanel]:not([inert])")?.textContent.includes("Tasks home")',
+  );
+  check(
+    '!document.querySelector("[role=tabpanel]:not([inert])")?.textContent.includes("Launch time")',
+  );
   check(`!document.body.textContent.includes(${JSON.stringify(cachePath)})`);
-  check('document.querySelector("[role=tabpanel] [data-font-size-control]") === null');
+  check('document.querySelector("[role=tabpanel]:not([inert]) [data-font-size-control]") === null');
   check('document.querySelector("#settings-delete") === null');
   focus("[role=tab][aria-selected=true]");
   browser("press", "ArrowRight");

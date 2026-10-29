@@ -1,7 +1,22 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
-import { TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { FOCUS_RING } from "./focus";
+
+/**
+ * Panels share one grid cell, so the tallest one sets the height and switching tabs never resizes.
+ * Inactive panels stay laid out but invisible; Base UI already makes them inert.
+ */
+export function StackedTabsContent({ className, ...props }: ComponentProps<typeof TabsContent>) {
+  return (
+    <TabsContent
+      keepMounted
+      hidden={false}
+      className={cn("col-start-1 row-start-1 data-hidden:invisible", className)}
+      {...props}
+    />
+  );
+}
 
 /** Readable inactive labels and the same solid focus ring as the filter toolbar. */
 export function ReadableTabsTrigger({ className, ...props }: ComponentProps<typeof TabsTrigger>) {
