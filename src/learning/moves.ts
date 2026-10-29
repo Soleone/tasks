@@ -70,6 +70,11 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Set priority from the list", keys: ["0–4"] },
   },
   {
+    id: "effort.set",
+    keyboard: { label: "Make a task bigger or smaller", keys: ["[", "]"] },
+    touch: { label: "Long-press a task to set its effort" },
+  },
+  {
     id: "status.back",
     keyboard: { label: "Step a status back", keys: ["Shift", "Space"] },
   },

@@ -1,5 +1,17 @@
-import { Circle, CircleCheck, CirclePause, RotateCw, CircleX, type LucideIcon } from "lucide-react";
-import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import {
+  ChevronDown,
+  ChevronsDown,
+  ChevronsUp,
+  ChevronUp,
+  Circle,
+  CircleCheck,
+  CirclePause,
+  Minus,
+  RotateCw,
+  CircleX,
+  type LucideIcon,
+} from "lucide-react";
+import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
 import type { LensFilter } from "./listLens";
 
@@ -144,6 +156,33 @@ export function priorityMeta(value: TaskPriority): PriorityMeta {
   return found;
 }
 
+/** Effort names, smallest first. */
+export const EFFORT_LABELS: Record<TaskEffort, string> = {
+  1: "tiny",
+  2: "small",
+  3: "normal",
+  4: "large",
+  5: "huge",
+};
+
+/** An effort's name as a menu item or heading, like "Large". */
+export function effortTitle(effort: TaskEffort): string {
+  const label = EFFORT_LABELS[effort];
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Effort's badge on the status glyph and its icon in menus. Normal shows no badge. */
+export const EFFORT_ICONS: Record<TaskEffort, LucideIcon> = {
+  1: ChevronsDown,
+  2: ChevronDown,
+  3: Minus,
+  4: ChevronUp,
+  5: ChevronsUp,
+};
+
+/** Largest first, the order the effort menus list them. */
+export const EFFORTS_LARGEST_FIRST: TaskEffort[] = [5, 4, 3, 2, 1];
+
 /**
  * Active tasks show their priority as the glyph's color; the rest keep their status color, which a
  * done P4 fades like an active one.
@@ -178,7 +217,7 @@ export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: 
   { status: "canceled", label: "Canceled", key: "X" },
 ];
 
-export type SortField = "created" | "updated" | "priority" | "due" | "closed" | "manual";
+export type SortField = "created" | "updated" | "priority" | "effort" | "due" | "closed" | "manual";
 export type SortDirection = "asc" | "desc";
 
 /** Quiet status message for a selected sort. */
@@ -186,6 +225,8 @@ export function sortSummary(field: SortField, direction: SortDirection): string 
   if (field === "manual") return "manual order";
   if (field === "priority")
     return `by priority, ${direction === "desc" ? "highest first" : "lowest first"}`;
+  if (field === "effort")
+    return `by effort, ${direction === "desc" ? "largest first" : "smallest first"}`;
   if (field === "due")
     return `by due date, ${direction === "desc" ? "soonest first" : "latest first"}`;
   if (field === "closed") return `by completed, ${direction}`;
@@ -205,6 +246,14 @@ export function compareTasksForViewSort(
     if ((a.due === null) !== (b.due === null)) return a.due === null ? 1 : -1;
     if (a.due !== b.due) return (a.due! < b.due! ? -1 : 1) * (direction === "desc" ? 1 : -1);
     return a.priority - b.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  }
+  if (field === "effort") {
+    const effortDirection = direction === "desc" ? -1 : 1;
+    return (
+      effortDirection * (a.effort - b.effort) ||
+      a.priority - b.priority ||
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+    );
   }
   if (field === "priority") {
     const priorityDirection = direction === "desc" ? 1 : -1;

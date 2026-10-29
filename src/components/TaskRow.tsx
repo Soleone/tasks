@@ -1,5 +1,6 @@
 import { Fragment, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { CalendarDays, Check, Folder, ShieldBan } from "lucide-react";
+import { DEFAULT_EFFORT, type TaskEffort } from "@/backend/taskModel";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
@@ -13,6 +14,9 @@ import {
   sameTaskDay,
 } from "@/backend/taskDates";
 import {
+  EFFORT_ICONS,
+  EFFORT_LABELS,
+  effortTitle,
   isSolidGlyph,
   priorityMeta,
   statusGlyphColor,
@@ -34,26 +38,41 @@ export function taskContextMessage(indented: boolean): string {
     : "Shown because a child matches the current filters.";
 }
 
-/** The status icon; a highest-priority task gets a filled disc with the icon cut out of it. */
+type GlyphEntrance = "status" | "priority" | "effort";
+
+/** The glyph's label: status and priority, and effort when it isn't normal. */
+function glyphLabel(task: Pick<TaskView, "status" | "priority" | "effort">): string {
+  const effort = task.effort === DEFAULT_EFFORT ? "" : `, effort ${EFFORT_LABELS[task.effort]}`;
+  return `${taskStatusMeta[task.status].label}, priority ${priorityMeta(task.priority).label}${effort}`;
+}
+
+/**
+ * The status icon; a highest-priority task gets a filled disc with the icon cut out of it. Effort
+ * other than normal adds chevrons at the top right, in a notch cut from the icon so they read on
+ * any row fill. The parent positions them.
+ */
 export function StatusGlyph({
   task,
   entrance = null,
 }: {
-  task: Pick<TaskView, "status" | "priority">;
+  task: Pick<TaskView, "status" | "priority"> & { effort?: TaskEffort };
   /** What changed last, so the glyph plays its entrance. */
-  entrance?: "status" | "priority" | null;
+  entrance?: GlyphEntrance | null;
 }): ReactElement {
   const Icon = taskStatusMeta[task.status].Icon;
-  const enter = {
+  const effort = task.effort ?? DEFAULT_EFFORT;
+  const glyphData = {
     "data-status-enter": entrance === "status" ? task.status : undefined,
     "data-priority-enter": entrance === "priority" || undefined,
+    "data-effort-notch": effort !== DEFAULT_EFFORT || undefined,
   };
-  if (!isSolidGlyph(task)) return <Icon className="size-5" aria-hidden="true" {...enter} />;
-  return (
+  const glyph = !isSolidGlyph(task) ? (
+    <Icon className="size-5" aria-hidden="true" {...glyphData} />
+  ) : (
     <span
       className="grid size-5 place-items-center rounded-full bg-current"
       aria-hidden="true"
-      {...enter}
+      {...glyphData}
     >
       {task.status === "in_progress" ? (
         <Icon className="size-3 text-primary-foreground" strokeWidth={3.5} />
@@ -62,36 +81,67 @@ export function StatusGlyph({
       ) : null}
     </span>
   );
+  if (effort === DEFAULT_EFFORT) return glyph;
+  const EffortIcon = EFFORT_ICONS[effort];
+  return (
+    <>
+      {glyph}
+      {/* Bigger work in the title's color, smaller work in the muted one. */}
+      <EffortIcon
+        className={cn(
+          "absolute top-[-2px] left-[17px] size-[13px]",
+          effort > DEFAULT_EFFORT ? "text-foreground" : "text-muted-foreground",
+        )}
+        strokeWidth={3}
+        aria-hidden="true"
+        data-effort={EFFORT_LABELS[effort]}
+        data-effort-enter={entrance === "effort" || undefined}
+      />
+    </>
+  );
 }
 
 /** Informational status icon. Interactive toggling stays with the list. */
 export function TaskStatusDisplay({
   task,
 }: {
-  task: Pick<TaskView, "status" | "priority">;
+  task: Pick<TaskView, "status" | "priority" | "effort">;
 }): ReactElement {
-  const status = taskStatusMeta[task.status];
   return (
     <span
       className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
+        "relative inline-flex size-7 shrink-0 items-center justify-center rounded-full",
         statusGlyphColor(task),
       )}
       role="img"
-      aria-label={`Status: ${status.label}, priority ${priorityMeta(task.priority).label}`}
+      aria-label={`Status: ${glyphLabel(task)}`}
     >
       <StatusGlyph task={task} />
     </span>
   );
 }
 
-/** Which of the glyph's two meanings changed last, so a fresh mount stays still. */
-function useGlyphEntrance(task: TaskView): "status" | "priority" | null {
-  const [seen, setSeen] = useState({ status: task.status, priority: task.priority });
-  const [entrance, setEntrance] = useState<"status" | "priority" | null>(null);
-  if (seen.status !== task.status || seen.priority !== task.priority) {
-    setSeen({ status: task.status, priority: task.priority });
-    setEntrance(seen.status !== task.status ? "status" : "priority");
+/** Which of the glyph's meanings changed last, so a fresh mount stays still. */
+function useGlyphEntrance(task: TaskView): GlyphEntrance | null {
+  const [seen, setSeen] = useState({
+    status: task.status,
+    priority: task.priority,
+    effort: task.effort,
+  });
+  const [entrance, setEntrance] = useState<GlyphEntrance | null>(null);
+  if (
+    seen.status !== task.status ||
+    seen.priority !== task.priority ||
+    seen.effort !== task.effort
+  ) {
+    setSeen({ status: task.status, priority: task.priority, effort: task.effort });
+    setEntrance(
+      seen.status !== task.status
+        ? "status"
+        : seen.priority !== task.priority
+          ? "priority"
+          : "effort",
+    );
   }
   return entrance;
 }
@@ -133,17 +183,18 @@ export function TaskStatusToggle({
         render={
           <span
             role="img"
-            aria-label={`Status: ${status.label}, priority ${priority.label}. Click or press Space to change it to ${nextLabel}; press Shift+Space to change it to ${previousLabel}.${pauseHint}`}
+            aria-label={`Status: ${glyphLabel(task)}. Click or press Space to change it to ${nextLabel}; press Shift+Space to change it to ${previousLabel}.${pauseHint}`}
             tabIndex={-1}
             data-status={task.status}
             data-priority={priority.shortLabel}
+            data-effort={task.effort}
             data-status-pending={pending || undefined}
             data-completion-sheen={sheenStep !== undefined || undefined}
             style={
               sheenStep !== undefined ? ({ "--sheen-step": sheenStep } as CSSProperties) : undefined
             }
             className={cn(
-              "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
+              "relative inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-muted",
               statusGlyphColor(task),
               pending && "animate-pulse opacity-60",
             )}
@@ -155,19 +206,21 @@ export function TaskStatusToggle({
           />
         }
       >
-        {/* Keyed so each new status or priority remounts the glyph and plays its entrance once. */}
+        {/* Keyed so each new status, priority or effort remounts the glyph and plays its entrance once. */}
         <StatusGlyph
-          key={`${task.status}-${priority.shortLabel}`}
+          key={`${task.status}-${priority.shortLabel}-${task.effort}`}
           task={task}
           entrance={entrance}
         />
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
         {!feedback.flashing
-          ? `${status.label}, priority ${priority.label}`
+          ? glyphLabel(task)
           : entrance === "priority"
             ? priority.shortLabel
-            : status.label}
+            : entrance === "effort"
+              ? `${effortTitle(task.effort)} effort`
+              : status.label}
       </TooltipContent>
     </Tooltip>
   );

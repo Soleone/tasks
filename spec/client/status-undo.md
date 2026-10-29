@@ -20,16 +20,18 @@ Status keys act on the selection: the active task, or the several tasks selected
 | `status.cancel` | `Delete` | The task is canceled at once. It is not erased |
 | `status.batch` | A status key with several tasks selected | One batch. If any task is ineligible or changed elsewhere, nothing changes and the app says why |
 | `status.batch-pause` | `P` with done or canceled tasks in the selection | They are skipped; the rest pause or resume |
-| `status.immediate` | A status or priority key on one task | The row shows the change at once and saves it behind the scenes. Repeated keys apply in order |
+| `status.immediate` | A status, priority or effort key on one task | The row shows the change at once and saves it behind the scenes. Repeated keys apply in order |
 | `status.stale` | The task changed elsewhere since it was shown | Nothing is saved, the row goes back, and the app says to refresh and try again |
-| `status.feedback` | A status or priority changes | The status glyph's tooltip flashes just the new status, or just the new priority like P0, and a screen reader hears it |
+| `status.feedback` | A status, priority or effort changes | The status glyph's tooltip flashes just the new status, the new priority like P0, or the new effort like Large effort, and a screen reader hears it |
 
-## Priority and copy
+## Priority, effort and copy
 
 | Rule | When | Then |
 | --- | --- | --- |
 | `priority.set` | `0`–`4` on the list | Sets the active task's priority. The row shows it as `priority.look` describes, and the glyph's label and hover tooltip name both |
 | `priority.look` | An open, in-progress or done task is shown | Priority reads from the icon and the title, with no extra element. On open and in-progress tasks, P0 and P1 use the theme's accent and P0 also fills the icon. Done tasks keep their green check, so P0 and P1 both fill it instead, which makes the bigger wins stand out in the done lens. P0 sets the title in bold. P2 is neutral gray. P3 sets the title halfway between normal and muted gray. P4 sets it fully muted and also fades the icon, never below 3:1 against the theme's surfaces. Paused and canceled keep their status colors and a plain title |
+| `effort.set` | `]` or `[` on the list, or the Effort submenu in Task actions or a task's long-press menu | `]` makes the active task's effort one step bigger and `[` one step smaller, stopping at huge and tiny. The menus pick any of the five directly. New tasks are normal |
+| `effort.look` | A task's effort isn't normal | Chevrons sit in a notch at the status icon's top right: two down for tiny, one down for small, one up for large, two up for huge. Up chevrons use the title color and down chevrons the muted one. Normal shows nothing. The glyph's label and hover tooltip name the effort |
 | `copy.text` | `Ctrl/⌘+C` on the list, or Copy text in Task actions | Copies the active task's title and description followed by its `#tags`, separated by spaces, without `@category` or images |
 | `attach.copy` | `Ctrl/⌘+Shift+C` on the list, Copy image in Task actions, or clicking the image badge | Copies the active task's most recently added image, whether details are shown or not, and a toast confirms it. A task without images, or whose image is missing, says so |
 
@@ -52,7 +54,7 @@ Finishing work should feel like it. The reward stays quiet: a moment on the row,
 | Rule | When | Then |
 | --- | --- | --- |
 | `undo.latest` | `Ctrl/⌘+Z`, or Undo in the toolbar (disabled when unavailable) | Undoes this client's latest change and a toast confirms it. Status and priority changes show the restored status icon or priority dot when the restored tasks share that value. A task that was active when the change was made is active again, even if it left the view before the change was saved. Pressing again walks further back. Each successful undo makes that step available to redo |
-| `undo.scope` | Any change | Status, capture, edit (including images), priority, parent, blocker and order changes made from this client are undoable. Changes from the CLI, agents or other devices are never offered |
+| `undo.scope` | Any change | Status, capture, edit (including images), priority, effort, parent, blocker and order changes made from this client are undoable. Changes from the CLI, agents or other devices are never offered |
 | `undo.batch` | Undoing a batch | One step restores every task in it |
 | `undo.depth` | History | About the last 50 changes, kept for this workspace and survives reload |
 | `undo.refused` | A later change touched what the undo would restore (the same status, field, link or order), or the undo would create a cycle | Refused before anything is sent and dropped from history. The next `Ctrl/⌘+Z` tries the next older change |

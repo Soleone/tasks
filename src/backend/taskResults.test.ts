@@ -15,6 +15,7 @@ const projection = {
   ...JSON.parse(readFileSync(file, "utf8")),
   attachments: [],
   due: null,
+  effort: 3,
   version: 7,
   blockedByIds: [],
 };

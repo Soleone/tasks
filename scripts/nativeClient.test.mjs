@@ -327,7 +327,7 @@ test("main-client lost reply blocks new writes and retries only the frozen reque
   const saving = workspace.save(draft("Retained draft"), "original-key", task.id, task.version);
   const retained = await unresolved;
   await assert.rejects(
-    () => workspace.priority(task.id, 1, 0, "replacement"),
+    () => workspace.level(task.id, 1, { priority: 0 }, "replacement"),
     /Finish the current/,
   );
   const original = JSON.parse(retained.prepared.originalRequest),

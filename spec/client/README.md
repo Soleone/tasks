@@ -7,7 +7,7 @@ The desktop, Android and web apps are one client. This folder describes what a p
 | [home.md](home.md) | Launch, focus, moving around, selection, reorder, details |
 | [toolbar.md](toolbar.md) | Filters, search, sort and the count line |
 | [capture-edit.md](capture-edit.md) | The inline editor, shorthand, the move and blocker pickers |
-| [status-undo.md](status-undo.md) | Status and priority shortcuts, batches, copy, undo and redo |
+| [status-undo.md](status-undo.md) | Status, priority and effort shortcuts, batches, copy, undo and redo |
 | [lenses.md](lenses.md) | Lenses: the list as one question, done today and due now |
 | [settings.md](settings.md) | Settings, themes, the palette, font size and the Tasks home |
 | [learning.md](learning.md) | Moves, hints, the Learn panel and progress |
@@ -37,6 +37,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `P` | Pause or resume | `status.pause` |
 | `Delete` | Cancel | `status.cancel` |
 | `0`–`4` | Set priority P0–P4 | `priority.set` |
+| `[` / `]` | Smaller / bigger effort | `effort.set` |
 | `Ctrl/⌘+C` | Copy title, description and tags | `copy.text` |
 | `Ctrl/⌘+Shift+C` | Copy the active task's newest image | `attach.copy` |
 | `Ctrl/⌘+Z` | Undo this client's latest change | `undo.latest` |

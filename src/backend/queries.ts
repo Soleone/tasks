@@ -1,14 +1,15 @@
 import { CommandError } from "./errors.js";
 import { isDueDate } from "./dueDate.js";
 import { assertArgs, TASK_LIST_MAX_LIMIT } from "./protocol.js";
-import type { CanonicalTask } from "./taskModel.js";
-import { compareTasks, isTimestamp } from "./taskModel.js";
+import type { CanonicalTask, TaskEffort } from "./taskModel.js";
+import { compareTasks, DEFAULT_EFFORT, isTimestamp } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
 import type { QueryAuthority } from "./queryCache.js";
 
 export type TaskProjection = CanonicalTask & {
   attachments: string[];
   due: string | null;
+  effort: TaskEffort;
   version: number;
   blockedByIds: string[];
 };
@@ -44,6 +45,7 @@ export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority):
     text: typedText(task),
     attachments: task.attachments ?? [],
     due: task.due ?? null,
+    effort: task.effort ?? DEFAULT_EFFORT,
     version: authority.versions.get(task.id)!,
     blockedByIds: task.dependencyIds.filter((id) => byId.get(id)!.status !== "canceled"),
   }));
@@ -119,7 +121,11 @@ function listTasks(
   const dueBefore = args.dueBefore;
   if (dueBefore !== undefined && !isDueDate(dueBefore)) invalidFilter("dueBefore");
   const sort = args.sort === undefined ? "created" : args.sort;
-  if (!["created", "updated", "priority", "due", "closed", "manual"].includes(sort as string))
+  if (
+    !["created", "updated", "priority", "effort", "due", "closed", "manual"].includes(
+      sort as string,
+    )
+  )
     invalidFilter("sort");
   const direction =
     args.direction === undefined
@@ -149,13 +155,15 @@ function listTasks(
     const sortValue = (task: TaskProjection): string | number =>
       sort === "priority"
         ? task.priority
-        : sort === "created"
-          ? task.createdAt
-          : sort === "updated"
-            ? task.updatedAt
-            : sort === "closed"
-              ? (task.closedAt ?? "")
-              : (task.due ?? "");
+        : sort === "effort"
+          ? task.effort
+          : sort === "created"
+            ? task.createdAt
+            : sort === "updated"
+              ? task.updatedAt
+              : sort === "closed"
+                ? (task.closedAt ?? "")
+                : (task.due ?? "");
     // Undated tasks, and active tasks under the closed sort, stay last in either direction.
     const missing = (task: TaskProjection): boolean =>
       sort === "due" ? task.due === null : sort === "closed" && task.closedAt === null;
@@ -164,7 +172,8 @@ function listTasks(
       const a = sortValue(left);
       const b = sortValue(right);
       if (a !== b) return (a < b ? -1 : 1) * (direction === "asc" ? 1 : -1);
-      if (sort === "due" && left.priority !== right.priority) return left.priority - right.priority;
+      if ((sort === "due" || sort === "effort") && left.priority !== right.priority)
+        return left.priority - right.priority;
       return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
     });
   }

@@ -35,7 +35,7 @@ Each operation uses one captured instant.
 | Change | `updatedAt` | `closedAt` |
 | --- | --- | --- |
 | Create | now | `null` |
-| Title, description, priority, category, tags, attachments | now | kept |
+| Title, description, priority, effort, category, tags, attachments | now | kept |
 | Parent or dependency | now | kept |
 | Status to done or canceled | kept | now |
 | Status to open, in progress or paused | kept | `null` |

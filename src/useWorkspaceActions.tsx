@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { randomUUID } from "@/lib/randomUUID";
-import type { TaskStatus } from "@/backend/taskModel";
+import { DEFAULT_EFFORT, type TaskStatus } from "@/backend/taskModel";
 import { parseShorthand } from "@/backend/shorthand";
 import type { TaskListHandle } from "@/components/TaskList";
 import type { SavedTask } from "@/components/TaskListRows";
@@ -452,6 +452,7 @@ export function useWorkspaceActions({
         literal.category === null ? null : { slug: literal.category, label: literal.category },
       tags: literal.tags.map((slug) => ({ slug, label: slug })),
       due: literal.due,
+      effort: DEFAULT_EFFORT,
       parentId: draft.parentId ?? null,
       dependencyIds: [],
       attachments: draft.attachments,

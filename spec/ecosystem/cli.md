@@ -15,10 +15,10 @@ There are two ways in from outside the app, both through `tasks-cli`, the same e
 
 | Verb | Command |
 | --- | --- |
-| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort` (including `due` and `closed`), `--direction`, `--limit`, `--offset` |
+| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort` (including `effort`, `due` and `closed`), `--direction`, `--limit`, `--offset` |
 | `show ID` | `task.get`, with each attachment's absolute path |
-| `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--parent`, `--category`, `--tag`, `--due` |
-| `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--category`, `--clear-category`, `--tag`, `--clear-tags`, `--due`, `--clear-due` |
+| `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--effort`, `--parent`, `--category`, `--tag`, `--due` |
+| `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--effort`, `--category`, `--clear-category`, `--tag`, `--clear-tags`, `--due`, `--clear-due` |
 | `start` `pause` `complete` `reopen` `cancel` `delete` `ID` | the matching status command |
 | `undo ID` | `task.status.undo` |
 | `undo-operation ID` | `operation.undo` |

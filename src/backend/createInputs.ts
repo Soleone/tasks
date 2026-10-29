@@ -2,13 +2,14 @@ import { generateKeyBetween } from "fractional-indexing";
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import { compareTasks, isOrderKey, validateTask } from "./taskModel.js";
-import type { CanonicalTask } from "./taskModel.js";
+import { DEFAULT_EFFORT } from "./taskModel.js";
+import type { CanonicalTask, TaskEffort } from "./taskModel.js";
 import { parseContentPatch } from "./updateInputs.js";
 
 export type CreateInput = Pick<
   CanonicalTask,
   "title" | "text" | "description" | "priority" | "category" | "tags" | "parentId"
-> & { due: string | null; attachments: string[] };
+> & { due: string | null; effort: TaskEffort; attachments: string[] };
 
 export function parseCreate(args: Record<string, unknown>): CreateInput {
   assertArgs(args, [
@@ -19,6 +20,7 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     "category",
     "tags",
     "due",
+    "effort",
     "attachments",
     "parentId",
   ]);
@@ -39,6 +41,7 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     category: patch.category ?? null,
     tags: patch.tags ?? [],
     due: patch.due ?? null,
+    effort: patch.effort ?? DEFAULT_EFFORT,
     attachments: patch.attachments ?? [],
     parentId: (args.parentId as string | null | undefined) ?? null,
   };
@@ -79,6 +82,7 @@ export function buildCreatedTask(
       closedAt: null,
       ...(input.attachments.length > 0 ? { attachments: input.attachments } : {}),
       ...(input.due !== null ? { due: input.due } : {}),
+      ...(input.effort !== DEFAULT_EFFORT ? { effort: input.effort } : {}),
     },
     taskIdentity.id,
   );

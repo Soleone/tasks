@@ -358,7 +358,7 @@ const QUEST_DEFINITIONS = [
   {
     id: "fast-hands",
     title: "Fast hands",
-    summary: "Descriptions, images, quicker edits and every shortcut there is",
+    summary: "Descriptions, images, effort, quicker edits and every shortcut there is",
     keyboard: [
       {
         move: "home.open-editor",
@@ -407,6 +407,12 @@ const QUEST_DEFINITIONS = [
         move: "attach.copy",
         prompt: `Press \`${modKey}\`+\`Shift\`+\`C\` to copy its image`,
         success: "Image copied",
+      },
+      {
+        move: "effort.set",
+        prompt:
+          "Big job or a quick one? Press `]` to make the task bigger or `[` to make it smaller",
+        success: "Effort {}",
       },
       {
         move: "help.palette",

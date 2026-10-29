@@ -68,6 +68,7 @@ const ORDER_LABELS: Record<Exclude<SortField, "manual">, [string, string]> = {
   created: ["Newest first", "Oldest first"],
   updated: ["Newest first", "Oldest first"],
   priority: ["Highest priority first", "Lowest priority first"],
+  effort: ["Largest effort first", "Smallest effort first"],
   due: ["Soonest due first", "Latest due first"],
   closed: ["Recently done first", "Earliest done first"],
 };

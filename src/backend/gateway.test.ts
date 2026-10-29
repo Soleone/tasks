@@ -151,7 +151,14 @@ test("envelope correlation, strict types, unsupported names and previews cannot 
   const task = result(valid).task as Record<string, unknown>;
   assert.deepEqual(
     Object.keys(task).sort(),
-    [...Object.keys(corpus.taskTemplate), "attachments", "due", "version", "blockedByIds"].sort(),
+    [
+      ...Object.keys(corpus.taskTemplate),
+      "attachments",
+      "due",
+      "effort",
+      "version",
+      "blockedByIds",
+    ].sort(),
   );
   assert.ok(Number.isSafeInteger(task.version) && (task.version as number) > 0);
 });

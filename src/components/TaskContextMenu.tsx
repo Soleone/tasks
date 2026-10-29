@@ -4,6 +4,7 @@ import {
   ArrowDownUp,
   ArrowUp,
   ChevronDown,
+  ChevronsUp,
   ChevronUp,
   Circle,
   CirclePause,
@@ -15,13 +16,17 @@ import {
   ListChevronsUpDown,
   Pencil,
 } from "lucide-react";
+import type { TaskEffort } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
+import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, effortTitle } from "./taskFilters";
 import type { TaskMoveDirection } from "./taskReordering";
 import {
   ContextMenu,
   ContextMenuGroup,
   ContextMenuItem,
   ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
   ContextMenuSeparator,
   ContextMenuSub,
   ContextMenuSubTrigger,
@@ -41,6 +46,7 @@ export type TaskContextActions = {
   detailsShown: boolean;
   onToggleDetails: (task: TaskView) => void;
   onCopy: (task: TaskView) => void;
+  onEffort: (task: TaskView, effort: TaskEffort) => void;
   onDelete: (task: TaskView) => void;
   onReorder: (direction: TaskMoveDirection) => void;
   reorderDisabledReason: string | null;
@@ -101,6 +107,28 @@ export function TaskContextMenu({
             )}
             {task.status === "paused" ? "Resume" : "Pause"}
           </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <ChevronsUp aria-hidden="true" />
+              Effort
+            </ContextMenuSubTrigger>
+            <TaskContextSubContent>
+              <ContextMenuRadioGroup
+                value={task.effort}
+                onValueChange={(effort: TaskEffort) => actions.onEffort(task, effort)}
+              >
+                {EFFORTS_LARGEST_FIRST.map((effort) => {
+                  const Icon = EFFORT_ICONS[effort];
+                  return (
+                    <ContextMenuRadioItem key={effort} value={effort} closeOnClick>
+                      <Icon aria-hidden="true" />
+                      {effortTitle(effort)}
+                    </ContextMenuRadioItem>
+                  );
+                })}
+              </ContextMenuRadioGroup>
+            </TaskContextSubContent>
+          </ContextMenuSub>
           <ContextMenuItem onClick={() => actions.onAddBlocker(task)}>
             <Link2 aria-hidden="true" />
             Blockers…

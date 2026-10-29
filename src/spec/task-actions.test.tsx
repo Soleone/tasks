@@ -80,6 +80,20 @@ test("home.task-context-menu: actions have icons and Cancel task changes status 
   await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("canceled"));
 });
 
+test("effort.set: the long-press menu's Effort submenu sets any effort directly", async () => {
+  const task = await workspace.create("Task");
+  const { user } = await workspace.render();
+  fireEvent.contextMenu(screen.getByText("Task").closest('[role="option"]')!, {
+    clientX: 30,
+    clientY: 60,
+  });
+  const menu = await screen.findByRole("menu", { name: "Actions for Task" });
+  await user.click(within(menu).getByRole("menuitem", { name: "Effort" }));
+  // The submenu's positioner keeps pointer-events off while it opens, which user-event refuses.
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: "Huge" }));
+  await waitFor(async () => expect((await workspace.task(task.id)).effort).toBe(5));
+});
+
 test("home.task-context-menu: Escape dismisses without editing", async () => {
   await workspace.create("Task");
   const { user } = await workspace.render();

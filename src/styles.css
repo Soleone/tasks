@@ -347,14 +347,21 @@
   }
 }
 
-/* A status or priority change plays a short entrance on the new glyph, shaped
+/* A status, priority or effort change plays a short entrance on the new glyph, shaped
  * by what changed: in progress turns into place, done and canceled draw their
- * marks, paused raises its bars, a new priority pops. A fresh mount stays still. */
+ * marks, paused raises its bars, a new priority or effort badge pops. A fresh mount stays still. */
 [data-status-enter],
-[data-priority-enter] {
+[data-priority-enter],
+[data-effort-enter] {
   transform-box: fill-box;
   transform-origin: center;
   animation: task-completion-pop 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Cuts a notch for the effort badge out of the 20px status glyph, centered on the badge at its
+ * top right, so the badge reads on any row fill (StatusGlyph). */
+[data-effort-notch] {
+  mask-image: radial-gradient(circle 7.5px at 19.5px 0.5px, transparent 7px, #000 7.5px);
 }
 
 /* The header's done-today count rolls up when it rises: the old number leaves upward as the new
@@ -749,6 +756,7 @@
   [data-status-enter] *,
   [data-completion-sheen],
   [data-priority-enter],
+  [data-effort-enter],
   [data-count-enter] {
     animation: none;
   }

@@ -1,6 +1,6 @@
 import { isRecord } from "./protocol.js";
 import type { TaskProjection } from "./queries.js";
-import { validateTask } from "./taskModel.js";
+import { DEFAULT_EFFORT, validateTask } from "./taskModel.js";
 
 export type TaskExecutionResult =
   | { task: TaskProjection; changed: false; operationId?: never }
@@ -43,6 +43,7 @@ export function parseTaskProjection(value: unknown): TaskProjection {
     ...task,
     attachments: task.attachments ?? [],
     due: task.due ?? null,
+    effort: task.effort ?? DEFAULT_EFFORT,
     version,
     blockedByIds,
   };

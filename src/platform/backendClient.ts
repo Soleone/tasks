@@ -1,5 +1,5 @@
 import { randomUUID } from "../lib/randomUUID";
-import { EditorError, type InlineDraft } from "./editorClient";
+import { EditorError, type InlineDraft, type LevelChange } from "./editorClient";
 import { MainWorkspace } from "./mainWorkspace";
 import { taskView, type ClassificationOption, type TaskView } from "@/components/taskView";
 import type { TaskPriority } from "@/backend/taskModel";
@@ -278,14 +278,12 @@ export function clearDone(
   });
 }
 
-export async function updateTaskPriority(
+export async function updateTaskLevel(
   task: TaskView,
-  priority: TaskPriority,
+  change: LevelChange,
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
-  return queued((workspace) =>
-    workspace.priority(task.id, task.version, priority, writeKey(options)),
-  );
+  return queued((workspace) => workspace.level(task.id, task.version, change, writeKey(options)));
 }
 
 export async function deleteTask(

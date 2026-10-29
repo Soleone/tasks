@@ -14,12 +14,14 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import type { ClassificationToken } from "@/backend/taskText";
-import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
 import {
   EXACT_STATUS_META,
+  EFFORT_LABELS,
   PRIORITY_META,
+  priorityMeta,
   STATUS_PRESET_LABELS,
   taskStatusMeta,
   type SortDirection,
@@ -69,11 +71,11 @@ import {
   reorderTasks,
   transitionTask,
   transitionTasks,
-  updateTaskPriority,
+  updateTaskLevel,
   selectedMainWorkspace,
   type TaskMutationResult,
 } from "@/platform/backendClient";
-import { EditorError } from "@/platform/editorClient";
+import { EditorError, type LevelChange } from "@/platform/editorClient";
 import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
 import { practice } from "@/learning/progress";
@@ -318,7 +320,7 @@ export function TaskList({
   const batchTransitionReceiptRef = useRef<{ signature: string; key: string } | null>(null);
   const deleteReceipts = useRef(new Map<string, DeleteReceipt>());
   const deletePending = useRef(new Set<string>());
-  const priorityReceipts = useRef(new Map<string, { version: number; key: string }>());
+  const levelReceipts = useRef(new Map<string, { version: number; key: string }>());
   const mutationPending = useRef(new Set<string>());
   const taskWrites = useRef(new Map<string, { confirmed: TaskView; tail: Promise<TaskView> }>());
   // Replies land after later renders; these reach the handlers of the latest one.
@@ -1356,31 +1358,38 @@ export function TaskList({
   }
 
   function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
-    if (task.priority === priority || mutationPending.current.has(task.id))
-      return Promise.resolve();
+    if (task.priority === priority) return Promise.resolve();
+    return setTaskLevel(task, { priority }, `priority ${priorityMeta(priority).label}`);
+  }
+
+  function setTaskEffort(task: TaskView, effort: TaskEffort): Promise<void> {
+    if (task.effort === effort) return Promise.resolve();
+    return setTaskLevel(task, { effort }, `effort ${EFFORT_LABELS[effort]}`);
+  }
+
+  function setTaskLevel(task: TaskView, change: LevelChange, label: string): Promise<void> {
+    if (mutationPending.current.has(task.id)) return Promise.resolve();
     return writeOptimistically(
       task,
-      { ...task, priority },
+      { ...task, ...change },
       async (confirmed) => {
-        const previousReceipt = priorityReceipts.current.get(task.id);
+        const previousReceipt = levelReceipts.current.get(task.id);
         const receipt =
           previousReceipt?.version === confirmed.version
             ? previousReceipt
             : { version: confirmed.version, key: randomUUID() };
-        priorityReceipts.current.set(task.id, receipt);
-        const result = await updateTaskPriority(confirmed, priority, {
+        levelReceipts.current.set(task.id, receipt);
+        const result = await updateTaskLevel(confirmed, change, {
           idempotencyKey: receipt.key,
         });
-        priorityReceipts.current.delete(task.id);
+        levelReceipts.current.delete(task.id);
         return result;
       },
       (previous, result) => {
         if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
         if (result.changed !== false)
           setGlyphFeedback({ taskId: task.id, version: result.task.version });
-        const label =
-          PRIORITY_META.find((meta) => meta.value === priority)?.label ?? `P${priority}`;
-        announce(`${task.title}: priority ${label}`);
+        announce(`${task.title}: ${label}`);
       },
     );
   }
@@ -1512,6 +1521,10 @@ export function TaskList({
         toggleTaskDetails(task);
       },
       onCopy: (task) => void copyActiveTask(task),
+      onEffort: (task, effort) => {
+        practice("effort.set", "pointer");
+        void setTaskEffort(task, effort);
+      },
       onDelete: (task) => {
         practice("status.cancel", "pointer");
         void deleteTaskRecord(task);
@@ -1563,6 +1576,7 @@ export function TaskList({
       toggleActiveDetails: toggleTaskDetails,
       toggleAllDetails,
       setPriority: setTaskPriority,
+      setEffort: setTaskEffort,
       openSearch,
       createTask: onCreate,
       toggleStatusPreset,
@@ -1713,6 +1727,10 @@ export function TaskList({
           },
           onCopy: (task) => void copyActiveTask(task),
           onCopyImage: copyNewestImage,
+          onEffort: (task, effort) => {
+            practice("effort.set", "pointer");
+            void setTaskEffort(task, effort);
+          },
           onPause: () => {
             practice("status.pause", "pointer");
             void pauseSelectedTasks();

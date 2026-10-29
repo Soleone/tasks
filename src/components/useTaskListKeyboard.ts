@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, type RefObject } from "react";
-import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
-import { EXACT_STATUS_META, type SortField } from "./taskFilters";
+import { isEffort, type TaskEffort, type TaskPriority, type TaskStatus } from "@/backend/taskModel";
+import { EFFORT_LABELS, EXACT_STATUS_META, type SortField } from "./taskFilters";
 import type { ListLens } from "./listLens";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
@@ -16,6 +16,7 @@ const SORT_BY_KEY = new Map<string, SortField>([
   ["u", "updated"],
   ["m", "manual"],
   ["p", "priority"],
+  ["e", "effort"],
   ["t", "due"],
   ["d", "closed"],
 ]);
@@ -63,6 +64,7 @@ type HomeShortcutActions = {
   toggleActiveDetails: (task: TaskView) => void;
   toggleAllDetails: () => void;
   setPriority: (task: TaskView, priority: TaskPriority) => Promise<void>;
+  setEffort: (task: TaskView, effort: TaskEffort) => Promise<void>;
   openSearch: () => void;
   createTask: (parentId?: string) => void;
   toggleStatusPreset: () => void;
@@ -352,6 +354,14 @@ export function useTaskListKeyboard(
       if (actions.activeTask) {
         practice("priority.set", "keys", `P${event.key}`);
         void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
+      }
+    } else if (event.key === "[" || event.key === "]") {
+      event.preventDefault();
+      const task = actions.activeTask;
+      const effort = task ? task.effort + (event.key === "]" ? 1 : -1) : 0;
+      if (task && isEffort(effort)) {
+        practice("effort.set", "keys", EFFORT_LABELS[effort]);
+        void actions.setEffort(task, effort);
       }
     } else if (event.key.toLowerCase() === "d") {
       if (event.repeat) return;

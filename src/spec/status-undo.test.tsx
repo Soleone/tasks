@@ -396,7 +396,7 @@ describe("completion", () => {
   });
 });
 
-describe("priority and copy", () => {
+describe("priority, effort and copy", () => {
   test("priority.set: a digit sets the active task's priority", async () => {
     const task = await workspace.create("Task");
     const { user } = await workspace.render();
@@ -441,6 +441,41 @@ describe("priority and copy", () => {
     await waitFor(() => expect(title().className).toContain("font-bold"));
   });
 
+  test("effort.set: ] and [ step the active task's effort and stop at huge and tiny", async () => {
+    const task = await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    const effort = async () => (await workspace.task(task.id)).effort;
+    await user.keyboard("]]]");
+    await waitFor(async () => expect(await effort()).toBe(5));
+    await user.keyboard("[[".repeat(5));
+    await waitFor(async () => expect(await effort()).toBe(1));
+    await user.keyboard("]]");
+    await waitFor(async () => expect(await effort()).toBe(3));
+  });
+
+  test("effort.look: chevrons in the icon's notch show effort; normal shows none", async () => {
+    await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    const badge = () => row("Task").querySelector("svg[data-effort]");
+    const glyph = () => row("Task").querySelector("[data-priority]")!;
+    expect(badge()).toBeNull();
+    await user.keyboard("]");
+    await waitFor(() => expect(badge()?.getAttribute("data-effort")).toBe("large"));
+    expect(badge()?.getAttribute("class")).toContain("text-foreground");
+    expect(glyph().querySelector("[data-effort-notch]")).not.toBeNull();
+    expect(glyph().getAttribute("aria-label")).toMatch(
+      /^Status: Open, priority normal, effort large\./,
+    );
+    await user.keyboard("[[".repeat(3));
+    await waitFor(() => expect(badge()?.getAttribute("data-effort")).toBe("tiny"));
+    expect(badge()?.getAttribute("class")).toContain("text-muted-foreground");
+    await user.keyboard("]]");
+    await waitFor(() => expect(badge()).toBeNull());
+    expect(glyph().querySelector("[data-effort-notch]")).toBeNull();
+  });
+
   test("status.feedback: the glyph's tooltip flashes only what changed", async () => {
     const task = await workspace.create("Task");
     const { user } = await workspace.render();
@@ -451,6 +486,8 @@ describe("priority and copy", () => {
     await screen.findByText("In progress", tooltip);
     await user.keyboard("0");
     await screen.findByText("P0", tooltip);
+    await user.keyboard("]");
+    await screen.findByText("Large effort", tooltip);
   });
 
   test("copy.text: Ctrl+C copies the title, description and tags without the category", async () => {

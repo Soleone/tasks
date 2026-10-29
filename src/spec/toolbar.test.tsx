@@ -558,6 +558,7 @@ describe("sort", () => {
       "task-sort-created",
       "task-sort-updated",
       "task-sort-priority",
+      "task-sort-effort",
       "task-sort-due",
       "task-sort-manual",
     ]);

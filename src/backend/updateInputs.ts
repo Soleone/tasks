@@ -1,8 +1,8 @@
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import { isDueDate } from "./dueDate.js";
-import { isAttachmentList, validateTask } from "./taskModel.js";
-import type { CanonicalTask } from "./taskModel.js";
+import { DEFAULT_EFFORT, isAttachmentList, isEffort, validateTask } from "./taskModel.js";
+import type { CanonicalTask, TaskEffort } from "./taskModel.js";
 import { invalidInput, parseShorthand, slugInput } from "./shorthand.js";
 
 export type UpdateInput = {
@@ -12,7 +12,7 @@ export type UpdateInput = {
     Pick<
       CanonicalTask,
       "title" | "text" | "description" | "priority" | "category" | "tags" | "attachments"
-    > & { due: string | null }
+    > & { due: string | null; effort: TaskEffort }
   >;
 };
 
@@ -57,6 +57,10 @@ export function parseContentPatch(args: Record<string, unknown>): UpdateInput["p
       invalidInput("priority");
     patch.priority = args.priority as CanonicalTask["priority"];
   }
+  if (args.effort !== undefined) {
+    if (!isEffort(args.effort)) invalidInput("effort");
+    patch.effort = args.effort;
+  }
   if (args.category !== undefined)
     patch.category = args.category === null ? null : slugInput(args.category);
   if (args.tags !== undefined) {
@@ -99,6 +103,7 @@ export function parseUpdate(args: Record<string, unknown>): UpdateInput {
     "category",
     "tags",
     "due",
+    "effort",
     "attachments",
   ]);
   return { ...parseTaskVersion(args), patch: parseContentPatch(args) };
@@ -112,6 +117,7 @@ export function applyUpdate(
   const next = { ...task, ...input.patch };
   if (next.attachments?.length === 0) delete next.attachments;
   if (next.due === null) delete next.due;
+  if (next.effort === DEFAULT_EFFORT) delete next.effort;
   // Typed text is kept only while it still describes what it set.
   if (
     input.patch.text === undefined &&

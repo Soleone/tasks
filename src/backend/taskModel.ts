@@ -2,6 +2,9 @@ import { CommandError } from "./errors.js";
 import { isDueDate } from "./dueDate.js";
 export type TaskStatus = "open" | "in_progress" | "paused" | "done" | "canceled";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
+/** How big the work is, 1 (tiny) to 5 (huge). Most tasks are 3 and leave the field out. */
+export type TaskEffort = 1 | 2 | 3 | 4 | 5;
+export const DEFAULT_EFFORT: TaskEffort = 3;
 
 export type CanonicalTask = {
   id: string;
@@ -21,6 +24,7 @@ export type CanonicalTask = {
   // Optional fields are absent at their default, so task bytes stay `JSON.stringify(task)`.
   attachments?: string[];
   due?: string | null;
+  effort?: TaskEffort;
 };
 
 const requiredFields = [
@@ -39,7 +43,7 @@ const requiredFields = [
   "updatedAt",
   "closedAt",
 ];
-const optionalFields = ["attachments", "due"];
+const optionalFields = ["attachments", "due", "effort"];
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
@@ -50,6 +54,10 @@ const slug = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 const statuses = new Set(["open", "in_progress", "paused", "done", "canceled"]);
 const digits = /^[0-9A-Za-z]+$/;
 const unpairedSurrogate = /[\uD800-\uDFFF]/u;
+
+export function isEffort(value: unknown): value is TaskEffort {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 5;
+}
 
 function invalidTask(field: string): never {
   throw new CommandError("INVALID_CANONICAL", `invalid canonical task ${field}`);
@@ -160,6 +168,7 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
   if (value.attachments !== undefined && !isAttachmentList(value.attachments))
     invalidTask("attachments");
   if (value.due !== undefined && value.due !== null && !isDueDate(value.due)) invalidTask("due");
+  if (value.effort !== undefined && !isEffort(value.effort)) invalidTask("effort");
   if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt)) invalidTask("timestamps");
   const terminal = value.status === "done" || value.status === "canceled";
   if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null)

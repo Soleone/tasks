@@ -114,6 +114,61 @@
       }
     },
     {
+      "id": "record-effort-listed",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "effort": 5
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "effort": 5
+        },
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-effort-default-written",
+      "profile": "model",
+      "rule": "backend/data.md#task-fields",
+      "given": {
+        "patch": {
+          "effort": 3
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "fields": {
+          "effort": 3
+        },
+        "canonicalWrites": 0
+      }
+    },
+    {
+      "id": "record-effort-out-of-range",
+      "profile": "model",
+      "rule": "backend/data.md#values",
+      "given": {
+        "patch": {
+          "effort": 0
+        }
+      },
+      "action": {
+        "kind": "read"
+      },
+      "expect": {
+        "error": "INVALID_CANONICAL",
+        "canonicalWrites": 0
+      }
+    },
+    {
       "id": "record-attachments-listed",
       "profile": "model",
       "rule": "backend/data.md#task-fields",

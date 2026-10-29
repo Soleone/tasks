@@ -207,7 +207,7 @@ export function isEditorSaving(): boolean {
 }
 
 // What a new task starts as, so capture shows the glyph it will save with.
-const NEW_TASK_STATUS = { status: "open", priority: 2 } as const;
+const NEW_TASK_STATUS = { status: "open", priority: 2, effort: 3 } as const;
 
 export function InlineTaskComposer({
   composer,

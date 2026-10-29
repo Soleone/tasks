@@ -38,6 +38,7 @@ Backend commands use a fixed block instead: **Input**, **Effect**, **Refuses whe
 | Attachment | An image file in the workspace's `attachments/`, listed by name on a task. Written once, never changed. |
 | Status | `open`, `in_progress`, `paused`, `done` or `canceled`. **Active** means open or in progress; everything else is **inactive**. |
 | Priority | `P0` (highest) to `P4`. New tasks are `P2`. |
+| Effort | How big the work is: tiny, small, normal, large or huge (1 to 5). New tasks are normal. |
 | Category | At most one `@category` per task. |
 | Tags | Any number of `#tags`. Filters combine them with AND. |
 | Due date | At most one `!date` per task: a calendar day, with no time and no start date. |

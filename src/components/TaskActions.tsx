@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactElement } from "react";
 import {
+  ChevronsUp,
   CirclePause,
   Copy,
   CornerDownRight,
@@ -9,14 +10,21 @@ import {
   Redo2,
   Undo2,
 } from "lucide-react";
+import type { TaskEffort } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
+import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, effortTitle } from "./taskFilters";
 import type { Tooltip } from "./ui/tooltip";
 import { ToolbarCommand, ToolbarTooltip } from "./variants/toolbar";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { ToolbarMenuContent } from "./variants/dropdown-menu";
@@ -36,6 +44,7 @@ type TaskActionsProps = {
   onCopy: (task: TaskView) => void;
   onCopyImage: (task: TaskView) => void;
   onPause: () => void;
+  onEffort: (task: TaskView, effort: TaskEffort) => void;
   finalFocus: () => HTMLElement | false | null;
   tooltipFor: (key: string) => ComponentProps<typeof Tooltip>;
 };
@@ -53,6 +62,7 @@ export function TaskActions({
   onCopy,
   onCopyImage,
   onPause,
+  onEffort,
   finalFocus,
   tooltipFor,
 }: TaskActionsProps): ReactElement {
@@ -143,6 +153,29 @@ export function TaskActions({
                 Pause/resume
                 <DropdownMenuShortcut>P</DropdownMenuShortcut>
               </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ChevronsUp aria-hidden="true" />
+                  <span className="flex-1">Effort</span>
+                  <DropdownMenuShortcut>[ ]</DropdownMenuShortcut>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuRadioGroup
+                    value={activeTask.effort}
+                    onValueChange={(effort: TaskEffort) => onEffort(activeTask, effort)}
+                  >
+                    {EFFORTS_LARGEST_FIRST.map((effort) => {
+                      const Icon = EFFORT_ICONS[effort];
+                      return (
+                        <DropdownMenuRadioItem key={effort} value={effort} closeOnClick>
+                          <Icon aria-hidden="true" />
+                          {effortTitle(effort)}
+                        </DropdownMenuRadioItem>
+                      );
+                    })}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuGroup>
           ) : null}
         </ToolbarMenuContent>

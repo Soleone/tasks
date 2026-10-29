@@ -68,6 +68,7 @@ Every task file has these 14 required fields and may have the optional fields be
 | --- | --- | --- |
 | `attachments` | File names in `attachments/`, unique, in the order they were added, at most 10 | `[]` |
 | `due` | A calendar date, `YYYY-MM-DD`, with no time or zone | `null` |
+| `effort` | How big the work is: integer 1 (tiny) to 5 (huge) | `3` (normal) |
 
 | Rule | Then |
 | --- | --- |

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { attachmentPath } from "./attachments.js";
 import type { Response } from "./protocol.js";
 import type { TaskProjection } from "./queries.js";
+import { DEFAULT_EFFORT } from "./taskModel.js";
 
 function taskLine(task: TaskProjection): string {
   return [
@@ -9,6 +10,7 @@ function taskLine(task: TaskProjection): string {
     `[${task.status}]`,
     task.title,
     `(p${task.priority})`,
+    ...(task.effort === DEFAULT_EFFORT ? [] : [`(e${task.effort})`]),
     ...(task.category === null ? [] : [`@${task.category}`]),
     ...task.tags.map((tag) => `#${tag}`),
     ...(task.due === null ? [] : [`!${task.due}`]),
@@ -21,6 +23,7 @@ function taskDetail(task: TaskProjection, rootPath: string): string {
     `${task.id} [${task.status}] v${task.version}`,
     `title: ${task.title}`,
     `priority: ${task.priority}`,
+    `effort: ${task.effort}`,
     `category: ${task.category === null ? "none" : `@${task.category}`}`,
     `tags: ${task.tags.map((tag) => `#${tag}`).join(" ") || "none"}`,
     `due: ${task.due ?? "none"}`,

@@ -58,8 +58,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Command | Args | Result |
 | --- | --- | --- |
-| `task.create` | `title` or `text`; optional `description`, `priority`, `category`, `tags`, `due`, `attachments`, `parentId` | `task`, `changed`, `operationId` |
-| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `category`, `tags`, `due`, `attachments` | `task`, `changed`, `operationId` |
+| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `parentId` | `task`, `changed`, `operationId` |
+| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments` | `task`, `changed`, `operationId` |
 | `task.start` `pause` `complete` `reopen` `cancel` `delete` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.status.undo` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.move` | `id`, `expectedVersion`, `parentId` (or `null`) | `task`, `changed`, `operationId` |
@@ -109,9 +109,10 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
 | `list.due-before` | `dueBefore` is a `YYYY-MM-DD` date. It matches tasks due earlier than that day, whatever their status; undated tasks never match |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
-| `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
+| `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `effort` defaults largest first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.sort-closed` | `closed` orders by `closedAt`. Tasks that were never closed come last in either direction |
 | `list.sort-due` | Tasks without a due date come last in either direction. Tasks due the same day go by priority, P0 first |
+| `list.sort-effort` | Tasks of the same effort go by priority, P0 first |
 | `list.paging` | `limit` defaults to 50 and clamps to 1 to 500. `offset` clamps to 0 or more |
 | `list.ancestors` | Filters never detach a child from its tree. Non-matching ancestors come back in `contextTasks` and don't count in `total` |
 | `list.descendants` | `includeDescendants: true` includes ancestors and every descendant of each page task's root in `contextTasks`, excluding tasks already in the page. Unrelated trees stay out. Context doesn't change matching `total`, `limit` or `offset` |

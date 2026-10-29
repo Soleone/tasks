@@ -27,7 +27,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `toolbar.task-actions` | Clicking the Task actions icon in Actions | A menu offers Blockers, Move under, New child, Copy text and Pause/resume with their shortcuts. Undo and Task actions use the same compact icon buttons and tooltips as their neighbors; the open menu shows as expanded, not pressed. Task-specific entries act on the active task; Pause/resume uses the selection like `P`. The button is disabled without an active task; both action buttons are disabled while the editor is open. Closing the menu returns focus to the list unless an editor or dialog opened |
+| `toolbar.task-actions` | Clicking the Task actions icon in Actions | A menu offers Blockers, Move under, New child, Copy text, Pause/resume and an Effort submenu with their shortcuts. Undo and Task actions use the same compact icon buttons and tooltips as their neighbors; the open menu shows as expanded, not pressed. Task-specific entries act on the active task; Pause/resume uses the selection like `P`. The button is disabled without an active task; both action buttons are disabled while the editor is open. Closing the menu returns focus to the list unless an editor or dialog opened |
 
 ## Touch feedback
 
@@ -77,7 +77,8 @@ Sorts are exclusive, so one Sort cell shows the current sort and a menu holds th
 | `sort.created` | `S` `C` | Created date |
 | `sort.updated` | `S` `U` | Updated date |
 | `sort.priority` | `S` `P` | Priority, P0 first |
+| `sort.effort` | `S` `E` | Effort, largest first. The same effort goes by priority (see `list.sort-effort`) |
 | `sort.due` | `S` `T` | Due date, soonest first. Tasks without one stay last, also when reversed (see `list.sort-due`) |
 | `sort.completed` | `S` `D` while the status filter is Done | Completed date, most recent first. It is in the Sort menu only under the Done filter, which starts on it; leaving Done returns to the sort chosen elsewhere. Without the Done filter, `S` `D` says it needs it |
 | `sort.manual` | `S` `M` | Manual order, the order shared with the CLI and agents |
-| `sort.reverse` | `S` `R` | Reverses date, priority or due order. Not available for Manual |
+| `sort.reverse` | `S` `R` | Reverses date, priority, effort or due order. Not available for Manual |

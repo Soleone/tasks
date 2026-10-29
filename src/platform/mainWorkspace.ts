@@ -1,6 +1,5 @@
 import { taskView } from "@/components/taskView";
 import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
-import type { TaskPriority } from "@/backend/taskModel";
 import { WorkspaceReader } from "./workspaceReader";
 import {
   AnsweredRefusal,
@@ -9,6 +8,7 @@ import {
   type EditorMode,
   type EditResult,
   type InlineDraft,
+  type LevelChange,
   type OrderResult,
   type PreparedEdit,
   type RelationshipAction,
@@ -231,9 +231,9 @@ export class MainWorkspace {
     return { ...result, tasks: result.tasks.map(taskView) };
   }
 
-  async priority(id: string, version: number, priority: TaskPriority, key: string) {
+  async level(id: string, version: number, change: LevelChange, key: string) {
     return this.write(async () =>
-      this.editor.preparePriority(await this.baseline(id, version), priority, key),
+      this.editor.prepareLevel(await this.baseline(id, version), change, key),
     );
   }
 

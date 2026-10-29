@@ -18,6 +18,7 @@ function task(id: string, status: TaskStatus, closedAt: string | null): TaskProj
     dependencyIds: [],
     attachments: [],
     due: null,
+    effort: 3,
     orderKey: `a${id}`,
     createdAt: "2026-10-20T08:00:00.000Z",
     updatedAt: "2026-10-20T08:00:00.000Z",
@@ -93,4 +94,21 @@ test("list.sort-closed: newest close first, never-closed tasks last either way",
     ).tasks.map((entry) => entry.id);
   assert.deepEqual(order({}), ["3", "2", "1", "4"]);
   assert.deepEqual(order({ direction: "asc" }), ["1", "2", "3", "4"]);
+});
+
+test("list.sort-effort: largest first, the same effort by priority", () => {
+  const sized = [
+    { ...task("normal", "open", null) },
+    { ...task("huge-p3", "open", null), effort: 5 as const, priority: 3 as const },
+    { ...task("tiny", "open", null), effort: 1 as const },
+    { ...task("huge-p1", "open", null), effort: 5 as const, priority: 1 as const },
+  ];
+  const order = (args: Record<string, unknown>): string[] =>
+    (
+      executeQuery("task.list", { sort: "effort", ...args }, sized, 1) as {
+        tasks: TaskProjection[];
+      }
+    ).tasks.map((entry) => entry.id);
+  assert.deepEqual(order({}), ["huge-p1", "huge-p3", "normal", "tiny"]);
+  assert.deepEqual(order({ direction: "asc" }), ["tiny", "normal", "huge-p1", "huge-p3"]);
 });

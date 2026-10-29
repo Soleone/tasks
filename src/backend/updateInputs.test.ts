@@ -202,3 +202,25 @@ function pick(task: {
 }) {
   return { title: task.title, text: task.text, category: task.category, tags: task.tags };
 }
+
+test("data.optional-fields: effort is left out at normal and refused outside 1 to 5", () => {
+  const created = (args: Record<string, unknown>) =>
+    buildCreatedTask(parseCreate({ title: "Ship", ...args }), { id: "b", at }, []);
+  assert.equal("effort" in created({}), false);
+  assert.equal("effort" in created({ effort: 3 }), false);
+  assert.equal(created({ effort: 5 }).effort, 5);
+  const large = applyUpdate(
+    validateTask(corpus.taskTemplate, "a"),
+    parseUpdate({ id: "a", expectedVersion: 1, effort: 4 }),
+    at,
+  ).task;
+  assert.equal(large.effort, 4);
+  const normal = applyUpdate(large, parseUpdate({ id: "a", expectedVersion: 2, effort: 3 }), at);
+  assert.equal("effort" in normal.task, false);
+  for (const effort of [0, 6, 2.5, "4", null])
+    assert.throws(
+      () => parseUpdate({ id: "a", expectedVersion: 1, effort }),
+      (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+      String(effort),
+    );
+});

@@ -59,8 +59,8 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
       calls.push(["save", ...args]);
       return {};
     },
-    async priority(...args) {
-      calls.push(["priority", ...args]);
+    async level(...args) {
+      calls.push(["level", ...args]);
       return {};
     },
     async status(...args) {
@@ -89,13 +89,17 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
   await client.updateTask("id", draft("Inline @work", "Notes", 1), 3, {
     idempotencyKey: "edit-key",
   });
-  await client.updateTaskPriority({ id: "id", version: 3 }, 0, { idempotencyKey: "priority-key" });
+  await client.updateTaskLevel(
+    { id: "id", version: 3 },
+    { priority: 0 },
+    { idempotencyKey: "priority-key" },
+  );
   await client.transitionTask("task.start", "id", 3, { idempotencyKey: "status-key" });
   assert.equal(await client.getWorkspaceRevision(), 7);
   assert.deepEqual(calls, [
     ["save", draft("Inline @work", "Notes", 1), "capture-key"],
     ["save", draft("Inline @work", "Notes", 1), "edit-key", "id", 3],
-    ["priority", "id", 3, 0, "priority-key"],
+    ["level", "id", 3, { priority: 0 }, "priority-key"],
     ["status", "task.start", "id", 3, "status-key"],
     ["revision"],
   ]);

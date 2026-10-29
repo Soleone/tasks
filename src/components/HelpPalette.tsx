@@ -10,6 +10,7 @@ import {
   CirclePause,
   CornerDownRight,
   FileText,
+  ChevronsUp,
   Flag,
   Folder,
   Image,
@@ -183,6 +184,13 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number",
       },
       {
+        label: "Change active task effort",
+        hint: "[ smaller, ] bigger, from tiny to huge",
+        icon: ChevronsUp,
+        keys: ["[", "]"],
+        keywords: "[ ] effort size big small tiny huge large estimate bracket active task",
+      },
+      {
         label: "Switch active or inactive",
         hint: "F then S",
         icon: Circle,
@@ -256,9 +264,9 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         label: "Sort tasks",
         hint: "Focus the toolbar; S then P by priority",
         icon: ArrowDownUp,
-        keys: ["S", "C/U/P/T/M/R"],
+        keys: ["S", "C/U/P/E/T/M/R"],
         keywords:
-          "s order sort created updated priority due date deadline time manual reverse newest oldest direction focus close toggle",
+          "s order sort created updated priority effort due date deadline time manual reverse newest oldest direction focus close toggle",
       },
       {
         label: "Select a task range",

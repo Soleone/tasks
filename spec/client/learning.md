@@ -21,7 +21,7 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | Change of plans | Step back, pause, undo and cancel, on a task made to practice on | `C`, `Enter`, `Space`, `Shift+Space`, `P`, `Ctrl/⌘+Z`, `Delete` | |
 | Find your way | Moving around, filters, sorting and search | `↑↓`, `Home`/`End`, `F` then a key, `S` then a key, `#`, `/`, `Escape` | |
 | Shape your list | Child tasks, collapsing, blockers and reordering | `Shift+C`, `Enter`, `←` twice, `→`, `M`, `B`, `Shift+↓`, `Ctrl/⌘+↑↓`, `Ctrl/⌘+Home/End` | long-press, Move under, Blockers |
-| Fast hands | Descriptions, images, quicker edits and every shortcut there is | `Enter` on a task, `Tab` completion, `Tab` then `Backspace` on a pill, `Tab` then `0`–`4`, `Tab` to the description, `Ctrl/⌘+V` an image, `Ctrl/⌘+Enter`, `Ctrl/⌘+C`, `Ctrl/⌘+Shift+C`, `Ctrl/⌘+K`, `V`, `Shift+V` | |
+| Fast hands | Descriptions, images, effort, quicker edits and every shortcut there is | `Enter` on a task, `Tab` completion, `Tab` then `Backspace` on a pill, `Tab` then `0`–`4`, `Tab` to the description, `Ctrl/⌘+V` an image, `Ctrl/⌘+Enter`, `Ctrl/⌘+C`, `Ctrl/⌘+Shift+C`, `]` or `[`, `Ctrl/⌘+K`, `V`, `Shift+V` | |
 | Make it yours | Themes, settings, your progress and a longer look back | `Alt+T`, `Ctrl/⌘+,`, `?`, `?`, `Shift+D`, `D` | |
 
 A device without steps for a quest doesn't list it. A quest that opens a view, like the done or due lens, ends by closing it again, and none ends on a step that covers the card, like the `Ctrl/⌘+K` palette.

@@ -18,6 +18,7 @@ const VALUE_FLAGS = new Set([
   "text",
   "description",
   "priority",
+  "effort",
   "parent",
   "category",
   "tag",
@@ -191,6 +192,8 @@ function content(flags: Flags, args: Record<string, unknown>): void {
     if (flags.has(field)) args[field] = value(flags, field);
   const priority = integer(flags, "priority", 0, 4);
   if (priority !== undefined) args.priority = priority;
+  const effort = integer(flags, "effort", 1, 5);
+  if (effort !== undefined) args.effort = effort;
   classification(flags, args);
   dueDate(flags, args);
 }
@@ -263,6 +266,7 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
         "text",
         "description",
         "priority",
+        "effort",
         "parent",
         "category",
         "clear-category",
@@ -289,6 +293,7 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
         "text",
         "description",
         "priority",
+        "effort",
         "category",
         "clear-category",
         "tag",
@@ -449,14 +454,14 @@ QUERIES
   activity [--task ID] [--limit N]
   list: --status STATUS (repeat/comma), --priority 0..4, --category SLUG,
         --uncategorized, --tag SLUG (repeat), --search TEXT, --unblocked,
-        --limit N, --offset N, --sort created|updated|priority|due|closed|manual,
+        --limit N, --offset N, --sort created|updated|priority|effort|due|closed|manual,
         --direction asc|desc (not manual), --include-ancestors
 
 WRITES
   add TEXT... | add --title LITERAL | add --text SHORTHAND
   update ID [--title LITERAL | --text SHORTHAND]
-    content flags: --description TEXT, --priority 0..4, --category SLUG,
-                   --clear-category, --tag SLUG (repeat), --clear-tags,
+    content flags: --description TEXT, --priority 0..4, --effort 1..5 (3 is normal),
+                   --category SLUG, --clear-category, --tag SLUG (repeat), --clear-tags,
                    --due DATE (2026-10-31, today, tmr, fri, 3d, 2w, oct31), --clear-due
     add also allows --parent ID. Shorthand (!fri sets the due date) cannot mix
     classification or due overrides.

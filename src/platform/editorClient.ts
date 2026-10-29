@@ -40,6 +40,8 @@ export type LiteralContent = Pick<
   TaskProjection,
   "title" | "description" | "priority" | "category" | "tags"
 >;
+/** A one-key change from the list: a new priority or a new effort. */
+export type LevelChange = Pick<TaskProjection, "priority"> | Pick<TaskProjection, "effort">;
 export type InlineDraft = Pick<TaskProjection, "description" | "priority" | "attachments"> & {
   text: string;
 };
@@ -390,16 +392,12 @@ export class EditorClient {
     );
   }
 
-  preparePriority(
-    baseline: EditBaseline,
-    priority: TaskProjection["priority"],
-    key: string,
-  ): PreparedEdit {
-    if (!baseline.task) throw new Error("Select an existing task to change its priority.");
+  prepareLevel(baseline: EditBaseline, change: LevelChange, key: string): PreparedEdit {
+    if (!baseline.task) throw new Error("Select an existing task to change it.");
     return this.prepareTaskRequest(
       baseline,
       "task.update",
-      { id: baseline.task.id, expectedVersion: baseline.task.version, priority },
+      { id: baseline.task.id, expectedVersion: baseline.task.version, ...change },
       key,
     );
   }
