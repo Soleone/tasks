@@ -57,6 +57,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 | Rule | When | Then |
 | --- | --- | --- |
 | `filter.status-toggle` | `F` `S` | Switches between active (open, in progress) and inactive (paused, done, canceled). Active is the default |
+| `filter.status-all` | `F` `A` | Shows every status. `F` `S` from there returns to active |
 | `filter.status-exact` | `F` then `O` / `I` / `D` / `P` / `X` | Shows only Open / In progress / Done / Paused / Canceled |
 | `filter.priority` | `F` then `0`–`4` | Shows only that priority. The same key again clears it |
 | `filter.unblocked` | `F` `U` | Hides tasks with any blocker. A done blocker still blocks; a canceled one doesn't |

@@ -19,6 +19,7 @@ import type { ClassificationOption, TaskView } from "./taskView";
 import {
   EXACT_STATUS_META,
   PRIORITY_META,
+  STATUS_PRESET_LABELS,
   taskStatusMeta,
   type SortDirection,
   type SortField,
@@ -141,6 +142,7 @@ type TaskListProps = {
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
   onResetStatusFilter: () => void;
+  onShowAllStatuses: () => void;
   onExactStatus: (status: TaskStatus | null) => void;
   onOpenStatusMenu: () => void;
   priorityFilter: TaskPriority | null;
@@ -241,6 +243,7 @@ export function TaskList({
   exactStatus,
   onToggleStatusPreset,
   onResetStatusFilter,
+  onShowAllStatuses,
   onExactStatus,
   onOpenStatusMenu,
   priorityFilter,
@@ -680,6 +683,12 @@ export function TaskList({
     onAnnounce("Showing active tasks");
   }
 
+  function showAllStatuses(): void {
+    returnToList();
+    onShowAllStatuses();
+    onAnnounce("Showing all tasks");
+  }
+
   function applyExactStatus(status: TaskStatus): void {
     returnToList();
     onExactStatus(status);
@@ -783,7 +792,7 @@ export function TaskList({
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only tasks cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";
-    if (statusPreset !== "active") return "Clear the inactive filter before reordering.";
+    if (statusPreset !== "active") return "Clear the status filter before reordering.";
     if (showUnblocked) return "Clear the Unblocked filter before reordering.";
     if (priorityFilter !== null) return "Clear the priority filter before reordering.";
     if (tagFilter.length > 0) return "Clear the tag filter before reordering.";
@@ -1529,6 +1538,7 @@ export function TaskList({
       openSearch,
       createTask: onCreate,
       toggleStatusPreset,
+      showAllStatuses,
       applyPriorityFilter,
       toggleUnblockedFilter,
       openCategoryPicker,
@@ -1884,9 +1894,7 @@ export function TaskList({
           {exactStatus !== null
             ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ??
               exactStatus)
-            : statusPreset === "active"
-              ? "Active"
-              : "Inactive"}
+            : STATUS_PRESET_LABELS[statusPreset]}
         </AnchoredTooltipContent>
       </Tooltip>
     </section>

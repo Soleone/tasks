@@ -338,6 +338,15 @@ describe("filters", () => {
     await expectRows(["Open one"]);
   });
 
+  test("filter.status-all: F A shows every status and F S returns to active", async () => {
+    await seedStatuses();
+    const { user } = await workspace.render();
+    await user.keyboard("fa");
+    await expectRows(["Canceled one", "Done one", "Paused one", "Open one"]);
+    await user.keyboard("fs");
+    await expectRows(["Open one"]);
+  });
+
   test("filter.status-exact: F then D shows only done tasks", async () => {
     await seedStatuses();
     const { user } = await workspace.render();

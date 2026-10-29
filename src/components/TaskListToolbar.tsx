@@ -33,6 +33,7 @@ import type { ClassificationOption } from "./taskView";
 import {
   EXACT_STATUS_META,
   PRIORITY_META,
+  STATUS_PRESET_LABELS,
   type SortDirection,
   type SortField,
   type StatusPreset,
@@ -314,13 +315,11 @@ export function TaskListToolbar({
     };
   }
 
-  const statusActive = exactStatus !== null || statusPreset === "inactive";
+  const statusActive = exactStatus !== null || statusPreset !== "active";
   const statusLabel =
     exactStatus !== null
       ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus)
-      : statusPreset === "active"
-        ? "Active"
-        : "Inactive";
+      : STATUS_PRESET_LABELS[statusPreset];
   const priorityLabel =
     priorityFilter !== null
       ? (PRIORITY_META.find((meta) => meta.value === priorityFilter)?.shortLabel ??

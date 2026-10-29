@@ -37,7 +37,7 @@ export function StatusMenu({
         if (!next) onClose();
       }}
       title="Filter by status"
-      description="Choose Active, Inactive, or one exact status. F then S toggles presets; F then O, I, D, P, or X picks an exact status."
+      description="Choose Active, Inactive, All, or one exact status. F then S toggles active and inactive; F then A shows all; F then O, I, D, P, or X picks an exact status."
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >
@@ -67,6 +67,18 @@ export function StatusMenu({
               <span className="font-medium">Inactive</span>
               <span className="text-muted-foreground">Paused, done, canceled</span>
               {exactStatus === null && preset === "inactive" ? (
+                <Check aria-hidden="true" className="ml-auto" />
+              ) : null}
+            </CommandItem>
+            <CommandItem
+              value="Preset All"
+              keywords={["f a all every status"]}
+              onSelect={() => onSelect("all", null)}
+            >
+              <Circle aria-hidden="true" />
+              <span className="font-medium">All</span>
+              <span className="text-muted-foreground">Every status</span>
+              {exactStatus === null && preset === "all" ? (
                 <Check aria-hidden="true" className="ml-auto" />
               ) : null}
             </CommandItem>

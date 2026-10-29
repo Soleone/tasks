@@ -66,6 +66,7 @@ type HomeShortcutActions = {
   openSearch: () => void;
   createTask: (parentId?: string) => void;
   toggleStatusPreset: () => void;
+  showAllStatuses: () => void;
   applyPriorityFilter: (priority: TaskPriority) => void;
   toggleUnblockedFilter: () => void;
   openCategoryPicker: () => void;
@@ -90,6 +91,7 @@ type HomeShortcutActions = {
 /** What the second key of `F` does, or null for a key with no filter. */
 function filterChoice(key: string, actions: HomeShortcutActions): (() => void) | null {
   if (key === "s") return actions.toggleStatusPreset;
+  if (key === "a") return actions.showAllStatuses;
   const exact = EXACT_STATUS_BY_KEY.get(key);
   if (exact) return () => actions.applyExactStatus(exact);
   if (key >= "0" && key <= "4")

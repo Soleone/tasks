@@ -191,6 +191,14 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keywords: "f s active inactive filter paused done canceled cancelled show hide toggle",
       },
       {
+        label: "Show all statuses",
+        hint: "F then A",
+        icon: Circle,
+        keys: ["F", "A"],
+        action: "filter-status",
+        keywords: "f a all every status filter show",
+      },
+      {
         label: "Exact status",
         hint: "F then O I D P X",
         icon: Circle,

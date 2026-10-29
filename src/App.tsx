@@ -74,7 +74,8 @@ const FOLDED_TOOLBAR_GROUPS_KEY = "tasks.foldedToolbarGroups";
 const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
 
 function readStatusPreset(): StatusPreset {
-  return readPreference(STATUS_PRESET_KEY) === "inactive" ? "inactive" : "active";
+  const stored = readPreference(STATUS_PRESET_KEY);
+  return stored === "inactive" || stored === "all" ? stored : "active";
 }
 
 function readExactStatus(): TaskStatus | null {
@@ -692,6 +693,10 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     chooseStatusSelection("active", null);
   }
 
+  function showAllStatuses(): void {
+    chooseStatusSelection("all", null);
+  }
+
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
@@ -896,6 +901,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
           onResetStatusFilter={resetStatusFilter}
+          onShowAllStatuses={showAllStatuses}
           onExactStatus={chooseExactStatus}
           onOpenStatusMenu={openStatusMenu}
           priorityFilter={priorityFilter}

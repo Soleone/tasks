@@ -20,14 +20,25 @@ export const taskStatusMeta: Record<TaskStatus, TaskStatusMeta> = {
 const ACTIVE_TASK_STATUSES: TaskStatus[] = ["open", "in_progress"];
 const INACTIVE_TASK_STATUSES: TaskStatus[] = ["paused", "done", "canceled"];
 
-export type StatusPreset = "active" | "inactive";
+export type StatusPreset = "active" | "inactive" | "all";
+
+const PRESET_STATUSES: Record<StatusPreset, TaskStatus[]> = {
+  active: ACTIVE_TASK_STATUSES,
+  inactive: INACTIVE_TASK_STATUSES,
+  all: [...ACTIVE_TASK_STATUSES, ...INACTIVE_TASK_STATUSES],
+};
 
 export function presetStatuses(preset: StatusPreset): TaskStatus[] {
-  return preset === "active" ? ACTIVE_TASK_STATUSES : INACTIVE_TASK_STATUSES;
+  return PRESET_STATUSES[preset];
 }
 
+export const STATUS_PRESET_LABELS: Record<StatusPreset, string> = {
+  active: "Active",
+  inactive: "Inactive",
+  all: "All",
+};
+
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
-const INACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(INACTIVE_TASK_STATUSES);
 
 export type TaskViewFilters = {
   exactStatus: TaskStatus | null;
@@ -49,10 +60,7 @@ export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters)
       ? lens.statuses.includes(task.status)
       : filters.exactStatus !== null
         ? task.status === filters.exactStatus
-        : (filters.statusPreset === "inactive"
-            ? INACTIVE_TASK_STATUS_SET
-            : ACTIVE_TASK_STATUS_SET
-          ).has(task.status);
+        : presetStatuses(filters.statusPreset).includes(task.status);
   if (!statusOk) return false;
   if (lens?.closedSince !== undefined && (task.closedAt ?? "") < lens.closedSince) return false;
   if (lens?.dueBefore !== undefined && (task.due === null || task.due >= lens.dueBefore))

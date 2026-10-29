@@ -38,6 +38,7 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
         label: "Status",
         options: [
           { id: "status-preset", label: "Active / inactive", keys: ["S"] },
+          { id: "status-all", label: "All", keys: ["A"] },
           { id: "open", label: "Open", keys: ["O"] },
           { id: "in-progress", label: "In progress", keys: ["I"] },
           { id: "done", label: "Done", keys: ["D"] },
