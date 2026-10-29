@@ -406,7 +406,33 @@ describe("priority and copy", () => {
     await user.keyboard("0");
     await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(0));
     await waitFor(() => expect(glyph()?.getAttribute("data-priority")).toBe("P0"));
-    expect(glyph()?.className).toContain("text-red-500");
+    expect(glyph()?.className).toContain("text-primary");
+  });
+
+  test("priority.look: an active task shows its priority in the icon and title, a closed one doesn't", async () => {
+    await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    const glyph = () => row("Task").querySelector("[data-priority]")!;
+    const title = () => row("Task").querySelector("[data-slot=item-title]")!;
+    const solid = () => glyph().querySelector(".bg-current");
+    await user.keyboard("0");
+    await waitFor(() => expect(glyph().className).toContain("text-primary"));
+    expect(title().className).toContain("font-bold");
+    expect(solid()).not.toBeNull();
+    await user.keyboard("1");
+    await waitFor(() => expect(title().className).not.toContain("font-bold"));
+    expect(glyph().className).toContain("text-primary");
+    expect(solid()).toBeNull();
+    await user.keyboard("3");
+    await waitFor(() => expect(title().className).toContain("text-priority-soft"));
+    expect(glyph().className).toContain("text-muted-foreground");
+    await user.keyboard("4");
+    await waitFor(() => expect(glyph().className).toContain("text-priority-faint"));
+    expect(title().className).toContain("text-muted-foreground");
+    await user.keyboard("  ");
+    await waitFor(() => expect(glyph().className).toContain("text-success"));
+    expect(title().className).not.toContain("text-muted-foreground");
   });
 
   test("status.feedback: the glyph's tooltip flashes only what changed", async () => {

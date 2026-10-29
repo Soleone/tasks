@@ -12,7 +12,13 @@ import {
   formatTaskDateTime,
   sameTaskDay,
 } from "@/backend/taskDates";
-import { priorityMeta, statusGlyphColor, taskStatusMeta } from "@/components/taskFilters";
+import {
+  isSolidGlyph,
+  priorityMeta,
+  statusGlyphColor,
+  taskStatusMeta,
+  taskTitleClass,
+} from "@/components/taskFilters";
 import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,6 +33,34 @@ export function taskContextMessage(indented: boolean): string {
     : "Shown because a child matches the current filters.";
 }
 
+/** The status icon; a highest-priority active task gets a filled disc with the icon cut out of it. */
+export function StatusGlyph({
+  task,
+  entrance = null,
+}: {
+  task: Pick<TaskView, "status" | "priority">;
+  /** What changed last, so the glyph plays its entrance. */
+  entrance?: "status" | "priority" | null;
+}): ReactElement {
+  const Icon = taskStatusMeta[task.status].Icon;
+  const enter = {
+    "data-status-enter": entrance === "status" ? task.status : undefined,
+    "data-priority-enter": entrance === "priority" || undefined,
+  };
+  if (!isSolidGlyph(task)) return <Icon className="size-5" aria-hidden="true" {...enter} />;
+  return (
+    <span
+      className="grid size-5 place-items-center rounded-full bg-current"
+      aria-hidden="true"
+      {...enter}
+    >
+      {task.status === "in_progress" ? (
+        <Icon className="size-3 text-primary-foreground" strokeWidth={3.5} />
+      ) : null}
+    </span>
+  );
+}
+
 /** Informational status icon. Interactive toggling stays with the list. */
 export function TaskStatusDisplay({
   task,
@@ -34,7 +68,6 @@ export function TaskStatusDisplay({
   task: Pick<TaskView, "status" | "priority">;
 }): ReactElement {
   const status = taskStatusMeta[task.status];
-  const Icon = status.Icon;
   return (
     <span
       className={cn(
@@ -44,7 +77,7 @@ export function TaskStatusDisplay({
       role="img"
       aria-label={`Status: ${status.label}, priority ${priorityMeta(task.priority).label}`}
     >
-      <Icon className="size-5" aria-hidden="true" />
+      <StatusGlyph task={task} />
     </span>
   );
 }
@@ -84,7 +117,6 @@ export function TaskStatusToggle({
   const entrance = useGlyphEntrance(task);
   const status = taskStatusMeta[task.status];
   const priority = priorityMeta(task.priority);
-  const Icon = status.Icon;
   const pauseHint =
     task.status === "open" || task.status === "in_progress"
       ? " Press P to pause."
@@ -121,12 +153,10 @@ export function TaskStatusToggle({
         }
       >
         {/* Keyed so each new status or priority remounts the glyph and plays its entrance once. */}
-        <Icon
+        <StatusGlyph
           key={`${task.status}-${priority.shortLabel}`}
-          className="size-5"
-          aria-hidden="true"
-          data-status-enter={entrance === "status" ? task.status : undefined}
-          data-priority-enter={entrance === "priority" || undefined}
+          task={task}
+          entrance={entrance}
         />
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>
@@ -513,7 +543,7 @@ export function TaskRow({
         {/* The title's own line box, so tags flow after its last word. The spaces between them,
             unlike margins, drop where a line breaks. */}
         <div className="text-sm leading-snug wrap-anywhere">
-          <TaskItemTitle>{task.title}</TaskItemTitle>
+          <TaskItemTitle className={taskTitleClass(task)}>{task.title}</TaskItemTitle>
           {variant === "full"
             ? task.tags.map((tag) => (
                 <Fragment key={tag.slug}>

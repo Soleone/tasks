@@ -76,21 +76,33 @@ export type PriorityMeta = {
   value: TaskPriority;
   label: string;
   shortLabel: string;
-  /** Dot color for the priority. Text stays neutral so contrast holds. */
+  /** Dot color for the priority. */
   dot: string;
-  /** Color for an open or in-progress task's status glyph. Normal stays neutral so other priorities stand out. */
+  /** Color for an open or in-progress task's status glyph. */
   glyph: string;
+  /** Weight and color for such a task's title. Normal is the baseline. */
+  title: string;
 };
 
-// Yellow and green take a darker shade on light themes so the icons keep their contrast.
+// The theme's accent marks the top two, bold marks the highest, and the lower two quiet down: a
+// title halfway to muted, then a muted one with a fainter icon. Titles stop at muted, the lowest
+// text contrast the themes guarantee. The faint icon color comes from the theme (priorityColors.ts).
 export const PRIORITY_META: PriorityMeta[] = [
-  { value: 0, label: "highest", shortLabel: "P0", dot: "bg-red-500", glyph: "text-red-500" },
+  {
+    value: 0,
+    label: "highest",
+    shortLabel: "P0",
+    dot: "bg-primary",
+    glyph: "text-primary",
+    title: "font-bold",
+  },
   {
     value: 1,
     label: "high",
     shortLabel: "P1",
-    dot: "bg-yellow-600 dark:bg-yellow-500",
-    glyph: "text-yellow-600 dark:text-yellow-500",
+    dot: "bg-primary",
+    glyph: "text-primary",
+    title: "",
   },
   {
     value: 2,
@@ -98,20 +110,23 @@ export const PRIORITY_META: PriorityMeta[] = [
     shortLabel: "P2",
     dot: "bg-muted-foreground",
     glyph: "text-muted-foreground",
+    title: "",
   },
   {
     value: 3,
     label: "low",
     shortLabel: "P3",
-    dot: "bg-green-600 dark:bg-green-500",
-    glyph: "text-green-600 dark:text-green-500",
+    dot: "bg-muted-foreground",
+    glyph: "text-muted-foreground",
+    title: "font-normal text-priority-soft",
   },
   {
     value: 4,
     label: "lowest",
     shortLabel: "P4",
-    dot: "bg-blue-500",
-    glyph: "text-blue-500",
+    dot: "bg-priority-faint",
+    glyph: "text-priority-faint",
+    title: "font-normal text-muted-foreground",
   },
 ];
 
@@ -126,6 +141,16 @@ export function statusGlyphColor(task: Pick<TaskView, "status" | "priority">): s
   return ACTIVE_TASK_STATUS_SET.has(task.status)
     ? priorityMeta(task.priority).glyph
     : taskStatusMeta[task.status].color;
+}
+
+/** An active highest-priority task fills its glyph, so it stands out even in a theme with no red. */
+export function isSolidGlyph(task: Pick<TaskView, "status" | "priority">): boolean {
+  return task.priority === 0 && ACTIVE_TASK_STATUS_SET.has(task.status);
+}
+
+/** Active tasks style their title by priority; paused and closed ones keep a plain title. */
+export function taskTitleClass(task: Pick<TaskView, "status" | "priority">): string {
+  return ACTIVE_TASK_STATUS_SET.has(task.status) ? priorityMeta(task.priority).title : "";
 }
 
 export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: string }> = [

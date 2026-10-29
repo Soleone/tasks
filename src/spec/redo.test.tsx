@@ -50,7 +50,7 @@ for (const [name, keys] of [
     const redoToast = (await screen.findByText("Redo priority change to P0")).closest(
       "[data-slot=toast]",
     );
-    expect(redoToast?.querySelector("[data-priority=P0]")?.classList.contains("bg-red-500")).toBe(
+    expect(redoToast?.querySelector("[data-priority=P0]")?.classList.contains("bg-primary")).toBe(
       true,
     );
     await waitFor(() => expect(historyButton("Redo").disabled).toBe(true));

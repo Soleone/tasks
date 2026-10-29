@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { themePlugin } from "./src/components/soleone/theme-vite";
 import { THEME_CONFIG } from "./src/theme/config";
+import { priorityColorsPlugin } from "./src/theme/priorityColors";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -103,7 +104,12 @@ export default defineConfig({
       },
     ],
   },
-  plugins: lazyPlugins(() => [react(), tailwindcss(), themePlugin(THEME_CONFIG)]),
+  plugins: lazyPlugins(() => [
+    react(),
+    tailwindcss(),
+    themePlugin(THEME_CONFIG),
+    priorityColorsPlugin(THEME_CONFIG.themes),
+  ]),
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

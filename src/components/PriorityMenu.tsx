@@ -1,7 +1,9 @@
 import { useRef, type ReactElement } from "react";
 import { Check, Flag } from "lucide-react";
+import { cn } from "cn";
 import type { TaskPriority } from "@/backend/taskModel";
 import { PRIORITY_META } from "@/components/taskFilters";
+import { StatusGlyph } from "@/components/TaskRow";
 import {
   CommandEmpty,
   CommandGroup,
@@ -54,11 +56,11 @@ export function PriorityMenu({
                 ]}
                 onSelect={() => onSelect(selected === meta.value ? null : meta.value)}
               >
-                <span
-                  aria-hidden="true"
-                  className={`inline-block size-2.5 rounded-full ${meta.dot}`}
-                />
-                <span className="font-medium">{meta.shortLabel}</span>
+                {/* Each option previews its row: an open task's glyph and title style. */}
+                <span aria-hidden="true" className={meta.glyph}>
+                  <StatusGlyph task={{ status: "open", priority: meta.value }} />
+                </span>
+                <span className={cn("font-medium", meta.title)}>{meta.shortLabel}</span>
                 <span className="text-muted-foreground">{meta.label}</span>
                 {selected === meta.value ? <Check aria-hidden="true" className="ml-auto" /> : null}
               </CommandItem>

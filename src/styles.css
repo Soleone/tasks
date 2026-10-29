@@ -26,6 +26,8 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-priority-faint: var(--priority-faint);
+  --color-priority-soft: color-mix(in oklab, var(--foreground) 50%, var(--muted-foreground));
   --color-info: var(--info);
   --color-classification-category: var(--classification-category);
   --color-classification-foreground: var(--classification-foreground);
