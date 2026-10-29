@@ -763,7 +763,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     <main className="fixed inset-0 overflow-hidden bg-background text-foreground">
       <WorkspaceRequestRecovery workspace={workspace} />
       {/* Desktop content is 20 cells wide, keeping the header buttons on the toolbar grid. */}
-      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-170 flex-col gap-6 overflow-hidden md:max-w-176">
+      <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-170 flex-col gap-6 overflow-hidden md:max-w-224">
         <header className="flex items-center justify-between gap-4">
           <h1 className="flex items-center font-semibold">
             {/* Center the artwork on the first cell and the title's ink rather than its line box. */}
