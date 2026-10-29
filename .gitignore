@@ -14,3 +14,4 @@ src-tauri/binaries/*
 .DS_Store
 /.sift
 .vitest/
+/out/
