@@ -3,14 +3,15 @@ import type { TaskView } from "@/components/taskView";
 import { useStableHandler } from "@/components/useStableHandler";
 
 /** How long a leaving row slides out (task-list-exit in styles.css). */
-const ROW_EXIT_MS = 300;
+export const ROW_EXIT_MS = 300;
 
 type RowExit = { tasks: Map<string, TaskView>; timers: number[] };
 
 /**
- * Rows leaving the view: each batch stays put for `lingerMs`, slides out, and
- * then `remove` drops it from the list. A row updated while leaving keeps its
- * exit with the newer task; a stopped row stays where it is.
+ * Rows leaving the view: each row of a batch stays put for `lingerMs(index)` and slides out, and
+ * once the last one is out `remove` drops the batch from the list together (a removal can refresh
+ * the list, which would drop rows still sliding). A row updated while leaving keeps its exit with
+ * the newer task; a stopped row stays where it is.
  */
 export function useRowExits(remove: (tasks: TaskView[]) => void) {
   const [exitingTaskIds, setExitingTaskIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -33,7 +34,11 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
     });
   }
 
-  function exitRows(tasks: readonly TaskView[], lingerMs: number, afterRemove?: () => void): void {
+  function exitRows(
+    tasks: readonly TaskView[],
+    lingerMs: (index: number) => number,
+    afterRemove?: () => void,
+  ): void {
     const fresh = tasks.filter((task) => {
       const running = [...exits.current].find((exit) => exit.tasks.has(task.id));
       running?.tasks.set(task.id, task);
@@ -41,14 +46,24 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
     });
     if (fresh.length === 0) return;
     const exit: RowExit = { tasks: new Map(fresh.map((task) => [task.id, task])), timers: [] };
+    const lingers = fresh.map((_, index) => lingerMs(index));
+    fresh.forEach((task, index) =>
+      exit.timers.push(
+        window.setTimeout(() => {
+          if (exit.tasks.has(task.id)) setSliding([task.id], true);
+        }, lingers[index]),
+      ),
+    );
     exit.timers.push(
-      window.setTimeout(() => setSliding([...exit.tasks.keys()], true), lingerMs),
-      window.setTimeout(() => {
-        exits.current.delete(exit);
-        setSliding([...exit.tasks.keys()], false);
-        removeRows([...exit.tasks.values()]);
-        afterRemove?.();
-      }, lingerMs + ROW_EXIT_MS),
+      window.setTimeout(
+        () => {
+          exits.current.delete(exit);
+          setSliding([...exit.tasks.keys()], false);
+          removeRows([...exit.tasks.values()]);
+          afterRemove?.();
+        },
+        Math.max(...lingers) + ROW_EXIT_MS,
+      ),
     );
     exits.current.add(exit);
   }

@@ -338,6 +338,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
     newTaskId,
     savedTask,
     exitingTaskIds,
+    landingTaskIds,
     pickerRemoveBlocker,
     pickerRemoveParent,
     pickerSelected,
@@ -776,6 +777,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
             />
             <DoneToday
               total={doneTodayCount}
+              landing={landingTaskIds.size}
               lensOn={lens?.kind === "done"}
               onToggleLens={() => {
                 practice("done.lens", "pointer");

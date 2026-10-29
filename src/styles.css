@@ -348,14 +348,36 @@
 
 /* A status or priority change plays a short entrance on the new glyph, shaped
  * by what changed: in progress turns into place, done and canceled draw their
- * marks, paused raises its bars, a new priority pops. A fresh mount stays still. The header's
- * done-today count pops the same way when it rises. */
+ * marks, paused raises its bars, a new priority pops. A fresh mount stays still. */
 [data-status-enter],
-[data-priority-enter],
-[data-count-enter] {
+[data-priority-enter] {
   transform-box: fill-box;
   transform-origin: center;
   animation: task-completion-pop 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* The header's done-today count rolls up when it rises: the old number leaves upward as the new
+ * one comes in from below. */
+[data-count-enter] {
+  animation: task-count-roll-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+[data-count-leave] {
+  animation: task-count-roll-out 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes task-count-roll-in {
+  from {
+    opacity: 0.2;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes task-count-roll-out {
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
 }
 
 [data-status-enter="in_progress"] {
@@ -378,7 +400,7 @@
 }
 
 /* This client's own completion adds a sheen in the theme accent (gold in Gilt) as the check
- * draws. A batch plays it as a wave down the rows, --sheen-step × 45ms apart
+ * draws. A batch plays it as a wave down the rows, --sheen-step × 90ms apart
  * (useCompletionSheen). Undo, redo and refreshes never set it. */
 [data-completion-sheen] {
   animation: task-completion-sheen 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -387,7 +409,7 @@
 [data-completion-sheen],
 [data-completion-sheen] [data-status-enter],
 [data-completion-sheen] [data-status-enter] path {
-  animation-delay: calc(var(--sheen-step, 0) * 45ms);
+  animation-delay: calc(var(--sheen-step, 0) * 90ms);
 }
 
 @keyframes task-completion-sheen {
@@ -699,7 +721,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-quest-spotlight],
-  [data-save-tick] {
+  [data-save-tick],
+  [data-count-leave] {
     display: none;
   }
 

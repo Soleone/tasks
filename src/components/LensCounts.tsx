@@ -8,7 +8,10 @@ import type { ListLens } from "./listLens";
 
 type LensCountProps = { total: number; lensOn: boolean; onToggleLens: () => void };
 
-/** A quiet header count that turns its lens on and off. Hidden at zero, except while its lens is on. */
+/**
+ * A quiet header count that turns its lens on and off. Hidden at zero, except while its lens is on
+ * or a flight to it holds its place.
+ */
 function LensCount({
   kind,
   total,
@@ -17,22 +20,25 @@ function LensCount({
   label,
   shortcut,
   showLabel,
+  holdPlace = false,
   children,
 }: LensCountProps & {
   kind: ListLens["kind"];
   label: string;
   shortcut: string;
   showLabel: string;
+  holdPlace?: boolean;
   children: ReactNode;
 }): ReactElement | null {
   // The lens keeps its way back, even after the count falls to zero.
-  if (total === 0 && !lensOn) return null;
+  if (total === 0 && !lensOn && !holdPlace) return null;
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <ToggleButton
             variant="ghost"
+            className={total === 0 && !lensOn ? "invisible" : undefined}
             selected={lensOn}
             aria-pressed={lensOn}
             tabIndex={-1}
@@ -53,22 +59,51 @@ function LensCount({
   );
 }
 
-/** Tasks done in the last 24 hours, so a fresh morning shows no empty score. */
-export function DoneToday(props: LensCountProps): ReactElement | null {
+/**
+ * Tasks done in the last 24 hours, so a fresh morning shows no empty score. Each of the `landing`
+ * completions still flying here (useDoneFlights) holds the count back until it arrives.
+ */
+export function DoneToday({
+  landing,
+  ...props
+}: LensCountProps & { landing: number }): ReactElement | null {
   const { total } = props;
-  // Only a rising count pops; undo takes it back quietly.
   const [shownTotal, setShownTotal] = useState(total);
-  const [rose, setRose] = useState(false);
-  if (shownTotal !== total) {
-    setShownTotal(total);
-    setRose(total > shownTotal);
+  // Only a rising count rolls; undo takes it back quietly.
+  const [rolledFrom, setRolledFrom] = useState<number | null>(null);
+  // The backend may count a completion before or after its flight starts, so a held count never
+  // drops below what is already shown.
+  const target = landing > 0 ? Math.min(total, Math.max(total - landing, shownTotal)) : total;
+  if (shownTotal !== target) {
+    setShownTotal(target);
+    setRolledFrom(target > shownTotal ? shownTotal : null);
   }
   return (
-    <LensCount {...props} kind="done" label="done today" shortcut="D" showLabel="Show what's done">
+    <LensCount
+      {...props}
+      total={shownTotal}
+      holdPlace={landing > 0}
+      kind="done"
+      label="done today"
+      shortcut="D"
+      showLabel="Show what's done"
+    >
       <CircleCheck data-icon="inline-start" aria-hidden="true" className="text-success" />
-      {/* Keyed so a new count remounts and plays its entrance once. */}
-      <span key={total} className="inline-block" data-count-enter={rose || undefined}>
-        {total}
+      <span className="relative inline-flex overflow-hidden">
+        {/* Keyed so each rise remounts both numbers and plays the roll once. A count that was
+            hidden at zero only rolls its first number in. */}
+        {rolledFrom !== null && rolledFrom > 0 && (
+          <span key={`from-${shownTotal}`} className="absolute" aria-hidden="true" data-count-leave>
+            {rolledFrom}
+          </span>
+        )}
+        <span
+          key={shownTotal}
+          className="inline-block"
+          data-count-enter={rolledFrom !== null || undefined}
+        >
+          {shownTotal}
+        </span>
       </span>
     </LensCount>
   );

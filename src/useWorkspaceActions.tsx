@@ -23,22 +23,23 @@ import {
   waitForTaskWrites,
   type TaskMutationResult,
 } from "@/platform/backendClient";
+import { useDoneFlights } from "./useDoneFlights";
 import { useRowExits } from "./useRowExits";
 import type { useWorkspaceTasks } from "./useWorkspaceTasks";
 
 /**
  * How long a row a status change moves out of view keeps showing its new status before sliding
- * out. A completion stays until its sheen has played.
+ * out. A completion lingers by its own step in the wave (completionExitLinger).
  */
 const STATUS_EXIT_LINGER_MS = 250;
 
 /** The saved row's sweep and its check or plus (task-save-* in styles.css). */
 const SAVE_FEEDBACK_MS = 1300;
 
-function statusExitLinger(leaving: readonly TaskView[] = []): number {
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
-  const completed = leaving.filter((task) => task.status === "done").length;
-  return completed > 0 ? completionExitLinger(completed) : STATUS_EXIT_LINGER_MS;
+const reduceMotion = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function statusExitLinger(): number {
+  return reduceMotion() ? 0 : STATUS_EXIT_LINGER_MS;
 }
 
 type StatusChangeFeedback = {
@@ -101,6 +102,13 @@ export function useWorkspaceActions({
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [savedTask, setSavedTask] = useState<SavedTask | null>(null);
   const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(updateVisibleTasks);
+  const { landingTaskIds, launch, cancelFlights } = useDoneFlights();
+
+  /** Keeps the given rows (all when omitted) in the list, and their completions off the way up. */
+  function keepRows(taskIds?: readonly string[]): void {
+    stopRowExits(taskIds);
+    cancelFlights(taskIds);
+  }
 
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
     if (!picker) return;
@@ -320,7 +328,7 @@ export function useWorkspaceActions({
             }
           : await undoOperation(entry.operationId, { idempotencyKey: entry.key });
       const restored = result.tasks;
-      stopRowExits();
+      keepRows();
       if (result.deletedTaskIds && result.deletedTaskIds.length > 0)
         removeVisibleTasks(result.deletedTaskIds);
       updateVisibleTasks(restored);
@@ -389,7 +397,7 @@ export function useWorkspaceActions({
         if (direction === "redo") history.removeRedo(entry.operationId);
         else history.remove(entry.operationId);
         showHistory(history);
-        stopRowExits();
+        keepRows();
         setAnnouncement(`${entry.title} changed elsewhere. ${action} is no longer available.`);
         void refreshTasks();
         return;
@@ -553,11 +561,19 @@ export function useWorkspaceActions({
         tasks.some((existing) => existing.id === task.id) && !taskIsInCurrentView(task, nextTasks),
     );
     const staying = updated.filter((task) => !leaving.includes(task));
-    stopRowExits(staying.map((task) => task.id));
+    keepRows(staying.map((task) => task.id));
     updateVisibleTasks(staying);
     if (leaving.length === 0) return;
     showInPlace(leaving);
-    exitRows(leaving, statusExitLinger(leaving));
+    exitRows(
+      leaving.filter((task) => task.status !== "done"),
+      statusExitLinger,
+    );
+    // Completed rows slide out one by one down the wave, each sending its check up to the done count.
+    const completed = leaving.filter((task) => task.status === "done");
+    const completionLinger = (step: number) => (reduceMotion() ? 0 : completionExitLinger(step));
+    exitRows(completed, completionLinger);
+    completed.forEach((task, step) => launch(task.id, completionLinger(step)));
   }
 
   function handleCanceledMany(previous: TaskView[], current: TaskView[]): void {
@@ -571,7 +587,7 @@ export function useWorkspaceActions({
     );
     if (exiting.length > 0) {
       showInPlace(exiting);
-      exitRows(exiting, statusExitLinger(), () => void refreshTasks(0, true));
+      exitRows(exiting, statusExitLinger, () => void refreshTasks(0, true));
       updateVisibleTasks(current.filter((task) => !exiting.includes(task)));
     } else {
       updateVisibleTasks(current);
@@ -590,6 +606,7 @@ export function useWorkspaceActions({
     newTaskId,
     savedTask,
     exitingTaskIds,
+    landingTaskIds,
     pickerRemoveBlocker,
     pickerRemoveParent,
     pickerSelected,
