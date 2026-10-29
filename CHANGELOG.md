@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.4](https://github.com/Soleone/tasks/compare/v0.3.3...v0.3.4) (2026-10-29)
+
+### Features
+
+* **learning:** reorder the quests so each one teaches one thing ([3a6b8d9](https://github.com/Soleone/tasks/commit/3a6b8d986ba97d26cc054e60389b7c37048a922b))
+* **task-list:** mark how big a task is with effort ([5889eb8](https://github.com/Soleone/tasks/commit/5889eb8d4befa2b4ced055ee0d6ac5811552f4bb))
+
+### Bug Fixes
+
+* **learning:** touch quests say Save, the button's actual label ([2f644a0](https://github.com/Soleone/tasks/commit/2f644a02c014fdf5225c2564fb6d5bd40d51c08e))
+
 ## [0.3.3](https://github.com/Soleone/tasks/compare/v0.3.2...v0.3.3) (2026-10-29)
 
 ### Features
