@@ -70,7 +70,7 @@ const QUEST_DEFINITIONS = [
       { move: "capture.open", prompt: "Tap + to create your first task", success: "New task" },
       {
         move: "capture.save",
-        prompt: "Type what needs doing, then tap Add to save it",
+        prompt: "Type what needs doing, then tap Save",
         success: "Saved",
         inEditor: true,
       },
@@ -160,7 +160,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "capture.save",
-        prompt: "Tap Add to save the task",
+        prompt: "Tap Save",
         success: "Saved",
         inEditor: true,
       },
@@ -282,7 +282,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "capture.save",
-        prompt: "Tap Add to save the task",
+        prompt: "Tap Save",
         success: "Saved",
         inEditor: true,
       },
