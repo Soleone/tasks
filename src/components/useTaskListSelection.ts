@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { TaskOptionClick } from "./TaskListRows";
+import { isEditorSaving, type TaskOptionClick } from "./TaskListRows";
+import type { ComposerState } from "./TaskComposer";
 import { selectableSiblingRows } from "./taskReordering";
 import type { VisibleTaskRow } from "./taskTree";
 import type { TaskView } from "./taskView";
@@ -17,7 +18,7 @@ type TaskListSelectionView = {
   filterIdentity: string;
   newTaskId?: string | null;
   activeTaskRequest: ActiveTaskRequest;
-  composerOpen: boolean;
+  composerMode: ComposerState["mode"] | null;
   onAnnounce: (message: string) => void;
   onEdit: (task: TaskView) => void;
 };
@@ -33,7 +34,7 @@ export function useTaskListSelection({
   filterIdentity,
   newTaskId,
   activeTaskRequest,
-  composerOpen,
+  composerMode,
   onAnnounce,
   onEdit,
 }: TaskListSelectionView) {
@@ -361,8 +362,11 @@ export function useTaskListSelection({
   }
 
   const handleOptionClick = useStableHandler<Parameters<TaskOptionClick>>((row, index, event) => {
-    if (composerOpen) return;
-    if (row.contextOnly && (event.shiftKey || event.ctrlKey || event.metaKey)) {
+    const modified = event.shiftKey || event.ctrlKey || event.metaKey;
+    // While editing, a plain click moves the editor to this row, once any save has landed.
+    if (composerMode === "create" || (composerMode === "edit" && (modified || isEditorSaving())))
+      return;
+    if (row.contextOnly && modified) {
       onAnnounce("Context-only tasks cannot be selected.");
       return;
     }

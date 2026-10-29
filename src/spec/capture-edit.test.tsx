@@ -90,6 +90,37 @@ describe("opening and closing", () => {
     expect((await focusedTitleField()).value).toBe("Click me ");
   });
 
+  test("edit.switch: clicking another row while editing edits that row instead", async () => {
+    const first = await workspace.create("First");
+    await workspace.create("Second");
+    const { user } = await workspace.render();
+    await user.click(row("First"));
+    await user.keyboard(" changed");
+    await user.click(row("Second"));
+    expect((await focusedTitleField()).value).toBe("Second ");
+    expect(screen.getAllByRole("form", { name: "Edit task" })).toHaveLength(1);
+    expect((await workspace.task(first.id)).title).toBe("First");
+  });
+
+  test("edit.click-away: pressing outside the rows cancels the edit and focuses the list", async () => {
+    const task = await workspace.create("Edited");
+    const { user } = await workspace.render();
+    await user.click(row("Edited"));
+    await user.keyboard(" changed");
+    await user.click(screen.getByRole("listbox", { name: /visible task rows/ }));
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Edit task" })).toBeNull());
+    await expectListFocused();
+    expect((await workspace.task(task.id)).title).toBe("Edited");
+  });
+
+  test("edit.click-away: capture stays open", async () => {
+    await workspace.create("Existing");
+    const { user } = await workspace.render();
+    await capture(user, "New");
+    await user.click(row("Existing"));
+    expect(editor().getAttribute("aria-label")).toBe("New task");
+  });
+
   test("edit.inline: the whole editor scrolls into view, not only the title", async () => {
     await workspace.create("Low on the list");
     const scroll = vi.spyOn(Element.prototype, "scrollIntoView");

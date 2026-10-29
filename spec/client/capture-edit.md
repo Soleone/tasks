@@ -14,6 +14,8 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | `edit.saved` | This client saves an edited task from the editor | A band of the theme accent sweeps across the saved row, and as it reaches the end a check draws there, holds and fades. Undo, redo and changes from elsewhere never play it, and reduced motion turns it off |
 | `capture.saved` | This client saves a new task from the editor | A bigger moment than an edit: the same sweep, but the row's edge glows and a plus spins in at its end with a burst of sparks, holds and fades |
 | `edit.cancel` | `Escape` | Cancels, from the title or the description. While a marker is being typed, it follows `shorthand.escape` |
+| `edit.switch` | Clicking another row while editing | Cancels this edit and opens the editor on that row. Shift and `Ctrl/⌘` clicks do nothing, and so does any click while a save is on its way |
+| `edit.click-away` | Pressing anywhere but a row or the editor while editing, the list's empty space included | Cancels the edit. Focus stays on whatever the press focused, or returns to the list. Capture doesn't close this way |
 | `edit.keeps-draft` | The workspace changes while the editor is open | The draft stays as typed |
 
 ## Inside the editor

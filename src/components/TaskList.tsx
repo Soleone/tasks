@@ -2,6 +2,7 @@ import { randomUUID } from "../lib/randomUUID";
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -28,6 +29,7 @@ import {
 import { lensPhrase, type ListLens } from "./listLens";
 import {
   InlineTaskComposer,
+  isEditorSaving,
   OptimisticTaskOption,
   TaskOption,
   type SavedTask,
@@ -482,7 +484,7 @@ export function TaskList({
     filterIdentity,
     newTaskId,
     activeTaskRequest,
-    composerOpen: composer !== null,
+    composerMode: composer?.mode ?? null,
     onAnnounce,
     onEdit: (task) => {
       practice("home.open-editor", "pointer");
@@ -563,11 +565,25 @@ export function TaskList({
     previousComposerOpenRef.current = composer !== null;
     if (!wasOpen || composer !== null) return;
     const frame = requestAnimationFrame(() => {
-      if (!composerOpenRef.current)
-        (list.current ?? (error ? retry.current : section.current))?.focus();
+      // A click away from the editor may have focused what it landed on; leave that be.
+      const focused = document.activeElement;
+      if (composerOpenRef.current || (focused && focused !== document.body)) return;
+      (list.current ?? (error ? retry.current : section.current))?.focus();
     });
     return () => cancelAnimationFrame(frame);
   }, [composer, error]);
+
+  // The press a row or the editor saw, portaled parts included, so the document listener below
+  // keeps the editor open for it. A row's click moves the editor there instead.
+  const keepEditingPress = useRef<Event | null>(null);
+  const closeEditorOnPressAway = useEffectEvent((event: PointerEvent) => {
+    if (composer?.mode !== "edit" || event === keepEditingPress.current || isEditorSaving()) return;
+    onCloseComposer();
+  });
+  useEffect(() => {
+    document.addEventListener("pointerdown", closeEditorOnPressAway);
+    return () => document.removeEventListener("pointerdown", closeEditorOnPressAway);
+  }, []);
 
   // The task list is the home surface. Wait for the first query so focus
   // lands on the list, or its empty/error state, instead of the capture action.
@@ -1762,7 +1778,12 @@ export function TaskList({
         </Alert>
       ) : null}
       {composer && (composer.mode === "create" || !editingTaskVisible) ? (
-        <div hidden={optimisticTask !== null}>
+        <div
+          hidden={optimisticTask !== null}
+          onPointerDown={(event) => {
+            keepEditingPress.current = event.nativeEvent;
+          }}
+        >
           <InlineTaskComposer
             composer={composer}
             onClose={onCloseComposer}
@@ -1798,6 +1819,10 @@ export function TaskList({
             touch && composer && "pb-12",
           )}
           onFocus={() => setListFocused(true)}
+          // The list's own empty space is away from the editor; its rows and editor aren't.
+          onPointerDown={(event) => {
+            if (event.target !== event.currentTarget) keepEditingPress.current = event.nativeEvent;
+          }}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setListFocused(false);
           }}

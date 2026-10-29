@@ -397,7 +397,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   }
 
   function openEdit(task: TaskView): void {
-    if (composerRef.current) return;
+    if (composerRef.current?.mode === "create") return;
     setComposer({ mode: "edit", task });
   }
 

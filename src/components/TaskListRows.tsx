@@ -201,6 +201,11 @@ export function OptimisticTaskOption({
   );
 }
 
+/** Leaving the editor mid-save would let the save's reply close the next editor. */
+export function isEditorSaving(): boolean {
+  return document.querySelector('[data-inline-task-editor] form[aria-busy="true"]') !== null;
+}
+
 // What a new task starts as, so capture shows the glyph it will save with.
 const NEW_TASK_STATUS = { status: "open", priority: 2 } as const;
 
