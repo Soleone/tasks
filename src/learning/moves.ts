@@ -103,6 +103,14 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Sort, then a key", keys: ["S"] },
   },
   {
+    id: "sort.priority",
+    keyboard: { label: "Most urgent first", keys: ["S", "P"] },
+  },
+  {
+    id: "sort.effort",
+    keyboard: { label: "Biggest first", keys: ["S", "E"] },
+  },
+  {
     id: "filter.search",
     keyboard: { label: "Search", keys: ["/"] },
   },

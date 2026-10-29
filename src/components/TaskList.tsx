@@ -1522,7 +1522,7 @@ export function TaskList({
       },
       onCopy: (task) => void copyActiveTask(task),
       onEffort: (task, effort) => {
-        practice("effort.set", "pointer");
+        practice("effort.set", "pointer", EFFORT_LABELS[effort]);
         void setTaskEffort(task, effort);
       },
       onDelete: (task) => {
@@ -1728,7 +1728,7 @@ export function TaskList({
           onCopy: (task) => void copyActiveTask(task),
           onCopyImage: copyNewestImage,
           onEffort: (task, effort) => {
-            practice("effort.set", "pointer");
+            practice("effort.set", "pointer", EFFORT_LABELS[effort]);
             void setTaskEffort(task, effort);
           },
           onPause: () => {

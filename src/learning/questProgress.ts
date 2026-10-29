@@ -73,9 +73,17 @@ function questsShown(): boolean {
 function parse(text: string): Stored {
   try {
     const value = JSON.parse(text) as Partial<Stored> | null;
+    const quests = questsFor(currentDevice());
+    // A quest saved at a step it no longer has, after its steps changed, starts over.
+    const steps = Object.fromEntries(
+      Object.entries(value?.steps ?? {}).map(([id, step]) => {
+        const length = quests.find((quest) => quest.id === id)?.steps.length ?? 0;
+        return [id, step < length ? step : 0];
+      }),
+    );
     return {
       active: value?.active ?? null,
-      steps: value?.steps ?? {},
+      steps,
       complete: Array.isArray(value?.complete) ? value.complete : [],
     };
   } catch {

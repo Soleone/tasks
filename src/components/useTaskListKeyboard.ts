@@ -286,6 +286,8 @@ export function useTaskListKeyboard(
         activeToolbarMode === "filter" ? filterChoice(key, actions) : sortChoice(key, actions);
       if (!choice) return;
       practice(activeToolbarMode === "filter" ? "filter.mode" : "sort.mode");
+      const sorted = activeToolbarMode === "sort" ? SORT_BY_KEY.get(key) : undefined;
+      if (sorted === "priority" || sorted === "effort") practice(`sort.${sorted}`);
       choice();
       return;
     }

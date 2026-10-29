@@ -29,7 +29,7 @@ const QUEST_DEFINITIONS = [
   {
     id: "first-task",
     title: "Task basics",
-    summary: "Create, tag and complete a task in about two minutes",
+    summary: "Create, edit and complete a task in about a minute",
     keyboard: [
       {
         move: "capture.open",
@@ -37,16 +37,79 @@ const QUEST_DEFINITIONS = [
         success: "New task",
       },
       {
+        move: "capture.save",
+        prompt: "Type what needs doing, then press `Enter` to save it",
+        success: "Saved",
+        inEditor: true,
+      },
+      { move: "home.open-editor", prompt: "Press `Enter` to change it", success: "Editing" },
+      {
+        move: "capture.save",
+        prompt: "Change what it says, then press `Enter` to save it",
+        success: "Saved",
+        inEditor: true,
+      },
+      { move: "status.forward", prompt: "Press `Space` to start the task", success: "In progress" },
+      {
+        move: "status.forward",
+        prompt: "Press `Space` again to complete it",
+        success: "Done",
+      },
+      {
+        move: "done.lens",
+        prompt: "Press `D` to see what you've done today",
+        success: "Done today",
+      },
+      {
+        move: "done.lens",
+        prompt: "Press `D` again to go back to your previous view",
+        success: "Back where you were",
+      },
+    ],
+    touch: [
+      { move: "capture.open", prompt: "Tap + to create your first task", success: "New task" },
+      {
+        move: "capture.save",
+        prompt: "Type what needs doing, then tap Add to save it",
+        success: "Saved",
+        inEditor: true,
+      },
+      { move: "home.open-editor", prompt: "Tap the task to change it", success: "Editing" },
+      {
+        move: "capture.save",
+        prompt: "Change what it says, then tap Save",
+        success: "Saved",
+        inEditor: true,
+      },
+      { move: "status.forward", prompt: "Tap its status icon to start it", success: "In progress" },
+      { move: "status.forward", prompt: "Tap it again to complete it", success: "Done" },
+      {
+        move: "done.lens",
+        prompt: "Tap the done count up top to see what you've done today",
+        success: "Done today",
+      },
+      {
+        move: "done.lens",
+        prompt: "Tap the done count again to go back to your previous view",
+        success: "Back where you were",
+      },
+    ],
+  },
+  {
+    id: "in-its-place",
+    title: "In its place",
+    summary: "Categories, and seeing one at a time",
+    keyboard: [
+      {
+        move: "capture.open",
+        prompt: "Press `C` for a new task",
+        success: "New task",
+      },
+      {
         move: "shorthand.category",
         prompt:
           "Type what needs doing, then `@` and a word for its category, like `@life`. `Space` turns it into a pill",
         success: "Filed under {}",
-        inEditor: true,
-      },
-      {
-        move: "shorthand.tags",
-        prompt: "Add a tag with `#`, like `#quick`. `Space` turns it into a pill",
-        success: "Tagged {}",
         inEditor: true,
       },
       {
@@ -76,35 +139,23 @@ const QUEST_DEFINITIONS = [
         prompt: "Press `←` to see every category again",
         success: "All categories",
       },
-      { move: "status.forward", prompt: "Press `Space` to start the task", success: "In progress" },
       {
-        move: "status.forward",
-        prompt: "Press `Space` again to complete it",
-        success: "Done",
+        move: "filter.category",
+        prompt: "Press `@` and pick a category to see only its tasks",
+        success: "Category filter. `Enter` picks one",
       },
       {
-        move: "done.lens",
-        prompt: "Press `D` to see what you've done today",
-        success: "Done today",
-      },
-      {
-        move: "done.lens",
-        prompt: "Press `D` again to go back to your previous view",
-        success: "Back where you were",
+        move: "home.left-clear-category",
+        prompt: "Press `←` to see every category again",
+        success: "All categories",
       },
     ],
     touch: [
-      { move: "capture.open", prompt: "Tap + to create your first task", success: "New task" },
+      { move: "capture.open", prompt: "Tap + for a new task", success: "New task" },
       {
         move: "shorthand.category",
         prompt: "Type what needs doing, then tap `@` above the keyboard and add a category",
         success: "Filed under {}",
-        inEditor: true,
-      },
-      {
-        move: "shorthand.tags",
-        prompt: "Tap `#` and add a tag",
-        success: "Tagged {}",
         inEditor: true,
       },
       {
@@ -113,24 +164,58 @@ const QUEST_DEFINITIONS = [
         success: "Saved",
         inEditor: true,
       },
-      { move: "status.forward", prompt: "Tap its status icon to start it", success: "In progress" },
-      { move: "status.forward", prompt: "Tap it again to complete it", success: "Done" },
+    ],
+  },
+  {
+    id: "first-things-first",
+    title: "First things first",
+    summary: "Priority, effort and sorting by them",
+    keyboard: [
       {
-        move: "done.lens",
-        prompt: "Tap the done count up top to see what you've done today",
-        success: "Done today",
+        move: "priority.set",
+        prompt: "Press a number from `0` to `4` to set the task's priority. `0` is the most urgent",
+        success: "Priority set to {}",
       },
       {
-        move: "done.lens",
-        prompt: "Tap the done count again to go back to your previous view",
-        success: "Back where you were",
+        move: "effort.set",
+        prompt:
+          "Big job or a quick one? Press `]` to make the task bigger or `[` to make it smaller",
+        success: "Effort {}",
+      },
+      {
+        move: "sort.priority",
+        prompt: "Press `S`, then `P` to put the most urgent first",
+        success: "Most urgent first",
+      },
+      {
+        move: "sort.effort",
+        prompt: "Press `S`, then `E` to put the biggest first",
+        success: "Biggest first",
+      },
+      {
+        move: "sort.mode",
+        prompt: "Press `S`, then `C` to go back to newest first",
+        success: "Sorted",
+        keys: ["S", "C"],
+      },
+    ],
+    touch: [
+      {
+        move: "home.task-context-menu",
+        prompt: "Long-press a task for everything you can do with it",
+        success: "Task actions",
+      },
+      {
+        move: "effort.set",
+        prompt: "Big job or a quick one? Tap Effort and pick its size",
+        success: "Effort {}",
       },
     ],
   },
   {
     id: "plan-ahead",
     title: "Plan ahead",
-    summary: "Due dates, priorities and what's due now",
+    summary: "Due dates, tags and what's due now",
     keyboard: [
       {
         move: "capture.open",
@@ -145,15 +230,16 @@ const QUEST_DEFINITIONS = [
         inEditor: true,
       },
       {
-        move: "capture.save",
-        prompt: "Press `Enter` to save the task",
-        success: "Saved",
+        move: "shorthand.tags",
+        prompt: "Add a tag with `#`, like `#quick`. `Space` turns it into a pill",
+        success: "Tagged {}",
         inEditor: true,
       },
       {
-        move: "priority.set",
-        prompt: "Press a number from `0` to `4` to set its priority. `0` is the most urgent",
-        success: "Priority set to {}",
+        move: "capture.save",
+        prompt: "Press `Enter` to save the task. Trailing spaces are trimmed automatically",
+        success: "Saved",
+        inEditor: true,
       },
       {
         move: "due.lens",
@@ -166,14 +252,14 @@ const QUEST_DEFINITIONS = [
         success: "Back where you were",
       },
       {
-        move: "filter.category",
-        prompt: "Press `@` and pick a category to see only its tasks",
-        success: "Category filter. `Enter` picks one",
+        move: "filter.tags",
+        prompt: "Press `#` and pick a tag to see only tasks with it",
+        success: "Tag filter. `Enter` picks one",
       },
       {
-        move: "home.left-clear-category",
-        prompt: "Press `←` to see every category again",
-        success: "All categories",
+        move: "filter.escape",
+        prompt: "Press `Esc` to clear every filter",
+        success: "Filters cleared",
       },
     ],
     touch: [
@@ -186,6 +272,12 @@ const QUEST_DEFINITIONS = [
         move: "shorthand.due",
         prompt: "Type what needs doing, then tap `!` and pick a due date",
         success: "Due {}",
+        inEditor: true,
+      },
+      {
+        move: "shorthand.tags",
+        prompt: "Tap `#` and add a tag",
+        success: "Tagged {}",
         inEditor: true,
       },
       {
@@ -244,7 +336,7 @@ const QUEST_DEFINITIONS = [
   {
     id: "find-your-way",
     title: "Find your way",
-    summary: "Moving around, filters, sorting and search",
+    summary: "Moving around, filters and search",
     keyboard: [
       {
         move: "home.arrows",
@@ -260,16 +352,6 @@ const QUEST_DEFINITIONS = [
         move: "filter.mode",
         prompt: "Press `F`, then one of the keys it shows to filter the list",
         success: "Filtered",
-      },
-      {
-        move: "sort.mode",
-        prompt: "Press `S`, then one of its keys to sort",
-        success: "Sorted",
-      },
-      {
-        move: "filter.tags",
-        prompt: "Press `#` and pick a tag to see only tasks with it",
-        success: "Tag filter. `Enter` picks one",
       },
       {
         move: "filter.search",
@@ -358,7 +440,7 @@ const QUEST_DEFINITIONS = [
   {
     id: "fast-hands",
     title: "Fast hands",
-    summary: "Descriptions, images, effort, quicker edits and every shortcut there is",
+    summary: "Descriptions, images, quicker edits and every shortcut there is",
     keyboard: [
       {
         move: "home.open-editor",
@@ -407,12 +489,6 @@ const QUEST_DEFINITIONS = [
         move: "attach.copy",
         prompt: `Press \`${modKey}\`+\`Shift\`+\`C\` to copy its image`,
         success: "Image copied",
-      },
-      {
-        move: "effort.set",
-        prompt:
-          "Big job or a quick one? Press `]` to make the task bigger or `[` to make it smaller",
-        success: "Effort {}",
       },
       {
         move: "help.palette",
