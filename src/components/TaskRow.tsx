@@ -1,5 +1,5 @@
 import { Fragment, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
-import { CalendarDays, Folder, ShieldBan } from "lucide-react";
+import { CalendarDays, Check, Folder, ShieldBan } from "lucide-react";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
@@ -34,7 +34,7 @@ export function taskContextMessage(indented: boolean): string {
     : "Shown because a child matches the current filters.";
 }
 
-/** The status icon; a highest-priority active task gets a filled disc with the icon cut out of it. */
+/** The status icon; a highest-priority task gets a filled disc with the icon cut out of it. */
 export function StatusGlyph({
   task,
   entrance = null,
@@ -57,6 +57,8 @@ export function StatusGlyph({
     >
       {task.status === "in_progress" ? (
         <Icon className="size-3 text-primary-foreground" strokeWidth={3.5} />
+      ) : task.status === "done" ? (
+        <Check className="size-3 text-background" strokeWidth={3.5} />
       ) : null}
     </span>
   );

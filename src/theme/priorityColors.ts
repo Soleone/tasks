@@ -35,28 +35,30 @@ function mix(from: string, toward: string, fraction: number): string {
 }
 
 /**
- * The P4 icon color a palette can't give by itself: muted foreground faded toward the card as far
- * as it still holds 3:1, so a light theme, which has little room, fades less than a dark one.
+ * The P4 icon color a palette can't give by itself: the icon's usual color faded toward the card as
+ * far as it still holds 3:1, so a light theme, which has little room, fades less than a dark one.
  */
-export function faintIconColor(palette: ThemePalette): string {
-  const { muted_foreground, background } = palette;
+export function faintIconColor(color: string, palette: ThemePalette): string {
+  const { background } = palette;
   const surfaces = [background, palette.dark_background, palette.lighter_background];
 
-  let faint = muted_foreground;
+  let faint = color;
   for (let fraction = 0.01; fraction <= 1; fraction += 0.01) {
-    const candidate = mix(muted_foreground, background, fraction);
+    const candidate = mix(color, background, fraction);
     if (!surfaces.every((surface) => contrastRatio(candidate, surface) >= ICON_CONTRAST)) break;
     faint = candidate;
   }
   return faint;
 }
 
-/** Inlines each theme's faint icon color beside the palette tokens themeStyles writes. */
+/** Inlines each theme's faint icon colors, for open and done P4 tasks, beside the palette tokens themeStyles writes. */
 export function priorityColorsPlugin(themes: PaletteTheme[]): Plugin {
   const styles = themes
     .map(({ name, toml }) => {
-      const faint = faintIconColor(parseThemeFile(toml).palette);
-      return `[data-theme="${name}"]{--priority-faint:${faint}}`;
+      const { palette } = parseThemeFile(toml);
+      const faint = faintIconColor(palette.muted_foreground, palette);
+      const doneFaint = faintIconColor(palette.green, palette);
+      return `[data-theme="${name}"]{--priority-faint:${faint};--success-faint:${doneFaint}}`;
     })
     .join("\n");
 

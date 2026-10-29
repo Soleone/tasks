@@ -88,7 +88,7 @@ export type PriorityMeta = {
   dot: string;
   /** Color for an open or in-progress task's status glyph. */
   glyph: string;
-  /** Weight and color for such a task's title. Normal is the baseline. */
+  /** Weight and color for an active or done task's title. Normal is the baseline. */
   title: string;
 };
 
@@ -144,21 +144,30 @@ export function priorityMeta(value: TaskPriority): PriorityMeta {
   return found;
 }
 
-/** Active tasks show their priority as the glyph's color; paused and closed ones keep their status color. */
+/**
+ * Active tasks show their priority as the glyph's color; the rest keep their status color, which a
+ * done P4 fades like an active one.
+ */
 export function statusGlyphColor(task: Pick<TaskView, "status" | "priority">): string {
-  return ACTIVE_TASK_STATUS_SET.has(task.status)
-    ? priorityMeta(task.priority).glyph
-    : taskStatusMeta[task.status].color;
+  if (ACTIVE_TASK_STATUS_SET.has(task.status)) return priorityMeta(task.priority).glyph;
+  if (task.status === "done" && task.priority === 4) return "text-success-faint";
+  return taskStatusMeta[task.status].color;
 }
 
-/** An active highest-priority task fills its glyph, so it stands out even in a theme with no red. */
+/**
+ * An active highest-priority task fills its glyph, so it stands out even in a theme with no red. A
+ * done task can't use the accent, so its top two both fill instead.
+ */
 export function isSolidGlyph(task: Pick<TaskView, "status" | "priority">): boolean {
+  if (task.status === "done") return task.priority <= 1;
   return task.priority === 0 && ACTIVE_TASK_STATUS_SET.has(task.status);
 }
 
-/** Active tasks style their title by priority; paused and closed ones keep a plain title. */
+/** Active and done tasks style their title by priority; paused and canceled ones keep a plain title. */
 export function taskTitleClass(task: Pick<TaskView, "status" | "priority">): string {
-  return ACTIVE_TASK_STATUS_SET.has(task.status) ? priorityMeta(task.priority).title : "";
+  return ACTIVE_TASK_STATUS_SET.has(task.status) || task.status === "done"
+    ? priorityMeta(task.priority).title
+    : "";
 }
 
 export const EXACT_STATUS_META: Array<{ status: TaskStatus; label: string; key: string }> = [
