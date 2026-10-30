@@ -103,20 +103,17 @@ export function GlobalHotkeysSection(): ReactElement {
     >
       <div className="flex flex-col gap-1">
         <h2 id="settings-hotkeys" className="text-sm font-medium">
-          Global hotkeys
+          Hotkeys
         </h2>
         <p className="text-sm text-muted-foreground">
           These work from any app, even while Tasks is in the background.
         </p>
       </div>
-      <div className="flex flex-col divide-y">
+      <div className="flex flex-col gap-4">
         {ROLES.map(({ role, label, description }) => {
           const hotkey = hotkeys[role];
           return (
-            <div
-              key={role}
-              className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-            >
+            <div key={role} className="flex items-center justify-between gap-4">
               <div className="flex flex-col gap-0.5">
                 <span id={`settings-hotkey-${role}`} className="text-sm font-medium">
                   {label}

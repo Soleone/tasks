@@ -4,7 +4,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Global hotkeys (desktop only), Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
+| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Hotkeys (desktop only), Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 | `settings.version` | Settings is open | Its footer shows the app version, e.g. Tasks 0.3.2, below every tab |
@@ -18,7 +18,7 @@
 | `font.size` | The font size slider | Default, +10%, +25%, +33% or +40%. Applies at once and is remembered |
 | `help.palette` | `Ctrl/⌘+K` | A searchable palette lists every shortcut and the shorthand syntax |
 
-## Global hotkeys
+## Hotkeys
 
 Desktop only. Bring Tasks forward and New task work from any app once picked; both are off until then (`platform.global-focus`).
 

@@ -124,9 +124,7 @@ export function SettingsDialog({
               <ReadableTabsTrigger ref={settingsTab} value="general">
                 General
               </ReadableTabsTrigger>
-              {isDesktopApp() && (
-                <ReadableTabsTrigger value="hotkeys">Global hotkeys</ReadableTabsTrigger>
-              )}
+              {isDesktopApp() && <ReadableTabsTrigger value="hotkeys">Hotkeys</ReadableTabsTrigger>}
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
               <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
             </TabsList>
