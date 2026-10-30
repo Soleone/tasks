@@ -33,8 +33,8 @@ import type { useWorkspaceTasks } from "./useWorkspaceTasks";
  */
 const STATUS_EXIT_LINGER_MS = 250;
 
-/** The saved row's sweep and its check or plus (task-save-* in styles.css). */
-const SAVE_FEEDBACK_MS = 1300;
+/** The saved row's sweep or slam and its check or plus (task-save-* in styles.css). */
+const SAVE_FEEDBACK_MS = 1100;
 
 const reduceMotion = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
 

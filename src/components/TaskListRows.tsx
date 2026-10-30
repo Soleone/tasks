@@ -1,5 +1,5 @@
-import { memo, type CSSProperties, type MouseEvent, type ReactElement } from "react";
-import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { memo, type MouseEvent, type ReactElement } from "react";
+import { Check, ChevronDown, ChevronRight, CirclePlus } from "lucide-react";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
@@ -15,8 +15,6 @@ import { TaskContextMenu, type TaskContextActions } from "./TaskContextMenu";
 
 /** A task this client just saved from the editor, while its row plays `edit.saved` or `capture.saved`. */
 export type SavedTask = { id: string; kind: "created" | "updated" };
-
-const SPARK_ANGLES = [0, 60, 120, 180, 240, 300];
 
 export type TaskOptionClick = (
   row: VisibleTaskRow,
@@ -145,18 +143,7 @@ export const TaskOption = memo(function TaskOption({
         />
         {saved ? (
           <span data-save-tick={saved} aria-hidden="true" className="text-primary">
-            {saved === "created" ? (
-              <>
-                <Plus className="size-4" />
-                <span data-save-sparks>
-                  {SPARK_ANGLES.map((angle) => (
-                    <span key={angle} style={{ "--spark-angle": `${angle}deg` } as CSSProperties} />
-                  ))}
-                </span>
-              </>
-            ) : (
-              <Check className="size-4" />
-            )}
+            {saved === "created" ? <CirclePlus className="size-4" /> : <Check className="size-4" />}
           </span>
         ) : null}
         {row.hasChildren ? (

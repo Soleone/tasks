@@ -88,15 +88,18 @@
 }
 
 /* A row this client just saved from the editor (`edit.saved`): a band of the theme accent sweeps
- * across it, and as the band reaches the end a check draws there, holds and fades. A new task
- * (`capture.saved`) gets a glowing edge and a plus that spins in with a burst of sparks instead. The row's disclosure
- * and trailing fact step aside meanwhile. SAVE_FEEDBACK_MS covers the whole of it. */
+ * across it, and as the band reaches the end a check draws there. A new task (`capture.saved`) is
+ * slammed onto the list instead: it winds up off the list and lands at 258ms with a flash of the
+ * accent, jolting the rows under it. A circled plus pops in as it lifts, rides it down, squashes on
+ * impact and bursts a ring. Either icon then swells a touch and collapses into its center while the
+ * row's disclosure and trailing fact, which stepped aside meanwhile, return. SAVE_FEEDBACK_MS
+ * covers the whole of it. */
 [data-saved-task] {
   position: relative;
   isolation: isolate;
 }
 
-[data-saved-task]::after {
+[data-saved-task="updated"]::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -110,7 +113,7 @@
     transparent 62%
   );
   background-size: 300% 100%;
-  animation: task-save-sweep 700ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: task-save-sweep 510ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 /* Level with the title's first line at the row's inner edge, where TaskItemTrailing sits. */
@@ -122,21 +125,39 @@
   height: 1.375em;
   align-items: center;
   pointer-events: none;
-  animation: task-save-tick 1000ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms both;
+  animation: task-save-tick 780ms cubic-bezier(0.2, 0.8, 0.2, 1) 210ms both;
 }
 
+/* Lucide's check path starts at the long stroke's tip, so a negative offset draws it from the short
+ * stroke instead, left to right like a pen. */
 [data-save-tick="updated"] path {
   stroke-dasharray: 24;
-  animation: task-save-draw 240ms cubic-bezier(0.2, 0.8, 0.2, 1) 360ms both;
+  animation: task-save-draw 260ms cubic-bezier(0.4, 0, 0.2, 1) 330ms both;
 }
 
-/* Inset, since the list and the next row clip anything outside the row. */
+[data-saved-task] [data-task-disclosure],
+[data-saved-task] [data-slot="item-actions"] {
+  animation: task-save-make-room 780ms cubic-bezier(0.2, 0.8, 0.2, 1) 210ms both;
+}
+
 [data-saved-task="created"] {
-  animation: task-save-glow 900ms ease-out 340ms both;
+  z-index: 1;
+  animation: task-save-slam 560ms both;
+}
+
+/* The rows under it are a run each (TaskItemGroup), so the next two runs take the jolt. */
+:has(> [data-saved-task="created"]) + *,
+:has(> [data-saved-task="created"]) + * + * {
+  animation: task-save-jolt 320ms cubic-bezier(0.2, 0.8, 0.2, 1) 258ms both;
+}
+
+:has(> [data-saved-task="created"]) + * + * {
+  --save-jolt: 1.5px;
+  animation-delay: 280ms;
 }
 
 [data-save-tick="created"] {
-  animation-name: task-save-pop;
+  animation: task-save-ride 1000ms cubic-bezier(0.2, 0.8, 0.2, 1) 30ms both;
 }
 
 [data-save-tick="created"]::before {
@@ -149,30 +170,13 @@
   border: 1.5px solid currentColor;
   border-radius: 9999px;
   opacity: 0;
-  animation: task-save-ring 560ms cubic-bezier(0.2, 0.8, 0.2, 1) 360ms both;
+  animation: task-save-burst 420ms cubic-bezier(0.2, 0.8, 0.2, 1) 258ms both;
 }
 
-[data-save-sparks] > span {
-  --spark-distance: 1.15rem;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.25rem;
-  height: 0.25rem;
-  border-radius: 9999px;
-  background: currentColor;
-  opacity: 0;
-  animation: quest-spark 640ms cubic-bezier(0.2, 0.8, 0.2, 1) 380ms both;
-}
-
-[data-save-sparks] > span:nth-child(even) {
-  --spark-distance: 0.85rem;
-  animation-duration: 560ms;
-}
-
-[data-saved-task] [data-task-disclosure],
-[data-saved-task] [data-slot="item-actions"] {
-  animation: task-save-make-room 1000ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms both;
+[data-saved-task="created"] [data-task-disclosure],
+[data-saved-task="created"] [data-slot="item-actions"] {
+  animation-duration: 1000ms;
+  animation-delay: 0ms;
 }
 
 @keyframes task-save-sweep {
@@ -193,72 +197,112 @@
     opacity: 1;
     transform: scale(1.12);
   }
-  28% {
+  28%,
+  60% {
+    opacity: 1;
     transform: scale(1);
   }
-  72% {
-    opacity: 1;
+  70% {
+    transform: scale(1.15);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
   100% {
     opacity: 0;
-  }
-}
-
-/* A quarter turn with no overshoot: past its resting angle the plus would read as an ×. */
-@keyframes task-save-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.3) rotate(-90deg);
-  }
-  20% {
-    opacity: 1;
-    transform: scale(1.3) rotate(0);
-  }
-  32% {
-    transform: scale(0.95);
-  }
-  42% {
-    transform: scale(1);
-  }
-  72% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes task-save-glow {
-  from {
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklab, var(--primary) 70%, transparent),
-      inset 0 0 1.25rem color-mix(in oklab, var(--primary) 28%, transparent);
-  }
-  to {
-    box-shadow:
-      inset 0 0 0 1px transparent,
-      inset 0 0 1.25rem transparent;
-  }
-}
-
-@keyframes task-save-ring {
-  from {
-    opacity: 0.9;
-    transform: translate(-50%, -50%) scale(0.5);
-  }
-  to {
-    opacity: 0;
-    border-width: 0.5px;
-    transform: translate(-50%, -50%) scale(1.9);
+    transform: scale(0);
   }
 }
 
 @keyframes task-save-draw {
   from {
-    stroke-dashoffset: 24;
+    stroke-dashoffset: -24;
   }
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+/* Only the start and impact set a background, so the row eases back into whatever its state
+ * paints, the active fill included. */
+@keyframes task-save-slam {
+  0% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  /* The list clips its sides and is at most 56rem wide, so a bigger scale pushes the plus at the
+   * row's edge out of view. */
+  30% {
+    transform: translateY(-0.5rem) scale(1.015);
+    background-color: var(--card);
+    box-shadow: 0 1.125rem 1.75rem -0.75rem rgb(0 0 0 / 0.85);
+    animation-timing-function: cubic-bezier(0.6, 0, 1, 0.6);
+  }
+  46% {
+    transform: translateY(1px) scale(0.992);
+    background-color: color-mix(in oklab, var(--primary) 26%, transparent);
+    box-shadow: 0 0 0 transparent;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes task-save-jolt {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(var(--save-jolt, 3px));
+  }
+}
+
+/* Impact lands at 22.8%: 258ms less the 30ms delay, of 1000ms. */
+@keyframes task-save-ride {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  18%,
+  22.8% {
+    opacity: 1;
+    transform: scale(1);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  26% {
+    transform: scale(1.22, 0.8);
+  }
+  33% {
+    transform: scale(0.96, 1.05);
+  }
+  40%,
+  62% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  72% {
+    transform: scale(1.15);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+@keyframes task-save-burst {
+  from {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  to {
+    opacity: 0;
+    border-width: 0.5px;
+    transform: translate(-50%, -50%) scale(2.2);
   }
 }
 
@@ -742,9 +786,9 @@
   [data-learn-celebrate],
   [data-learn-finale] [data-learn-ring],
   [data-learn-finale] [data-learn-track],
-  [data-save-sparks] > span,
   [data-saved-task="created"],
-  [data-save-tick="created"]::before,
+  :has(> [data-saved-task="created"]) + *,
+  :has(> [data-saved-task="created"]) + * + *,
   [data-saved-task]::after,
   [data-saved-task] [data-task-disclosure],
   [data-saved-task] [data-slot="item-actions"],
