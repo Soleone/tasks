@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.5](https://github.com/Soleone/tasks/compare/v0.3.4...v0.3.5) (2026-10-30)
+
+### Features
+
+* **desktop:** global hotkeys to bring Tasks forward and capture a task ([e5114bb](https://github.com/Soleone/tasks/commit/e5114bb1f336cad8b467bbd22966565d536d7051))
+* **tasks:** slam newly captured tasks onto the list ([d43adfd](https://github.com/Soleone/tasks/commit/d43adfd148aba0a31a6d8f2a8789fe89706f2d55))
+
+### Bug Fixes
+
+* **help:** name Option and ⌘ on a Mac, and let ⌥+T open themes ([3ff4561](https://github.com/Soleone/tasks/commit/3ff45619bf177c8cae12c2c1556a77d8e592e021))
+
 ## [0.3.4](https://github.com/Soleone/tasks/compare/v0.3.3...v0.3.4) (2026-10-29)
 
 ### Features
