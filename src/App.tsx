@@ -57,7 +57,7 @@ import {
 import { practice, useLearning } from "@/learning/progress";
 import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
-import { isAndroid } from "@/platform/runtime";
+import { isAndroid, keyName } from "@/platform/runtime";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
@@ -434,7 +434,9 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
       }
       return;
     }
-    if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "t") {
+    // On macOS, Option+T types "†", so the physical T key counts too.
+    const t = event.key.toLowerCase() === "t" || event.code === "KeyT";
+    if (event.altKey && !event.ctrlKey && !event.metaKey && t) {
       event.preventDefault();
       if (themesOpen) setThemesOpen(false);
       else {
@@ -856,7 +858,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
                   <span className="sr-only">Themes</span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Themes <Kbd>Alt T</Kbd>
+                  Themes <Kbd>{keyName("Alt")} T</Kbd>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>

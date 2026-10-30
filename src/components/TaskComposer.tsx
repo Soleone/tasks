@@ -50,7 +50,7 @@ import type { MoveId } from "@/learning/moves";
 import { practice } from "@/learning/progress";
 import { enterEditor, leaveEditor } from "@/learning/questProgress";
 import { InlineDescription, InlineTitleInput } from "@/components/variants/input";
-import { isAndroid } from "@/platform/runtime";
+import { isAndroid, modKey } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
 import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
@@ -801,7 +801,7 @@ export function TaskComposer({
             </KeyHintButton>
           ) : null}
           <KeyHintButton
-            keys={activeField === "description" ? "Ctrl ↵" : "↵"}
+            keys={activeField === "description" ? `${modKey} ↵` : "↵"}
             aria-label={task ? "Save changes" : "Add task"}
             disabled={pending}
             onClick={() => {

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
@@ -251,7 +251,8 @@ test("theme.picker: Alt+T opens the shared ring, selection persists and focus re
   expect(document.documentElement.classList.contains("dark")).toBe(false);
   await expectListFocused();
   expect(await workspace.task(task.id)).toEqual(task);
-  await user.keyboard("{Alt>}t{/Alt}");
+  // Option+T on a Mac types "†"; the physical T key still opens themes.
+  fireEvent.keyDown(document.activeElement!, { key: "†", code: "KeyT", altKey: true });
   await screen.findByRole("listbox", { name: "Themes" });
   expect(ring.getAttribute("aria-activedescendant")).toBe("theme-card-catppuccin-latte");
   await user.keyboard("{Escape}");

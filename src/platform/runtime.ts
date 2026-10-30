@@ -25,7 +25,7 @@ const platform = USER_AGENTS.find(([, pattern]) => pattern.test(userAgent))?.[0]
 
 /** Keys that hints name differently per platform. `Mod` is the app's main shortcut modifier. */
 const KEY_NAMES: Record<Platform, Partial<Record<string, string>>> = {
-  macos: { Mod: "⌘", Super: "⌘" },
+  macos: { Mod: "⌘", Alt: "⌥", Super: "⌘" },
   windows: { Mod: "Ctrl", Super: "Win" },
   linux: { Mod: "Ctrl", Super: "Super" },
 };

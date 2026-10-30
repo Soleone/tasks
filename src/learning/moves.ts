@@ -1,4 +1,4 @@
-import { isAndroid, modKey } from "@/platform/runtime";
+import { isAndroid, keyName, modKey } from "@/platform/runtime";
 
 /** Keyboard devices learn shortcuts; touch devices learn taps and gestures. */
 export type Device = "keyboard" | "touch";
@@ -216,7 +216,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "theme.picker",
-    keyboard: { label: "Pick a theme", keys: ["Alt", "T"] },
+    keyboard: { label: "Pick a theme", keys: [keyName("Alt"), "T"] },
   },
   {
     id: "settings.open",

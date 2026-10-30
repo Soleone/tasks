@@ -1,5 +1,5 @@
 import type { Device, MoveId } from "./moves";
-import { modKey } from "@/platform/runtime";
+import { keyName, modKey } from "@/platform/runtime";
 
 /**
  * One step of a quest (`quest.step`). Text in backticks shows as keys, and `{}` in the success
@@ -514,7 +514,7 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "theme.picker",
-        prompt: "Press `Alt`+`T` to pick a theme. `Esc` closes it without changing anything",
+        prompt: `Press \`${keyName("Alt")}\`+\`T\` to pick a theme. \`Esc\` closes it without changing anything`,
         success: "Themes",
       },
       {

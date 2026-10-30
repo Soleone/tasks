@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { ListLens } from "@/components/listLens";
-import { modKey } from "@/platform/runtime";
+import { keyName, modKey } from "@/platform/runtime";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog, KeysShortcut } from "@/components/variants/command";
 import {
@@ -368,7 +368,7 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         hint: "Choose appearance",
         action: "open-themes",
         icon: Palette,
-        keys: ["Alt", "T"],
+        keys: [keyName("Alt"), "T"],
         keywords: "alt theme colour color dark light accent palette",
       },
       {
