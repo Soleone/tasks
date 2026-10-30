@@ -20,6 +20,8 @@ const PREFERENCE_KEYS = new Set([
   "tasks.questProgress",
   "tasks.welcomed",
   "tasks.learnedMoves",
+  "tasks.globalHotkeyFocus",
+  "tasks.globalHotkeyCreate",
 ]);
 // Earlier versions kept these; they are dropped on load so those settings still open.
 const RETIRED_KEYS = new Set(["tasks.helpMode"]);

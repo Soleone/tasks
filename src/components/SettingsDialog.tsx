@@ -20,6 +20,7 @@ import { Tabs, TabsList } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
+import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
 import { version } from "../../package.json";
 
@@ -123,6 +124,9 @@ export function SettingsDialog({
               <ReadableTabsTrigger ref={settingsTab} value="general">
                 General
               </ReadableTabsTrigger>
+              {isDesktopApp() && (
+                <ReadableTabsTrigger value="hotkeys">Global hotkeys</ReadableTabsTrigger>
+              )}
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
               <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
             </TabsList>
@@ -247,6 +251,12 @@ export function SettingsDialog({
                 </section>
               </div>
             </StackedTabsContent>
+
+            {isDesktopApp() && (
+              <StackedTabsContent value="hotkeys" tabIndex={-1}>
+                <GlobalHotkeysSection />
+              </StackedTabsContent>
+            )}
 
             <StackedTabsContent value="workspace" tabIndex={-1}>
               <div className="grid gap-4 md:grid-cols-2">

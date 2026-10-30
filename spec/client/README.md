@@ -61,4 +61,4 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `Ctrl/⌘+K` | Shortcut and syntax palette | `help.palette` |
 | `Ctrl/⌘+,` | Settings | `settings.open` |
 | `Alt+T` | Theme picker | `theme.picker` |
-| Global shortcut (default `Ctrl+Alt+Space`) | Bring the window forward from anywhere | `platform.global-focus` |
+| Global hotkeys (off until picked in Settings) | Bring the window forward from anywhere; the second also opens the New task editor | `platform.global-focus` |

@@ -18,6 +18,7 @@ vi.mock("@/platform/runtime", async (original) => ({
   ...(await original<typeof import("@/platform/runtime")>()),
   isDesktopApp: () => true,
 }));
+vi.mock("@/useGlobalHotkeys", () => ({ useGlobalHotkeys: () => undefined }));
 
 let workspace: AppWorkspace;
 beforeEach(async () => {

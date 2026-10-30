@@ -4,7 +4,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
+| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Global hotkeys (desktop only), Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 | `settings.version` | Settings is open | Its footer shows the app version, e.g. Tasks 0.3.2, below every tab |
@@ -17,6 +17,16 @@
 | `theme.picker` | `Alt+T`, Themes in the header or help palette | Opens the shared theme ring on the current palette. Arrows, drag or scroll browse; typing filters. Enter or clicking the front card confirms; browsing leaves the page unchanged. Escape clears a filter before closing and focus returns to the opener. No plain T or D theme shortcut |
 | `font.size` | The font size slider | Default, +10%, +25%, +33% or +40%. Applies at once and is remembered |
 | `help.palette` | `Ctrl/⌘+K` | A searchable palette lists every shortcut and the shorthand syntax |
+
+## Global hotkeys
+
+Desktop only. Bring Tasks forward and New task work from any app once picked; both are off until then (`platform.global-focus`).
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `settings.hotkey-record` | Clicking a hotkey, then pressing keys | Ctrl, Alt or Super (Win on Windows, ⌘ on macOS) with a letter, digit, F-key or Space becomes the hotkey at once and is remembered. Backspace turns it off; Escape keeps the old one without closing Settings. While a hotkey is being pressed, both are off, so their keys reach the field |
+| `settings.hotkey-refused` | Keys the system or another app holds, or the other hotkey uses | Says why and keeps the old hotkey |
+| `settings.hotkey-hyprland` | Global hotkeys on Hyprland | Nothing is registered, since Hyprland keeps global keys for itself. The tab shows a `bind` line per hotkey that launches Tasks (`--new-task` for New task), with Copy binds, and the lines follow the hotkeys chosen |
 
 ## Data
 
@@ -38,5 +48,5 @@ The Cleanup tab has one Delete tasks section with two items. Deletion controls a
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `prefs.remembered` | Theme, font size, hints and learned moves, Details, filters, search, sort | Saved locally and restored on the next launch |
+| `prefs.remembered` | Theme, font size, hints and learned moves, Details, filters, search, sort, global hotkeys | Saved locally and restored on the next launch |
 | `prefs.not-authority` | Any saved preference | Never picks a workspace or grants write access. Opening a workspace is always explicit |

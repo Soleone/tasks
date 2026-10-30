@@ -2,6 +2,8 @@
 mod android_backend;
 #[cfg(target_os = "android")]
 mod android_images;
+#[cfg(desktop)]
+mod global_hotkeys;
 #[cfg(target_os = "linux")]
 mod linux_launcher;
 
@@ -89,7 +91,12 @@ pub fn run() {
 
     #[cfg(desktop)]
     let builder = builder
+        // First, so a second launch hands over before anything else starts.
+        .plugin(tauri_plugin_single_instance::init(
+            global_hotkeys::second_launch,
+        ))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -106,7 +113,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             home_pointer_read,
             home_pointer_write,
-            home_reveal
+            home_reveal,
+            global_hotkeys::global_hotkeys_set,
+            global_hotkeys::hyprland_launcher
         ]);
 
     #[cfg(target_os = "android")]

@@ -1,6 +1,7 @@
 import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useAppUpdate } from "./useAppUpdate";
+import { useGlobalHotkeys } from "./useGlobalHotkeys";
 import { useHeaderCounts } from "./useHeaderCounts";
 import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
 import { Palette, Settings2 } from "lucide-react";
@@ -405,6 +406,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
   function closeComposer(): void {
     setComposer(null);
   }
+  useGlobalHotkeys(() => openCreate());
 
   const onAppKeyDown = useEffectEvent((event: KeyboardEvent): void => {
     if (event.isComposing || event.repeat) return;
