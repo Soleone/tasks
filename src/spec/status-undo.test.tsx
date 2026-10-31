@@ -430,6 +430,9 @@ describe("priority, effort and copy", () => {
     await user.keyboard("4");
     await waitFor(() => expect(glyph().className).toContain("text-priority-faint"));
     expect(title().className).toContain("text-muted-foreground");
+    // Keep done tasks visible; this checks priority styling, not the Active view's timed exit.
+    await user.keyboard("fa");
+    await expectRows(["Task"]);
     await user.keyboard("  ");
     await waitFor(() => expect(glyph().className).toContain("text-success-faint"));
     expect(title().className).toContain("text-muted-foreground");
