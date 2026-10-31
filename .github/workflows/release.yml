@@ -1,0 +1,223 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - run: node scripts/release-artifacts.mjs verify-tag "$GITHUB_REF_NAME"
+      - name: Check signing secrets
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PROPERTIES: ${{ secrets.ANDROID_KEYSTORE_PROPERTIES }}
+        run: |
+          node --input-type=module <<'JS'
+          for (const name of ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PROPERTIES"]) {
+            if (!process.env[name]) throw new Error(`Missing Actions secret: ${name}`);
+          }
+          JS
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm lint
+      # The development bridge exercised by the suite is Linux-only.
+      - run: pnpm test
+        env:
+          VITEST_MAX_WORKERS: "4"
+
+  desktop:
+    name: Build ${{ matrix.platform }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-2022
+            bundles: nsis
+          - platform: linux
+            runner: ubuntu-22.04
+            bundles: appimage
+          - platform: macos
+            runner: macos-15
+            bundles: app,dmg
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - name: Install Linux prerequisites
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+      - name: Set up native Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Check Apple Silicon runner
+        if: matrix.platform == 'macos'
+        run: |
+          test "$(uname -m)" = arm64
+          test "$(rustc --print host-tuple)" = aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - name: Build installer and signed updater
+        run: pnpm build:tauri --config src-tauri/tauri.release.conf.json --bundles "${{ matrix.bundles }}"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: "-"
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          NO_STRIP: "true"
+      - name: Verify Mac app and packaged backend
+        if: matrix.platform == 'macos'
+        run: |
+          app=src-tauri/target/release/bundle/macos/Tasks.app
+          codesign --verify --deep --strict --verbose=2 "$app"
+          lipo "$app/Contents/MacOS/tasks" -verify_arch arm64
+          lipo "$app/Contents/MacOS/tasks-cli" -verify_arch arm64
+          node scripts/check-sidecar.mjs "$app/Contents/MacOS/tasks-cli"
+      - name: Smoke-test desktop backend
+        if: matrix.platform != 'macos'
+        run: |
+          target="$(rustc --print host-tuple)"
+          extension=""
+          if [ "${{ matrix.platform }}" = windows ]; then extension=.exe; fi
+          node scripts/check-sidecar.mjs "src-tauri/binaries/tasks-cli-${target}${extension}"
+      - name: Collect release assets
+        run: node scripts/release-artifacts.mjs "${{ matrix.platform }}" src-tauri/target/release/bundle release-assets
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  android:
+    name: Build Android
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        id: node
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;35.0.0 ndk;27.3.13750724"
+      - name: Set up Android Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-linux-android
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+          echo "DATA=$RUNNER_TEMP/tasks-release" >> "$GITHUB_ENV"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Cache compiled Android Node runtime
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/tasks-android/node-*/out/Release/node
+          key: android-node-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-ndk27-${{ hashFiles('scripts/build-android.mjs') }}
+      - run: pnpm install --frozen-lockfile
+      - name: Restore Android signing files
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PROPERTIES: ${{ secrets.ANDROID_KEYSTORE_PROPERTIES }}
+        run: |
+          umask 077
+          mkdir -p "$DATA/secrets/tasks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$DATA/secrets/tasks/android.jks"
+          printf '%s\n' "$ANDROID_KEYSTORE_PROPERTIES" > "$DATA/secrets/tasks/android.properties"
+      - run: pnpm build:android
+      - name: Collect release APK
+        run: node scripts/release-artifacts.mjs android src-tauri/gen/android/app/build/outputs/apk/universal/release release-assets
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: release-assets/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+      - name: Remove signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/tasks-release"
+
+  publish:
+    name: Publish complete release
+    needs: [desktop, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Generate complete updater manifest and notes
+        run: node scripts/release-artifacts.mjs manifest release-assets "$GITHUB_REF_NAME"
+      - name: Publish installers, signatures and manifest together
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
+            if [ "$(jq -r '.isDraft' "$RUNNER_TEMP/release.json")" != true ]; then
+              echo "Refusing to replace an already published release: $TAG" >&2
+              exit 1
+            fi
+            gh release edit "$TAG" --notes-file release-assets/notes.md
+          else
+            gh release create "$TAG" --verify-tag --draft --title "Tasks ${TAG#v}" --notes-file release-assets/notes.md
+          fi
+          rm release-assets/notes.md
+          gh release upload "$TAG" release-assets/* --clobber
+          # A slower older build must not displace a newer version as latest.
+          api="$(gh release view "$TAG" --json apiUrl --jq '.apiUrl')"
+          gh api --method PATCH "$api" -F draft=false -f make_latest=legacy --jq '.html_url'

@@ -55,7 +55,7 @@ export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | 
     if (showing) welcomeOnce();
   }, [showing]);
   // The welcome starts where the first task sits, so the card measures its dock before moving.
-  // Without a list on screen it plays in the dock.
+  // A fresh empty home has no list, so its welcome starts in the window's center.
   useLayoutEffect(() => {
     const card = cardRef.current;
     if (!welcome || !card) return undefined;
@@ -63,12 +63,11 @@ export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | 
     card.style.animation = "none";
     const box = card.getBoundingClientRect();
     card.style.animation = "";
-    const list = document.getElementById("task-list")?.getBoundingClientRect() ?? box;
-    card.style.setProperty(
-      "--welcome-x",
-      `${list.left + list.width / 2 - box.left - box.width / 2}px`,
-    );
-    card.style.setProperty("--welcome-y", `${list.top - box.top}px`);
+    const list = document.getElementById("task-list")?.getBoundingClientRect();
+    const centerX = list ? list.left + list.width / 2 : window.innerWidth / 2;
+    const top = list ? list.top : (window.innerHeight - box.height) / 2;
+    card.style.setProperty("--welcome-x", `${centerX - box.left - box.width / 2}px`);
+    card.style.setProperty("--welcome-y", `${top - box.top}px`);
     card.dataset.questWelcome = "";
     return () => {
       // Already in the dock, so the entrance slide it falls back to must not play again.

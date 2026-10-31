@@ -129,9 +129,10 @@
 }
 
 /* Lucide's check path starts at the long stroke's tip, so a negative offset draws it from the short
- * stroke instead, left to right like a pen. */
+ * stroke instead, left to right like a pen. Keep the dash/gap pair explicit: older WebKit wraps
+ * negative offsets incorrectly with an odd-length dash array. */
 [data-save-tick="updated"] path {
-  stroke-dasharray: 24;
+  stroke-dasharray: 24 24;
   animation: task-save-draw 260ms cubic-bezier(0.4, 0, 0.2, 1) 330ms both;
 }
 
@@ -379,13 +380,15 @@
   }
 }
 
+/* Cover the longer solid P0/P1 check and its round caps before drawing, not just the circled check. */
 @keyframes task-completion-check {
   from {
-    stroke-dasharray: 20 20;
-    stroke-dashoffset: 20;
+    stroke-dasharray: 32 32;
+    stroke-dashoffset: 32;
     opacity: 0.4;
   }
   to {
+    stroke-dasharray: 32 32;
     stroke-dashoffset: 0;
     opacity: 1;
   }
@@ -797,7 +800,8 @@
   .task-completion-icon,
   .task-completion-icon path,
   [data-status-enter],
-  [data-status-enter] *,
+  [data-status-enter] path,
+  [data-status-enter] line,
   [data-completion-sheen],
   [data-priority-enter],
   [data-effort-enter],

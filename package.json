@@ -27,9 +27,6 @@
     "lint": "vp lint && node scripts/check-spec-rules.mjs && knip --no-progress",
     "check": "vp check",
     "release": "node scripts/release.mjs",
-    "release:windows": "node scripts/release.mjs windows",
-    "release:linux": "node scripts/release.mjs linux",
-    "release:android": "node scripts/release.mjs android",
     "prepare": "vp config"
   },
   "dependencies": {

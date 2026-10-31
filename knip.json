@@ -9,5 +9,5 @@
   "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{mjs,ts}"],
   "ignore": ["src/components/ui/**", "src/components/soleone/**"],
   "ignoreDependencies": ["postject"],
-  "ignoreBinaries": ["rustc", "agent-browser", "win-sync"]
+  "ignoreBinaries": ["rustc", "agent-browser"]
 }

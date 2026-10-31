@@ -10,8 +10,7 @@
     "publish": false
   },
   "github": {
-    "release": true,
-    "releaseName": "Tasks ${version}"
+    "release": false
   },
   "plugins": {
     "@release-it/conventional-changelog": {

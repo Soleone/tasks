@@ -85,6 +85,31 @@ function waitFor(script) {
 function check(script) {
   assert.equal(evaluate(script), true, script);
 }
+// The actual SVG stroke must reveal once, not become solid partway through or erase itself.
+function checkStrokeDraw(selector, name) {
+  check(`(() => {
+    const path = document.querySelector(${JSON.stringify(selector)});
+    const animation = path.getAnimations().find((entry) => entry.animationName === ${JSON.stringify(name)});
+    const running = animation.playState === "running";
+    const elapsed = animation.currentTime;
+    const { delay, duration } = animation.effect.getTiming();
+    const length = path.getTotalLength();
+    animation.pause();
+    const samples = Array.from({ length: 21 }, (_, step) => {
+      animation.currentTime = delay + duration * step / 20;
+      return Array.from({ length: 21 }, (_, index) =>
+        path.isPointInStroke(path.getPointAtLength(index * length / 20)));
+    });
+    animation.currentTime = elapsed;
+    if (running) animation.play();
+    return samples[0].every((painted) => !painted) &&
+      samples.at(-1).every(Boolean) &&
+      samples.some((points) => points.some(Boolean) && points.some((painted) => !painted)) &&
+      samples.every((points, index) => index === 0 ||
+        points.every((painted, point) => !samples[index - 1][point] || painted));
+  })()`);
+}
+
 // client.focus-ring: compare the computed ring with the same theme token as the filter group.
 function checkFocusRing(selector = ":focus-visible") {
   waitFor(`(() => {
@@ -350,6 +375,25 @@ try {
   browser("open", url);
   openTasks();
   browser("snapshot", "-i");
+  // quest.welcome: a fresh empty home has no list to anchor the greeting.
+  waitFor('document.querySelector("[data-quest-welcome]") !== null');
+  check(`(() => {
+    const card = document.querySelector("[data-quest-welcome]");
+    const animation = card.getAnimations().find((entry) => entry.animationName === "quest-card-welcome");
+    const elapsed = animation.currentTime;
+    animation.pause();
+    animation.currentTime = 1000;
+    const greeting = card.getBoundingClientRect();
+    animation.currentTime = 2800;
+    const dock = card.getBoundingClientRect();
+    animation.currentTime = elapsed;
+    animation.play();
+    return document.getElementById("task-list") === null &&
+      Math.abs(greeting.left + greeting.width / 2 - innerWidth / 2) < 1 &&
+      Math.abs(greeting.top + greeting.height / 2 - innerHeight / 2) < 1 &&
+      dock.top > greeting.bottom;
+  })()`);
+  console.log("PASS: quest.welcome centers above its dock in a fresh empty home");
   // The task list is home: no dialog opens and the empty list shell owns focus.
   waitFor('document.activeElement?.getAttribute("aria-label") === "Saved tasks"');
   check('document.querySelector("[role=dialog]:not([aria-modal=false]):not([hidden])") === null');
@@ -786,6 +830,9 @@ try {
   waitFor(
     'document.querySelector("[data-filter=task-status]").getAttribute("aria-pressed") === "false" && document.querySelector("#task-list [role=option] [data-status]").getAttribute("data-status") === "in_progress"',
   );
+  // The longer solid P1 done check must start fully hidden too.
+  browser("press", "1");
+  waitFor('document.querySelector("[data-status][data-priority=P1]") !== null');
   // in_progress Space skips paused and completes: it leaves Active, Inactive shows done.
   browser("press", "Space");
   waitFor('!document.querySelector("#task-list [role=option]")');
@@ -805,6 +852,7 @@ try {
   check(
     `getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon circle")).stroke === getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).color`,
   );
+  checkStrokeDraw(".task-completion-icon path", "task-completion-check");
   check(
     `${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")?.classList.contains("lucide-circle-check") === true`,
   );
@@ -851,6 +899,7 @@ try {
   waitFor(
     'document.querySelector("#task-list [role=option] [data-status]").getAttribute("data-status") === "done"',
   );
+  checkStrokeDraw("[data-status-enter=done] path", "task-completion-check");
   waitFor(`${hasToastWithText("Task marked as done")}`);
   check(
     `getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon")).animationName === "task-completion-pop"`,
@@ -889,6 +938,9 @@ try {
   );
   check(
     `getComputedStyle(${toastWithText("Task marked as done")}?.querySelector(".task-completion-icon path")).animationName === "none"`,
+  );
+  check(
+    'getComputedStyle(document.querySelector("[data-status-enter=done] path")).animationName === "none"',
   );
   browser("set", "media", "light");
   waitFor('!matchMedia("(prefers-reduced-motion: reduce)").matches');
@@ -1318,6 +1370,8 @@ try {
     '[...document.querySelectorAll(\'form[aria-label="Edit task"] [role="radio"]\')].every((button) => getComputedStyle(button).borderLeftWidth === "1px")',
   );
   browser("press", "Enter");
+  waitFor('document.querySelector("[data-save-tick=updated] path") !== null');
+  checkStrokeDraw("[data-save-tick=updated] path", "task-save-draw");
   waitFor(
     'document.querySelector("[data-inline-task-editor]") === null && document.activeElement.matches("[role=listbox]")',
   );

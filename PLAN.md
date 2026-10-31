@@ -10,7 +10,8 @@ A local-first, keyboard-first task list for one person working alongside agents:
 
 Native checks automation can't do:
 
-- Experimental Apple Silicon macOS build: run the manual GitHub Actions workflow, install its ad-hoc-signed DMG and check the UI on a disposable home before calling it supported. Intel, notarization and Mac auto-updates are not included.
+- Experimental Apple Silicon macOS build: the first Actions build passed and the app launched on the owner's Mac. Retest the welcome/save/completion animation fixes and the remaining UI on a disposable home before calling it supported; see [the animation audit](docs/animation-compatibility.md). Intel and notarization are not included; the new release workflow packages Mac updates, but native update acceptance is pending.
+- One-command releases: `.github/workflows/release.yml` is prepared for Windows, Linux, Mac and Android tag builds. The four repository [Actions secrets](docs/development.md#release-secrets) are configured using the existing signing keys. Push the workflow after approval, then verify the first complete release plus the hosted Linux AppImage on Omarchy. No hosted release run has verified this workflow yet.
 - Desktop updates: an installed build finds, downloads and installs a newer release, on Windows and the Linux AppImage.
 - Image paste and copy in each shell (WebView2, WebKitGTK, Android WebView). Add `tauri-plugin-clipboard-manager` only for a shell that fails.
 - Windows: Open folder for the home and exports; uninstall and reinstall keep the home.
