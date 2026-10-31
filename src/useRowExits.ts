@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaskView } from "@/components/taskView";
 import { useStableHandler } from "@/components/useStableHandler";
+import { noteFrameEvent } from "./frameMetrics";
 
 /** How long a leaving row slides out (task-list-exit in styles.css). */
 export const ROW_EXIT_MS = 300;
@@ -50,7 +51,9 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
     fresh.forEach((task, index) =>
       exit.timers.push(
         window.setTimeout(() => {
-          if (exit.tasks.has(task.id)) setSliding([task.id], true);
+          if (!exit.tasks.has(task.id)) return;
+          noteFrameEvent("row slide");
+          setSliding([task.id], true);
         }, lingers[index]),
       ),
     );

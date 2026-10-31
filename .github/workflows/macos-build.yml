@@ -2,6 +2,11 @@ name: macOS test build
 
 on:
   workflow_dispatch:
+    inputs:
+      frame_metrics:
+        description: Diagnostic build that records frame timings and allows the Web Inspector
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -50,7 +55,9 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build:tauri --bundles app,dmg
+      - run: pnpm build:tauri --bundles app,dmg ${{ inputs.frame_metrics && '--features devtools' || '' }}
+        env:
+          VITE_FRAME_METRICS: ${{ inputs.frame_metrics && '1' || '' }}
       - name: Verify packaged signatures and backend
         run: |
           app=src-tauri/target/release/bundle/macos/Tasks.app
@@ -60,7 +67,7 @@ jobs:
           pnpm exec node scripts/check-sidecar.mjs "$app/Contents/MacOS/tasks-cli"
       - uses: actions/upload-artifact@v7
         with:
-          name: tasks-macos-apple-silicon-${{ github.sha }}
+          name: tasks-macos-apple-silicon-${{ inputs.frame_metrics && 'frame-metrics-' || '' }}${{ github.sha }}
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 14

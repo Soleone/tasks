@@ -87,6 +87,7 @@ import { useCompletionSheen } from "./useCompletionSheen";
 import { flyCategoryToFilter } from "./categoryFlight";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { useStableHandler } from "./useStableHandler";
+import { noteFrameEvent } from "@/frameMetrics";
 import type { TaskContextActions } from "./TaskContextMenu";
 
 export async function copyTaskText(task: TaskView): Promise<void> {
@@ -1217,6 +1218,7 @@ export function TaskList({
         return result;
       },
       (previous, result) => {
+        noteFrameEvent("status confirmed");
         if (result.changed !== false) {
           if (result.operationId)
             recordOperation(

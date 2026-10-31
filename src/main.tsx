@@ -11,6 +11,7 @@ import { themeOptions } from "virtual:theme-options";
 import { THEME_STORAGE_KEY } from "./theme/config";
 import { runtimeKind } from "./platform/runtime";
 import { revealScrollbarsWhileScrolling } from "./scrollbars";
+import { installFrameMetrics } from "./frameMetrics";
 import "./styles.css";
 
 document.title = APP_NAME;
@@ -32,6 +33,7 @@ for (const [size, href] of favicons) {
 
 applyStoredFontSizeIncrease();
 revealScrollbarsWhileScrolling();
+installFrameMetrics();
 
 async function mountWorkspace(): Promise<void> {
   // Loading before render avoids Suspense's 300 ms delay when revealing the first screen.

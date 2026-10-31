@@ -10,6 +10,10 @@ rust-version = "1.77"
 name = "tasks_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Diagnostic builds only: lets Safari's Web Inspector attach to a release build.
+devtools = ["tauri/devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

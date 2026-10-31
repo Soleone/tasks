@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { noteFrameEvent } from "./frameMetrics";
 import { ROW_EXIT_MS } from "./useRowExits";
 
 /** The check rises once the row is 60% of the way out, so it reads as coming from where it left. */
@@ -130,9 +131,11 @@ export function useDoneFlights() {
       timer: window.setTimeout(() => {
         const animation = flyCheck(taskId);
         if (!animation) return land(taskId);
+        noteFrameEvent("check flight");
         flight.animation = animation;
         animation.finished.then(
           () => {
+            noteFrameEvent("check landed");
             land(taskId);
             bumpCount();
           },
