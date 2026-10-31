@@ -36,6 +36,10 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/tasks-cli"],
+    "macOS": {
+      "minimumSystemVersion": "13.5",
+      "entitlements": "entitlements.plist"
+    },
     "windows": {
       "nsis": { "installerHooks": "windows/installer-hooks.nsh" }
     }

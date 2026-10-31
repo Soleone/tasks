@@ -36,6 +36,8 @@ export function bakeSea({ node, bundle, output, prepare = () => {} }) {
     stdio: "inherit",
   });
   copyFileSync(node, executablePath);
+  if (process.platform === "darwin")
+    execFileSync("codesign", ["--remove-signature", executablePath], { stdio: "inherit" });
   prepare(executablePath);
 
   const postjectCli = path.join(root, "node_modules", "postject", "dist", "cli.js");
@@ -48,9 +50,13 @@ export function bakeSea({ node, bundle, output, prepare = () => {} }) {
       blobPath,
       "--sentinel-fuse",
       "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+      ...(process.platform === "darwin" ? ["--macho-segment-name", "NODE_SEA"] : []),
     ],
     { cwd: root, stdio: "inherit" },
   );
+  // Apple Silicon requires a valid signature even for local, unnotarized executables.
+  if (process.platform === "darwin")
+    execFileSync("codesign", ["--sign", "-", executablePath], { stdio: "inherit" });
   if (process.platform !== "win32") execFileSync("chmod", ["+x", executablePath]);
 
   copyFileSync(executablePath, output);

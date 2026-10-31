@@ -62,6 +62,8 @@ Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to 
 | `pnpm test:ui` | UI Chromium regression over the dev bridge on disposable data |
 | `node --test scripts/mainClientRouting.test.mjs scripts/appearancePreferences.test.mjs` | Client routing and stored appearance checks |
 
+On high-core hosts, use `VITEST_MAX_WORKERS=4 pnpm test` to bound client-test concurrency. The current Vitest fork pool emits stream-listener warnings with too many concurrent workers; limiting workers avoids those warnings without suppressing them. The Actions workflow uses the same limit.
+
 `pnpm build` builds the backend before Vite clears `dist/`. Tests run from their own `test-dist` build, so they never replace the `dist/backend` a running dev server uses; run `pnpm build:test` before focused scripts that import it. `pnpm test` prepares its own build. Browser runners require `agent-browser` and runnable Chromium. Record missing tools/libraries as blockers, not passes. [Evidence](evidence/README.md) retains process/native reports and their original limits.
 
 Vite pre-optimizes the checkbox dependency to avoid a late dependency reload dropping in-memory requests. HMR, source edits, browser/native close and crashes can still lose drafts and uncertain requests. Do not reload during unresolved work.
@@ -111,6 +113,23 @@ WSL has no emulator (no KVM). An emulator runs on the Windows side: the SDK is i
 
 ## Releasing
 
+### macOS test builds on GitHub Actions
+
+The manually triggered **macOS test build** workflow (`.github/workflows/macos-build.yml`) is the first step toward hosted cross-platform releases. It builds an experimental Apple Silicon DMG for macOS 13.5 or later (the bundled Node runtime's minimum), not a public GitHub release. Windows, Linux and Android still use the existing commands below.
+
+Once the workflow is pushed to `main`:
+
+1. Open the repository's **Actions → macOS test build → Run workflow** and select the branch to build. Or run `gh workflow run macos-build.yml --ref main`.
+2. Actions installs the Node and pnpm versions pinned in `package.json`, then runs `pnpm check`, `pnpm lint` and `pnpm test` on Linux. The suite exercises the Linux-only development bridge, so it does not run on macOS.
+3. A native Apple Silicon runner (`macos-15`) builds the app and DMG. It verifies the packaged app's signatures and architectures, then runs the bundled backend without Node on `PATH`, creating and searching a task in a disposable home.
+4. When the run succeeds, download `tasks-macos-apple-silicon-<commit>` from its **Artifacts** section and extract the DMG. Artifacts expire after 14 days; rerun the workflow to rebuild.
+
+The workflow does not bump versions, publish releases or change updater manifests. It needs no signing secrets. The app and backend use **ad-hoc signatures**, not an Apple Developer ID, and are **not notarized**. Hardened runtime stays enabled, with the JIT entitlement needed by the bundled Node backend (`src-tauri/entitlements.plist`). On a test Mac, open the DMG and drag Tasks to Applications. If macOS blocks it, attempt to open it, then allow Tasks in **System Settings → Privacy & Security → Open Anyway**. Only override Gatekeeper for a build you trust; do not disable it globally.
+
+Start with a new disposable Tasks home, not your personal one. CI proves packaging and a backend smoke check, not that the Mac interface works. Manually check first launch, task creation/editing/completion, quit/reopen, keyboard shortcuts, global hotkeys, image paste/copy and folder reveal before treating it as supported. Intel Macs, notarization and macOS auto-updates are not part of this first build.
+
+### Existing platform releases
+
 One version covers every platform. It lives in `package.json`; Tauri reads it from there and derives the Android `versionCode` from it, so every release installs over the last. Each release attaches whichever builds were made for it.
 
 Each step needs the GitHub CLI logged in (`gh auth login`). All run in WSL except Linux, which builds on the Omarchy machine so the AppImage matches its libraries.
@@ -124,7 +143,7 @@ The platform steps refuse a dirty tree or a HEAD that isn't the tag of the curre
 
 ### Updates
 
-Installed Windows and Linux apps check `releases/latest/download/latest.json` on GitHub once per start and offer the newer version (`platform.update`). On Windows the installer runs in update mode: no pages, no uninstall, and Tasks restarts. On Linux the AppImage replaces itself and the app relaunches. Each desktop step adds its own platform to the release's `latest.json`, so run them one after the other. Until a platform's step has run, that platform's apps find no update.
+Installed Windows and Linux apps check `releases/latest/download/latest.json` on GitHub once per start and offer the newer version (`platform.update`). The experimental macOS artifact has no entry in that manifest and must be replaced manually. On Windows the installer runs in update mode: no pages, no uninstall, and Tasks restarts. On Linux the AppImage replaces itself and the app relaunches. Each desktop step adds its own platform to the release's `latest.json`, so run them one after the other. Until a platform's step has run, that platform's apps find no update.
 
 The update signing key and its password are [release secrets](#release-secrets) (`updater.key`, `updater.password`); `release:windows` passes them to the Windows build through `WSLENV`. Installed apps trust only the public key in `src-tauri/tauri.conf.json`.
 

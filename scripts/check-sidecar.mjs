@@ -6,7 +6,9 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 const target = execFileSync("rustc", ["--print", "host-tuple"], { encoding: "utf8" }).trim();
 const extension = process.platform === "win32" ? ".exe" : "";
-const binary = path.join(root, "src-tauri", "binaries", `tasks-cli-${target}${extension}`);
+const binary = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.join(root, "src-tauri", "binaries", `tasks-cli-${target}${extension}`);
 
 if (!existsSync(binary)) {
   throw new Error(

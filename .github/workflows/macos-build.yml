@@ -1,0 +1,66 @@
+name: macOS test build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate on Linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm lint
+      # The development bridge exercised by the suite is Linux-only.
+      - run: pnpm test
+        env:
+          VITEST_MAX_WORKERS: "4"
+
+  macos:
+    name: Build Apple Silicon DMG
+    needs: validate
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      APPLE_SIGNING_IDENTITY: "-"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - name: Set up native Rust toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          test "$(rustc --print host-tuple)" = aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:tauri --bundles app,dmg
+      - name: Verify packaged signatures and backend
+        run: |
+          app=src-tauri/target/release/bundle/macos/Tasks.app
+          codesign --verify --deep --strict --verbose=2 "$app"
+          lipo "$app/Contents/MacOS/tasks" -verify_arch arm64
+          lipo "$app/Contents/MacOS/tasks-cli" -verify_arch arm64
+          pnpm exec node scripts/check-sidecar.mjs "$app/Contents/MacOS/tasks-cli"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tasks-macos-apple-silicon-${{ github.sha }}
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14

@@ -29,4 +29,4 @@ Android runs the desktop app's UI and the same backend, bundled in the app.
 
 | Missing | Today instead |
 | --- | --- |
-| `platform.update` on macOS | There is no macOS build |
+| `platform.update` on macOS | Experimental Apple Silicon test builds are installed and replaced manually; no macOS updater artifact is published |

@@ -10,6 +10,7 @@ A local-first, keyboard-first task list for one person working alongside agents:
 
 Native checks automation can't do:
 
+- Experimental Apple Silicon macOS build: run the manual GitHub Actions workflow, install its ad-hoc-signed DMG and check the UI on a disposable home before calling it supported. Intel, notarization and Mac auto-updates are not included.
 - Desktop updates: an installed build finds, downloads and installs a newer release, on Windows and the Linux AppImage.
 - Image paste and copy in each shell (WebView2, WebKitGTK, Android WebView). Add `tauri-plugin-clipboard-manager` only for a shell that fails.
 - Windows: Open folder for the home and exports; uninstall and reinstall keep the home.
