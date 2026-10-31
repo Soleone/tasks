@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { flyCategoryToFilter } from "./categoryFlight";
+import { startAfterPaint } from "./startAfterPaint";
 
 export type TaskRowVariant = "full" | "compact";
 
@@ -65,6 +66,7 @@ export function StatusGlyph({
     "data-status-enter": entrance === "status" ? task.status : undefined,
     "data-priority-enter": entrance === "priority" || undefined,
     "data-effort-notch": effort !== DEFAULT_EFFORT || undefined,
+    ref: entrance ? startAfterPaint : undefined,
   };
   const glyph = !isSolidGlyph(task) ? (
     <Icon className="size-5" aria-hidden="true" {...glyphData} />
@@ -96,6 +98,7 @@ export function StatusGlyph({
         aria-hidden="true"
         data-effort={EFFORT_LABELS[effort]}
         data-effort-enter={entrance === "effort" || undefined}
+        ref={entrance ? startAfterPaint : undefined}
       />
     </>
   );
@@ -190,6 +193,7 @@ export function TaskStatusToggle({
             data-effort={task.effort}
             data-status-pending={pending || undefined}
             data-completion-sheen={sheenStep !== undefined || undefined}
+            ref={sheenStep !== undefined ? startAfterPaint : undefined}
             style={
               sheenStep !== undefined ? ({ "--sheen-step": sheenStep } as CSSProperties) : undefined
             }

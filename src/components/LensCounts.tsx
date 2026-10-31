@@ -5,6 +5,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleButton } from "@/components/variants/button";
 import type { ListLens } from "./listLens";
+import { startAfterPaint } from "./startAfterPaint";
 
 type LensCountProps = { total: number; lensOn: boolean; onToggleLens: () => void };
 
@@ -93,7 +94,13 @@ export function DoneToday({
         {/* Keyed so each rise remounts both numbers and plays the roll once. A count that was
             hidden at zero only rolls its first number in. */}
         {rolledFrom !== null && rolledFrom > 0 && (
-          <span key={`from-${shownTotal}`} className="absolute" aria-hidden="true" data-count-leave>
+          <span
+            key={`from-${shownTotal}`}
+            className="absolute"
+            aria-hidden="true"
+            data-count-leave
+            ref={startAfterPaint}
+          >
             {rolledFrom}
           </span>
         )}
@@ -101,6 +108,7 @@ export function DoneToday({
           key={shownTotal}
           className="inline-block"
           data-count-enter={rolledFrom !== null || undefined}
+          ref={startAfterPaint}
         >
           {shownTotal}
         </span>
