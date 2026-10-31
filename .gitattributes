@@ -1,3 +1,6 @@
+# Keep formatting checks consistent on Windows, macOS and Linux.
+* text=auto eol=lf
+
 # Vendored from upstream registries: kept out of reviews and language stats.
 src/components/ui/** linguist-vendored
 src/components/soleone/** linguist-vendored
