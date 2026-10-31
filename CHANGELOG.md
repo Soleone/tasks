@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.6](https://github.com/Soleone/tasks/compare/v0.3.5...v0.3.6) (2026-10-31)
+
+### Features
+
+* **release:** automate cross-platform tagged releases ([748339c](https://github.com/Soleone/tasks/commit/748339c4c7d9c91a9ab37d5d24f2dfef3decd418))
+
 ## [0.3.5](https://github.com/Soleone/tasks/compare/v0.3.4...v0.3.5) (2026-10-30)
 
 ### Features
