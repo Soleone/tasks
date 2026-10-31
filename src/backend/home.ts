@@ -48,7 +48,9 @@ function isDirectory(directory: string): boolean {
 /** The home whose `sync/` this root is, or undefined for old folders and other bare roots. */
 export function homeOfRoot(rootPath: string): string | undefined {
   const homePath = path.dirname(rootPath);
-  return path.basename(rootPath) === SYNC && isDirectory(path.join(homePath, LOCAL))
+  return path.basename(rootPath) === SYNC &&
+    isDirectory(rootPath) &&
+    isDirectory(path.join(homePath, LOCAL))
     ? homePath
     : undefined;
 }

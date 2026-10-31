@@ -129,6 +129,15 @@ test("home.create: other folders and parts of homes are never taken over", (t) =
   });
 });
 
+test("home.refuse-unsafe: an ordinary ancestor with a local folder is not a Tasks home", (t) => {
+  const temporary = path.join(scratch(t), "AppData", "local", "Temp");
+  mkdirSync(temporary, { recursive: true });
+  const home = createHome(path.join(temporary, "Tasks"));
+  assert.equal(openHome(home.homePath).homePath, home.homePath);
+  assert.deepEqual(readdirSync(home.homePath).sort(), ["local", "sync"]);
+  assert.throws(() => createHome(path.join(home.homePath, "nested")), { code: "HOME_NESTED" });
+});
+
 test("home.refuse-unsafe: a home inside a Syncthing folder is refused, and so is syncing the home", (t) => {
   const directory = scratch(t);
   const synced = path.join(directory, "synced");
