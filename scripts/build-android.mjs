@@ -9,8 +9,8 @@ import { bakeSea } from "./sea.mjs";
 
 // Builds a signed release APK for arm64 phones: `pnpm build:android`. Needs JAVA_HOME, the Android
 // SDK with build-tools and an NDK (ANDROID_HOME, default ~/Android/Sdk) and the signing key in
-// the release secrets folder (android.jks and android.properties). A cold Node runtime build can take
-// over an hour; later runs reuse it from ~/.cache/tasks-android.
+// the release secrets folder (android.jks and android.properties). The pinned Android Node runtime
+// is downloaded once, checksum-verified and reused from ~/.cache/tasks-android.
 const root = path.resolve(import.meta.dirname, "..");
 const sdk = process.env.ANDROID_HOME ?? path.join(homedir(), "Android", "Sdk");
 const ndk =
@@ -37,7 +37,7 @@ function run(command, args, options = {}) {
 }
 
 bakeSea({
-  node: androidNode(ndk),
+  node: await androidNode(),
   bundle: path.join(root, "dist", "sidecar", "tasks-cli.cjs"),
   output: path.join(
     root,

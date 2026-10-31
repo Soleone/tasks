@@ -1,19 +1,11 @@
-name: Android Node runtime
+name: Build Android Node runtime
 
+# Runtime maintenance only. Normal app releases download the pinned prebuilt binary.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - package.json
-      - scripts/android-node.mjs
-      - .github/workflows/android-runtime.yml
-  # GitHub evicts caches unused for seven days. Keep the main-branch cache warm.
-  schedule:
-    - cron: "17 6 * * 1,4"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-node-runtime
@@ -27,30 +19,32 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
-        id: node
         with:
           node-version-file: package.json
-      - name: Restore compiled Android Node runtime
-        id: runtime
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.cache/tasks-android/node-*/out/Release/node
-          key: android-node-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-ndk27.3.13750724-${{ hashFiles('scripts/android-node.mjs') }}
       - uses: actions/setup-java@v6
-        if: steps.runtime.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v4
-        if: steps.runtime.outputs.cache-hit != 'true'
         with:
           packages: "ndk;27.3.13750724"
       - name: Compile Android Node runtime without signing keys
-        if: steps.runtime.outputs.cache-hit != 'true'
-        run: NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724" node scripts/android-node.mjs
-      - name: Save runtime for all release tags
-        if: steps.runtime.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.cache/tasks-android/node-*/out/Release/node
-          key: ${{ steps.runtime.outputs.cache-primary-key }}
+        run: NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724" node scripts/build-android-node.mjs
+      - name: Package runtime and generate checksum pin
+        id: package
+        run: |
+          version=$(node --print process.version)
+          tag=$(node scripts/package-android-runtime.mjs "$HOME/.cache/tasks-android/node-$version-arm64/out/Release/node" runtime-assets)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Publish a non-latest runtime dependency
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.package.outputs.tag }}
+        run: |
+          if gh release view "$TAG"; then
+            echo "Refusing to replace an existing runtime dependency: $TAG" >&2
+            exit 1
+          fi
+          gh release create "$TAG" runtime-assets/* --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Build dependency: Android ARM64 Node $(node --print process.version)" \
+            --notes 'Infrastructure dependency, not an app release. Download android-runtime.json and commit it as scripts/android-runtime.json to select this runtime. Both archive and executable SHA-256 values are pinned. This release must not become the latest Tasks app release.'

@@ -30,7 +30,7 @@ pnpm exec node --version
 
 `pn` is the Vite+ alias for pnpm. Both run project scripts with the pinned Node, even if a different Node is first on `PATH`. Vite+ also reads this pin. pnpm may keep its own runtime copy; leave runtime management enabled here so scripts do not depend on shell setup. Global defaults and other projects are unchanged.
 
-To deliberately upgrade Node, update `devEngines.runtime.version`, run `pnpm install` to refresh the runtime lock, and rerun validation. The first Android build for that version recompiles Node; later builds reuse it.
+To deliberately upgrade Node, update `devEngines.runtime.version`, run `pnpm install` to refresh the runtime lock, publish the matching Android runtime as described below, and rerun validation. Android builds reject a runtime pin that differs from the Node preparing the executable.
 
 Native development additionally needs [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Windows is the first release platform and Omarchy the second; native validation is deferred to the owner's hosts. Linux/WSL backend success is not a desktop acceptance pass.
 
@@ -90,7 +90,7 @@ On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. The Linu
 
 ## Android
 
-The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (a cold build can take over an hour on a hosted runner, cached locally in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per Tasks home (`src-tauri/src/android_backend.rs`).
+The Android app is the desktop UI with the same backend. Node publishes no official Android builds, so `pnpm build:android` downloads our own prebuilt runtime, verifies its archive and executable SHA-256 values against `scripts/android-runtime.json`, bakes the backend bundle into it and ships it as `libtasks_backend.so`. The verified executable is reused locally from `~/.cache/tasks-android`; a fresh runner downloads it without compiling Node. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per Tasks home (`src-tauri/src/android_backend.rs`).
 
 Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. Then:
 
@@ -150,21 +150,25 @@ Actions validates that the tag matches `package.json`, checks signing secrets, t
 
 The desktop jobs smoke-test the bundled backend on disposable data; the Mac job also verifies packaged signatures and architectures. Android verifies its APK signature.
 
-The **Android Node runtime** workflow (`.github/workflows/android-runtime.yml`) builds the unsigned Node runtime on `main`, without signing keys or an APK build. GitHub lets every release tag restore `main`'s cache; a cache saved only under one tag cannot be reused by another tag. Both workflows use an exact cache key for the Node version, full NDK version, runner OS/architecture and runtime build script. Backend/UI edits do not invalidate it. A release cache miss still builds the runtime, but saves it immediately, before the APK build or signing can fail.
-
-The runtime workflow runs automatically when its recipe, Node pin or workflow changes on `main`. A twice-weekly cache hit keeps it within GitHub's seven-day inactivity limit; eviction or a toolchain change can still require a cold build. To prepare it manually before a release:
-
-```bash
-gh workflow run android-runtime.yml --ref main
-```
-
-Wait for **Android Node runtime** to pass before tagging when the runtime is uncached. Locally, `NDK_HOME=/path/to/ndk node scripts/android-node.mjs` prepares just the runtime without requiring signing keys. The local cache remains the same one used by `pnpm build:android`.
+Android downloads the versioned runtime dependency pinned in `scripts/android-runtime.json`. It is stored as an infrastructure **prerelease**, never the latest app release, and uses an `android-node-*` tag that does not trigger app releases. Both the compressed archive and executable are checksum-verified; a changed local cache is refused too. This dependency does not expire with Actions caches or build artifacts. Normal app releases never compile Node, and a missing download fails explicitly rather than starting an hour-long fallback build.
 
 Only after every build succeeds does one publishing job assemble `latest.json`, create a draft GitHub release with the version's changelog notes, attach every installer, updater archive and signature, then publish. No per-platform release commands are needed. A failed build leaves the previous public release and updater manifest unchanged. Re-run failed jobs in Actions; a failed upload can resume its draft, but the workflow refuses to overwrite a published release. Build artifacts expire after 14 days, so re-run the full workflow if they have expired.
 
 One version covers every platform. It lives in `package.json`; Tauri reads it from there and derives the Android `versionCode` from it. Only push `v*` tags from trusted commits: their workflows run with the signing secrets. The release command must push using your credentials, not an Actions `GITHUB_TOKEN`, whose pushes do not trigger another workflow.
 
 Windows installers are not code signed yet, so SmartScreen warns on manual installation. Mac builds remain experimental, ad-hoc signed and unnotarized, with macOS 13.5 as the minimum; Gatekeeper can require **Open Anyway** as described above. Intel Macs and iOS are not built. Hosted Linux packaging still needs acceptance on Omarchy; successful CI is not native UI or update acceptance on any platform.
+
+### Updating the Android runtime
+
+Only a deliberate Node or runtime build change needs source compilation. The manually triggered **Build Android Node runtime** workflow (`.github/workflows/android-runtime.yml`) compiles the version pinned in `package.json` on `main`, without signing keys or an APK build, then publishes a checksum-addressed, non-latest runtime prerelease. This can take over an hour. It refuses to replace an existing dependency.
+
+```bash
+gh workflow run android-runtime.yml --ref main
+```
+
+When it succeeds, download that dependency's `android-runtime.json` and commit it as `scripts/android-runtime.json` before releasing the app. Pin selection is deliberate; the maintenance workflow does not move app tags or silently change which binary releases trust.
+
+For a trusted local build, run `NDK_HOME=/path/to/ndk node scripts/build-android-node.mjs`, then `node scripts/package-android-runtime.mjs /path/to/compiled/node /tmp/runtime-assets`. The packaging command prints the checksum-addressed tag and creates the gzip archive plus `android-runtime.json`. Publish those files as a prerelease with `--latest=false` before committing the pin. The initial Node v24.22.1 dependency came from the owner's existing Android ARM64/API 28/NDK 27d build, with built-in SQLite and an unused SEA fuse.
 
 ### Updates
 
