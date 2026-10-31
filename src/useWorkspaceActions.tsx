@@ -93,6 +93,7 @@ export function useWorkspaceActions({
     isCurrentViewMatch,
     taskIsInCurrentView,
     visibleTasksAfterUpdate,
+    holdRevisionCheck,
   } = taskView;
   const [optimisticCreate, setOptimisticCreate] = useState<TaskView | null>(null);
   const [statusUndo, setStatusUndo] = useState<UndoEntry | null>(null);
@@ -101,7 +102,10 @@ export function useWorkspaceActions({
   const historyBusyRef = useRef(false);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [savedTask, setSavedTask] = useState<SavedTask | null>(null);
-  const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(updateVisibleTasks);
+  const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(
+    updateVisibleTasks,
+    holdRevisionCheck,
+  );
   const { landingTaskIds, launch, cancelFlights } = useDoneFlights();
 
   /** Keeps the given rows (all when omitted) in the list, and their completions off the way up. */

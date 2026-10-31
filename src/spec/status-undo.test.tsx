@@ -213,6 +213,33 @@ describe("completion", () => {
     expect(sheenStep("First")).toBeNull();
   });
 
+  test("done.sheen: a completed row slides all the way out while the list checks for changes", async () => {
+    await workspace.create("Staying");
+    const leaving = await workspace.create("Leaving");
+    const { user } = await workspace.render();
+    await expectActive("Leaving");
+    const element = row("Leaving");
+    let slideAt: number | null = null;
+    let goneAt: number | null = null;
+    const observer = new MutationObserver(() => {
+      slideAt ??= element.hasAttribute("data-exiting-task") ? performance.now() : null;
+      goneAt ??= element.isConnected ? null : performance.now();
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true });
+    try {
+      await user.keyboard("{Shift>} {/Shift}");
+      await expectStatus(leaving.id, "done");
+      // The write moved the workspace revision; check it now rather than on the next poll.
+      document.dispatchEvent(new Event("visibilitychange"));
+      await expectRows(["Staying"]);
+    } finally {
+      observer.disconnect();
+    }
+    expect(slideAt).not.toBeNull();
+    // ROW_EXIT_MS is 300.
+    expect(goneAt! - slideAt!).toBeGreaterThanOrEqual(250);
+  });
+
   test("done.today: the header counts completions from any client and undo takes one back", async () => {
     const mine = await workspace.create("Mine");
     const theirs = await workspace.create("Theirs");

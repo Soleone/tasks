@@ -12,9 +12,12 @@ type RowExit = { tasks: Map<string, TaskView>; timers: number[] };
  * Rows leaving the view: each row of a batch stays put for `lingerMs(index)` and slides out, and
  * once the last one is out `remove` drops the batch from the list together (a removal can refresh
  * the list, which would drop rows still sliding). A row updated while leaving keeps its exit with
- * the newer task; a stopped row stays where it is.
+ * the newer task; a stopped row stays where it is. `onLeaving` hears whether any row is.
  */
-export function useRowExits(remove: (tasks: TaskView[]) => void) {
+export function useRowExits(
+  remove: (tasks: TaskView[]) => void,
+  onLeaving: (leaving: boolean) => void,
+) {
   const [exitingTaskIds, setExitingTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const exits = useRef(new Set<RowExit>());
   const removeRows = useStableHandler(remove);
@@ -61,6 +64,7 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
       window.setTimeout(
         () => {
           exits.current.delete(exit);
+          onLeaving(exits.current.size > 0);
           setSliding([...exit.tasks.keys()], false);
           removeRows([...exit.tasks.values()]);
           afterRemove?.();
@@ -69,6 +73,7 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
       ),
     );
     exits.current.add(exit);
+    onLeaving(true);
   }
 
   /** Keeps the given rows (all when omitted) in the list. */
@@ -83,6 +88,7 @@ export function useRowExits(remove: (tasks: TaskView[]) => void) {
         exits.current.delete(exit);
       }
     }
+    onLeaving(exits.current.size > 0);
     if (stopped.length > 0) setSliding(stopped, false);
   }
 

@@ -79,6 +79,9 @@ export function useWorkspaceTasks({
   const lensRef = useRef(lens);
   const restoredMetadataRef = useRef(false);
   const workspaceRevisionRef = useRef<number | null>(null);
+  // This client's own writes move the revision too, and the reload that answers them would drop
+  // rows still lingering or sliding out of view. While set, the check waits for its next turn.
+  const revisionCheckHeld = useRef(false);
   // Saves reply after later renders; their count changes must compare against the current list.
   const tasksRef = useRef(tasks);
   const contextTasksRef = useRef(contextTasks);
@@ -279,7 +282,13 @@ export function useWorkspaceTasks({
     let checking = false;
 
     const checkWorkspaceRevision = async (): Promise<void> => {
-      if (disposed || checking || document.visibilityState === "hidden") return;
+      if (
+        disposed ||
+        checking ||
+        revisionCheckHeld.current ||
+        document.visibilityState === "hidden"
+      )
+        return;
       checking = true;
       try {
         const revision = await getWorkspaceRevision();
@@ -451,6 +460,10 @@ export function useWorkspaceTasks({
     );
   }
 
+  function holdRevisionCheck(held: boolean): void {
+    revisionCheckHeld.current = held;
+  }
+
   function visibleTasksAfterUpdate(updatedTasks: readonly TaskView[]): TaskView[] {
     const updates = new Map(updatedTasks.map((task) => [task.id, task]));
     const nextTasks = tasks.flatMap((existing) => {
@@ -478,6 +491,7 @@ export function useWorkspaceTasks({
     categoryFilterRef,
     refreshTasks,
     finishIdentityPreservingRefresh,
+    holdRevisionCheck,
     removeVisibleTasks,
     updateVisibleTask,
     updateVisibleTasks,
