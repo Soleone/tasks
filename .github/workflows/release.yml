@@ -154,11 +154,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-      - name: Cache compiled Android Node runtime
-        uses: actions/cache@v6
+      # main's Android Node runtime workflow makes this cache available across tags.
+      - name: Restore compiled Android Node runtime
+        id: runtime
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/tasks-android/node-*/out/Release/node
-          key: android-node-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-ndk27-${{ hashFiles('scripts/build-android.mjs') }}
+          key: android-node-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.node-version }}-ndk27.3.13750724-${{ hashFiles('scripts/android-node.mjs') }}
+      - name: Prepare Android Node runtime
+        run: node scripts/android-node.mjs
+      - name: Save runtime before building the APK
+        if: steps.runtime.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/tasks-android/node-*/out/Release/node
+          key: ${{ steps.runtime.outputs.cache-primary-key }}
       - run: pnpm install --frozen-lockfile
       - name: Restore Android signing files
         env:

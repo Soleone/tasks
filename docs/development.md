@@ -90,7 +90,7 @@ On Linux the Tauri entrypoint applies the WebKitGTK Wayland workaround. The Linu
 
 ## Android
 
-The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (about half an hour, cached in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per Tasks home (`src-tauri/src/android_backend.rs`).
+The Android app is the desktop UI with the same backend. Node publishes no Android builds, so `pnpm build:android` compiles Node for Android once (a cold build can take over an hour on a hosted runner, cached locally in `~/.cache/tasks-android`), bakes the backend bundle into it and ships it as `libtasks_backend.so`. Android only runs executables from the app's native library folder, which is why it has a library name. The Rust shell starts it per Tasks home (`src-tauri/src/android_backend.rs`).
 
 Setup on Linux or WSL: a JDK 17+ in `JAVA_HOME`, the Android command-line tools in `~/Android/Sdk` (or `ANDROID_HOME`) with `platform-tools`, `platforms;android-36`, `build-tools;35.0.0` and an NDK (`ndk;27.3.13750724`), and `rustup target add aarch64-linux-android`. Then:
 
@@ -148,7 +148,17 @@ Actions validates that the tag matches `package.json`, checks signing secrets, t
 | macOS Apple Silicon | macOS 15 | `.dmg` and updater `.app.tar.gz` |
 | Android arm64 | Ubuntu 24.04 | Signed `.apk` |
 
-The desktop jobs smoke-test the bundled backend on disposable data; the Mac job also verifies packaged signatures and architectures. Android verifies its APK signature and caches the compiled Node runtime. Its first build can take much longer than the desktop builds.
+The desktop jobs smoke-test the bundled backend on disposable data; the Mac job also verifies packaged signatures and architectures. Android verifies its APK signature.
+
+The **Android Node runtime** workflow (`.github/workflows/android-runtime.yml`) builds the unsigned Node runtime on `main`, without signing keys or an APK build. GitHub lets every release tag restore `main`'s cache; a cache saved only under one tag cannot be reused by another tag. Both workflows use an exact cache key for the Node version, full NDK version, runner OS/architecture and runtime build script. Backend/UI edits do not invalidate it. A release cache miss still builds the runtime, but saves it immediately, before the APK build or signing can fail.
+
+The runtime workflow runs automatically when its recipe, Node pin or workflow changes on `main`. A twice-weekly cache hit keeps it within GitHub's seven-day inactivity limit; eviction or a toolchain change can still require a cold build. To prepare it manually before a release:
+
+```bash
+gh workflow run android-runtime.yml --ref main
+```
+
+Wait for **Android Node runtime** to pass before tagging when the runtime is uncached. Locally, `NDK_HOME=/path/to/ndk node scripts/android-node.mjs` prepares just the runtime without requiring signing keys. The local cache remains the same one used by `pnpm build:android`.
 
 Only after every build succeeds does one publishing job assemble `latest.json`, create a draft GitHub release with the version's changelog notes, attach every installer, updater archive and signature, then publish. No per-platform release commands are needed. A failed build leaves the previous public release and updater manifest unchanged. Re-run failed jobs in Actions; a failed upload can resume its draft, but the workflow refuses to overwrite a published release. Build artifacts expire after 14 days, so re-run the full workflow if they have expired.
 
