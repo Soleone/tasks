@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8](https://github.com/Soleone/tasks/compare/v0.3.7...v0.3.8) (2026-10-31)
+
+### Bug Fixes
+
+* completed tasks always slide out and send their check to the done count ([c599ffe](https://github.com/Soleone/tasks/commit/c599ffe9593f4178388232562a90f208c4c41f13))
+* **macos:** done checks and count rolls no longer skip their animation ([0d39dfc](https://github.com/Soleone/tasks/commit/0d39dfc77cf8fdc897d9be52b7005553ef3b0d73))
+
 ## [0.3.7](https://github.com/Soleone/tasks/compare/v0.3.6...v0.3.7) (2026-10-31)
 
 ## [0.3.6](https://github.com/Soleone/tasks/compare/v0.3.5...v0.3.6) (2026-10-31)
