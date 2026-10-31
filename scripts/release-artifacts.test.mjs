@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -50,7 +51,7 @@ function fixture(t) {
     mkdirSync(path.dirname(destination), { recursive: true });
     writeFileSync(destination, content);
   }
-  return { source, output };
+  return { directory, source, output };
 }
 
 function stageAll(source, output) {
@@ -105,12 +106,34 @@ test("release assets include every installer and one complete signed desktop upd
     [apk, "signed-apk"],
   ])
     assert.equal(readFileSync(path.join(output, name), "utf8"), content);
-  const changelog = readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8");
-  assert.ok(manifest.notes.length > 0);
-  assert.ok(changelog.includes(manifest.notes));
+  assert.equal(typeof manifest.notes, "string");
   assert.doesNotMatch(manifest.notes, /^#{1,2} /m);
   assert.equal(readFileSync(path.join(output, "notes.md"), "utf8"), `${manifest.notes}\n`);
 });
+
+for (const notes of ["### Bug Fixes\n\n* Keep release downloads complete.", ""]) {
+  test(`release notes preserve ${notes ? "populated" : "empty maintenance-only"} changelog entries`, (t) => {
+    const { directory, source, output } = fixture(t);
+    stageAll(source, output);
+    const scripts = path.join(directory, "scripts");
+    mkdirSync(scripts);
+    const fixtureScript = path.join(scripts, "release-artifacts.mjs");
+    copyFileSync(script, fixtureScript);
+    writeFileSync(path.join(directory, "package.json"), JSON.stringify({ version }));
+    writeFileSync(
+      path.join(directory, "CHANGELOG.md"),
+      `# Changelog\n\n## [${version}] (2026-10-31)\n\n${notes}\n\n## 0.0.0\n\nPrevious release notes.\n`,
+    );
+    const result = spawnSync(process.execPath, [fixtureScript, "manifest", output, tag], {
+      encoding: "utf8",
+      env: { ...process.env, GITHUB_REPOSITORY: "example/tasks" },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const manifest = JSON.parse(readFileSync(path.join(output, "latest.json"), "utf8"));
+    assert.equal(manifest.notes, notes);
+    assert.equal(readFileSync(path.join(output, "notes.md"), "utf8"), `${notes}\n`);
+  });
+}
 
 test("a release tag must match the checked-out package version", (t) => {
   const { source, output } = fixture(t);
