@@ -13,6 +13,7 @@ import { RadioGroup } from "@/components/ui/radio-group";
 import { SelectTrigger } from "@/components/variants/select";
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
+import { showTaskToast } from "@/components/TaskToaster";
 import { ChoiceCard, ChoiceRadio } from "@/components/variants/radio-group";
 import {
   clearDone,
@@ -81,7 +82,6 @@ function DeleteCanceled(): ReactElement {
   const [state, setState] = useState<CanceledState>({ kind: "loading" });
   const [purges, setPurges] = useState(0);
   const [confirming, setConfirming] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -97,9 +97,9 @@ function DeleteCanceled(): ReactElement {
     setConfirming(false);
     try {
       const { purgedIds } = await purgeCanceled(false);
-      setNotice(`Deleted ${count(purgedIds.length, "canceled task")}.`);
+      showTaskToast(`Deleted ${count(purgedIds.length, "canceled task")}.`);
     } catch (caught) {
-      setNotice(`Nothing was deleted. ${errorText(caught)}`);
+      showTaskToast(`Nothing was deleted. ${errorText(caught)}`);
     }
     setPurges((done) => done + 1);
   }
@@ -135,28 +135,20 @@ function DeleteCanceled(): ReactElement {
             <Button variant="destructive" onClick={() => void purge()}>
               Delete {count(ids.length, "task")}
             </Button>
-            <Button variant="outline" onClick={() => setConfirming(false)}>
+            <Button variant="ghost" onClick={() => setConfirming(false)}>
               Cancel
             </Button>
           </div>
         </div>
       ) : (
         <Button
-          variant="outline"
+          variant="destructive"
           className="w-fit"
           disabled={ids.length === 0}
-          onClick={() => {
-            setNotice(null);
-            setConfirming(true);
-          }}
+          onClick={() => setConfirming(true)}
         >
           Delete canceled tasks
         </Button>
-      )}
-      {notice && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {notice}
-        </p>
       )}
     </div>
   );
@@ -306,7 +298,7 @@ function DeleteDoneDialog({
           </Alert>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="outline" disabled={busy || empty} onClick={() => void run(false)}>
@@ -335,7 +327,6 @@ function finishedText({ scope, result }: Finished): string {
 function DeleteDone(): ReactElement {
   const [open, setOpen] = useState(false);
   const [finished, setFinished] = useState<Finished | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const exportLocation = finished?.result.exportLocation;
   return (
     <div className="flex flex-col gap-2">
@@ -344,7 +335,7 @@ function DeleteDone(): ReactElement {
         Delete tasks finished a while ago, or only their images, optionally exporting them first.
       </p>
       <Button
-        variant="outline"
+        variant="destructive"
         className="w-fit"
         onClick={() => {
           setFinished(null);
@@ -365,7 +356,9 @@ function DeleteDone(): ReactElement {
                   variant="outline"
                   className="w-fit"
                   onClick={() =>
-                    void revealExports().catch((caught: unknown) => setNotice(errorText(caught)))
+                    void revealExports().catch((caught: unknown) =>
+                      showTaskToast(errorText(caught)),
+                    )
                   }
                 >
                   Open folder
@@ -373,7 +366,6 @@ function DeleteDone(): ReactElement {
               )}
             </>
           )}
-          {notice && <p>{notice}</p>}
         </div>
       )}
       {open && <DeleteDoneDialog onClose={() => setOpen(false)} onFinished={setFinished} />}

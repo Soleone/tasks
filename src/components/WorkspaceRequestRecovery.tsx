@@ -7,6 +7,7 @@ import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialo
 import { Field, FieldLabel } from "./ui/field";
 import { Textarea } from "./ui/textarea";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
+import { CopyButton } from "@/components/CopyButton";
 
 /** Appears only when a sent workspace request has no verified success reply. */
 export function WorkspaceRequestRecovery({
@@ -17,14 +18,12 @@ export function WorkspaceRequestRecovery({
   const request = useSyncExternalStore(workspace.subscribe, workspace.getUnresolved);
   const [busy, setBusy] = useState(false);
   const [preserved, setPreserved] = useState(false);
-  const [copied, setCopied] = useState(false);
   const retryRef = useRef<HTMLButtonElement>(null);
   // A new unresolved request starts unpreserved.
   const [shownRequest, setShownRequest] = useState(request?.prepared);
   if (shownRequest !== request?.prepared) {
     setShownRequest(request?.prepared);
     setPreserved(false);
-    setCopied(false);
   }
 
   useEffect(() => {
@@ -66,28 +65,22 @@ export function WorkspaceRequestRecovery({
           >
             {busy ? "Retrying…" : "Retry same request"}
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              void navigator.clipboard
-                .writeText(
-                  JSON.stringify(
-                    {
-                      originalRequest: JSON.parse(request.prepared.originalRequest),
-                      paths: JSON.parse(request.prepared.retryMetadata),
-                    },
-                    null,
-                    2,
-                  ),
-                )
-                .then(() => setCopied(true))
-                .catch(() => setCopied(false));
-            }}
+          <CopyButton
+            text={() =>
+              JSON.stringify(
+                {
+                  originalRequest: JSON.parse(request.prepared.originalRequest),
+                  paths: JSON.parse(request.prepared.retryMetadata),
+                },
+                null,
+                2,
+              )
+            }
+            copied="Request and paths copied"
           >
             Copy request and paths
-          </Button>
+          </CopyButton>
         </div>
-        {copied && <p role="status">Request and paths copied.</p>}
         <details>
           <summary className="cursor-pointer">Original request and paths</summary>
           <div className="mt-3 flex min-w-0 flex-col gap-3">

@@ -23,6 +23,7 @@ The desktop, Android and web apps are one client. This folder describes what a p
 | `client.focus-ring` | Keyboard focus on controls uses a solid 2px theme ring, without a translucent halo or extra outline. Composite controls have one ring around the keyboard stop, including filter/sort groups and search. The inline editor has none: its fields have no box and it keeps the active row's fill. Task lists, menu results and the theme picker keep their own active-item treatments |
 | `client.no-tab-buttons` | Buttons are mouse fallbacks, not Tab stops. Each surface has one keyboard stop |
 | `client.literal-text` | Titles and descriptions show exactly what is stored. Category and tags are shown separately |
+| `client.feedback` | Feedback doesn't add lines that move the layout. Confirming something just done on a visible control, like a copy, toggle or status change, flashes a tooltip on that control, which hovering never opens. Results with no visible control, like shortcuts, undo or changes out of view, and failures show in a toast above any open dialog. Text appears inline only when it is something to read or act on: a field's error, a result with a path to open, a link |
 
 ## Keymap
 

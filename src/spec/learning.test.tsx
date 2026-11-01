@@ -591,7 +591,7 @@ test("learn.reset: Reset progress forgets learned moves and quests, so the offer
   // V, and Ctrl+, itself.
   settings.getByText(/^2 of \d+ moves learned$/);
   await user.click(settings.getByRole("button", { name: "Reset progress" }));
-  await settings.findByText("Progress reset. Quests start over.");
+  await screen.findByText("Progress reset. Quests start over.");
   settings.getByText(/^0 of \d+ moves learned$/);
   expect(learnedMoves()).toEqual([]);
   await user.keyboard("{Escape}");

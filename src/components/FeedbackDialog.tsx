@@ -145,7 +145,7 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }): ReactEleme
               </Alert>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
               <Button type="submit" disabled={sending || !title.trim() || !description.trim()}>

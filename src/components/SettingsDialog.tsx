@@ -23,6 +23,10 @@ import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useFlashTooltip } from "@/components/useFlashTooltip";
+import { CopyButton, FLASH_FEEDBACK_DURATION_MS } from "@/components/CopyButton";
+import { showTaskToast } from "@/components/TaskToaster";
 import { version } from "../../package.json";
 
 type SettingsDialogProps = {
@@ -69,10 +73,10 @@ export function SettingsDialog({
   homeSection,
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
-  const [pathNotice, setPathNotice] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const switchStarted = useRef(false);
-  const [progressReset, setProgressReset] = useState(false);
+  const [resets, setResets] = useState(0);
+  const resetFeedback = useFlashTooltip(resets || undefined, FLASH_FEEDBACK_DURATION_MS);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const learning = useLearning();
   const questsShown = useQuests().shown;
@@ -235,22 +239,29 @@ export function SettingsDialog({
                     <p className="text-sm text-muted-foreground" data-settings-learned>
                       {learning.learnedCount} of {learning.moves.length} moves learned
                     </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        resetProgress();
-                        setProgressReset(true);
-                      }}
+                    <Tooltip
+                      open={resetFeedback.open && resetFeedback.flashing}
+                      onOpenChange={resetFeedback.onOpenChange}
                     >
-                      Reset progress
-                    </Button>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              resetProgress();
+                              setResets((count) => count + 1);
+                            }}
+                          />
+                        }
+                      >
+                        Reset progress
+                      </TooltipTrigger>
+                      <TooltipContent role="status">
+                        Progress reset. Quests start over.
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  {progressReset && learning.learnedCount === 0 ? (
-                    <p role="status" className="text-sm text-muted-foreground">
-                      Progress reset. Quests start over.
-                    </p>
-                  ) : null}
                 </section>
               </div>
             </StackedTabsContent>
@@ -288,7 +299,7 @@ export function SettingsDialog({
                             className="w-fit"
                             onClick={() =>
                               void revealHome().catch((error: unknown) =>
-                                setPathNotice(
+                                showTaskToast(
                                   error instanceof Error ? error.message : String(error),
                                 ),
                               )
@@ -301,31 +312,18 @@ export function SettingsDialog({
                         <code className="wrap-anywhere text-xs">
                           {workspace.editor.selection.rootPath}
                         </code>
-                        <Button
-                          variant="outline"
+                        <CopyButton
                           className="w-fit"
-                          onClick={() =>
-                            void navigator.clipboard
-                              .writeText(workspace.editor.selection.rootPath)
-                              .then(
-                                () => setPathNotice("Sync folder path copied."),
-                                () =>
-                                  setPathNotice("The path couldn't be copied; select it instead."),
-                              )
-                          }
+                          text={() => workspace.editor.selection.rootPath}
+                          copied="Path copied"
                         >
                           Copy path
-                        </Button>
+                        </CopyButton>
                         <p className="text-sm text-muted-foreground">
                           Add only this sync folder to Syncthing, not the Tasks home. Syncing the
                           home would copy this device's database and locks to your other devices and
                           can damage them.
                         </p>
-                        {pathNotice && (
-                          <p role="status" className="text-sm text-muted-foreground">
-                            {pathNotice}
-                          </p>
-                        )}
                       </>
                     ) : null}
                     {runtimeKind() === "native" && (
@@ -337,15 +335,14 @@ export function SettingsDialog({
                           if (switchStarted.current) return;
                           switchStarted.current = true;
                           setSwitching(true);
-                          setPathNotice("Saving this home before opening setup…");
                           void switchHome().catch((error: unknown) => {
                             switchStarted.current = false;
                             setSwitching(false);
-                            setPathNotice(error instanceof Error ? error.message : String(error));
+                            showTaskToast(error instanceof Error ? error.message : String(error));
                           });
                         }}
                       >
-                        Open another home…
+                        {switching ? "Saving this home…" : "Open another home…"}
                       </Button>
                     )}
                   </section>
@@ -361,7 +358,7 @@ export function SettingsDialog({
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">Tasks {version}</p>
-          <Button variant="outline" size="sm" onClick={() => setFeedbackOpen(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setFeedbackOpen(true)}>
             Send feedback
           </Button>
         </div>

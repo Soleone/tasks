@@ -122,10 +122,25 @@ test("settings.home: Data shows the home and copies its sync folder's path", asy
   const panel = within(screen.getByRole("tabpanel"));
   panel.getByText(/Add only this sync folder to Syncthing, not the Tasks home/);
   await user.click(panel.getByRole("button", { name: "Copy path" }));
-  await panel.findByText("Sync folder path copied.");
+  await screen.findByText("Path copied");
   expect(await navigator.clipboard.readText()).toMatch(/[\\/]sync$/);
   // The web client has no file manager to open.
   expect(panel.queryByRole("button", { name: "Open folder" })).toBeNull();
+});
+
+test("client.feedback: a copy confirms in a tooltip that hovering never opens, and the panel gains no line", async () => {
+  const { user } = await workspace.render();
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Data" }));
+  const panel = screen.getByRole("tabpanel");
+  const copy = within(panel).getByRole("button", { name: "Copy path" });
+  await user.hover(copy);
+  expect(document.querySelector("[data-slot=tooltip-content]")).toBeNull();
+  const lines = panel.querySelectorAll("*").length;
+  await user.click(copy);
+  const confirmation = await screen.findByText("Path copied");
+  expect(confirmation.closest("[data-slot=tooltip-content]")).not.toBeNull();
+  expect(panel.querySelectorAll("*").length).toBe(lines);
 });
 
 test("platform.open-workspace: home switching blocks duplicate actions and shows failure without closing Settings", async () => {
@@ -170,7 +185,7 @@ test("settings.delete-canceled: counts canceled tasks and deletes them after ask
   await user.click(section.getByRole("button", { name: "Delete canceled tasks" }));
   section.getByText("Delete 1 canceled task for good? This can't be undone.");
   await user.click(section.getByRole("button", { name: "Delete 1 task" }));
-  await section.findByText("Deleted 1 canceled task.");
+  await screen.findByText("Deleted 1 canceled task.");
   await section.findByText("There are no canceled tasks.");
   expect(section.getByRole("button", { name: "Delete canceled tasks" })).toHaveProperty(
     "disabled",

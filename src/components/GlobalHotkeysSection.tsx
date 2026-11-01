@@ -1,6 +1,7 @@
 import { useEffect, useState, type KeyboardEvent, type ReactElement } from "react";
 import { Button } from "@/components/variants/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { CopyButton } from "@/components/CopyButton";
 import {
   hotkeyFromKeyDown,
   hotkeyKeys,
@@ -36,7 +37,6 @@ export function GlobalHotkeysSection(): ReactElement {
   const [launcher, setLauncher] = useState<string | null>();
   const [recording, setRecording] = useState<Role | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     void hyprlandLauncher().then(setLauncher, () => setLauncher(null));
@@ -167,23 +167,9 @@ export function GlobalHotkeysSection(): ReactElement {
           <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
             <code>{binds}</code>
           </pre>
-          <Button
-            variant="outline"
-            className="w-fit"
-            onClick={() =>
-              void navigator.clipboard.writeText(binds).then(
-                () => setCopied("Hyprland binds copied."),
-                () => setCopied("The binds couldn't be copied; select them instead."),
-              )
-            }
-          >
+          <CopyButton className="w-fit" text={() => binds} copied="Binds copied">
             Copy binds
-          </Button>
-          {copied && (
-            <p role="status" className="text-sm text-muted-foreground">
-              {copied}
-            </p>
-          )}
+          </CopyButton>
         </div>
       )}
     </section>

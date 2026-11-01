@@ -25,12 +25,13 @@ export function showTaskToast(title: string, data: TaskToastData = {}): void {
 /**
  * The stock toaster, with task status icons and priority dots in place of the stock type icons.
  * A toast added with `actionProps` shows its one action button.
+ * Toasts stack above open dialogs, whose portals come later in the page (`client.feedback`).
  */
 export function TaskToaster() {
   return (
     <ToastProvider toastManager={toast}>
       <ToastPortal>
-        <ToastViewport>
+        <ToastViewport className="z-[60]">
           <TaskToastList />
         </ToastViewport>
       </ToastPortal>
