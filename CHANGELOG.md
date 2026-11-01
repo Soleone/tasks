@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/Soleone/tasks/compare/v0.3.8...v0.4.0) (2026-11-01)
+
+### Features
+
+* category and tag lists show the ones you used most recently first ([319b6d5](https://github.com/Soleone/tasks/commit/319b6d59fb7c8c8fe5d5c802a596bc66f1986825))
+* **cli:** tasks-cli works on the home the app opens, without --home ([18f565f](https://github.com/Soleone/tasks/commit/18f565f07c993383a634870d86e26de49950e978))
+* confirmations flash in a tooltip instead of resizing Settings, and toasts show above dialogs ([432f81d](https://github.com/Soleone/tasks/commit/432f81d137dedd54c107c91ae6b953b7a8a21505))
+* effort chevrons nudge the way their level points and fold flat on the way back to normal ([c843a54](https://github.com/Soleone/tasks/commit/c843a54b26ea0385d834cd2d657cf42fdb84f7d0))
+* send bugs and feedback from Settings, no GitHub account needed ([0711e39](https://github.com/Soleone/tasks/commit/0711e39e3361578b09a4e2a5365f5ecbeeff562b))
+* set a task's priority from its long-press menu and Task actions ([9830c4b](https://github.com/Soleone/tasks/commit/9830c4b2e933f7f5139adeac439532e1ca0ee7b5))
+* step priority with [ and ], and effort moves to , and . to match its chevrons ([97ad2f4](https://github.com/Soleone/tasks/commit/97ad2f4486d664895a61fa60247c56e2e1c6c3e6))
+* thinner focus rings across the app, crisp focus on Settings tabs, and a lighter kind choice in Send feedback ([035281c](https://github.com/Soleone/tasks/commit/035281c55a1cda4ab5c199b8a4de6fc1fd449716))
+* try Tasks in the browser, no install ([dd958e2](https://github.com/Soleone/tasks/commit/dd958e2c0a372d03989cd769bff18e982ab379c3))
+* **web:** a switch shows the example tasks, and a button downloads the app ([a22649f](https://github.com/Soleone/tasks/commit/a22649ffe45cd5b60c9ee684c543513f36b912b1))
+* **web:** example tasks wait behind a button, next to a download link ([8ed8151](https://github.com/Soleone/tasks/commit/8ed81518ef3dfb3cbc432b0af53e37ec6ce58872))
+
+### Bug Fixes
+
+* a narrow task editor no longer leaves an empty line under the title ([a044132](https://github.com/Soleone/tasks/commit/a0441320e48a2fa26573494f9ff438f0495e1aac))
+* on a narrow screen the task editor keeps the category on the title line, as in the list ([98d13ca](https://github.com/Soleone/tasks/commit/98d13caed6a38fc7f7f32eaa4e7b9c5967029016))
+* **styles:** rotate in-progress icon 180 degrees ([35efeb6](https://github.com/Soleone/tasks/commit/35efeb638a092f826597bcd49dfe9d41cbabc3e7))
+* switching Settings tabs no longer leaves the last tab's buttons showing for a moment ([88ef457](https://github.com/Soleone/tasks/commit/88ef457016eba6d9f3900a36eaaaa60767d5119d))
+* the category column fits your longest category and lines up with the editor ([21d7a7b](https://github.com/Soleone/tasks/commit/21d7a7bdaef7561e174a6c3edb91c4e01b47f41d))
+
 ## [0.3.8](https://github.com/Soleone/tasks/compare/v0.3.7...v0.3.8) (2026-10-31)
 
 ### Bug Fixes
