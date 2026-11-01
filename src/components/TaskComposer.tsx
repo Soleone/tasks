@@ -764,7 +764,13 @@ export function TaskComposer({
             </div>
           ) : null}
         </div>
-        <div className="ml-auto flex gap-2.5">
+        {/* Empty, this line would still take a row of its own under a narrow editor's title. */}
+        <div
+          className={cn(
+            "ml-auto flex gap-2.5",
+            classification.due === null && classification.category === null && "@max-md:hidden",
+          )}
+        >
           <ClassificationPills kind="due" {...pillProps} />
           <span className="w-7 shrink-0" />
           {categoryColumn ? (
