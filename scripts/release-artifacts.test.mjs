@@ -108,24 +108,7 @@ test("release assets include every installer and one complete signed desktop upd
     assert.equal(readFileSync(path.join(output, name), "utf8"), content);
   assert.equal(typeof manifest.notes, "string");
   assert.doesNotMatch(manifest.notes, /^#{1,2} /m);
-  const download = (name) =>
-    `[${name}](https://github.com/example/tasks/releases/download/${tag}/${name})`;
-  assert.equal(
-    readFileSync(path.join(output, "notes.md"), "utf8"),
-    [
-      "### Download",
-      "",
-      "| Device | File |",
-      "| --- | --- |",
-      `| Windows | ${download(windows)} |`,
-      `| Linux | ${download(linux)} |`,
-      `| Mac with Apple silicon | ${download(dmg)} |`,
-      `| Android | ${download(apk)} |`,
-      "",
-      manifest.notes,
-      "",
-    ].join("\n"),
-  );
+  assert.equal(readFileSync(path.join(output, "notes.md"), "utf8"), `${manifest.notes}\n`);
 });
 
 for (const notes of ["### Bug Fixes\n\n* Keep release downloads complete.", ""]) {
@@ -148,7 +131,7 @@ for (const notes of ["### Bug Fixes\n\n* Keep release downloads complete.", ""])
     assert.equal(result.status, 0, result.stderr);
     const manifest = JSON.parse(readFileSync(path.join(output, "latest.json"), "utf8"));
     assert.equal(manifest.notes, notes);
-    assert.ok(readFileSync(path.join(output, "notes.md"), "utf8").endsWith(`) |\n\n${notes}\n`));
+    assert.equal(readFileSync(path.join(output, "notes.md"), "utf8"), `${notes}\n`);
   });
 }
 
