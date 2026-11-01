@@ -12,7 +12,12 @@ const host = process.env.TAURI_DEV_HOST;
 const hosted = process.env.VITE_HOSTED === "1";
 
 // Registry internals stay upstream; application code uses their high-level components.
-const vendored = ["src/components/ui/**", "src/components/soleone/**"];
+const vendored = [
+  "src/components/ui/**",
+  "src/components/soleone/**",
+  "src/components/react-bits/**",
+  "src/components/lucide-animated/**",
+];
 
 const noBaseUi = {
   group: ["@base-ui/react", "@base-ui/react/*"],
@@ -92,6 +97,11 @@ export default defineConfig({
         },
       },
       {
+        // The web build's own components, kept out of the apps, restyle like the wrappers above.
+        files: ["src/web/**"],
+        rules: { "shadcn/no-restyle": "off" },
+      },
+      {
         // Tests and scripts build strings and functions from fixtures on purpose, node:test
         // registers top-level tests without awaiting them, and jsdom shims patch prototypes.
         files: ["**/*.test.{ts,tsx,mjs}", "scripts/**", "src/testing/**"],
@@ -123,7 +133,11 @@ export default defineConfig({
     },
   },
   // Late dependency optimization reloads the page, losing in-memory write requests.
-  optimizeDeps: { include: ["@base-ui/react/checkbox"] },
+  optimizeDeps: {
+    include: ["@base-ui/react/checkbox"],
+    // The dev server pre-bundles memfs and the like, where the plugins above never run.
+    ...(hosted ? { rolldownOptions: { plugins: [nodeShims()] } } : {}),
+  },
   clearScreen: false,
   server: {
     port: 5173,

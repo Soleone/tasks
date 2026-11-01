@@ -48,34 +48,58 @@ const SAMPLE_TASKS: SampleTask[] = [
 
 const STATUS_COMMANDS = { in_progress: "task.start", paused: "task.pause", done: "task.complete" };
 
-/**
- * Adds the example tasks through the app's own backend session, as the CLI would; the list picks
- * them up when it next checks for changes. They stay out of the visitor's undo history.
- */
-export async function addSampleTasks(session: JsonLineSession<Response>): Promise<void> {
-  const send = async (command: string, args: Record<string, unknown>) => {
-    const request = (fields: Record<string, unknown>) => {
-      const envelope = {
-        version: 2,
-        requestId: crypto.randomUUID(),
-        actor: { kind: "human", label: "Example tasks" },
-        dryRun: false,
-        ...fields,
-      };
-      return session.request(envelope);
-    };
-    const info = await request({ command: "workspace.info", args: {}, readOnly: true });
-    if (!info.ok) throw new Error(info.error.message);
-    const response = await request({
-      command,
-      args,
-      readOnly: false,
-      writeContext: info.writeContext,
-      idempotencyKey: crypto.randomUUID(),
-    });
-    if (!response.ok) throw new Error(response.error.message);
-    return response.result;
+type Session = JsonLineSession<Response>;
+type SavedTask = { id: string; version: number; status: string };
+
+/** Requests go through the app's own backend session, as the CLI's would. */
+function request(session: Session, fields: Record<string, unknown>) {
+  const envelope = {
+    version: 2,
+    requestId: crypto.randomUUID(),
+    actor: { kind: "human", label: "Example tasks" },
+    dryRun: false,
+    ...fields,
   };
+  return session.request(envelope);
+}
+
+/** The write context ties writes to this home and its cache, so one serves a whole batch. */
+async function writeContext(session: Session): Promise<string> {
+  const info = await request(session, { command: "workspace.info", args: {}, readOnly: true });
+  if (!info.ok) throw new Error(info.error.message);
+  return info.writeContext;
+}
+
+/** Writes stay out of the visitor's undo history; the list picks them up when it next checks. */
+async function write(
+  session: Session,
+  context: string,
+  command: string,
+  args: Record<string, unknown>,
+  dryRun = false,
+): Promise<Record<string, unknown>> {
+  const response = await request(session, {
+    command,
+    args,
+    readOnly: false,
+    dryRun,
+    writeContext: context,
+    idempotencyKey: crypto.randomUUID(),
+  });
+  if (!response.ok) throw new Error(response.error.message);
+  return response.result;
+}
+
+/**
+ * Adds the example tasks and returns their IDs. Each wave of requests goes out without waiting on
+ * replies, since the worker runs them in the order sent: the tasks, their subtasks, a fresh read of
+ * the ones with a status (adding tasks moves their neighbors, changing their versions), then the
+ * statuses.
+ */
+export async function addSampleTasks(session: Session): Promise<string[]> {
+  const context = await writeContext(session);
+  const ids: string[] = [];
+  const statuses: [id: string, status: NonNullable<SampleTask["status"]>][] = [];
   const create = async (
     {
       text,
@@ -83,19 +107,66 @@ export async function addSampleTasks(session: JsonLineSession<Response>): Promis
       status,
     }: { text: string; priority?: TaskPriority; status?: SampleTask["status"] },
     parentId: string | null,
-  ) => {
-    const { task } = (await send("task.create", { text, priority, parentId })) as {
-      task: { id: string; version: number };
+  ): Promise<string> => {
+    const { task } = (await write(session, context, "task.create", {
+      text,
+      priority,
+      parentId,
+    })) as {
+      task: SavedTask;
     };
-    if (status)
-      await send("task.transitionMany", {
-        tasks: [{ id: task.id, expectedVersion: task.version, command: STATUS_COMMANDS[status] }],
-      });
+    ids.push(task.id);
+    if (status) statuses.push([task.id, status]);
     return task.id;
   };
-  // New tasks go to the top, so the list is created from the bottom up.
-  for (const sample of [...SAMPLE_TASKS].reverse()) {
-    const id = await create(sample, null);
-    for (const child of [...(sample.children ?? [])].reverse()) await create(child, id);
-  }
+  // New tasks go to the top, so each wave is sent from the bottom up.
+  const samples = [...SAMPLE_TASKS].reverse();
+  const parentIds = await Promise.all(samples.map((sample) => create(sample, null)));
+  await Promise.all(
+    samples.flatMap((sample, index) =>
+      [...(sample.children ?? [])].reverse().map((child) => create(child, parentIds[index]!)),
+    ),
+  );
+  const tasks = await Promise.all(statuses.map(([id]) => getTask(session, id)));
+  await write(session, context, "task.transitionMany", {
+    tasks: tasks.map((task, index) => ({
+      id: task!.id,
+      expectedVersion: task!.version,
+      command: STATUS_COMMANDS[statuses[index]![1]],
+    })),
+  });
+  return ids;
+}
+
+/** The task as saved now, or `undefined` once it's gone. */
+async function getTask(session: Session, id: string): Promise<SavedTask | undefined> {
+  const response = await request(session, { command: "task.get", args: { id }, readOnly: true });
+  if (response.ok) return (response.result as { task: SavedTask }).task;
+  if (response.error.code !== "TASK_NOT_FOUND") throw new Error(response.error.message);
+  return undefined;
+}
+
+/**
+ * Deletes the example tasks still in the home, edited or not, then purges them, unless that would
+ * also purge the visitor's own canceled tasks; then they stay under Canceled.
+ */
+export async function removeSampleTasks(session: Session, ids: string[]): Promise<void> {
+  const context = await writeContext(session);
+  const tasks = await Promise.all(ids.map((id) => getTask(session, id)));
+  const live = tasks.filter(
+    (task): task is SavedTask => task !== undefined && task.status !== "canceled",
+  );
+  if (live.length > 0)
+    await write(session, context, "task.transitionMany", {
+      tasks: live.map(({ id, version }) => ({
+        id,
+        expectedVersion: version,
+        command: "task.delete",
+      })),
+    });
+  const { purgedIds } = (await write(session, context, "task.purgeCanceled", {}, true)) as {
+    purgedIds: string[];
+  };
+  if (purgedIds.length > 0 && purgedIds.every((id) => ids.includes(id)))
+    await write(session, context, "task.purgeCanceled", {});
 }

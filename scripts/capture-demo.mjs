@@ -23,7 +23,7 @@ await record({
   width: 1280,
   async start(page) {
     await page.waitFor(`document.body.innerText.includes("0 active tasks")`, { timeoutMs: 30_000 });
-    await page.click("Add example tasks");
+    await page.click("Show example tasks");
     await page.waitFor(`document.body.innerText.includes("13 active tasks")`);
     // Pausing the first quest leaves a toast for a few seconds; the clip starts once it is gone.
     await page.click("Later");

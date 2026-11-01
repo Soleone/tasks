@@ -12,6 +12,7 @@
     "tasks-cli": "pnpm build:backend && node dist/backend/tasks-cli.js",
     "build": "pnpm check && pnpm build:backend && pnpm build:web",
     "build:web": "vp build",
+    "dev:demo": "VITE_HOSTED=1 vp dev --port 5175",
     "build:hosted": "VITE_HOSTED=1 vp build --outDir dist/hosted",
     "release:demo": "pnpm build:hosted && vercel deploy dist/hosted --prod --yes --project tasks-demo --scope soleones-projects",
     "build:backend": "node -e \"require('fs').rmSync('dist/backend', { recursive: true, force: true })\" && tsc -p tsconfig.backend.json",

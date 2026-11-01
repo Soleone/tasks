@@ -94,6 +94,7 @@ export const TaskOption = memo(function TaskOption({
         data-context-parent={(row.contextOnly && row.depth === 0) || undefined}
         data-context-child={(row.contextOnly && row.depth === 1) || undefined}
         data-depth={row.depth}
+        data-task-id={task.id}
         nested={row.depth === 1}
         data-saved-task={saved}
         data-exiting-task={exitingTaskIds.has(task.id) || undefined}

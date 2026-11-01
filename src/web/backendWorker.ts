@@ -3,7 +3,7 @@ import initSqlJs from "sql.js";
 import sqlWasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import { executeHomeLine } from "@/backend/homeGateway";
 import type { Response } from "@/backend/protocol";
-import { CLOSE_MESSAGE, WEB_HOME } from "@/platform/workerBackend";
+import { CLOSE_MESSAGE, WEB_HOME } from "./workerBackend";
 import { restoreFiles, snapshotFiles } from "./homeSnapshot";
 import { loadHome, saveHome } from "./homeStorage";
 import { provideSqlJs } from "./shims/sqlite";

@@ -1,0 +1,6 @@
+/* Styles only the web build loads. */
+
+/* The corner's buttons sit where toasts land, so toasts rise above them. */
+[data-slot="toast-viewport"] {
+  bottom: 8rem;
+}

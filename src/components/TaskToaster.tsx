@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import { Toast } from "@/components/variants/toast";
 import type { TaskPriority } from "@/backend/taskModel";
 import { priorityMeta } from "@/components/taskFilters";
-import { isHosted } from "@/platform/runtime";
 import {
   ToastAction,
   ToastClose,
@@ -31,8 +30,7 @@ export function TaskToaster() {
   return (
     <ToastProvider toastManager={toast}>
       <ToastPortal>
-        {/* The web build keeps its own buttons in the bottom corner, below the toasts. */}
-        <ToastViewport className={isHosted() ? "bottom-32" : undefined}>
+        <ToastViewport>
           <TaskToastList />
         </ToastViewport>
       </ToastPortal>

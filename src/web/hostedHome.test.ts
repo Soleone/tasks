@@ -2,7 +2,10 @@ import initSqlJs from "sql.js";
 import { vol } from "memfs";
 import { beforeAll, expect, test, vi } from "vite-plus/test";
 import { executeHomeLine } from "@/backend/homeGateway";
+import type { Response } from "@/backend/protocol";
+import type { JsonLineSession } from "@/platform/backendSession";
 import { restoreFiles, snapshotFiles } from "./homeSnapshot";
+import { addSampleTasks, removeSampleTasks } from "./sampleTasks";
 import { provideSqlJs } from "./shims/sqlite";
 
 // The backend runs on the same stand-ins as in the hosted build's worker.
@@ -65,4 +68,46 @@ test("platform.open-workspace: the hosted home keeps its tasks and undo history 
   // A restored home that looked copied would refuse this until a new history started.
   send("operation.undo", { operationId: created.result.operationId });
   expect(titles()).toEqual([]);
+});
+
+test("platform.open-workspace: example tasks come and go without touching the visitor's own tasks", async () => {
+  vol.reset();
+  send("home.create", {}, false);
+  send("workspace.init");
+  const session = {
+    request: (envelope: object) =>
+      Promise.resolve(
+        executeHomeLine(new TextEncoder().encode(JSON.stringify(envelope)), HOME, "app"),
+      ),
+  } as unknown as JsonLineSession<Response>;
+  const own = (title: string) => {
+    const { task } = send("task.create", { text: title }).result as {
+      task: { id: string; version: number };
+    };
+    return task;
+  };
+  const listed = () =>
+    (
+      send("task.list", { status: ["open", "in_progress", "paused", "done", "canceled"] }, false)
+        .result.tasks as { title: string }[]
+    )
+      .map((task) => task.title)
+      .sort();
+
+  own("Mine");
+  await removeSampleTasks(session, await addSampleTasks(session));
+  expect(listed()).toEqual(["Mine"]);
+
+  const canceled = own("Mine, canceled");
+  send("task.delete", { id: canceled.id, expectedVersion: canceled.version });
+  const ids = await addSampleTasks(session);
+  await removeSampleTasks(session, ids);
+  // Purging would take the visitor's canceled task too, so the examples wait under Canceled.
+  expect(listed()).toContain("Mine, canceled");
+  expect(
+    ids.every(
+      (id) =>
+        (send("task.get", { id }, false).result.task as { status: string }).status === "canceled",
+    ),
+  ).toBe(true);
 });

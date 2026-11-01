@@ -3,7 +3,14 @@ import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useAppUpdate } from "./useAppUpdate";
 import { useGlobalHotkeys } from "./useGlobalHotkeys";
 import { useHeaderCounts } from "./useHeaderCounts";
-import { useEffect, useEffectEvent, useRef, useState, type ReactElement } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { Palette, Settings2 } from "lucide-react";
 import { AppIcon } from "@/components/AppIcon";
 import { WorkspaceRequestRecovery } from "@/components/WorkspaceRequestRecovery";
@@ -189,7 +196,14 @@ type OpenLens = { lens: ListLens; returnTo: ListView; place: TaskListPlace | nul
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
 // task editor or list.
-export default function App({ workspace }: { workspace: MainWorkspace }): ReactElement {
+export default function App({
+  workspace,
+  homeSection,
+}: {
+  workspace: MainWorkspace;
+  /** The Settings › Data section for a build that keeps its home elsewhere, as the web version does. */
+  homeSection?: ReactNode;
+}): ReactElement {
   // Rebind after development module reloads before the list's query effects run.
   useEffect(() => {
     selectMainWorkspace(workspace);
@@ -1090,6 +1104,7 @@ export default function App({ workspace }: { workspace: MainWorkspace }): ReactE
         finalFocus={() => focusStack.restore("settings")}
         fontSizeIncrease={fontSizeIncrease}
         onFontSizeIncreaseChange={changeFontSizeIncrease}
+        homeSection={homeSection}
       />
     </main>
   );

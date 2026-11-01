@@ -1,4 +1,4 @@
-import type { BackendCommand } from "./backendSession";
+import type { BackendCommand } from "@/platform/backendSession";
 
 /** Where the web build keeps its Tasks home, inside the worker's in-memory files. */
 export const WEB_HOME = "/Tasks";
@@ -23,7 +23,7 @@ export function workerBackend(): BackendCommand {
       if (event === "error") listeners.error = listener as Listeners["error"];
     },
     spawn() {
-      const worker = new Worker(new URL("../web/backendWorker.ts", import.meta.url), {
+      const worker = new Worker(new URL("./backendWorker.ts", import.meta.url), {
         type: "module",
       });
       let markClosed = () => {};

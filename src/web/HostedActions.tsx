@@ -1,26 +1,37 @@
-import { Download, ListPlus } from "lucide-react";
 import { useEffect, useRef, useState, type ReactElement, type RefObject } from "react";
+import { DownloadIcon, type DownloadIconHandle } from "@/components/lucide-animated/download";
+import SquishSwitch from "@/components/react-bits/SquishSwitch";
 import { showTaskToast } from "@/components/TaskToaster";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { FloatingButton } from "@/components/variants/button";
+import { Button } from "@/components/variants/button";
 import { preventFocusSteal } from "@/navigation";
 
 export const RELEASES_URL = "https://github.com/Soleone/tasks/releases/latest";
-const SAMPLES_ADDED_KEY = "tasks.sampleTasksAdded";
+const SAMPLE_IDS_KEY = "tasks.sampleTaskIds";
+const SWITCH_ID = "example-tasks-switch";
+const TASK_ROWS = '[role="option"][data-depth]';
 
 /** The tooltip names an action only where the button shows just its icon. */
-function Labeled({ label, children }: { label: string; children: ReactElement }) {
+function Labeled({
+  label,
+  side,
+  children,
+}: {
+  label: string;
+  side: "left" | "right";
+  children: ReactElement;
+}) {
   return (
     <Tooltip>
       <TooltipTrigger render={children} />
-      <TooltipContent side="left" className="xl:hidden">
+      <TooltipContent side={side} className="xl:hidden">
         {label}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-/** Where the quest card spans the window, as on phones, the corner sits just above it. */
+/** Where the quest card reaches under a corner, as on phones, the corner sits just above it. */
 function useAboveQuestCard(): RefObject<HTMLDivElement | null> {
   const corner = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -28,7 +39,8 @@ function useAboveQuestCard(): RefObject<HTMLDivElement | null> {
       const element = corner.current;
       const card = document.querySelector("[data-quest-card]")?.getBoundingClientRect();
       if (!element) return;
-      const covers = card && card.right > element.getBoundingClientRect().left;
+      const box = element.getBoundingClientRect();
+      const covers = card && card.left < box.right && card.right > box.left;
       element.style.bottom = covers ? `${window.innerHeight - card.top + 12}px` : "";
     };
     // The card comes and goes, and its text changes its height.
@@ -44,55 +56,184 @@ function useAboveQuestCard(): RefObject<HTMLDivElement | null> {
   return corner;
 }
 
-/** The web build's corner: example tasks until they're added, and the way to the apps. */
-export function HostedActions({ addSamples }: { addSamples: () => Promise<void> }) {
-  const [added, setAdded] = useState(() => localStorage.getItem(SAMPLES_ADDED_KEY) === "1");
-  const [adding, setAdding] = useState(false);
-  const corner = useAboveQuestCard();
+const MATERIALIZE: Keyframe[] = [
+  { opacity: 0, filter: "blur(6px)", transform: "scale(1.04)" },
+  { opacity: 1, filter: "none", transform: "none" },
+];
+const PRESS: Keyframe[] = [
+  { scale: 1 },
+  { scale: 0.9, offset: 0.25, easing: "ease-out" },
+  { scale: 1.04, offset: 0.65 },
+  { scale: 1 },
+];
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  async function add(): Promise<void> {
-    setAdding(true);
+/**
+ * Brings each task row that appears from now on into focus from a soft blur, top to bottom, until
+ * the returned function stops it.
+ */
+function materializeNewRows(): () => void {
+  if (reducedMotion()) return () => {};
+  const seen = new Set(document.querySelectorAll(TASK_ROWS));
+  const observer = new MutationObserver(() => {
+    const fresh = [...document.querySelectorAll(TASK_ROWS)].filter((row) => !seen.has(row));
+    fresh.forEach((row, index) => {
+      seen.add(row);
+      for (const part of row.children)
+        part.animate(MATERIALIZE, {
+          duration: 230,
+          delay: index * 15,
+          easing: "ease-out",
+          fill: "backwards",
+        });
+    });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}
+
+/** The reverse, for the rows of these tasks: they blur away, top to bottom, and stay hidden. */
+function dematerializeRows(ids: string[]): Animation[] {
+  if (reducedMotion()) return [];
+  const rows = [...document.querySelectorAll<HTMLElement>(TASK_ROWS)].filter((row) =>
+    ids.includes(row.dataset.taskId ?? ""),
+  );
+  return rows.flatMap((row, index) =>
+    [...row.children].map((part) =>
+      part.animate([...MATERIALIZE].reverse(), {
+        duration: 150,
+        delay: index * 10,
+        easing: "ease-in",
+        fill: "forwards",
+      }),
+    ),
+  );
+}
+
+function storedSampleIds(): string[] {
+  try {
+    const ids: unknown = JSON.parse(localStorage.getItem(SAMPLE_IDS_KEY) ?? "[]");
+    return Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The list reloads when the window regains focus, as after the CLI changes tasks; this saves
+ * waiting up to 1.5 s for its next check. */
+const reloadList = () => window.dispatchEvent(new Event("focus"));
+
+/** The web build's corners: example tasks to switch on and off, and the way to the apps. */
+export function HostedActions({
+  addSamples,
+  removeSamples,
+}: {
+  addSamples: () => Promise<string[]>;
+  removeSamples: (ids: string[]) => Promise<void>;
+}) {
+  // The switch moves at once; the tasks follow, one change at a time, in the order asked for.
+  const [on, setOn] = useState(() => storedSampleIds().length > 0);
+  const queue = useRef(Promise.resolve());
+  const downloadIcon = useRef<DownloadIconHandle>(null);
+  const left = useAboveQuestCard();
+  const right = useAboveQuestCard();
+
+  async function show(): Promise<void> {
+    // Started first, since the list may pick up some tasks while the rest are still being added.
+    const stop = materializeNewRows();
     try {
-      await addSamples();
-      // The list reloads when the window regains focus, as after the CLI changes tasks; this saves
-      // waiting up to 1.5 s for its next check.
-      window.dispatchEvent(new Event("focus"));
-      localStorage.setItem(SAMPLES_ADDED_KEY, "1");
-      setAdded(true);
-    } catch (error) {
-      showTaskToast(
-        `Example tasks couldn't be added. ${error instanceof Error ? error.message : ""}`,
-      );
+      localStorage.setItem(SAMPLE_IDS_KEY, JSON.stringify(await addSamples()));
+      reloadList();
     } finally {
-      setAdding(false);
+      setTimeout(stop, 2000);
     }
   }
 
+  async function hide(): Promise<void> {
+    const ids = storedSampleIds();
+    const leaving = dematerializeRows(ids);
+    // Any row still listed afterwards, as under Canceled, comes back once the list has reloaded.
+    const restore = () =>
+      setTimeout(() => leaving.forEach((animation) => animation.cancel()), 1500);
+    try {
+      await Promise.all(leaving.map((animation) => animation.finished));
+      await removeSamples(ids);
+      localStorage.setItem(SAMPLE_IDS_KEY, "[]");
+      reloadList();
+    } finally {
+      restore();
+    }
+  }
+
+  function toggle(next: boolean): void {
+    setOn(next);
+    queue.current = queue.current.then(async () => {
+      if (next === storedSampleIds().length > 0) return;
+      try {
+        await (next ? show() : hide());
+      } catch (error) {
+        setOn(!next);
+        showTaskToast(
+          `Example tasks couldn't be ${next ? "added" : "removed"}. ${error instanceof Error ? error.message : ""}`,
+        );
+      }
+    });
+  }
+
   return (
-    <div
-      ref={corner}
-      className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-2 motion-safe:transition-all md:right-8 md:bottom-8"
-    >
-      {added ? null : (
-        <Labeled label="Add example tasks">
-          <FloatingButton
-            icon={ListPlus}
-            label="Add example tasks"
-            disabled={adding}
-            onMouseDown={preventFocusSteal}
-            onClick={() => void add()}
-          />
+    <>
+      <div
+        ref={left}
+        className="fixed bottom-4 left-4 z-40 flex h-9 items-center motion-safe:transition-all md:bottom-8 md:left-8"
+      >
+        <Labeled label="Show example tasks" side="right">
+          {/* Clicking keeps focus in the list, so its keys go on working. */}
+          <span className="flex items-center" onMouseDown={preventFocusSteal}>
+            <SquishSwitch
+              checked={on}
+              onChange={toggle}
+              id={SWITCH_ID}
+              width={40}
+              height={22}
+              radius={11}
+              trackColor="var(--muted)"
+              trackOnColor="var(--primary)"
+              thumbColor="var(--muted-foreground)"
+              thumbOnColor="var(--primary-foreground)"
+              className="rounded-full has-focus-visible:outline-2 has-focus-visible:outline-offset-4 has-focus-visible:outline-ring"
+            />
+            <label
+              htmlFor={SWITCH_ID}
+              className="ml-2.5 cursor-pointer text-sm font-medium select-none max-xl:sr-only"
+            >
+              Show example tasks
+            </label>
+          </span>
         </Labeled>
-      )}
-      <Labeled label="Get the app">
-        <FloatingButton
-          icon={Download}
-          label="Get the app"
-          variant="outline"
-          nativeButton={false}
-          render={<a href={RELEASES_URL} target="_blank" rel="noreferrer" />}
-        />
-      </Labeled>
-    </div>
+      </div>
+      <div
+        ref={right}
+        className="fixed right-4 bottom-4 z-40 motion-safe:transition-all md:right-8 md:bottom-8"
+      >
+        <Labeled label="Download the app" side="left">
+          <Button
+            size="lg"
+            className="px-3 shadow-lg max-xl:size-9 max-xl:px-0"
+            // The tab opens on release, so the whole press plays out from the moment it starts.
+            onPointerDown={(event) => {
+              if (!reducedMotion()) event.currentTarget.animate(PRESS, 300);
+            }}
+            // The whole button starts the icon's hover animation, not just the icon.
+            onMouseEnter={() => downloadIcon.current?.startAnimation()}
+            onMouseLeave={() => downloadIcon.current?.stopAnimation()}
+            nativeButton={false}
+            render={<a href={RELEASES_URL} target="_blank" rel="noreferrer" />}
+          >
+            <DownloadIcon ref={downloadIcon} size={16} className="flex" aria-hidden="true" />
+            <span className="max-xl:sr-only">Download the app</span>
+          </Button>
+        </Labeled>
+      </div>
+    </>
   );
 }

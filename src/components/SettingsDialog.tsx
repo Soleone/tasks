@@ -1,7 +1,7 @@
-import { useRef, useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement, type ReactNode } from "react";
 import { XIcon } from "lucide-react";
 import { selectedMainWorkspace, switchHome } from "@/platform/backendClient";
-import { isDesktopApp, isHosted, runtimeKind } from "@/platform/runtime";
+import { isDesktopApp, runtimeKind } from "@/platform/runtime";
 import { revealHome } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/variants/button";
 import {
@@ -23,7 +23,6 @@ import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
 import { version } from "../../package.json";
-import { RELEASES_URL } from "@/web/HostedActions";
 
 type SettingsDialogProps = {
   open: boolean;
@@ -31,6 +30,8 @@ type SettingsDialogProps = {
   finalFocus: () => HTMLElement | undefined;
   fontSizeIncrease: FontSizeIncrease;
   onFontSizeIncreaseChange: (increase: FontSizeIncrease) => void;
+  /** Replaces the Data tab's Tasks home section, for a build that keeps its home elsewhere. */
+  homeSection?: ReactNode;
 };
 
 function fontSizeLabel(increase: FontSizeIncrease): string {
@@ -64,6 +65,7 @@ export function SettingsDialog({
   finalFocus,
   fontSizeIncrease,
   onFontSizeIncreaseChange,
+  homeSection,
 }: SettingsDialogProps): ReactElement {
   const workspace = selectedMainWorkspace();
   const [pathNotice, setPathNotice] = useState<string | null>(null);
@@ -259,99 +261,93 @@ export function SettingsDialog({
 
             <StackedTabsContent value="workspace" tabIndex={-1}>
               <div className="grid gap-4 md:grid-cols-2">
-                <section
-                  aria-labelledby="settings-sync"
-                  className="flex flex-col gap-3 rounded-lg border p-4 md:col-span-2"
-                >
-                  <div className="flex flex-col gap-1">
-                    <h2 id="settings-sync" className="text-sm font-medium">
-                      Tasks home
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {isHosted()
-                        ? "This page keeps your tasks, settings and undo in this browser only. The desktop and Android apps keep them as files in a folder you choose, ready for Syncthing and backups."
-                        : "Everything Tasks keeps on this device: tasks, settings, history and undo. For a full backup, close Tasks and the CLI and copy the whole folder."}
-                    </p>
-                  </div>
-                  {isHosted() ? (
-                    <Button
-                      variant="outline"
-                      className="w-fit"
-                      nativeButton={false}
-                      render={<a href={RELEASES_URL} target="_blank" rel="noreferrer" />}
-                    >
-                      Get the app
-                    </Button>
-                  ) : workspace ? (
-                    <>
-                      <code className="wrap-anywhere text-xs">
-                        {workspace.editor.selection.profilePath}
-                      </code>
-                      {isDesktopApp() && (
+                {homeSection ?? (
+                  <section
+                    aria-labelledby="settings-sync"
+                    className="flex flex-col gap-3 rounded-lg border p-4 md:col-span-2"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <h2 id="settings-sync" className="text-sm font-medium">
+                        Tasks home
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Everything Tasks keeps on this device: tasks, settings, history and undo.
+                        For a full backup, close Tasks and the CLI and copy the whole folder.
+                      </p>
+                    </div>
+                    {workspace ? (
+                      <>
+                        <code className="wrap-anywhere text-xs">
+                          {workspace.editor.selection.profilePath}
+                        </code>
+                        {isDesktopApp() && (
+                          <Button
+                            variant="outline"
+                            className="w-fit"
+                            onClick={() =>
+                              void revealHome().catch((error: unknown) =>
+                                setPathNotice(
+                                  error instanceof Error ? error.message : String(error),
+                                ),
+                              )
+                            }
+                          >
+                            Open folder
+                          </Button>
+                        )}
+                        <h3 className="text-sm font-medium">Sync folder</h3>
+                        <code className="wrap-anywhere text-xs">
+                          {workspace.editor.selection.rootPath}
+                        </code>
                         <Button
                           variant="outline"
                           className="w-fit"
                           onClick={() =>
-                            void revealHome().catch((error: unknown) =>
-                              setPathNotice(error instanceof Error ? error.message : String(error)),
-                            )
+                            void navigator.clipboard
+                              .writeText(workspace.editor.selection.rootPath)
+                              .then(
+                                () => setPathNotice("Sync folder path copied."),
+                                () =>
+                                  setPathNotice("The path couldn't be copied; select it instead."),
+                              )
                           }
                         >
-                          Open folder
+                          Copy path
                         </Button>
-                      )}
-                      <h3 className="text-sm font-medium">Sync folder</h3>
-                      <code className="wrap-anywhere text-xs">
-                        {workspace.editor.selection.rootPath}
-                      </code>
+                        <p className="text-sm text-muted-foreground">
+                          Add only this sync folder to Syncthing, not the Tasks home. Syncing the
+                          home would copy this device's database and locks to your other devices and
+                          can damage them.
+                        </p>
+                        {pathNotice && (
+                          <p role="status" className="text-sm text-muted-foreground">
+                            {pathNotice}
+                          </p>
+                        )}
+                      </>
+                    ) : null}
+                    {runtimeKind() === "native" && (
                       <Button
                         variant="outline"
                         className="w-fit"
-                        onClick={() =>
-                          void navigator.clipboard
-                            .writeText(workspace.editor.selection.rootPath)
-                            .then(
-                              () => setPathNotice("Sync folder path copied."),
-                              () =>
-                                setPathNotice("The path couldn't be copied; select it instead."),
-                            )
-                        }
+                        disabled={switching}
+                        onClick={() => {
+                          if (switchStarted.current) return;
+                          switchStarted.current = true;
+                          setSwitching(true);
+                          setPathNotice("Saving this home before opening setup…");
+                          void switchHome().catch((error: unknown) => {
+                            switchStarted.current = false;
+                            setSwitching(false);
+                            setPathNotice(error instanceof Error ? error.message : String(error));
+                          });
+                        }}
                       >
-                        Copy path
+                        Open another home…
                       </Button>
-                      <p className="text-sm text-muted-foreground">
-                        Add only this sync folder to Syncthing, not the Tasks home. Syncing the home
-                        would copy this device's database and locks to your other devices and can
-                        damage them.
-                      </p>
-                      {pathNotice && (
-                        <p role="status" className="text-sm text-muted-foreground">
-                          {pathNotice}
-                        </p>
-                      )}
-                    </>
-                  ) : null}
-                  {runtimeKind() === "native" && (
-                    <Button
-                      variant="outline"
-                      className="w-fit"
-                      disabled={switching}
-                      onClick={() => {
-                        if (switchStarted.current) return;
-                        switchStarted.current = true;
-                        setSwitching(true);
-                        setPathNotice("Saving this home before opening setup…");
-                        void switchHome().catch((error: unknown) => {
-                          switchStarted.current = false;
-                          setSwitching(false);
-                          setPathNotice(error instanceof Error ? error.message : String(error));
-                        });
-                      }}
-                    >
-                      Open another home…
-                    </Button>
-                  )}
-                </section>
+                    )}
+                  </section>
+                )}
               </div>
             </StackedTabsContent>
 
