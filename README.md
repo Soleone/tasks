@@ -6,33 +6,24 @@ A keyboard-first task list whose tasks are plain JSON files, so you, your script
 
 ![Capturing a task with shorthand, starting it and finishing it in Tasks](docs/media/demo.webp)
 
-Each task is one JSON file in the sync folder of a Tasks home you choose, so tasks can be synced, backed up and edited by scripts. A React app, a CLI and a JSON-lines interface for agents share one TypeScript backend; the desktop and Android shells are Tauri with a bundled Node runtime, and the web version runs the same backend in the browser. [PLAN.md](PLAN.md) has what is next.
+Every task is one file in a folder you choose, so you can sync it, back it up and edit it with any tool. The app, the command line and your agents all go through the same backend, so they follow the same rules and every change can be undone.
 
-## Install and check
+## What it's like
 
-```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm check && pnpm lint && pnpm test
-```
+- **Capture without leaving the keyboard.** `C` opens a new task. Type `@work #urgent !fri` in the title and they turn into a category, a tag and a due date as you type.
+- **Move work along in one key.** `Space` steps a task from open to in progress to done, `0`–`4` set its priority and `[` `]` its effort. `Shift+C` adds a subtask, `B` a blocker.
+- **Ask the list one question.** `!` shows what is due today or late, `D` what you finished in the last day. `F` filters, `S` sorts, `/` searches.
+- **Undo anything.** `Ctrl/⌘+Z` takes back your latest change, and the undo history is still there after a restart.
+- **Learn it as you go.** `Ctrl/⌘+K` lists every shortcut and the shorthand, `?` opens the Learn panel and `Alt+T` picks a theme. On desktop, a global hotkey can bring Tasks forward or open a new task from anywhere.
 
-Use disposable data while developing. Nothing below touches your personal workspace.
+Every key has a mouse or touch path too. The full keymap is in [the client spec](spec/client/README.md).
 
-## Run the app
+## Get it
 
-```bash
-pnpm dev:web
-```
+- **In your browser:** [tasks.soleone.xyz](https://tasks.soleone.xyz) keeps your tasks in that browser only. Add the example tasks from the corner button to look around.
+- **Desktop and Android:** the [latest release](https://github.com/Soleone/tasks/releases/latest) has a Windows installer, a macOS disk image for Apple silicon, a Linux AppImage and an Android APK. The first launch asks you to create a Tasks home or open one you already have. The desktop apps update themselves.
 
-This copies the fixture into a fresh temporary Tasks home, prints where it is, and opens the task list at the URL Vite prints. `C` captures, `Enter` edits, `Space` moves status forward, `Ctrl/⌘+K` lists every shortcut. The full keymap and behavior are in [the client spec](spec/client/README.md).
-
-To try changes on your real tasks without touching them, run `pnpm dev:web:real`. The first run asks which folder to copy to `$DATA/apps/tasks/dev-web-real/` (without `DATA`, a `tasks-dev` folder in local app data, such as `%LOCALAPPDATA%` on Windows); Enter takes the suggestion (a `Documents/Tasks` folder if one exists, otherwise the test data). The copy becomes the sync folder of a Tasks home there. Later runs reuse it with everything you changed in it. `pnpm dev:web:real --refresh` asks again, with your last choice as the default, and replaces the copy. Nothing is written back, and the copy sits outside Syncthing. Agents never run it.
-
-To keep data between runs in a home of your own, pick it yourself: `pnpm dev:web --home PATH`. The window asks before opening it.
-
-`pnpm build:hosted` builds the web version, which needs no server and keeps its tasks in the browser; `pnpm release:demo` deploys it to tasks.soleone.xyz. See [the development guide](docs/development.md#hosted-web-build).
-
-## The Tasks home
+## Your tasks are files
 
 Everything Tasks keeps for one device lives in one folder, its Tasks home:
 
@@ -42,54 +33,43 @@ Everything Tasks keeps for one device lives in one folder, its Tasks home:
 <home>/local/          caches, writer lock, recovery files and undo records; never synced
 ```
 
-Never add the home itself to a sync tool. Each device has its own home; Syncthing connects their `sync/` folders, and settings, caches and undo history stay on each device. `local/` isn't a throwaway cache: deleting it loses undo history, receipts and any recovery files.
+- **Syncing devices.** Each device has its own home. Share only the `sync/` folders between them with Syncthing; settings and undo history stay on each device. Never sync the home itself or its `local/` folder.
+- **`local/` is not a throwaway cache.** It holds undo history, receipts and recovery files. Deleting it loses them, though the tasks themselves are safe in `sync/`.
+- **Backups.** Close Tasks and the command line and copy the whole home. When you open a copy, the app asks to start a new history there, so a copy never inherits or wipes history silently. The old history is kept aside in `local/retired/`. A home moved as a whole on the same drive keeps its history once you confirm the move.
 
-For a full backup, close Tasks and the CLI and copy the whole home. When a copy is opened, the app asks to start a new history there; the tasks, settings and undo records are all in it, and the old history is kept aside in `local/retired/`. A home moved as a whole on the same drive keeps its history once you confirm the move.
+Coming from a version of Tasks before homes? [Moving a task folder into a home](docs/moving-to-a-home.md) takes three steps.
 
-### Moving a task folder from before homes
+## Scripts and agents
 
-A task folder moves into a home by copying. Do this once on each device:
-
-1. Create the home in setup, then close Tasks and the CLI and pause the folder in Syncthing.
-2. Copy `workspace.json` and `tasks/` from the old folder into the home's `sync/` folder and open Tasks again. The tasks come over; undo and activity history from before the move don't.
-3. Syncthing can't change a folder's path, so remove the folder there (its files stay) and add it again with the same folder ID, pointing at the new home's `sync/` folder, shared with the same devices. It finds the files already in sync.
-
-## Use the CLI
-
-The CLI has no default home, so give it a scratch one:
+`tasks-cli` works on the same home as the app, sharing its lock, so both can be open at once. Every call names the home:
 
 ```bash
-scratch=$(mktemp -d)
-cp -R scripts/fixtures/workspace/root "$scratch/sync" && mkdir "$scratch/local"
-pnpm build:backend
-node dist/backend/tasks-cli.js --home "$scratch" list --sort manual
+tasks-cli --home ~/Tasks add 'Write the release notes @work #docs !fri'
+tasks-cli --home ~/Tasks list --status open --sort due
+tasks-cli --home ~/Tasks complete TASK_ID
 ```
 
-`tasks-cli --home PATH init` creates a new, empty home. The CLI keeps its own cache in the home's `local/` and shares the app's writer lock.
-
-`--help` lists the verbs. Before each write the CLI prints a `tasks-cli retry: {...}` line to stderr; to retry an uncertain write, pass back its context, key and expected version unchanged. Agents can send JSON-lines requests directly:
+`--help` lists the verbs, and `tasks-cli --home PATH init` creates an empty home. Agents can send JSON lines instead, one request per line:
 
 ```bash
 printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
-  node dist/backend/tasks-cli.js --stdio --home "$scratch" --client cli
+  tasks-cli --stdio --home ~/Tasks --client cli
 ```
 
-See [spec/ecosystem/cli.md](spec/ecosystem/cli.md) and [spec/backend/commands.md](spec/backend/commands.md).
+Before each write the CLI prints a `tasks-cli retry: {...}` line to stderr. To retry a write whose outcome you didn't see, pass back its context, key and expected version unchanged, and it is never applied twice. For now, build the CLI from a checkout: `pnpm install && pnpm build:backend`, then run `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).
 
-## Desktop
+## Development
 
-The desktop app runs the same UI on the current engine. It opens the remembered Tasks home; the first launch asks to create or open one. Build it on the machine it should run on:
+A React app, the CLI and the JSON-lines interface share one TypeScript backend. The desktop and Android apps are Tauri shells with a bundled Node runtime, and the web version runs the same backend in a Web Worker.
 
-```powershell
-pnpm install
-pnpm build:tauri
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm check && pnpm lint && pnpm test
+pnpm dev:web
 ```
 
-On Windows that produces one installer, `src-tauri/target/release/bundle/nsis/Tasks_<version>_x64-setup.exe`. `pnpm dev:native` runs it in development. Setup is in [docs/development.md](docs/development.md#desktop-development). The Android app runs the same UI and backend; `pnpm build:android` builds it ([details](docs/development.md#android)).
-
-## Data safety
-
-The JSON files own task state. The local SQLite cache also holds receipts, undo history and write authority, so deleting it is not a harmless rebuild. Never sync the home or its `local/` folder. A copied or restored home never inherits or wipes history silently: the app asks to start a new history.
+`pnpm dev:web` opens the app on a fresh copy of the sample tasks, so nothing touches your own. `pnpm dev:web:real` works on a copy of your real tasks and never writes back, and `pnpm dev:web --home PATH` opens a home you pick. `pnpm dev:native` runs the desktop app, `pnpm build:tauri` and `pnpm build:android` build the native apps, and `pnpm build:hosted` builds the web version. [The development guide](docs/development.md) covers each of these, plus validation, releases and signing. [PLAN.md](PLAN.md) has what is next and [GUIDELINES.md](GUIDELINES.md) the product principles.
 
 ## Documentation
 
