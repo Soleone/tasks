@@ -11,7 +11,7 @@ export function Command({ className, ...props }: ComponentProps<typeof StockComm
   return (
     <StockCommand
       className={cn(
-        "[&_[data-slot=input-group]:has(input:focus-visible)]:ring-2 [&_[data-slot=input-group]:has(input:focus-visible)]:ring-ring",
+        "[&_[data-slot=input-group]:has(input:focus-visible)]:ring-1 [&_[data-slot=input-group]:has(input:focus-visible)]:ring-ring",
         className,
       )}
       {...props}

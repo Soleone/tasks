@@ -9,7 +9,7 @@ export function Calendar({ className, ...props }: ComponentProps<typeof StockCal
     <StockCalendar
       className={cn(
         NESTED_BUTTON_FOCUS,
-        "[&_[data-focused=true]_button]:ring-2 [&_[data-focused=true]_button]:ring-ring",
+        "[&_[data-focused=true]_button]:ring-1 [&_[data-focused=true]_button]:ring-ring",
         className,
       )}
       {...props}

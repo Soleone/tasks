@@ -7,7 +7,7 @@ export function InputGroup({ className, ...props }: ComponentProps<typeof StockI
   return (
     <StockInputGroup
       className={cn(
-        "has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-ring",
+        "has-[[data-slot=input-group-control]:focus-visible]:ring-1 has-[[data-slot=input-group-control]:focus-visible]:ring-ring",
         className,
       )}
       {...props}

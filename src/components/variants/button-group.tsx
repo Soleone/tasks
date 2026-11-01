@@ -18,7 +18,7 @@ export function ToolbarGroup({
 }: ComponentProps<typeof ButtonRow> & { active?: boolean }) {
   return (
     <ButtonRow
-      className={cn("rounded-lg outline-none", FOCUS_RING, active && "ring-2 ring-ring", className)}
+      className={cn("rounded-lg outline-none", FOCUS_RING, active && "ring-1 ring-ring", className)}
       {...props}
     />
   );

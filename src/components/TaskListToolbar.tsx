@@ -103,7 +103,7 @@ function FilterSummaryAction({
       title={label}
       onMouseDown={preventFocusSteal}
       onClick={onClear}
-      className={`rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${className ?? ""}`}
+      className={`rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-ring ${className ?? ""}`}
     >
       {children}
     </button>

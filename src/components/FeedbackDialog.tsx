@@ -8,11 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldContent, FieldLabel, FieldTitle } from "@/components/ui/field";
-import { RadioGroup } from "@/components/ui/radio-group";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { FieldTextarea, Input } from "@/components/variants/input";
-import { ChoiceCard, ChoiceRadio } from "@/components/variants/radio-group";
+import { InlineRadio, InlineRadioGroup } from "@/components/variants/radio-group";
 import type { FeedbackKind, FeedbackReport } from "@/feedback/worker";
 import { platformName } from "@/platform/runtime";
 import { version } from "../../package.json";
@@ -95,23 +94,18 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }): ReactEleme
               void submit();
             }}
           >
-            <RadioGroup
+            <InlineRadioGroup
               aria-label="Kind of report"
-              className="grid-cols-2"
               value={kind}
               onValueChange={(value) => setKind(value as FeedbackKind)}
             >
               {KINDS.map(([value, label]) => (
-                <ChoiceCard key={value} htmlFor={`feedback-${value}`}>
-                  <Field orientation="horizontal">
-                    <ChoiceRadio value={value} id={`feedback-${value}`} />
-                    <FieldContent>
-                      <FieldTitle>{label}</FieldTitle>
-                    </FieldContent>
-                  </Field>
-                </ChoiceCard>
+                <Field key={value} orientation="horizontal" className="w-auto">
+                  <InlineRadio value={value} id={`feedback-${value}`} />
+                  <FieldLabel htmlFor={`feedback-${value}`}>{label}</FieldLabel>
+                </Field>
               ))}
-            </RadioGroup>
+            </InlineRadioGroup>
             <Field>
               <FieldLabel htmlFor="feedback-title">Title</FieldLabel>
               <Input

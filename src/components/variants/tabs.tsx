@@ -22,12 +22,15 @@ export function StackedTabsContent({ className, ...props }: ComponentProps<typeo
   );
 }
 
-/** Readable inactive labels and the same solid focus ring as the filter toolbar. */
+/**
+ * Readable inactive labels and the same focus as the filter toolbar: solid border plus ring.
+ * The dark variant beats the active tab's dark border; full height keeps the 1px lines off a half pixel.
+ */
 export function ReadableTabsTrigger({ className, ...props }: ComponentProps<typeof TabsTrigger>) {
   return (
     <TabsTrigger
       className={cn(
-        "text-muted-foreground focus-visible:border-transparent",
+        "h-full text-muted-foreground dark:focus-visible:border-ring",
         FOCUS_RING,
         className,
       )}

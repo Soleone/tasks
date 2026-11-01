@@ -178,7 +178,7 @@ export function AttachmentRow({
               data-attachment={name}
               className={cn(
                 "relative size-16 overflow-hidden rounded-md border",
-                "group-focus-visible:aria-selected:ring-2 group-focus-visible:aria-selected:ring-ring",
+                "group-focus-visible:aria-selected:ring-1 group-focus-visible:aria-selected:ring-ring",
               )}
               onClick={(event) => {
                 setActive(index);
