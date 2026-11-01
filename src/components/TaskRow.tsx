@@ -55,17 +55,28 @@ function glyphLabel(task: Pick<TaskView, "status" | "priority" | "effort">): str
 export function StatusGlyph({
   task,
   entrance = null,
+  effortFrom = DEFAULT_EFFORT,
 }: {
   task: Pick<TaskView, "status" | "priority"> & { effort?: TaskEffort };
   /** What changed last, so the glyph plays its entrance. */
   entrance?: GlyphEntrance | null;
+  /** The effort before an effort change: going back to normal folds its chevrons away. */
+  effortFrom?: TaskEffort;
 }): ReactElement {
   const Icon = taskStatusMeta[task.status].Icon;
   const effort = task.effort ?? DEFAULT_EFFORT;
+  const effortChanged = entrance === "effort";
+  const leaving = effortChanged && effort === DEFAULT_EFFORT;
   const glyphData = {
     "data-status-enter": entrance === "status" ? task.status : undefined,
     "data-priority-enter": entrance === "priority" || undefined,
-    "data-effort-notch": effort !== DEFAULT_EFFORT || undefined,
+    "data-effort-notch":
+      effort === DEFAULT_EFFORT
+        ? undefined
+        : effortChanged && effortFrom === DEFAULT_EFFORT
+          ? "opening"
+          : true,
+    "data-effort-notch-closing": leaving || undefined,
     ref: entrance ? startAfterPaint : undefined,
   };
   const glyph = !isSolidGlyph(task) ? (
@@ -83,21 +94,26 @@ export function StatusGlyph({
       ) : null}
     </span>
   );
-  if (effort === DEFAULT_EFFORT) return glyph;
-  const EffortIcon = EFFORT_ICONS[effort];
+  const shown = leaving ? effortFrom : effort;
+  if (shown === DEFAULT_EFFORT) return glyph;
+  const EffortIcon = EFFORT_ICONS[shown];
   return (
     <>
       {glyph}
-      {/* Bigger work in the title's color, smaller work in the muted one. */}
+      {/* Bigger work in the title's color, smaller work in the muted one. A change nudges the
+       * chevrons the way their level points; leaving or reaching normal folds them flat. */}
       <EffortIcon
         className={cn(
           "absolute top-[-2px] left-[17px] size-[13px]",
-          effort > DEFAULT_EFFORT ? "text-foreground" : "text-muted-foreground",
+          shown > DEFAULT_EFFORT ? "text-foreground" : "text-muted-foreground",
         )}
         strokeWidth={3}
         aria-hidden="true"
-        data-effort={EFFORT_LABELS[effort]}
-        data-effort-enter={entrance === "effort" || undefined}
+        data-effort={leaving ? undefined : EFFORT_LABELS[shown]}
+        data-effort-leave={leaving || undefined}
+        data-effort-enter={
+          !effortChanged || leaving ? undefined : effort > DEFAULT_EFFORT ? "up" : "down"
+        }
         ref={entrance ? startAfterPaint : undefined}
       />
     </>
@@ -124,20 +140,28 @@ export function TaskStatusDisplay({
   );
 }
 
-/** Which of the glyph's meanings changed last, so a fresh mount stays still. */
-function useGlyphEntrance(task: TaskView): GlyphEntrance | null {
+/**
+ * Which of the glyph's meanings changed last, so a fresh mount stays still, and the effort it
+ * changed from.
+ */
+function useGlyphEntrance(task: TaskView): {
+  entrance: GlyphEntrance | null;
+  effortFrom: TaskEffort;
+} {
   const [seen, setSeen] = useState({
     status: task.status,
     priority: task.priority,
     effort: task.effort,
   });
   const [entrance, setEntrance] = useState<GlyphEntrance | null>(null);
+  const [effortFrom, setEffortFrom] = useState(task.effort);
   if (
     seen.status !== task.status ||
     seen.priority !== task.priority ||
     seen.effort !== task.effort
   ) {
     setSeen({ status: task.status, priority: task.priority, effort: task.effort });
+    setEffortFrom(seen.effort);
     setEntrance(
       seen.status !== task.status
         ? "status"
@@ -146,7 +170,7 @@ function useGlyphEntrance(task: TaskView): GlyphEntrance | null {
           : "effort",
     );
   }
-  return entrance;
+  return { entrance, effortFrom };
 }
 
 const STATUS_FEEDBACK_DURATION_MS = 900;
@@ -170,7 +194,7 @@ export function TaskStatusToggle({
   onToggle: (task: TaskView) => void;
 }): ReactElement {
   const feedback = useFlashTooltip(feedbackVersion, STATUS_FEEDBACK_DURATION_MS);
-  const entrance = useGlyphEntrance(task);
+  const { entrance, effortFrom } = useGlyphEntrance(task);
   const status = taskStatusMeta[task.status];
   const priority = priorityMeta(task.priority);
   const pauseHint =
@@ -215,6 +239,7 @@ export function TaskStatusToggle({
           key={`${task.status}-${priority.shortLabel}-${task.effort}`}
           task={task}
           entrance={entrance}
+          effortFrom={effortFrom}
         />
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={8}>

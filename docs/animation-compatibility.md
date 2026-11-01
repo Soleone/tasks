@@ -43,7 +43,10 @@ All **29 authored keyframes** live in [`src/styles.css`](../src/styles.css). All
 | Trailing facts stepping aside | `task-save-make-room` | Supported opacity. |
 | Task sliding out of a view | `task-list-exit` | Supported translate/opacity; overflow clips the departing row. |
 | Cancellation strike-through | `task-title-strike` | Supported background-size; wrapped inline fragments need visual checking. |
-| Status/priority/effort entrance and completion-toast pop | `task-completion-pop` | Supported SVG/HTML transforms; uses explicit fill-box and center origin. |
+| Status/priority entrance and completion-toast pop | `task-completion-pop` | Supported SVG/HTML transforms; uses explicit fill-box and center origin. |
+| Effort chevrons nudging by level | `task-effort-nudge` | Supported translate/scale on the badge's outer SVG. |
+| Effort chevrons folding flat on the way back to normal | `task-effort-flatten` | Path scale with `vector-effect: non-scaling-stroke` keeps the stroke; checked in Linux WebKit 26 and Chromium. |
+| Effort notch opening and closing | `task-effort-notch-open`, `task-effort-notch-close` | Animates a registered `@property` length inside `mask-image`; checked in Linux WebKit 26 and Chromium. |
 | Done/canceled glyph and completion-toast stroke | `task-completion-check` | Pattern now stays constant and covers the longer solid check, finding 3. Mac confirmation pending. |
 | Rising done count, new number | `task-count-roll-in` | Supported translate/opacity inside a clipped inline container. |
 | Rising done count, old number | `task-count-roll-out` | Supported translate/opacity; hidden with reduced motion. |
