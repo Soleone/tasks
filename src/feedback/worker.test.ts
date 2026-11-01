@@ -1,12 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import worker from "./worker";
 
-function env(allowed = true) {
-  return { GITHUB_TOKEN: "token", LIMITER: { limit: async () => ({ success: allowed }) } };
+function env({ allowed = true, counts = new Map<string, string>() } = {}) {
+  return {
+    GITHUB_TOKEN: "token",
+    LIMITER: { limit: async () => ({ success: allowed }) },
+    COUNTS: {
+      get: async (key: string) => counts.get(key) ?? null,
+      put: async (key: string, value: string) => void counts.set(key, value),
+    },
+  };
 }
 
-function post(body: unknown): Request {
-  return new Request("https://feedback.test", { method: "POST", body: JSON.stringify(body) });
+function post(body: unknown, ip = "203.0.113.5"): Request {
+  return new Request("https://feedback.test", {
+    method: "POST",
+    headers: { "CF-Connecting-IP": ip },
+    body: JSON.stringify(body),
+  });
+}
+
+function filed() {
+  return vi.fn(async () =>
+    Response.json({ html_url: "https://github.com/Soleone/tasks/issues/9" }, { status: 201 }),
+  );
 }
 
 const report = {
@@ -20,9 +37,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("feedback worker", () => {
   it("opens a labeled GitHub issue and returns its link", async () => {
-    const github = vi.fn(async () =>
-      Response.json({ html_url: "https://github.com/Soleone/tasks/issues/9" }, { status: 201 }),
-    );
+    const github = filed();
     vi.stubGlobal("fetch", github);
 
     const response = await worker.fetch(post(report), env());
@@ -47,8 +62,22 @@ describe("feedback worker", () => {
     expect(github).not.toHaveBeenCalled();
   });
 
+  it("stops an address after ten reports a day, and everyone after thirty", async () => {
+    vi.stubGlobal("fetch", filed());
+    const counts = new Map<string, string>();
+    for (let sent = 0; sent < 10; sent++)
+      expect((await worker.fetch(post(report), env({ counts }))).status).toBe(201);
+
+    expect((await worker.fetch(post(report), env({ counts }))).status).toBe(429);
+    for (let sent = 0; sent < 10; sent++)
+      await worker.fetch(post(report, `198.51.100.${sent}`), env({ counts }));
+    for (let sent = 0; sent < 10; sent++)
+      await worker.fetch(post(report, `192.0.2.${sent}`), env({ counts }));
+    expect((await worker.fetch(post(report, "192.0.2.200"), env({ counts }))).status).toBe(429);
+  });
+
   it("refuses an address that sends too fast", async () => {
-    const response = await worker.fetch(post(report), env(false));
+    const response = await worker.fetch(post(report), env({ allowed: false }));
 
     expect(response.status).toBe(429);
   });

@@ -17,9 +17,16 @@ export type FeedbackReport = {
 type Env = {
   GITHUB_TOKEN: string;
   LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  COUNTS: {
+    get(key: string): Promise<string | null>;
+    put(key: string, value: string, options: { expirationTtl: number }): Promise<void>;
+  };
 };
 
 const REPOSITORY = "Soleone/tasks";
+/** Caps that the per-minute limit misses: one address sending slowly, or many addresses at once. */
+const DAILY_PER_ADDRESS = 10;
+const DAILY_TOTAL = 30;
 const LABELS: Record<FeedbackKind, string> = { bug: "bug", idea: "enhancement" };
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +72,14 @@ export default {
     const report = parseReport(await request.json().catch(() => null));
     if (!report) return reply(400, { error: "A title and a description are needed." });
 
+    const day = new Date().toISOString().slice(0, 10);
+    const keys = [`${day}:${ip}`, day];
+    const [fromAddress, total] = await Promise.all(
+      keys.map(async (key) => Number(await env.COUNTS.get(key))),
+    );
+    if (fromAddress >= DAILY_PER_ADDRESS || total >= DAILY_TOTAL)
+      return reply(429, { error: "Too many reports today. Try again tomorrow." });
+
     const response = await fetch(`https://api.github.com/repos/${REPOSITORY}/issues`, {
       method: "POST",
       headers: {
@@ -82,6 +97,12 @@ export default {
       console.error("GitHub refused the issue", response.status, await response.text());
       return reply(502, { error: "GitHub didn't take the report. Try again later." });
     }
+    // Counted only once filed, so a GitHub outage doesn't use up anyone's reports.
+    await Promise.all(
+      [fromAddress, total].map((count, index) =>
+        env.COUNTS.put(keys[index], String(count + 1), { expirationTtl: 2 * 24 * 60 * 60 }),
+      ),
+    );
     const issue = (await response.json()) as { html_url: string };
     return reply(201, { url: issue.html_url });
   },

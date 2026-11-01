@@ -7,3 +7,8 @@ compatibility_date = "2026-10-01"
 name = "LIMITER"
 namespace_id = "1001"
 simple = { limit = 3, period = 60 }
+
+# Today's report counts, per address and in total.
+[[kv_namespaces]]
+binding = "COUNTS"
+id = "d9ae3611702844d697b52e96b4cc3432"
