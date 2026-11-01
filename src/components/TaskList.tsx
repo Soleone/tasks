@@ -1528,6 +1528,10 @@ export function TaskList({
         toggleTaskDetails(task);
       },
       onCopy: (task) => void copyActiveTask(task),
+      onPriority: (task, priority) => {
+        practice("priority.set", "pointer", `P${priority}`);
+        void setTaskPriority(task, priority);
+      },
       onEffort: (task, effort) => {
         practice("effort.set", "pointer", EFFORT_LABELS[effort]);
         void setTaskEffort(task, effort);
@@ -1765,6 +1769,10 @@ export function TaskList({
           },
           onCopy: (task) => void copyActiveTask(task),
           onCopyImage: copyNewestImage,
+          onPriority: (task, priority) => {
+            practice("priority.set", "pointer", `P${priority}`);
+            void setTaskPriority(task, priority);
+          },
           onEffort: (task, effort) => {
             practice("effort.set", "pointer", EFFORT_LABELS[effort]);
             void setTaskEffort(task, effort);

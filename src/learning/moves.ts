@@ -68,6 +68,7 @@ const MOVE_DEFINITIONS = [
   {
     id: "priority.set",
     keyboard: { label: "Set priority from the list", keys: ["0–4"] },
+    touch: { label: "Long-press a task to set its priority" },
   },
   {
     id: "effort.set",

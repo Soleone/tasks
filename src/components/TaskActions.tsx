@@ -5,14 +5,17 @@ import {
   Copy,
   CornerDownRight,
   Ellipsis,
+  Flag,
   Image,
   Link2,
   Redo2,
   Undo2,
 } from "lucide-react";
-import type { TaskEffort } from "@/backend/taskModel";
+import { cn } from "cn";
+import type { TaskEffort, TaskPriority } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
-import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, effortTitle } from "./taskFilters";
+import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, PRIORITY_META, effortTitle } from "./taskFilters";
+import { StatusGlyph } from "./TaskRow";
 import type { Tooltip } from "./ui/tooltip";
 import { ToolbarCommand, ToolbarTooltip } from "./variants/toolbar";
 import {
@@ -44,6 +47,7 @@ type TaskActionsProps = {
   onCopy: (task: TaskView) => void;
   onCopyImage: (task: TaskView) => void;
   onPause: () => void;
+  onPriority: (task: TaskView, priority: TaskPriority) => void;
   onEffort: (task: TaskView, effort: TaskEffort) => void;
   finalFocus: () => HTMLElement | false | null;
   tooltipFor: (key: string) => ComponentProps<typeof Tooltip>;
@@ -62,6 +66,7 @@ export function TaskActions({
   onCopy,
   onCopyImage,
   onPause,
+  onPriority,
   onEffort,
   finalFocus,
   tooltipFor,
@@ -153,6 +158,29 @@ export function TaskActions({
                 Pause/resume
                 <DropdownMenuShortcut>P</DropdownMenuShortcut>
               </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Flag aria-hidden="true" />
+                  <span className="flex-1">Priority</span>
+                  <DropdownMenuShortcut>0–4</DropdownMenuShortcut>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuRadioGroup
+                    value={activeTask.priority}
+                    onValueChange={(priority: TaskPriority) => onPriority(activeTask, priority)}
+                  >
+                    {PRIORITY_META.map((meta) => (
+                      <DropdownMenuRadioItem key={meta.value} value={meta.value} closeOnClick>
+                        <span aria-hidden="true" className={meta.glyph}>
+                          <StatusGlyph task={{ status: "open", priority: meta.value }} />
+                        </span>
+                        <span className={cn("font-medium", meta.title)}>{meta.shortLabel}</span>{" "}
+                        <span className="text-muted-foreground">{meta.label}</span>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <ChevronsUp aria-hidden="true" />

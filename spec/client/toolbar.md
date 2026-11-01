@@ -27,7 +27,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `toolbar.task-actions` | Clicking the Task actions icon in Actions | A menu offers Blockers, Move under, New child, Copy text, Pause/resume and an Effort submenu with their shortcuts. Undo and Task actions use the same compact icon buttons and tooltips as their neighbors; the open menu shows as expanded, not pressed. Task-specific entries act on the active task; Pause/resume uses the selection like `P`. The button is disabled without an active task; both action buttons are disabled while the editor is open. Closing the menu returns focus to the list unless an editor or dialog opened |
+| `toolbar.task-actions` | Clicking the Task actions icon in Actions | A menu offers Blockers, Move under, New child, Copy text, Pause/resume and Priority and Effort submenus with their shortcuts. Undo and Task actions use the same compact icon buttons and tooltips as their neighbors; the open menu shows as expanded, not pressed. Task-specific entries act on the active task; Pause/resume uses the selection like `P`. The button is disabled without an active task; both action buttons are disabled while the editor is open. Closing the menu returns focus to the list unless an editor or dialog opened |
 
 ## Touch feedback
 

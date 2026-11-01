@@ -94,6 +94,19 @@ test("effort.set: the long-press menu's Effort submenu sets any effort directly"
   await waitFor(async () => expect((await workspace.task(task.id)).effort).toBe(5));
 });
 
+test("priority.set: the long-press menu's Priority submenu sets any priority directly", async () => {
+  const task = await workspace.create("Task");
+  const { user } = await workspace.render();
+  fireEvent.contextMenu(screen.getByText("Task").closest('[role="option"]')!, {
+    clientX: 30,
+    clientY: 60,
+  });
+  const menu = await screen.findByRole("menu", { name: "Actions for Task" });
+  await user.click(within(menu).getByRole("menuitem", { name: "Priority" }));
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: "P0 highest" }));
+  await waitFor(async () => expect((await workspace.task(task.id)).priority).toBe(0));
+});
+
 test("home.task-context-menu: Escape dismisses without editing", async () => {
   await workspace.create("Task");
   const { user } = await workspace.render();

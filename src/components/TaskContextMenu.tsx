@@ -12,13 +12,16 @@ import {
   CircleX,
   Copy,
   CornerDownRight,
+  Flag,
   Link2,
   ListChevronsUpDown,
   Pencil,
 } from "lucide-react";
-import type { TaskEffort } from "@/backend/taskModel";
+import { cn } from "cn";
+import type { TaskEffort, TaskPriority } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
-import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, effortTitle } from "./taskFilters";
+import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, PRIORITY_META, effortTitle } from "./taskFilters";
+import { StatusGlyph } from "./TaskRow";
 import type { TaskMoveDirection } from "./taskReordering";
 import {
   ContextMenu,
@@ -46,6 +49,7 @@ export type TaskContextActions = {
   detailsShown: boolean;
   onToggleDetails: (task: TaskView) => void;
   onCopy: (task: TaskView) => void;
+  onPriority: (task: TaskView, priority: TaskPriority) => void;
   onEffort: (task: TaskView, effort: TaskEffort) => void;
   onDelete: (task: TaskView) => void;
   onReorder: (direction: TaskMoveDirection) => void;
@@ -107,6 +111,28 @@ export function TaskContextMenu({
             )}
             {task.status === "paused" ? "Resume" : "Pause"}
           </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <Flag aria-hidden="true" />
+              Priority
+            </ContextMenuSubTrigger>
+            <TaskContextSubContent>
+              <ContextMenuRadioGroup
+                value={task.priority}
+                onValueChange={(priority: TaskPriority) => actions.onPriority(task, priority)}
+              >
+                {PRIORITY_META.map((meta) => (
+                  <ContextMenuRadioItem key={meta.value} value={meta.value} closeOnClick>
+                    <span aria-hidden="true" className={meta.glyph}>
+                      <StatusGlyph task={{ status: "open", priority: meta.value }} />
+                    </span>
+                    <span className={cn("font-medium", meta.title)}>{meta.shortLabel}</span>{" "}
+                    <span className="text-muted-foreground">{meta.label}</span>
+                  </ContextMenuRadioItem>
+                ))}
+              </ContextMenuRadioGroup>
+            </TaskContextSubContent>
+          </ContextMenuSub>
           <ContextMenuSub>
             <ContextMenuSubTrigger>
               <ChevronsUp aria-hidden="true" />
