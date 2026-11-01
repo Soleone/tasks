@@ -49,13 +49,19 @@ Confirm the displayed home before querying. Reload requires confirmation again. 
 
 Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to `127.0.0.1:5174`; `TASKS_DEV_BACKEND_PORT` changes its port. `pnpm dev:backend` runs only the bridge. `pnpm dev` runs only Vite; `VITE_DEV_BACKEND_URL` selects a separately started bridge. The development listener and per-process selection token are not a production hosting or filesystem security boundary.
 
+## Hosted web build
+
+`pnpm build:hosted` builds a static site into `dist/hosted` that needs no server: the real backend runs in a Web Worker (`src/web/backendWorker.ts`) behind the same `JsonLineSession` as the native apps (`src/platform/workerBackend.ts`). In that worker, `src/web/nodeShims.ts` swaps the Node modules the backend imports for `src/web/shims/`: memfs for files, sql.js for SQLite. The first visit creates a home with `src/web/sampleTasks.ts` through real commands; after every request the worker saves the home to IndexedDB, keeping inode numbers, because the cache binding checks them.
+
+`pnpm release:demo` builds it and deploys it to the `tasks-demo` Vercel project, served at https://tasks.soleone.xyz. A visitor who saved a home in their browser keeps it, so check sample task changes in a fresh browser profile.
+
 ## Validation
 
 | Command | Scope |
 | --- | --- |
 | `pnpm check` | `vp check`: formatting, type-aware lint and types for backend and frontend |
 | `pnpm lint` | `vp lint`, spec-rule checks, and knip for dead code |
-| `pnpm test` | File-backed backend regressions, then client tests (`vp test`, jsdom) that render the app over a disposable workspace and cite client rules; not native acceptance |
+| `pnpm test` | File-backed backend regressions, then client tests (`vp test`, jsdom) that render the app over a disposable workspace and cite client rules, and the hosted build's stand-ins (Node); not native acceptance |
 | `pnpm build` | Types, backend and frontend build |
 | `pnpm build:test` | Prepare `test-dist`, the backend build tests run from, for focused script tests |
 | `pnpm test:sidecar` | Bundled Node SEA smoke check on the actual host |

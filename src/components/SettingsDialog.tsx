@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactElement } from "react";
 import { XIcon } from "lucide-react";
 import { selectedMainWorkspace, switchHome } from "@/platform/backendClient";
-import { isDesktopApp, runtimeKind } from "@/platform/runtime";
+import { isDesktopApp, isHosted, runtimeKind } from "@/platform/runtime";
 import { revealHome } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/variants/button";
 import {
@@ -35,6 +35,8 @@ type SettingsDialogProps = {
 function fontSizeLabel(increase: FontSizeIncrease): string {
   return increase === 0 ? "Default" : `+${increase}%`;
 }
+
+const RELEASES_URL = "https://github.com/Soleone/tasks/releases/latest";
 
 const settingsTabStopSelector =
   'button, input, textarea, select, a[href], [contenteditable="true"], [role="checkbox"], [role="tab"], [tabindex="0"]';
@@ -267,11 +269,21 @@ export function SettingsDialog({
                       Tasks home
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Everything Tasks keeps on this device: tasks, settings, history and undo. For
-                      a full backup, close Tasks and the CLI and copy the whole folder.
+                      {isHosted()
+                        ? "This page keeps your tasks, settings and undo in this browser only. The desktop and Android apps keep them as files in a folder you choose, ready for Syncthing and backups."
+                        : "Everything Tasks keeps on this device: tasks, settings, history and undo. For a full backup, close Tasks and the CLI and copy the whole folder."}
                     </p>
                   </div>
-                  {workspace ? (
+                  {isHosted() ? (
+                    <Button
+                      variant="outline"
+                      className="w-fit"
+                      nativeButton={false}
+                      render={<a href={RELEASES_URL} target="_blank" rel="noreferrer" />}
+                    >
+                      Get the app
+                    </Button>
+                  ) : workspace ? (
                     <>
                       <code className="wrap-anywhere text-xs">
                         {workspace.editor.selection.profilePath}

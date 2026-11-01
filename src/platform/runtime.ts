@@ -9,6 +9,11 @@ export function isAndroid(): boolean {
   return typeof navigator !== "undefined" && /\bAndroid\b/.test(navigator.userAgent);
 }
 
+/** The hosted web build, which keeps its Tasks home in the browser instead of reaching a dev server. */
+export function isHosted(): boolean {
+  return import.meta.env.VITE_HOSTED === "1";
+}
+
 /** The Tauri app on Windows, macOS or Linux. */
 export function isDesktopApp(): boolean {
   return runtimeKind() === "native" && !isAndroid();

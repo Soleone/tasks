@@ -5,8 +5,11 @@ import tailwindcss from "@tailwindcss/vite";
 import { themePlugin } from "./src/components/soleone/theme-vite";
 import { THEME_CONFIG } from "./src/theme/config";
 import { priorityColorsPlugin } from "./src/theme/priorityColors";
+import { nodeShims } from "./src/web/nodeShims";
 
 const host = process.env.TAURI_DEV_HOST;
+// The hosted web build runs the backend in a worker instead of reaching a dev server.
+const hosted = process.env.VITE_HOSTED === "1";
 
 // Registry internals stay upstream; application code uses their high-level components.
 const vendored = ["src/components/ui/**", "src/components/soleone/**"];
@@ -109,7 +112,11 @@ export default defineConfig({
     tailwindcss(),
     themePlugin(THEME_CONFIG),
     priorityColorsPlugin(THEME_CONFIG.themes),
+    ...(hosted ? [nodeShims()] : []),
   ]),
+  worker: { format: "es", plugins: () => [nodeShims()] },
+  // Always defined, so other builds drop the hosted entry and its worker.
+  define: { "import.meta.env.VITE_HOSTED": JSON.stringify(hosted ? "1" : "") },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -131,13 +138,26 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_ENV_"],
   // Client tests render the app in jsdom. Backend tests run under node --test.
   test: {
-    environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}"],
-    exclude: ["src/backend/**", "**/node_modules/**"],
-    setupFiles: ["src/testing/setup.ts"],
-    globalSetup: ["src/testing/workspaceServer.ts"],
     // Under parallel load a flow takes about twice its serial time; the 5 s default left no margin.
     testTimeout: 15_000,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "client",
+          environment: "jsdom",
+          include: ["src/**/*.test.{ts,tsx}"],
+          exclude: ["src/backend/**", "src/web/**", "**/node_modules/**"],
+          setupFiles: ["src/testing/setup.ts"],
+          globalSetup: ["src/testing/workspaceServer.ts"],
+        },
+      },
+      {
+        // The hosted build's Node stand-ins, without jsdom's typed arrays, which Node's Buffer fails.
+        extends: true,
+        test: { name: "hosted", environment: "node", include: ["src/web/**/*.test.ts"] },
+      },
+    ],
   },
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",

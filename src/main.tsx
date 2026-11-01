@@ -39,7 +39,10 @@ async function mountWorkspace(): Promise<void> {
   // Loading before render avoids Suspense's 300 ms delay when revealing the first screen.
   const { default: Workspace } = await (runtimeKind() === "native"
     ? import("./DesktopWorkspace")
-    : import("./WorkspaceSelection"));
+    : // Compared here rather than through isHosted() so other builds drop the hosted entry.
+      import.meta.env.VITE_HOSTED === "1"
+      ? import("./WebWorkspace")
+      : import("./WorkspaceSelection"));
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Soleone/showcase/main/schema/showcase.schema.json",
+  "title": "Tasks",
+  "pitch": "A keyboard-first task list whose tasks are plain JSON files, so you, your scripts and your coding agents can all work on them.",
+  "description": "One TypeScript backend runs the desktop, Android and web apps and a CLI that agents drive over JSON lines. Undo, history and safe retries are built in, and Syncthing keeps devices in step.",
+  "kind": "desktop-app",
+  "stage": "product",
+  "year": 2026,
+  "tech": ["TypeScript", "React", "Tauri", "Node.js", "SQLite"],
+  "repo": "https://github.com/Soleone/tasks",
+  "live": "https://tasks.soleone.xyz",
+  "media": {
+    "hero": "docs/media/hero.png",
+    "motion": "docs/media/demo.webp",
+    "capture": "node scripts/capture-demo.mjs"
+  },
+  "brand": {
+    "icon": "assets/branding/ai-todo-icon-two-color-v8.svg",
+    "colors": ["#d4af37", "#090a0c"]
+  },
+  "demo": {
+    "strategy": "hosted",
+    "local": "pnpm dev:web",
+    "externals": [
+      {
+        "name": "Syncthing",
+        "type": "app",
+        "seam": "the home's sync folder",
+        "standIn": "omitted",
+        "note": "The web version keeps your tasks in this browser only; the desktop and Android apps keep them as files you can sync."
+      }
+    ]
+  }
+}

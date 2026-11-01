@@ -1,8 +1,12 @@
 # Tasks
 
-A local-first, keyboard-first task list for one person and their agents. Tasks live as plain JSON files, one file per task, in the sync folder of a Tasks home you choose, so they can be synced, backed up and edited by scripts. A React app, a CLI and a JSON-lines interface for agents all share one TypeScript backend; the desktop shell is Tauri with a bundled Node runtime.
+A keyboard-first task list whose tasks are plain JSON files, so you, your scripts and your coding agents can all work on them.
 
-The web, desktop and Android apps and `tasks-cli` share the current engine. The owner confirmed the native Windows 11 and Android apps work (2026-10-19). [PLAN.md](PLAN.md) has what is next.
+**[Try it in your browser](https://tasks.soleone.xyz)**, no install, or [download the app](https://github.com/Soleone/tasks/releases/latest) for Windows, Linux, macOS or Android.
+
+![Capturing a task with shorthand, starting it and finishing it in Tasks](docs/media/demo.webp)
+
+Each task is one JSON file in the sync folder of a Tasks home you choose, so tasks can be synced, backed up and edited by scripts. A React app, a CLI and a JSON-lines interface for agents share one TypeScript backend; the desktop and Android shells are Tauri with a bundled Node runtime, and the web version runs the same backend in the browser. [PLAN.md](PLAN.md) has what is next.
 
 ## Install and check
 
@@ -25,6 +29,8 @@ This copies the fixture into a fresh temporary Tasks home, prints where it is, a
 To try changes on your real tasks without touching them, run `pnpm dev:web:real`. The first run asks which folder to copy to `$DATA/apps/tasks/dev-web-real/` (without `DATA`, a `tasks-dev` folder in local app data, such as `%LOCALAPPDATA%` on Windows); Enter takes the suggestion (a `Documents/Tasks` folder if one exists, otherwise the test data). The copy becomes the sync folder of a Tasks home there. Later runs reuse it with everything you changed in it. `pnpm dev:web:real --refresh` asks again, with your last choice as the default, and replaces the copy. Nothing is written back, and the copy sits outside Syncthing. Agents never run it.
 
 To keep data between runs in a home of your own, pick it yourself: `pnpm dev:web --home PATH`. The window asks before opening it.
+
+`pnpm build:hosted` builds the web version, which needs no server and keeps its tasks in the browser; `pnpm release:demo` deploys it to tasks.soleone.xyz. See [the development guide](docs/development.md#hosted-web-build).
 
 ## The Tasks home
 
