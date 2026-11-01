@@ -173,13 +173,13 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "priority.set",
-        prompt: "Press a number from `0` to `4` to set the task's priority. `0` is the most urgent",
+        prompt: "How urgent is it? Press `]` to raise the task's priority or `[` to lower it",
         success: "Priority set to {}",
       },
       {
         move: "effort.set",
         prompt:
-          "Big job or a quick one? Press `]` to make the task bigger or `[` to make it smaller",
+          "Big job or a quick one? Press `.` to make the task bigger or `,` to make it smaller",
         success: "Effort {}",
       },
       {

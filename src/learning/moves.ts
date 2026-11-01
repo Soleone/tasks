@@ -67,12 +67,12 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "priority.set",
-    keyboard: { label: "Set priority from the list", keys: ["0–4"] },
+    keyboard: { label: "Raise or lower priority", keys: ["[", "]"] },
     touch: { label: "Long-press a task to set its priority" },
   },
   {
     id: "effort.set",
-    keyboard: { label: "Make a task bigger or smaller", keys: ["[", "]"] },
+    keyboard: { label: "Make a task bigger or smaller", keys: [",", "."] },
     touch: { label: "Long-press a task to set its effort" },
   },
   {

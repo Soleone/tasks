@@ -162,7 +162,7 @@ export function TaskActions({
                 <DropdownMenuSubTrigger>
                   <Flag aria-hidden="true" />
                   <span className="flex-1">Priority</span>
-                  <DropdownMenuShortcut>0–4</DropdownMenuShortcut>
+                  <DropdownMenuShortcut>[ ]</DropdownMenuShortcut>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   <DropdownMenuRadioGroup
@@ -185,7 +185,7 @@ export function TaskActions({
                 <DropdownMenuSubTrigger>
                   <ChevronsUp aria-hidden="true" />
                   <span className="flex-1">Effort</span>
-                  <DropdownMenuShortcut>[ ]</DropdownMenuShortcut>
+                  <DropdownMenuShortcut>, .</DropdownMenuShortcut>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   <DropdownMenuRadioGroup

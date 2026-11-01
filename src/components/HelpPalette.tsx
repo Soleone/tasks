@@ -177,18 +177,19 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
           "ctrl cmd y shift z redo reapply restore undone change task status capture edit move priority dependency order",
       },
       {
-        label: "Set active task priority",
-        hint: "0-4 on the list",
+        label: "Change active task priority",
+        hint: "[ lower, ] higher, or 0-4 to jump straight there",
         icon: Flag,
-        keys: ["0", "1", "2", "3", "4"],
-        keywords: "0 1 2 3 4 p0 p1 p2 p3 p4 set active task priority number",
+        keys: ["[", "]"],
+        keywords:
+          "[ ] bracket 0 1 2 3 4 p0 p1 p2 p3 p4 set raise lower active task priority number",
       },
       {
         label: "Change active task effort",
-        hint: "[ smaller, ] bigger, from tiny to huge",
+        hint: "Comma smaller, period bigger, from tiny to huge",
         icon: ChevronsUp,
-        keys: ["[", "]"],
-        keywords: "[ ] effort size big small tiny huge large estimate bracket active task",
+        keys: [",", "."],
+        keywords: ", . < > comma period effort size big small tiny huge large estimate active task",
       },
       {
         label: "Switch active or inactive",

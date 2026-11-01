@@ -182,10 +182,10 @@ test("quest.step: First things first counts only the sort it asks for", async ()
   await workspace.create("Task");
   startAt("first-things-first", 0);
   const { user } = await workspace.render();
-  await user.keyboard("1");
+  await user.keyboard("]");
   await expectStep(1);
   expect(questLine()).toBe("Priority set to P1");
-  await user.keyboard("]");
+  await user.keyboard(".");
   await expectStep(2);
   expect(questLine()).toBe("Effort large");
   await user.keyboard("su");

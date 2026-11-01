@@ -37,8 +37,9 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `Space` / `Shift+Space` | Status forward / back | `status.forward`, `status.back` |
 | `P` | Pause or resume | `status.pause` |
 | `Delete` | Cancel | `status.cancel` |
+| `[` / `]` | Lower / higher priority | `priority.set` |
 | `0`–`4` | Set priority P0–P4 | `priority.set` |
-| `[` / `]` | Smaller / bigger effort | `effort.set` |
+| `,` / `.` | Smaller / bigger effort | `effort.set` |
 | `Ctrl/⌘+C` | Copy title, description and tags | `copy.text` |
 | `Ctrl/⌘+Shift+C` | Copy the active task's newest image | `attach.copy` |
 | `Ctrl/⌘+Z` | Undo this client's latest change | `undo.latest` |

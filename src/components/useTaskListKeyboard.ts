@@ -360,7 +360,16 @@ export function useTaskListKeyboard(
     } else if (event.key === "[" || event.key === "]") {
       event.preventDefault();
       const task = actions.activeTask;
-      const effort = task ? task.effort + (event.key === "]" ? 1 : -1) : 0;
+      // `]` raises priority, which is the smaller number.
+      const priority = task ? task.priority + (event.key === "]" ? -1 : 1) : -1;
+      if (task && priority >= 0 && priority <= 4) {
+        practice("priority.set", "keys", `P${priority}`);
+        void actions.setPriority(task, priority as TaskPriority);
+      }
+    } else if (event.key === "," || event.key === ".") {
+      event.preventDefault();
+      const task = actions.activeTask;
+      const effort = task ? task.effort + (event.key === "." ? 1 : -1) : 0;
       if (task && isEffort(effort)) {
         practice("effort.set", "keys", EFFORT_LABELS[effort]);
         void actions.setEffort(task, effort);

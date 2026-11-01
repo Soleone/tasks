@@ -18,7 +18,7 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | --- | --- | --- | --- |
 | Task basics | Create, edit and complete a task in about a minute | `C`, `Enter`, `Enter` on the task, `Enter`, `Space`, `Space`, `D`, `D` | +, Save, the task, Save, status icon, status icon, the done count, the done count |
 | In its place | Categories, and seeing one at a time | `C`, `@`, `Enter`, `→`, `C`, `Enter`, `←`, `@` picker, `←` | +, `@`, Save |
-| First things first | Priority, effort and sorting by them | `0`–`4`, `]` or `[`, `S` `P`, `S` `E`, `S` `C` | long-press, Effort |
+| First things first | Priority, effort and sorting by them | `]` or `[`, `.` or `,`, `S` `P`, `S` `E`, `S` `C` | long-press, Effort |
 | Plan ahead | Due dates, tags and what's due now | `C`, `!`, `#`, `Enter`, `!`, `!`, `#` picker, `Escape` | +, `!`, `#`, Save, the due count, the due count |
 | Change of plans | Step back, pause, undo and cancel, on a task made to practice on | `C`, `Enter`, `Space`, `Shift+Space`, `P`, `Ctrl/⌘+Z`, `Delete` | |
 | Find your way | Moving around, filters and search | `↑↓`, `Home`/`End`, `F` then a key, `/`, `Escape` | |
