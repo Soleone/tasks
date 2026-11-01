@@ -652,11 +652,10 @@ export function TaskComposer({
       )}
     >
       {/* The title line mirrors the row: the field, the due date, the empty arrow slot and the
-          category column. A narrow editor gives the one-line field the whole line and drops the
-          rest below it, still in their columns. */}
-      <div className="flex min-w-0 basis-full flex-wrap items-start gap-x-2.5 gap-y-1">
+          category column. */}
+      <div className="flex min-w-0 basis-full items-start gap-2.5">
         {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
-        <div className="relative min-w-0 flex-1 @max-md:basis-full">
+        <div className="relative min-w-0 flex-1">
           {/* The field is as wide as its text, so the tags follow it as they do in the row. A click on
               the rest of the line still lands in the field, at its end. */}
           <div
@@ -764,13 +763,7 @@ export function TaskComposer({
             </div>
           ) : null}
         </div>
-        {/* Empty, this line would still take a row of its own under a narrow editor's title. */}
-        <div
-          className={cn(
-            "ml-auto flex gap-2.5",
-            classification.due === null && classification.category === null && "@max-md:hidden",
-          )}
-        >
+        <div className="ml-auto flex gap-2.5">
           <ClassificationPills kind="due" {...pillProps} />
           <span className="w-7 shrink-0" />
           {categoryColumn ? (
