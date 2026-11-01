@@ -364,6 +364,25 @@ test("query filters preserve graph context, AND tags, ASCII search and full manu
   assert.equal(bounded.offset, 0);
 });
 
+test("categories and tags list the most recently updated first, ties by slug", (t) => {
+  const current = workspace(t, {
+    old: { category: "alpha", tags: ["x", "y"], updatedAt: "2026-01-01T00:00:00.000Z" },
+    fresh: { category: "zulu", tags: ["y"], updatedAt: "2026-03-01T00:00:00.000Z" },
+    tied: { category: "beta", tags: ["w"], updatedAt: "2026-01-01T00:00:00.000Z" },
+  });
+  assert.deepEqual(
+    (result(query(current, "category.list")).categories as { slug: string }[]).map(
+      (entry) => entry.slug,
+    ),
+    ["zulu", "alpha", "beta"],
+  );
+  assert.deepEqual(result(query(current, "tag.list")).tags, [
+    { slug: "y", taskCount: 2 },
+    { slug: "w", taskCount: 1 },
+    { slug: "x", taskCount: 1 },
+  ]);
+});
+
 test("date/priority ties use exact IDs and search truncation never leaves a half scalar", (t) => {
   const current = workspace(t, {
     Z: { priority: 4 },

@@ -99,7 +99,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | --- | --- | --- |
 | `task.get` | `id` | `task` |
 | `task.list` | filters below | `tasks`, `contextTasks`, `total`, `limit`, `offset`, `workspaceRevision` |
-| `category.list` / `tag.list` | none | `[{slug, taskCount}]`, counting tasks that aren't canceled |
+| `category.list` / `tag.list` | none | `[{slug, taskCount}]`, counting tasks that aren't canceled, most recently updated task first, then by slug |
 | `activity.list` | optional `taskId`, `limit` | `[{operationId, taskId, actor, createdAt, command, before, after}]` |
 | `workspace.info` | none | `state`, `schemaVersion`, `commands`, `issues`, `pendingOperationId`, `workspaceRevision` |
 

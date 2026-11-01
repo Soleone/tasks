@@ -225,15 +225,26 @@ export function executeQuery(
     return { task };
   }
   assertArgs(args, []);
-  const counts = new Map<string, number>();
+  const usage = new Map<string, { taskCount: number; lastUpdatedAt: string }>();
   for (const task of tasks) {
     if (task.status === "canceled") continue;
     const slugs =
       command === "category.list" ? (task.category === null ? [] : [task.category]) : task.tags;
-    for (const slug of slugs) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    for (const slug of slugs) {
+      const entry = usage.get(slug);
+      if (!entry) usage.set(slug, { taskCount: 1, lastUpdatedAt: task.updatedAt });
+      else {
+        entry.taskCount += 1;
+        if (task.updatedAt > entry.lastUpdatedAt) entry.lastUpdatedAt = task.updatedAt;
+      }
+    }
   }
-  const entries = [...counts]
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([slug, taskCount]) => ({ slug, taskCount }));
+  const entries = [...usage]
+    .sort(
+      ([aSlug, a], [bSlug, b]) =>
+        (a.lastUpdatedAt > b.lastUpdatedAt ? -1 : a.lastUpdatedAt < b.lastUpdatedAt ? 1 : 0) ||
+        (aSlug < bSlug ? -1 : aSlug > bSlug ? 1 : 0),
+    )
+    .map(([slug, { taskCount }]) => ({ slug, taskCount }));
   return command === "category.list" ? { categories: entries } : { tags: entries };
 }
