@@ -9,7 +9,7 @@ There are two ways in from outside the app, both through `tasks-cli`, the same e
 
 | Rule | Then |
 | --- | --- |
-| `cli.explicit-root` | Every call names the Tasks home with `--home PATH`; the CLI keeps its own cache in the home's `local/`. There is no default home and no environment fallback. `--root PATH --database PATH` selects a bare folder for tests and conversion, and can't be combined with `--home` |
+| `cli.home` | The CLI works on the Tasks home given with `--home PATH`, or else on the home the desktop app opens on this device, from the pointer in the app's config folder. With neither, it refuses and says to open the app once or pass `--home`. It keeps its own cache in the home's `local/`. There is no environment fallback. `--root PATH --database PATH` selects a bare folder for tests and conversion, and can't be combined with `--home` |
 
 ## Verbs
 

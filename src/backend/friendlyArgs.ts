@@ -1,6 +1,7 @@
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { localToday, parseDueWord } from "./dueDate.js";
+import { appHome } from "./home.js";
 import { parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 
@@ -201,14 +202,18 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
   const { flags, words } = tokenize(argv),
     [verb, ...positionals] = words;
   if (flags.has("help")) return { help: true, json: flags.has("json") };
-  const homePath = value(flags, "home"),
-    rootPath = value(flags, "root"),
+  const rootPath = value(flags, "root"),
     cachePath = value(flags, "database");
+  let homePath = value(flags, "home");
   if (homePath !== undefined && (rootPath !== undefined || cachePath !== undefined))
     usage("--home already selects the folder and cache; don't add --root or --database");
+  if (homePath === undefined && rootPath === undefined && cachePath === undefined)
+    homePath =
+      appHome() ??
+      usage("no Tasks home yet; open the Tasks app once to choose one, or pass --home PATH");
   if (!homePath?.trim() && (!rootPath?.trim() || !cachePath?.trim()))
-    usage("tasks-cli requires explicit --home PATH; there is no default home");
-  if (!verb) usage("no command; use tasks-cli --home PATH --help");
+    usage("pass a Tasks home with --home PATH, or a folder with --root PATH --database PATH");
+  if (!verb) usage("no command; use tasks-cli --help");
   let command: string,
     allowed: string[] = [],
     mutation = true,
@@ -442,11 +447,12 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
   };
 }
 export function humanUsage(): string {
-  return `tasks-cli: work with one explicitly selected workspace folder
+  return `tasks-cli: work with the tasks in a Tasks home
 
-  tasks-cli --home PATH COMMAND [OPTIONS]
+  tasks-cli [--home PATH] COMMAND [OPTIONS]
+  Without --home, the CLI works on the home the Tasks app opens on this device.
   PATH is a Tasks home: its sync folder holds the tasks, and the CLI keeps its own
-  cache in its local folder. No environment, registry or default home.
+  cache in its local folder.
   Pause other writers/sharing before destructive work.
 
 QUERIES

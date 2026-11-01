@@ -184,12 +184,15 @@ test("home.documents: settings and undo records are replaced durably, damage is 
 });
 
 test(
-  "cli.explicit-root: tasks-cli works in a home with its own cache, and --home can't be mixed",
+  "cli.home: tasks-cli works in a home with its own cache, and --home can't be mixed",
   { skip: process.platform !== "linux" },
   (t) => {
-    const home = path.join(scratch(t), "home");
+    const directory = scratch(t);
+    const home = path.join(directory, "home");
+    // An empty config folder, so the app's real home is never the default here.
+    const env = { ...process.env, XDG_CONFIG_HOME: path.join(directory, "config") };
     const run = (...argv: string[]) =>
-      spawnSync(process.execPath, [cli, ...argv], { encoding: "utf8", timeout: 10_000 });
+      spawnSync(process.execPath, [cli, ...argv], { encoding: "utf8", timeout: 10_000, env });
     assert.equal(run("--home", home, "init").status, 0);
     assert.equal(run("--home", home, "add", "From the CLI").status, 0);
     const listed = run("--home", home, "list", "--json");
@@ -203,7 +206,57 @@ test(
     const mixed = run("--home", home, "--database", path.join(home, "other.db"), "list");
     assert.equal(mixed.status, 2);
     assert.match(mixed.stderr, /--home already selects/);
-    assert.equal(run("list").status, 2);
+    const homeless = run("list");
+    assert.equal(homeless.status, 2);
+    assert.match(homeless.stderr, /open the Tasks app once/);
+  },
+);
+
+test(
+  "cli.home: without --home, tasks-cli works on the home the app opens",
+  { skip: process.platform !== "linux" },
+  (t) => {
+    const directory = scratch(t);
+    const appHome = path.join(directory, "app-home");
+    const other = path.join(directory, "other");
+    const config = path.join(directory, "config");
+    const env = { ...process.env, XDG_CONFIG_HOME: config };
+    const run = (argv: string[], input?: string) =>
+      spawnSync(process.execPath, [cli, ...argv], {
+        encoding: "utf8",
+        timeout: 10_000,
+        env,
+        input,
+      });
+    createAndInit(appHome);
+    createAndInit(other);
+    const { identifier } = JSON.parse(
+      readFileSync(new URL("../../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
+    ) as { identifier: string };
+    mkdirSync(path.join(config, identifier), { recursive: true });
+    writeFileSync(path.join(config, identifier, "home.json"), JSON.stringify({ home: appHome }));
+
+    assert.equal(run(["add", "In the app's home"]).status, 0);
+    assert.equal(run(["--home", other, "add", "Somewhere else"]).status, 0);
+    const listed = (argv: string[]) =>
+      (JSON.parse(run([...argv, "list", "--json"]).stdout).tasks as { title: string }[]).map(
+        (task) => task.title,
+      );
+    assert.deepEqual(listed([]), ["In the app's home"]);
+    assert.deepEqual(listed(["--home", other]), ["Somewhere else"]);
+    const lines = run(
+      ["--stdio", "--client", "cli"],
+      `${JSON.stringify({ version: 2, command: "task.list", args: { sort: "manual" } })}\n`,
+    );
+    assert.deepEqual(
+      (JSON.parse(lines.stdout).result.tasks as { title: string }[]).map((task) => task.title),
+      ["In the app's home"],
+    );
+
+    writeFileSync(path.join(config, identifier, "home.json"), "{damaged");
+    const damaged = run(["list"]);
+    assert.equal(damaged.status, 1);
+    assert.match(damaged.stderr, /home\.json is damaged/);
   },
 );
 

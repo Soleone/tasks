@@ -550,7 +550,7 @@ test("the friendly CLI has its own help, needs an explicit cache and keeps liter
   const workspace = setup(t);
   const help = run(workspace, ["--help"]);
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /explicitly selected workspace folder/);
+  assert.match(help.stdout, /work with the tasks in a Tasks home/);
   assert.equal(existsSync(workspace.cache), false);
   const missingCache = spawnSync(
     process.execPath,

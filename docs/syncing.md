@@ -70,7 +70,7 @@ Doctor resolves conflicts you have reviewed, through the CLI's JSON lines. It ca
 
 ```bash
 printf '%s\n' '{"version":2,"command":"workspace.doctor.inspect","args":{}}' | \
-  tasks-cli --stdio --home ~/Tasks --client cli
+  tasks-cli --stdio --client cli
 ```
 
 Inspect lists each issue with every version found. Then `workspace.doctor.plan` builds a plan and `workspace.doctor.apply` carries it out; [the sharing spec](../spec/ecosystem/sharing.md#doctor) has the details. Doctor can't be undone, but it keeps a recovery copy of everything it removes. Resume the folder in Syncthing afterwards and let it settle before repairing anything on another device.

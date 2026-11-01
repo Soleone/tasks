@@ -15,7 +15,7 @@ Friendly CLI / JSON-lines CLI -------------------------------> gateway
 
 The dev transport is an HTTP bridge to the Linux Node backend, not a browser storage engine. Windows native uses one bundled Node SEA through `JsonLineSession`. `WorkspaceSelection` confirms a hand-picked `--home` before opening `App`; fixture and kept development copies open directly. `MainWorkspace` routes supported actions and refuses the rest.
 
-`tasks-cli` requires `--home`, with verbs or with `--stdio` for JSON lines; there is no default home. (`--root` with `--database` selects a bare folder for tests.) `pnpm dev:web` without `--home` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
+`tasks-cli` takes `--home`, with verbs or with `--stdio` for JSON lines. Without it, the CLI uses the home the desktop app opens on this machine, so tests and scripts always pass `--home`. (`--root` with `--database` selects a bare folder for tests.) `pnpm dev:web` without `--home` runs on a fresh copy of the fixture. Do not relabel browser checks as native acceptance.
 
 Keep domain rules independent of React, Tauri and transport. The gateway owns validation, command execution and storage effects; clients own presentation and immutable request preparation. Reuse the existing UI instead of another workbench or a generic adapter/writer framework.
 

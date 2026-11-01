@@ -1,8 +1,8 @@
 # Tasks
 
-A calm, keyboard-first task list. Dump an idea in seconds, then shape it later. Every task is a plain JSON file, so you, your scripts and your coding agents can all work on them.
+A calm, keyboard-first task list. Dump an idea in seconds, then shape it later. Every task is a plain JSON file, so you and your coding agents can all work on them.
 
-**[Try it in your browser](https://tasks.soleone.xyz)**, no install, or [download the app](https://github.com/Soleone/tasks/releases/latest) for Windows, Linux, macOS or Android.
+**[Try it in your browser](https://tasks.soleone.xyz)** or [download the app](https://github.com/Soleone/tasks/releases/latest) for Windows, Linux, macOS or Android.
 
 ![Capturing a task with shorthand, starting it and finishing it in Tasks](docs/media/demo.webp)
 
@@ -32,19 +32,19 @@ Every key has a mouse or touch path too. The full keymap is in [the client spec]
 
 - **Hand a task to an agent.** `Ctrl/⌘+C` copies a task's title, description and tags, and `Ctrl/⌘+Shift+C` its newest image, ready to paste into a chat.
 - **Capture from anywhere.** On desktop, a global hotkey brings Tasks forward or opens a new task over whatever you are doing.
-- **Let agents work on the list.** `tasks-cli` works on the same home as the app, sharing its lock, so both can be open at once. Changes from the CLI show up in the open app without a restart, and every change goes through the same backend rules.
+- **Let agents work on the list.** `tasks-cli` works on the home the app opens, sharing its lock, so both can be open at once. `--home PATH` picks another home. Changes from the CLI show up in the open app without a restart, and every change goes through the same backend rules.
 
 ```bash
-tasks-cli --home ~/Tasks add 'Write the release notes @work #docs !fri'
-tasks-cli --home ~/Tasks list --status open --sort due
-tasks-cli --home ~/Tasks complete TASK_ID
+tasks-cli add 'Write the release notes @work #docs !fri'
+tasks-cli list --status open --sort due
+tasks-cli complete TASK_ID
 ```
 
 Agents and your own clients can speak JSON lines instead, one request per line, with safe retries that are never applied twice:
 
 ```bash
 printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
-  tasks-cli --stdio --home ~/Tasks --client cli
+  tasks-cli --stdio --client cli
 ```
 
 For now, build the CLI from a checkout: `pnpm install && pnpm build:backend`, then run `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).

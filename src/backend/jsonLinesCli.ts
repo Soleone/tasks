@@ -1,4 +1,5 @@
 import { executeLine } from "./gateway.js";
+import { appHome } from "./home.js";
 import { executeHomeLine } from "./homeGateway.js";
 import type { Response } from "./protocol.js";
 
@@ -34,14 +35,17 @@ function given(value: string | undefined): value is string {
 }
 
 /**
- * The app runs `--home PATH --client app`. `--root` and `--database` select a bare folder and cache
- * for tests and the old-folder conversion; they can't be mixed with a home.
+ * The app runs `--home PATH --client app`; without `--home`, the home the app opens is used.
+ * `--root` and `--database` select a bare folder and cache for tests and the old-folder
+ * conversion; they can't be mixed with a home.
  */
 export async function runJsonLinesCli(args: string[]): Promise<void> {
-  const homePath = optionValue(args, "--home");
   const client = optionValue(args, "--client");
   const rootPath = optionValue(args, "--root");
   const cachePath = optionValue(args, "--database");
+  const homePath =
+    optionValue(args, "--home") ??
+    (rootPath === undefined && cachePath === undefined ? appHome() : undefined);
   const homeForm = given(homePath) && (client === "app" || client === "cli");
   const folderForm = given(rootPath) && given(cachePath);
   if (
@@ -50,8 +54,9 @@ export async function runJsonLinesCli(args: string[]): Promise<void> {
     (homeForm && (rootPath || cachePath))
   ) {
     process.stderr.write(
-      "Usage: tasks-cli --stdio --home PATH --client app|cli\n" +
-        "       tasks-cli --stdio --root PATH --database CACHE_OUTSIDE_ROOT\n",
+      "Usage: tasks-cli --stdio [--home PATH] --client app|cli\n" +
+        "       tasks-cli --stdio --root PATH --database CACHE_OUTSIDE_ROOT\n" +
+        "Without --home, the home the Tasks app opens; open the app once to choose one.\n",
     );
     process.exitCode = 2;
     return;
