@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import App from "./App";
 import { EDITOR_COMMANDS } from "./backend/editorCommands";
-import { parseResponse } from "./backend/protocol";
+import { parseResponse, type Response } from "./backend/protocol";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/variants/button";
 import { randomUUID } from "./lib/randomUUID";
@@ -13,8 +13,12 @@ import { openHomeWorkspace } from "./platform/homeWorkspace";
 import type { MainWorkspace } from "./platform/mainWorkspace";
 import { WEB_HOME, workerBackend } from "./platform/workerBackend";
 import { WorkspaceReader } from "./platform/workspaceReader";
+import { HostedActions } from "./web/HostedActions";
+import { addSampleTasks } from "./web/sampleTasks";
 
-async function openWebHome(): Promise<MainWorkspace> {
+type WebHome = { workspace: MainWorkspace; session: JsonLineSession<Response> };
+
+async function openWebHome(): Promise<WebHome> {
   const selection: EditorSelection = {
     version: 2,
     rootPath: `${WEB_HOME}/sync`,
@@ -30,15 +34,15 @@ async function openWebHome(): Promise<MainWorkspace> {
     new EditorClient(session, selection),
   );
   selectMainWorkspace(workspace);
-  return workspace;
+  return { workspace, session };
 }
 
 // One home per page: StrictMode's second effect run must reuse the first opening.
-let opening: Promise<MainWorkspace> | null = null;
+let opening: Promise<WebHome> | null = null;
 
-/** The web build: a Tasks home kept in this browser, with sample tasks on the first visit. */
+/** The web build: a Tasks home kept in this browser, with example tasks a button away. */
 export default function WebWorkspace(): ReactElement | null {
-  const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
+  const [home, setHome] = useState<WebHome | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -47,7 +51,7 @@ export default function WebWorkspace(): ReactElement | null {
     opening ??= openWebHome();
     opening.then(
       (opened) => {
-        if (!cancelled) setWorkspace(opened);
+        if (!cancelled) setHome(opened);
       },
       (reason: unknown) => {
         opening = null;
@@ -59,7 +63,13 @@ export default function WebWorkspace(): ReactElement | null {
     };
   }, [attempt]);
 
-  if (workspace) return <App workspace={workspace} />;
+  if (home)
+    return (
+      <>
+        <App workspace={home.workspace} />
+        <HostedActions addSamples={() => addSampleTasks(home.session)} />
+      </>
+    );
   if (!error) return null;
   return (
     <main className="app-shell mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6">

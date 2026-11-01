@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Records the hosted build's first visit as the README's looping WebP: capture a task, start it,
-// finish it, then open the shortcut list.
+// Records the hosted build as the README's looping WebP: after adding the example tasks, capture a
+// task, start it, finish it, then open the shortcut list.
 // Usage: node scripts/capture-demo.mjs [--url http://localhost:4173] [--out docs/media/demo.webp]
 // Needs agent-browser (with its browser installed) and FFmpeg on the PATH. Serve the build first,
 // for example `pnpm build:hosted && pnpm exec vite preview --outDir dist/hosted`.
@@ -19,10 +19,12 @@ const newTask = "Ship the web demo";
 await record({
   url: values.url,
   out: values.out,
-  viewport: { width: 1100, height: 680 },
-  width: 1100,
+  viewport: { width: 1280, height: 760 },
+  width: 1280,
   async start(page) {
-    await page.waitFor(`document.body.innerText.includes("active tasks")`, { timeoutMs: 30_000 });
+    await page.waitFor(`document.body.innerText.includes("0 active tasks")`, { timeoutMs: 30_000 });
+    await page.click("Add example tasks");
+    await page.waitFor(`document.body.innerText.includes("13 active tasks")`);
     // Pausing the first quest leaves a toast for a few seconds; the clip starts once it is gone.
     await page.click("Later");
     await page.waitFor(`!document.body.innerText.includes("Quest paused")`, { timeoutMs: 15_000 });

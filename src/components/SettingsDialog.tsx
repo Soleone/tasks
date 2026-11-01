@@ -23,6 +23,7 @@ import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
 import { version } from "../../package.json";
+import { RELEASES_URL } from "@/web/HostedActions";
 
 type SettingsDialogProps = {
   open: boolean;
@@ -35,8 +36,6 @@ type SettingsDialogProps = {
 function fontSizeLabel(increase: FontSizeIncrease): string {
   return increase === 0 ? "Default" : `+${increase}%`;
 }
-
-const RELEASES_URL = "https://github.com/Soleone/tasks/releases/latest";
 
 const settingsTabStopSelector =
   'button, input, textarea, select, a[href], [contenteditable="true"], [role="checkbox"], [role="tab"], [tabindex="0"]';

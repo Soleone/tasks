@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Button as StockButton } from "@/components/ui/button";
@@ -66,5 +67,27 @@ export function PlaceholderButton({ className, ...props }: Omit<ButtonProps, "va
       )}
       {...props}
     />
+  );
+}
+
+/**
+ * An action floating in a corner of the window: icon and label where the window has room beside
+ * the list, only the icon, square, where it would cover the list.
+ */
+export function FloatingButton({
+  icon: Icon,
+  label,
+  className,
+  ...props
+}: Omit<ButtonProps, "size" | "children"> & { icon: LucideIcon; label: string }) {
+  return (
+    <Button
+      size="lg"
+      className={cn("px-3 shadow-lg max-xl:size-9 max-xl:px-0", className)}
+      {...props}
+    >
+      <Icon aria-hidden="true" />
+      <span className="max-xl:sr-only">{label}</span>
+    </Button>
   );
 }
