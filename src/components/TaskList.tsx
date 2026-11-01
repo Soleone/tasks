@@ -29,6 +29,7 @@ import {
   type StatusPreset,
 } from "@/components/taskFilters";
 import { lensPhrase, type ListLens } from "./listLens";
+import { CategoryFact } from "./TaskRow";
 import {
   InlineTaskComposer,
   isEditorSaving,
@@ -131,6 +132,8 @@ export type TaskListHandle = {
 
 type TaskListProps = {
   tasks: TaskView[];
+  /** Every category in the workspace, which sizes the category column. */
+  categories: ClassificationOption[];
   newTaskId?: string | null;
   /** The task this client just saved from the editor, while its row plays `edit.saved` or `capture.saved`. */
   savedTask?: SavedTask | null;
@@ -235,6 +238,7 @@ const LOAD_AHEAD_ROWS = 20;
 export function TaskList({
   ref,
   tasks: queriedTasks,
+  categories,
   newTaskId,
   savedTask,
   exitingTaskIds,
@@ -309,6 +313,7 @@ export function TaskList({
 }: TaskListProps & { ref?: Ref<TaskListHandle> }): ReactElement {
   const section = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const categorySizer = useRef<HTMLDivElement>(null);
   const filterToolbar = useRef<HTMLDivElement>(null);
   const sortToolbar = useRef<HTMLDivElement>(null);
   const statusFilterButton = useRef<HTMLButtonElement>(null);
@@ -1671,6 +1676,37 @@ export function TaskList({
     list.current?.scrollTo({ top: 0 });
   }, [optimisticTaskId]);
 
+  // The widths below are set on the section directly, so they apply before the next paint.
+  // The new-task editor sits above the list, so it gives up the width of the list's scrollbar too,
+  // keeping its category in the rows' column where scrollbars take space (Windows).
+  useLayoutEffect(() => {
+    const root = section.current;
+    const element = list.current;
+    if (!root || !element) return;
+    const observer = new ResizeObserver(() =>
+      root.style.setProperty(
+        "--list-scrollbar-width",
+        `${element.offsetWidth - element.clientWidth}px`,
+      ),
+    );
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--list-scrollbar-width");
+    };
+  }, [showListSurface]);
+  // The category column is as wide as the widest category, with its editor's remove button.
+  useLayoutEffect(() => {
+    const root = section.current;
+    const sizer = categorySizer.current;
+    if (!root || !sizer) return;
+    const observer = new ResizeObserver(() =>
+      root.style.setProperty("--category-column-width", `${sizer.offsetWidth}px`),
+    );
+    observer.observe(sizer);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section
       ref={section}
@@ -1800,12 +1836,15 @@ export function TaskList({
       {composer && (composer.mode === "create" || !editingTaskVisible) ? (
         <div
           hidden={optimisticTask !== null}
+          className="pr-(--list-scrollbar-width)"
           onPointerDown={(event) => {
             keepEditingPress.current = event.nativeEvent;
           }}
         >
           <InlineTaskComposer
             composer={composer}
+            categories={categories}
+            categoryColumn={!categoryFilter}
             onClose={onCloseComposer}
             onSaved={onComposerSaved}
             onCreatePending={onCreatePending}
@@ -1870,6 +1909,8 @@ export function TaskList({
                   <InlineTaskComposer
                     key={`edit-${row.task.id}`}
                     composer={composer}
+                    categories={categories}
+                    categoryColumn={!categoryFilter}
                     onClose={onCloseComposer}
                     onSaved={onComposerSaved}
                     onCreatePending={onCreatePending}
@@ -1954,6 +1995,19 @@ export function TaskList({
             : STATUS_PRESET_LABELS[statusPreset]}
         </AnchoredTooltipContent>
       </Tooltip>
+      {/* Lays out every category, so the category column can take the widest one's width. The
+          spacer stands in for the editor's remove button. */}
+      <div
+        ref={categorySizer}
+        aria-hidden="true"
+        className="invisible absolute flex h-0 flex-col overflow-hidden"
+      >
+        {categories.map((category) => (
+          <CategoryFact key={category.slug} label={category.label}>
+            <span className="w-3 shrink-0" />
+          </CategoryFact>
+        ))}
+      </div>
     </section>
   );
 }

@@ -230,9 +230,30 @@ export function TaskStatusToggle({
   );
 }
 
-/** The category column: one width down the list, so the due dates and chevrons before it line up. */
-export function CategoryColumn({ children }: { children?: ReactNode }): ReactElement {
-  return <div className="flex h-[1.375em] w-20 shrink-0 items-center sm:w-28">{children}</div>;
+/**
+ * The category column: one width down the list, so the due dates and chevrons before it line up.
+ * The list measures its widest category into `--category-column-width`; long names still truncate.
+ * The editor's column can grow past it for a category that is new.
+ */
+export function CategoryColumn({
+  grow = false,
+  children,
+}: {
+  grow?: boolean;
+  children?: ReactNode;
+}): ReactElement {
+  return (
+    <div
+      className={cn(
+        "flex h-[1.375em] shrink-0 items-center max-w-20 sm:max-w-28",
+        grow
+          ? "min-w-[min(var(--category-column-width),5rem)] sm:min-w-[min(var(--category-column-width),7rem)]"
+          : "w-(--category-column-width)",
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 // Letters matching what is typed after `@` or `#`: finishing that name would remove the pill.

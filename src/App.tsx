@@ -332,6 +332,7 @@ export default function App({
   });
   const {
     tasks,
+    categories,
     contextTasks,
     contextOrder,
     total,
@@ -906,6 +907,7 @@ export default function App({
         <TaskList
           ref={taskListRef}
           tasks={tasks}
+          categories={categories}
           newTaskId={newTaskId}
           savedTask={savedTask}
           exitingTaskIds={exitingTaskIds}

@@ -1,7 +1,7 @@
 import { memo, type MouseEvent, type ReactElement } from "react";
 import { Check, ChevronDown, ChevronRight, CirclePlus } from "lucide-react";
 import type { ClassificationToken } from "@/backend/taskText";
-import type { TaskView } from "./taskView";
+import type { ClassificationOption, TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
 import { forwardStatusTransition, reverseStatusTransition } from "./taskStatusCycle";
 import { taskStatusMeta } from "./taskFilters";
@@ -199,6 +199,8 @@ const NEW_TASK_STATUS = { status: "open", priority: 2, effort: 3 } as const;
 
 export function InlineTaskComposer({
   composer,
+  categories,
+  categoryColumn,
   onClose,
   onSaved,
   onCreatePending,
@@ -207,6 +209,8 @@ export function InlineTaskComposer({
   inList = false,
 }: {
   composer: ComposerState;
+  categories: ClassificationOption[];
+  categoryColumn: boolean;
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
@@ -241,6 +245,8 @@ export function InlineTaskComposer({
           task={task}
           parentId={parentId}
           initialTitle={initialTitle}
+          categories={categories}
+          categoryColumn={categoryColumn}
           onSaved={onSaved}
           onCreatePending={onCreatePending}
           onCreateFailed={onCreateFailed}

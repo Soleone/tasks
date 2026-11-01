@@ -34,7 +34,6 @@ import { CategoryColumn } from "./TaskRow";
 import { DueDatePicker } from "./DueDatePicker";
 import {
   createTask,
-  listCategories,
   listTags,
   updateTask,
   type TaskMutationResult,
@@ -71,6 +70,10 @@ type TaskComposerProps = {
   task?: TaskView;
   initialTitle?: string;
   parentId?: string;
+  /** Every category in the workspace, for `@` suggestions. */
+  categories: ClassificationOption[];
+  /** Holds the category in the rows' column; off when the rows leave the category out. */
+  categoryColumn: boolean;
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
   onCreateFailed: () => void;
@@ -165,6 +168,8 @@ export function TaskComposer({
   task,
   initialTitle = "",
   parentId,
+  categories,
+  categoryColumn,
   onSaved,
   onCreatePending,
   onCreateFailed,
@@ -214,7 +219,6 @@ export function TaskComposer({
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<ClassificationOption[]>([]);
   const [tags, setTags] = useState<ClassificationOption[]>([]);
   const [suggestion, setSuggestion] = useState<PartialToken | null>(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
@@ -265,11 +269,9 @@ export function TaskComposer({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listCategories(), listTags()])
-      .then(([categoryResult, tagResult]) => {
-        if (cancelled) return;
-        setCategories(categoryResult.categories);
-        setTags(tagResult.tags);
+    listTags()
+      .then((tagResult) => {
+        if (!cancelled) setTags(tagResult.tags);
       })
       .catch(() => {
         // Autocomplete is a convenience. The title remains editable if the
@@ -765,9 +767,15 @@ export function TaskComposer({
         <div className="ml-auto flex gap-2.5">
           <ClassificationPills kind="due" {...pillProps} />
           <span className="w-7 shrink-0" />
-          <CategoryColumn>
-            <ClassificationPills kind="category" {...pillProps} />
-          </CategoryColumn>
+          {categoryColumn ? (
+            <CategoryColumn grow>
+              <ClassificationPills kind="category" {...pillProps} />
+            </CategoryColumn>
+          ) : (
+            <div className="flex h-[1.375em] items-center">
+              <ClassificationPills kind="category" {...pillProps} />
+            </div>
+          )}
         </div>
       </div>
       {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}

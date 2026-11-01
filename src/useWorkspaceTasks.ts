@@ -21,7 +21,12 @@ import {
   type StatusPreset,
 } from "@/components/taskFilters";
 import { lensFilter, type ListLens } from "@/components/listLens";
-import { closeBackendSession, getWorkspaceRevision, listTasks } from "@/platform/backendClient";
+import {
+  closeBackendSession,
+  getWorkspaceRevision,
+  listCategories,
+  listTasks,
+} from "@/platform/backendClient";
 
 const WORKSPACE_REVISION_POLL_MS = 1500;
 /** Tasks per request; the list loads further pages as navigation nears its end. */
@@ -63,6 +68,7 @@ export function useWorkspaceTasks({
   const [contextTasks, setContextTasks] = useState<TaskView[]>([]);
   const [contextOrder, setContextOrder] = useState<Map<string, number>>(() => new Map());
   const [total, setTotal] = useState(0);
+  const [categories, setCategories] = useState<ClassificationOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const querySequence = useRef(0);
@@ -96,26 +102,34 @@ export function useWorkspaceTasks({
           lensRef.current === null ? { statuses: undefined } : lensFilter(lensRef.current);
         const statuses =
           lensStatuses ?? (exact !== null ? [exact] : presetStatuses(statusPresetRef.current));
-        const result = await listTasks(
-          statuses,
-          offset,
-          showUnblockedRef.current,
-          categoryFilterRef.current ?? undefined,
-          {
-            ...(priorityFilterRef.current !== null ? { priority: priorityFilterRef.current } : {}),
-            ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
-            ...(searchQueryRef.current.trim() !== ""
-              ? { search: searchQueryRef.current.trim() }
-              : {}),
-            ...lensBounds,
-            limit,
-            sort: sortFieldRef.current,
-            direction: sortDirectionRef.current,
-            includeAncestors: true,
-            includeDescendants: true,
-          },
-        );
+        // Every category, not just this view's, so the rows' category column keeps its width and
+        // the editor can suggest any of them. It comes with the rows so both show at once.
+        const [result, categoryResult] = await Promise.all([
+          listTasks(
+            statuses,
+            offset,
+            showUnblockedRef.current,
+            categoryFilterRef.current ?? undefined,
+            {
+              ...(priorityFilterRef.current !== null
+                ? { priority: priorityFilterRef.current }
+                : {}),
+              ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
+              ...(searchQueryRef.current.trim() !== ""
+                ? { search: searchQueryRef.current.trim() }
+                : {}),
+              ...lensBounds,
+              limit,
+              sort: sortFieldRef.current,
+              direction: sortDirectionRef.current,
+              includeAncestors: true,
+              includeDescendants: true,
+            },
+          ),
+          offset ? null : listCategories(),
+        ]);
         if (sequence !== querySequence.current) return false;
+        if (categoryResult) setCategories(categoryResult.categories);
         workspaceRevisionRef.current = result.workspaceRevision;
         if (!offset && !preserveContextOrder) setContextOrder(new Map());
         setTasks((previous) =>
@@ -481,6 +495,7 @@ export function useWorkspaceTasks({
   return {
     tasks,
     setTasks,
+    categories,
     contextTasks,
     contextOrder,
     total,
