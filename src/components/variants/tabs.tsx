@@ -6,13 +6,17 @@ import { FOCUS_RING } from "./focus";
 /**
  * Panels share one grid cell, so the tallest one sets the height and switching tabs never resizes.
  * Inactive panels stay laid out but invisible; Base UI already makes them inert.
+ * Controls with `transition-all` would animate the inherited visibility and linger after the switch.
  */
 export function StackedTabsContent({ className, ...props }: ComponentProps<typeof TabsContent>) {
   return (
     <TabsContent
       keepMounted
       hidden={false}
-      className={cn("col-start-1 row-start-1 data-hidden:invisible", className)}
+      className={cn(
+        "col-start-1 row-start-1 data-hidden:invisible data-hidden:**:transition-none",
+        className,
+      )}
       {...props}
     />
   );
