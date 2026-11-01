@@ -1,0 +1,9 @@
+name = "tasks-feedback"
+main = "worker.ts"
+compatibility_date = "2026-10-01"
+
+# A person sends a report or two; anything faster from one address is spam.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 3, period = 60 }

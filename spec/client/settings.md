@@ -8,6 +8,7 @@
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 | `settings.version` | Settings is open | Its footer shows the app version, e.g. Tasks 0.3.2, below every tab |
+| `settings.feedback` | Send feedback in Settings' footer | A dialog takes Bug or Feedback, a title and a description, and says reports become public GitHub issues. Send files the issue through our feedback Worker, labeled `bug` or `enhancement` and signed with the app version and platform, without a GitHub account. It then shows the issue's link. A failed send keeps the report and says why |
 
 ## General
 

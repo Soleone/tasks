@@ -15,6 +15,7 @@
     "dev:demo": "VITE_HOSTED=1 vp dev --port 5175",
     "build:hosted": "VITE_HOSTED=1 vp build --outDir dist/hosted",
     "release:demo": "pnpm build:hosted && vercel deploy dist/hosted --prod --yes --project tasks-demo --scope soleones-projects",
+    "release:feedback": "pnpm dlx wrangler deploy -c src/feedback/wrangler.toml",
     "build:backend": "node -e \"require('fs').rmSync('dist/backend', { recursive: true, force: true })\" && tsc -p tsconfig.backend.json",
     "build:test": "node -e \"require('fs').rmSync('test-dist', { recursive: true, force: true })\" && tsc -p tsconfig.backend.json --outDir test-dist",
     "build:backend:bundle": "esbuild src/backend/tasks-cli.ts --bundle --platform=node --format=cjs --outfile=dist/sidecar/tasks-cli.cjs",

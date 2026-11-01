@@ -21,6 +21,7 @@ import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
 import { version } from "../../package.json";
 
@@ -72,6 +73,7 @@ export function SettingsDialog({
   const [switching, setSwitching] = useState(false);
   const switchStarted = useRef(false);
   const [progressReset, setProgressReset] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const learning = useLearning();
   const questsShown = useQuests().shown;
   const settingsTab = useRef<HTMLButtonElement>(null);
@@ -357,7 +359,13 @@ export function SettingsDialog({
           </div>
         </Tabs>
 
-        <p className="text-xs text-muted-foreground">Tasks {version}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Tasks {version}</p>
+          <Button variant="outline" size="sm" onClick={() => setFeedbackOpen(true)}>
+            Send feedback
+          </Button>
+        </div>
+        {feedbackOpen && <FeedbackDialog onClose={() => setFeedbackOpen(false)} />}
 
         <DialogClose
           render={

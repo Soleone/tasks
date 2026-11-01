@@ -49,6 +49,36 @@ test("settings.version: the footer shows the app version", async () => {
   settings.getByText(`Tasks ${version}`);
 });
 
+test("settings.feedback: the footer sends a report and shows its issue", async () => {
+  const appFetch = globalThis.fetch;
+  const reports: unknown[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    if (!String(input).includes("tasks-feedback")) return appFetch(input, init);
+    reports.push(JSON.parse(String(init?.body)));
+    return reports.length === 1
+      ? Response.json({ error: "GitHub didn't take the report." }, { status: 502 })
+      : Response.json({ url: "https://github.com/Soleone/tasks/issues/7" }, { status: 201 });
+  });
+  const { user } = await workspace.render();
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("button", { name: "Send feedback" }));
+  const dialog = within(await screen.findByRole("dialog", { name: "Send feedback" }));
+  await user.click(dialog.getByRole("radio", { name: "Feedback" }));
+  await user.type(dialog.getByRole("textbox", { name: "Title" }), "Group by day");
+  await user.type(dialog.getByRole("textbox", { name: "Description" }), "In the Done lens");
+  await user.click(dialog.getByRole("button", { name: "Send" }));
+  await dialog.findByText("GitHub didn't take the report.");
+  expect(dialog.getByRole("textbox", { name: "Title" })).toHaveProperty("value", "Group by day");
+  await user.click(dialog.getByRole("button", { name: "Send" }));
+  await dialog.findByText("https://github.com/Soleone/tasks/issues/7");
+  expect(reports[1]).toEqual({
+    kind: "idea",
+    title: "Group by day",
+    description: "In the Done lens",
+    source: `Tasks ${version} on the web`,
+  });
+});
+
 test("settings.tabs: arrows switch sections and Tab enters Cleanup without passing Data controls", async () => {
   const canceled = await workspace.create("Canceled");
   await workspace.change("task.cancel", canceled.id);

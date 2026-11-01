@@ -37,3 +37,15 @@ export function keyName(key: string): string {
 
 /** The modifier key that shortcut hints name: ⌘ on macOS, Ctrl elsewhere. */
 export const modKey = keyName("Mod");
+
+const PLATFORM_NAMES: Record<Platform, string> = {
+  macos: "macOS",
+  windows: "Windows",
+  linux: "Linux",
+};
+
+/** Where this copy of Tasks runs, as a person names it: "Windows", "Android" or "the web". */
+export function platformName(): string {
+  if (isAndroid()) return "Android";
+  return runtimeKind() === "native" ? PLATFORM_NAMES[platform] : "the web";
+}

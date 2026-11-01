@@ -9,6 +9,11 @@ export function Input({ className, ...props }: ComponentProps<typeof StockInput>
   return <StockInput className={cn(FOCUS_RING, className)} {...props} />;
 }
 
+/** A multi-line form field with the app's keyboard focus ring. */
+export function FieldTextarea({ className, ...props }: ComponentProps<typeof Textarea>) {
+  return <Textarea className={cn(FOCUS_RING, className)} {...props} />;
+}
+
 /** Keep the native slider behavior, with the app's focus treatment instead of a browser outline. */
 export function RangeInput({ className, ...props }: Omit<ComponentProps<"input">, "type">) {
   return <input type="range" className={cn("rounded-lg", FOCUS_RING, className)} {...props} />;
