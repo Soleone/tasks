@@ -198,7 +198,7 @@ jobs:
           merge-multiple: true
       - name: Generate complete updater manifest and notes
         run: node scripts/release-artifacts.mjs manifest release-assets "$GITHUB_REF_NAME"
-      - name: Publish installers, signatures and manifest together
+      - name: Publish installers and manifest together
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
@@ -212,7 +212,8 @@ jobs:
           else
             gh release create "$TAG" --verify-tag --draft --title "Tasks ${TAG#v}" --notes-file release-assets/notes.md
           fi
-          rm release-assets/notes.md
+          # latest.json carries each signature, so the .sig files would only clutter the downloads.
+          rm release-assets/notes.md release-assets/*.sig
           gh release upload "$TAG" release-assets/* --clobber
           # A slower older build must not displace a newer version as latest.
           api="$(gh release view "$TAG" --json apiUrl --jq '.apiUrl')"

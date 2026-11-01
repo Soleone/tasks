@@ -19,11 +19,11 @@ import { fileURLToPath } from "node:url";
 const script = fileURLToPath(new URL("./release-artifacts.mjs", import.meta.url));
 const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const tag = `v${version}`;
-const windows = `Tasks_${version}_x64-setup.exe`;
-const linux = `Tasks_${version}_amd64.AppImage`;
-const dmg = `Tasks_${version}_aarch64.dmg`;
-const macUpdater = `Tasks_${version}_aarch64.app.tar.gz`;
-const apk = `Tasks_${version}_arm64.apk`;
+const windows = `Tasks-${version}-Windows-x64-setup.exe`;
+const linux = `Tasks-${version}-Linux-x64.AppImage`;
+const dmg = `Tasks-${version}-macOS-Apple-Silicon.dmg`;
+const macUpdater = `Tasks-${version}-macOS-updater.app.tar.gz`;
+const apk = `Tasks-${version}-Android.apk`;
 
 function run(...args) {
   return spawnSync(process.execPath, [script, ...args], {
@@ -108,7 +108,24 @@ test("release assets include every installer and one complete signed desktop upd
     assert.equal(readFileSync(path.join(output, name), "utf8"), content);
   assert.equal(typeof manifest.notes, "string");
   assert.doesNotMatch(manifest.notes, /^#{1,2} /m);
-  assert.equal(readFileSync(path.join(output, "notes.md"), "utf8"), `${manifest.notes}\n`);
+  const download = (name) =>
+    `[${name}](https://github.com/example/tasks/releases/download/${tag}/${name})`;
+  assert.equal(
+    readFileSync(path.join(output, "notes.md"), "utf8"),
+    [
+      "### Download",
+      "",
+      "| Device | File |",
+      "| --- | --- |",
+      `| Windows | ${download(windows)} |`,
+      `| Linux | ${download(linux)} |`,
+      `| Mac with Apple silicon | ${download(dmg)} |`,
+      `| Android | ${download(apk)} |`,
+      "",
+      manifest.notes,
+      "",
+    ].join("\n"),
+  );
 });
 
 for (const notes of ["### Bug Fixes\n\n* Keep release downloads complete.", ""]) {
@@ -131,7 +148,7 @@ for (const notes of ["### Bug Fixes\n\n* Keep release downloads complete.", ""])
     assert.equal(result.status, 0, result.stderr);
     const manifest = JSON.parse(readFileSync(path.join(output, "latest.json"), "utf8"));
     assert.equal(manifest.notes, notes);
-    assert.equal(readFileSync(path.join(output, "notes.md"), "utf8"), `${notes}\n`);
+    assert.ok(readFileSync(path.join(output, "notes.md"), "utf8").endsWith(`) |\n\n${notes}\n`));
   });
 }
 
