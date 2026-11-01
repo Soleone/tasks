@@ -1,12 +1,10 @@
 # Tasks
 
-A keyboard-first task list whose tasks are plain JSON files, so you, your scripts and your coding agents can all work on them.
+A calm, keyboard-first task list. Dump an idea in seconds, then shape it later. Every task is a plain JSON file, so you, your scripts and your coding agents can all work on them.
 
 **[Try it in your browser](https://tasks.soleone.xyz)**, no install, or [download the app](https://github.com/Soleone/tasks/releases/latest) for Windows, Linux, macOS or Android.
 
 ![Capturing a task with shorthand, starting it and finishing it in Tasks](docs/media/demo.webp)
-
-Every task is one file in a folder you choose, so you can sync it, back it up and edit it with any tool. The app, the command line and your agents all go through the same backend, so they follow the same rules and every change can be undone.
 
 ## What it's like
 
@@ -14,14 +12,42 @@ Every task is one file in a folder you choose, so you can sync it, back it up an
 - **Move work along in one key.** `Space` steps a task from open to in progress to done, `0`–`4` set its priority and `[` `]` its effort. `Shift+C` adds a subtask, `B` a blocker.
 - **Ask the list one question.** `!` shows what is due today or late, `D` what you finished in the last day. `F` filters, `S` sorts, `/` searches.
 - **Undo anything.** `Ctrl/⌘+Z` takes back your latest change, and the undo history is still there after a restart.
-- **Learn it as you go.** `Ctrl/⌘+K` lists every shortcut and the shorthand, `?` opens the Learn panel and `Alt+T` picks a theme. On desktop, a global hotkey can bring Tasks forward or open a new task from anywhere.
+- **Learn it by doing.** Short quests teach Tasks one key at a time, on your own tasks, and wait whenever you want a break. `Ctrl/⌘+K` lists every shortcut and `?` opens the Learn panel.
+- **Make it yours.** `Alt+T` flips through 25 built-in themes.
 
 Every key has a mouse or touch path too. The full keymap is in [the client spec](spec/client/README.md).
 
-## Get it
+## What a task holds
 
-- **In your browser:** [tasks.soleone.xyz](https://tasks.soleone.xyz) keeps your tasks in that browser only. Add the example tasks from the corner button to look around.
-- **Desktop and Android:** the [latest release](https://github.com/Soleone/tasks/releases/latest) has a Windows installer, a macOS disk image for Apple silicon, a Linux AppImage and an Android APK. The first launch asks you to create a Tasks home or open one you already have. The desktop apps update themselves.
+- **Status:** open, in progress, paused, done or canceled.
+- **Priority:** P0 (most urgent) to P4.
+- **Effort:** tiny to huge, in five steps.
+- **Category and tags:** one `@category`, any number of `#tags`.
+- **Due date:** `!fri`, `!tomorrow` or a date.
+- **Notes:** a Markdown description.
+- **Images:** paste screenshots straight in.
+- **Structure:** subtasks under a parent, and blockers that must finish first.
+
+## Made for working with agents
+
+- **Hand a task to an agent.** `Ctrl/⌘+C` copies a task's title, description and tags, and `Ctrl/⌘+Shift+C` its newest image, ready to paste into a chat.
+- **Capture from anywhere.** On desktop, a global hotkey brings Tasks forward or opens a new task over whatever you are doing.
+- **Let agents work on the list.** `tasks-cli` works on the same home as the app, sharing its lock, so both can be open at once. Changes from the CLI show up in the open app without a restart, and every change goes through the same backend rules.
+
+```bash
+tasks-cli --home ~/Tasks add 'Write the release notes @work #docs !fri'
+tasks-cli --home ~/Tasks list --status open --sort due
+tasks-cli --home ~/Tasks complete TASK_ID
+```
+
+Agents and your own clients can speak JSON lines instead, one request per line, with safe retries that are never applied twice:
+
+```bash
+printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
+  tasks-cli --stdio --home ~/Tasks --client cli
+```
+
+For now, build the CLI from a checkout: `pnpm install && pnpm build:backend`, then run `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).
 
 ## Your tasks are files
 
@@ -33,30 +59,16 @@ Everything Tasks keeps for one device lives in one folder, its Tasks home:
 <home>/local/          caches, writer lock, recovery files and undo records; never synced
 ```
 
-- **Syncing devices.** Each device has its own home. Share only the `sync/` folders between them with Syncthing; settings and undo history stay on each device. Never sync the home itself or its `local/` folder.
+- **Sync across devices.** Each device has its own home, and [Syncthing](https://syncthing.net), free and self-hosted, shares only their `sync/` folders. [Syncing with Syncthing](docs/syncing.md) walks through setup, Android and what happens when two devices change the same task.
 - **`local/` is not a throwaway cache.** It holds undo history, receipts and recovery files. Deleting it loses them, though the tasks themselves are safe in `sync/`.
 - **Backups.** Close Tasks and the command line and copy the whole home. When you open a copy, the app asks to start a new history there, so a copy never inherits or wipes history silently. The old history is kept aside in `local/retired/`. A home moved as a whole on the same drive keeps its history once you confirm the move.
 
 Coming from a version of Tasks before homes? [Moving a task folder into a home](docs/moving-to-a-home.md) takes three steps.
 
-## Scripts and agents
+## Get it
 
-`tasks-cli` works on the same home as the app, sharing its lock, so both can be open at once. Every call names the home:
-
-```bash
-tasks-cli --home ~/Tasks add 'Write the release notes @work #docs !fri'
-tasks-cli --home ~/Tasks list --status open --sort due
-tasks-cli --home ~/Tasks complete TASK_ID
-```
-
-`--help` lists the verbs, and `tasks-cli --home PATH init` creates an empty home. Agents can send JSON lines instead, one request per line:
-
-```bash
-printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
-  tasks-cli --stdio --home ~/Tasks --client cli
-```
-
-Before each write the CLI prints a `tasks-cli retry: {...}` line to stderr. To retry a write whose outcome you didn't see, pass back its context, key and expected version unchanged, and it is never applied twice. For now, build the CLI from a checkout: `pnpm install && pnpm build:backend`, then run `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).
+- **In your browser:** [tasks.soleone.xyz](https://tasks.soleone.xyz) keeps your tasks in that browser only. Flip **Show example tasks**, bottom left, to look around.
+- **Desktop and Android:** the [latest release](https://github.com/Soleone/tasks/releases/latest) has a Windows installer, a macOS disk image for Apple silicon, a Linux AppImage and an Android APK. The first launch asks you to create a Tasks home or open one you already have. The desktop apps update themselves.
 
 ## Development
 
@@ -74,6 +86,7 @@ pnpm dev:web
 ## Documentation
 
 - [Specification](spec/README.md): how the app works, in three layers (backend, ecosystem, client).
+- [Syncing with Syncthing](docs/syncing.md): sharing tasks between devices and resolving conflicts.
 - [Development](docs/development.md): setup, validation, native tooling and signing.
 - [Plan](PLAN.md), [guidelines](GUIDELINES.md), [agent instructions](AGENTS.md).
 - [Evidence](docs/evidence/README.md): dated reports, frozen.
