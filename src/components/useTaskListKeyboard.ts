@@ -88,6 +88,7 @@ type HomeShortcutActions = {
   editTask: (task: TaskView) => void;
   copyTask: (task: TaskView) => Promise<void>;
   copyImage: (task: TaskView) => void;
+  openTaskMenu: (task: TaskView) => void;
 };
 
 /** What the second key of `F` does, or null for a key with no filter. */
@@ -259,6 +260,18 @@ export function useTaskListKeyboard(
         actions.selectBoundary("end");
         return;
       }
+    }
+    if (
+      toolbarModeRef.current === null &&
+      (event.key === "ContextMenu" || (event.key.toLowerCase() === "a" && !event.shiftKey)) &&
+      !event.repeat &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      if (actions.activeTask) actions.openTaskMenu(actions.activeTask);
+      return;
     }
     if (
       event.isComposing ||

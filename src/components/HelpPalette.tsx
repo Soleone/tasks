@@ -32,6 +32,7 @@ import {
   Trash2,
   Undo2,
   type LucideIcon,
+  Menu,
 } from "lucide-react";
 import type { TaskView } from "./taskView";
 import {
@@ -312,6 +313,13 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keys: ["M"],
         action: "move-under",
         keywords: "m move under parent child hierarchy subtask",
+      },
+      {
+        label: "Open task menu",
+        hint: "Or the Menu key",
+        icon: Menu,
+        keys: ["A"],
+        keywords: "a actions menu key context right click long press",
       },
       {
         label: "Cancel task",

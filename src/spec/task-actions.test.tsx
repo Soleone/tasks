@@ -81,6 +81,23 @@ test("home.task-context-menu: actions have icons and Cancel task changes status 
   await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("canceled"));
 });
 
+test("home.task-context-menu: A opens the active task's menu and arrows and Enter drive it", async () => {
+  const task = await workspace.create("Task");
+  await workspace.create("Other task");
+  const { user } = await workspace.render();
+  await expectActive("Other task");
+  await user.keyboard("{ArrowDown}");
+  await expectActive("Task");
+  await user.keyboard("a");
+  await screen.findByRole("menu", { name: "Actions for Task" });
+  // Edit, then Status; its submenu opens on the right and starts on Open.
+  await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+  await screen.findByRole("menuitemradio", { name: "Open" });
+  await user.keyboard("{ArrowDown}{Enter}");
+  await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("in_progress"));
+  await expectListFocused();
+});
+
 test("home.task-context-menu: the Status submenu moves a task back from in progress to open", async () => {
   const task = await workspace.create("Task");
   await workspace.change("task.start", task.id);

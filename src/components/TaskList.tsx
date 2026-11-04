@@ -792,6 +792,21 @@ export function TaskList({
     onAnnounce(`Showing ${label} tasks`);
   }
 
+  // The row's own context menu, opened as if right-clicked just below its leading edge.
+  function openTaskMenu(task: TaskView): void {
+    const row = document.getElementById(`task-option-${task.id}`);
+    if (!row) return;
+    const { left, bottom } = row.getBoundingClientRect();
+    row.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: left + 16,
+        clientY: bottom,
+      }),
+    );
+  }
+
   async function copyActiveTask(task: TaskView): Promise<void> {
     try {
       await copyTaskText(task);
@@ -1608,6 +1623,7 @@ export function TaskList({
       editTask: onEdit,
       copyTask: copyActiveTask,
       copyImage: copyNewestImage,
+      openTaskMenu,
     },
     { toolbarModeRef, composerOpenRef, list, section },
   );
