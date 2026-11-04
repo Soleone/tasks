@@ -438,27 +438,14 @@ const QUEST_DEFINITIONS = [
     ],
   },
   {
-    id: "fast-hands",
-    title: "Fast hands",
-    summary: "Descriptions, images, quicker edits and every shortcut there is",
+    id: "in-detail",
+    title: "In detail",
+    summary: "Descriptions, images and seeing them in the list",
     keyboard: [
       {
         move: "home.open-editor",
         prompt: "Press `Enter` to edit the active task",
         success: "Editing",
-      },
-      {
-        move: "shorthand.tab",
-        prompt: "Type `@` and the first letters of a category, then `Tab` to complete it",
-        success: "Completed",
-        inEditor: true,
-      },
-      {
-        move: "shorthand.unlift",
-        prompt: "Press `Tab` again to make it a pill, then `Backspace` to turn it back into text",
-        success: "Back to text",
-        keys: ["Tab", "Backspace"],
-        inEditor: true,
       },
       {
         move: "edit.description",
@@ -481,24 +468,9 @@ const QUEST_DEFINITIONS = [
         inEditor: true,
       },
       {
-        move: "copy.text",
-        prompt: `Press \`${modKey}\`+\`C\` to copy the task's text, ready to paste anywhere`,
-        success: "Copied",
-      },
-      {
         move: "attach.copy",
         prompt: `Press \`${modKey}\`+\`Shift\`+\`C\` to copy its image`,
         success: "Image copied",
-      },
-      {
-        move: "home.task-context-menu",
-        prompt: "Press `A` for everything you can do with the active task. `Esc` closes it",
-        success: "Task actions",
-      },
-      {
-        move: "help.palette",
-        prompt: `Press \`${modKey}\`+\`K\` for every shortcut there is. \`Esc\` closes it`,
-        success: "Every shortcut",
       },
       {
         move: "details.toggle-active",
@@ -513,9 +485,46 @@ const QUEST_DEFINITIONS = [
     ],
   },
   {
+    id: "fast-hands",
+    title: "Fast hands",
+    summary: "Quicker edits: completing, un-lifting and copying",
+    keyboard: [
+      {
+        move: "home.open-editor",
+        prompt: "Press `Enter` to edit the active task",
+        success: "Editing",
+      },
+      {
+        move: "shorthand.tab",
+        prompt: "Type `@` and the first letters of a category, then `Tab` to complete it",
+        success: "Completed",
+        inEditor: true,
+      },
+      {
+        move: "shorthand.unlift",
+        prompt: "Press `Tab` again to make it a pill, then `Backspace` to turn it back into text",
+        success: "Back to text",
+        keys: ["Tab", "Backspace"],
+        inEditor: true,
+      },
+      {
+        move: "capture.save",
+        prompt: "Press `Tab` to make it a pill again, then `Enter` to save",
+        success: "Saved",
+        keys: ["Tab", "Enter"],
+        inEditor: true,
+      },
+      {
+        move: "copy.text",
+        prompt: `Press \`${modKey}\`+\`C\` to copy the task's text, ready to paste anywhere`,
+        success: "Copied",
+      },
+    ],
+  },
+  {
     id: "make-it-yours",
     title: "Make it yours",
-    summary: "Themes, settings, your progress and a longer look back",
+    summary: "Themes, settings, a longer look back and where to look when you forget a key",
     keyboard: [
       {
         move: "theme.picker",
@@ -528,16 +537,6 @@ const QUEST_DEFINITIONS = [
         success: "Settings",
       },
       {
-        move: "learn.panel",
-        prompt: "Press `?` to see every quest and the keys you've learned",
-        success: "Your progress",
-      },
-      {
-        move: "learn.panel",
-        prompt: "Press `?` again to close it",
-        success: "Closed",
-      },
-      {
         move: "done.lens-window",
         prompt: "Press `Shift`+`D` to see what you've done this week",
         success: "Done this week. `Shift`+`D` again looks further back",
@@ -546,6 +545,27 @@ const QUEST_DEFINITIONS = [
         move: "done.lens",
         prompt: "Press `D` to go back to your previous view",
         success: "Back where you were",
+      },
+      {
+        move: "home.task-context-menu",
+        prompt:
+          "Forgot a key? Press `A` for everything you can do with the active task. `Esc` closes it",
+        success: "Task actions",
+      },
+      {
+        move: "help.palette",
+        prompt: `Press \`${modKey}\`+\`K\` for every shortcut there is. \`Esc\` closes it`,
+        success: "Every shortcut",
+      },
+      {
+        move: "learn.panel",
+        prompt: "Press `?` to see every quest and the keys you've learned",
+        success: "Your progress",
+      },
+      {
+        move: "learn.panel",
+        prompt: "Press `?` again to close it",
+        success: "Closed",
       },
     ],
   },

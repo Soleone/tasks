@@ -23,8 +23,9 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | Change of plans | Step back, pause, undo and cancel, on a task made to practice on | `C`, `Enter`, `Space`, `Shift+Space`, `P`, `Ctrl/⌘+Z`, `Delete` | |
 | Find your way | Moving around, filters and search | `↑↓`, `Home`/`End`, `F` then a key, `/`, `Escape` | |
 | Shape your list | Child tasks, collapsing, blockers and reordering | `Shift+C`, `Enter`, `←` twice, `→`, `M`, `B`, `Shift+↓`, `Ctrl/⌘+↑↓`, `Ctrl/⌘+Home/End` | long-press, Move under, Blockers |
-| Fast hands | Descriptions, images, quicker edits and every shortcut there is | `Enter` on a task, `Tab` completion, `Tab` then `Backspace` on a pill, `Tab` to the description, `Ctrl/⌘+V` an image, `Ctrl/⌘+Enter`, `Ctrl/⌘+C`, `Ctrl/⌘+Shift+C`, `A`, `Ctrl/⌘+K`, `V`, `Shift+V` | |
-| Make it yours | Themes, settings, your progress and a longer look back | `Alt+T`, `Ctrl/⌘+,`, `?`, `?`, `Shift+D`, `D` | |
+| In detail | Descriptions, images and seeing them in the list | `Enter` on a task, `Tab` to the description, `Ctrl/⌘+V` an image, `Ctrl/⌘+Enter`, `Ctrl/⌘+Shift+C`, `V`, `Shift+V` | |
+| Fast hands | Quicker edits: completing, un-lifting and copying | `Enter` on a task, `Tab` completion, `Tab` then `Backspace` on a pill, `Tab` then `Enter`, `Ctrl/⌘+C` | |
+| Make it yours | Themes, settings, a longer look back and where to look when you forget a key | `Alt+T`, `Ctrl/⌘+,`, `Shift+D`, `D`, `A`, `Ctrl/⌘+K`, `?`, `?` | |
 
 The first quest stays small: a task's life from creation to done. Each quest after it teaches one part of a task the same way: set it, see it in the list, narrow or sort the list by it, then put the view back. A step asks for exactly the key it names, so `S` `P` doesn't count for `S` `U`.
 

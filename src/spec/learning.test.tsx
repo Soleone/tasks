@@ -210,7 +210,7 @@ test("quest.pause: a quest kept at a step an update took away starts over", asyn
   expect(questLine()).toBe("Press C to create your first task");
 });
 
-test("quest.step: Fast hands goes from the un-lifted category to the description as its prompts say", async () => {
+test("quest.step: Fast hands completes a category, un-lifts it, lifts it again to save, and copies", async () => {
   await workspace.create("Plan", { category: "work" });
   startAt("fast-hands", 0);
   const { user } = await workspace.render();
@@ -222,44 +222,38 @@ test("quest.step: Fast hands goes from the un-lifted category to the description
   await user.keyboard("{Tab}{Backspace}");
   await expectStep(3);
   await waitFor(() =>
-    expect(questLine()).toBe("Press Tab until the description opens, then write in it"),
+    expect(questLine()).toBe("Press Tab to make it a pill again, then Enter to save"),
   );
-  // The first Tab finishes the category the suggestions still show; the second opens the description.
-  await user.keyboard("{Tab}{Tab}");
-  await waitFor(() =>
-    expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
-  );
-  await user.keyboard("Notes");
+  await user.keyboard("{Tab}");
+  await saveEditor(user, "Saved");
   await expectStep(4);
-  expect(questLine()).toBe("Description added");
+  await user.keyboard("{Control>}c{/Control}");
+  await waitFor(() =>
+    expect(document.querySelector("[data-quest-complete=fast-hands]")).not.toBeNull(),
+  );
 });
 
-test("quest.step: a description counts even when the task has one, then an image, and Ctrl+Enter saves", async () => {
+test("quest.step: In detail counts a description even when the task has one, then an image, and Ctrl+Enter saves", async () => {
   await workspace.create("Task", { description: "Already here" });
-  startAt("fast-hands", 3);
+  startAt("in-detail", 1);
   const { user } = await workspace.render();
-  await expectStep(3);
+  await expectStep(1);
   await user.keyboard("{Enter}");
   await focusedTitleField();
+  // The first Tab reaches the description the task already has.
   await user.keyboard("{Tab} more");
-  await expectStep(4);
+  await expectStep(2);
   expect(questLine()).toBe("Description added");
   const image = new File([new Uint8Array(pngBytes())], "shot.png", { type: "image/png" });
   fireEvent.paste(document.activeElement!, {
     clipboardData: { files: [image], getData: () => "" },
   });
-  await expectStep(5);
+  await expectStep(3);
   await user.keyboard("{Control>}{Enter}{/Control}");
-  await expectStep(6);
+  await expectStep(4);
   await expectListFocused();
-  await user.keyboard("{Control>}c{/Control}");
-  await expectStep(7);
   await user.keyboard("{Control>}{Shift>}c{/Shift}{/Control}");
-  await expectStep(8);
-  await user.keyboard("a");
-  await screen.findByRole("menu", { name: "Actions for Task" });
-  await expectStep(9);
-  expect(learnedMoves()).toContain("home.task-context-menu");
+  await expectStep(5);
 });
 
 test("quest.step: In its place ends on the category picker, then Left shows every category again", async () => {
@@ -357,6 +351,7 @@ test("quest.complete: Make it yours, the last quest, is the finale and leaves th
     "change-of-plans",
     "find-your-way",
     "shape-your-list",
+    "in-detail",
     "fast-hands",
   ]);
   const { user } = await workspace.render();
@@ -370,14 +365,25 @@ test("quest.complete: Make it yours, the last quest, is the finale and leaves th
   await expectStep(2);
   await user.keyboard("{Escape}");
   await expectListFocused();
+  await user.keyboard("{Shift>}d{/Shift}");
+  await expectStep(3);
+  await user.keyboard("d");
+  await expectStep(4);
+  // The menu by its key counts as a key, so it's learned.
+  await user.keyboard("a");
+  await screen.findByRole("menu", { name: "Actions for Task" });
+  await expectStep(5);
+  expect(learnedMoves()).toContain("home.task-context-menu");
+  await user.keyboard("{Escape}");
+  await expectListFocused();
+  await user.keyboard("{Control>}k{/Control}");
+  await expectStep(6);
+  await user.keyboard("{Escape}");
+  await expectListFocused();
   await user.keyboard("?");
   await screen.findByRole("complementary", { name: "Learn" });
-  await expectStep(3);
+  await expectStep(7);
   await user.keyboard("?");
-  await expectStep(4);
-  await user.keyboard("{Shift>}d{/Shift}");
-  await expectStep(5);
-  await user.keyboard("d");
   const finale = await waitFor(() => {
     const element = document.querySelector(
       "[data-quest-complete=make-it-yours][data-quest-finale]",
@@ -558,11 +564,12 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
       "Change of plans",
       "Find your way",
       "Shape your list",
+      "In detail",
       "Fast hands",
       "Make it yours",
     ],
   );
-  expect(panel.getAllByText("New")).toHaveLength(9);
+  expect(panel.getAllByText("New")).toHaveLength(10);
   expect(
     within(panel.getByRole("region", { name: "Task basics" }))
       .getAllByRole("listitem")
