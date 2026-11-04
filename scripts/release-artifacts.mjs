@@ -9,11 +9,16 @@ const linux = `Tasks-${version}-Linux-x64.AppImage`;
 const dmg = `Tasks-${version}-macOS-Apple-Silicon.dmg`;
 const macUpdater = `Tasks-${version}-macOS-updater.app.tar.gz`;
 const apk = `Tasks-${version}-Android.apk`;
+// Sources keep the names Tauri gives them; only the uploads get the platform names.
 const files = {
-  windows: [{ source: `nsis/${windows}`, name: windows, target: "windows-x86_64" }],
-  linux: [{ source: `appimage/${linux}`, name: linux, target: "linux-x86_64" }],
+  windows: [
+    { source: `nsis/Tasks_${version}_x64-setup.exe`, name: windows, target: "windows-x86_64" },
+  ],
+  linux: [
+    { source: `appimage/Tasks_${version}_amd64.AppImage`, name: linux, target: "linux-x86_64" },
+  ],
   macos: [
-    { source: `dmg/${dmg}`, name: dmg },
+    { source: `dmg/Tasks_${version}_aarch64.dmg`, name: dmg },
     { source: "macos/Tasks.app.tar.gz", name: macUpdater, target: "darwin-aarch64" },
   ],
   android: [{ source: "app-universal-release.apk", name: apk }],

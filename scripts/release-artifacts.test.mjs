@@ -38,11 +38,11 @@ function fixture(t) {
   const source = path.join(directory, "build");
   const output = path.join(directory, "assets");
   for (const [file, content] of [
-    [`nsis/${windows}`, "installer"],
-    [`nsis/${windows}.sig`, "windows-signature\n"],
-    [`appimage/${linux}`, "appimage"],
-    [`appimage/${linux}.sig`, "linux-signature\n"],
-    [`dmg/${dmg}`, "dmg"],
+    [`nsis/Tasks_${version}_x64-setup.exe`, "installer"],
+    [`nsis/Tasks_${version}_x64-setup.exe.sig`, "windows-signature\n"],
+    [`appimage/Tasks_${version}_amd64.AppImage`, "appimage"],
+    [`appimage/Tasks_${version}_amd64.AppImage.sig`, "linux-signature\n"],
+    [`dmg/Tasks_${version}_aarch64.dmg`, "dmg"],
     ["macos/Tasks.app.tar.gz", "mac-updater"],
     ["macos/Tasks.app.tar.gz.sig", "mac-signature\n"],
     ["app-universal-release.apk", "signed-apk"],
@@ -173,7 +173,7 @@ test("missing or empty platform assets and signatures cannot produce a release m
 
 test("an unsigned desktop build cannot be staged for upload", (t) => {
   const { source, output } = fixture(t);
-  rmSync(path.join(source, `nsis/${windows}.sig`));
+  rmSync(path.join(source, `nsis/Tasks_${version}_x64-setup.exe.sig`));
   assert.notEqual(run("windows", source, output).status, 0);
   assert.equal(existsSync(path.join(output, `${windows}.sig`)), false);
 });
