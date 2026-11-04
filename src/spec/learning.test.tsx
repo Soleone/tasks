@@ -256,6 +256,10 @@ test("quest.step: a description counts even when the task has one, then an image
   await expectStep(7);
   await user.keyboard("{Control>}{Shift>}c{/Shift}{/Control}");
   await expectStep(8);
+  await user.keyboard("a");
+  await screen.findByRole("menu", { name: "Actions for Task" });
+  await expectStep(9);
+  expect(learnedMoves()).toContain("home.task-context-menu");
 });
 
 test("quest.step: In its place ends on the category picker, then Left shows every category again", async () => {

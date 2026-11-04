@@ -89,6 +89,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "home.task-context-menu",
+    keyboard: { label: "Open the active task's menu", keys: ["A"] },
     touch: { label: "Long-press a task for its actions" },
   },
   {

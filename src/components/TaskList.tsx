@@ -324,6 +324,8 @@ export function TaskList({
   if (!firstLoadDone && !loading && !error) setFirstLoadDone(true);
   const retry = useRef<HTMLButtonElement>(null);
   const statusReceipts = useRef(new Map<string, StatusReceipt>());
+  // Set while `A` opens a row's menu, so the quest counts its key rather than a right-click.
+  const menuByKey = useRef(false);
   const batchTransitionReceiptRef = useRef<{ signature: string; key: string } | null>(null);
   const deleteReceipts = useRef(new Map<string, DeleteReceipt>());
   const deletePending = useRef(new Set<string>());
@@ -797,6 +799,7 @@ export function TaskList({
     const row = document.getElementById(`task-option-${task.id}`);
     if (!row) return;
     const { left, bottom } = row.getBoundingClientRect();
+    menuByKey.current = true;
     row.dispatchEvent(
       new MouseEvent("contextmenu", {
         bubbles: true,
@@ -805,6 +808,7 @@ export function TaskList({
         clientY: bottom,
       }),
     );
+    menuByKey.current = false;
   }
 
   async function copyActiveTask(task: TaskView): Promise<void> {
@@ -1508,7 +1512,7 @@ export function TaskList({
       disabled:
         composer !== null || mutationPendingIds.has(row.task.id) || exitingTaskIds.has(row.task.id),
       onTarget: () => {
-        practice("home.task-context-menu", "pointer");
+        practice("home.task-context-menu", menuByKey.current ? "keys" : "pointer");
         activate(index);
       },
       onEdit: (task) => {

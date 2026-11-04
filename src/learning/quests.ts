@@ -491,6 +491,11 @@ const QUEST_DEFINITIONS = [
         success: "Image copied",
       },
       {
+        move: "home.task-context-menu",
+        prompt: "Press `A` for everything you can do with the active task. `Esc` closes it",
+        success: "Task actions",
+      },
+      {
         move: "help.palette",
         prompt: `Press \`${modKey}\`+\`K\` for every shortcut there is. \`Esc\` closes it`,
         success: "Every shortcut",
