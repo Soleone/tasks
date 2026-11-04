@@ -501,12 +501,6 @@
   }
 }
 
-/* In progress turns its arrow upside down, everywhere it shows, so the arrowhead sits at the
- * bottom left, clear of that notch. Upright, the notch hid it and the glyph read as open. */
-.lucide-rotate-cw {
-  rotate: 180deg;
-}
-
 /* The header's done-today count rolls up when it rises: the old number leaves upward as the new
  * one comes in from below. */
 [data-count-enter] {

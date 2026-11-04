@@ -7,13 +7,20 @@ import {
   CircleCheck,
   CirclePause,
   Minus,
-  RotateCw,
   CircleX,
+  createLucideIcon,
   type LucideIcon,
 } from "lucide-react";
 import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
 import type { LensFilter } from "./listLens";
+
+/* RotateCw upside down, so its arrowhead sits at the bottom left, clear of the effort notch
+ * (StatusGlyph). Turned in the paths, not with CSS: a CSS rotation turns the notch with it. */
+const RotateCwFlipped = createLucideIcon("rotate-cw-flipped", [
+  ["path", { d: "M3 12a9 9 0 1 1 9 9c-2.52 0-4.93-1-6.74-2.74L3 16", key: "arc" }],
+  ["path", { d: "M3 21v-5h5", key: "head" }],
+]);
 
 type TaskStatusMeta = {
   label: string;
@@ -23,7 +30,7 @@ type TaskStatusMeta = {
 
 export const taskStatusMeta: Record<TaskStatus, TaskStatusMeta> = {
   open: { label: "Open", Icon: Circle, color: "text-muted-foreground" },
-  in_progress: { label: "In progress", Icon: RotateCw, color: "text-primary" },
+  in_progress: { label: "In progress", Icon: RotateCwFlipped, color: "text-primary" },
   paused: { label: "Paused", Icon: CirclePause, color: "text-warning" },
   done: { label: "Done", Icon: CircleCheck, color: "text-success" },
   canceled: { label: "Canceled", Icon: CircleX, color: "text-destructive" },
