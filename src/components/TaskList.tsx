@@ -42,6 +42,7 @@ import { useTaskListSelection, type ActiveTaskRequest } from "./useTaskListSelec
 import {
   forwardStatusTransition,
   reverseStatusTransition,
+  setStatusCommand,
   type StatusCommand,
   type StatusTransition,
 } from "./taskStatusCycle";
@@ -1499,13 +1500,9 @@ export function TaskList({
         practice("home.open-editor", "pointer");
         onEdit(task);
       },
-      onStatus: (task) => {
-        practice("status.forward", "pointer");
-        void toggleStatus(task);
-      },
-      onPause: (task) => {
-        practice("status.pause", "pointer");
-        void pauseTask(task);
+      onSetStatus: (task, status) => {
+        if (task.status === status) return;
+        void changeStatus(task, { next: status, command: setStatusCommand[status] });
       },
       onAddBlocker: (task) => {
         practice("pick.blocker", "pointer");

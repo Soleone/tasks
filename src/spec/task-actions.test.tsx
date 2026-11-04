@@ -29,7 +29,8 @@ test("home.task-context-menu: a long press targets its row and release never ope
   fireEvent.touchEnd(row, { touches: [] });
   fireEvent.click(row);
   expect(screen.queryByPlaceholderText("What needs doing?")).toBeNull();
-  await user.click(within(menu).getByRole("menuitem", { name: "Pause" }));
+  await user.click(within(menu).getByRole("menuitem", { name: "Status" }));
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: "Paused" }));
   await waitFor(async () => expect((await workspace.task(held.id)).status).toBe("paused"));
   await expectListFocused();
 });
@@ -78,6 +79,20 @@ test("home.task-context-menu: actions have icons and Cancel task changes status 
   expect(within(menu).queryByRole("menuitem", { name: "Delete" })).toBeNull();
   await user.click(within(menu).getByRole("menuitem", { name: "Cancel task" }));
   await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("canceled"));
+});
+
+test("home.task-context-menu: the Status submenu moves a task back from in progress to open", async () => {
+  const task = await workspace.create("Task");
+  await workspace.change("task.start", task.id);
+  const { user } = await workspace.render();
+  fireEvent.contextMenu(screen.getByText("Task").closest('[role="option"]')!, {
+    clientX: 30,
+    clientY: 60,
+  });
+  const menu = await screen.findByRole("menu", { name: "Actions for Task" });
+  await user.click(within(menu).getByRole("menuitem", { name: "Status" }));
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: "Open" }));
+  await waitFor(async () => expect((await workspace.task(task.id)).status).toBe("open"));
 });
 
 test("effort.set: the long-press menu's Effort submenu sets any effort directly", async () => {

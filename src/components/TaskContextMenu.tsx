@@ -7,8 +7,6 @@ import {
   ChevronsUp,
   ChevronUp,
   Circle,
-  CirclePause,
-  CirclePlay,
   CircleX,
   Copy,
   CornerDownRight,
@@ -18,9 +16,17 @@ import {
   Pencil,
 } from "lucide-react";
 import { cn } from "cn";
-import type { TaskEffort, TaskPriority } from "@/backend/taskModel";
+import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
-import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, PRIORITY_META, effortTitle } from "./taskFilters";
+import {
+  EFFORT_ICONS,
+  EFFORTS_LARGEST_FIRST,
+  EXACT_STATUS_META,
+  PRIORITY_META,
+  effortTitle,
+  taskStatusMeta,
+} from "./taskFilters";
+import { SETTABLE_STATUSES, statusSettable, type SettableStatus } from "./taskStatusCycle";
 import { StatusGlyph } from "./TaskRow";
 import type { TaskMoveDirection } from "./taskReordering";
 import {
@@ -41,8 +47,7 @@ export type TaskContextActions = {
   disabled: boolean;
   onTarget: () => void;
   onEdit: (task: TaskView) => void;
-  onStatus: (task: TaskView) => void;
-  onPause: (task: TaskView) => void;
+  onSetStatus: (task: TaskView, status: SettableStatus) => void;
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
   onCreateChild: (task: TaskView) => void;
@@ -96,21 +101,33 @@ export function TaskContextMenu({
             <Pencil aria-hidden="true" />
             Edit
           </ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.onStatus(task)}>
-            <Circle aria-hidden="true" />
-            Change status
-          </ContextMenuItem>
-          <ContextMenuItem
-            disabled={task.status === "done" || task.status === "canceled"}
-            onClick={() => actions.onPause(task)}
-          >
-            {task.status === "paused" ? (
-              <CirclePlay aria-hidden="true" />
-            ) : (
-              <CirclePause aria-hidden="true" />
-            )}
-            {task.status === "paused" ? "Resume" : "Pause"}
-          </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <Circle aria-hidden="true" />
+              Status
+            </ContextMenuSubTrigger>
+            <TaskContextSubContent>
+              <ContextMenuRadioGroup
+                value={task.status}
+                onValueChange={(status: SettableStatus) => actions.onSetStatus(task, status)}
+              >
+                {SETTABLE_STATUSES.map((status) => {
+                  const { Icon, color } = taskStatusMeta[status];
+                  return (
+                    <ContextMenuRadioItem
+                      key={status}
+                      value={status}
+                      disabled={!statusSettable(task.status, status)}
+                      closeOnClick
+                    >
+                      <Icon aria-hidden="true" className={color} />
+                      {statusLabel(status)}
+                    </ContextMenuRadioItem>
+                  );
+                })}
+              </ContextMenuRadioGroup>
+            </TaskContextSubContent>
+          </ContextMenuSub>
           <ContextMenuSub>
             <ContextMenuSubTrigger>
               <Flag aria-hidden="true" />
@@ -215,4 +232,8 @@ export function TaskContextMenu({
       </TaskContextMenuContent>
     </ContextMenu>
   );
+}
+
+function statusLabel(status: TaskStatus): string {
+  return EXACT_STATUS_META.find((entry) => entry.status === status)?.label ?? status;
 }
