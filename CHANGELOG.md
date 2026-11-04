@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1](https://github.com/Soleone/tasks/compare/v0.4.0...v0.4.1) (2026-11-04)
+
+### Features
+
+* A or the Menu key opens the active task's menu, which arrows and Enter drive ([d15a66f](https://github.com/Soleone/tasks/commit/d15a66f7693bbed366027ac602360d4b026a402a))
+* the task menu's Status submenu sets any status directly, so an in-progress task can go back to open ([7374f3d](https://github.com/Soleone/tasks/commit/7374f3d9c6f1df571beec57f1935ca1d0dc21897))
+
+### Bug Fixes
+
+* a double click in Delete canceled tasks lands on Cancel, and Delete done tasks marks plain Delete as the destructive choice ([a7a6aca](https://github.com/Soleone/tasks/commit/a7a6aca4054f3d36d2f556fa0883b86df1f7b189))
+* an in-progress task with an effort badge keeps its arrowhead instead of looking like a broken ring ([d741769](https://github.com/Soleone/tasks/commit/d741769e264ecb103ab06abc6bbbf34f4503c369))
+* the status menu no longer shows in progress in the high-priority yellow ([279a5df](https://github.com/Soleone/tasks/commit/279a5df9a3521f00f2f8c5fd10ca372305ef5916))
+
 ## [0.4.0](https://github.com/Soleone/tasks/compare/v0.3.8...v0.4.0) (2026-11-01)
 
 ### Features
