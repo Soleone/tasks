@@ -154,6 +154,9 @@ export default defineConfig({
   test: {
     // Under parallel load a flow takes about twice its serial time; the 5 s default left no margin.
     testTimeout: 15_000,
+    // Past about 10 workers, Vitest's piping of worker output into its own trips Node's
+    // MaxListenersExceededWarning. 8 runs the suite just as fast.
+    maxWorkers: 8,
     projects: [
       {
         extends: true,
