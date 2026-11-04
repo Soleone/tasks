@@ -8,7 +8,7 @@
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` enters the section's first control, `Shift+Tab` returns |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 | `settings.version` | Settings is open | Its footer shows the app version, e.g. Tasks 0.3.2, below every tab |
-| `settings.feedback` | Send feedback in Settings' footer | A dialog takes Bug or Feedback, a title and a description, and says reports become public GitHub issues. Send files the issue through our feedback Worker, labeled `bug` or `enhancement` and signed with the app version and platform, without a GitHub account. It then shows the issue's link. A failed send keeps the report and says why |
+| `settings.feedback` | Send feedback in Settings' footer | A dialog takes Feedback or Bug, a title and a description, and says reports become public GitHub issues. Send files the issue through our feedback Worker, labeled `bug` or `enhancement` and signed with the app version and platform, without a GitHub account. It then shows the issue's link. A failed send keeps the report and says why |
 
 ## General
 
@@ -41,8 +41,8 @@ The Cleanup tab has one Delete tasks section with two items. Deletion controls a
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.delete-canceled` | Delete canceled tasks | Says how many canceled tasks there are and asks before deleting them for good (`task.purgeCanceled`). When other tasks link to canceled ones, it names them and deletes nothing |
-| `settings.delete-done` | Delete done tasks… | A dialog picks an age (done more than 1 month, 3 months, 1 year ago, or all; 3 months first) and what to delete: Images only, or Tasks and images. Each choice shows its counts and size from a preview. Export and delete, Delete and Cancel close it; it says deleting can't be undone |
+| `settings.delete-canceled` | Delete canceled tasks | Says how many canceled tasks there are and asks before deleting them for good (`task.purgeCanceled`), with Cancel where the first button stood so a double click never deletes. When other tasks link to canceled ones, it names them and deletes nothing |
+| `settings.delete-done` | Delete done tasks… | A dialog picks an age (done more than 1 month, 3 months, 1 year ago, or all; 3 months first) and what to delete: Images only, or Tasks and images. Each choice shows its counts and size from a preview. Delete (the destructive one), Export and delete and Cancel close it; it says deleting can't be undone |
 | `settings.delete-result` | Deleting done tasks finishes | It says what was deleted and how many tasks were kept because others link to them, and shows the export's path with Open folder (desktop) |
 
 ## Preferences

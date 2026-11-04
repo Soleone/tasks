@@ -20,8 +20,8 @@ import { version } from "../../package.json";
 const FEEDBACK_URL = "https://tasks-feedback.login-ccf.workers.dev";
 
 const KINDS: [FeedbackKind, string][] = [
-  ["bug", "Bug"],
   ["idea", "Feedback"],
+  ["bug", "Bug"],
 ];
 
 async function send(report: FeedbackReport): Promise<string> {

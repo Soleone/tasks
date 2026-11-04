@@ -132,11 +132,11 @@ function DeleteCanceled(): ReactElement {
             Delete {count(ids.length, "canceled task")} for good? This can't be undone.
           </p>
           <div className="flex gap-2">
-            <Button variant="destructive" onClick={() => void purge()}>
-              Delete {count(ids.length, "task")}
-            </Button>
             <Button variant="ghost" onClick={() => setConfirming(false)}>
               Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void purge()}>
+              Delete {count(ids.length, "task")}
             </Button>
           </div>
         </div>
@@ -301,10 +301,10 @@ function DeleteDoneDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="outline" disabled={busy || empty} onClick={() => void run(false)}>
+          <Button variant="destructive" disabled={busy || empty} onClick={() => void run(false)}>
             Delete
           </Button>
-          <Button variant="destructive" disabled={busy || empty} onClick={() => void run(true)}>
+          <Button variant="outline" disabled={busy || empty} onClick={() => void run(true)}>
             Export and delete
           </Button>
         </DialogFooter>
