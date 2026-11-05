@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.2](https://github.com/Soleone/tasks/compare/v0.4.1...v0.4.2) (2026-11-05)
+
+### Features
+
+* descriptions and images get their own In detail quest, Fast hands keeps the quick edits, and Make it yours ends with where to look when you forget a key ([6c1f885](https://github.com/Soleone/tasks/commit/6c1f885938267949a2eb81bfb9384d533a91083e))
+* the due lens turns the list over like a calendar page, and a short list turns about its own rows ([5dd53c5](https://github.com/Soleone/tasks/commit/5dd53c5d79bcfdf9e51fbcbdb2ddfe67ad7fb436))
+* the Fast hands quest teaches A for the active task's menu ([a4fd784](https://github.com/Soleone/tasks/commit/a4fd784d4d0fadfcda314e8d6179783bd654574d))
+* the list flips over when the done lens opens or closes, and the done count flies into the count line ([645d9aa](https://github.com/Soleone/tasks/commit/645d9aaecf71bb53c801b644be2fb8f679d29637))
+
 ## [0.4.1](https://github.com/Soleone/tasks/compare/v0.4.0...v0.4.1) (2026-11-04)
 
 ### Features
