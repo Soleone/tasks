@@ -87,7 +87,7 @@ import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useCompletionSheen } from "./useCompletionSheen";
 import { flyCategoryToFilter } from "./categoryFlight";
-import { useDoneLensFlip } from "./useDoneLensFlip";
+import { useLensFlip } from "./useLensFlip";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { useStableHandler } from "./useStableHandler";
 import { noteFrameEvent } from "@/frameMetrics";
@@ -1635,7 +1635,7 @@ export function TaskList({
 
   // Matching tasks, including those under a collapsed row; context ancestors don't count.
   const summaryTaskCount = total + (optimisticTask ? 1 : 0);
-  useDoneLensFlip(list, lens?.kind === "done", loading);
+  useLensFlip(list, lens?.kind ?? null, loading);
 
   const touch = isAndroid();
   const captureHint = touch ? "Tap New task to capture." : "Press C or choose New task to capture.";

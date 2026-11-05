@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { flightsPlay } from "./categoryFlight";
+import type { ListLens } from "./listLens";
 
 /** How long your list takes to turn edge-on, sinking back as it goes. */
 const TURN_AWAY_MS = 220;
@@ -8,16 +9,33 @@ const SWING_IN_MS = 520;
 const COUNT_FLIGHT_MS = 230;
 const SINK = "translateZ(-140px)";
 
-/** A turn about the list's vertical center line, seen from a fixed distance. */
-const turn = (degrees: number, sink = ""): string =>
-  `perspective(1100px) ${sink} rotateY(${degrees}deg)`;
+type LensKind = ListLens["kind"];
+type Axis = "X" | "Y";
 
-const headerCount = () =>
-  document.querySelector<HTMLElement>("[data-lens-count=done] [data-lens-number]");
+/** Done turns sideways like a card; due turns over the top like a page on a flip calendar. */
+const LENS_AXIS: Record<LensKind, Axis> = { done: "Y", due: "X" };
+
+/** A turn about the list's center line on `axis`, seen from a fixed distance. */
+const turn = (axis: Axis, degrees: number, sink = ""): string =>
+  `perspective(1100px) ${sink} rotate${axis}(${degrees}deg)`;
+
+const headerCount = (kind: LensKind) =>
+  document.querySelector<HTMLElement>(`[data-lens-count=${kind}] [data-lens-number]`);
 const summaryCount = () => document.querySelector<HTMLElement>("[data-summary-count]");
 
+/** The middle of the rows on screen, so a short list turns about its tasks, not the space below. */
+function rowsMiddle(list: HTMLElement): string {
+  const top = list.getBoundingClientRect().top;
+  const bottom = list.lastElementChild?.getBoundingClientRect().bottom ?? top;
+  return `50% ${Math.min(list.clientHeight, bottom - top) / 2}px`;
+}
+
 type Flip = {
+  axis: Axis;
+  /** Into a lens turns one way, back to your list the other. */
   direction: 1 | -1;
+  /** The lens opening, whose count flies into the count line once its tasks load. */
+  entering: LensKind | null;
   startedAt: number;
   /** Kept until the next flip, which cancels whatever still runs. */
   animations: Animation[];
@@ -94,8 +112,12 @@ function flyNumber(flip: Flip, from: HTMLElement, to: HTMLElement, delay: number
 
 function turnAway(flip: Flip, list: HTMLElement): void {
   const ghost = ghostOf(list);
+  ghost.style.transformOrigin = rowsMiddle(list);
   const animation = ghost.animate(
-    [{ transform: turn(0) }, { transform: turn(90 * flip.direction, SINK), opacity: 0.5 }],
+    [
+      { transform: turn(flip.axis, 0) },
+      { transform: turn(flip.axis, 90 * flip.direction, SINK), opacity: 0.5 },
+    ],
     { duration: TURN_AWAY_MS, easing: "cubic-bezier(.5,0,.9,.4)", fill: "forwards" },
   );
   const remove = () => ghost.remove();
@@ -105,14 +127,15 @@ function turnAway(flip: Flip, list: HTMLElement): void {
 
 /** The new list swings past facing you by a few degrees, then settles. */
 function swingIn(flip: Flip, list: HTMLElement, delay: number): void {
-  const d = flip.direction;
+  const { axis, direction: d } = flip;
+  const transformOrigin = rowsMiddle(list);
   flip.animations.push(
     list.animate(
       [
-        { transform: turn(-90 * d, SINK), opacity: 0.5 },
-        { offset: 0.62, transform: turn(9 * d), opacity: 1 },
-        { offset: 0.84, transform: turn(-3 * d) },
-        { transform: turn(0) },
+        { transformOrigin, transform: turn(axis, -90 * d, SINK), opacity: 0.5 },
+        { transformOrigin, offset: 0.62, transform: turn(axis, 9 * d), opacity: 1 },
+        { transformOrigin, offset: 0.84, transform: turn(axis, -3 * d) },
+        { transformOrigin, transform: turn(axis, 0) },
       ],
       { duration: SWING_IN_MS, delay, easing: "cubic-bezier(.2,.7,.3,1)", fill: "backwards" },
     ),
@@ -120,16 +143,17 @@ function swingIn(flip: Flip, list: HTMLElement, delay: number): void {
 }
 
 /**
- * Opening or leaving the done lens turns the list about its vertical center line: your list turns
- * away, and once the new tasks have loaded they swing round to face you. Into the lens the done
- * count's number flies down into the count line; out of it, it flies back to the header.
+ * Opening or leaving a lens turns the list over: your list turns away, and once the new tasks have
+ * loaded they swing round to face you. Into a lens its count's number flies down into the count
+ * line; out of one, it flies back to the header. Switching lenses plays the new lens's turn while
+ * the old count flies home.
  */
-export function useDoneLensFlip(
+export function useLensFlip(
   list: RefObject<HTMLElement | null>,
-  doneLensOn: boolean,
+  lensKind: LensKind | null,
   loading: boolean,
 ): void {
-  const wasOn = useRef(doneLensOn);
+  const wasKind = useRef(lensKind);
   const flip = useRef<Flip | null>(null);
 
   function stop(): void {
@@ -141,12 +165,16 @@ export function useDoneLensFlip(
   useEffect(() => stop, []);
 
   useLayoutEffect(() => {
-    if (wasOn.current === doneLensOn) return;
-    wasOn.current = doneLensOn;
+    const leaving = wasKind.current;
+    if (leaving === lensKind) return;
+    wasKind.current = lensKind;
     stop();
     if (!flightsPlay()) return;
     const next: Flip = {
-      direction: doneLensOn ? 1 : -1,
+      // One of the two is a lens, since they differ.
+      axis: LENS_AXIS[(lensKind ?? leaving) as LensKind],
+      direction: lensKind ? 1 : -1,
+      entering: lensKind,
       startedAt: performance.now(),
       animations: [],
       hold: null,
@@ -157,11 +185,11 @@ export function useDoneLensFlip(
       turnAway(next, list.current);
       next.hold = list.current.animate({ opacity: [0, 0] }, { duration: Infinity });
     }
-    // The count line already reads as your list, starting where the lens's count stood.
+    // The count line already reads as the new view, its number where the lens's count stood.
     const from = summaryCount();
-    const to = headerCount();
-    if (!doneLensOn && from && to) flyNumber(next, from, to, 0);
-  }, [doneLensOn, list]);
+    const home = leaving && headerCount(leaving);
+    if (from && home) flyNumber(next, from, home, 0);
+  }, [lensKind, list]);
 
   // Runs after the effect above, so a view that changes and loads in one commit still turns first.
   useLayoutEffect(() => {
@@ -171,8 +199,8 @@ export function useDoneLensFlip(
     current.hold?.cancel();
     const delay = Math.max(0, TURN_AWAY_MS - (performance.now() - current.startedAt));
     if (list.current) swingIn(current, list.current, delay);
-    const from = headerCount();
+    const from = current.entering && headerCount(current.entering);
     const to = summaryCount();
-    if (current.direction === 1 && from && to) flyNumber(current, from, to, delay);
+    if (from && to) flyNumber(current, from, to, delay);
   });
 }

@@ -341,7 +341,7 @@ export function TaskListToolbar({
     ? lensPhrase(lens)
     : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
   const summaryBase = `${summaryTaskCount} ${summaryPhrase}`;
-  // The number stands alone so the done count can fly into it (useDoneLensFlip).
+  // The number stands alone so a lens count can fly into it (useLensFlip).
   const summaryText = (
     <>
       <span data-summary-count>{summaryTaskCount}</span> {summaryPhrase}
