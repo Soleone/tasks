@@ -15,8 +15,8 @@ const hosted = process.env.VITE_HOSTED === "1";
 const vendored = [
   "src/components/ui/**",
   "src/components/soleone/**",
+  "src/components/live/**",
   "src/components/react-bits/**",
-  "src/components/lucide-animated/**",
 ];
 
 const noBaseUi = {

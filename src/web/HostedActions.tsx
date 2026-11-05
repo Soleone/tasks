@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement, type RefObject } from "react";
-import { DownloadIcon, type DownloadIconHandle } from "@/components/lucide-animated/download";
+import { Corner, DownloadButton } from "@/components/live/corners";
 import SquishSwitch from "@/components/react-bits/SquishSwitch";
 import { showTaskToast } from "@/components/TaskToaster";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Button } from "@/components/variants/button";
 import { preventFocusSteal } from "@/navigation";
 
 export const RELEASES_URL = "https://github.com/Soleone/tasks/releases/latest";
@@ -59,12 +58,6 @@ function useAboveQuestCard(): RefObject<HTMLDivElement | null> {
 const MATERIALIZE: Keyframe[] = [
   { opacity: 0, filter: "blur(6px)", transform: "scale(1.04)" },
   { opacity: 1, filter: "none", transform: "none" },
-];
-const PRESS: Keyframe[] = [
-  { scale: 1 },
-  { scale: 0.9, offset: 0.25, easing: "ease-out" },
-  { scale: 1.04, offset: 0.65 },
-  { scale: 1 },
 ];
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -134,7 +127,6 @@ export function HostedActions({
   // The switch moves at once; the tasks follow, one change at a time, in the order asked for.
   const [on, setOn] = useState(() => storedSampleIds().length > 0);
   const queue = useRef(Promise.resolve());
-  const downloadIcon = useRef<DownloadIconHandle>(null);
   const left = useAboveQuestCard();
   const right = useAboveQuestCard();
 
@@ -182,10 +174,7 @@ export function HostedActions({
 
   return (
     <>
-      <div
-        ref={left}
-        className="fixed bottom-4 left-4 z-40 flex h-9 items-center motion-safe:transition-all md:bottom-8 md:left-8"
-      >
+      <Corner side="left" ref={left}>
         <Labeled label="Show example tasks" side="right">
           {/* Clicking keeps focus in the list, so its keys go on working. */}
           <span className="flex items-center" onMouseDown={preventFocusSteal}>
@@ -210,30 +199,10 @@ export function HostedActions({
             </label>
           </span>
         </Labeled>
-      </div>
-      <div
-        ref={right}
-        className="fixed right-4 bottom-4 z-40 motion-safe:transition-all md:right-8 md:bottom-8"
-      >
-        <Labeled label="Download the app" side="left">
-          <Button
-            size="lg"
-            className="px-3 shadow-lg max-xl:size-9 max-xl:px-0"
-            // The tab opens on release, so the whole press plays out from the moment it starts.
-            onPointerDown={(event) => {
-              if (!reducedMotion()) event.currentTarget.animate(PRESS, 300);
-            }}
-            // The whole button starts the icon's hover animation, not just the icon.
-            onMouseEnter={() => downloadIcon.current?.startAnimation()}
-            onMouseLeave={() => downloadIcon.current?.stopAnimation()}
-            nativeButton={false}
-            render={<a href={RELEASES_URL} target="_blank" rel="noreferrer" />}
-          >
-            <DownloadIcon ref={downloadIcon} size={16} className="flex" aria-hidden="true" />
-            <span className="max-xl:sr-only">Download the app</span>
-          </Button>
-        </Labeled>
-      </div>
+      </Corner>
+      <Corner side="right" ref={right}>
+        <DownloadButton href={RELEASES_URL} />
+      </Corner>
     </>
   );
 }
