@@ -337,9 +337,16 @@ export function TaskListToolbar({
       : tagFilter.length > 0
         ? tagFilter.map((tag) => `#${tag.label}`).join(" ")
         : null;
-  const summaryBase = lens
-    ? `${summaryTaskCount} ${lensPhrase(lens)}`
-    : `${summaryTaskCount} ${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
+  const summaryPhrase = lens
+    ? lensPhrase(lens)
+    : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
+  const summaryBase = `${summaryTaskCount} ${summaryPhrase}`;
+  // The number stands alone so the done count can fly into it (useDoneLensFlip).
+  const summaryText = (
+    <>
+      <span data-summary-count>{summaryTaskCount}</span> {summaryPhrase}
+    </>
+  );
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
   const summarySuffixParts: FilterSummaryPart[] = [
     priorityFilter !== null
@@ -798,7 +805,7 @@ export function TaskListToolbar({
         <CompactBreadcrumbList>
           <BreadcrumbItem className="shrink-0">
             {statusIsDefault ? (
-              <span className="text-sm font-medium">{summaryBase}</span>
+              <span className="text-sm font-medium">{summaryText}</span>
             ) : (
               <FilterSummaryAction
                 filter="status"
@@ -810,7 +817,7 @@ export function TaskListToolbar({
                 onClear={lens?.kind === "done" ? widenDoneLens : clearStatusFilter}
                 className="text-sm font-medium text-foreground"
               >
-                {summaryBase}
+                {summaryText}
               </FilterSummaryAction>
             )}
           </BreadcrumbItem>

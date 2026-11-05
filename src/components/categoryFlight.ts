@@ -46,7 +46,7 @@ function flyGhost(ghost: HTMLElement, to: DOMRect, fadeFrom = 0): void {
 const HAND_OVER_AT = 0.75;
 
 // jsdom has no Web Animations; there and with reduced motion nothing flies.
-const flightsPlay = (): boolean =>
+export const flightsPlay = (): boolean =>
   typeof HTMLElement.prototype.animate === "function" &&
   !matchMedia("(prefers-reduced-motion: reduce)").matches;
 

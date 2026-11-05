@@ -90,7 +90,7 @@ export function DoneToday({
       showLabel="Show what's done"
     >
       <CircleCheck data-icon="inline-start" aria-hidden="true" className="text-success" />
-      <span className="relative inline-flex overflow-hidden">
+      <span className="relative inline-flex overflow-hidden" data-lens-number>
         {/* Keyed so each rise remounts both numbers and plays the roll once. A count that was
             hidden at zero only rolls its first number in. */}
         {rolledFrom !== null && rolledFrom > 0 && (
