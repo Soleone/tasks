@@ -93,6 +93,23 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | `attach.write` | `attachment.write` checks the size and that the bytes are the stated format, picks a new name and stores the file. Listing it on a task is a separate `task.create` or `task.update`; until then it is unlisted. Too large or not an image fails `INVALID_ARGUMENT` |
 | `attach.read` | `attachment.read` returns a stored attachment's bytes. A missing file fails `ATTACHMENT_NOT_FOUND`; bytes that aren't the named format fail `INVALID_STORAGE` |
 
+## Classification commands
+
+Categories and tags are slugs written into each task (`data.no-labels`), so renaming one rewrites every task that carries it.
+
+| Command | Args | Result |
+| --- | --- | --- |
+| `category.rename` / `tag.rename` | `from`, `to` | changed `tasks`, `changed`, `merged`, `operationId` |
+
+| Rule | Then |
+| --- | --- |
+| `rename.scope` | Every task with `from` changes, whatever its status, so reopening a task never brings the old slug back. The backend finds them itself; there are no `expectedVersion`s. Both are lowercased like other classification input (`text.normalize`); one that still isn't a slug (`data.slug`) fails `INVALID_ARGUMENT` |
+| `rename.merge` | Renaming onto a slug already in use merges, and `merged` is `true`. A tag rename on a task that already has `to` leaves one `to`, sorted with the rest (`text.normalize`); a category rename sets `to` |
+| `rename.noop` | `from` that no task uses, or `from` equal to `to`, succeeds with `changed: false` and writes nothing |
+| `rename.text` | Changed tasks get `text: null` (`text.cleared`); markers inside other fields are never rewritten. Every field but the category or tags, `text` and `version` is kept, `updatedAt` and `closedAt` included |
+| `rename.atomic` | All changed tasks are written as one batch. After a crash, recovery leaves either all of them renamed or none |
+| `rename.undo` | Undo and redo through `operation.undo` / `operation.redo` cover the whole rename as one step. Undo gives each task back its own earlier category or tags, so after a merge, tasks that already had `to` keep it. Refused per `undo.operation` if any of those tasks changed since |
+
 ## Queries
 
 | Command | Args | Result |

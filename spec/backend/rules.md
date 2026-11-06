@@ -41,6 +41,7 @@ Each operation uses one captured instant.
 | Status to open, in progress or paused | kept | `null` |
 | No-op | kept | kept |
 | Reorder or key maintenance | kept | kept |
+| Category or tag rename, and its undo and redo | kept | kept |
 | Clearing attachments from done tasks | kept | kept |
 | Undo of a status change | kept | the exact earlier value |
 | Undo of a content or link change | now | earlier value only if closure changed |

@@ -57,6 +57,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `F`, then a key | Filter (see toolbar) | `filter.mode` |
 | `S`, then a key | Sort (see toolbar) | `sort.mode` |
 | `@` / `#` | Category / tag picker | `filter.category`, `filter.tags` |
+| `Ctrl/⌘+R`, inside either picker | Rename the highlighted category or tag | `filter.rename` |
 | `/` | Search | `filter.search` |
 | `Escape` | Close, go back, narrow the selection, then reset filters | `select.escape`, `filter.escape` |
 | `?` | Learn panel | `learn.panel` |
