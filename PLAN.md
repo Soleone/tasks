@@ -17,12 +17,12 @@ Native checks automation can't do:
 - Windows: Open folder for the home and exports; uninstall and reinstall keep the home.
 - Android: the gallery skips the home's images; the due-date strip fits above the keyboard; touch quest steps.
 - Global hotkeys: both bring Tasks forward from another app on Windows and open the New task editor; the Hyprland binds do the same on Omarchy; Update still restarts Tasks now that a second launch hands over to the running one.
+- Renaming in the @ and # pickers: `Ctrl/⌘+R` opens rename without reloading the page in WebView2, WebKitGTK, the macOS app, Firefox and Safari (fall back to F2 where it can't be stopped); on Android, tapping the Rename footer works.
 - A real Syncthing exchange between two homes.
 - Daily-use feedback, especially save speed and repeated keyboard reorder.
 
 ## Open work
 
-- Rename categories and tags: designed in `$DATA/plans/2026-10-25-tasks-classification-rename.md`, not started.
 - The status chip reads Active inside the due lens although paused tasks show.
 - Done lens follow-ups: a once-a-day recap line, `tasks-cli done --today`, grouping Done by day.
 - Rebuild the Windows crash-recovery checks; crash recovery is tested on Linux only.

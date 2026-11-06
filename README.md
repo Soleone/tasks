@@ -22,7 +22,7 @@ Every key has a mouse or touch path too. The full keymap is in [the client spec]
 - **Status:** open, in progress, paused, done or canceled.
 - **Priority:** P0 (most urgent) to P4.
 - **Effort:** tiny to huge, in five steps.
-- **Category and tags:** one `@category`, any number of `#tags`.
+- **Category and tags:** one `@category`, any number of `#tags`. `Ctrl/⌘+R` in the `@` or `#` picker renames one on every task, or merges it into a name already in use.
 - **Due date:** `!fri`, `!tomorrow` or a date.
 - **Notes:** a Markdown description.
 - **Images:** paste screenshots straight in.
