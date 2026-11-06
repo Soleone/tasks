@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.3](https://github.com/Soleone/tasks/compare/v0.4.2...v0.4.3) (2026-11-06)
+
+### Features
+
+* filtering by category pushes the other tasks off the list's edge and settles the rest into place ([444d2b0](https://github.com/Soleone/tasks/commit/444d2b0e0452167b12d473214a4d7f445d916676))
+
 ## [0.4.2](https://github.com/Soleone/tasks/compare/v0.4.1...v0.4.2) (2026-11-05)
 
 ### Features
