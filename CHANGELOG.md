@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.4](https://github.com/Soleone/tasks/compare/v0.4.3...v0.4.4) (2026-11-06)
+
+### Features
+
+* **cli:** rename a category or tag on every task with tasks-cli category rename and tag rename, merging into a name already in use ([0f8a465](https://github.com/Soleone/tasks/commit/0f8a46518f1576d483726d1d7801e23f2db67a60))
+* **pickers:** rename a category or tag on every task ([879254b](https://github.com/Soleone/tasks/commit/879254b18a67e6fa8895765e4e865bc67f259572))
+
+### Bug Fixes
+
+* **toolbar:** show lens statuses in the status chip ([6a376ca](https://github.com/Soleone/tasks/commit/6a376cac1373c8291e9f8ff156830a7948c3dbe8))
+
 ## [0.4.3](https://github.com/Soleone/tasks/compare/v0.4.2...v0.4.3) (2026-11-06)
 
 ### Features
