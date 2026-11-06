@@ -38,7 +38,7 @@ import {
   type SortField,
   type StatusPreset,
 } from "./taskFilters";
-import { lensPhrase, widerDoneWindow, type ListLens } from "./listLens";
+import { lensFilter, lensPhrase, widerDoneWindow, type ListLens } from "./listLens";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import { SortMenu } from "./SortMenu";
@@ -316,10 +316,12 @@ export function TaskListToolbar({
     };
   }
 
-  const statusActive = exactStatus !== null || statusPreset !== "active";
-  const statusLabel =
-    exactStatus !== null
-      ? (EXACT_STATUS_META.find((entry) => entry.status === exactStatus)?.label ?? exactStatus)
+  // A lens replaces the status filter, so the chip names the statuses it shows.
+  const statusActive = lens !== null || exactStatus !== null || statusPreset !== "active";
+  const statusLabel = lens
+    ? statusesLabel(lensFilter(lens).statuses)
+    : exactStatus !== null
+      ? statusesLabel([exactStatus])
       : STATUS_PRESET_LABELS[statusPreset];
   const priorityLabel =
     priorityFilter !== null
@@ -858,4 +860,13 @@ export function TaskListToolbar({
       </Breadcrumb>
     </div>
   );
+}
+
+/** "Done", or "Open, in progress, paused". */
+function statusesLabel(statuses: TaskStatus[]): string {
+  const label = statuses
+    .map((status) => EXACT_STATUS_META.find((entry) => entry.status === status)?.label ?? status)
+    .join(", ")
+    .toLowerCase();
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }

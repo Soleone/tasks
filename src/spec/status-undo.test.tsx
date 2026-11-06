@@ -177,6 +177,9 @@ function doneTodayButton(): HTMLElement | null {
   return document.querySelector("[data-lens-count=done]");
 }
 
+function statusChip(): HTMLElement {
+  return document.querySelector<HTMLElement>("[data-filter=task-status]")!;
+}
 function countLine(): string | null | undefined {
   return document.querySelector("[data-filter-summary]")?.textContent;
 }
@@ -372,6 +375,19 @@ describe("completion", () => {
     await workspace.change("task.complete", finished.id);
     await workspace.create("Open");
     const { user } = await workspace.render();
+    await user.keyboard("d");
+    await expectRows(["Finished"]);
+    expect(statusChip().getAttribute("aria-label")).toContain("Status filter: Done.");
+    expect(statusChip().getAttribute("aria-pressed")).toBe("true");
+    await user.keyboard("!");
+    await waitFor(() =>
+      expect(statusChip().getAttribute("aria-label")).toContain(
+        "Status filter: Open, in progress, paused.",
+      ),
+    );
+    await user.keyboard("!");
+    await waitFor(() => expect(statusChip().getAttribute("aria-pressed")).toBe("false"));
+    expect(statusChip().getAttribute("aria-label")).toContain("Status filter: Active.");
     await user.keyboard("d");
     await expectRows(["Finished"]);
     await user.keyboard("fs");

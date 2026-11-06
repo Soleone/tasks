@@ -8,7 +8,7 @@ A lens turns the task list itself into one question, such as what was done today
 | `lens.parents` | A lens shows a subtask whose parent it doesn't show | The parent shows as context above it, and the lens expands it once, leaving it to you after that |
 | `lens.back` | The lens's key again, clicking its count, `Escape` with no selection to clear, or Go back on an empty lens | The list returns to the view it showed before: filters, search, sort, the active task, expanded parents and scroll position. Anything changed inside the lens is dropped |
 | `lens.switch` | Opening another lens while one is open | The new lens replaces it, and going back still returns to the view from before the first |
-| `lens.status` | Changing the status filter in a lens | The lens ends and the new status view becomes the ordinary view, remembered as usual |
+| `lens.status` | Changing the status filter in a lens | While the lens is on, the status chip is pressed and names the statuses it shows, e.g. Done, or Open, in progress, paused. Changing the filter ends the lens, and the new status view becomes the ordinary view, remembered as usual |
 | `lens.launch` | Launching after quitting with a lens on | The lens is never remembered; the list opens on the view it set aside |
 | `lens.count` | A header count's lens has nothing to show | The count is hidden, except while its lens is on |
 
