@@ -21,6 +21,7 @@ import {
   ListPlus,
   MoveLeft,
   Palette,
+  PenLine,
   Play,
   Redo2,
   SaveCheck,
@@ -245,6 +246,13 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         keys: ["#", "F → T"],
         action: "filter-tags",
         keywords: "# f t tags filter clear multi and",
+      },
+      {
+        label: "Rename a category or tag",
+        hint: "In the @ or # picker, on every task",
+        icon: PenLine,
+        keys: [modKey, "R"],
+        keywords: "ctrl cmd r rename category tag typo merge @ #",
       },
       {
         label: "Search tasks",

@@ -278,6 +278,32 @@ export function clearDone(
   });
 }
 
+export type RenameResult = { taskIds: string[]; merged: boolean; operationId?: string };
+
+/** Renames a category or tag on every task; `merged` when the new name was already in use. */
+export function renameClassification(
+  kind: "category" | "tag",
+  from: string,
+  to: string,
+): Promise<RenameResult> {
+  return queued(async (workspace) => {
+    const result = await workspace.editor.rename(`${kind}.rename`, from, to);
+    const tasks = result.tasks as { id?: unknown }[] | undefined;
+    if (
+      !Array.isArray(tasks) ||
+      !isStringList(tasks.map((task) => task.id)) ||
+      typeof result.merged !== "boolean" ||
+      (result.operationId !== undefined && typeof result.operationId !== "string")
+    )
+      throw new Error("The editor returned an invalid rename result.");
+    return {
+      taskIds: tasks.map((task) => task.id as string),
+      merged: result.merged,
+      ...(result.operationId === undefined ? {} : { operationId: result.operationId }),
+    };
+  });
+}
+
 export async function updateTaskLevel(
   task: TaskView,
   change: LevelChange,

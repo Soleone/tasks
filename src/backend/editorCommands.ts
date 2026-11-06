@@ -15,4 +15,6 @@ export const EDITOR_COMMANDS = [
   "attachment.write",
   "task.purgeCanceled",
   "task.clearDone",
+  "category.rename",
+  "tag.rename",
 ] as const;

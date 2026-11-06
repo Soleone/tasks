@@ -362,6 +362,7 @@ export default function App({
     pickerSelected,
     pauseTaskFromPalette,
     recordOperationUndo,
+    classificationRenamed,
     handleUndoStatus,
     handleRedo,
     showOptimisticCreate,
@@ -771,6 +772,35 @@ export default function App({
     requestActiveTask(activeTaskId ?? null, activeTaskId !== undefined);
   }
 
+  /** Filters follow a rename, the set-aside view too; tags that end up the same collapse to one. */
+  function followRename(kind: "category" | "tag", from: string, to: string): void {
+    const renamed = { slug: to, label: to };
+    const follow = (view: Pick<ListView, "tagFilter" | "categoryFilter">) => ({
+      tagFilter:
+        kind === "tag"
+          ? [
+              ...new Map(
+                view.tagFilter.map((tag) => [
+                  tag.slug === from ? to : tag.slug,
+                  tag.slug === from ? { ...tag, ...renamed } : tag,
+                ]),
+              ).values(),
+            ]
+          : view.tagFilter,
+      categoryFilter:
+        kind === "category" && view.categoryFilter?.slug === from ? renamed : view.categoryFilter,
+    });
+    const next = follow({ tagFilter, categoryFilter });
+    setTagFilter(next.tagFilter);
+    setCategoryFilter(next.categoryFilter);
+    categoryFilterRef.current = next.categoryFilter?.slug ?? null;
+    if (openLens)
+      setOpenLens({
+        ...openLens,
+        returnTo: { ...openLens.returnTo, ...follow(openLens.returnTo) },
+      });
+  }
+
   function chooseCategory(category: ClassificationToken, activeTaskId?: string): void {
     setCategoryPickerOpen(false);
     setCategoryFilter(category);
@@ -1050,6 +1080,10 @@ export default function App({
           onClose={closeCategoryPicker}
           finalFocus={() => focusStack.restore("category-picker") ?? undefined}
           onSelect={chooseCategory}
+          onRenamed={(renamed) => {
+            followRename("category", renamed.from, renamed.to);
+            classificationRenamed(renamed, "@");
+          }}
         />
       ) : null}
       {statusMenuOpen ? (
@@ -1078,6 +1112,10 @@ export default function App({
           finalFocus={() => focusStack.restore("tag-picker") ?? undefined}
           selected={tagFilter}
           onChange={chooseTags}
+          onRenamed={(renamed) => {
+            followRename("tag", renamed.from, renamed.to);
+            classificationRenamed(renamed, "#");
+          }}
         />
       ) : null}
       {picker ? (

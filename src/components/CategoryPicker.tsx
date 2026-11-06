@@ -9,24 +9,35 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { listCategories } from "@/platform/backendClient";
+import { modKey } from "@/platform/runtime";
+import { itemValue, useClassificationRename, type Renamed } from "./ClassificationRename";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog } from "@/components/variants/command";
-import { useLoadOnOpen } from "./useLoadOnOpen";
+
+const loadCategories = () => listCategories().then((result) => result.categories);
 
 export function CategoryPicker({
   open,
   onClose,
   finalFocus,
   onSelect,
+  onRenamed,
 }: {
   open: boolean;
   onClose: () => void;
   finalFocus: () => HTMLElement | undefined;
   onSelect: (category: ClassificationOption) => void;
+  onRenamed: (renamed: Renamed) => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
-  const { value, loading, error } = useLoadOnOpen(open, listCategories);
-  const categories = value?.categories ?? [];
+  const rename = useClassificationRename({
+    open,
+    kind: "category",
+    load: loadCategories,
+    searchInput,
+    onRenamed,
+  });
+  const { options: categories, loading, error } = rename;
 
   const emptyText = loading
     ? "Loading categories…"
@@ -43,12 +54,17 @@ export function CategoryPicker({
         if (!next) onClose();
       }}
       title="Filter by category"
-      description="Choose a category to show only its tasks."
+      description={`Choose a category to show only its tasks. ${modKey}+R renames the highlighted category on every task.`}
       initialFocus={searchInput}
       finalFocus={finalFocus}
     >
-      <Command label="Filter tasks by category" filter={literalWordScore} loop>
-        <CommandInput ref={searchInput} placeholder="Search categories…" />
+      <Command
+        label="Filter tasks by category"
+        filter={literalWordScore}
+        loop
+        {...rename.commandProps}
+      >
+        <CommandInput ref={searchInput} placeholder="Search categories…" {...rename.searchProps} />
         <CommandList label="Category results">
           <CommandEmpty>{emptyText}</CommandEmpty>
           <CommandGroup
@@ -63,13 +79,17 @@ export function CategoryPicker({
             {categories.map((category) => (
               <CommandItem
                 key={category.slug}
-                value={`${category.label} ${category.slug}`}
+                value={itemValue(category)}
                 keywords={[`${category.taskCount} tasks`]}
-                onSelect={() => onSelect(category)}
+                onSelect={() => {
+                  if (!rename.renaming) onSelect(category);
+                }}
                 className="[&>svg:last-child]:hidden"
               >
                 <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                  <span className="truncate font-medium">{category.label}</span>
+                  {rename.field(category) ?? (
+                    <span className="truncate font-medium">{category.label}</span>
+                  )}
                   <span
                     data-category-count
                     className="grid shrink-0 grid-cols-[auto_max-content] items-center gap-x-1 text-muted-foreground"
@@ -94,6 +114,7 @@ export function CategoryPicker({
             ))}
           </CommandGroup>
         </CommandList>
+        {rename.footer}
       </Command>
     </PaletteDialog>
   );

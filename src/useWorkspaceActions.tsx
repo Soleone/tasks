@@ -26,6 +26,7 @@ import {
 import { useDoneFlights } from "./useDoneFlights";
 import { useRowExits } from "./useRowExits";
 import type { useWorkspaceTasks } from "./useWorkspaceTasks";
+import type { Renamed } from "@/components/ClassificationRename";
 
 /**
  * How long a row a status change moves out of view keeps showing its new status before sliding
@@ -292,6 +293,10 @@ export function useWorkspaceActions({
                 : null;
             })(),
     };
+    pushUndo(entry);
+  }
+
+  function pushUndo(entry: UndoEntry): void {
     setStatusUndo(entry);
     setRedoEntry(null);
     // Re-show after pushing, so a history load that resolves late cannot replace this newer entry.
@@ -302,6 +307,28 @@ export function useWorkspaceActions({
       },
       () => undefined,
     );
+  }
+
+  /** A rename is one undo step over every task it changed; the list reloads to show it. */
+  function classificationRenamed(
+    { from, to, taskIds, operationId }: Renamed,
+    marker: "@" | "#",
+  ): void {
+    const count = `${taskIds.length} ${taskIds.length === 1 ? "task" : "tasks"}`;
+    const message = `Renamed ${marker}${from} to ${marker}${to} · ${count}`;
+    setAnnouncement(message);
+    showTaskToast(message);
+    void refreshTasks(0, true);
+    if (operationId)
+      pushUndo({
+        operationId,
+        key: randomUUID(),
+        affectedTaskIds: taskIds,
+        createdTaskIds: [],
+        title: `Rename ${marker}${from}`,
+        statusLike: false,
+        wasActiveTaskId: null,
+      });
   }
 
   function showHistory(history: UndoHistory): void {
@@ -617,6 +644,7 @@ export function useWorkspaceActions({
     pickerSelected,
     pauseTaskFromPalette,
     recordOperationUndo,
+    classificationRenamed,
     handleUndoStatus: () => handleHistory("undo"),
     handleRedo: () => handleHistory("redo"),
     showOptimisticCreate,

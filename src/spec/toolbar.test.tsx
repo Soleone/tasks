@@ -531,6 +531,133 @@ describe("filters", () => {
   });
 });
 
+describe("rename", () => {
+  const ctrlR = "{Control>}r{/Control}";
+
+  function renameField(): HTMLInputElement {
+    return within(screen.getByRole("dialog")).getByRole("textbox", { name: /^Rename / });
+  }
+  function hint(): string {
+    return document.getElementById("classification-rename-hint")?.textContent ?? "";
+  }
+  function highlighted(): string {
+    return (
+      within(screen.getByRole("dialog"))
+        .getAllByRole("option")
+        .find((option) => option.getAttribute("aria-selected") === "true")?.textContent ?? ""
+    );
+  }
+
+  test("filter.rename: Ctrl+R renames the highlighted tag on every task and the picker stays open", async () => {
+    const open = await workspace.create("Open", { tags: ["wrk"] });
+    const done = await workspace.create("Done", { tags: ["wrk", "errand"] });
+    await workspace.change("task.complete", done.id);
+    const { user } = await workspace.render();
+    await user.keyboard("#");
+    await screen.findByRole("dialog");
+    await searchPicker(user, "wrk");
+    const search = document.activeElement as HTMLInputElement;
+    // The page never reloads.
+    expect(fireEvent.keyDown(search, { key: "r", ctrlKey: true })).toBe(false);
+    await waitFor(() => expect(renameField().value).toBe("wrk"));
+    expect(search.readOnly).toBe(true);
+    await user.keyboard("work{Enter}");
+    expect(await screen.findAllByText("Renamed #wrk to #work · 2 tasks")).not.toHaveLength(0);
+    expect((await workspace.task(open.id)).tags).toEqual(["work"]);
+    expect((await workspace.task(done.id)).tags).toEqual(["errand", "work"]);
+    await waitFor(() => expect(highlighted()).toContain("work"));
+    expect(screen.queryByRole("textbox", { name: /^Rename / })).toBeNull();
+    expect(search.readOnly).toBe(false);
+  });
+
+  test("filter.rename: the footer starts it, Escape leaves it and a second Escape closes", async () => {
+    const task = await workspace.create("Chore", { category: "home" });
+    const { user } = await workspace.render();
+    await user.keyboard("@");
+    await screen.findByRole("dialog");
+    await user.click(await screen.findByRole("button", { name: /Rename @home/ }));
+    await waitFor(() => expect(renameField().value).toBe("home"));
+    await user.keyboard("house{Escape}");
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: /^Rename / })).toBeNull());
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect((await workspace.task(task.id)).category).toBe("home");
+  });
+
+  test("filter.rename-input: names are lowercased, spaces become dashes and other characters are refused", async () => {
+    await workspace.create("Plan", { tags: ["wrk"] });
+    const { user } = await workspace.render();
+    await user.keyboard("#");
+    await screen.findByRole("dialog");
+    await searchPicker(user, "wrk");
+    await user.keyboard(ctrlR);
+    await waitFor(() => expect(renameField().value).toBe("wrk"));
+    expect(hint()).toBe("Type a new name for #wrk.");
+    // Unchanged: Enter does nothing.
+    await user.keyboard("{Enter}");
+    expect(renameField().value).toBe("wrk");
+    await user.keyboard("Big Plan!");
+    expect(renameField().value).toBe("big-plan");
+    expect(hint()).toBe("Use letters, digits, - and _.");
+    await user.keyboard("s");
+    expect(hint()).toBe("Rename #wrk to #big-plans. Done and canceled tasks change too.");
+  });
+
+  test("filter.rename-merge: renaming onto a listed name says it merges, and the row is gone after", async () => {
+    await workspace.create("Old", { tags: ["wrk"] });
+    const both = await workspace.create("Both", { tags: ["work", "wrk"] });
+    await workspace.create("New", { tags: ["work"] });
+    const { user } = await workspace.render();
+    await user.keyboard("#");
+    await screen.findByRole("dialog");
+    await searchPicker(user, "wrk");
+    await user.keyboard(ctrlR);
+    await waitFor(() => expect(renameField().value).toBe("wrk"));
+    await user.keyboard("work");
+    expect(hint()).toBe("Merges #wrk into #work (2 tasks).");
+    await user.keyboard("{Enter}");
+    expect(await screen.findAllByText("Renamed #wrk to #work · 2 tasks")).not.toHaveLength(0);
+    expect((await workspace.task(both.id)).tags).toEqual(["work"]);
+    await user.clear(document.activeElement as HTMLInputElement);
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("dialog"))
+          .getAllByRole("option")
+          .map((option) => option.textContent),
+      ).toEqual([expect.stringContaining("work")]),
+    );
+  });
+
+  test("filter.rename-follow: a selected tag moves to the new name, and undo leaves the filter alone", async () => {
+    const task = await workspace.create("Tagged", { tags: ["wrk"] });
+    await workspace.create("Other");
+    const { user } = await workspace.render();
+    await user.keyboard("#");
+    await screen.findByRole("dialog");
+    await searchPicker(user, "wrk");
+    await user.keyboard(" {Escape}");
+    await expectRows(["Tagged"]);
+    await user.keyboard("#");
+    await screen.findByRole("dialog");
+    await searchPicker(user, "wrk");
+    await user.keyboard(ctrlR);
+    await waitFor(() => expect(renameField().value).toBe("wrk"));
+    await user.keyboard("work{Enter}");
+    expect(await screen.findAllByText("Renamed #wrk to #work · 1 task")).not.toHaveLength(0);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await expectRows(["Tagged"]);
+    expect(localStorage.getItem("tasks.tagFilter")).toBe('["work"]');
+
+    // undo.scope: the whole rename is one step, and the filter stays.
+    await user.keyboard("{Control>}z{/Control}");
+    await waitFor(async () => expect((await workspace.task(task.id)).tags).toEqual(["wrk"]));
+    await expectRows([]);
+    expect(localStorage.getItem("tasks.tagFilter")).toBe('["work"]');
+  });
+});
+
 describe("sort", () => {
   async function seedSortable(): Promise<void> {
     await workspace.create("Oldest", { priority: 1 });

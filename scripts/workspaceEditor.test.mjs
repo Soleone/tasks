@@ -60,6 +60,8 @@ const linuxEditorCommands = [
   "attachment.write",
   "task.purgeCanceled",
   "task.clearDone",
+  "category.rename",
+  "tag.rename",
 ];
 const statusSources = {
   "task.start": "done",

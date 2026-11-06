@@ -574,6 +574,24 @@ export class EditorClient {
     return result;
   }
 
+  /**
+   * Renames a category or tag on every task. Like a purge it sends one request with a fresh key:
+   * repeating it after a lost reply finds nothing left to rename.
+   */
+  async rename(
+    command: "category.rename" | "tag.rename",
+    from: string,
+    to: string,
+  ): Promise<Record<string, unknown>> {
+    const { writeContext } = await this.begin();
+    const { result } = await this.query(
+      command,
+      { from, to },
+      { writeContext, idempotencyKey: randomUUID(), readOnly: false },
+    );
+    return result;
+  }
+
   private async query(
     command: string,
     args: Record<string, unknown>,
