@@ -186,7 +186,7 @@ export function runHumanCli(argv: string[]): void {
     if (invocation.mutation && !request.readOnly && !request.dryRun)
       reportRetry(invocation, request);
     const response = dispatch(invocation, request);
-    printHumanResult(request.command, response, json, targetRoot(invocation));
+    printHumanResult(request, response, json, targetRoot(invocation));
   } catch (error) {
     const failure =
       error instanceof HumanProtocolError

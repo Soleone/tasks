@@ -59,6 +59,7 @@ function undoResult(
     tasks: plan.selectedIds.flatMap((id) => (projections.has(id) ? [projections.get(id)] : [])),
     changed,
     ...(plan.removedIds.length ? { removedIds: plan.removedIds } : {}),
+    ...(plan.merged === undefined ? {} : { merged: plan.merged }),
   };
 }
 

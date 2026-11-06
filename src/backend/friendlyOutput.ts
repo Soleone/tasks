@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { attachmentPath } from "./attachments.js";
-import type { Response } from "./protocol.js";
+import type { Request, Response } from "./protocol.js";
 import type { TaskProjection } from "./queries.js";
 import { DEFAULT_EFFORT } from "./taskModel.js";
 
@@ -39,7 +39,7 @@ function taskDetail(task: TaskProjection, rootPath: string): string {
   ].join("\n");
 }
 export function printHumanResult(
-  command: string,
+  { command, args }: Request,
   response: Extract<Response, { ok: true }>,
   json: boolean,
   rootPath: string,
@@ -56,7 +56,15 @@ export function printHumanResult(
   const lines: string[] = [];
   if (result.readOnly === true || result.dryRun === true)
     lines.push("Preview only. No canonical effects, receipt or history.");
-  if (Array.isArray(result.tasks)) {
+  if (command === "category.rename" || command === "tag.rename") {
+    const marker = command === "category.rename" ? "@" : "#",
+      { from, to } = args as { from: string; to: string },
+      count = (result.tasks as unknown[]).length;
+    if (result.changed)
+      lines.push(
+        `Renamed ${marker}${from} to ${marker}${to} on ${count} ${count === 1 ? "task" : "tasks"}${result.merged ? `, merged into the existing ${marker}${to}` : ""}`,
+      );
+  } else if (Array.isArray(result.tasks)) {
     for (const task of (result.contextTasks as TaskProjection[] | undefined) ?? [])
       lines.push(`context: ${taskLine(task)}`);
     for (const task of result.tasks as TaskProjection[]) lines.push(taskLine(task));

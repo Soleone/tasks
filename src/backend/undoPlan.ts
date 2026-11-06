@@ -5,14 +5,17 @@ import { applyStatus, STATUS_COMMANDS } from "./taskStatus.js";
 import { compareTasks, isOrderKey, validateGraph, validateTask, GraphError } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 import { parseTaskVersion } from "./updateInputs.js";
+import { slugInput } from "./shorthand.js";
 
 const statusCommands: readonly string[] = STATUS_COMMANDS;
+const RENAME_COMMANDS = ["category.rename", "tag.rename"];
 export const UNDO_COMMANDS = [
   "task.status.undo",
   "task.status.undoMany",
   "task.transitionMany",
   "operation.undo",
   "operation.redo",
+  ...RENAME_COMMANDS,
 ];
 const reversibleCommands: readonly string[] = [
   ...STATUS_COMMANDS,
@@ -24,12 +27,14 @@ const reversibleCommands: readonly string[] = [
   "task.reorder",
   "task.order.normalize",
   "task.transitionMany",
+  ...RENAME_COMMANDS,
 ];
 type Reference = { id: string; expectedVersion: number; command?: string };
 export type UndoInput =
   | { kind: "operation"; operationId: string }
   | { kind: "redo"; operationId: string }
-  | { kind: "status" | "transition"; tasks: Reference[] };
+  | { kind: "status" | "transition"; tasks: Reference[] }
+  | { kind: "rename"; field: "category" | "tags"; from: string; to: string };
 type OperationRecord = { id: string; command: string; before: unknown; after: unknown };
 // Retain flat root evidence in pending intents instead of nesting every reversal in the next one.
 export type HistorySource = OperationRecord & { origin?: OperationRecord };
@@ -40,6 +45,8 @@ export type UndoPlan = {
   tasks: CanonicalTask[];
   claims: UndoClaim[];
   removedIds: string[];
+  /** Renames only: whether `to` was already in use. */
+  merged?: boolean;
 };
 type HistoryScope = { parentId: string | null; tasks: { id: string; orderKey: string }[] };
 function unavailable(status = false): never {
@@ -57,6 +64,15 @@ export function parseUndo(command: string, args: Record<string, unknown>): UndoI
     return {
       kind: command === "operation.redo" ? "redo" : "operation",
       operationId: args.operationId,
+    };
+  }
+  if (RENAME_COMMANDS.includes(command)) {
+    assertArgs(args, ["from", "to"]);
+    return {
+      kind: "rename",
+      field: command === "tag.rename" ? "tags" : "category",
+      from: slugInput(args.from),
+      to: slugInput(args.to),
     };
   }
   if (command === "task.status.undo") {
@@ -211,6 +227,7 @@ function restoreRecordedTask(
   current: CanonicalTask | undefined,
   historic: { before?: CanonicalTask; after?: CanonicalTask; creation?: CanonicalTask },
   at: string,
+  keepsTime: boolean,
 ): CanonicalTask | undefined {
   const { before, after, creation } = historic;
   if (!after) {
@@ -240,7 +257,7 @@ function restoreRecordedTask(
       continue;
     if (canonicalJson(current[key]) !== canonicalJson(after[key])) unavailable();
     Object.assign(patch, { [key]: before[key] });
-    if (!["status", "closedAt", "orderKey"].includes(key)) editsTime = true;
+    if (!keepsTime && !["status", "closedAt", "orderKey"].includes(key)) editsTime = true;
   }
   const restored = { ...current, ...patch, ...(editsTime ? { updatedAt: at } : {}) };
   for (const key of keys) if (restored[key] === undefined) delete restored[key];
@@ -256,7 +273,24 @@ export function planUndo(
   const next = new Map(tasks.map((task) => [task.id, task]));
   const affected = new Set<string>();
   const claims: UndoClaim[] = [];
-  if (input.kind === "transition") {
+  let merged: boolean | undefined;
+  if (input.kind === "rename") {
+    if (sources.length) unavailable();
+    const { field, from, to } = input;
+    const uses = (task: CanonicalTask, slug: string) =>
+      field === "tags" ? task.tags.includes(slug) : task.category === slug;
+    merged = from !== to && tasks.some((task) => uses(task, to));
+    if (from !== to)
+      for (const task of tasks) {
+        if (!uses(task, from)) continue;
+        const renamed =
+          field === "tags"
+            ? { tags: [...new Set(task.tags.map((tag) => (tag === from ? to : tag)))].sort() }
+            : { category: to };
+        next.set(task.id, { ...task, ...renamed, text: null });
+        affected.add(task.id);
+      }
+  } else if (input.kind === "transition") {
     if (sources.length) unavailable();
     for (const reference of input.tasks) {
       const old = next.get(reference.id);
@@ -284,6 +318,7 @@ export function planUndo(
           "task.order.normalize",
           "operation.undo",
           "operation.redo",
+          ...RENAME_COMMANDS,
         ].includes(source.command) &&
         (before.length > 1 || after.length !== 1)
       )
@@ -322,7 +357,12 @@ export function planUndo(
             origin.command === "task.create" && origin.before === null
               ? historyTasks(origin.after)[0]
               : undefined;
-          const restored = restoreRecordedTask(current, { before: old, after: post, creation }, at);
+          const restored = restoreRecordedTask(
+            current,
+            { before: old, after: post, creation },
+            at,
+            RENAME_COMMANDS.includes(origin.command),
+          );
           if (restored) next.set(id, restored);
           else next.delete(id);
         }
@@ -356,9 +396,12 @@ export function planUndo(
     selectedIds:
       input.kind === "operation" || input.kind === "redo"
         ? historyAffected(sources[0])
-        : input.tasks.map((task) => task.id),
+        : input.kind === "rename"
+          ? [...affected]
+          : input.tasks.map((task) => task.id),
     affectedIds: [...affected],
     claims,
     removedIds: tasks.filter((task) => !next.has(task.id)).map((task) => task.id),
+    ...(merged === undefined ? {} : { merged }),
   };
 }

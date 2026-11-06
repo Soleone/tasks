@@ -378,6 +378,14 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       if (flags.has("task")) args.taskId = value(flags, "task");
       if (flags.has("limit")) args.limit = integer(flags, "limit", 0);
       break;
+    case "category":
+    case "tag":
+      command = `${verb}.rename`;
+      requirePositionals(positionals, 3, verb);
+      if (positionals[0] !== "rename") usage(`${verb} needs rename OLD NEW; use --help`);
+      args.from = positionals[1].toLowerCase();
+      args.to = positionals[2].toLowerCase();
+      break;
     case "categories":
     case "tags":
     case "info":
@@ -473,6 +481,7 @@ WRITES
     classification or due overrides.
   start|pause|complete|reopen|cancel|delete|undo ID
   undo-operation OPERATION_ID | redo-operation UNDO_OPERATION_ID | purge-canceled
+  category rename OLD NEW | tag rename OLD NEW (every task, done and canceled too)
   move ID --parent ID | move ID --no-parent
   dep-add ID BLOCKER_ID | dep-remove ID BLOCKER_ID
   attach ID FILE (a PNG, JPEG, WebP or GIF image; show prints image paths)

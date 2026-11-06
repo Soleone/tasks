@@ -85,12 +85,20 @@ function scenario(
       ? corpus.cases.find((entry: { id: string }) => entry.id === "reorder-tied").given.records
       : kind === "create"
         ? {}
-        : { a: {}, b: { orderKey: "a1" }, c: { orderKey: "a2" } };
+        : kind === "rename"
+          ? {
+              a: { tags: ["wrk"] },
+              b: { tags: ["wrk"], orderKey: "a1" },
+              c: { tags: ["wrk"], orderKey: "a2" },
+            }
+          : { a: {}, b: { orderKey: "a1" }, c: { orderKey: "a2" } };
   for (const [id, patch] of Object.entries(records))
     writeFileSync(
       path.join(w.root, "tasks", `${id}.json`),
       JSON.stringify({ ...corpus.taskTemplate, ...(patch as object), id }),
     );
+  if (kind === "rename")
+    return { w, request: prepared(w, "tag.rename", { from: "wrk", to: "work" }), groupsBefore: 0 };
   let forward;
   if (kind === "transition" || kind === "undoMany") {
     const args = {
@@ -217,6 +225,7 @@ return {...result,source:source.replace(needle,'throw Object.assign(new Error("t
 
 for (const [kind, writes] of [
   ["transition", 3],
+  ["rename", 3],
   ["undoMany", 3],
   ["order", 3],
   ["status", 1],
@@ -236,7 +245,7 @@ for (const [kind, writes] of [
   ];
   for (const cut of cuts)
     test(
-      `redo.claims: ${kind} actual CLI ${cut} retains fixed group/time/claims/bytes without replaying effects`,
+      `${kind === "rename" ? "rename.atomic" : "redo.claims"}: ${kind} actual CLI ${cut} retains fixed group/time/claims/bytes without replaying effects`,
       linux,
       (t) => {
         const { w, request, groupsBefore } = scenario(t, kind);

@@ -66,7 +66,7 @@ export function selectUndoHistory(
   input: UndoInput,
   tasks: CanonicalTask[],
 ): HistorySource[] {
-  if (input.kind === "transition") return [];
+  if (input.kind === "transition" || input.kind === "rename") return [];
   const code = input.kind === "status" ? "UNDO_UNAVAILABLE" : "OPERATION_UNAVAILABLE";
   const unavailable: () => never = () => {
     throw new CommandError(code, "eligible retained undo history is unavailable");

@@ -581,3 +581,24 @@ test("the friendly CLI has its own help, needs an explicit cache and keeps liter
   assert.equal(literalNote.description, "--json");
   assert.equal((ok(workspace, ["add", "--", "--root"]).task as TaskProjection).title, "--root");
 });
+
+test("cli.rename: tag rename and category rename print the count and a merge", linux, (t) => {
+  const w = setup(t);
+  for (const file of readdirSync(path.join(w.root, "tasks")))
+    rmSync(path.join(w.root, "tasks", file));
+  for (const [id, patch] of Object.entries({
+    a: { tags: ["wrk"], category: "home" },
+    b: { tags: ["work", "wrk"], status: "canceled", closedAt: "2026-09-09T10:00:00.000Z" },
+  }))
+    writeFileSync(
+      path.join(w.root, "tasks", `${id}.json`),
+      JSON.stringify({ ...corpus.taskTemplate, ...patch, id, orderKey: `a${id === "a" ? 0 : 1}` }),
+    );
+  const tags = run(w, ["tag", "rename", "WRK", "work"]);
+  assert.equal(tags.status, 0, tags.stderr);
+  assert.match(tags.stdout, /^Renamed #wrk to #work on 2 tasks, merged into the existing #work\n/);
+  const category = run(w, ["category", "rename", "home", "house"]);
+  assert.match(category.stdout, /^Renamed @home to @house on 1 task\n/);
+  assert.match(run(w, ["tag", "rename", "missing", "work"]).stdout, /^No change\./);
+  assert.equal(run(w, ["tag", "list", "a", "b"]).status, 2);
+});
