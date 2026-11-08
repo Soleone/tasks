@@ -55,7 +55,7 @@ function Ring({
         cy="12"
         r={RADIUS}
         strokeWidth={strokeWidth}
-        className="stroke-foreground/15"
+        className="stroke-muted-foreground/45"
       />
       {/* Always drawn, so a change eases into place. */}
       <circle
