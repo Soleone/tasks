@@ -345,6 +345,7 @@ test("quest.complete: Make it yours, the last quest, is the finale and leaves th
   await workspace.create("Task");
   startAt("make-it-yours", 0, [
     "first-task",
+    "day-by-day",
     "in-its-place",
     "first-things-first",
     "plan-ahead",
@@ -430,7 +431,7 @@ test("quest.complete: the recap names the next quest, then the card leaves and o
   within(complete).getByText("Task basics complete");
   const learnIcon = () => screen.getByRole("button", { name: "Learn" }).querySelector("svg");
   expect(learnIcon()?.hasAttribute("data-learn-celebrate")).toBe(true);
-  within(complete).getByText("Next: In its place, whenever you like");
+  within(complete).getByText("Next: Day by day, whenever you like");
   await waitFor(() => within(complete).getByText("D"));
   expect(card()).toBeNull();
   const panel = await openPanel(user);
@@ -440,14 +441,19 @@ test("quest.complete: the recap names the next quest, then the card leaves and o
   expect(panel.getByRole("region", { name: "Task basics" }).getAttribute("data-quest-state")).toBe(
     "complete",
   );
-  expect(panel.getByRole("region", { name: "In its place" }).getAttribute("data-quest-state")).toBe(
+  expect(panel.getByRole("region", { name: "Day by day" }).getAttribute("data-quest-state")).toBe(
     "new",
   );
   await user.keyboard("?");
-  await waitFor(() => expect(card()?.getAttribute("data-quest-card")).toBe("in-its-place"));
-  expect(questLine()).toBe("Press C for a new task");
-  expect(questHint()).toBe("Categories, and seeing one at a time");
-  await user.keyboard("c");
+  await waitFor(() => expect(card()?.getAttribute("data-quest-card")).toBe("day-by-day"));
+  expect(questLine()).toMatch(
+    /for settings, then under Goals type how many tasks you'd like done a day$/,
+  );
+  expect(questHint()).toBe("A goal for each day, and logging what you already did");
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Goals" }));
+  await user.type(await screen.findByRole("textbox", { name: "All tasks" }), "3");
+  await user.keyboard("{Escape}");
   await expectStep(1);
 });
 
@@ -558,6 +564,7 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
   expect(panel.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual(
     [
       "Task basics",
+      "Day by day",
       "In its place",
       "First things first",
       "Plan ahead",
@@ -569,7 +576,7 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
       "Make it yours",
     ],
   );
-  expect(panel.getAllByText("New")).toHaveLength(10);
+  expect(panel.getAllByText("New")).toHaveLength(11);
   expect(
     within(panel.getByRole("region", { name: "Task basics" }))
       .getAllByRole("listitem")

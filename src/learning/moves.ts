@@ -228,6 +228,10 @@ const MOVE_DEFINITIONS = [
     id: "settings.open",
     keyboard: { label: "Settings", keys: [modKey, ","] },
   },
+  {
+    id: "settings.goals",
+    keyboard: { label: "Set a goal in Settings › Goals", keys: [modKey, ","] },
+  },
 ] as const satisfies readonly MoveDefinition[];
 
 export type MoveId = (typeof MOVE_DEFINITIONS)[number]["id"];

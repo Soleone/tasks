@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/
 import { CountInput } from "@/components/variants/input";
 import { InlineRadio, InlineRadioGroup } from "@/components/variants/radio-group";
 import { SelectTrigger } from "@/components/variants/select";
+import { practice } from "@/learning/progress";
 import { listCategories } from "@/platform/backendClient";
 import {
   MAX_GOAL,
@@ -81,7 +82,9 @@ function GoalRow({
           const text = event.target.value.replace(/\D/g, "").slice(0, 2);
           setDraft(text);
           const count = Number(text);
-          if (count >= 1 && count <= MAX_GOAL) void setGoal(slug, { count, per });
+          if (count < 1 || count > MAX_GOAL) return;
+          void setGoal(slug, { count, per });
+          practice("settings.goals");
         }}
         onBlur={() => {
           if (draft !== null && Number(draft) === 0) void setGoal(slug, null);
