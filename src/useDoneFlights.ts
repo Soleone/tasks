@@ -106,8 +106,8 @@ const bump = (icon: Element | null): Animation | undefined =>
   );
 
 /**
- * After a goal ring takes a completion, a dot in its color carries it on to the done count, which
- * bumps as it arrives: the count's ring is the goals added up.
+ * After a goal ring takes a completion, a dot in its color carries it on to the done count, whose
+ * ring is the goals added up.
  */
 function handOff(ring: SVGElement): void {
   const count = document.querySelector<SVGElement>(DONE_ICON);
@@ -145,10 +145,7 @@ function handOff(ring: SVGElement): void {
     { duration: 420, delay: 120, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "both" },
   );
   const remove = () => dot.remove();
-  animation.finished.then(() => {
-    remove();
-    bump(count);
-  }, remove);
+  animation.finished.then(remove, remove);
 }
 
 /**
@@ -200,8 +197,10 @@ export function useDoneFlights() {
           () => {
             noteFrameEvent("check landed");
             land(taskId);
-            bump(flown.target);
-            if (!flown.target.matches(DONE_ICON)) handOff(flown.target);
+            const toCount = flown.target.matches(DONE_ICON);
+            // The count's ring takes a completion by filling; only its plain check bumps.
+            if (!toCount || !hasGoals(readSharedSettings())) bump(flown.target);
+            if (!toCount) handOff(flown.target);
           },
           () => {},
         );

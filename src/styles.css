@@ -548,10 +548,10 @@
   }
 }
 
-/* A goal's arc eases to its new length, runs a little past it and settles back. */
+/* A goal's arc eases to its new length. */
 [data-goal-arc] {
   transition:
-    stroke-dasharray 650ms cubic-bezier(0.3, 1.6, 0.5, 1),
+    stroke-dasharray 600ms cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 150ms;
 }
 

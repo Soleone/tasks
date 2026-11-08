@@ -57,8 +57,7 @@ function Ring({
         strokeWidth={strokeWidth}
         className="stroke-foreground/15"
       />
-      {/* Always drawn so a change eases into place: past the goal a little, then back. The gap
-          is a whole turn, so overshooting a full ring still draws one. */}
+      {/* Always drawn, so a change eases into place. */}
       <circle
         cx="12"
         cy="12"
