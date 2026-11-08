@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.0](https://github.com/Soleone/tasks/compare/v0.4.4...v0.5.0) (2026-11-08)
+
+### Features
+
+* **goals:** let the day end as late as 11:00, for nights that run into the morning ([e2f606c](https://github.com/Soleone/tasks/commit/e2f606c480c2ae95346840c39e388938214d5c3c))
+* **goals:** read goal numbers as 1/2 with the goal dimmed, and keep the met green legible in tooltips ([7411a1b](https://github.com/Soleone/tasks/commit/7411a1bbd89cd1570b1b5cd285d739f7f0df5e41))
+* **goals:** set daily or weekly goals per category and log tasks already done ([bad2655](https://github.com/Soleone/tasks/commit/bad2655dbb3a3873acb01463a06cc1bd7fc2e545))
+* **goals:** show category goal rings on phones, as many as fit ([f8585fe](https://github.com/Soleone/tasks/commit/f8585feb73bebd04da05dfacfd0852d283d3ee60))
+* **goals:** show goal numbers as 1 / 2 ([ae952af](https://github.com/Soleone/tasks/commit/ae952afb869a7ce2663e5f884b8be390530d630f))
+* **learning:** a Day by day quest teaches goals and logging what you already did ([76038c4](https://github.com/Soleone/tasks/commit/76038c4bc6f4b616d8e00597636c84cb0c3f4f11))
+* **learning:** move the Day by day quest to the end, before Make it yours ([cb182d1](https://github.com/Soleone/tasks/commit/cb182d17e7ccff76cda7bd5e0c834922bbedf6ea))
+* **settings:** give categories a color in Settings › Categories ([9638890](https://github.com/Soleone/tasks/commit/96388904bf6107b2d75097b97cb4a677b37408c2))
+* **settings:** list categories most recently used first, as the category picker does ([3db9d01](https://github.com/Soleone/tasks/commit/3db9d018fd8b9093a3fd0b1c6a89e9c164f84aa0))
+* **settings:** type a category's name to jump to it in Settings › Categories ([8142f2d](https://github.com/Soleone/tasks/commit/8142f2d337c914d4c8a1678e576f8c730f689dde))
+
+### Bug Fixes
+
+* **goals:** ease each ring's fill as the check lands, and drop the pip for everything else ([97362b6](https://github.com/Soleone/tasks/commit/97362b62220534618a46d37e3fe443fdabf71c48))
+* **goals:** fill the done count's ring only once every goal is met ([2cb6dff](https://github.com/Soleone/tasks/commit/2cb6dff08c471bf0523c088a96ed9f9aaf7c0efe))
+* **goals:** keep everything else out of the header's small rings ([7604ed4](https://github.com/Soleone/tasks/commit/7604ed442be3b279722bda4f0fc9af66f3bdc937))
+* **goals:** let rings fill smoothly without the done count's bump ([20ba4c5](https://github.com/Soleone/tasks/commit/20ba4c50439fcae9a3e21c0671ecb180944cacba))
+* **goals:** make the empty part of a goal ring easier to see ([9e9ae5f](https://github.com/Soleone/tasks/commit/9e9ae5f3ed46d826d9f017fd8678d076f9ea5f99))
+* **settings:** Down from a tab enters its section, and stray arrows move nothing ([5ad7656](https://github.com/Soleone/tasks/commit/5ad76561a6e0a6091efd55321b73f320597ec2bb))
+
+### Performance Improvements
+
+* **list:** keep arrow keys and scrolling responsive in long lists ([5befc00](https://github.com/Soleone/tasks/commit/5befc006ceef1e191bf5acede29ca7569792cd78))
+
 ## [0.4.4](https://github.com/Soleone/tasks/compare/v0.4.3...v0.4.4) (2026-11-06)
 
 ### Features
