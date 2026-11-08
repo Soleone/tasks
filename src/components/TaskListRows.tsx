@@ -79,7 +79,7 @@ export const TaskOption = memo(function TaskOption({
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <TaskContextMenu task={task} actions={contextActions(row, index)}>
+    <TaskContextMenu task={task} getActions={() => contextActions(row, index)}>
       <TaskItem
         id={`task-option-${task.id}`}
         role="option"
@@ -155,7 +155,24 @@ export const TaskOption = memo(function TaskOption({
       </TaskItem>
     </TaskContextMenu>
   );
-});
+}, sameTaskOption);
+
+// Each page load rebuilds every row object and the task lookup, so comparing them by identity
+// would re-render the whole list for every 200 rows added.
+function sameTaskOption(previous: TaskOptionProps, next: TaskOptionProps): boolean {
+  for (const key of Object.keys(next) as (keyof TaskOptionProps)[]) {
+    if (key === "row" || key === "taskById") continue;
+    if (previous[key] !== next[key]) return false;
+  }
+  const { row } = next;
+  return (
+    previous.row.task === row.task &&
+    previous.row.depth === row.depth &&
+    previous.row.hasChildren === row.hasChildren &&
+    previous.row.contextOnly === row.contextOnly &&
+    row.task.blockedByIds.every((id) => previous.taskById.get(id) === next.taskById.get(id))
+  );
+}
 
 export function OptimisticTaskOption({
   task,

@@ -1584,6 +1584,7 @@ export function TaskList({
     onAnnounce(`Showing tasks tagged ${tag.label}`);
   });
   const handleOptionCopyImage = useStableHandler(copyNewestImage);
+  const handleOptionContextActions = useStableHandler(contextActions);
 
   useTaskListKeyboard(
     {
@@ -1928,8 +1929,10 @@ export function TaskList({
           ) : null}
           {rootRowRuns(visibleRows).map((run) => (
             // A lone root stays a plain row to assistive tech; a family is a labeled group.
+            // Off-screen families skip layout and paint, so paging in more rows stays smooth.
             <TaskItemGroup
               key={`run-${run[0].row.task.id}`}
+              className="[contain-intrinsic-size:auto_2.5rem] [content-visibility:auto]"
               role={run.length > 1 ? "group" : "none"}
               aria-label={run.length > 1 ? run[0].row.task.title : undefined}
             >
@@ -1968,7 +1971,7 @@ export function TaskList({
                     hiddenCategorySlug={categoryFilter?.slug ?? null}
                     taskById={taskById}
                     onClick={handleOptionClick}
-                    contextActions={contextActions}
+                    contextActions={handleOptionContextActions}
                     onToggleStatus={handleOptionToggleStatus}
                     onToggleExpanded={handleOptionToggleExpanded}
                     onSelectCategory={handleOptionSelectCategory}

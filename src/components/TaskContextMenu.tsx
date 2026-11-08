@@ -64,23 +64,29 @@ export type TaskContextActions = {
 
 export function TaskContextMenu({
   task,
-  actions,
+  getActions,
   children,
 }: {
   task: TaskView;
-  actions: TaskContextActions;
+  /** Read when the menu opens, so rows can stay memoized while the list's state changes. */
+  getActions: () => TaskContextActions;
   children: ReactElement;
 }): ReactElement {
   const [open, setOpen] = useState(false);
+  const [actions, setActions] = useState<TaskContextActions | null>(null);
   return (
     <ContextMenu
       open={open}
       onOpenChange={(nextOpen, details) => {
-        if (nextOpen && actions.disabled) {
-          details.cancel();
-          return;
+        if (nextOpen) {
+          const next = getActions();
+          if (next.disabled) {
+            details.cancel();
+            return;
+          }
+          next.onTarget();
+          setActions(next);
         }
-        if (nextOpen) actions.onTarget();
         setOpen(nextOpen);
       }}
     >
@@ -91,145 +97,147 @@ export function TaskContextMenu({
           if (open) event.stopPropagation();
         }}
       />
-      <TaskContextMenuContent
-        aria-label={`Actions for ${task.title}`}
-        finalFocus={actions.finalFocus}
-      >
-        <ContextMenuGroup>
-          <ContextMenuLabel>{task.title}</ContextMenuLabel>
-          <ContextMenuItem onClick={() => actions.onEdit(task)}>
-            <Pencil aria-hidden="true" />
-            Edit
-          </ContextMenuItem>
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>
-              <Circle aria-hidden="true" />
-              Status
-            </ContextMenuSubTrigger>
-            <TaskContextSubContent>
-              <ContextMenuRadioGroup
-                value={task.status}
-                onValueChange={(status: SettableStatus) => actions.onSetStatus(task, status)}
-              >
-                {SETTABLE_STATUSES.map((status) => {
-                  const { Icon, color } = taskStatusMeta[status];
-                  return (
-                    <ContextMenuRadioItem
-                      key={status}
-                      value={status}
-                      disabled={!statusSettable(task.status, status)}
-                      closeOnClick
-                    >
-                      <Icon aria-hidden="true" className={color} />
-                      {statusLabel(status)}
+      {actions ? (
+        <TaskContextMenuContent
+          aria-label={`Actions for ${task.title}`}
+          finalFocus={actions.finalFocus}
+        >
+          <ContextMenuGroup>
+            <ContextMenuLabel>{task.title}</ContextMenuLabel>
+            <ContextMenuItem onClick={() => actions.onEdit(task)}>
+              <Pencil aria-hidden="true" />
+              Edit
+            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Circle aria-hidden="true" />
+                Status
+              </ContextMenuSubTrigger>
+              <TaskContextSubContent>
+                <ContextMenuRadioGroup
+                  value={task.status}
+                  onValueChange={(status: SettableStatus) => actions.onSetStatus(task, status)}
+                >
+                  {SETTABLE_STATUSES.map((status) => {
+                    const { Icon, color } = taskStatusMeta[status];
+                    return (
+                      <ContextMenuRadioItem
+                        key={status}
+                        value={status}
+                        disabled={!statusSettable(task.status, status)}
+                        closeOnClick
+                      >
+                        <Icon aria-hidden="true" className={color} />
+                        {statusLabel(status)}
+                      </ContextMenuRadioItem>
+                    );
+                  })}
+                </ContextMenuRadioGroup>
+              </TaskContextSubContent>
+            </ContextMenuSub>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Flag aria-hidden="true" />
+                Priority
+              </ContextMenuSubTrigger>
+              <TaskContextSubContent>
+                <ContextMenuRadioGroup
+                  value={task.priority}
+                  onValueChange={(priority: TaskPriority) => actions.onPriority(task, priority)}
+                >
+                  {PRIORITY_META.map((meta) => (
+                    <ContextMenuRadioItem key={meta.value} value={meta.value} closeOnClick>
+                      <span aria-hidden="true" className={meta.glyph}>
+                        <StatusGlyph task={{ status: "open", priority: meta.value }} />
+                      </span>
+                      <span className={cn("font-medium", meta.title)}>{meta.shortLabel}</span>{" "}
+                      <span className="text-muted-foreground">{meta.label}</span>
                     </ContextMenuRadioItem>
-                  );
-                })}
-              </ContextMenuRadioGroup>
-            </TaskContextSubContent>
-          </ContextMenuSub>
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>
-              <Flag aria-hidden="true" />
-              Priority
-            </ContextMenuSubTrigger>
-            <TaskContextSubContent>
-              <ContextMenuRadioGroup
-                value={task.priority}
-                onValueChange={(priority: TaskPriority) => actions.onPriority(task, priority)}
-              >
-                {PRIORITY_META.map((meta) => (
-                  <ContextMenuRadioItem key={meta.value} value={meta.value} closeOnClick>
-                    <span aria-hidden="true" className={meta.glyph}>
-                      <StatusGlyph task={{ status: "open", priority: meta.value }} />
-                    </span>
-                    <span className={cn("font-medium", meta.title)}>{meta.shortLabel}</span>{" "}
-                    <span className="text-muted-foreground">{meta.label}</span>
-                  </ContextMenuRadioItem>
-                ))}
-              </ContextMenuRadioGroup>
-            </TaskContextSubContent>
-          </ContextMenuSub>
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>
-              <ChevronsUp aria-hidden="true" />
-              Effort
-            </ContextMenuSubTrigger>
-            <TaskContextSubContent>
-              <ContextMenuRadioGroup
-                value={task.effort}
-                onValueChange={(effort: TaskEffort) => actions.onEffort(task, effort)}
-              >
-                {EFFORTS_LARGEST_FIRST.map((effort) => {
-                  const Icon = EFFORT_ICONS[effort];
-                  return (
-                    <ContextMenuRadioItem key={effort} value={effort} closeOnClick>
-                      <Icon aria-hidden="true" />
-                      {effortTitle(effort)}
-                    </ContextMenuRadioItem>
-                  );
-                })}
-              </ContextMenuRadioGroup>
-            </TaskContextSubContent>
-          </ContextMenuSub>
-          <ContextMenuItem onClick={() => actions.onAddBlocker(task)}>
-            <Link2 aria-hidden="true" />
-            Blockers…
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.onMoveUnder(task)}>
-            <CornerDownRight aria-hidden="true" />
-            Move under…
-          </ContextMenuItem>
-          <ContextMenuItem
-            disabled={task.status === "canceled"}
-            onClick={() => actions.onCreateChild(task)}
-          >
-            <CornerDownRight aria-hidden="true" />
-            New child
-          </ContextMenuItem>
-          <ContextMenuSub>
-            <ContextMenuSubTrigger disabled={actions.reorderDisabledReason !== null}>
-              <ArrowDownUp aria-hidden="true" />
-              Reorder
-            </ContextMenuSubTrigger>
-            <TaskContextSubContent>
-              <ContextMenuGroup>
-                <ContextMenuItem onClick={() => actions.onReorder("up")}>
-                  <ArrowUp aria-hidden="true" />
-                  Move up
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => actions.onReorder("down")}>
-                  <ArrowDown aria-hidden="true" />
-                  Move down
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => actions.onReorder("start")}>
-                  <ChevronUp aria-hidden="true" />
-                  Move to beginning
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => actions.onReorder("end")}>
-                  <ChevronDown aria-hidden="true" />
-                  Move to end
-                </ContextMenuItem>
-              </ContextMenuGroup>
-            </TaskContextSubContent>
-          </ContextMenuSub>
-          <ContextMenuItem onClick={() => actions.onToggleDetails(task)}>
-            <ListChevronsUpDown aria-hidden="true" />
-            {actions.detailsShown ? "Hide details" : "Show details"}
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => actions.onCopy(task)}>
-            <Copy aria-hidden="true" />
-            Copy text
-          </ContextMenuItem>
-        </ContextMenuGroup>
-        <ContextMenuSeparator />
-        <ContextMenuGroup>
-          <ContextMenuItem variant="destructive" onClick={() => actions.onDelete(task)}>
-            <CircleX aria-hidden="true" />
-            Cancel task
-          </ContextMenuItem>
-        </ContextMenuGroup>
-      </TaskContextMenuContent>
+                  ))}
+                </ContextMenuRadioGroup>
+              </TaskContextSubContent>
+            </ContextMenuSub>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <ChevronsUp aria-hidden="true" />
+                Effort
+              </ContextMenuSubTrigger>
+              <TaskContextSubContent>
+                <ContextMenuRadioGroup
+                  value={task.effort}
+                  onValueChange={(effort: TaskEffort) => actions.onEffort(task, effort)}
+                >
+                  {EFFORTS_LARGEST_FIRST.map((effort) => {
+                    const Icon = EFFORT_ICONS[effort];
+                    return (
+                      <ContextMenuRadioItem key={effort} value={effort} closeOnClick>
+                        <Icon aria-hidden="true" />
+                        {effortTitle(effort)}
+                      </ContextMenuRadioItem>
+                    );
+                  })}
+                </ContextMenuRadioGroup>
+              </TaskContextSubContent>
+            </ContextMenuSub>
+            <ContextMenuItem onClick={() => actions.onAddBlocker(task)}>
+              <Link2 aria-hidden="true" />
+              Blockers…
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => actions.onMoveUnder(task)}>
+              <CornerDownRight aria-hidden="true" />
+              Move under…
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={task.status === "canceled"}
+              onClick={() => actions.onCreateChild(task)}
+            >
+              <CornerDownRight aria-hidden="true" />
+              New child
+            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger disabled={actions.reorderDisabledReason !== null}>
+                <ArrowDownUp aria-hidden="true" />
+                Reorder
+              </ContextMenuSubTrigger>
+              <TaskContextSubContent>
+                <ContextMenuGroup>
+                  <ContextMenuItem onClick={() => actions.onReorder("up")}>
+                    <ArrowUp aria-hidden="true" />
+                    Move up
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => actions.onReorder("down")}>
+                    <ArrowDown aria-hidden="true" />
+                    Move down
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => actions.onReorder("start")}>
+                    <ChevronUp aria-hidden="true" />
+                    Move to beginning
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => actions.onReorder("end")}>
+                    <ChevronDown aria-hidden="true" />
+                    Move to end
+                  </ContextMenuItem>
+                </ContextMenuGroup>
+              </TaskContextSubContent>
+            </ContextMenuSub>
+            <ContextMenuItem onClick={() => actions.onToggleDetails(task)}>
+              <ListChevronsUpDown aria-hidden="true" />
+              {actions.detailsShown ? "Hide details" : "Show details"}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => actions.onCopy(task)}>
+              <Copy aria-hidden="true" />
+              Copy text
+            </ContextMenuItem>
+          </ContextMenuGroup>
+          <ContextMenuSeparator />
+          <ContextMenuGroup>
+            <ContextMenuItem variant="destructive" onClick={() => actions.onDelete(task)}>
+              <CircleX aria-hidden="true" />
+              Cancel task
+            </ContextMenuItem>
+          </ContextMenuGroup>
+        </TaskContextMenuContent>
+      ) : null}
     </ContextMenu>
   );
 }
