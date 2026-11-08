@@ -159,12 +159,12 @@ export function DoneToday({
   );
 }
 
-/** Open tasks due today or late, in the warning color rows use for those dates. */
+/** Open tasks due today or late, in red so the count stands apart from the accent in every theme. */
 export function DueNow(props: LensCountProps): ReactElement | null {
   return (
     <LensCount {...props} kind="due" label="due now" shortcut="!" showLabel="Show what's due">
-      <CalendarDays data-icon="inline-start" aria-hidden="true" className="text-warning" />
-      <span className="text-warning" data-lens-number>
+      <CalendarDays data-icon="inline-start" aria-hidden="true" className="text-destructive" />
+      <span className="text-destructive" data-lens-number>
         {props.total}
       </span>
     </LensCount>

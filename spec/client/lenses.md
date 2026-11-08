@@ -16,7 +16,7 @@ A lens turns the task list itself into one question, such as what was done today
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `due.count` | An open, in-progress or paused task is due today or earlier, from any client | The header shows how many, e.g. "2 due now", in the warning color with a calendar, left of the done count |
+| `due.count` | An open, in-progress or paused task is due today or earlier, from any client | The header shows how many, e.g. "2 due now", in red (the destructive color) with a calendar, left of the done count |
 | `due.lens` | `!`, clicking the count, or Due now in the `Ctrl/⌘+K` palette | The list shows open, in-progress and paused tasks due today or earlier, most overdue first and the same day by priority |
 | `due.all-clear` | The due lens has nothing to show | The empty list reads "All clear" and offers Go back |
 | `due.lens-flip` | The due lens opens or closes | Like `done.lens-flip`, but the list turns over its horizontal center line, like a page on a flip calendar, and the due count's number flies between the header and the count line. Switching straight between the two lenses plays the new lens's turn while the old count flies home. Reduced motion turns it off |
