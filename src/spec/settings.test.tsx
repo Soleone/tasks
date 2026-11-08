@@ -127,12 +127,17 @@ test("settings.tabs: arrows switch sections, Tab or Down enters one, other arrow
 });
 
 test("settings.category-colors: arrows pick a category's color, typing jumps to one, shared through the workspace", async () => {
-  await workspace.create("Called mom", { category: "life" });
+  await workspace.create("Sketch", { category: "art" });
   await workspace.create("Review PR", { category: "work" });
+  await workspace.create("Called mom", { category: "life" });
   const { user } = await workspace.render({ home: true });
   await user.keyboard("{Control>},{/Control}");
   await user.click(await screen.findByRole("tab", { name: "Categories" }));
   const life = await screen.findByRole("radiogroup", { name: "@life color" });
+  // Most recently used first.
+  expect(
+    screen.getAllByRole("radiogroup").map((group) => group.getAttribute("aria-label")),
+  ).toEqual(["@life color", "@work color", "@art color"]);
   await user.tab();
   expect(document.activeElement).toBe(within(life).getByRole("radio", { name: "No color" }));
   await user.keyboard("{Home}{ArrowRight}");

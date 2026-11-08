@@ -12,11 +12,8 @@ import {
 import { FOCUS_RING } from "@/components/variants/focus";
 import { useLoadOnOpen } from "./useLoadOnOpen";
 
-// By name, so rows hold still while colors change, unlike the picker's most recent first.
-const loadCategories = () =>
-  listCategories().then((result) =>
-    [...result.categories].sort((a, b) => a.slug.localeCompare(b.slug)),
-  );
+// Most recently used first, as in the picker. Loaded once per open, so rows hold still.
+const loadCategories = () => listCategories().then((result) => result.categories);
 const CHOICES = [...SWATCHES, null] as const;
 /** How long typed letters keep adding up to one name, as in a native list. */
 const TYPE_AHEAD_MS = 700;

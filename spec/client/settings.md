@@ -23,7 +23,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.category-colors` | Categories | Lists every category by name, each with its color: red, orange, yellow, cyan, blue, magenta, brown or none (the theme's green, as before). `Up` / `Down` move between categories and the focused one shows all its swatches; `Left` / `Right`, `Home` and `End` pick one at once. Typing a name jumps to that category; repeating a letter steps through the categories starting with it. Colors are stored by name in the workspace's shared settings (`home.shared-settings`), so every device shows them in its own theme. Renaming a category in the picker carries its color |
+| `settings.category-colors` | Categories | Lists every category, most recently used first as in the category picker, each with its color: red, orange, yellow, cyan, blue, magenta, brown or none (the theme's green, as before). `Up` / `Down` move between categories and the focused one shows all its swatches; `Left` / `Right`, `Home` and `End` pick one at once. Typing a name jumps to that category; repeating a letter steps through the categories starting with it. Colors are stored by name in the workspace's shared settings (`home.shared-settings`), so every device shows them in its own theme. Renaming a category in the picker carries its color |
 | `home.category-color` | A category with a color | Its folder icon takes the color on rows, in the editor and on the category filter chip. The name stays quiet text |
 
 ## Hotkeys
