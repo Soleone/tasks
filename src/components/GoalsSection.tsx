@@ -60,9 +60,9 @@ function GoalRow({
   return (
     <div
       data-goal-row
-      className="flex min-h-10 items-center gap-3 rounded-md px-2 focus-within:bg-muted/50"
+      className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-1.5 focus-within:bg-muted/50 sm:flex-nowrap sm:py-0"
     >
-      <span className="flex w-36 shrink-0 items-center gap-2 text-sm">
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:w-36 sm:flex-none">
         <span
           aria-hidden="true"
           data-swatch={swatch ?? undefined}
@@ -95,6 +95,8 @@ function GoalRow({
       />
       <InlineRadioGroup
         aria-label={`${name} per`}
+        // On a phone the radios take their own line, under the name.
+        className="order-last ml-4.5 basis-full sm:order-none sm:ml-0 sm:basis-auto"
         value={per}
         disabled={!goal}
         onValueChange={(value) =>
@@ -110,7 +112,7 @@ function GoalRow({
           </Field>
         ))}
       </InlineRadioGroup>
-      {slug && (
+      {slug ? (
         <QuietButton
           type="button"
           size="icon-xs"
@@ -127,6 +129,9 @@ function GoalRow({
         >
           <X aria-hidden="true" />
         </QuietButton>
+      ) : (
+        // Holds the ×'s place so this row's number lines up with the others on a phone.
+        <span aria-hidden="true" className="ml-auto size-6 shrink-0" />
       )}
     </div>
   );
