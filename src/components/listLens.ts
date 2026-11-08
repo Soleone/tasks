@@ -46,7 +46,7 @@ export function lensFilter(lens: ListLens, now = new Date()): LensFilter {
     yesterday.setDate(yesterday.getDate() - 1);
     return { ...done, closedSince: yesterday.toISOString(), closedBefore: today.toISOString() };
   }
-  // Due now is due today or earlier, matching the warning color on rows.
+  // Due now is due today or earlier, matching the red dates on rows.
   return { statuses: ["open", "in_progress", "paused"], dueBefore: addDays(localToday(now), 1) };
 }
 

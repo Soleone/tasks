@@ -357,7 +357,7 @@ export function TagFact({
   );
 }
 
-/** A due date as quiet text at the row's end; today and late use the warning color. */
+/** A due date as quiet text at the row's end; today and late are red. */
 export function DueFact({
   label,
   now,
@@ -374,7 +374,7 @@ export function DueFact({
       title={title}
       className={cn(
         "inline-flex items-center gap-1 text-xs whitespace-nowrap",
-        now ? "text-warning" : "text-muted-foreground",
+        now ? "text-destructive" : "text-muted-foreground",
       )}
     >
       <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
