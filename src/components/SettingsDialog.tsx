@@ -16,7 +16,7 @@ import { RangeInput } from "@/components/variants/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { resetProgress, useLearning } from "@/learning/progress";
 import { setQuestsShown, useQuests } from "@/learning/questProgress";
-import { Tabs, TabsList } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
@@ -24,7 +24,11 @@ import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { CategoryColorsSection } from "@/components/CategoryColorsSection";
 import { DaysSection, GoalsSection } from "@/components/GoalsSection";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
-import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
+import {
+  PhoneFitTabsList,
+  ReadableTabsTrigger,
+  StackedTabsContent,
+} from "@/components/variants/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFlashTooltip } from "@/components/useFlashTooltip";
 import { CopyButton, FLASH_FEEDBACK_DURATION_MS } from "@/components/CopyButton";
@@ -99,7 +103,8 @@ export function SettingsDialog({
       <AnchoredDialogContent
         inert={switching}
         showCloseButton={false}
-        className="overflow-y-auto sm:max-w-3xl"
+        // A column of minmax(0, 1fr) lets long content wrap instead of widening the dialog.
+        className="grid-cols-1 overflow-y-auto sm:max-w-3xl"
         initialFocus={settingsTab}
         finalFocus={finalFocus}
         onKeyDown={(event) => {
@@ -157,7 +162,7 @@ export function SettingsDialog({
 
         <Tabs defaultValue="general">
           <div className="flex items-center justify-between gap-3">
-            <TabsList
+            <PhoneFitTabsList
               aria-label="Settings sections"
               aria-describedby="settings-tabs-help"
               activateOnFocus
@@ -170,7 +175,7 @@ export function SettingsDialog({
               {isDesktopApp() && <ReadableTabsTrigger value="hotkeys">Hotkeys</ReadableTabsTrigger>}
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
               <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
-            </TabsList>
+            </PhoneFitTabsList>
             <span id="settings-tabs-help" className="sr-only">
               Use the Left and Right Arrow keys to switch sections. Press Tab to enter the selected
               section.
@@ -183,7 +188,7 @@ export function SettingsDialog({
             </span>
           </div>
 
-          <div className="grid">
+          <div className="grid grid-cols-1">
             <StackedTabsContent value="general" tabIndex={-1}>
               <div className="grid gap-4 md:grid-cols-2">
                 <section
@@ -234,8 +239,18 @@ export function SettingsDialog({
                       className="flex justify-between gap-2 text-xs text-muted-foreground"
                       aria-hidden="true"
                     >
-                      {FONT_SIZE_INCREASES.map((increase) => (
-                        <span key={increase}>{fontSizeLabel(increase)}</span>
+                      {/* Phones keep only the ends: all five overflow at larger sizes, and the output above names the current one. */}
+                      {FONT_SIZE_INCREASES.map((increase, index) => (
+                        <span
+                          key={increase}
+                          className={
+                            index === 0 || index === FONT_SIZE_INCREASES.length - 1
+                              ? undefined
+                              : "max-sm:hidden"
+                          }
+                        >
+                          {fontSizeLabel(increase)}
+                        </span>
                       ))}
                     </div>
                     <p

@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
-import { TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FOCUS_RING } from "./focus";
 
 /**
@@ -34,6 +34,19 @@ export function ReadableTabsTrigger({ className, ...props }: ComponentProps<type
         FOCUS_RING,
         className,
       )}
+      {...props}
+    />
+  );
+}
+
+/**
+ * Phones get tight tabs across the full width, which wrap when even those don't fit, so a dialog
+ * never scrolls sideways. The fixed tab height replaces the list's, which wrapping can't keep.
+ */
+export function PhoneFitTabsList({ className, ...props }: ComponentProps<typeof TabsList>) {
+  return (
+    <TabsList
+      className={cn("h-auto! flex-wrap *:h-6.5 max-sm:w-full max-sm:*:px-0.5", className)}
       {...props}
     />
   );
