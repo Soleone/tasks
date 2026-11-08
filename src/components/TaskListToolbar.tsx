@@ -823,7 +823,7 @@ export function TaskListToolbar({
         <CompactBreadcrumbList>
           <BreadcrumbItem className="shrink-0">
             {statusIsDefault ? (
-              <span className="text-sm font-medium">{summaryText}</span>
+              <span className="font-medium">{summaryText}</span>
             ) : (
               <FilterSummaryAction
                 filter="status"
@@ -833,7 +833,7 @@ export function TaskListToolbar({
                     : "Reset status filter to Active"
                 }
                 onClear={lens?.kind === "done" ? widenDoneLens : clearStatusFilter}
-                className="text-sm font-medium text-foreground"
+                className="font-medium text-foreground"
               >
                 {summaryText}
               </FilterSummaryAction>
@@ -854,7 +854,7 @@ export function TaskListToolbar({
                   onClear={clearCategoryFilter}
                   className="group/fact shrink-0"
                 >
-                  <span data-filter-category="true">
+                  <span data-filter-category="true" className="flex">
                     <CategoryFact label={categoryFilter.label} />
                   </span>
                 </FilterSummaryAction>
