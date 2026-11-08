@@ -348,11 +348,11 @@ export function TaskListToolbar({
         : null;
   const lensGoals = lens?.kind === "done" && lens.window === "day" ? goals : null;
   const narrowedTo = lens?.kind === "done" ? lens.goal : undefined;
-  const lensTarget = lensGoals
-    ? (lensGoals.goals.find(
-        (goal) => JSON.stringify(goalLens(goal, lensGoals)) === JSON.stringify(narrowedTo),
-      )?.target ?? lensGoals.target)
-    : null;
+  // Only a goal has an "of": a total against all targets would look met while a goal is open.
+  const lensTarget =
+    lensGoals?.goals.find(
+      (goal) => JSON.stringify(goalLens(goal, lensGoals)) === JSON.stringify(narrowedTo),
+    )?.target ?? null;
   const summaryPhrase = lens
     ? `${lensTarget !== null ? `of ${lensTarget} ` : ""}${lensPhrase(lens)}`
     : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;

@@ -51,7 +51,7 @@ test("goals.header: open goals ring the count, met ones fold into a check, even 
   await user.hover(doneCount()!);
   const tip = await screen.findByText("Done today");
   const lines = tip.closest("[data-slot=tooltip-content]")!.textContent;
-  expect(lines).toContain("2 of 6");
+  expect(lines).toContain("Done today2");
   expect(lines).toContain("@life✓1 of 1");
   expect(lines).toContain("Everything else1 of 3");
 });
@@ -64,8 +64,7 @@ test("goals.names: the only goal is All tasks and needs no small rings", async (
   expect(document.querySelector("[data-goal-rings]")).toBeNull();
   await user.hover(doneCount()!);
   const tip = (await screen.findByText("Done today")).closest("[data-slot=tooltip-content]")!;
-  expect(tip.textContent).toContain("1 of 2");
-  expect(tip.textContent).not.toContain("All tasks");
+  expect(tip.textContent).toContain("All tasks1 of 2");
 });
 
 test("goals.tooltips: a weekly goal labels today and this week", async () => {
@@ -99,7 +98,7 @@ test("goals.lens: the done lens counts against the goals and narrows to one", as
   await user.keyboard("d");
   await expectRows(["Groceries", "Fixed the tap", "Called mom"]);
   const goals = within(document.querySelector<HTMLElement>("[data-done-lens-goals]")!);
-  await waitFor(() => expect(countLine()).toMatch(/^3 of 5 done today/));
+  await waitFor(() => expect(countLine()).toMatch(/^3 done today/));
   await user.click(goals.getByRole("button", { name: /Everything else/ }));
   await expectRows(["Groceries", "Fixed the tap"]);
   expect(countLine()).toMatch(/^2 of 3 done today/);

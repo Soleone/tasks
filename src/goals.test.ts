@@ -27,7 +27,7 @@ test("goals.day-ends: today begins when the day ends, so 2am still counts as yes
   );
 });
 
-test("goals.fill: each task fills its own goal and the big ring, never spilling over", () => {
+test("goals.fill: each task fills its own goal, never spilling over into another", () => {
   const today = goalsToday(
     base,
     [
@@ -51,6 +51,8 @@ test("goals.fill: each task fills its own goal and the big ring, never spilling 
     { slug: null, name: "Everything else", swatch: null, done: 1, target: 3 },
   ]);
   expect(today.done).toBe(4);
+  // The ring: life's third task doesn't stand in for work or everything else.
+  expect(today.filled).toBe(3);
   expect(today.target).toBe(7);
 });
 

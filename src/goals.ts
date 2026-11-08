@@ -14,8 +14,11 @@ export type GoalProgress = {
   week?: { done: number; count: number };
 };
 
-/** The done count's ring: everything done today against all of today's targets added up. */
-export type GoalsToday = { done: number; target: number; goals: GoalProgress[] };
+/**
+ * Everything done today, and the done count's ring: each goal's progress up to its target
+ * (`filled`) against all of today's targets added up, so it's full only once every goal is met.
+ */
+export type GoalsToday = { done: number; filled: number; target: number; goals: GoalProgress[] };
 
 export const isMet = (goal: { done: number; target: number }): boolean => goal.done >= goal.target;
 
@@ -60,8 +63,9 @@ function todayTarget(goal: Goal, doneBeforeToday: number, daysLeft: number): num
 }
 
 /**
- * Each task done today fills its category's goal, or the goal for everything else, and the done
- * count's ring. A category with a goal never spills into everything else, even past its target.
+ * Each task done today fills its category's goal, or the goal for everything else. A category with
+ * a goal never spills into everything else, and no goal past its target fills the done count's
+ * ring for another.
  * Null without goals.
  */
 export function goalsToday(
@@ -101,5 +105,10 @@ export function goalsToday(
     };
   });
   for (const task of doneTasks) if (task.closedAt !== null && task.closedAt >= today) done += 1;
-  return { done, target: goals.reduce((sum, goal) => sum + goal.target, 0), goals };
+  return {
+    done,
+    filled: goals.reduce((sum, goal) => sum + Math.min(goal.done, goal.target), 0),
+    target: goals.reduce((sum, goal) => sum + goal.target, 0),
+    goals,
+  };
 }

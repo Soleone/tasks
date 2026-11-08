@@ -72,11 +72,11 @@ function Ring({
   );
 }
 
-/** The done count's icon with goals on: everything done today against all of today's targets. */
+/** The done count's icon with goals on: full once every goal is met. */
 export function BigRing({ today }: { today: GoalsToday }): ReactElement {
   return (
     <Ring
-      fraction={today.target === 0 ? 1 : today.done / today.target}
+      fraction={today.target === 0 ? 1 : today.filled / today.target}
       className="size-4"
       stroke="stroke-success"
       strokeWidth={2}
@@ -153,7 +153,7 @@ function Line({ children }: { children: ReactNode }): ReactElement {
   return <span className="flex items-center justify-between">{children}</span>;
 }
 
-/** The done count's tooltip: today's total, then each goal's share when there is more than one. */
+/** The done count's tooltip: today's total, then each goal's numbers. */
 export function DoneTodayTip({
   today,
   lensOn,
@@ -161,26 +161,24 @@ export function DoneTodayTip({
   today: GoalsToday;
   lensOn: boolean;
 }): ReactElement {
-  const pairs: [number, number][] = [
-    [today.done, today.target],
-    ...today.goals.map((goal): [number, number] => [goal.done, goal.target]),
-  ];
+  const pairs = today.goals.map((goal): [number, number] => [goal.done, goal.target]);
   return (
     <Columns className="flex flex-col gap-1.5" pairs={pairs}>
       <Line>
         <span className="font-medium">Done today</span>
-        <Numbers done={today.done} target={today.target} />
+        {/* Just the count: only a goal has an "of", so a goal past its target can't make the
+            total look met. */}
+        <span className="tabular-nums">{today.done}</span>
       </Line>
-      {today.goals.length > 1 &&
-        today.goals.map((goal) => (
-          <Line key={goal.slug ?? ""}>
-            <span className="flex items-center gap-1.5">
-              <GoalDot goal={goal} />
-              {goal.name}
-            </span>
-            <Numbers done={goal.done} target={goal.target} />
-          </Line>
-        ))}
+      {today.goals.map((goal) => (
+        <Line key={goal.slug ?? ""}>
+          <span className="flex items-center gap-1.5">
+            <GoalDot goal={goal} />
+            {goal.name}
+          </span>
+          <Numbers done={goal.done} target={goal.target} />
+        </Line>
+      ))}
       <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
         {lensOn ? "Back to your list" : "Show what's done"} <Kbd>D</Kbd>
       </span>
