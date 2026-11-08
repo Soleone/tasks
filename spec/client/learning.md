@@ -17,7 +17,6 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | Quest | Summary | Keyboard steps | Touch steps |
 | --- | --- | --- | --- |
 | Task basics | Create, edit and complete a task in about a minute | `C`, `Enter`, `Enter` on the task, `Enter`, `Space`, `Space`, `D`, `D` | +, Save, the task, Save, status icon, status icon, the done count, the done count |
-| Day by day | A goal for each day, and logging what you already did | `Ctrl/⌘+,` and a goal under Goals, `Escape` then `L`, `Enter`, `D`, `D` | |
 | In its place | Categories, and seeing one at a time | `C`, `@`, `Enter`, `→`, `C`, `Enter`, `←`, `@` picker, `←` | +, `@`, Save |
 | First things first | Priority, effort and sorting by them | `]` or `[`, `.` or `,`, `S` `P`, `S` `E`, `S` `C` | long-press, Effort |
 | Plan ahead | Due dates, tags and what's due now | `C`, `!`, `#`, `Enter`, `!`, `!`, `#` picker, `Escape` | +, `!`, `#`, Save, the due count, the due count |
@@ -26,6 +25,7 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | Shape your list | Child tasks, collapsing, blockers and reordering | `Shift+C`, `Enter`, `←` twice, `→`, `M`, `B`, `Shift+↓`, `Ctrl/⌘+↑↓`, `Ctrl/⌘+Home/End` | long-press, Move under, Blockers |
 | In detail | Descriptions, images and seeing them in the list | `Enter` on a task, `Tab` to the description, `Ctrl/⌘+V` an image, `Ctrl/⌘+Enter`, `Ctrl/⌘+Shift+C`, `V`, `Shift+V` | |
 | Fast hands | Quicker edits: completing, un-lifting and copying | `Enter` on a task, `Tab` completion, `Tab` then `Backspace` on a pill, `Tab` then `Enter`, `Ctrl/⌘+C` | |
+| Day by day | A goal for each day, and logging what you already did | `Ctrl/⌘+,` and a goal under Goals, `Escape` then `L`, `Enter`, `D`, `D` | |
 | Make it yours | Themes, settings, a longer look back and where to look when you forget a key | `Alt+T`, `Ctrl/⌘+,`, `Shift+D`, `D`, `A`, `Ctrl/⌘+K`, `?`, `?` | |
 
 The first quest stays small: a task's life from creation to done. Each quest after it teaches one part of a task the same way: set it, see it in the list, narrow or sort the list by it, then put the view back. A step asks for exactly the key it names, so `S` `P` doesn't count for `S` `U`.

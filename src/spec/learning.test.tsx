@@ -272,6 +272,20 @@ test("quest.step: In its place ends on the category picker, then Left shows ever
   await expectRows(["Rest", "Plan"]);
 });
 
+test("quest.step: Day by day sets a goal in Settings, then logs a task already done", async () => {
+  await workspace.create("Task");
+  startAt("day-by-day", 0);
+  const { user } = await workspace.render();
+  await expectStep(0);
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Goals" }));
+  await user.type(await screen.findByRole("textbox", { name: "All tasks" }), "3");
+  await user.keyboard("{Escape}");
+  await expectStep(1);
+  await user.keyboard("l");
+  await expectStep(2);
+});
+
 test("quest.step: Find your way starts by moving around the list", async () => {
   await workspace.create("One");
   await workspace.create("Two");
@@ -353,6 +367,7 @@ test("quest.complete: Make it yours, the last quest, is the finale and leaves th
     "shape-your-list",
     "in-detail",
     "fast-hands",
+    "day-by-day",
   ]);
   const { user } = await workspace.render();
   await expectStep(0);
@@ -566,10 +581,11 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
       "Shape your list",
       "In detail",
       "Fast hands",
+      "Day by day",
       "Make it yours",
     ],
   );
-  expect(panel.getAllByText("New")).toHaveLength(10);
+  expect(panel.getAllByText("New")).toHaveLength(11);
   expect(
     within(panel.getByRole("region", { name: "Task basics" }))
       .getAllByRole("listitem")

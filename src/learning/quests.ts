@@ -96,39 +96,6 @@ const QUEST_DEFINITIONS = [
     ],
   },
   {
-    id: "day-by-day",
-    title: "Day by day",
-    summary: "A goal for each day, and logging what you already did",
-    keyboard: [
-      {
-        move: "settings.goals",
-        prompt: `Press \`${modKey}\`+\`,\` for settings, then under Goals type how many tasks you'd like done a day`,
-        success: "Goal set",
-      },
-      {
-        move: "capture.log",
-        prompt: "Press `Esc` to close settings, then `L` to log something you already did",
-        success: "Logging",
-      },
-      {
-        move: "capture.save",
-        prompt: "Type what you did, then press `Enter`. It counts toward today's goal",
-        success: "Counted",
-        inEditor: true,
-      },
-      {
-        move: "done.lens",
-        prompt: "Press `D` to see how each goal is going",
-        success: "Done today",
-      },
-      {
-        move: "done.lens",
-        prompt: "Press `D` again to go back to your previous view",
-        success: "Back where you were",
-      },
-    ],
-  },
-  {
     id: "in-its-place",
     title: "In its place",
     summary: "Categories, and seeing one at a time",
@@ -551,6 +518,39 @@ const QUEST_DEFINITIONS = [
         move: "copy.text",
         prompt: `Press \`${modKey}\`+\`C\` to copy the task's text, ready to paste anywhere`,
         success: "Copied",
+      },
+    ],
+  },
+  {
+    id: "day-by-day",
+    title: "Day by day",
+    summary: "A goal for each day, and logging what you already did",
+    keyboard: [
+      {
+        move: "settings.goals",
+        prompt: `Press \`${modKey}\`+\`,\` for settings, then under Goals type how many tasks you'd like done a day`,
+        success: "Goal set",
+      },
+      {
+        move: "capture.log",
+        prompt: "Press `Esc` to close settings, then `L` to log something you already did",
+        success: "Logging",
+      },
+      {
+        move: "capture.save",
+        prompt: "Type what you did, then press `Enter`. It counts toward today's goal",
+        success: "Counted",
+        inEditor: true,
+      },
+      {
+        move: "done.lens",
+        prompt: "Press `D` to see how each goal is going",
+        success: "Done today",
+      },
+      {
+        move: "done.lens",
+        prompt: "Press `D` again to go back to your previous view",
+        success: "Back where you were",
       },
     ],
   },
