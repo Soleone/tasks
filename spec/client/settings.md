@@ -5,7 +5,7 @@
 | Rule | When | Then |
 | --- | --- | --- |
 | `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Categories, Goals, Hotkeys (desktop only), Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
-| `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` enters the section's first control, `Shift+Tab` returns |
+| `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` or `Down` enters the section's first control, `Shift+Tab` returns. An arrow no control in the section uses moves nothing, neither focus nor a text caret |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 | `settings.version` | Settings is open | Its footer shows the app version, e.g. Tasks 0.3.2, below every tab |
 | `settings.feedback` | Send feedback in Settings' footer | A dialog takes Feedback or Bug, a title and a description, and says reports become public GitHub issues. Send files the issue through our feedback Worker, labeled `bug` or `enhancement` and signed with the app version and platform, without a GitHub account. It then shows the issue's link. A failed send keeps the report and says why |
@@ -23,7 +23,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.category-colors` | Categories | Lists every category by name, each with its color: red, orange, yellow, cyan, blue, magenta, brown or none (the theme's green, as before). `Up` / `Down` move between categories and the focused one shows all its swatches; `Left` / `Right`, `Home` and `End` pick one at once. Colors are stored by name in the workspace's shared settings (`home.shared-settings`), so every device shows them in its own theme. Renaming a category in the picker carries its color |
+| `settings.category-colors` | Categories | Lists every category by name, each with its color: red, orange, yellow, cyan, blue, magenta, brown or none (the theme's green, as before). `Up` / `Down` move between categories and the focused one shows all its swatches; `Left` / `Right`, `Home` and `End` pick one at once. Typing a name jumps to that category; repeating a letter steps through the categories starting with it. Colors are stored by name in the workspace's shared settings (`home.shared-settings`), so every device shows them in its own theme. Renaming a category in the picker carries its color |
 | `home.category-color` | A category with a color | Its folder icon takes the color on rows, in the editor and on the category filter chip. The name stays quiet text |
 
 ## Hotkeys

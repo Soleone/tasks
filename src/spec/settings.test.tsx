@@ -81,7 +81,7 @@ test("settings.feedback: the footer sends a report and shows its issue", async (
   });
 });
 
-test("settings.tabs: arrows switch sections and Tab enters Cleanup without passing Data controls", async () => {
+test("settings.tabs: arrows switch sections, Tab or Down enters one, other arrows move nothing", async () => {
   const canceled = await workspace.create("Canceled");
   await workspace.change("task.cancel", canceled.id);
   const { user } = await workspace.render();
@@ -117,9 +117,16 @@ test("settings.tabs: arrows switch sections and Tab enters Cleanup without passi
   expect(document.activeElement).toBe(screen.getByRole("slider", { name: "Font size" }));
   await user.tab({ shift: true });
   expect(document.activeElement).toBe(screen.getByRole("tab", { name: "General" }));
+  await user.keyboard("{ArrowDown}");
+  expect(document.activeElement).toBe(screen.getByRole("slider", { name: "Font size" }));
+  // An arrow no control uses moves nothing.
+  const quests = screen.getByRole("checkbox", { name: "Show quests" });
+  quests.focus();
+  expect(fireEvent.keyDown(quests, { key: "ArrowUp" })).toBe(false);
+  expect(document.activeElement).toBe(quests);
 });
 
-test("settings.category-colors: arrows pick a category's color, shared through the workspace", async () => {
+test("settings.category-colors: arrows pick a category's color, typing jumps to one, shared through the workspace", async () => {
   await workspace.create("Called mom", { category: "life" });
   await workspace.create("Review PR", { category: "work" });
   const { user } = await workspace.render({ home: true });
@@ -139,6 +146,9 @@ test("settings.category-colors: arrows pick a category's color, shared through t
   await user.keyboard("{ArrowDown}");
   const work = screen.getByRole("radiogroup", { name: "@work color" });
   expect(document.activeElement).toBe(within(work).getByRole("radio", { name: "No color" }));
+  // Typing a name jumps to it.
+  await user.keyboard("l");
+  expect(document.activeElement).toBe(within(life).getByRole("radio", { name: "orange" }));
   await waitFor(async () =>
     expect(JSON.parse((await workspace.homeDocument("shared"))!).colors).toEqual({
       life: "orange",

@@ -48,6 +48,11 @@ function fontSizeLabel(increase: FontSizeIncrease): string {
 const settingsTabStopSelector =
   'button, input, textarea, select, a[href], [contenteditable="true"], [role="checkbox"], [role="tab"], [tabindex="0"]';
 
+const ARROWS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+/** Controls that use arrows themselves: text fields, sliders, radios, tabs and lists. */
+const ARROW_CONTROLS =
+  'input, textarea, select, [contenteditable="true"], [role="radio"], [role="tab"], [role="slider"], [role="option"], [role="listbox"], [role="combobox"], [role^="menu"]';
+
 function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
   return [...dialog.querySelectorAll<HTMLElement>(settingsTabStopSelector)].filter((element) => {
     if (
@@ -97,7 +102,32 @@ export function SettingsDialog({
         className="overflow-y-auto sm:max-w-3xl"
         initialFocus={settingsTab}
         finalFocus={finalFocus}
+        onKeyDown={(event) => {
+          // An arrow no control used moves nothing: some webviews would otherwise walk a text
+          // caret or focus into the copy around it.
+          if (!ARROWS.has(event.key) || event.defaultPrevented) return;
+          const target = event.target as HTMLElement;
+          if (target.closest(ARROW_CONTROLS)) return;
+          event.preventDefault();
+        }}
         onKeyDownCapture={(event) => {
+          if (
+            event.key === "ArrowDown" &&
+            event.target instanceof HTMLElement &&
+            event.target.getAttribute("role") === "tab"
+          ) {
+            // Down from a tab enters its section, as Tab does.
+            const panel = event.currentTarget.querySelector<HTMLElement>(
+              '[role="tabpanel"]:not([data-hidden])',
+            );
+            const first = [
+              ...(panel?.querySelectorAll<HTMLElement>(settingsTabStopSelector) ?? []),
+            ].find((stop) => stop.tabIndex >= 0 && stop.getAttribute("aria-disabled") !== "true");
+            if (!first) return;
+            event.preventDefault();
+            first.focus();
+            return;
+          }
           if (
             event.key !== "Tab" ||
             event.shiftKey ||
