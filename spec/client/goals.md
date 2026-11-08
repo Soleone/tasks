@@ -17,14 +17,14 @@ A goal is a number of tasks to finish a day or a week, per category, plus one fo
 | --- | --- | --- |
 | `goals.header` | Goals are set | The done count's check becomes a ring for today's total and shows from the start of the day, even at zero. With two goals or more, each open category goal follows as a small ring in its category's color, up to four, then "+N". Met ones fold into one check with a pip in each category's color, up to three, then "✓N". Everything else gets no small ring or pip: it would read as a second total, so the done count's ring and tooltip carry it. A ring's arc eases to its new length. With a category filter on, only that category's goal stays. Small rings fold away on a narrow window. Clicking any of them toggles the done lens |
 | `goals.hover` | Hovering the done count | The whole group lights up as one: the ring is the goals added up |
-| `goals.tooltips` | Hovering a part | The done count: "Done today" with today's total, no target (only a goal has an "of"), then each goal's numbers, and Show what's done `D`. A goal ring: its name and today's numbers; a weekly goal labels Today and This week. The met check: "Met today" and each met goal's numbers. A check sits in its own slot left of met numbers, and numbers line up in columns however many digits they have |
+| `goals.tooltips` | Hovering a part | The done count: "Done today" with today's total, no target (only a goal has one), then each goal's numbers, and Show what's done `D`. A goal ring: its name and today's numbers; a weekly goal labels Today and This week. The met check: "Met today" and each met goal's numbers. A check sits in its own slot left of met numbers, and numbers line up in columns however many digits they have |
 | `goals.flight` | A completion flies to the header (`done.flight`) | The rings hold their numbers until it lands on the ring of the goal it fills, which then fills and bumps, then a dot in that goal's color carries on to the done count. The done count's ring fills rather than bumps. When that goal is already met, or the task fills no goal ring, it lands on the done count as before |
 
 ## Done lens
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `goals.lens` | The done lens on today with goals set | The count line reads e.g. "3 done today", then a button per goal with its color and today's numbers. Clicking one narrows the lens to it: its category, or for everything else the tasks outside every goal category, and the count line counts against that goal. Clicking it again shows them all |
+| `goals.lens` | The done lens on today with goals set | The count line reads e.g. "3 done today", then a button per goal with its color and today's numbers as e.g. "1 / 2". Clicking one narrows the lens to it: its category, or for everything else the tasks outside every goal category, and the count line counts against that goal, e.g. "2 / 3 done today". Clicking it again shows them all |
 
 ## Settings
 

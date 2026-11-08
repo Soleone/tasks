@@ -101,7 +101,7 @@ function Numbers({
       className={cn("ml-3 inline-flex whitespace-pre tabular-nums", met && check && "text-success")}
     >
       {check && <span className="w-[2ch]">{met ? "✓" : ""}</span>}
-      <span className="w-(--dw) text-right">{done}</span> of{" "}
+      <span className="w-(--dw) text-right">{done}</span> /{" "}
       <span className="w-(--gw) text-right">{target}</span>
     </span>
   );
@@ -166,7 +166,7 @@ export function DoneTodayTip({
     <Columns className="flex flex-col gap-1.5" pairs={pairs}>
       <Line>
         <span className="font-medium">Done today</span>
-        {/* Just the count: only a goal has an "of", so a goal past its target can't make the
+        {/* Just the count: only a goal has a target, so a goal past its target can't make the
             total look met. */}
         <span className="tabular-nums">{today.done}</span>
       </Line>
@@ -397,7 +397,7 @@ export function DoneLensGoals({
             {entry.name}
             <span className={cn("tabular-nums", isMet(entry) && "text-success")}>
               {isMet(entry) && "✓ "}
-              {entry.done} of {entry.target}
+              {entry.done} / {entry.target}
             </span>
           </button>
         );
