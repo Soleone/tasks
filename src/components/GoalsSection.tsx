@@ -176,10 +176,11 @@ export function GoalsSection({ open }: { open: boolean }): ReactElement {
   );
 }
 
-const DAY_ENDS = ["00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00"].map((time) => ({
-  value: time,
-  label: time === "00:00" ? "Midnight" : time,
-}));
+/** Midnight to 11:00, for anyone whose night runs into the morning. */
+const DAY_ENDS = Array.from({ length: 12 }, (_, hour) => {
+  const time = `${String(hour).padStart(2, "0")}:00`;
+  return { value: time, label: hour === 0 ? "Midnight" : time };
+});
 const WEEK_STARTS = WEEKDAYS.map((day) => ({
   value: day,
   label: day[0].toUpperCase() + day.slice(1),
