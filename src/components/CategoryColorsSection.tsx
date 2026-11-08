@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactElement } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { flushSync } from "react-dom";
 import { Folder } from "lucide-react";
 import { cn } from "cn";
@@ -18,6 +18,8 @@ const loadCategories = () =>
     [...result.categories].sort((a, b) => a.slug.localeCompare(b.slug)),
   );
 const CHOICES = [...SWATCHES, null] as const;
+/** How long typed letters keep adding up to one name, as in a native list. */
+const TYPE_AHEAD_MS = 700;
 const NEXT_KEYS: Record<string, number> = {
   ArrowRight: 1,
   ArrowLeft: -1,
@@ -27,25 +29,39 @@ const NEXT_KEYS: Record<string, number> = {
 
 /**
  * Settings › Categories: one row per category, each a radio group of swatches. Up and Down move
- * between categories, Left and Right pick the color, which applies at once on every device.
+ * between categories, Left and Right pick the color, which applies at once on every device. Typing
+ * a name jumps to it.
  */
 export function CategoryColorsSection({ open }: { open: boolean }): ReactElement {
   const { value, loading, error } = useLoadOnOpen(open, loadCategories);
   const { colors } = useSharedSettings();
   const categories = value ?? [];
   const [active, setActive] = useState(0);
+  const typed = useRef({ text: "", at: 0 });
+
+  /** The category the typed letters name. Repeating one letter steps through its categories. */
+  function typeAhead(key: string, row: number, now: number): number {
+    const text = (now - typed.current.at < TYPE_AHEAD_MS ? typed.current.text : "") + key;
+    typed.current = { text, at: now };
+    const repeated = text === key.repeat(text.length);
+    const prefix = repeated ? key : text;
+    const from = repeated ? row + 1 : row;
+    const order = [...categories.slice(from), ...categories.slice(0, from)];
+    const match = order.find((category) => category.slug.startsWith(prefix));
+    return match ? categories.indexOf(match) : row;
+  }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>, row: number, slug: string): void {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const list = event.currentTarget.parentElement!;
     const focusRow = (index: number) =>
       list.children[index]?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const letter = /^[\p{L}\p{N}-]$/u.test(event.key) ? event.key.toLowerCase() : null;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || letter) {
       event.preventDefault();
-      const next = Math.min(
-        categories.length - 1,
-        Math.max(0, row + (event.key === "ArrowDown" ? 1 : -1)),
-      );
+      const next = letter
+        ? typeAhead(letter, row, event.timeStamp)
+        : Math.min(categories.length - 1, Math.max(0, row + (event.key === "ArrowDown" ? 1 : -1)));
       setActive(next);
       focusRow(next);
       return;
@@ -125,7 +141,7 @@ export function CategoryColorsSection({ open }: { open: boolean }): ReactElement
             })}
           </div>
           <p className="text-xs text-muted-foreground" aria-hidden="true">
-            ↑ ↓ category · ← → color
+            ↑ ↓ category · type a name to jump · ← → color
           </p>
         </>
       )}
