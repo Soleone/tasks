@@ -4,6 +4,7 @@ A workspace is a folder. The folder is the whole collection: there is no workspa
 
 ```text
 <root>/workspace.json        {"schemaVersion":2}
+<root>/settings.json         settings every device shares, written by the app
 <root>/tasks/<id>.json       one file per task
 <root>/attachments/<name>    one file per image, written once
 ```
@@ -30,6 +31,7 @@ The app and the CLI work in a Tasks home that the owner chooses. Its `sync/` fol
 | `home.missing` | A missing or unreachable home is reported with its path. Nothing is created in its place and it is never treated as a first launch |
 | `home.no-media` | On Android, setting up or opening a home creates an empty `.nomedia` in it if missing, so the system gallery doesn't index attachments. It sits outside `sync/`, so it never syncs |
 | `home.documents` | Preferences (`settings.json`) and client undo records (`local/undo.json`) are replaced durably: staged, flushed, renamed. A file the app can't read is kept beside the new one as `*.damaged-<time>.json` |
+| `home.shared-settings` | Settings every device shares (category colors, goals, when a day ends and a week starts) are `sync/settings.json`, replaced the same way through a stage named `.syncthing.settings.tmp`, which never syncs. Task readers and doctor ignore it, so builds before it read the workspace unchanged. A save rereads the file and changes only what was edited, so an edit from another device survives; when two devices edit before syncing, the file Syncthing keeps wins and the conflict copy is left alone |
 
 ## Workspace file
 

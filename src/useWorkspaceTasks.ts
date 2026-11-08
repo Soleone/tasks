@@ -1,3 +1,4 @@
+import { reloadSharedSettings } from "@/platform/sharedSettings";
 import {
   useCallback,
   useEffect,
@@ -343,6 +344,8 @@ export function useWorkspaceTasks({
   useEffect(() => {
     const refreshOnFocus = (): void => {
       void refreshTasks();
+      // Another device may have synced new colors or goals; a failed read keeps the ones shown.
+      reloadSharedSettings().catch(() => undefined);
     };
     window.addEventListener("focus", refreshOnFocus);
     return () => {

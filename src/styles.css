@@ -15,6 +15,29 @@
   --classification-foreground: var(--om-darker-background);
 }
 
+/* A category's color from Settings › Categories, by swatch name, so it follows the theme. */
+[data-swatch="red"] {
+  --swatch: var(--om-red);
+}
+[data-swatch="orange"] {
+  --swatch: var(--om-orange);
+}
+[data-swatch="yellow"] {
+  --swatch: var(--om-yellow);
+}
+[data-swatch="cyan"] {
+  --swatch: var(--om-cyan);
+}
+[data-swatch="blue"] {
+  --swatch: var(--om-blue);
+}
+[data-swatch="magenta"] {
+  --swatch: var(--om-magenta);
+}
+[data-swatch="brown"] {
+  --swatch: var(--om-brown);
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;

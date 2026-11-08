@@ -70,7 +70,11 @@ function createTask(client: HomeClient, home: string, writeContext: string, titl
     home,
     "task.create",
     { title },
-    { writeContext, idempotencyKey: title, actor: { kind: "human", label: "home test" } },
+    {
+      writeContext,
+      idempotencyKey: title,
+      actor: { kind: "human", label: "home test" },
+    },
   );
 }
 
@@ -79,7 +83,9 @@ function contextOf(client: HomeClient, home: string): string {
 }
 
 function titles(client: HomeClient, home: string): string[] {
-  const { tasks } = ok(sendAs(client, home, "task.list")).result as { tasks: { title: string }[] };
+  const { tasks } = ok(sendAs(client, home, "task.list")).result as {
+    tasks: { title: string }[];
+  };
   return tasks.map((task) => task.title).sort();
 }
 
@@ -122,8 +128,12 @@ test("home.create: other folders and parts of homes are never taken over", (t) =
   assert.throws(() => openHome(old), { code: "OLD_TASK_FOLDER" });
 
   const home = createHome(path.join(directory, "home")).homePath;
-  assert.throws(() => createHome(path.join(home, "sync")), { code: "HOME_NESTED" });
-  assert.throws(() => createHome(path.join(home, "inside")), { code: "HOME_NESTED" });
+  assert.throws(() => createHome(path.join(home, "sync")), {
+    code: "HOME_NESTED",
+  });
+  assert.throws(() => createHome(path.join(home, "inside")), {
+    code: "HOME_NESTED",
+  });
   assert.throws(() => createHome(path.join(directory, "missing", "home")), {
     code: "HOME_MISSING",
   });
@@ -135,14 +145,18 @@ test("home.refuse-unsafe: an ordinary ancestor with a local folder is not a Task
   const home = createHome(path.join(temporary, "Tasks"));
   assert.equal(openHome(home.homePath).homePath, home.homePath);
   assert.deepEqual(readdirSync(home.homePath).sort(), ["local", "sync"]);
-  assert.throws(() => createHome(path.join(home.homePath, "nested")), { code: "HOME_NESTED" });
+  assert.throws(() => createHome(path.join(home.homePath, "nested")), {
+    code: "HOME_NESTED",
+  });
 });
 
 test("home.refuse-unsafe: a home inside a Syncthing folder is refused, and so is syncing the home", (t) => {
   const directory = scratch(t);
   const synced = path.join(directory, "synced");
   mkdirSync(path.join(synced, ".stfolder"), { recursive: true });
-  assert.throws(() => createHome(path.join(synced, "Tasks")), { code: "HOME_IN_SYNC_FOLDER" });
+  assert.throws(() => createHome(path.join(synced, "Tasks")), {
+    code: "HOME_IN_SYNC_FOLDER",
+  });
   const home = createHome(path.join(directory, "home")).homePath;
   mkdirSync(path.join(home, "sync", ".stfolder"));
   assert.equal(openHome(home).homePath, home);
@@ -174,13 +188,33 @@ test("home.documents: settings and undo records are replaced durably, damage is 
   writeFileSync(path.join(home, "settings.json"), "{damaged");
   writeFileSync(path.join(home, "settings.json.preparing"), "unpublished");
   const replaced = ok(
-    send(home, "home.document.write", { name: "settings", text: "{}", replaceDamaged: true }),
+    send(home, "home.document.write", {
+      name: "settings",
+      text: "{}",
+      replaceDamaged: true,
+    }),
   );
   const kept = replaced.result.keptPath as string;
   assert.match(path.basename(kept), /^settings\.damaged-.*\.json$/);
   assert.equal(readFileSync(kept, "utf8"), "{damaged");
   assert.equal(readFileSync(path.join(home, "settings.json"), "utf8"), "{}");
   assert.equal(existsSync(path.join(home, "settings.json.preparing")), false);
+});
+
+test("home.shared-settings: shared settings live in sync/ and their stage never syncs", (t) => {
+  const home = path.join(scratch(t), "home");
+  createAndInit(home);
+  assert.equal(ok(send(home, "home.document.read", { name: "shared" })).result.text, null);
+  writeFileSync(path.join(home, "sync", ".syncthing.settings.tmp"), "unpublished");
+  ok(send(home, "home.document.write", { name: "shared", text: '{"a":1}' }));
+  assert.equal(readFileSync(path.join(home, "sync", "settings.json"), "utf8"), '{"a":1}');
+  assert.equal(ok(send(home, "home.document.read", { name: "shared" })).result.text, '{"a":1}');
+  assert.deepEqual(readdirSync(path.join(home, "sync")).sort(), [
+    "settings.json",
+    "tasks",
+    "workspace.json",
+  ]);
+  ok(send(home, "workspace.info"));
 });
 
 test(
@@ -190,9 +224,16 @@ test(
     const directory = scratch(t);
     const home = path.join(directory, "home");
     // An empty config folder, so the app's real home is never the default here.
-    const env = { ...process.env, XDG_CONFIG_HOME: path.join(directory, "config") };
+    const env = {
+      ...process.env,
+      XDG_CONFIG_HOME: path.join(directory, "config"),
+    };
     const run = (...argv: string[]) =>
-      spawnSync(process.execPath, [cli, ...argv], { encoding: "utf8", timeout: 10_000, env });
+      spawnSync(process.execPath, [cli, ...argv], {
+        encoding: "utf8",
+        timeout: 10_000,
+        env,
+      });
     assert.equal(run("--home", home, "init").status, 0);
     assert.equal(run("--home", home, "add", "From the CLI").status, 0);
     const listed = run("--home", home, "list", "--json");
@@ -239,9 +280,11 @@ test(
     assert.equal(run(["add", "In the app's home"]).status, 0);
     assert.equal(run(["--home", other, "add", "Somewhere else"]).status, 0);
     const listed = (argv: string[]) =>
-      (JSON.parse(run([...argv, "list", "--json"]).stdout).tasks as { title: string }[]).map(
-        (task) => task.title,
-      );
+      (
+        JSON.parse(run([...argv, "list", "--json"]).stdout).tasks as {
+          title: string;
+        }[]
+      ).map((task) => task.title);
     assert.deepEqual(listed([]), ["In the app's home"]);
     assert.deepEqual(listed(["--home", other]), ["Somewhere else"]);
     const lines = run(
@@ -274,7 +317,10 @@ test(
     assert.deepEqual(titles("app", alias), ["From the CLI", "From the app"]);
     assert.deepEqual(titles("cli", home), ["From the CLI", "From the app"]);
 
-    const contexts = { app: contextOf("app", alias), cli: contextOf("cli", home) };
+    const contexts = {
+      app: contextOf("app", alias),
+      cli: contextOf("cli", home),
+    };
     const lock = new DatabaseSync(path.join(home, "local", "lock.db"));
     lock.exec("BEGIN IMMEDIATE");
     const busy = createTask("app", alias, contexts.app, "While locked");
@@ -302,16 +348,34 @@ test("share.folder-only: two device homes exchange only sync/; tasks add up, the
   const phone = path.join(directory, "phone");
   // A filesystem copy of new files stands in for Syncthing, which sees only each home's sync/.
   const exchange = (from: string, to: string) =>
-    cpSync(path.join(from, "sync"), path.join(to, "sync"), { recursive: true, force: false });
+    cpSync(path.join(from, "sync"), path.join(to, "sync"), {
+      recursive: true,
+      force: false,
+    });
   createAndInit(laptop);
   ok(send(phone, "home.create"));
   exchange(laptop, phone);
 
   ok(createTask("app", laptop, contextOf("app", laptop), "On the laptop"));
   ok(createTask("app", phone, contextOf("app", phone), "On the phone"));
-  ok(send(laptop, "home.document.write", { name: "settings", text: '{"theme":"dark"}' }));
-  ok(send(phone, "home.document.write", { name: "settings", text: '{"theme":"light"}' }));
-  ok(send(phone, "home.document.write", { name: "undo", text: '{"entries":[]}' }));
+  ok(
+    send(laptop, "home.document.write", {
+      name: "settings",
+      text: '{"theme":"dark"}',
+    }),
+  );
+  ok(
+    send(phone, "home.document.write", {
+      name: "settings",
+      text: '{"theme":"light"}',
+    }),
+  );
+  ok(
+    send(phone, "home.document.write", {
+      name: "undo",
+      text: '{"entries":[]}',
+    }),
+  );
   exchange(laptop, phone);
   exchange(phone, laptop);
 
@@ -330,7 +394,12 @@ test("backup.full-home: a copy of the whole home holds all of it; its caches sta
   createAndInit(home);
   ok(createTask("app", home, contextOf("app", home), "From the app"));
   ok(createTask("cli", home, contextOf("cli", home), "From the CLI"));
-  ok(send(home, "home.document.write", { name: "settings", text: '{"theme":"dark"}' }));
+  ok(
+    send(home, "home.document.write", {
+      name: "settings",
+      text: '{"theme":"dark"}',
+    }),
+  );
   ok(send(home, "home.document.write", { name: "undo", text: '{"entries":[]}' }));
   const context = contextOf("app", home);
 

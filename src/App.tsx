@@ -64,6 +64,7 @@ import {
 import { practice, useLearning } from "@/learning/progress";
 import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
+import { renameCategorySettings } from "@/platform/sharedSettings";
 import { isAndroid, keyName } from "@/platform/runtime";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 
@@ -1082,6 +1083,7 @@ export default function App({
           onSelect={chooseCategory}
           onRenamed={(renamed) => {
             followRename("category", renamed.from, renamed.to);
+            void renameCategorySettings(renamed.from, renamed.to);
             classificationRenamed(renamed, "@");
           }}
         />

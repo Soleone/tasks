@@ -21,6 +21,7 @@ import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
+import { CategoryColorsSection } from "@/components/CategoryColorsSection";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -133,6 +134,7 @@ export function SettingsDialog({
               <ReadableTabsTrigger ref={settingsTab} value="general">
                 General
               </ReadableTabsTrigger>
+              <ReadableTabsTrigger value="categories">Categories</ReadableTabsTrigger>
               {isDesktopApp() && <ReadableTabsTrigger value="hotkeys">Hotkeys</ReadableTabsTrigger>}
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
               <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
@@ -264,6 +266,10 @@ export function SettingsDialog({
                   </div>
                 </section>
               </div>
+            </StackedTabsContent>
+
+            <StackedTabsContent value="categories" tabIndex={-1}>
+              <CategoryColorsSection open={open} />
             </StackedTabsContent>
 
             {isDesktopApp() && (

@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { flyCategoryToFilter } from "./categoryFlight";
+import { useSharedSettings } from "@/platform/sharedSettings";
 import { startAfterPaint } from "./startAfterPaint";
 
 export type TaskRowVariant = "full" | "compact";
@@ -160,7 +161,11 @@ function useGlyphEntrance(task: TaskView): {
     seen.priority !== task.priority ||
     seen.effort !== task.effort
   ) {
-    setSeen({ status: task.status, priority: task.priority, effort: task.effort });
+    setSeen({
+      status: task.status,
+      priority: task.priority,
+      effort: task.effort,
+    });
     setEffortFrom(seen.effort);
     setEntrance(
       seen.status !== task.status
@@ -284,7 +289,10 @@ export function CategoryColumn({
 // Letters matching what is typed after `@` or `#`: finishing that name would remove the pill.
 const TYPED = "bg-transparent text-warning";
 
-/** A category as quiet text at the row's end, cut short when it outgrows the column. */
+/**
+ * A category as quiet text at the row's end, cut short when it outgrows the column. Its folder
+ * takes the category's color from Settings › Categories.
+ */
 export function CategoryFact({
   label,
   typed = 0,
@@ -295,9 +303,17 @@ export function CategoryFact({
   typed?: number;
   children?: ReactNode;
 }): ReactElement {
+  const swatch = useSharedSettings().colors[label];
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground group-hover/fact:text-foreground">
-      <Folder className="size-3.5 shrink-0 text-classification-category" aria-hidden="true" />
+      <Folder
+        className={cn(
+          "size-3.5 shrink-0",
+          swatch ? "text-(--swatch)" : "text-classification-category",
+        )}
+        data-swatch={swatch}
+        aria-hidden="true"
+      />
       <span className="truncate">
         {typed > 0 && <mark className={TYPED}>{label.slice(0, typed)}</mark>}
         {label.slice(typed)}

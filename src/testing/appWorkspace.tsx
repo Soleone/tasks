@@ -165,7 +165,7 @@ export class AppWorkspace {
   }
 
   /** The text of one of the home's own documents, or null when it doesn't exist. */
-  async homeDocument(name: "settings" | "undo"): Promise<string | null> {
+  async homeDocument(name: "settings" | "shared" | "undo"): Promise<string | null> {
     const reply = await this.post({ command: "home.document.read", args: { name } });
     return (reply.result as { text: string | null }).text;
   }

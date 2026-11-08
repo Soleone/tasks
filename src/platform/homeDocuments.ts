@@ -1,6 +1,6 @@
 import type { UndoStorage } from "./undoHistory";
 
-export type HomeDocumentName = "settings" | "undo";
+export type HomeDocumentName = "settings" | "shared" | "undo";
 
 /** Sends one home command through the selected backend and returns its result. */
 export type HomeCommand = (

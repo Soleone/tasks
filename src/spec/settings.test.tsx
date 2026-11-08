@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
-import { expectListFocused, expectRows } from "@/testing/taskList";
+import { expectListFocused, expectRows, row } from "@/testing/taskList";
 import { version } from "../../package.json";
 
 let workspace: AppWorkspace;
@@ -23,6 +23,7 @@ test("settings.open: Ctrl+, opens Settings with focus on its tabs", async () => 
   await waitFor(() => expect(document.activeElement?.getAttribute("role")).toBe("tab"));
   expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
     "General",
+    "Categories",
     "Data",
     "Cleanup",
   ]);
@@ -86,6 +87,8 @@ test("settings.tabs: arrows switch sections and Tab enters Cleanup without passi
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.keyboard("{ArrowRight}");
+  await waitFor(() => expect(document.activeElement?.textContent).toBe("Categories"));
+  await user.keyboard("{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   const panel = within(screen.getByRole("tabpanel"));
   panel.getByRole("heading", { name: "Tasks home" });
@@ -107,12 +110,43 @@ test("settings.tabs: arrows switch sections and Tab enters Cleanup without passi
   expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Cleanup" }));
   await user.keyboard("{ArrowLeft}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
-  await user.keyboard("{ArrowLeft}");
+  await user.keyboard("{ArrowLeft}{ArrowLeft}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.tab();
   expect(document.activeElement).toBe(screen.getByRole("slider", { name: "Font size" }));
   await user.tab({ shift: true });
   expect(document.activeElement).toBe(screen.getByRole("tab", { name: "General" }));
+});
+
+test("settings.category-colors: arrows pick a category's color, shared through the workspace", async () => {
+  await workspace.create("Called mom", { category: "life" });
+  await workspace.create("Review PR", { category: "work" });
+  const { user } = await workspace.render({ home: true });
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Categories" }));
+  const life = await screen.findByRole("radiogroup", { name: "@life color" });
+  await user.tab();
+  expect(document.activeElement).toBe(within(life).getByRole("radio", { name: "No color" }));
+  await user.keyboard("{Home}{ArrowRight}");
+  await waitFor(() =>
+    expect(within(life).getByRole("radio", { name: "orange" })).toHaveProperty(
+      "ariaChecked",
+      "true",
+    ),
+  );
+  expect(document.activeElement).toBe(within(life).getByRole("radio", { name: "orange" }));
+  await user.keyboard("{ArrowDown}");
+  const work = screen.getByRole("radiogroup", { name: "@work color" });
+  expect(document.activeElement).toBe(within(work).getByRole("radio", { name: "No color" }));
+  await waitFor(async () =>
+    expect(JSON.parse((await workspace.homeDocument("shared"))!).colors).toEqual({
+      life: "orange",
+    }),
+  );
+  await user.keyboard("{Escape}");
+  expect(row("Called mom").querySelector("[data-swatch]")?.getAttribute("data-swatch")).toBe(
+    "orange",
+  );
 });
 
 test("settings.home: Data shows the home and copies its sync folder's path", async () => {

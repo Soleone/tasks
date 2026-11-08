@@ -12,23 +12,34 @@ import { observeQueryAuthority } from "./queryCache.js";
 
 const MAX_DOCUMENT_BYTES = 1024 * 1024;
 
-/** The app's own files in the home: preferences beside `sync/`, undo records in `local/`. */
-function documentPath(home: Home, name: unknown): string {
-  if (name === "settings") return home.settingsPath;
-  if (name === "undo") return home.undoPath;
-  throw new CommandError("INVALID_ARGUMENT", "document must be settings or undo");
+/**
+ * The app's own files in the home: preferences beside `sync/`, the shared ones inside it, undo
+ * records in `local/`. Syncthing never syncs `.syncthing.*.tmp`, so the shared stage stays here.
+ */
+function documentPaths(home: Home, name: unknown): { file: string; stage: string } {
+  if (name === "settings")
+    return { file: home.settingsPath, stage: `${home.settingsPath}.preparing` };
+  if (name === "shared")
+    return {
+      file: home.sharedSettingsPath,
+      stage: path.join(home.rootPath, ".syncthing.settings.tmp"),
+    };
+  if (name === "undo") return { file: home.undoPath, stage: `${home.undoPath}.preparing` };
+  throw new CommandError("INVALID_ARGUMENT", "document must be settings, shared or undo");
 }
 
 function readDocument(home: Home, request: Request): Record<string, unknown> {
   assertArgs(request.args, ["name"]);
-  const file = documentPath(home, request.args.name);
-  return { text: existsSync(file) ? readRegularFile(file).toString("utf8") : null };
+  const { file } = documentPaths(home, request.args.name);
+  return {
+    text: existsSync(file) ? readRegularFile(file).toString("utf8") : null,
+  };
 }
 
 /** A durable replace: stage, flush, rename, flush the folder. A damaged file is kept beside it. */
 function writeDocument(home: Home, request: Request): Record<string, unknown> {
   assertArgs(request.args, ["name", "text", "replaceDamaged"]);
-  const file = documentPath(home, request.args.name);
+  const { file, stage } = documentPaths(home, request.args.name);
   const { text, replaceDamaged } = request.args;
   if (typeof text !== "string" || Buffer.byteLength(text) > MAX_DOCUMENT_BYTES)
     throw new CommandError("INVALID_ARGUMENT", "text must be a string of at most 1 MiB");
@@ -45,7 +56,6 @@ function writeDocument(home: Home, request: Request): Record<string, unknown> {
     keptPath = `${file.slice(0, -".json".length)}.damaged-${stamp}.json`;
     renameSync(file, keptPath);
   }
-  const stage = `${file}.preparing`;
   // A stage left by a crash was never published, so the current file is still the saved one.
   rmSync(stage, { force: true });
   writeDurableFile(stage, Buffer.from(text));

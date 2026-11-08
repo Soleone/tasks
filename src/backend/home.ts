@@ -15,13 +15,15 @@ import { syncDirectory } from "./localDomain.js";
 /**
  * A Tasks home holds everything one device keeps: `sync/` is the canonical task folder and the
  * only part a sync tool may see, `local/` holds caches, the writer lock and recovery evidence,
- * and `settings.json` holds this device's preferences.
+ * `settings.json` holds this device's preferences and `sync/settings.json` the ones every device
+ * shares.
  */
 export type Home = {
   homePath: string;
   rootPath: string;
   localPath: string;
   settingsPath: string;
+  sharedSettingsPath: string;
   undoPath: string;
 };
 
@@ -41,6 +43,7 @@ function homeAt(homePath: string): Home {
     rootPath: path.join(homePath, SYNC),
     localPath: path.join(homePath, LOCAL),
     settingsPath: path.join(homePath, SETTINGS),
+    sharedSettingsPath: path.join(homePath, SYNC, SETTINGS),
     undoPath: path.join(homePath, LOCAL, "undo.json"),
   };
 }
