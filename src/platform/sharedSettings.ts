@@ -100,7 +100,9 @@ function parse(text: string | null): SettingsFile | null {
 
 let documents: HomeDocuments | null = null;
 let current = DEFAULTS;
-let saving = Promise.resolve();
+let saving: Promise<unknown> = Promise.resolve();
+// Edits not yet saved; what the disk says only shows once none are left, so it never undoes them.
+let unsaved = 0;
 const listeners = new Set<() => void>();
 
 function publish(next: SharedSettings): void {
@@ -130,7 +132,7 @@ export async function loadSharedSettings(home: HomeDocuments): Promise<void> {
 export async function reloadSharedSettings(): Promise<void> {
   if (!documents) return;
   const file = parse(await documents.read("shared"));
-  publish(file ? settingsOf(file) : DEFAULTS);
+  if (unsaved === 0) publish(file ? settingsOf(file) : DEFAULTS);
 }
 
 /**
@@ -143,14 +145,21 @@ function edit(change: (file: SettingsFile) => void): Promise<void> {
   publish(settingsOf(optimistic));
   if (!documents) return Promise.resolve();
   const home = documents;
-  saving = saving.then(async () => {
-    const parsed = parse(await home.read("shared"));
-    const file = parsed ?? { format: FORMAT, version: 1 };
-    change(file);
-    await home.save("shared", `${JSON.stringify(file, null, 2)}\n`, parsed === null);
-    publish(settingsOf(file));
+  unsaved += 1;
+  const run = saving.then(async () => {
+    try {
+      const parsed = parse(await home.read("shared"));
+      const file = parsed ?? { format: FORMAT, version: 1 };
+      change(file);
+      await home.save("shared", `${JSON.stringify(file, null, 2)}\n`, parsed === null);
+      if (unsaved === 1) publish(settingsOf(file));
+    } finally {
+      unsaved -= 1;
+    }
   });
-  return saving;
+  // A failed read fails this edit only; the next one still runs.
+  saving = run.catch(() => undefined);
+  return run;
 }
 
 function withEntry<T>(record: unknown, key: string, value: T | null): Record<string, unknown> {

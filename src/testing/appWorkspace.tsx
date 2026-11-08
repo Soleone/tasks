@@ -164,6 +164,17 @@ export class AppWorkspace {
     if (!response.ok) throw new Error(await response.text());
   }
 
+  /** Writes the shared settings every device sees, as another device would through sync. */
+  async writeSharedSettings(settings: Record<string, unknown>): Promise<void> {
+    await this.post({
+      command: "home.document.write",
+      args: {
+        name: "shared",
+        text: JSON.stringify({ format: "tasks.shared", version: 1, ...settings }),
+      },
+    });
+  }
+
   /** The text of one of the home's own documents, or null when it doesn't exist. */
   async homeDocument(name: "settings" | "shared" | "undo"): Promise<string | null> {
     const reply = await this.post({ command: "home.document.read", args: { name } });

@@ -49,3 +49,14 @@ export function InlineDescription({ className, ...props }: ComponentProps<typeof
     />
   );
 }
+
+/** A short count typed in place, its digits right-aligned and evenly wide. */
+export function CountInput({ className, ...props }: ComponentProps<typeof StockInput>) {
+  return (
+    <StockInput
+      inputMode="numeric"
+      className={cn(FOCUS_RING, "h-7 w-12 text-right tabular-nums", className)}
+      {...props}
+    />
+  );
+}

@@ -28,7 +28,8 @@ import {
   type SortField,
   type StatusPreset,
 } from "@/components/taskFilters";
-import { lensPhrase, type ListLens } from "./listLens";
+import { lensPhrase, type GoalLens, type ListLens } from "./listLens";
+import type { GoalsToday } from "@/goals";
 import { CategoryFact } from "./TaskRow";
 import {
   InlineTaskComposer,
@@ -150,6 +151,8 @@ type TaskListProps = {
   lens: ListLens | null;
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: () => void;
+  goals: GoalsToday | null;
+  onGoalLens: (goal: GoalLens | undefined) => void;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
@@ -188,6 +191,7 @@ type TaskListProps = {
   error: string | null;
   nav: Navigator;
   onCreate: (parentId?: string) => void;
+  onLogDone: () => void;
   composer: ComposerState | null;
   optimisticTask: TaskView | null;
   onCloseComposer: () => void;
@@ -252,6 +256,8 @@ export function TaskList({
   lens,
   onToggleLens,
   onWidenDoneLens,
+  goals,
+  onGoalLens,
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
@@ -290,6 +296,7 @@ export function TaskList({
   error,
   nav,
   onCreate,
+  onLogDone,
   composer,
   optimisticTask,
   onCloseComposer,
@@ -1609,6 +1616,7 @@ export function TaskList({
       setEffort: setTaskEffort,
       openSearch,
       createTask: onCreate,
+      logDoneTask: onLogDone,
       toggleStatusPreset,
       showAllStatuses,
       applyPriorityFilter,
@@ -1846,6 +1854,8 @@ export function TaskList({
           returnToList();
           onWidenDoneLens();
         }}
+        goals={goals}
+        onGoalLens={onGoalLens}
         clearStatusFilter={clearStatusFilter}
         clearCategoryFilter={clearCategoryFilter}
         clearPriorityFilter={clearPriorityFilter}

@@ -38,7 +38,9 @@ import {
   type SortField,
   type StatusPreset,
 } from "./taskFilters";
-import { lensFilter, lensPhrase, widerDoneWindow, type ListLens } from "./listLens";
+import { lensFilter, lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "./listLens";
+import { DoneLensGoals, goalLens } from "./GoalRings";
+import type { GoalsToday } from "@/goals";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import { SortMenu } from "./SortMenu";
@@ -206,6 +208,9 @@ type TaskListToolbarProps = {
   summaryTaskCount: number;
   lens: ListLens | null;
   widenDoneLens: () => void;
+  /** Today's goals, shown on the done lens's count line, or null without goals. */
+  goals: GoalsToday | null;
+  onGoalLens: (goal: GoalLens | undefined) => void;
   clearStatusFilter: () => void;
   clearCategoryFilter: () => void;
   clearPriorityFilter: () => void;
@@ -257,6 +262,8 @@ export function TaskListToolbar({
   summaryTaskCount,
   lens,
   widenDoneLens,
+  goals,
+  onGoalLens,
   clearStatusFilter,
   clearCategoryFilter,
   clearPriorityFilter,
@@ -339,8 +346,15 @@ export function TaskListToolbar({
       : tagFilter.length > 0
         ? tagFilter.map((tag) => `#${tag.label}`).join(" ")
         : null;
+  const lensGoals = lens?.kind === "done" && lens.window === "day" ? goals : null;
+  const narrowedTo = lens?.kind === "done" ? lens.goal : undefined;
+  const lensTarget = lensGoals
+    ? (lensGoals.goals.find(
+        (goal) => JSON.stringify(goalLens(goal, lensGoals)) === JSON.stringify(narrowedTo),
+      )?.target ?? lensGoals.target)
+    : null;
   const summaryPhrase = lens
-    ? lensPhrase(lens)
+    ? `${lensTarget !== null ? `of ${lensTarget} ` : ""}${lensPhrase(lens)}`
     : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
   const summaryBase = `${summaryTaskCount} ${summaryPhrase}`;
   // The number stands alone so a lens count can fly into it (useLensFlip).
@@ -823,6 +837,11 @@ export function TaskListToolbar({
               </FilterSummaryAction>
             )}
           </BreadcrumbItem>
+          {lensGoals ? (
+            <BreadcrumbItem className="min-w-0">
+              <DoneLensGoals today={lensGoals} goal={narrowedTo} onGoal={onGoalLens} />
+            </BreadcrumbItem>
+          ) : null}
           {categoryFilter ? (
             <>
               <BreadcrumbSeparator />

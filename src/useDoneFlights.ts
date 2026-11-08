@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { noteFrameEvent } from "./frameMetrics";
 import { ROW_EXIT_MS } from "./useRowExits";
+import { hasGoals } from "./goals";
+import { readSharedSettings } from "./platform/sharedSettings";
 
 /** The check rises once the row is 60% of the way out, so it reads as coming from where it left. */
 const LAUNCH_INTO_SLIDE_MS = ROW_EXIT_MS * 0.6;
@@ -29,15 +31,31 @@ function curvePoint(from: Point, bend: Point, to: Point, t: number): Point {
   };
 }
 
+const DONE_ICON = "[data-lens-count=done] svg";
+
+/**
+ * Where a completion lands with goals set: the open ring of the goal it fills, or the done count
+ * when that goal is met (its ring has left the row) or there is none.
+ */
+function landingRing(row: HTMLElement): SVGElement | null {
+  const settings = readSharedSettings();
+  if (!hasGoals(settings)) return null;
+  const category = row.querySelector("[data-category]")?.getAttribute("data-category") ?? null;
+  const key = category !== null && category in settings.goals ? category : "";
+  return document.querySelector<SVGElement>(`[data-goal-ring="${key}"] svg`);
+}
+
 /**
  * A copy of the done count's check rises from the list's right edge, level with the row that just
- * slid out there, and lands on the count. Null when the row or the count isn't on screen.
+ * slid out there, and lands on the done count or the goal ring it fills. Null when the row or the
+ * count isn't on screen.
  */
-function flyCheck(taskId: string): Animation | null {
+function flyCheck(taskId: string): { animation: Animation; target: SVGElement } | null {
   const row = document.getElementById(`task-option-${taskId}`);
   const list = row?.closest('[role="listbox"]');
-  const icon = document.querySelector<SVGElement>("[data-lens-count=done] svg");
-  if (!row || !list || !icon) return null;
+  const count = document.querySelector<SVGElement>(DONE_ICON);
+  if (!row || !list || !count) return null;
+  const icon = landingRing(row) ?? count;
   const rowBox = row.getBoundingClientRect();
   const iconBox = icon.getBoundingClientRect();
   const from = { x: list.getBoundingClientRect().right - 12, y: rowBox.top + rowBox.height / 2 };
@@ -47,7 +65,7 @@ function flyCheck(taskId: string): Animation | null {
     x: (from.x + to.x) / 2 + (to.y - from.y) * BOW,
     y: (from.y + to.y) / 2 - (to.x - from.x) * BOW,
   };
-  const ghost = icon.cloneNode(true) as SVGElement;
+  const ghost = count.cloneNode(true) as SVGElement;
   ghost.setAttribute("aria-hidden", "true");
   Object.assign(ghost.style, {
     position: "fixed",
@@ -75,17 +93,62 @@ function flyCheck(taskId: string): Animation | null {
   const flight = ghost.animate(keyframes, { duration: FLIGHT_MS, easing: "linear" });
   const remove = () => ghost.remove();
   flight.finished.then(remove, remove);
-  return flight;
+  return { animation: flight, target: icon };
 }
 
-/** The count's check gives a small bump as a flight lands on it. */
-function bumpCount(): void {
-  document
-    .querySelector<SVGElement>("[data-lens-count=done] svg")
-    ?.animate([{ transform: "scale(1)" }, { transform: "scale(1.3)" }, { transform: "scale(1)" }], {
+const bump = (icon: Element | null): Animation | undefined =>
+  icon?.animate(
+    [{ transform: "scale(1)" }, { transform: "scale(1.3)" }, { transform: "scale(1)" }],
+    {
       duration: 220,
       easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-    });
+    },
+  );
+
+/**
+ * After a goal ring takes a completion, a dot in its color carries it on to the done count, which
+ * bumps as it arrives: the count's ring is the goals added up.
+ */
+function handOff(ring: SVGElement): void {
+  const count = document.querySelector<SVGElement>(DONE_ICON);
+  if (!count) return;
+  const from = center(ring.getBoundingClientRect());
+  const to = center(count.getBoundingClientRect());
+  const dot = document.createElement("span");
+  dot.setAttribute("aria-hidden", "true");
+  const swatch = ring.getAttribute("data-swatch");
+  if (swatch) dot.dataset.swatch = swatch;
+  const stroke = ring.querySelector("circle:last-of-type")?.getAttribute("class") ?? "";
+  Object.assign(dot.style, {
+    position: "fixed",
+    left: `${from.x - 3}px`,
+    top: `${from.y - 3}px`,
+    width: "6px",
+    height: "6px",
+    borderRadius: "9999px",
+    pointerEvents: "none",
+    zIndex: "50",
+    background: swatch
+      ? "var(--swatch)"
+      : stroke.includes("classification")
+        ? "var(--classification-category)"
+        : "var(--foreground)",
+  });
+  document.body.append(dot);
+  const dx = to.x - from.x;
+  const animation = dot.animate(
+    [
+      { transform: "translate(0, 0) scale(0.6)", opacity: 0 },
+      { transform: `translate(${dx / 2}px, -9px) scale(1)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(${dx}px, ${to.y - from.y}px) scale(0.5)`, opacity: 0.9 },
+    ],
+    { duration: 420, delay: 120, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "both" },
+  );
+  const remove = () => dot.remove();
+  animation.finished.then(() => {
+    remove();
+    bump(count);
+  }, remove);
 }
 
 /**
@@ -129,15 +192,16 @@ export function useDoneFlights() {
     setLanding(taskId, true);
     const flight: Flight = {
       timer: window.setTimeout(() => {
-        const animation = flyCheck(taskId);
-        if (!animation) return land(taskId);
+        const flown = flyCheck(taskId);
+        if (!flown) return land(taskId);
         noteFrameEvent("check flight");
-        flight.animation = animation;
-        animation.finished.then(
+        flight.animation = flown.animation;
+        flown.animation.finished.then(
           () => {
             noteFrameEvent("check landed");
             land(taskId);
-            bumpCount();
+            bump(flown.target);
+            if (!flown.target.matches(DONE_ICON)) handOff(flown.target);
           },
           () => {},
         );

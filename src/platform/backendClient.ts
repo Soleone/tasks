@@ -89,6 +89,7 @@ export type TaskListFilters = {
   tags?: string[];
   search?: string;
   category?: string;
+  excludeCategories?: string[];
   sort?: SortField;
   direction?: "asc" | "desc";
   includeAncestors?: boolean;
@@ -137,6 +138,9 @@ export async function listTasks(
     ...(unblocked ? { unblocked: true } : {}),
     ...(category !== undefined ? { category } : {}),
     ...(filters.category !== undefined ? { category: filters.category } : {}),
+    ...(filters.excludeCategories !== undefined
+      ? { excludeCategories: filters.excludeCategories }
+      : {}),
     ...(filters.priority !== undefined ? { priority: filters.priority } : {}),
     ...(filters.tags !== undefined && filters.tags.length > 0 ? { tags: filters.tags } : {}),
     ...(filters.search !== undefined && filters.search.trim() !== ""

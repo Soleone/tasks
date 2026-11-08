@@ -1,7 +1,9 @@
 import { addDays, localToday } from "@/backend/dueDate";
 import type { TaskStatus } from "@/backend/taskModel";
+import { doneTodaySince } from "@/goals";
+import { readSharedSettings } from "@/platform/sharedSettings";
 
-/** How far back the done lens looks. Day is the last 24 hours, like the header count. */
+/** How far back the done lens looks. Day is today, like the header count (doneTodaySince). */
 export type DoneWindow = "day" | "week" | "month";
 
 /**
@@ -9,20 +11,30 @@ export type DoneWindow = "day" | "week" | "month";
  * today or what is due now, and the same key or count goes back. It is never
  * remembered between launches.
  */
-export type ListLens = { kind: "done"; window: DoneWindow } | { kind: "due" };
+export type ListLens = { kind: "done"; window: DoneWindow; goal?: GoalLens } | { kind: "due" };
+
+/** The done lens narrowed to one goal: a category's, or everything outside the goal categories. */
+export type GoalLens = { category: string } | { excludeCategories: string[] };
 
 /** The tasks a lens shows, on top of the list's other filters. Its statuses replace the status filter. */
-export type LensFilter = { statuses: TaskStatus[]; closedSince?: string; dueBefore?: string };
+export type LensFilter = {
+  statuses: TaskStatus[];
+  closedSince?: string;
+  dueBefore?: string;
+  category?: string;
+  excludeCategories?: string[];
+};
 
 const DONE_WINDOW_DAYS: Record<DoneWindow, number> = { day: 1, week: 7, month: 30 };
 
 export function lensFilter(lens: ListLens, now = new Date()): LensFilter {
   if (lens.kind === "done") {
     const days = DONE_WINDOW_DAYS[lens.window];
-    return {
-      statuses: ["done"],
-      closedSince: new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString(),
-    };
+    const since =
+      lens.window === "day"
+        ? doneTodaySince(readSharedSettings(), now)
+        : new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return { statuses: ["done"], closedSince: since.toISOString(), ...lens.goal };
   }
   // Due now is due today or earlier, matching the warning color on rows.
   return { statuses: ["open", "in_progress", "paused"], dueBefore: addDays(localToday(now), 1) };

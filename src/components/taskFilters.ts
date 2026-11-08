@@ -84,8 +84,15 @@ export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters)
   if (lens?.closedSince !== undefined && (task.closedAt ?? "") < lens.closedSince) return false;
   if (lens?.dueBefore !== undefined && (task.due === null || task.due >= lens.dueBefore))
     return false;
+  if (lens?.category !== undefined && task.category?.slug !== lens.category) return false;
+  if (task.category && lens?.excludeCategories?.includes(task.category.slug)) return false;
   if (filters.showUnblocked && task.blockedByIds.length > 0) return false;
-  if (filters.categorySlug !== null && task.category?.slug !== filters.categorySlug) return false;
+  if (
+    filters.categorySlug !== null &&
+    lens?.category === undefined &&
+    task.category?.slug !== filters.categorySlug
+  )
+    return false;
   if (filters.priorityFilter !== null && task.priority !== filters.priorityFilter) return false;
   if (filters.tagSlugs.length > 0) {
     const taskTags = new Set(task.tags.map((tag) => tag.slug));

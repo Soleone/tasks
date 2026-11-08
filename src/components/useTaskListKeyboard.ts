@@ -67,6 +67,7 @@ type HomeShortcutActions = {
   setEffort: (task: TaskView, effort: TaskEffort) => Promise<void>;
   openSearch: () => void;
   createTask: (parentId?: string) => void;
+  logDoneTask: () => void;
   toggleStatusPreset: () => void;
   showAllStatuses: () => void;
   applyPriorityFilter: (priority: TaskPriority) => void;
@@ -340,6 +341,11 @@ export function useTaskListKeyboard(
       event.preventDefault();
       practice("due.lens");
       actions.toggleLens("due");
+    } else if (event.key.toLowerCase() === "l" && !event.shiftKey) {
+      if (event.repeat) return;
+      event.preventDefault();
+      practice("capture.log");
+      actions.logDoneTask();
     } else if (event.key.toLowerCase() === "c") {
       if (event.repeat) return;
       event.preventDefault();

@@ -51,6 +51,22 @@ test("list.closed-since: closed tasks at or after the time match; active tasks n
   }
 });
 
+test("list.filters: excludeCategories keeps tasks outside those categories, uncategorized too", () => {
+  const sorted = [
+    { ...task("w", "open", null), category: "work" },
+    { ...task("l", "open", null), category: "life" },
+    task("n", "open", null),
+  ];
+  const listed = executeQuery("task.list", { excludeCategories: ["work"] }, sorted, 1) as {
+    tasks: TaskProjection[];
+  };
+  assert.deepEqual(listed.tasks.map((entry) => entry.id).sort(), ["l", "n"]);
+  assert.throws(
+    () => executeQuery("task.list", { excludeCategories: "work" }, sorted, 1),
+    CommandError,
+  );
+});
+
 test("list.due-before: tasks due earlier than the date match; undated tasks never do", () => {
   const dated = [
     { ...task("late", "open", null), due: "2026-10-19" },

@@ -24,6 +24,7 @@ test("settings.open: Ctrl+, opens Settings with focus on its tabs", async () => 
   expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
     "General",
     "Categories",
+    "Goals",
     "Data",
     "Cleanup",
   ]);
@@ -88,7 +89,7 @@ test("settings.tabs: arrows switch sections and Tab enters Cleanup without passi
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.keyboard("{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Categories"));
-  await user.keyboard("{ArrowRight}");
+  await user.keyboard("{ArrowRight}{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
   const panel = within(screen.getByRole("tabpanel"));
   panel.getByRole("heading", { name: "Tasks home" });
@@ -110,7 +111,7 @@ test("settings.tabs: arrows switch sections and Tab enters Cleanup without passi
   expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Cleanup" }));
   await user.keyboard("{ArrowLeft}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Data"));
-  await user.keyboard("{ArrowLeft}{ArrowLeft}");
+  await user.keyboard("{ArrowLeft}{ArrowLeft}{ArrowLeft}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.tab();
   expect(document.activeElement).toBe(screen.getByRole("slider", { name: "Font size" }));

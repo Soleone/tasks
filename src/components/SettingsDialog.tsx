@@ -22,6 +22,7 @@ import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { CategoryColorsSection } from "@/components/CategoryColorsSection";
+import { DaysSection, GoalsSection } from "@/components/GoalsSection";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { ReadableTabsTrigger, StackedTabsContent } from "@/components/variants/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -135,6 +136,7 @@ export function SettingsDialog({
                 General
               </ReadableTabsTrigger>
               <ReadableTabsTrigger value="categories">Categories</ReadableTabsTrigger>
+              <ReadableTabsTrigger value="goals">Goals</ReadableTabsTrigger>
               {isDesktopApp() && <ReadableTabsTrigger value="hotkeys">Hotkeys</ReadableTabsTrigger>}
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
               <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
@@ -265,11 +267,16 @@ export function SettingsDialog({
                     </Tooltip>
                   </div>
                 </section>
+                <DaysSection />
               </div>
             </StackedTabsContent>
 
             <StackedTabsContent value="categories" tabIndex={-1}>
               <CategoryColorsSection open={open} />
+            </StackedTabsContent>
+
+            <StackedTabsContent value="goals" tabIndex={-1}>
+              <GoalsSection open={open} />
             </StackedTabsContent>
 
             {isDesktopApp() && (

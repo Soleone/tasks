@@ -23,6 +23,7 @@ Every key has a mouse or touch path too. The full keymap is in [the client spec]
 - **Priority:** P0 (most urgent) to P4.
 - **Effort:** tiny to huge, in five steps.
 - **Category and tags:** one `@category`, any number of `#tags`. `Ctrl/⌘+R` in the `@` or `#` picker renames one on every task, or merges it into a name already in use.
+- **Goals:** a number of tasks a day or a week per category, plus one for everything else, set in Settings › Goals. The done count becomes a ring for all of them, with a small ring per goal. `L` logs a task you already did, now or earlier. Categories can have a color, set in Settings › Categories. Both sync to your other devices.
 - **Due date:** `!fri`, `!tomorrow` or a date.
 - **Notes:** a Markdown description.
 - **Images:** paste screenshots straight in.

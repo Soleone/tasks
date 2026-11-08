@@ -80,6 +80,7 @@ function listTasks(
     "priority",
     "category",
     "categoryIsNull",
+    "excludeCategories",
     "tags",
     "search",
     "unblocked",
@@ -103,6 +104,11 @@ function listTasks(
   }
   const category = args.category === undefined ? undefined : filterSlug(args.category, "@");
   if (category !== undefined && args.categoryIsNull === true) invalidFilter("category/null");
+  if (args.excludeCategories !== undefined && !Array.isArray(args.excludeCategories))
+    invalidFilter("excludeCategories");
+  const excluded = (args.excludeCategories as unknown[] | undefined)?.map((slug) =>
+    filterSlug(slug, "@"),
+  );
   const rawTags =
     args.tags === undefined ? undefined : Array.isArray(args.tags) ? args.tags : [args.tags];
   if (rawTags?.length === 0) invalidFilter("tags");
@@ -143,6 +149,7 @@ function listTasks(
       (priority === undefined || task.priority === priority) &&
       (category === undefined || task.category === category) &&
       (args.categoryIsNull !== true || task.category === null) &&
+      (task.category === null || !excluded?.includes(task.category)) &&
       tags.every((tag) => task.tags.includes(tag)) &&
       (args.unblocked !== true || task.blockedByIds.length === 0) &&
       (closedSince === undefined || (task.closedAt !== null && task.closedAt >= closedSince)) &&

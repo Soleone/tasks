@@ -54,7 +54,7 @@ async function openHotkeys() {
   const { user } = await workspace.render();
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
-  await user.keyboard("{ArrowRight}");
+  await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("Hotkeys"));
   return { user, panel: within(screen.getByRole("tabpanel")) };
 }

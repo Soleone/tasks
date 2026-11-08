@@ -5,6 +5,8 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleButton } from "@/components/variants/button";
 import type { ListLens } from "./listLens";
+import type { GoalsToday } from "@/goals";
+import { BigRing, DoneTodayTip, GoalRings } from "./GoalRings";
 import { startAfterPaint } from "./startAfterPaint";
 
 type LensCountProps = { total: number; lensOn: boolean; onToggleLens: () => void };
@@ -22,6 +24,8 @@ function LensCount({
   shortcut,
   showLabel,
   holdPlace = false,
+  alwaysShown = false,
+  tip,
   children,
 }: LensCountProps & {
   kind: ListLens["kind"];
@@ -29,17 +33,21 @@ function LensCount({
   shortcut: string;
   showLabel: string;
   holdPlace?: boolean;
+  /** Shown even at zero, as the done count is while goals are set. */
+  alwaysShown?: boolean;
+  /** Replaces the tooltip's "show" line. */
+  tip?: ReactNode;
   children: ReactNode;
 }): ReactElement | null {
   // The lens keeps its way back, even after the count falls to zero.
-  if (total === 0 && !lensOn && !holdPlace) return null;
+  if (total === 0 && !lensOn && !holdPlace && !alwaysShown) return null;
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <ToggleButton
             variant="ghost"
-            className={total === 0 && !lensOn ? "invisible" : undefined}
+            className={total === 0 && !lensOn && !alwaysShown ? "invisible" : undefined}
             selected={lensOn}
             aria-pressed={lensOn}
             tabIndex={-1}
@@ -54,20 +62,31 @@ function LensCount({
         {children}
       </TooltipTrigger>
       <TooltipContent>
-        {lensOn ? "Back to your list" : showLabel} <Kbd>{shortcut}</Kbd>
+        {tip ?? (
+          <>
+            {lensOn ? "Back to your list" : showLabel} <Kbd>{shortcut}</Kbd>
+          </>
+        )}
       </TooltipContent>
     </Tooltip>
   );
 }
 
 /**
- * Tasks done in the last 24 hours, so a fresh morning shows no empty score. Each of the `landing`
- * completions still flying here (useDoneFlights) holds the count back until it arrives.
+ * Tasks done today (doneTodaySince). Each of the `landing` completions still flying here
+ * (useDoneFlights) holds the count back until it arrives. With goals set, its check becomes a ring
+ * for all of today's goals added up, with each goal's own ring beside it.
  */
 export function DoneToday({
   landing,
+  goals,
+  categoryFilter,
   ...props
-}: LensCountProps & { landing: number }): ReactElement | null {
+}: LensCountProps & {
+  landing: number;
+  goals: GoalsToday | null;
+  categoryFilter: string | null;
+}): ReactElement | null {
   const { total } = props;
   const [shownTotal, setShownTotal] = useState(total);
   // Only a rising count rolls; undo takes it back quietly.
@@ -79,17 +98,23 @@ export function DoneToday({
     setShownTotal(target);
     setRolledFrom(target > shownTotal ? shownTotal : null);
   }
-  return (
+  const count = (
     <LensCount
       {...props}
       total={shownTotal}
       holdPlace={landing > 0}
+      alwaysShown={goals !== null}
+      tip={goals && <DoneTodayTip today={goals} lensOn={props.lensOn} />}
       kind="done"
       label="done today"
       shortcut="D"
       showLabel="Show what's done"
     >
-      <CircleCheck data-icon="inline-start" aria-hidden="true" className="text-success" />
+      {goals ? (
+        <BigRing today={goals} />
+      ) : (
+        <CircleCheck data-icon="inline-start" aria-hidden="true" className="text-success" />
+      )}
       <span className="relative inline-flex overflow-hidden" data-lens-number>
         {/* Keyed so each rise remounts both numbers and plays the roll once. A count that was
             hidden at zero only rolls its first number in. */}
@@ -114,6 +139,19 @@ export function DoneToday({
         </span>
       </span>
     </LensCount>
+  );
+  if (!goals) return count;
+  // Hovering the count lights up the whole group as one: the ring is the goals added up.
+  return (
+    <span
+      className="flex items-center rounded-md transition-colors has-[[data-lens-count=done]:hover]:bg-muted"
+      data-goals
+    >
+      {count}
+      <span className="contents" onClick={props.onToggleLens}>
+        <GoalRings today={goals} categoryFilter={categoryFilter} lensOn={props.lensOn} />
+      </span>
+    </span>
   );
 }
 

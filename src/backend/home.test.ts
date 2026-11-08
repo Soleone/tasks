@@ -201,6 +201,33 @@ test("home.documents: settings and undo records are replaced durably, damage is 
   assert.equal(existsSync(path.join(home, "settings.json.preparing")), false);
 });
 
+test("create.logged: a task created with closedAt is done at that time, never in the future", (t) => {
+  const home = path.join(scratch(t), "home");
+  createAndInit(home);
+  const writeContext = contextOf("app", home);
+  const extra = (key: string) => ({ writeContext, idempotencyKey: key });
+  const logged = ok(
+    send(
+      home,
+      "task.create",
+      { title: "Ran 5k", closedAt: "2026-11-07T08:00:00.000Z" },
+      extra("a"),
+    ),
+  ).result as { task: { status: string; closedAt: string } };
+  assert.deepEqual(
+    [logged.task.status, logged.task.closedAt],
+    ["done", "2026-11-07T08:00:00.000Z"],
+  );
+  refused(
+    send(home, "task.create", { title: "Later", closedAt: "9999-01-01T00:00:00.000Z" }, extra("b")),
+    "INVALID_ARGUMENT",
+  );
+  refused(
+    send(home, "task.create", { title: "Bad", closedAt: "yesterday" }, extra("c")),
+    "INVALID_ARGUMENT",
+  );
+});
+
 test("home.shared-settings: shared settings live in sync/ and their stage never syncs", (t) => {
   const home = path.join(scratch(t), "home");
   createAndInit(home);

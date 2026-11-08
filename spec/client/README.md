@@ -9,6 +9,7 @@ The desktop, Android and web apps are one client. This folder describes what a p
 | [capture-edit.md](capture-edit.md) | The inline editor, shorthand, the move and blocker pickers |
 | [status-undo.md](status-undo.md) | Status, priority and effort shortcuts, batches, copy, undo and redo |
 | [lenses.md](lenses.md) | Lenses: the list as one question, done today and due now |
+| [goals.md](goals.md) | Goals per category, the done count's rings, logging a task already done |
 | [settings.md](settings.md) | Settings, themes, the palette, font size and the Tasks home |
 | [learning.md](learning.md) | Moves, hints, the Learn panel and progress |
 | [platforms.md](platforms.md) | Desktop, Android and web differences |
@@ -33,6 +34,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | --- | --- | --- |
 | `C` | New task | `capture.open` |
 | `Shift+C` | New child of the active task | `capture.child` |
+| `L` | Log a task already done | `capture.log` |
 | `Enter` | Edit the active task | `home.open-editor` |
 | `Space` / `Shift+Space` | Status forward / back | `status.forward`, `status.back` |
 | `P` | Pause or resume | `status.pause` |

@@ -44,6 +44,8 @@ export type LiteralContent = Pick<
 export type LevelChange = Pick<TaskProjection, "priority"> | Pick<TaskProjection, "effort">;
 export type InlineDraft = Pick<TaskProjection, "description" | "priority" | "attachments"> & {
   text: string;
+  /** Logs a new task as already done at this time (`create.logged`). */
+  closedAt?: string;
 };
 export type EditResult = TaskExecutionResult | Pick<TaskPreviewResult, "task" | "changed">;
 export type OrderResult = { tasks: TaskProjection[]; changed: boolean; operationId?: string };
@@ -376,7 +378,7 @@ export class EditorClient {
     if (baseline.task) {
       args.id = baseline.task.id;
       args.expectedVersion = baseline.task.version;
-    }
+    } else if (draft.closedAt !== undefined) args.closedAt = draft.closedAt;
     if (parentId !== undefined) {
       if (baseline.task)
         throw new Error(

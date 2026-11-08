@@ -18,7 +18,7 @@ import type { MainWorkspace } from "@/platform/mainWorkspace";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
-import { lensPhrase, widerDoneWindow, type ListLens } from "@/components/listLens";
+import { lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "@/components/listLens";
 import {
   sortSummary,
   type SortDirection,
@@ -344,7 +344,7 @@ export default function App({
     refreshTasks,
     isCurrentViewMatch,
   } = taskView;
-  const { doneToday: doneTodayCount, dueNow: dueNowCount } = useHeaderCounts(tasks);
+  const { doneToday: doneTodayCount, dueNow: dueNowCount, goals } = useHeaderCounts(tasks);
   // The quest card waits for the first load, so the welcome starts over the first task.
   const [tasksLoaded, setTasksLoaded] = useState(false);
   if (!tasksLoaded && !loading) setTasksLoaded(true);
@@ -384,6 +384,13 @@ export default function App({
     closeComposer,
     closeHelp: () => setHelpOpen(false),
   });
+
+  /** `L`: the New task editor, for a task already done. */
+  function openLog(): void {
+    if (composerRef.current) return;
+    openCreate();
+    setComposer((current) => (current?.mode === "create" ? { ...current, logged: true } : current));
+  }
 
   function openCreate(parentId?: string): void {
     if (composerRef.current) return;
@@ -546,6 +553,14 @@ export default function App({
   function toggleLens(kind: ListLens["kind"]): void {
     if (lens?.kind === kind) leaveLens();
     else enterLens(kind === "done" ? { kind, window: "day" } : { kind });
+  }
+
+  /** Narrows the done lens to one goal's tasks, or with undefined back to all of them. */
+  function narrowDoneLens(goal: GoalLens | undefined): void {
+    if (openLens?.lens.kind !== "done") return;
+    const next: ListLens = { kind: "done", window: openLens.lens.window, ...(goal && { goal }) };
+    setOpenLens({ ...openLens, lens: next });
+    requestActiveTask();
   }
 
   function widenDoneLens(): void {
@@ -833,6 +848,8 @@ export default function App({
             />
             <DoneToday
               total={doneTodayCount}
+              goals={goals}
+              categoryFilter={categoryFilter?.slug ?? null}
               landing={landingTaskIds.size}
               lensOn={lens?.kind === "done"}
               onToggleLens={() => {
@@ -949,6 +966,8 @@ export default function App({
           lens={lens}
           onToggleLens={toggleLens}
           onWidenDoneLens={widenDoneLens}
+          goals={goals}
+          onGoalLens={narrowDoneLens}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
@@ -999,6 +1018,7 @@ export default function App({
           error={loadError}
           nav={nav}
           onCreate={openCreate}
+          onLogDone={openLog}
           composer={composer}
           optimisticTask={
             optimisticCreate && isCurrentViewMatch(optimisticCreate) ? optimisticCreate : null
@@ -1050,6 +1070,7 @@ export default function App({
         onToggleLens={toggleLens}
         onWidenDoneLens={widenDoneLens}
         onCreate={openCreate}
+        onLogDone={openLog}
         onCreateChild={(task) => openCreate(task.id)}
         onOpenCategoryPicker={openCategoryPicker}
         onOpenStatusMenu={openStatusMenu}

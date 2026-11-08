@@ -58,7 +58,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Command | Args | Result |
 | --- | --- | --- |
-| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `parentId` | `task`, `changed`, `operationId` |
+| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `parentId`, `closedAt` | `task`, `changed`, `operationId` |
 | `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments` | `task`, `changed`, `operationId` |
 | `task.start` `pause` `complete` `reopen` `cancel` `delete` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.status.undo` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
@@ -75,6 +75,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Rule | Then |
 | --- | --- |
+| `create.logged` | `task.create` with `closedAt` (a timestamp, not after now) logs a task already done: it is created done at that time. A time in the future fails `INVALID_ARGUMENT` |
 | `create.defaults` | New tasks are open, P2, empty description, no category, tags, parent or dependencies unless given, and first among siblings |
 | `update.no-graph` | `task.update` can't set status, links, order keys or timestamps |
 | `reorder.one-scope` | All selected tasks and the anchor share one parent, the anchor isn't selected, and selected tasks are in their current order. Otherwise `INVALID_ARGUMENT` |
@@ -122,7 +123,7 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 
 | Rule | Then |
 | --- | --- |
-| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `search`, `unblocked`, `closedSince`, `dueBefore`, `includeAncestors`, `includeDescendants` |
+| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `excludeCategories` (none of), `search`, `unblocked`, `closedSince`, `dueBefore`, `includeAncestors`, `includeDescendants` |
 | `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
 | `list.due-before` | `dueBefore` is a `YYYY-MM-DD` date. It matches tasks due earlier than that day, whatever their status; undated tasks never match |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |

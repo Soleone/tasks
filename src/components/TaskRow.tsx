@@ -305,7 +305,10 @@ export function CategoryFact({
 }): ReactElement {
   const swatch = useSharedSettings().colors[label];
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground group-hover/fact:text-foreground">
+    <span
+      data-category={label}
+      className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground group-hover/fact:text-foreground"
+    >
       <Folder
         className={cn(
           "size-3.5 shrink-0",

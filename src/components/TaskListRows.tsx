@@ -238,6 +238,7 @@ export function InlineTaskComposer({
   const task = composer.mode === "edit" ? composer.task : undefined;
   const parentId = composer.mode === "create" ? composer.parentId : undefined;
   const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
+  const logged = composer.mode === "create" && composer.logged === true;
   const indented = (task ? task.parentId : parentId) != null;
 
   // Laid out like the row it replaces: the status glyph, then the title, so nothing shifts when
@@ -262,6 +263,7 @@ export function InlineTaskComposer({
           task={task}
           parentId={parentId}
           initialTitle={initialTitle}
+          logged={logged}
           categories={categories}
           categoryColumn={categoryColumn}
           onSaved={onSaved}

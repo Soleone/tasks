@@ -129,6 +129,10 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Reset filters", keys: ["Esc"] },
   },
   {
+    id: "capture.log",
+    keyboard: { label: "Log a task already done", keys: ["L"] },
+  },
+  {
     id: "capture.child",
     keyboard: { label: "New child of the active task", keys: ["Shift", "C"] },
   },

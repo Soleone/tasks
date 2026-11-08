@@ -1,3 +1,4 @@
+import { LoggedWhenPill, loggedAt, type LoggedWhen } from "./LoggedWhen";
 import { randomUUID } from "../lib/randomUUID";
 import {
   useEffect,
@@ -55,7 +56,7 @@ import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
 
 export type ComposerState =
-  | { mode: "create"; parentId?: string; initialTitle?: string }
+  | { mode: "create"; parentId?: string; initialTitle?: string; logged?: boolean }
   | { mode: "edit"; task: TaskView };
 
 export type TaskCreateDraft = {
@@ -79,9 +80,11 @@ type TaskComposerProps = {
   onCreateFailed: () => void;
   onCancel: () => void;
   onCopyImage: (name: string) => void;
+  /** Logs the new task as already done (`L`), with a "when" pill after the title. */
+  logged?: boolean;
 };
 
-type ComposerField = "title" | "description" | "images";
+type ComposerField = "title" | "when" | "description" | "images";
 
 const MARKER_MOVES: Record<Marker, MoveId> = {
   "@": "shorthand.category",
@@ -175,6 +178,7 @@ export function TaskComposer({
   onCreateFailed,
   onCancel,
   onCopyImage,
+  logged = false,
 }: TaskComposerProps): ReactElement {
   const id = useId();
   const form = useRef<HTMLFormElement>(null);
@@ -184,6 +188,9 @@ export function TaskComposer({
   const saving = useRef(false);
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const focusNotesOnOpen = useRef(false);
+  const whenPill = useRef<HTMLButtonElement>(null);
+  const [when, setWhen] = useState<LoggedWhen>("now");
+  const [loggedDay, setLoggedDay] = useState(() => localToday());
   const [initialDraft] = useState(() =>
     task
       ? {
@@ -434,10 +441,15 @@ export function TaskComposer({
 
   // Tab order: title, description, images. Landing on a closed description opens it.
   function focusAfter(field: ComposerField, backward: boolean): void {
-    const stops: ComposerField[] =
-      images.attachments.length > 0 ? ["title", "description", "images"] : ["title", "description"];
+    const stops: ComposerField[] = [
+      "title",
+      ...(logged ? (["when"] as const) : []),
+      "description",
+      ...(images.attachments.length > 0 ? (["images"] as const) : []),
+    ];
     const next = stops[(stops.indexOf(field) + (backward ? stops.length - 1 : 1)) % stops.length];
     if (next === "title") titleInput.current?.focus();
+    else if (next === "when") whenPill.current?.focus();
     else if (next === "images") imageRow.current?.focus();
     else if (notesOpen) notesInput.current?.focus();
     else showNotes();
@@ -599,7 +611,13 @@ export function TaskComposer({
           ...(parentId ? { parentId } : {}),
         });
       }
-      const draft = { text, description, priority, attachments };
+      const draft = {
+        text,
+        description,
+        priority,
+        attachments,
+        ...(logged && !task ? { closedAt: loggedAt(when, loggedDay) } : {}),
+      };
       const result = task
         ? await updateTask(task.id, draft, task.version, options)
         : await createTask(draft, { ...options, parentId });
@@ -777,6 +795,21 @@ export function TaskComposer({
           )}
         </div>
       </div>
+      {logged && !task ? (
+        <LoggedWhenPill
+          when={when}
+          day={loggedDay}
+          onWhen={setWhen}
+          onDay={setLoggedDay}
+          pillRef={whenPill}
+          onKeyDown={(event) => {
+            if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
+            if (event.target !== whenPill.current && !event.shiftKey) return;
+            event.preventDefault();
+            focusAfter("when", event.shiftKey);
+          }}
+        />
+      ) : null}
       {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}
       {classification.category === null &&
       classification.tags.length === 0 &&

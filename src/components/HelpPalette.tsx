@@ -75,6 +75,7 @@ type HelpEntry = {
     | "pause-task"
     | "new-task"
     | "new-child-task"
+    | "log-done-task"
     | "filter-category"
     | "filter-status"
     | "filter-priority"
@@ -104,6 +105,14 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         icon: FileText,
         keys: ["Enter"],
         keywords: "enter inline edit selected active task row",
+      },
+      {
+        label: "Log a task already done",
+        hint: "Created done, now or earlier",
+        icon: CircleCheck,
+        keys: ["L"],
+        action: "log-done-task",
+        keywords: "l log done finished completed already record goal",
       },
       {
         label: "New child task",
@@ -469,6 +478,7 @@ export function HelpPalette({
   onToggleLens,
   onWidenDoneLens,
   onCreate,
+  onLogDone,
   onCreateChild,
   onOpenCategoryPicker,
   onOpenStatusMenu,
@@ -494,6 +504,7 @@ export function HelpPalette({
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: () => void;
   onCreate: () => void;
+  onLogDone: () => void;
   onCreateChild?: (task: TaskView) => void;
   onOpenCategoryPicker: () => void;
   onOpenStatusMenu: () => void;
@@ -560,33 +571,35 @@ export function HelpPalette({
                                         : undefined
                                       : entry.action === "new-task"
                                         ? onCreate
-                                        : entry.action === "new-child-task" &&
-                                            activeTask &&
-                                            onCreateChild
-                                          ? () => onCreateChild(activeTask)
-                                          : entry.action === "filter-category"
-                                            ? onOpenCategoryPicker
-                                            : entry.action === "filter-status"
-                                              ? onOpenStatusMenu
-                                              : entry.action === "filter-priority"
-                                                ? onOpenPriorityMenu
-                                                : entry.action === "filter-tags"
-                                                  ? onOpenTagPicker
-                                                  : entry.action === "filter-search"
-                                                    ? onOpenSearch
-                                                    : entry.action === "add-blocker" &&
-                                                        activeTask &&
-                                                        onAddBlocker
-                                                      ? () => onAddBlocker(activeTask)
-                                                      : entry.action === "pause-task" &&
+                                        : entry.action === "log-done-task"
+                                          ? onLogDone
+                                          : entry.action === "new-child-task" &&
+                                              activeTask &&
+                                              onCreateChild
+                                            ? () => onCreateChild(activeTask)
+                                            : entry.action === "filter-category"
+                                              ? onOpenCategoryPicker
+                                              : entry.action === "filter-status"
+                                                ? onOpenStatusMenu
+                                                : entry.action === "filter-priority"
+                                                  ? onOpenPriorityMenu
+                                                  : entry.action === "filter-tags"
+                                                    ? onOpenTagPicker
+                                                    : entry.action === "filter-search"
+                                                      ? onOpenSearch
+                                                      : entry.action === "add-blocker" &&
                                                           activeTask &&
-                                                          onPauseTask
-                                                        ? () => onPauseTask(activeTask)
-                                                        : entry.action === "move-under" &&
+                                                          onAddBlocker
+                                                        ? () => onAddBlocker(activeTask)
+                                                        : entry.action === "pause-task" &&
                                                             activeTask &&
-                                                            onMoveUnder
-                                                          ? () => onMoveUnder(activeTask)
-                                                          : undefined;
+                                                            onPauseTask
+                                                          ? () => onPauseTask(activeTask)
+                                                          : entry.action === "move-under" &&
+                                                              activeTask &&
+                                                              onMoveUnder
+                                                            ? () => onMoveUnder(activeTask)
+                                                            : undefined;
                   return (
                     <CommandItem
                       key={entry.label}
