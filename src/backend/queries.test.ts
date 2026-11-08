@@ -51,6 +51,18 @@ test("list.closed-since: closed tasks at or after the time match; active tasks n
   }
 });
 
+test("list.closed-before: closed tasks before the time match; active tasks never do", () => {
+  assert.deepEqual(ids({ closedBefore: "2026-10-20T12:00:00.000Z" }), ["1"]);
+  assert.deepEqual(
+    ids({ closedSince: "2026-10-20T12:00:00.000Z", closedBefore: "2026-10-21T09:00:00.000Z" }),
+    ["2"],
+  );
+  assert.throws(
+    () => ids({ closedBefore: "2026-10-20" }),
+    (error: unknown) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+  );
+});
+
 test("list.filters: excludeCategories keeps tasks outside those categories, uncategorized too", () => {
   const sorted = [
     { ...task("w", "open", null), category: "work" },

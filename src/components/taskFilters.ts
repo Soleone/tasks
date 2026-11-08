@@ -82,6 +82,7 @@ export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters)
         : presetStatuses(filters.statusPreset).includes(task.status);
   if (!statusOk) return false;
   if (lens?.closedSince !== undefined && (task.closedAt ?? "") < lens.closedSince) return false;
+  if (lens?.closedBefore !== undefined && (task.closedAt ?? "") >= lens.closedBefore) return false;
   if (lens?.dueBefore !== undefined && (task.due === null || task.due >= lens.dueBefore))
     return false;
   if (lens?.category !== undefined && task.category?.slug !== lens.category) return false;

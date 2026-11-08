@@ -85,6 +85,7 @@ function listTasks(
     "search",
     "unblocked",
     "closedSince",
+    "closedBefore",
     "dueBefore",
     "includeAncestors",
     "includeDescendants",
@@ -123,6 +124,8 @@ function listTasks(
   // Stored times share this exact form, so text order is time order.
   const closedSince = args.closedSince;
   if (closedSince !== undefined && !isTimestamp(closedSince)) invalidFilter("closedSince");
+  const closedBefore = args.closedBefore;
+  if (closedBefore !== undefined && !isTimestamp(closedBefore)) invalidFilter("closedBefore");
   // Due dates are `YYYY-MM-DD`, so text order is day order too.
   const dueBefore = args.dueBefore;
   if (dueBefore !== undefined && !isDueDate(dueBefore)) invalidFilter("dueBefore");
@@ -153,6 +156,7 @@ function listTasks(
       tags.every((tag) => task.tags.includes(tag)) &&
       (args.unblocked !== true || task.blockedByIds.length === 0) &&
       (closedSince === undefined || (task.closedAt !== null && task.closedAt >= closedSince)) &&
+      (closedBefore === undefined || (task.closedAt !== null && task.closedAt < closedBefore)) &&
       (dueBefore === undefined || (task.due !== null && task.due < dueBefore)) &&
       (search === undefined ||
         asciiLower(task.title).includes(search) ||

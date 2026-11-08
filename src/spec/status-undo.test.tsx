@@ -338,7 +338,7 @@ describe("completion", () => {
     await expectActive("Child");
   });
 
-  test("done.lens-window: Shift+D and the count line look back 7 days, then 30, then a day", async () => {
+  test("done.lens-window: Shift+D and the count line show yesterday, then 7 days, then 30, then today", async () => {
     const finished = await workspace.create("Finished");
     await workspace.change("task.complete", finished.id);
     await workspace.create("Open");
@@ -351,6 +351,8 @@ describe("completion", () => {
       await user.keyboard("d");
       await waitFor(() => expect(countLine()).toBe("0 done today"));
       expect(screen.getByText("Nothing done today")).toBeTruthy();
+      await user.keyboard("{Shift>}d{/Shift}");
+      await waitFor(() => expect(countLine()).toBe("0 done yesterday"));
       await user.keyboard("{Shift>}d{/Shift}");
       await expectRows(["Finished"]);
       expect(countLine()).toBe("1 done in the last 7 days");

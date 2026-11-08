@@ -415,11 +415,11 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
       },
       {
         label: "Look further back",
-        hint: "Done in the last 7 days, then 30",
+        hint: "Done yesterday, then the last 7 days, then 30",
         action: "widen-done-lens",
         icon: CalendarCheck,
         keys: ["Shift", "D"],
-        keywords: "accomplished finished completed week month history",
+        keywords: "accomplished finished completed yesterday week month history",
       },
       {
         label: "Toggle this palette",
