@@ -30,7 +30,7 @@ A goal is a number of tasks to finish a day or a week, per category, plus one fo
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.goals` | Settings › Goals | Lists each goal with its category's color (set in Settings › Categories, not here), a number and a day or a week, then Add a goal… for a category without one, then everything else. `Up` / `Down` move between goals in the same column, `Tab` goes to the number, then a day / a week. Clearing a number removes its goal. Renaming a category carries its goal |
+| `settings.goals` | Settings › Goals | Lists each goal with its category's color (set in Settings › Categories, not here), a number and a day or a week, then Add a goal… for a category without one, then everything else. `Up` / `Down` move between goals in the same column, `Tab` goes to the number, then a day / a week. A category goal's × removes it and moves on to the next row; clearing a number removes its goal too. Renaming a category carries its goal |
 | `settings.days` | Settings › General › Days and weeks | Day ends at (midnight to 11:00) and Week starts on, shared by every device |
 
 ## Logging

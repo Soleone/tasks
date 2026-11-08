@@ -1,5 +1,7 @@
 import { useState, type KeyboardEvent, type ReactElement } from "react";
+import { X } from "lucide-react";
 import { cn } from "cn";
+import { QuietButton } from "@/components/variants/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { CountInput } from "@/components/variants/input";
@@ -108,13 +110,32 @@ function GoalRow({
           </Field>
         ))}
       </InlineRadioGroup>
+      {slug && (
+        <QuietButton
+          type="button"
+          size="icon-xs"
+          className="ml-auto"
+          aria-label={`Remove ${name} goal`}
+          title="Remove goal"
+          onClick={(event) => {
+            const row = event.currentTarget.closest("[data-goal-row]");
+            row?.nextElementSibling
+              ?.querySelector<HTMLElement>("input[data-goal-count], button")
+              ?.focus();
+            void setGoal(slug, null);
+          }}
+        >
+          <X aria-hidden="true" />
+        </QuietButton>
+      )}
     </div>
   );
 }
 
 /**
  * Settings › Goals: a goal per category and one for everything else, each a number a day or a
- * week. Clearing a number removes its goal. Colors come from Settings › Categories.
+ * week. Clearing a number, or a category goal's ×, removes the goal. Colors come from Settings ›
+ * Categories.
  */
 export function GoalsSection({ open }: { open: boolean }): ReactElement {
   const { goals, otherGoal, colors } = useSharedSettings();
@@ -173,7 +194,7 @@ export function GoalsSection({ open }: { open: boolean }): ReactElement {
         />
       </div>
       <p className="text-xs text-muted-foreground" aria-hidden="true">
-        ↑ ↓ goal · Tab number, then a day / a week · clear a number to remove its goal
+        ↑ ↓ goal · Tab number, then a day / a week · × or clear a number to remove its goal
       </p>
     </section>
   );

@@ -140,6 +140,25 @@ test("settings.goals: a number sets a goal, a day or a week, clearing it removes
   );
 });
 
+test("settings.goals: a category goal's × removes it and focuses the next row", async () => {
+  await workspace.writeSharedSettings({
+    goals: { home: { count: 1, per: "day" }, work: { count: 2, per: "week" } },
+    otherGoal: { count: 3, per: "day" },
+  });
+  const { user } = await workspace.render({ home: true });
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Goals" }));
+  expect(screen.queryByRole("button", { name: "Remove Everything else goal" })).toBeNull();
+  await user.click(await screen.findByRole("button", { name: "Remove @home goal" }));
+  expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "@work" }));
+  await waitFor(async () =>
+    expect(JSON.parse((await workspace.homeDocument("shared"))!).goals).toEqual({
+      work: { count: 2, per: "week" },
+    }),
+  );
+  expect(screen.queryByRole("textbox", { name: "@home" })).toBeNull();
+});
+
 test("capture.log: L logs a task already done, at the time its pill says", async () => {
   await workspace.create("Open");
   const { user } = await workspace.render();
