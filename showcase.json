@@ -15,7 +15,7 @@
     "capture": "node scripts/capture-demo.mjs"
   },
   "brand": {
-    "icon": "assets/branding/ai-todo-icon-two-color-v8.svg",
+    "icon": "src-tauri/app-icon/icon.svg",
     "colors": ["#d4af37", "#090a0c"]
   },
   "demo": {
