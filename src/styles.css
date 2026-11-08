@@ -48,6 +48,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
+  /* On an inverted surface (a tooltip), the theme's green leans toward the page so it stays legible. */
+  --color-success-inverse: color-mix(in oklab, var(--success) 50%, var(--background));
   --color-warning: var(--warning);
   --color-priority-faint: var(--priority-faint);
   --color-success-faint: var(--success-faint);

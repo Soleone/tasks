@@ -98,11 +98,15 @@ function Numbers({
   const met = done >= target;
   return (
     <span
-      className={cn("ml-3 inline-flex whitespace-pre tabular-nums", met && check && "text-success")}
+      className={cn(
+        "ml-3 inline-flex whitespace-pre tabular-nums",
+        met && check && "text-success-inverse",
+      )}
     >
       {check && <span className="w-[2ch]">{met ? "✓" : ""}</span>}
-      <span className="w-(--dw) text-right">{done}</span> /{" "}
-      <span className="w-(--gw) text-right">{target}</span>
+      <span className="w-(--dw) text-right">{done}</span>
+      {/* The goal recedes, so the eye lands on the number you moved. */}
+      <span className="w-[calc(var(--gw)+1ch)] opacity-55">/{target}</span>
     </span>
   );
 }
@@ -397,7 +401,8 @@ export function DoneLensGoals({
             {entry.name}
             <span className={cn("tabular-nums", isMet(entry) && "text-success")}>
               {isMet(entry) && "✓ "}
-              {entry.done} / {entry.target}
+              {entry.done}
+              <span className="opacity-55">/{entry.target}</span>
             </span>
           </button>
         );

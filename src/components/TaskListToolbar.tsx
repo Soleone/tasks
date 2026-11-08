@@ -353,14 +353,16 @@ export function TaskListToolbar({
     lensGoals?.goals.find(
       (goal) => JSON.stringify(goalLens(goal, lensGoals)) === JSON.stringify(narrowedTo),
     )?.target ?? null;
+  const summaryTarget = lensTarget !== null ? `/${lensTarget}` : "";
   const summaryPhrase = lens
-    ? `${lensTarget !== null ? `/ ${lensTarget} ` : ""}${lensPhrase(lens)}`
+    ? lensPhrase(lens)
     : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
-  const summaryBase = `${summaryTaskCount} ${summaryPhrase}`;
+  const summaryBase = `${summaryTaskCount}${summaryTarget} ${summaryPhrase}`;
   // The number stands alone so a lens count can fly into it (useLensFlip).
   const summaryText = (
     <>
-      <span data-summary-count>{summaryTaskCount}</span> {summaryPhrase}
+      <span data-summary-count>{summaryTaskCount}</span>
+      {summaryTarget && <span className="opacity-55">{summaryTarget}</span>} {summaryPhrase}
     </>
   );
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
