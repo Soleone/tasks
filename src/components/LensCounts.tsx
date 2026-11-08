@@ -98,20 +98,24 @@ export function DoneToday({
     setShownTotal(target);
     setRolledFrom(target > shownTotal ? shownTotal : null);
   }
+  // Goals hold their last numbers too, so a ring fills as the check lands on it.
+  const [heldGoals, setHeldGoals] = useState(goals);
+  if (landing === 0 && heldGoals !== goals) setHeldGoals(goals);
+  const shownGoals = landing > 0 && heldGoals ? heldGoals : goals;
   const count = (
     <LensCount
       {...props}
       total={shownTotal}
       holdPlace={landing > 0}
-      alwaysShown={goals !== null}
-      tip={goals && <DoneTodayTip today={goals} lensOn={props.lensOn} />}
+      alwaysShown={shownGoals !== null}
+      tip={shownGoals && <DoneTodayTip today={shownGoals} lensOn={props.lensOn} />}
       kind="done"
       label="done today"
       shortcut="D"
       showLabel="Show what's done"
     >
-      {goals ? (
-        <BigRing today={goals} />
+      {shownGoals ? (
+        <BigRing today={shownGoals} />
       ) : (
         <CircleCheck data-icon="inline-start" aria-hidden="true" className="text-success" />
       )}
@@ -140,7 +144,7 @@ export function DoneToday({
       </span>
     </LensCount>
   );
-  if (!goals) return count;
+  if (!shownGoals) return count;
   // Hovering the count lights up the whole group as one: the ring is the goals added up.
   return (
     <span
@@ -149,7 +153,7 @@ export function DoneToday({
     >
       {count}
       <span className="contents" onClick={props.onToggleLens}>
-        <GoalRings today={goals} categoryFilter={categoryFilter} lensOn={props.lensOn} />
+        <GoalRings today={shownGoals} categoryFilter={categoryFilter} lensOn={props.lensOn} />
       </span>
     </span>
   );

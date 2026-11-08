@@ -15,10 +15,10 @@ A goal is a number of tasks to finish a day or a week, per category, plus one fo
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `goals.header` | Goals are set | The done count's check becomes a ring for today's total and shows from the start of the day, even at zero. With two goals or more, each open goal follows as a small ring in its category's color (neutral for everything else), up to four, then "+N". Met goals fold into one check with a pip in each one's color, up to three, then "✓N". With a category filter on, only that category's goal stays. Small rings fold away on a narrow window. Clicking any of them toggles the done lens |
+| `goals.header` | Goals are set | The done count's check becomes a ring for today's total and shows from the start of the day, even at zero. With two goals or more, each open goal follows as a small ring in its category's color (neutral for everything else), up to four, then "+N". Met goals fold into one check with a pip in each category's color, up to three, then "✓N"; everything else adds no pip. A ring's arc eases to its new length, runs a little past it and settles back. With a category filter on, only that category's goal stays. Small rings fold away on a narrow window. Clicking any of them toggles the done lens |
 | `goals.hover` | Hovering the done count | The whole group lights up as one: the ring is the goals added up |
 | `goals.tooltips` | Hovering a part | The done count: "Done today" with today's total against the target, then each goal's numbers when there are two or more, and Show what's done `D`. A goal ring: its name and today's numbers; a weekly goal labels Today and This week. The met check: "Met today" and each met goal's numbers. A check sits in its own slot left of met numbers, and numbers line up in columns however many digits they have |
-| `goals.flight` | A completion flies to the header (`done.flight`) | It lands on the ring of the goal it fills, which bumps, then a dot in that goal's color carries on to the done count, which bumps. When that goal is already met, or the task fills no goal ring, it lands on the done count as before |
+| `goals.flight` | A completion flies to the header (`done.flight`) | The rings hold their numbers until it lands on the ring of the goal it fills, which then fills and bumps, then a dot in that goal's color carries on to the done count, which bumps. When that goal is already met, or the task fills no goal ring, it lands on the done count as before |
 
 ## Done lens
 

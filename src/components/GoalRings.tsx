@@ -6,7 +6,8 @@ import { isMet, type GoalProgress, type GoalsToday } from "@/goals";
 import type { GoalLens } from "./listLens";
 
 const RADIUS = 10;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+/** The arc's length in its own units, as pathLength. */
+const ARC = 100;
 const CHECK = "m9 12 2 2 4-4";
 /** Open goals beside the count before the rest fold into "+N". */
 const OPEN_SHOWN = 4;
@@ -54,19 +55,21 @@ function Ring({
         cy="12"
         r={RADIUS}
         strokeWidth={strokeWidth}
-        className={full ? stroke : "stroke-foreground/15"}
+        className="stroke-foreground/15"
       />
-      {fraction > 0 && !full && (
-        <circle
-          cx="12"
-          cy="12"
-          r={RADIUS}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${CIRCUMFERENCE * fraction} ${CIRCUMFERENCE}`}
-          transform="rotate(-90 12 12)"
-          className={stroke}
-        />
-      )}
+      {/* Always drawn so a change eases into place: past the goal a little, then back. The gap
+          is a whole turn, so overshooting a full ring still draws one. */}
+      <circle
+        cx="12"
+        cy="12"
+        r={RADIUS}
+        pathLength={ARC}
+        strokeWidth={strokeWidth}
+        strokeDasharray={`${ARC * Math.min(fraction, 1)} ${ARC}`}
+        transform="rotate(-90 12 12)"
+        data-goal-arc
+        className={cn(stroke, fraction === 0 && "opacity-0")}
+      />
       {(check === "always" || full) && (
         <path d={CHECK} strokeWidth={2.4} className={full ? stroke : "stroke-muted-foreground"} />
       )}
@@ -276,24 +279,24 @@ function MetCheck({ met }: { met: GoalProgress[] }): ReactElement {
         strokeLinejoin="round"
         className="stroke-success"
       />
-      {met.map((goal, index) => (
-        <circle
-          key={goal.slug ?? ""}
-          cx={20.5 - index * 5.4}
-          cy={19.5}
-          r={4}
-          strokeWidth={1.6}
-          data-swatch={goal.swatch ?? undefined}
-          className={cn(
-            "stroke-background",
-            goal.swatch
-              ? "fill-(--swatch)"
-              : goal.slug
-                ? "fill-classification-category"
-                : "fill-foreground",
-          )}
-        />
-      ))}
+      {/* Only categories get a pip: everything else has no color to tell it apart, so the
+          check alone says it, and the tooltip names it. */}
+      {met
+        .filter((goal) => goal.slug !== null)
+        .map((goal, index) => (
+          <circle
+            key={goal.slug ?? ""}
+            cx={20.5 - index * 5.4}
+            cy={19.5}
+            r={4}
+            strokeWidth={1.6}
+            data-swatch={goal.swatch ?? undefined}
+            className={cn(
+              "stroke-background",
+              goal.swatch ? "fill-(--swatch)" : "fill-classification-category",
+            )}
+          />
+        ))}
     </svg>
   );
 }
