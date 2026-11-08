@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
+import { Fragment } from "react";
 import { cn } from "cn";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,7 +11,17 @@ const RADIUS = 10;
 const ARC = 100;
 const CHECK = "m9 12 2 2 4-4";
 /** Open goals beside the count before the rest fold into "+N". */
-const OPEN_SHOWN = 4;
+/**
+ * How many open rings the header has room for as it narrows: four, two on a phone, one on a small
+ * phone, none below 360px. Each ring hides below its width; `from` hides a tail from the next step
+ * up, `below` under its own.
+ */
+const RING_STEPS = [
+  { shown: 1, below: "", from: "" },
+  { shown: 2, below: "max-[389px]:hidden", from: "min-[390px]:hidden" },
+  { shown: 4, below: "max-sm:hidden", from: "sm:hidden" },
+];
+const RING_HIDDEN = ["", "max-[389px]:hidden", "max-sm:hidden", "max-sm:hidden"];
 /** Met goals shown as pips on the check before it becomes "✓N". */
 const PIPS_SHOWN = 3;
 
@@ -246,11 +257,15 @@ function MetTip({ met }: { met: GoalProgress[] }): ReactElement {
 function Tipped({
   tip,
   children,
+  className,
   ...data
-}: { tip: ReactNode; children: ReactElement } & Record<`data-${string}`, string>) {
+}: { tip: ReactNode; children: ReactElement; className?: string } & Record<
+  `data-${string}`,
+  string
+>) {
   return (
     <Tooltip>
-      <TooltipTrigger render={<span className="flex items-center" {...data} />}>
+      <TooltipTrigger render={<span className={cn("flex items-center", className)} {...data} />}>
         {children}
       </TooltipTrigger>
       <TooltipContent side="bottom">{tip}</TooltipContent>
@@ -295,8 +310,8 @@ function MetCheck({ met }: { met: GoalProgress[] }): ReactElement {
 }
 
 /**
- * The goals beside the done count: up to four open goals as small rings, then the met ones folded
- * into a check with colored pips. With only one goal the big ring says it all. With a category
+ * The goals beside the done count: up to four open goals as small rings (two on a phone), then the
+ * met ones folded into a check with colored pips. With only one goal the big ring says it all. With a category
  * filter on, only that category's goal stays.
  */
 export function GoalRings({
@@ -316,14 +331,40 @@ export function GoalRings({
   );
   const open = goals.filter((goal) => !isMet(goal));
   const met = goals.filter(isMet);
-  const shown = open.slice(0, OPEN_SHOWN);
-  const folded = open.length - shown.length;
   if (goals.length === 0) return null;
+  // What follows the rings: "+N" for every goal left out, or the met check when none is.
+  const tail = (shown: number, className?: string) => {
+    const folded = Math.max(0, open.length - shown);
+    if (folded > 0)
+      return (
+        <Tipped
+          tip={<DoneTodayTip today={today} lensOn={lensOn} />}
+          className={className}
+          data-goal-more=""
+        >
+          <span className="text-xs text-muted-foreground tabular-nums">+{folded + met.length}</span>
+        </Tipped>
+      );
+    return (
+      met.length > 0 && (
+        <Tipped tip={<MetTip met={met} />} className={className} data-goal-met="">
+          <span className="ml-0.5 flex items-center">
+            <MetCheck met={met} />
+          </span>
+        </Tipped>
+      )
+    );
+  };
+  // A step that shows no more rings than the one before needs no tail of its own.
+  const steps = RING_STEPS.filter(
+    (step, index) => index === 0 || open.length > RING_STEPS[index - 1].shown,
+  );
   return (
-    <span className="flex items-center gap-1 py-1 pr-2 max-sm:hidden" data-goal-rings>
-      {shown.map((goal) => (
+    <span className="flex items-center gap-1 py-1 pr-2 max-[359px]:hidden" data-goal-rings>
+      {open.slice(0, RING_HIDDEN.length).map((goal, index) => (
         <Tipped
           key={goal.slug ?? ""}
+          className={RING_HIDDEN[index]}
           tip={<GoalTip goal={goal} />}
           data-goal-ring={goal.slug ?? ""}
         >
@@ -337,19 +378,11 @@ export function GoalRings({
           />
         </Tipped>
       ))}
-      {folded > 0 ? (
-        <Tipped tip={<DoneTodayTip today={today} lensOn={lensOn} />} data-goal-more="">
-          <span className="text-xs text-muted-foreground tabular-nums">+{folded + met.length}</span>
-        </Tipped>
-      ) : (
-        met.length > 0 && (
-          <Tipped tip={<MetTip met={met} />} data-goal-met="">
-            <span className="ml-0.5 flex items-center">
-              <MetCheck met={met} />
-            </span>
-          </Tipped>
-        )
-      )}
+      {steps.map((step, index) => (
+        <Fragment key={step.shown}>
+          {tail(step.shown, cn(step.below, steps[index + 1]?.from))}
+        </Fragment>
+      ))}
     </span>
   );
 }
