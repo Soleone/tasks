@@ -37,7 +37,7 @@ test("goals.header: open goals ring the count, met ones fold into a check, even 
     [...document.querySelectorAll("[data-goal-ring]")].map((ring) =>
       ring.getAttribute("data-goal-ring"),
     ),
-  ).toEqual(["life", "work", ""]);
+  ).toEqual(["life", "work"]);
 
   await done("Called mom", "life");
   await done("Fixed the tap", "home");
@@ -54,15 +54,6 @@ test("goals.header: open goals ring the count, met ones fold into a check, even 
   expect(lines).toContain("2 of 6");
   expect(lines).toContain("@life✓1 of 1");
   expect(lines).toContain("Everything else1 of 3");
-
-  // Everything else has no color to tell it apart, so meeting it adds no pip.
-  await done("Paid rent");
-  await done("Swept");
-  await user.keyboard("{Control>}{/Control}");
-  await waitFor(() => expect(document.querySelector("[data-goal-ring='']")).toBeNull(), {
-    timeout: 4000,
-  });
-  expect(document.querySelectorAll("[data-goal-met] circle")).toHaveLength(1);
 });
 
 test("goals.names: the only goal is All tasks and needs no small rings", async () => {

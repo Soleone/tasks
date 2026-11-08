@@ -14,13 +14,9 @@ const OPEN_SHOWN = 4;
 /** Met goals shown as pips on the check before it becomes "✓N". */
 const PIPS_SHOWN = 3;
 
-/** A goal's stroke: its category's color, the theme's category green without one, neutral for everything else. */
+/** A category goal's stroke: its color, or the theme's category green without one. */
 function strokeOf(goal: GoalProgress): string {
-  return goal.swatch
-    ? "stroke-(--swatch)"
-    : goal.slug
-      ? "stroke-classification-category"
-      : "stroke-foreground";
+  return goal.swatch ? "stroke-(--swatch)" : "stroke-classification-category";
 }
 
 function Ring({
@@ -278,24 +274,20 @@ function MetCheck({ met }: { met: GoalProgress[] }): ReactElement {
         strokeLinejoin="round"
         className="stroke-success"
       />
-      {/* Only categories get a pip: everything else has no color to tell it apart, so the
-          check alone says it, and the tooltip names it. */}
-      {met
-        .filter((goal) => goal.slug !== null)
-        .map((goal, index) => (
-          <circle
-            key={goal.slug ?? ""}
-            cx={20.5 - index * 5.4}
-            cy={19.5}
-            r={4}
-            strokeWidth={1.6}
-            data-swatch={goal.swatch ?? undefined}
-            className={cn(
-              "stroke-background",
-              goal.swatch ? "fill-(--swatch)" : "fill-classification-category",
-            )}
-          />
-        ))}
+      {met.map((goal, index) => (
+        <circle
+          key={goal.slug ?? ""}
+          cx={20.5 - index * 5.4}
+          cy={19.5}
+          r={4}
+          strokeWidth={1.6}
+          data-swatch={goal.swatch ?? undefined}
+          className={cn(
+            "stroke-background",
+            goal.swatch ? "fill-(--swatch)" : "fill-classification-category",
+          )}
+        />
+      ))}
     </svg>
   );
 }
@@ -315,10 +307,11 @@ export function GoalRings({
   lensOn: boolean;
 }): ReactElement | null {
   if (today.goals.length < 2) return null;
-  const goals =
-    categoryFilter === null
-      ? today.goals
-      : today.goals.filter((goal) => goal.slug === categoryFilter);
+  // Everything else has no color of its own, so its ring would read as a second total; the done
+  // count's ring and tooltip carry it.
+  const goals = today.goals.filter(
+    (goal) => goal.slug !== null && (categoryFilter === null || goal.slug === categoryFilter),
+  );
   const open = goals.filter((goal) => !isMet(goal));
   const met = goals.filter(isMet);
   const shown = open.slice(0, OPEN_SHOWN);

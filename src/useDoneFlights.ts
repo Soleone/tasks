@@ -118,7 +118,6 @@ function handOff(ring: SVGElement): void {
   dot.setAttribute("aria-hidden", "true");
   const swatch = ring.getAttribute("data-swatch");
   if (swatch) dot.dataset.swatch = swatch;
-  const stroke = ring.querySelector("circle:last-of-type")?.getAttribute("class") ?? "";
   Object.assign(dot.style, {
     position: "fixed",
     left: `${from.x - 3}px`,
@@ -128,11 +127,7 @@ function handOff(ring: SVGElement): void {
     borderRadius: "9999px",
     pointerEvents: "none",
     zIndex: "50",
-    background: swatch
-      ? "var(--swatch)"
-      : stroke.includes("classification")
-        ? "var(--classification-category)"
-        : "var(--foreground)",
+    background: swatch ? "var(--swatch)" : "var(--classification-category)",
   });
   document.body.append(dot);
   const dx = to.x - from.x;
