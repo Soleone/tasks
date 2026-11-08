@@ -38,6 +38,7 @@ import {
   type SortField,
   type StatusPreset,
 } from "./taskFilters";
+import { CategoryFact } from "./TaskRow";
 import { lensFilter, lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "./listLens";
 import { DoneLensGoals, goalLens } from "./GoalRings";
 import type { GoalsToday } from "@/goals";
@@ -60,7 +61,6 @@ import {
 } from "@/components/variants/toolbar";
 import { CompactPopoverContent } from "@/components/variants/popover";
 import { CompactBreadcrumbList } from "@/components/variants/breadcrumb";
-import { CategoryBadge } from "@/components/variants/badge";
 
 export const TOOLBAR_FOLD_GROUPS = ["filter", "actions"] as const;
 export type ToolbarFoldGroup = (typeof TOOLBAR_FOLD_GROUPS)[number];
@@ -852,12 +852,11 @@ export function TaskListToolbar({
                   filter="category"
                   label={`Clear category filter: ${categoryFilter.label}`}
                   onClear={clearCategoryFilter}
-                  className="shrink-0 rounded-full"
+                  className="group/fact shrink-0"
                 >
-                  <CategoryBadge data-filter-category="true" className="shrink-0">
-                    <Folder data-icon="inline-start" aria-hidden="true" />
-                    {categoryFilter.label}
-                  </CategoryBadge>
+                  <span data-filter-category="true">
+                    <CategoryFact label={categoryFilter.label} />
+                  </span>
                 </FilterSummaryAction>
               </BreadcrumbItem>
             </>
