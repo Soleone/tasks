@@ -43,6 +43,8 @@ type Flip = {
   hold: Animation | null;
   /** Whether the new list has started swinging in. */
   swung: boolean;
+  /** The list, which paints every row until it faces you again (see TaskList's row families). */
+  turning: HTMLElement | null;
 };
 
 /** A copy of the list fixed where it stands, so it can turn away after the list changes under it. */
@@ -111,6 +113,9 @@ function flyNumber(flip: Flip, from: HTMLElement, to: HTMLElement, delay: number
 }
 
 function turnAway(flip: Flip, list: HTMLElement): void {
+  // Set first, so the ghost copied from the list keeps every row painted as it turns too.
+  list.dataset.turning = "";
+  flip.turning = list;
   const ghost = ghostOf(list);
   ghost.style.transformOrigin = rowsMiddle(list);
   const animation = ghost.animate(
@@ -129,17 +134,21 @@ function turnAway(flip: Flip, list: HTMLElement): void {
 function swingIn(flip: Flip, list: HTMLElement, delay: number): void {
   const { axis, direction: d } = flip;
   const transformOrigin = rowsMiddle(list);
-  flip.animations.push(
-    list.animate(
-      [
-        { transformOrigin, transform: turn(axis, -90 * d, SINK), opacity: 0.5 },
-        { transformOrigin, offset: 0.62, transform: turn(axis, 9 * d), opacity: 1 },
-        { transformOrigin, offset: 0.84, transform: turn(axis, -3 * d) },
-        { transformOrigin, transform: turn(axis, 0) },
-      ],
-      { duration: SWING_IN_MS, delay, easing: "cubic-bezier(.2,.7,.3,1)", fill: "backwards" },
-    ),
+  const animation = list.animate(
+    [
+      { transformOrigin, transform: turn(axis, -90 * d, SINK), opacity: 0.5 },
+      { transformOrigin, offset: 0.62, transform: turn(axis, 9 * d), opacity: 1 },
+      { transformOrigin, offset: 0.84, transform: turn(axis, -3 * d) },
+      { transformOrigin, transform: turn(axis, 0) },
+    ],
+    { duration: SWING_IN_MS, delay, easing: "cubic-bezier(.2,.7,.3,1)", fill: "backwards" },
   );
+  // A canceled swing leaves this to the stop that canceled it.
+  animation.finished.then(
+    () => delete list.dataset.turning,
+    () => undefined,
+  );
+  flip.animations.push(animation);
 }
 
 /**
@@ -159,6 +168,7 @@ export function useLensFlip(
   function stop(): void {
     flip.current?.animations.forEach((animation) => animation.cancel());
     flip.current?.hold?.cancel();
+    flip.current?.turning?.removeAttribute("data-turning");
     flip.current = null;
   }
 
@@ -179,6 +189,7 @@ export function useLensFlip(
       animations: [],
       hold: null,
       swung: false,
+      turning: null,
     };
     flip.current = next;
     if (list.current) {

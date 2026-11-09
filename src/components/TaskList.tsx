@@ -1940,9 +1940,10 @@ export function TaskList({
           {rootRowRuns(visibleRows).map((run) => (
             // A lone root stays a plain row to assistive tech; a family is a labeled group.
             // Off-screen families skip layout and paint, so paging in more rows stays smooth.
+            // Not while the list turns: edge-on, every family counts as off-screen and goes blank.
             <TaskItemGroup
               key={`run-${run[0].row.task.id}`}
-              className="[contain-intrinsic-size:auto_2.5rem] [content-visibility:auto]"
+              className="[contain-intrinsic-size:auto_2.5rem] [content-visibility:auto] in-data-turning:[content-visibility:visible]"
               role={run.length > 1 ? "group" : "none"}
               aria-label={run.length > 1 ? run[0].row.task.title : undefined}
             >
