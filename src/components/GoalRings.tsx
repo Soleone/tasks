@@ -413,8 +413,7 @@ export function DoneLensGoals({
 }): ReactElement | null {
   if (today.goals.length < 2) return null;
   return (
-    // An empty title keeps the count line's summary from showing as every pill's tooltip.
-    <span className="flex flex-wrap items-center gap-1" title="" data-done-lens-goals>
+    <span className="flex flex-wrap items-center gap-1" data-done-lens-goals>
       {today.goals.map((entry) => {
         const lens = goalLens(entry, today);
         const pressed = sameLens(goal, lens);

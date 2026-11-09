@@ -114,7 +114,7 @@ test("goals.tooltips: a weekly goal labels today and this week", async () => {
       ),
     ).toBe(true),
   );
-  expect(pill.closest("[title]")?.getAttribute("title")).toBe("");
+  expect(pill.closest("[title]")).toBeNull();
 });
 
 test("goals.lens: the done lens counts against the goals and narrows to one", async () => {

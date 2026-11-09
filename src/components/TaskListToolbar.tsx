@@ -97,18 +97,24 @@ function FilterSummaryAction({
   children: ReactNode;
 }): ReactElement {
   return (
-    <button
-      type="button"
-      tabIndex={-1}
-      data-filter-remove={filter}
-      aria-label={label}
-      title={label}
-      onMouseDown={preventFocusSteal}
-      onClick={onClear}
-      className={`rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-ring ${className ?? ""}`}
-    >
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            tabIndex={-1}
+            data-filter-remove={filter}
+            aria-label={label}
+            onMouseDown={preventFocusSteal}
+            onClick={onClear}
+            className={`rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-ring ${className ?? ""}`}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -357,7 +363,6 @@ export function TaskListToolbar({
   const summaryPhrase = lens
     ? lensPhrase(lens)
     : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
-  const summaryBase = `${summaryTaskCount}${summaryTarget} ${summaryPhrase}`;
   // The number stands alone so a lens count can fly into it (useLensFlip).
   const summaryText = (
     <>
@@ -400,13 +405,6 @@ export function TaskListToolbar({
         }
       : null,
   ].filter((part): part is FilterSummaryPart => part !== null);
-  const filterSummary = [
-    summaryBase,
-    categoryFilter ? categoryFilter.label : null,
-    ...summarySuffixParts.map((part) => part.value),
-  ]
-    .filter((part): part is string => part !== null)
-    .join(" · ");
 
   const groupOpen = (group: ToolbarFoldGroup): boolean =>
     !foldedGroups.includes(group) || toolbarMode === group;
@@ -817,7 +815,6 @@ export function TaskListToolbar({
         data-filter-summary="true"
         aria-live="polite"
         aria-atomic="true"
-        title={filterSummary}
         className="overflow-hidden"
       >
         <CompactBreadcrumbList>

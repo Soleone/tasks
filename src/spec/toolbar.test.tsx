@@ -131,6 +131,10 @@ describe("count line", () => {
         (button) => button.closest("[data-filter-summary]") && /P0/.test(button.textContent ?? ""),
       );
     expect(priority).toBeDefined();
+    await user.hover(priority!);
+    expect(
+      (await screen.findByText(/^Clear priority filter/)).closest("[data-slot=tooltip-content]"),
+    ).not.toBeNull();
     await user.click(priority!);
     await waitFor(() => expect(pressed("[data-filter=task-priority]")).toBe("false"));
     expect(pressed("[data-filter=task-unblocked]")).toBe("true");
