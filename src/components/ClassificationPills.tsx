@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { cn } from "cn";
 import { daysBetween, localToday } from "@/backend/dueDate";
 import { formatDueDate, shortDueDate } from "@/backend/taskDates";
+import { Hinted } from "./Hinted";
 import { CategoryFact, DueFact, TagFact } from "./TaskRow";
 import { preventFocusSteal } from "@/navigation";
 import { centerY, flyFilterToPill, PILL_FLIGHT_MS } from "./categoryFlight";
@@ -110,13 +111,14 @@ function PillContent({
   }
   if (pill.kind === "due") {
     return (
-      <DueFact
-        label={pill.label}
-        now={daysBetween(today, pill.slug) <= 0}
-        title={`Due ${formatDueDate(pill.slug, today)}`}
+      <Hinted
+        hint={`Due ${formatDueDate(pill.slug, today)}`}
+        render={<span className="flex min-w-0" />}
       >
-        {remove}
-      </DueFact>
+        <DueFact label={pill.label} now={daysBetween(today, pill.slug) <= 0}>
+          {remove}
+        </DueFact>
+      </Hinted>
     );
   }
   return (

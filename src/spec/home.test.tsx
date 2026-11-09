@@ -763,7 +763,7 @@ describe("details", () => {
     expect(description.textContent).toBe("First\nSecond");
     const blocked = row("Task").querySelector("[data-task-blocker]")!;
     expect(blocked.textContent).toMatch(/Blocked by.*Blocker/);
-    expect(blocked.parentElement?.querySelector("[title^=Created]")).not.toBeNull();
+    expect(blocked.parentElement?.querySelector("[data-task-created]")).not.toBeNull();
     const order = [row("Task").querySelector("[data-slot=item-title]")!, description, blocked];
     for (const [earlier, later] of [order.slice(0, 2), order.slice(1)]) {
       expect(
@@ -779,7 +779,7 @@ describe("details", () => {
     await workspace.create("Later", { due: later });
     const { user } = await workspace.render();
     await user.keyboard("{Shift>}v{/Shift}");
-    await waitFor(() => expect(row("Later").querySelector("[title^=Created]")).not.toBeNull());
+    await waitFor(() => expect(row("Later").querySelector("[data-task-created]")).not.toBeNull());
     const markers = (title: string): (string | null)[] =>
       [...row(title).querySelectorAll("[data-task-due]")].map((marker) => marker.textContent);
     expect(markers("Soon")).toEqual(["Due tomorrow"]);
@@ -865,7 +865,7 @@ describe("details", () => {
     const { user } = await workspace.render();
     await user.keyboard("v");
     await waitFor(() =>
-      expect(row("Task").querySelector("[title^=Created]")?.textContent).toMatch(/today/),
+      expect(row("Task").querySelector("[data-task-created]")?.textContent).toMatch(/today/),
     );
   });
 });

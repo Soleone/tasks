@@ -426,7 +426,8 @@ describe("completion", () => {
     await expectRows(["Finished"]);
     const time = row("Finished").querySelector("[data-task-completed]");
     expect(time?.textContent).toMatch(/^Done \d\d:\d\d$/);
-    expect(time?.getAttribute("title")).toMatch(/^Done \w{3} \d+, \d{4}, \d\d:\d\d$/);
+    await user.hover(time!);
+    await screen.findByText(/^Done \w{3} \d+, \d{4}, \d\d:\d\d$/);
     await user.keyboard("sc");
     await waitFor(() => expect(row("Finished").querySelector("[data-task-completed]")).toBeNull());
   });

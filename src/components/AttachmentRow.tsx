@@ -12,6 +12,7 @@ import { Button } from "@/components/variants/button";
 import { Dialog } from "@/components/ui/dialog";
 import { ImagePreviewContent, PreviewImage } from "@/components/variants/dialog";
 import { preventFocusSteal } from "@/navigation";
+import { Hinted } from "@/components/Hinted";
 import { readAttachment } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { shareImage } from "@/platform/androidImages";
@@ -52,13 +53,15 @@ function Thumbnail({ image }: { image: ImageState | undefined }): ReactElement {
   if (!image) return <span className="size-full animate-pulse bg-muted" />;
   if ("url" in image) return <img src={image.url} alt="" className="size-full object-cover" />;
   return (
-    <span
-      title={"missing" in image ? MISSING_HINT : image.failed}
-      className="flex size-full flex-col items-center justify-center gap-1 bg-muted p-1 text-center text-xs text-muted-foreground"
+    <Hinted
+      hint={"missing" in image ? MISSING_HINT : image.failed}
+      render={
+        <span className="flex size-full flex-col items-center justify-center gap-1 bg-muted p-1 text-center text-xs text-muted-foreground" />
+      }
     >
       <ImageOff className="size-4" aria-hidden="true" />
       {"missing" in image ? "Image missing" : "Image can't be shown"}
-    </span>
+    </Hinted>
   );
 }
 
@@ -188,36 +191,44 @@ export function AttachmentRow({
             >
               <Thumbnail image={image} />
               <span className="absolute top-0.5 right-0.5 flex gap-0.5">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon-xs"
-                  tabIndex={-1}
-                  aria-label="Copy image"
-                  title="Copy image"
-                  onMouseDown={preventFocusSteal}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onCopy(name);
-                  }}
+                <Hinted
+                  hint="Copy image"
+                  render={
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon-xs"
+                      tabIndex={-1}
+                      aria-label="Copy image"
+                      onMouseDown={preventFocusSteal}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCopy(name);
+                      }}
+                    />
+                  }
                 >
                   <Copy aria-hidden="true" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon-xs"
-                  tabIndex={-1}
-                  aria-label="Remove image"
-                  title="Remove image"
-                  onMouseDown={preventFocusSteal}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRemove(name);
-                  }}
+                </Hinted>
+                <Hinted
+                  hint="Remove image"
+                  render={
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon-xs"
+                      tabIndex={-1}
+                      aria-label="Remove image"
+                      onMouseDown={preventFocusSteal}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRemove(name);
+                      }}
+                    />
+                  }
                 >
                   <X aria-hidden="true" />
-                </Button>
+                </Hinted>
               </span>
             </div>
           );

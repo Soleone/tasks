@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent, type ReactElement } from "react";
 import { X } from "lucide-react";
 import { cn } from "cn";
 import { QuietButton } from "@/components/variants/button";
+import { Hinted } from "@/components/Hinted";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { CountInput } from "@/components/variants/input";
@@ -113,22 +114,26 @@ function GoalRow({
         ))}
       </InlineRadioGroup>
       {slug ? (
-        <QuietButton
-          type="button"
-          size="icon-xs"
-          className="ml-auto"
-          aria-label={`Remove ${name} goal`}
-          title="Remove goal"
-          onClick={(event) => {
-            const row = event.currentTarget.closest("[data-goal-row]");
-            row?.nextElementSibling
-              ?.querySelector<HTMLElement>("input[data-goal-count], button")
-              ?.focus();
-            void setGoal(slug, null);
-          }}
+        <Hinted
+          hint="Remove goal"
+          render={
+            <QuietButton
+              type="button"
+              size="icon-xs"
+              className="ml-auto"
+              aria-label={`Remove ${name} goal`}
+              onClick={(event) => {
+                const row = event.currentTarget.closest("[data-goal-row]");
+                row?.nextElementSibling
+                  ?.querySelector<HTMLElement>("input[data-goal-count], button")
+                  ?.focus();
+                void setGoal(slug, null);
+              }}
+            />
+          }
         >
           <X aria-hidden="true" />
-        </QuietButton>
+        </Hinted>
       ) : (
         // Holds the ×'s place so this row's number lines up with the others on a phone.
         <span aria-hidden="true" className="ml-auto size-6 shrink-0" />

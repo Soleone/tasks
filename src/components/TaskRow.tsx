@@ -28,6 +28,7 @@ import { preventFocusSteal } from "@/navigation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
+import { Hinted } from "./Hinted";
 import { flyCategoryToFilter } from "./categoryFlight";
 import { useSharedSettings } from "@/platform/sharedSettings";
 import { startAfterPaint } from "./startAfterPaint";
@@ -361,17 +362,14 @@ export function TagFact({
 export function DueFact({
   label,
   now,
-  title,
   children,
 }: {
   label: string;
   now: boolean;
-  title?: string;
   children?: ReactNode;
 }): ReactElement {
   return (
     <span
-      title={title}
       className={cn(
         "inline-flex items-center gap-1 text-xs whitespace-nowrap",
         now ? "text-destructive" : "text-muted-foreground",
@@ -409,22 +407,26 @@ function TaskRowCategory({
     <CategoryColumn>
       {/* A pointer shortcut inside a list option, like the status glyph.
           Keyboard filtering belongs to the list/toolbar, not a nested button. */}
-      <span
-        role="img"
-        tabIndex={-1}
-        data-task-category={category.slug}
-        aria-label={`Category ${category.label}. Click to filter; press @ to choose a category.`}
-        title={`Filter by ${category.label}`}
-        onMouseDown={preventFocusSteal}
-        onClick={(event) => {
-          event.stopPropagation();
-          flyCategoryToFilter(event.currentTarget);
-          onSelectCategory(category);
-        }}
-        className="group/fact flex min-w-0 cursor-pointer"
+      <Hinted
+        hint={`Filter by ${category.label}`}
+        render={
+          <span
+            role="img"
+            tabIndex={-1}
+            data-task-category={category.slug}
+            aria-label={`Category ${category.label}. Click to filter; press @ to choose a category.`}
+            onMouseDown={preventFocusSteal}
+            onClick={(event) => {
+              event.stopPropagation();
+              flyCategoryToFilter(event.currentTarget);
+              onSelectCategory(category);
+            }}
+            className="group/fact flex min-w-0 cursor-pointer"
+          />
+        }
       >
         <CategoryFact label={category.label} />
-      </span>
+      </Hinted>
     </CategoryColumn>
   );
 }
@@ -445,21 +447,25 @@ function TaskRowTag({
   }
   return (
     // A pointer shortcut inside a list option, like the category.
-    <span
-      role="img"
-      tabIndex={-1}
-      data-task-tag={tag.slug}
-      aria-label={`Tag ${tag.label}. Click to filter; press # to choose tags.`}
-      title={`Filter by #${tag.label}`}
-      onMouseDown={preventFocusSteal}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelectTag(tag);
-      }}
-      className="group/fact cursor-pointer"
+    <Hinted
+      hint={`Filter by #${tag.label}`}
+      render={
+        <span
+          role="img"
+          tabIndex={-1}
+          data-task-tag={tag.slug}
+          aria-label={`Tag ${tag.label}. Click to filter; press # to choose tags.`}
+          onMouseDown={preventFocusSteal}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelectTag(tag);
+          }}
+          className="group/fact cursor-pointer"
+        />
+      }
     >
       <TagFact label={tag.label} />
-    </span>
+    </Hinted>
   );
 }
 
@@ -474,15 +480,19 @@ function TaskRowTrailing({
   if (showCompletedAt && task.closedAt) {
     return (
       <TaskItemTrailing>
-        <time
-          dateTime={task.closedAt}
-          title={`Done ${formatTaskDateTime(task.closedAt)}`}
-          data-task-completed
-          className="text-xs text-muted-foreground tabular-nums"
+        <Hinted
+          hint={`Done ${formatTaskDateTime(task.closedAt)}`}
+          render={
+            <time
+              dateTime={task.closedAt}
+              data-task-completed
+              className="text-xs text-muted-foreground tabular-nums"
+            />
+          }
         >
           <span className="sr-only">Done </span>
           {formatCompletedTime(task.closedAt)}
-        </time>
+        </Hinted>
       </TaskItemTrailing>
     );
   }
@@ -491,10 +501,13 @@ function TaskRowTrailing({
   if (task.due === null || dueLabel === null) return null;
   return (
     <TaskItemTrailing>
-      <span data-task-due title={`Due ${formatDueDate(task.due, today)}`} className="flex">
+      <Hinted
+        hint={`Due ${formatDueDate(task.due, today)}`}
+        render={<span data-task-due className="flex" />}
+      >
         <span className="sr-only">Due </span>
         <DueFact label={dueLabel} now={dueNow(task, today)} />
-      </span>
+      </Hinted>
     </TaskItemTrailing>
   );
 }
@@ -562,36 +575,48 @@ function TaskRowFooter({
   }
   if (!sameTaskDay(task.createdAt, task.updatedAt)) {
     facts.push(
-      <span key="updated" title={`Updated ${formatTaskDateTime(task.updatedAt)}`}>
+      <Hinted
+        key="updated"
+        hint={`Updated ${formatTaskDateTime(task.updatedAt)}`}
+        render={<span />}
+      >
         Updated {formatTaskDate(task.updatedAt)}
-      </span>,
+      </Hinted>,
     );
   }
   facts.push(
-    <span key="created" title={`Created ${formatTaskDateTime(task.createdAt)}`}>
+    <Hinted
+      key="created"
+      hint={`Created ${formatTaskDateTime(task.createdAt)}`}
+      render={<span data-task-created />}
+    >
       Created {formatTaskDate(task.createdAt)}
-    </span>,
+    </Hinted>,
   );
   if (imageCount > 0) {
     const imageText = imageCount === 1 ? "1 image" : `${imageCount} images`;
     facts.push(
       // A pointer shortcut inside a list option, like the category badge.
-      <span
+      <Hinted
         key="images"
-        role="img"
-        tabIndex={-1}
-        data-task-images
-        aria-label={`${imageText}. Click to copy the newest; press ${modKey}+Shift+C.`}
-        title="Copy the newest image"
-        onMouseDown={preventFocusSteal}
-        onClick={(event) => {
-          event.stopPropagation();
-          onCopyImage?.(task);
-        }}
-        className={cn(onCopyImage && "cursor-pointer hover:text-foreground")}
+        hint="Copy the newest image"
+        render={
+          <span
+            role="img"
+            tabIndex={-1}
+            data-task-images
+            aria-label={`${imageText}. Click to copy the newest; press ${modKey}+Shift+C.`}
+            onMouseDown={preventFocusSteal}
+            onClick={(event) => {
+              event.stopPropagation();
+              onCopyImage?.(task);
+            }}
+            className={cn(onCopyImage && "cursor-pointer hover:text-foreground")}
+          />
+        }
       >
         {imageText}
-      </span>,
+      </Hinted>,
     );
   }
   return (

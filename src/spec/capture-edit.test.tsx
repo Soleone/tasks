@@ -636,6 +636,8 @@ describe("shorthand", () => {
     await capture(user, "Pay now! !tmr rent");
     expect(titleField().value).toBe("Pay now! rent");
     expect(pills()).toEqual([shortDueDate(tomorrow, localToday())]);
+    await user.hover(screen.getByRole("button", { name: /^Remove due date/ }).firstElementChild!);
+    await screen.findByText(`Due ${formatDueDate(tomorrow, localToday())}`);
     await user.keyboard("{Enter}");
     await waitFor(async () => {
       const task = await onlyTask();
@@ -1021,7 +1023,8 @@ describe("images", () => {
     const { user } = await workspace.render();
     await openEditor(user, "Task");
     const missing = await screen.findByText("Image missing");
-    expect(missing.closest("[title]")?.getAttribute("title")).toMatch(/not have synced yet/);
+    await user.hover(missing);
+    await screen.findByText(/not have synced yet/);
     await user.click(screen.getByRole("button", { name: "Remove image" }));
     expect(thumbnails()).toHaveLength(0);
     await user.keyboard("{Enter}");

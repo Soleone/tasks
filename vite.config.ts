@@ -85,6 +85,17 @@ export default defineConfig({
       "shadcn/no-inline-styles": "error",
       "shadcn/no-unknown-classes": ["error", { allow: ["app-icon", "wrap-anywhere"] }],
       "no-restricted-imports": ["error", { patterns: [noBaseUi, noCva, ...focusVariants] }],
+      "react/forbid-dom-props": [
+        "error",
+        {
+          forbid: [
+            {
+              propName: "title",
+              message: "A native title lags and looks foreign; use Hinted or Tooltip instead.",
+            },
+          ],
+        },
+      ],
     },
     overrides: [
       {
