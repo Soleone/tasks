@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.5.1](https://github.com/Soleone/tasks/compare/v0.5.0...v0.5.1) (2026-11-09)
+
+### Features
+
+* **branding:** new app icon with a gilt gold checkmark on a dark tile ([f90566c](https://github.com/Soleone/tasks/commit/f90566c5e16981c63d8b5e8a02b0a97a84909e4d))
+* **goals:** goal rings take their time flying from the header into the done lens's pills, one after another ([200ed30](https://github.com/Soleone/tasks/commit/200ed305133a75f0082eed1e32fcda8398d40594))
+* **goals:** meeting every goal folds the met check into the done count with a sheen and sparks ([1488978](https://github.com/Soleone/tasks/commit/1488978329a6bdcdd63fcfcb59cdc6ab49c879de))
+* **goals:** opening the done lens brings each goal ring down from the header into its pill ([121de7d](https://github.com/Soleone/tasks/commit/121de7df18134bc13fc8cc7e8fc7a206195da891))
+* **goals:** the done count and its goal rings fly in together and land at the same moment ([2bbb371](https://github.com/Soleone/tasks/commit/2bbb37156eeae35b85ed612f760454b74309b12c))
+* **lenses:** a lens's count and goal rings fly twice as fast, so turning a lens on feels snappy ([d593259](https://github.com/Soleone/tasks/commit/d593259ce474bb690115708a1709124be20a9d36))
+* **lens:** the done lens shows yesterday between today and the last 7 days ([314947c](https://github.com/Soleone/tasks/commit/314947c7405399f9204d1b0f30f1c26280fada98))
+* **settings:** remove a category goal with its × instead of clearing the number ([6f77b65](https://github.com/Soleone/tasks/commit/6f77b6529627378522fc91403fb8320c3cfcec6e))
+
+### Bug Fixes
+
+* **filters:** the category filter shows the category's own color, styled like a task row's category ([97d2357](https://github.com/Soleone/tasks/commit/97d235774a396b156b7f4859c63527046fdedf29))
+* **filters:** the filter summary uses one quiet size, with the category lined up beside the task count ([83c1893](https://github.com/Soleone/tasks/commit/83c189382c877a734d044a313f9a2d4d591ab0b9))
+* **goals:** hovering a weekly goal in the done lens shows this week's progress, not the day's total ([14663ec](https://github.com/Soleone/tasks/commit/14663ec68806764586dfd81913fafc1307a6e44f))
+* **goals:** the goal rings keep a gap from the done count, so its pressed border no longer touches them ([086992d](https://github.com/Soleone/tasks/commit/086992dcee8febd2f789ae68f91c90944b407323))
+* **lens:** tasks no longer vanish while the list turns into or out of a lens ([268c1fd](https://github.com/Soleone/tasks/commit/268c1fdd6b1e25595c33f1fc013c964be48356c2))
+* **lens:** the due count in the header is red, so it stands apart from the accent in every theme ([7c18496](https://github.com/Soleone/tasks/commit/7c1849626d02c110afe111d171f4e674f0e7e67f))
+* **rows:** due dates for today and late tasks are red, matching the due count ([24d3114](https://github.com/Soleone/tasks/commit/24d3114852ec99b8d958230a402a07d596110665))
+* **settings:** goals fit a phone screen, with a day / a week on their own line ([7f4b642](https://github.com/Soleone/tasks/commit/7f4b64270b6ae2dfc9087bd0701ee616f5eac73b))
+* **settings:** the settings dialog fits a phone screen without scrolling sideways ([f7f95b2](https://github.com/Soleone/tasks/commit/f7f95b226c1382778b839a23fe7e2afd170df072))
+* **toolbar:** filters in the count line show their tooltip right away instead of a slow browser hint ([7a83152](https://github.com/Soleone/tasks/commit/7a831525d84020cb87988d8a70170b14a80edeca))
+* **tooltips:** hover hints on rows, pills, images and goals show at once in the app's own style ([35b6495](https://github.com/Soleone/tasks/commit/35b6495a7b370442620942e305fd4a24fb44599d))
+* **tooltips:** the search in the count line says Clear search without repeating the query ([8f3b9ee](https://github.com/Soleone/tasks/commit/8f3b9ee7b68ce94b4f4070106a088c48fb6f195d))
+* **tooltips:** tooltips close when you switch tabs or apps, or move off their control ([dfe1c67](https://github.com/Soleone/tasks/commit/dfe1c6704c812e067c335f45e7cdf5e2e24cddc5))
+* **tooltips:** tooltips skip what's already on screen, like a goal pill's name and today's numbers ([067ec1b](https://github.com/Soleone/tasks/commit/067ec1be9d7cabdf9acdd3cb13e8cdce141a1eab))
+
 ## [0.5.0](https://github.com/Soleone/tasks/compare/v0.4.4...v0.5.0) (2026-11-08)
 
 ### Features
