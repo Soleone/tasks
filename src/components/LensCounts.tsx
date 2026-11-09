@@ -1,13 +1,15 @@
-import { useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { CalendarDays, CircleCheck } from "lucide-react";
 import { preventFocusSteal } from "@/navigation";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleButton } from "@/components/variants/button";
 import type { ListLens } from "./listLens";
-import type { GoalsToday } from "@/goals";
+import { isMet, type GoalsToday } from "@/goals";
 import { BigRing, DoneTodayTip, GoalRings } from "./GoalRings";
 import { startAfterPaint } from "./startAfterPaint";
+import { celebrateGoals } from "./goalCelebration";
 
 type LensCountProps = { total: number; lensOn: boolean; onToggleLens: () => void };
 
@@ -72,10 +74,12 @@ function LensCount({
   );
 }
 
+const allMet = (today: GoalsToday): boolean => isMet({ done: today.filled, target: today.target });
+
 /**
  * Tasks done today (doneTodaySince). Each of the `landing` completions still flying here
  * (useDoneFlights) holds the count back until it arrives. With goals set, its check becomes a ring
- * for all of today's goals added up, with each goal's own ring beside it.
+ * for all of today's goals added up, with each goal's own ring beside it, until every goal is met.
  */
 export function DoneToday({
   landing,
@@ -102,6 +106,28 @@ export function DoneToday({
   const [heldGoals, setHeldGoals] = useState(goals);
   if (landing === 0 && heldGoals !== goals) setHeldGoals(goals);
   const shownGoals = landing > 0 && heldGoals ? heldGoals : goals;
+  // A completion that meets the last goal celebrates, holding the rings until it folds them away.
+  const [seenGoals, setSeenGoals] = useState(shownGoals);
+  const [celebrating, setCelebrating] = useState(false);
+  if (seenGoals !== shownGoals) {
+    setSeenGoals(shownGoals);
+    if (
+      seenGoals &&
+      shownGoals &&
+      !allMet(seenGoals) &&
+      allMet(shownGoals) &&
+      shownGoals.done > seenGoals.done &&
+      typeof document.body.animate === "function" &&
+      !matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      setCelebrating(true);
+  }
+  useEffect(() => {
+    if (!celebrating) return;
+    const fold = () => flushSync(() => setCelebrating(false));
+    // Whatever stops it short, the rings still fold.
+    void celebrateGoals(fold).finally(fold);
+  }, [celebrating]);
   const count = (
     <LensCount
       {...props}
@@ -152,9 +178,11 @@ export function DoneToday({
       data-goals
     >
       {count}
-      <span className="contents" onClick={props.onToggleLens}>
-        <GoalRings today={shownGoals} categoryFilter={categoryFilter} lensOn={props.lensOn} />
-      </span>
+      {(celebrating || !allMet(shownGoals)) && (
+        <span className="contents" onClick={props.onToggleLens}>
+          <GoalRings today={shownGoals} categoryFilter={categoryFilter} lensOn={props.lensOn} />
+        </span>
+      )}
     </span>
   );
 }

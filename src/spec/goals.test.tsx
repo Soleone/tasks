@@ -56,6 +56,22 @@ test("goals.header: open goals ring the count, met ones fold into a check, even 
   expect(lines).toContain("Everything else1/3");
 });
 
+test("goals.celebrate: once every goal is met, the met check folds into the done count", async () => {
+  await workspace.writeSharedSettings({
+    goals: { life: { count: 1, per: "day" }, work: { count: 1, per: "day" } },
+  });
+  await done("Called mom", "life");
+  const { user } = await workspace.render({ home: true });
+  await waitFor(() => expect(document.querySelector("[data-goal-met]")).not.toBeNull());
+
+  await done("Shipped it", "work");
+  await user.keyboard("{Control>}{/Control}");
+  await waitFor(() => expect(doneCount()?.getAttribute("aria-label")).toBe("2 done today"), {
+    timeout: 4000,
+  });
+  expect(document.querySelector("[data-goal-rings]")).toBeNull();
+});
+
 test("goals.names: the only goal is All tasks and needs no small rings", async () => {
   await workspace.writeSharedSettings({ otherGoal: { count: 2, per: "day" } });
   await done("Anything", "home");

@@ -830,7 +830,7 @@ export default function App({
       <WorkspaceRequestRecovery workspace={workspace} />
       {/* Desktop content is 20 cells wide, keeping the header buttons on the toolbar grid. */}
       <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-170 flex-col gap-6 overflow-hidden md:max-w-224">
-        <header className="flex items-center justify-between gap-4">
+        <header className="relative flex items-center justify-between gap-4" data-app-header>
           <h1 className="flex items-center font-semibold">
             {/* Center the artwork on the first cell and the title's ink rather than its line box. */}
             <AppIcon className="size-8 shrink-0 -translate-y-0.25" />
