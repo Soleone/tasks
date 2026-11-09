@@ -116,24 +116,24 @@ function flyNumber(flip: Flip, from: HTMLElement, to: HTMLElement, delay: number
   flip.animations.push(animation);
 }
 
+/** How far into the flight a goal ring reaches its pill's dot and the pill starts fading in. */
+const HAND_OVER_AT = 0.7;
+/** Slower than the count's number: a ring is small, and too quick it reads as the dot fading in. */
+const GOAL_FLIGHT_MS = 650;
+/** Each pill's ring leaves a beat after the one before, so every flight can be followed. */
+const GOAL_STAGGER_MS = 90;
+
 /**
  * The done lens's goal pills fade in as the count lands. A category goal whose ring shows in the
  * header sends a copy of it down onto its pill's dot; a met or folded goal, or everything else,
  * has no ring there and only fades in.
  */
-/** How far into the flight a goal ring reaches its pill's dot and the pill starts fading in. */
-const HAND_OVER_AT = 0.75;
-
-function flyGoalRings(flip: Flip, delay: number): void {
-  for (const pill of goalPills()) {
+function flyGoalRings(flip: Flip, startDelay: number): void {
+  for (const [index, pill] of [...goalPills()].entries()) {
+    const delay = startDelay + index * GOAL_STAGGER_MS;
     const fade = pill.animate(
       [{ opacity: 0 }, { offset: HAND_OVER_AT, opacity: 0 }, { opacity: 1 }],
-      {
-        duration: COUNT_FLIGHT_MS,
-        delay,
-        easing: "ease-out",
-        fill: "backwards",
-      },
+      { duration: GOAL_FLIGHT_MS, delay, easing: "ease-out", fill: "backwards" },
     );
     flip.animations.push(fade);
     const ring = pill.dataset.goalPill
@@ -173,7 +173,7 @@ function flyGoalRings(flip: Flip, delay: number): void {
         },
         { transform: `translate(${dx}px, ${dy}px) scale(${end.width / start.width})`, opacity: 0 },
       ],
-      { duration: COUNT_FLIGHT_MS, delay, easing: "cubic-bezier(.45,.05,.2,1)" },
+      { duration: GOAL_FLIGHT_MS, delay, easing: "cubic-bezier(.45,.05,.2,1)" },
     );
     const remove = () => flyer.remove();
     animation.finished.then(remove, remove);
