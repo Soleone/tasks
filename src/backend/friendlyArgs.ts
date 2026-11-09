@@ -1,7 +1,7 @@
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { localToday, parseDueWord } from "./dueDate.js";
-import { appHome } from "./home.js";
+import { appHome } from "./appHome.js";
 import { parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 

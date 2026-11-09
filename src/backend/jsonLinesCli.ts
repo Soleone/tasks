@@ -1,5 +1,5 @@
 import { executeLine } from "./gateway.js";
-import { appHome } from "./home.js";
+import { appHome } from "./appHome.js";
 import { executeHomeLine } from "./homeGateway.js";
 import type { Response } from "./protocol.js";
 

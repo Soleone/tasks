@@ -197,7 +197,12 @@ export default defineConfig({
     ],
   },
   build: {
-    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",
+    // The hosted worker's backend and memfs require BigInt, available since Safari 14.
+    target: hosted
+      ? "safari14"
+      : process.env.TAURI_ENV_PLATFORM === "windows"
+        ? "chrome105"
+        : "safari13",
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
     // The first screen needs all of these, so they load together; separate chunks only keep each one small and cacheable.

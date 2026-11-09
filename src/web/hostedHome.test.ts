@@ -70,6 +70,21 @@ test("platform.open-workspace: the hosted home keeps its tasks and undo history 
   expect(titles()).toEqual([]);
 });
 
+test("theme.user: the hosted backend reads theme files from its browser filesystem", () => {
+  vol.reset();
+  send("home.create", {}, false);
+  expect(send("home.themes.list", {}, false).result.themes).toEqual([]);
+  vol.fromJSON({
+    "/Tasks/themes/nord/colors.toml": 'background = "#2e3440"',
+    "/Tasks/themes/plum.toml": 'background = "#2b1b2e"',
+    "/Tasks/themes/notes.txt": "not a theme",
+  });
+  expect(send("home.themes.list", {}, false).result.themes).toEqual([
+    { name: "nord", text: 'background = "#2e3440"' },
+    { name: "plum", text: 'background = "#2b1b2e"' },
+  ]);
+});
+
 test("platform.open-workspace: example tasks come and go without touching the visitor's own tasks", async () => {
   vol.reset();
   send("home.create", {}, false);

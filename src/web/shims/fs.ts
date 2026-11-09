@@ -22,3 +22,4 @@ export const {
   writeSync,
 } = fs;
 export const fstatSync = fs.fstatSync.bind(fs);
+export const statSync = fs.statSync.bind(fs);
