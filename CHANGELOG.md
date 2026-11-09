@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2](https://github.com/Soleone/tasks/compare/v0.5.1...v0.5.2) (2026-11-09)
+
+### Features
+
+* **themes:** drop your own themes into the Tasks home's themes folder and pick them in the theme picker ([df96a1d](https://github.com/Soleone/tasks/commit/df96a1d105aff91da4feca962b32699d0d25f2ca))
+
 ## [0.5.1](https://github.com/Soleone/tasks/compare/v0.5.0...v0.5.1) (2026-11-09)
 
 ### Features
