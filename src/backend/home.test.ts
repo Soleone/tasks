@@ -174,6 +174,27 @@ test("home.missing: a missing home is reported and nothing is created", (t) => {
   assert.deepEqual(readdirSync(home), []);
 });
 
+test("theme.user: the home's themes folder lists toml files and omarchy theme folders", (t) => {
+  const home = path.join(scratch(t), "home");
+  ok(send(home, "home.create"));
+  assert.deepEqual(ok(send(home, "home.themes.list")).result.themes, []);
+  const themes = path.join(home, "themes");
+  mkdirSync(path.join(themes, "nord"), { recursive: true });
+  writeFileSync(path.join(themes, "nord", "colors.toml"), 'background = "#2e3440"');
+  writeFileSync(path.join(themes, "plum.toml"), 'background = "#2b1b2e"');
+  writeFileSync(path.join(themes, "notes.txt"), "not a theme");
+  mkdirSync(path.join(themes, "empty"));
+  symlinkSync(path.join(themes, "missing.toml"), path.join(themes, "dangling.toml"));
+  const listed = ok(send(home, "home.themes.list")).result.themes as { name: string }[];
+  assert.deepEqual(
+    listed.sort((a, b) => a.name.localeCompare(b.name)),
+    [
+      { name: "nord", text: 'background = "#2e3440"' },
+      { name: "plum", text: 'background = "#2b1b2e"' },
+    ],
+  );
+});
+
 test("home.documents: settings and undo records are replaced durably, damage is kept", (t) => {
   const home = path.join(scratch(t), "home");
   ok(send(home, "home.create"));

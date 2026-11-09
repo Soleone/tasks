@@ -102,6 +102,14 @@ function loseImage(url: string, name: string): object {
   return {};
 }
 
+/** A theme file the owner dropped into the home's `themes/` folder. */
+function dropTheme(url: string, name: string, text: string): object {
+  const folder = path.join(directoryOf(url), "themes");
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(path.join(folder, path.basename(name)), text);
+  return {};
+}
+
 async function body(request: http.IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
@@ -129,11 +137,15 @@ export default async function setup(project: TestProject): Promise<() => Promise
           ? body(request).then((line) => runCli(workspace, line))
           : url.pathname === "/arrive"
             ? Promise.resolve().then(() => arrive(workspace, url.searchParams.get("name") ?? ""))
-            : url.pathname === "/lose-image"
-              ? Promise.resolve().then(() =>
-                  loseImage(workspace, url.searchParams.get("name") ?? ""),
+            : url.pathname === "/theme"
+              ? body(request).then((text) =>
+                  dropTheme(workspace, url.searchParams.get("name") ?? "", text as string),
                 )
-              : stopWorkspace(workspace).then(() => ({}));
+              : url.pathname === "/lose-image"
+                ? Promise.resolve().then(() =>
+                    loseImage(workspace, url.searchParams.get("name") ?? ""),
+                  )
+                : stopWorkspace(workspace).then(() => ({}));
     work.then(
       (body) => {
         response.writeHead(200, {

@@ -1,4 +1,4 @@
-import { existsSync, renameSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { readPhysicalRoot, readRegularFile } from "./canonicalReader.js";
 import { CommandError } from "./errors.js";
@@ -11,6 +11,7 @@ import type { Request, Response } from "./protocol.js";
 import { observeQueryAuthority } from "./queryCache.js";
 
 const MAX_DOCUMENT_BYTES = 1024 * 1024;
+const MAX_THEME_BYTES = 64 * 1024;
 
 /**
  * The app's own files in the home: preferences beside `sync/`, the shared ones inside it, undo
@@ -64,6 +65,29 @@ function writeDocument(home: Home, request: Request): Record<string, unknown> {
   return { keptPath };
 }
 
+/**
+ * Palettes the owner dropped into the home's `themes/` folder, beside `sync/` so they stay on this
+ * device: `<name>.toml`, or an omarchy theme folder holding `<name>/colors.toml`. The client
+ * parses them; files it can't read as a theme are its to report.
+ */
+function listThemes(home: Home, request: Request): Record<string, unknown> {
+  assertArgs(request.args, []);
+  const folder = path.join(home.homePath, "themes");
+  if (!existsSync(folder)) return { themes: [] };
+  const themes = [];
+  // Followed links are fine here: these are the owner's own files, never synced or written.
+  for (const entry of readdirSync(folder)) {
+    const isFolder = statSync(path.join(folder, entry), { throwIfNoEntry: false })?.isDirectory();
+    const file = isFolder ? path.join(folder, entry, "colors.toml") : path.join(folder, entry);
+    if (!file.endsWith(".toml")) continue;
+    const stat = statSync(file, { throwIfNoEntry: false });
+    if (!stat?.isFile() || stat.size > MAX_THEME_BYTES) continue;
+    const name = isFolder ? entry : path.basename(entry, ".toml");
+    themes.push({ name, text: readFileSync(file, "utf8") });
+  }
+  return { themes };
+}
+
 function homeResponse(request: Request, home: Home, client: HomeClient, result: object): Response {
   const root = readPhysicalRoot(home.rootPath);
   const { writeContext } = observeQueryAuthority(homeCache(home, client), root);
@@ -96,6 +120,8 @@ export function executeHomeLine(bytes: Uint8Array, selected: string, client: Hom
       return homeResponse(request, home, client, readDocument(home, request));
     if (request.command === "home.document.write")
       return homeResponse(request, home, client, writeDocument(home, request));
+    if (request.command === "home.themes.list")
+      return homeResponse(request, home, client, listThemes(home, request));
     return executeLine(bytes, home.rootPath, homeCache(home, client));
   } catch (error) {
     return failureResponse(requestId, error);

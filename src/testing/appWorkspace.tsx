@@ -3,9 +3,7 @@ import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { expect, inject } from "vite-plus/test";
 import App from "@/App";
 import { TooltipProvider } from "@/components/soleone/tooltip/tooltip";
-import { ThemeProvider } from "@/components/soleone/theme";
-import { themeOptions } from "virtual:theme-options";
-import { THEME_STORAGE_KEY } from "@/theme/config";
+import { AppThemeProvider } from "@/theme/userThemes";
 import { closeMainWorkspace, selectMainWorkspace } from "@/platform/backendClient";
 import { EditorClient, readEditorSelection, type EditorSelection } from "@/platform/editorClient";
 import { openHomeWorkspace } from "@/platform/homeWorkspace";
@@ -164,6 +162,15 @@ export class AppWorkspace {
     if (!response.ok) throw new Error(await response.text());
   }
 
+  /** Drops a theme file into the home's `themes/` folder, as the owner would. */
+  async dropTheme(name: string, text: string): Promise<void> {
+    const response = await fetch(
+      `${inject("workspaceServerUrl")}/theme?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
+      { method: "POST", body: JSON.stringify(text) },
+    );
+    if (!response.ok) throw new Error(await response.text());
+  }
+
   /** Writes the shared settings every device sees, as another device would through sync. */
   async writeSharedSettings(settings: Record<string, unknown>): Promise<void> {
     await this.post({
@@ -198,11 +205,11 @@ export class AppWorkspace {
     selectMainWorkspace(workspace);
     const user = userEvent.setup();
     const view = render(
-      <ThemeProvider themes={themeOptions} storageKey={THEME_STORAGE_KEY}>
+      <AppThemeProvider>
         <TooltipProvider>
           <App workspace={workspace} />
         </TooltipProvider>
-      </ThemeProvider>,
+      </AppThemeProvider>,
     );
     // An empty Active view reads "All clear" once the done-today count arrives, which can be first.
     await waitFor(

@@ -6,9 +6,7 @@ import favicon48Url from "../assets/branding/favicon-gilt-48.png";
 import { APP_NAME } from "./backend/branding";
 import { TooltipProvider } from "@/components/soleone/tooltip/tooltip";
 import { applyStoredFontSizeIncrease } from "./fontSize";
-import { ThemeProvider } from "@/components/soleone/theme";
-import { themeOptions } from "virtual:theme-options";
-import { THEME_STORAGE_KEY } from "./theme/config";
+import { AppThemeProvider } from "./theme/userThemes";
 import { runtimeKind } from "./platform/runtime";
 import { revealScrollbarsWhileScrolling } from "./scrollbars";
 import { installFrameMetrics } from "./frameMetrics";
@@ -46,11 +44,11 @@ async function mountWorkspace(): Promise<void> {
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <ThemeProvider themes={themeOptions} storageKey={THEME_STORAGE_KEY}>
+      <AppThemeProvider>
         <TooltipProvider>
           <Workspace />
         </TooltipProvider>
-      </ThemeProvider>
+      </AppThemeProvider>
     </StrictMode>,
   );
 }

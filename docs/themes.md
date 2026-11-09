@@ -1,6 +1,6 @@
 # Themes
 
-Choose a built-in palette with `Alt+T`, the header's **Themes** button, or `Ctrl/⌘+K` → **Themes**. Theme selection stays in the dedicated picker, not Settings. Gilt is the default.
+Choose a palette with `Alt+T`, the header's **Themes** button, or `Ctrl/⌘+K` → **Themes**. Theme selection stays in the dedicated picker, not Settings. Gilt is the default.
 
 The shared picker shows a ring of preview cards. Drag, scroll or use the arrow keys to browse; type to filter by name or dark/light mode. Browsing does not change the page. Enter or clicking the front card confirms; Escape clears a filter first, then closes. Focus returns to the opener. Tasks keeps `Alt+T`, with no plain T or D theme shortcut.
 
@@ -13,12 +13,12 @@ Themes come from the [`@soleone` registry](https://github.com/Soleone/shadcn-com
 - `src/components/soleone/theme-picker/` and `material/`: the picker and its preview materials.
 - `src/theme/config.ts`: Tasks' public built-in palette list, Gilt default and `tasks.selectedTheme` storage key. Hidden portfolio themes are excluded.
 
-Registry sources stay upstream. Tasks only supplies opening, shortcut and focus-return behavior, plus its task-specific CSS roles. There is no backend theme list, filesystem theme loading or live Omarchy following.
+Registry sources stay upstream. Tasks only supplies opening, shortcut and focus-return behavior, plus its task-specific CSS roles. User themes are the exception: `home.themes.list` reads the home's `themes/` folder (`theme.user`), and `src/theme/userThemes.tsx` parses each file with the registry parser in the client, inlines its tokens in a `user-themes` style element and restores a saved user theme once the home has loaded, since the pre-paint script only knows the built-ins. Until then the default paints. There is no live Omarchy following or reload while running.
 
 The shared picker supports controlled `open`/`onOpenChange`, an optional `trigger`, `shortcut={false}` and `finalFocus`. These hooks and the denied-storage fallback were added in local shared commit `f3a38a0` for this adoption. Publish that commit before pulling future registry updates from GitHub; installing an older picker would remove those hooks. `kit check` was run against the local registry built from that commit; the configured GitHub registry will not match until it is published.
 
 ## Persistence and validation
 
-Selection stays in the same browser/WebView profile. For Linux dev:web this also requires the same origin (scheme, host and port). A fresh profile, cleared storage, unavailable storage or an unknown stored name falls back to Gilt. Theme changes do not select a task folder or modify tasks, history or pending requests. Custom theme imports remain out of scope.
+Selection stays in the same browser/WebView profile. For Linux dev:web this also requires the same origin (scheme, host and port). A fresh profile, cleared storage, unavailable storage or an unknown stored name falls back to Gilt. Theme changes do not select a task folder or modify tasks, history or pending requests.
 
 Validation covers shared pre-paint restoration and denied storage, controlled and default picker entry points, selection, focus return, hidden-dialog keyboard guards, Settings, browser reload and unchanged task files. Desktop and mobile-width Linux Chromium captures were inspected; the browser regression suite includes axe checks. This is not Windows WebView or Android device acceptance. [Current support](support.md) owns platform limits.

@@ -51,15 +51,18 @@ export function faintIconColor(color: string, palette: ThemePalette): string {
   return faint;
 }
 
-/** Inlines each theme's faint icon colors, for open and done P4 tasks, beside the palette tokens themeStyles writes. */
+/** One theme's faint icon colors, for open and done P4 tasks, beside the palette tokens themeStyles writes. */
+export function priorityStyle(name: string, palette: ThemePalette): string {
+  const faint = faintIconColor(palette.muted_foreground, palette);
+  const doneFaint = palette.green
+    ? `;--success-faint:${faintIconColor(palette.green, palette)}`
+    : "";
+  return `[data-theme="${name}"]{--priority-faint:${faint}${doneFaint}}`;
+}
+
 export function priorityColorsPlugin(themes: PaletteTheme[]): Plugin {
   const styles = themes
-    .map(({ name, toml }) => {
-      const { palette } = parseThemeFile(toml);
-      const faint = faintIconColor(palette.muted_foreground, palette);
-      const doneFaint = faintIconColor(palette.green, palette);
-      return `[data-theme="${name}"]{--priority-faint:${faint};--success-faint:${doneFaint}}`;
-    })
+    .map(({ name, toml }) => priorityStyle(name, parseThemeFile(toml).palette))
     .join("\n");
 
   return {

@@ -68,6 +68,7 @@ import { readPreference, writePreference } from "@/platform/preferences";
 import { renameCategorySettings } from "@/platform/sharedSettings";
 import { isAndroid, keyName } from "@/platform/runtime";
 import { THEME_STORAGE_KEY } from "@/theme/config";
+import { takeUserThemeProblems } from "@/theme/userThemes";
 
 const STATUS_PRESET_KEY = "tasks.statusPreset";
 const EXACT_STATUS_KEY = "tasks.exactStatus";
@@ -222,6 +223,9 @@ export default function App({
       ),
     [workspace],
   );
+  useEffect(() => {
+    for (const problem of takeUserThemeProblems()) showTaskToast(problem);
+  }, []);
   // The theme picker remembers its choice in browser storage; the home keeps the real copy.
   const { theme } = useTheme();
   useEffect(() => {

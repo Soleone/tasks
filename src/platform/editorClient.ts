@@ -525,9 +525,9 @@ export class EditorClient {
     });
   }
 
-  /** Reads or saves one of the home's own documents; these need no write authority. */
+  /** Reads or saves one of the home's own documents, or lists its themes; these need no write authority. */
   async homeCommand(
-    command: "home.document.read" | "home.document.write",
+    command: "home.document.read" | "home.document.write" | "home.themes.list",
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     return (await this.query(command, args)).result;

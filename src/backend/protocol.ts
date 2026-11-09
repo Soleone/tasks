@@ -33,6 +33,7 @@ const KNOWN_COMMANDS = [
   "home.create",
   "home.document.read",
   "home.document.write",
+  "home.themes.list",
   "operation.undo",
   "operation.redo",
   "runtime.probe",

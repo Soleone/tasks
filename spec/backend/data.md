@@ -20,6 +20,7 @@ The app and the CLI work in a Tasks home that the owner chooses. Its `sync/` fol
 <home>/sync/                 the workspace, the only folder a sync tool may see
 <home>/local/                caches, writer lock, recovery files, undo records; never synced, not disposable
 <home>/exports/              exports made on this device; never synced
+<home>/themes/               theme files dropped here by the owner, read only; never synced
 <home>/.nomedia              Android only: keeps the gallery out of the home
 ```
 

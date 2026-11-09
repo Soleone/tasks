@@ -14,7 +14,8 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `theme.select` | Choosing a theme in the dedicated theme picker | Applies one of the built-in themes at once and remembers it |
+| `theme.select` | Choosing a theme in the dedicated theme picker | Applies a built-in or user theme at once and remembers it |
+| `theme.user` | A palette file in the Tasks home's `themes/` folder: `<name>.toml`, or an Omarchy theme folder `<name>/colors.toml` | When the home opens, it joins the picker after the built-in themes, named from the file (`midnight-orchid` reads "Midnight Orchid"). The file uses Omarchy's `colors.toml` format and needs at least `background` and `foreground`; missing slots are derived. A file that isn't a usable theme is skipped and a toast names it. The folder sits beside `sync/`, so each device keeps its own. Changes show on the next launch |
 | `theme.picker` | `Alt+T`, Themes in the header or help palette | Opens the shared theme ring on the current palette. Arrows, drag or scroll browse; typing filters. Enter or clicking the front card confirms; browsing leaves the page unchanged. Escape clears a filter before closing and focus returns to the opener. No plain T or D theme shortcut |
 | `font.size` | The font size slider | Default, +10%, +25%, +33% or +40%. Applies at once and is remembered |
 | `help.palette` | `Ctrl/⌘+K` | A searchable palette lists every shortcut and the shorthand syntax |

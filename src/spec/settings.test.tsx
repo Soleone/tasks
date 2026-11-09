@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
@@ -372,6 +372,34 @@ test("theme.select: the dedicated picker remembers the selection across reloads"
     expect(reopened.getAttribute("aria-activedescendant")).toBe("theme-card-catppuccin-latte"),
   );
   expect(document.documentElement.classList.contains("dark")).toBe(false);
+});
+
+test("theme.user: theme files in the home's themes folder join the picker and stay chosen", async () => {
+  await workspace.create("Task");
+  await workspace.dropTheme(
+    "midnight-orchid.toml",
+    'background = "#191724"\nforeground = "#e0def4"\naccent = "#ebbcba"\ngreen = "#31748f"\n',
+  );
+  await workspace.dropTheme("broken.toml", 'accent = "#ffffff"\n');
+  const first = await workspace.render({ home: true });
+  await screen.findByText(/^The theme "broken" can't be used/);
+  await first.user.keyboard("{Alt>}t{/Alt}");
+  await screen.findByRole("listbox", { name: "Themes" });
+  await first.user.keyboard("midnight orchid{Enter}");
+  await waitFor(() => expect(document.documentElement.dataset.theme).toBe("user-midnight-orchid"));
+  expect(document.documentElement.classList.contains("dark")).toBe(true);
+  expect(document.getElementById("user-themes")?.textContent).toContain(
+    '[data-theme="user-midnight-orchid"]{--om-accent:#ebbcba',
+  );
+  await waitFor(async () =>
+    expect(await workspace.homeDocument("settings")).toContain('"user-midnight-orchid"'),
+  );
+
+  cleanup();
+  // Before the home loads, the head script only knows the built-in themes.
+  document.documentElement.dataset.theme = "gilt";
+  await workspace.render({ home: true });
+  expect(document.documentElement.dataset.theme).toBe("user-midnight-orchid");
 });
 
 test("theme.picker: help opens the ring without losing the list return target", async () => {

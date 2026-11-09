@@ -20,6 +20,7 @@ const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const HOME_COMMANDS = [
   "home.document.read",
   "home.document.write",
+  "home.themes.list",
   "workspace.rebind",
   "workspace.newHistory",
 ];
