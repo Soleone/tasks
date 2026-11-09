@@ -219,6 +219,22 @@ describe("inside the editor", () => {
     );
   });
 
+  test("edit.caret: Tab puts the caret after the text of the description and the title", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Task");
+    await user.keyboard("{Tab}Some notes");
+    await user.keyboard("{Home}{Tab}");
+    const title = await focusedTitleField();
+    expect(title.selectionStart).toBe(title.value.length);
+    await user.keyboard("{Tab}");
+    await waitFor(() =>
+      expect(document.activeElement?.getAttribute("placeholder")).toBe("Write in Markdown…"),
+    );
+    expect((document.activeElement as HTMLTextAreaElement).selectionStart).toBe(
+      "Some notes".length,
+    );
+  });
+
   test("edit.priority: new tasks start at P2 and an edit keeps the task's priority", async () => {
     const { user } = await workspace.render();
     await capture(user, "Task");

@@ -112,6 +112,13 @@ function savedMarkers(before: Classification, after: Classification): [Marker, s
   ];
 }
 
+// Title and description both take focus with the caret after the text.
+function focusAtEnd(field: HTMLInputElement | HTMLTextAreaElement | null): void {
+  if (!field) return;
+  field.focus();
+  field.setSelectionRange(field.value.length, field.value.length);
+}
+
 /**
  * Scrolls `element` into view now and again once the on-screen keyboard has
  * resized the window, which happens after focus. Returns its cleanup.
@@ -248,9 +255,7 @@ export function TaskComposer({
   useEffect(() => {
     let release: (() => void) | undefined;
     const frame = requestAnimationFrame(() => {
-      const input = titleInput.current;
-      input?.focus();
-      input?.setSelectionRange(input.value.length, input.value.length);
+      focusAtEnd(titleInput.current);
       if (form.current) release = keepInView(form.current);
     });
     return () => {
@@ -264,7 +269,7 @@ export function TaskComposer({
     if (!notesOpen || !focusNotesOnOpen.current) return undefined;
     focusNotesOnOpen.current = false;
     const input = notesInput.current;
-    input?.focus();
+    focusAtEnd(input);
     return input ? keepInView(input) : undefined;
   }, [notesOpen]);
 
@@ -448,10 +453,10 @@ export function TaskComposer({
       ...(images.attachments.length > 0 ? (["images"] as const) : []),
     ];
     const next = stops[(stops.indexOf(field) + (backward ? stops.length - 1 : 1)) % stops.length];
-    if (next === "title") titleInput.current?.focus();
+    if (next === "title") focusAtEnd(titleInput.current);
     else if (next === "when") whenPill.current?.focus();
     else if (next === "images") imageRow.current?.focus();
-    else if (notesOpen) notesInput.current?.focus();
+    else if (notesOpen) focusAtEnd(notesInput.current);
     else showNotes();
   }
 

@@ -23,6 +23,7 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | Rule | When | Then |
 | --- | --- | --- |
 | `edit.tab-order` | `Tab` / `Shift+Tab` | Title, then description, then the image row when there are images, wrapping around. Landing on a closed description opens it. While suggestions are open, `Tab` follows `shorthand.tab` |
+| `edit.caret` | Opening the editor, `Tab` or `Shift+Tab` | Title and description take focus with the caret after the text |
 | `edit.priority` | Saving | The editor keeps the task's priority. New tasks start at P2 |
 | `edit.description` | Typing in the description | Markdown notes kept with the task, shown in the list with its details (`details.toggle-active`). The field sits where Details shows the description, in the same type, and grows with its text. `Enter` starts a new line, so `Ctrl/⌘+Enter` saves from here |
 | `edit.description-button` | Add description | Opens the description for the mouse |
