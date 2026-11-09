@@ -4,7 +4,7 @@ import favicon16Url from "../assets/branding/favicon-gilt-16.png";
 import favicon32Url from "../assets/branding/favicon-gilt-32.png";
 import favicon48Url from "../assets/branding/favicon-gilt-48.png";
 import { APP_NAME } from "./backend/branding";
-import { TooltipProvider } from "@/components/variants/tooltip";
+import { TooltipProvider } from "@/components/soleone/tooltip/tooltip";
 import { applyStoredFontSizeIncrease } from "./fontSize";
 import { ThemeProvider } from "@/components/soleone/theme";
 import { themeOptions } from "virtual:theme-options";

@@ -29,6 +29,12 @@ const noCva = {
   message:
     "Variants live in src/components/variants: wrap the primitive there and import the wrapper.",
 };
+const noStockTooltip = {
+  group: ["**/components/ui/tooltip"],
+  importNames: ["Tooltip", "TooltipProvider"],
+  message:
+    "Import Tooltip from components/variants/tooltip and TooltipProvider from components/soleone/tooltip, so tooltips close when the window loses focus.",
+};
 const focusVariants = [
   {
     group: [
@@ -84,7 +90,10 @@ export default defineConfig({
       "shadcn/no-arbitrary-values": ["error", { allow: ["layout"] }],
       "shadcn/no-inline-styles": "error",
       "shadcn/no-unknown-classes": ["error", { allow: ["app-icon", "wrap-anywhere"] }],
-      "no-restricted-imports": ["error", { patterns: [noBaseUi, noCva, ...focusVariants] }],
+      "no-restricted-imports": [
+        "error",
+        { patterns: [noBaseUi, noCva, noStockTooltip, ...focusVariants] },
+      ],
       "react/forbid-dom-props": [
         "error",
         {
