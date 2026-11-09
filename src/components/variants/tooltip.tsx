@@ -1,6 +1,55 @@
-// oxlint-disable-next-line no-restricted-imports -- stock TooltipContent does not expose the positioner anchor
+// oxlint-disable-next-line no-restricted-imports -- the stock parts expose neither the positioner anchor nor tooltip handles
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { cn } from "cn";
+import { type ComponentProps, useEffect, useState } from "react";
+import {
+  Tooltip as StockTooltip,
+  TooltipProvider as StockTooltipProvider,
+} from "@/components/ui/tooltip";
+
+const mountedTooltips = new Set<TooltipPrimitive.Handle<unknown>>();
+
+function closeOpenTooltips(): void {
+  for (const tooltip of mountedTooltips) if (tooltip.isOpen) tooltip.close();
+}
+
+/**
+ * Stock TooltipProvider that closes every open tooltip when the window loses focus or is hidden:
+ * leaving for another tab or app never sends the trigger a mouseleave, so a hover tooltip would
+ * stay up until the pointer came back to it.
+ */
+export function TooltipProvider(props: ComponentProps<typeof StockTooltipProvider>) {
+  useEffect(() => {
+    function closeWhenHidden(): void {
+      if (document.hidden) closeOpenTooltips();
+    }
+    window.addEventListener("blur", closeOpenTooltips);
+    document.addEventListener("visibilitychange", closeWhenHidden);
+    return () => {
+      window.removeEventListener("blur", closeOpenTooltips);
+      document.removeEventListener("visibilitychange", closeWhenHidden);
+    };
+  }, []);
+  return <StockTooltipProvider {...props} />;
+}
+
+/**
+ * Stock Tooltip that only names its control: it closes as soon as the pointer leaves the trigger
+ * instead of staying up while the pointer crosses toward the popup.
+ */
+export function Tooltip({
+  disableHoverablePopup = true,
+  ...props
+}: Omit<ComponentProps<typeof StockTooltip>, "handle">) {
+  const [handle] = useState(TooltipPrimitive.createHandle);
+  useEffect(() => {
+    mountedTooltips.add(handle);
+    return () => {
+      mountedTooltips.delete(handle);
+    };
+  }, [handle]);
+  return <StockTooltip handle={handle} disableHoverablePopup={disableHoverablePopup} {...props} />;
+}
 
 /**
  * Stock TooltipContent positioned against another element: feedback for a control that changed

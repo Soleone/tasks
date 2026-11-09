@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor, type RenderResult } from "@testing-li
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { expect, inject } from "vite-plus/test";
 import App from "@/App";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/variants/tooltip";
 import { ThemeProvider } from "@/components/soleone/theme";
 import { themeOptions } from "virtual:theme-options";
 import { THEME_STORAGE_KEY } from "@/theme/config";

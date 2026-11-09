@@ -67,7 +67,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/variants/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { AnchoredTooltipContent, Tooltip } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, type Navigator } from "@/navigation";
 import {
   deleteTask,
@@ -85,7 +86,6 @@ import { practice } from "@/learning/progress";
 import { isAndroid } from "@/platform/runtime";
 import { cn } from "cn";
 import { TaskItem, TaskItemGroup } from "@/components/variants/item";
-import { AnchoredTooltipContent } from "@/components/variants/tooltip";
 import { useCompletionSheen } from "./useCompletionSheen";
 import { flyCategoryToFilter } from "./categoryFlight";
 import { useLensFlip } from "./useLensFlip";

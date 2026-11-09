@@ -29,7 +29,8 @@ import {
   ReadableTabsTrigger,
   StackedTabsContent,
 } from "@/components/variants/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip } from "@/components/variants/tooltip";
+import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFlashTooltip } from "@/components/useFlashTooltip";
 import { CopyButton, FLASH_FEEDBACK_DURATION_MS } from "@/components/CopyButton";
 import { showTaskToast } from "@/components/TaskToaster";

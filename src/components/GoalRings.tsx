@@ -2,7 +2,8 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { Fragment } from "react";
 import { cn } from "cn";
 import { Kbd } from "@/components/ui/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip } from "@/components/variants/tooltip";
+import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isMet, type GoalProgress, type GoalsToday } from "@/goals";
 import type { GoalLens } from "./listLens";
 

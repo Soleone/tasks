@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { SortField } from "./taskFilters";
-import type { Tooltip } from "./ui/tooltip";
+import type { Tooltip } from "@/components/variants/tooltip";
 import { ToolbarStateTrigger, ToolbarTooltip } from "./variants/toolbar";
 import {
   DropdownMenu,

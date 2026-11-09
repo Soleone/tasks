@@ -50,7 +50,8 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Popover, PopoverTrigger } from "./ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip } from "@/components/variants/tooltip";
+import { TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import { ButtonRow, ToolbarGroup } from "@/components/variants/button-group";
 import {
@@ -310,7 +311,6 @@ export function TaskListToolbar({
   function feedbackTooltip(key: string): ComponentProps<typeof Tooltip> {
     return {
       triggerId: `${tooltipId}-${key}`,
-      disableHoverablePopup: touchFeedback !== null,
       open: touchFeedback
         ? touchFeedback.key === key
         : hoveredTooltip !== null

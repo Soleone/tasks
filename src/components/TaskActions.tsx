@@ -16,7 +16,7 @@ import type { TaskEffort, TaskPriority } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
 import { EFFORT_ICONS, EFFORTS_LARGEST_FIRST, PRIORITY_META, effortTitle } from "./taskFilters";
 import { StatusGlyph } from "./TaskRow";
-import type { Tooltip } from "./ui/tooltip";
+import type { Tooltip } from "@/components/variants/tooltip";
 import { ToolbarCommand, ToolbarTooltip } from "./variants/toolbar";
 import {
   DropdownMenu,

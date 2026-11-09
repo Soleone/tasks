@@ -1,7 +1,8 @@
 import { useState, type ComponentProps } from "react";
 import { CopyIcon } from "lucide-react";
 import { Button } from "@/components/variants/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip } from "@/components/variants/tooltip";
+import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFlashTooltip } from "@/components/useFlashTooltip";
 
 export const FLASH_FEEDBACK_DURATION_MS = 1500;

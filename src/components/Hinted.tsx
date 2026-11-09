@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip } from "@/components/variants/tooltip";
+import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** A short hint on hover, shown at once like every tooltip here; never a native title, which lags. */
 export function Hinted({

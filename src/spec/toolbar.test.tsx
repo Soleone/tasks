@@ -165,6 +165,15 @@ describe("touch feedback", () => {
   });
 
   const tooltip = { selector: "[data-slot=tooltip-content][data-open]" };
+
+  test("client.tooltips: leaving the window closes the hovered tooltip", async () => {
+    await workspace.create("A");
+    const { user } = await workspace.render();
+    await user.hover(document.querySelector("[data-sort=task-sort-menu]")!);
+    await screen.findByText("Sort: Created", tooltip);
+    fireEvent.blur(window);
+    await waitFor(() => expect(document.querySelector(tooltip.selector)).toBeNull());
+  });
   async function tap(
     selector: string,
     user: Awaited<ReturnType<AppWorkspace["render"]>>["user"],
