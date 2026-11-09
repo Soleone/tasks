@@ -41,7 +41,7 @@ The toolbar holds list-level controls (filters, sort, view) and global actions (
 | Rule | When | Then |
 | --- | --- | --- |
 | `count.line` | Any list state | One muted line under the toolbar reports the matching count and active filters, e.g. "12 active tasks". It never mentions sort and truncates instead of wrapping |
-| `count.clear-one` | Clicking a filter in the count line | Only that filter resets. Hovering one says so at once, e.g. "Clear priority filter: P0" |
+| `count.clear-one` | Clicking a filter in the count line | Only that filter resets. Hovering one says so at once, e.g. "Clear priority filter", without repeating a value it shows in full; a search, which can be cut off, and a tag list cut to "+N tags" name theirs |
 
 ## Focus modes
 

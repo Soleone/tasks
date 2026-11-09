@@ -80,18 +80,22 @@ type FilterSummaryPart = {
   filter: Exclude<FilterSummaryFilter, "status" | "category">;
   value: string;
   label: string;
+  /** The tooltip, when the label repeats a value shown in full on screen. */
+  hint?: string;
   onClear: () => void;
 };
 
 function FilterSummaryAction({
   filter,
   label,
+  hint = label,
   onClear,
   className,
   children,
 }: {
   filter: FilterSummaryFilter;
   label: string;
+  hint?: string;
   onClear: () => void;
   className?: string;
   children: ReactNode;
@@ -113,7 +117,7 @@ function FilterSummaryAction({
       >
         {children}
       </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
+      <TooltipContent side="bottom">{hint}</TooltipContent>
     </Tooltip>
   );
 }
@@ -371,12 +375,14 @@ export function TaskListToolbar({
     </>
   );
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
+  const clearTags = `Clear tag filters: ${tagFilter.map((tag) => `#${tag.label}`).join(" ")}`;
   const summarySuffixParts: FilterSummaryPart[] = [
     priorityFilter !== null
       ? {
           filter: "priority",
           value: priorityLabel,
           label: `Clear priority filter: ${priorityLabel}`,
+          hint: "Clear priority filter",
           onClear: clearPriorityFilter,
         }
       : null,
@@ -384,7 +390,9 @@ export function TaskListToolbar({
       ? {
           filter: "tags",
           value: summaryTags,
-          label: `Clear tag filters: ${tagFilter.map((tag) => `#${tag.label}`).join(" ")}`,
+          label: clearTags,
+          // "+N tags" hides names, so the tooltip spells them out.
+          hint: tagFilter.length > 2 ? clearTags : "Clear tag filters",
           onClear: clearTagFilter,
         }
       : null,
@@ -848,6 +856,7 @@ export function TaskListToolbar({
                 <FilterSummaryAction
                   filter="category"
                   label={`Clear category filter: ${categoryFilter.label}`}
+                  hint="Clear category filter"
                   onClear={clearCategoryFilter}
                   className="group/fact shrink-0"
                 >
@@ -865,6 +874,7 @@ export function TaskListToolbar({
                 <FilterSummaryAction
                   filter={part.filter}
                   label={part.label}
+                  hint={part.hint}
                   onClear={part.onClear}
                   className="min-w-0 truncate text-left text-xs text-muted-foreground hover:text-foreground"
                 >

@@ -439,13 +439,18 @@ export function DoneLensGoals({
             </span>
           </button>
         );
-        // The pill says today's numbers; only a weekly goal has more to say.
+        // The pill says its name and today's numbers; only a weekly goal has more to say.
         if (!entry.week) return button;
         return (
           <Tooltip key={entry.slug ?? ""}>
             <TooltipTrigger render={button} />
             <TooltipContent side="bottom">
-              <GoalTip goal={entry} />
+              <Columns pairs={[[entry.week.done, entry.week.count]]}>
+                <Line>
+                  <span className="opacity-70">This week</span>
+                  <Numbers done={entry.week.done} target={entry.week.count} />
+                </Line>
+              </Columns>
             </TooltipContent>
           </Tooltip>
         );

@@ -575,11 +575,7 @@ function TaskRowFooter({
   }
   if (!sameTaskDay(task.createdAt, task.updatedAt)) {
     facts.push(
-      <Hinted
-        key="updated"
-        hint={`Updated ${formatTaskDateTime(task.updatedAt)}`}
-        render={<span />}
-      >
+      <Hinted key="updated" hint={formatTaskDateTime(task.updatedAt)} render={<span />}>
         Updated {formatTaskDate(task.updatedAt)}
       </Hinted>,
     );
@@ -587,7 +583,7 @@ function TaskRowFooter({
   facts.push(
     <Hinted
       key="created"
-      hint={`Created ${formatTaskDateTime(task.createdAt)}`}
+      hint={formatTaskDateTime(task.createdAt)}
       render={<span data-task-created />}
     >
       Created {formatTaskDate(task.createdAt)}
@@ -599,7 +595,7 @@ function TaskRowFooter({
       // A pointer shortcut inside a list option, like the category badge.
       <Hinted
         key="images"
-        hint="Copy the newest image"
+        hint={imageCount === 1 ? "Copy image" : "Copy the newest"}
         render={
           <span
             role="img"
