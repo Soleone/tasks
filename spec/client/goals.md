@@ -25,7 +25,7 @@ A goal is a number of tasks to finish a day or a week, per category, plus one fo
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `goals.lens` | The done lens on today with goals set | The count line reads e.g. "3 done today", then a button per goal with its color and today's numbers as e.g. "1/2" (the goal dimmed). Clicking one narrows the lens to it: its category, or for everything else the tasks outside every goal category, and the count line counts against that goal, e.g. "2/3 done today". Clicking it again shows them all |
+| `goals.lens` | The done lens on today with goals set | The count line reads e.g. "3 done today", then a button per goal with its color and today's numbers as e.g. "1/2" (the goal dimmed). Clicking one narrows the lens to it: its category, or for everything else the tasks outside every goal category, and the count line counts against that goal, e.g. "2/3 done today". Clicking it again shows them all. Opening the lens, the buttons fade in as its count lands (`done.lens-flip`), and each category goal whose ring shows in the header sends a copy of it down onto its button's dot |
 
 ## Settings
 

@@ -21,6 +21,7 @@ const turn = (axis: Axis, degrees: number, sink = ""): string =>
 
 const headerCount = (kind: LensKind) =>
   document.querySelector<HTMLElement>(`[data-lens-count=${kind}] [data-lens-number]`);
+const goalPills = () => document.querySelectorAll<HTMLElement>("[data-goal-pill]");
 const summaryCount = () => document.querySelector<HTMLElement>("[data-summary-count]");
 
 /** The middle of the rows on screen, so a short list turns about its tasks, not the space below. */
@@ -39,8 +40,11 @@ type Flip = {
   startedAt: number;
   /** Kept until the next flip, which cancels whatever still runs. */
   animations: Animation[];
-  /** Keeps the list hidden until its new tasks load, so the old ones don't face you again. */
-  hold: Animation | null;
+  /**
+   * Keep the list hidden until its new tasks load, so the old ones don't face you again, and the
+   * done lens's goal pills until they fly in.
+   */
+  holds: Animation[];
   /** Whether the new list has started swinging in. */
   swung: boolean;
   /** The list, which paints every row until it faces you again (see TaskList's row families). */
@@ -112,6 +116,71 @@ function flyNumber(flip: Flip, from: HTMLElement, to: HTMLElement, delay: number
   flip.animations.push(animation);
 }
 
+/**
+ * The done lens's goal pills fade in as the count lands. A category goal whose ring shows in the
+ * header sends a copy of it down onto its pill's dot; a met or folded goal, or everything else,
+ * has no ring there and only fades in.
+ */
+/** How far into the flight a goal ring reaches its pill's dot and the pill starts fading in. */
+const HAND_OVER_AT = 0.75;
+
+function flyGoalRings(flip: Flip, delay: number): void {
+  for (const pill of goalPills()) {
+    const fade = pill.animate(
+      [{ opacity: 0 }, { offset: HAND_OVER_AT, opacity: 0 }, { opacity: 1 }],
+      {
+        duration: COUNT_FLIGHT_MS,
+        delay,
+        easing: "ease-out",
+        fill: "backwards",
+      },
+    );
+    flip.animations.push(fade);
+    const ring = pill.dataset.goalPill
+      ? document.querySelector<HTMLElement>(
+          `[data-goal-ring="${CSS.escape(pill.dataset.goalPill)}"]`,
+        )
+      : null;
+    const dot = pill.querySelector("[data-goal-dot]");
+    const start = ring?.getBoundingClientRect();
+    if (!ring || !dot || !start?.width) continue;
+    const end = dot.getBoundingClientRect();
+    const flyer = ring.cloneNode(true) as HTMLElement;
+    // Completions find a ring by this, and must keep landing on the real one.
+    flyer.removeAttribute("data-goal-ring");
+    flyer.setAttribute("aria-hidden", "true");
+    Object.assign(flyer.style, {
+      position: "fixed",
+      left: `${start.left}px`,
+      top: `${start.top}px`,
+      margin: "0",
+      pointerEvents: "none",
+      zIndex: "50",
+    });
+    document.body.append(flyer);
+    const dx = end.left + end.width / 2 - (start.left + start.width / 2);
+    const dy = end.top + end.height / 2 - (start.top + start.height / 2);
+    const animation = flyer.animate(
+      [
+        { transform: "none" },
+        // The same arc as the count's number, so they read as one move.
+        { offset: 0.45, transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 10}px) scale(1.15)` },
+        // Solid until it reaches the dot, then it hands over to the pill fading in.
+        {
+          offset: HAND_OVER_AT,
+          transform: `translate(${dx}px, ${dy}px) scale(${end.width / start.width})`,
+          opacity: 1,
+        },
+        { transform: `translate(${dx}px, ${dy}px) scale(${end.width / start.width})`, opacity: 0 },
+      ],
+      { duration: COUNT_FLIGHT_MS, delay, easing: "cubic-bezier(.45,.05,.2,1)" },
+    );
+    const remove = () => flyer.remove();
+    animation.finished.then(remove, remove);
+    flip.animations.push(animation);
+  }
+}
+
 function turnAway(flip: Flip, list: HTMLElement): void {
   // Set first, so the ghost copied from the list keeps every row painted as it turns too.
   list.dataset.turning = "";
@@ -167,7 +236,7 @@ export function useLensFlip(
 
   function stop(): void {
     flip.current?.animations.forEach((animation) => animation.cancel());
-    flip.current?.hold?.cancel();
+    flip.current?.holds.forEach((hold) => hold.cancel());
     flip.current?.turning?.removeAttribute("data-turning");
     flip.current = null;
   }
@@ -187,19 +256,22 @@ export function useLensFlip(
       entering: lensKind,
       startedAt: performance.now(),
       animations: [],
-      hold: null,
+      holds: [],
       swung: false,
       turning: null,
     };
     flip.current = next;
     if (list.current) {
       turnAway(next, list.current);
-      next.hold = list.current.animate({ opacity: [0, 0] }, { duration: Infinity });
+      next.holds.push(list.current.animate({ opacity: [0, 0] }, { duration: Infinity }));
     }
     // The count line already reads as the new view, its number where the lens's count stood.
     const from = summaryCount();
     const home = leaving && headerCount(leaving);
     if (from && home) flyNumber(next, from, home, 0);
+    if (lensKind === "done")
+      for (const pill of goalPills())
+        next.holds.push(pill.animate({ opacity: [0, 0] }, { duration: Infinity }));
   }, [lensKind, list]);
 
   // Runs after the effect above, so a view that changes and loads in one commit still turns first.
@@ -207,11 +279,12 @@ export function useLensFlip(
     const current = flip.current;
     if (!current || current.swung || loading) return;
     current.swung = true;
-    current.hold?.cancel();
+    current.holds.forEach((hold) => hold.cancel());
     const delay = Math.max(0, TURN_AWAY_MS - (performance.now() - current.startedAt));
     if (list.current) swingIn(current, list.current, delay);
     const from = current.entering && headerCount(current.entering);
     const to = summaryCount();
     if (from && to) flyNumber(current, from, to, delay);
+    if (current.entering === "done") flyGoalRings(current, delay);
   });
 }

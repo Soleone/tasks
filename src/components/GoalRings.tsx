@@ -155,6 +155,7 @@ function GoalDot({
   return (
     <span
       aria-hidden="true"
+      data-goal-dot
       data-swatch={goal.swatch ?? undefined}
       className={cn(
         "size-2 shrink-0 rounded-full",
@@ -423,6 +424,7 @@ export function DoneLensGoals({
             type="button"
             tabIndex={-1}
             aria-pressed={pressed}
+            data-goal-pill={entry.slug ?? ""}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onGoal(pressed ? undefined : lens)}
             className={cn(
