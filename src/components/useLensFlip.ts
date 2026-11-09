@@ -7,7 +7,7 @@ const TURN_AWAY_MS = 220;
 /** How long the new list takes to swing round to face you and settle. */
 const SWING_IN_MS = 520;
 /** The count's number and the done lens's goal rings fly together, slow enough to follow a small ring. */
-const FLIGHT_MS = 650;
+const FLIGHT_MS = 325;
 const SINK = "translateZ(-140px)";
 
 type LensKind = ListLens["kind"];
