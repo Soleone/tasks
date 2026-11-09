@@ -401,6 +401,7 @@ export function TaskListToolbar({
           filter: "search",
           value: `“${searchQuery.trim()}”`,
           label: `Clear search filter: ${searchQuery.trim()}`,
+          hint: "Clear search",
           onClear: clearSearch,
         }
       : null,
