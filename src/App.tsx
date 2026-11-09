@@ -568,12 +568,15 @@ export default function App({
     requestActiveTask();
   }
 
-  function widenDoneLens(): void {
+  function widenDoneLens(backward = false): void {
     if (openLens?.lens.kind !== "done") {
       enterLens({ kind: "done", window: "week" });
       return;
     }
-    const next: ListLens = { kind: "done", window: widerDoneWindow(openLens.lens.window) };
+    const next: ListLens = {
+      kind: "done",
+      window: widerDoneWindow(openLens.lens.window, backward),
+    };
     setHelpOpen(false);
     setOpenLens({ ...openLens, lens: next });
     requestActiveTask();

@@ -360,6 +360,13 @@ describe("completion", () => {
       await waitFor(() => expect(countLine()).toBe("1 done in the last 30 days"));
       await user.keyboard("{Shift>}d{/Shift}");
       await waitFor(() => expect(countLine()).toBe("0 done today"));
+      // Shift-clicking the count line steps back instead.
+      await user.keyboard("{Shift>}");
+      await user.click(screen.getByRole("button", { name: "Show tasks done yesterday" }));
+      await user.keyboard("{/Shift}");
+      await waitFor(() => expect(countLine()).toBe("1 done in the last 30 days"));
+      await user.keyboard("{Shift>}d{/Shift}");
+      await waitFor(() => expect(countLine()).toBe("0 done today"));
       await user.click(screen.getByRole("button", { name: "Go back" }));
       await expectRows(["Open"]);
 

@@ -150,7 +150,7 @@ type TaskListProps = {
   /** The open lens, or null outside one. */
   lens: ListLens | null;
   onToggleLens: (kind: ListLens["kind"]) => void;
-  onWidenDoneLens: () => void;
+  onWidenDoneLens: (backward?: boolean) => void;
   goals: GoalsToday | null;
   onGoalLens: (goal: GoalLens | undefined) => void;
   statusPreset: StatusPreset;
@@ -1850,9 +1850,9 @@ export function TaskList({
         reorderSelection={reorderSelection}
         summaryTaskCount={summaryTaskCount}
         lens={lens}
-        widenDoneLens={() => {
+        widenDoneLens={(backward) => {
           returnToList();
-          onWidenDoneLens();
+          onWidenDoneLens(backward);
         }}
         goals={goals}
         onGoalLens={onGoalLens}

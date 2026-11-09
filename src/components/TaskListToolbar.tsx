@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type MouseEvent,
   type ReactElement,
   type ReactNode,
   type RefObject,
@@ -97,7 +98,7 @@ function FilterSummaryAction({
   filter: FilterSummaryFilter;
   label: string;
   hint?: string;
-  onClear: () => void;
+  onClear: (event: MouseEvent<HTMLButtonElement>) => void;
   className?: string;
   children: ReactNode;
 }): ReactElement {
@@ -218,7 +219,7 @@ type TaskListToolbarProps = {
   reorderSelection: (direction: TaskMoveDirection) => Promise<void>;
   summaryTaskCount: number;
   lens: ListLens | null;
-  widenDoneLens: () => void;
+  widenDoneLens: (backward: boolean) => void;
   /** Today's goals, shown on the done lens's count line, or null without goals. */
   goals: GoalsToday | null;
   onGoalLens: (goal: GoalLens | undefined) => void;
@@ -838,7 +839,11 @@ export function TaskListToolbar({
                     ? `Show tasks ${lensPhrase({ kind: "done", window: widerDoneWindow(lens.window) })}`
                     : "Reset status filter to Active"
                 }
-                onClear={lens?.kind === "done" ? widenDoneLens : clearStatusFilter}
+                onClear={
+                  lens?.kind === "done"
+                    ? (event) => widenDoneLens(event.shiftKey)
+                    : clearStatusFilter
+                }
                 className="font-medium text-foreground"
               >
                 {summaryText}
