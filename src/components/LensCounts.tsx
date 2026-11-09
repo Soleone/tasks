@@ -174,7 +174,7 @@ export function DoneToday({
   // Hovering the count lights up the whole group as one: the ring is the goals added up.
   return (
     <span
-      className="flex items-center rounded-md transition-colors has-[[data-lens-count=done]:hover]:bg-muted"
+      className="flex items-center gap-1 rounded-md transition-colors has-[[data-lens-count=done]:hover]:bg-muted"
       data-goals
     >
       {count}
