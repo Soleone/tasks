@@ -413,11 +413,12 @@ export function DoneLensGoals({
 }): ReactElement | null {
   if (today.goals.length < 2) return null;
   return (
-    <span className="flex flex-wrap items-center gap-1" data-done-lens-goals>
+    // An empty title keeps the count line's summary from showing as every pill's tooltip.
+    <span className="flex flex-wrap items-center gap-1" title="" data-done-lens-goals>
       {today.goals.map((entry) => {
         const lens = goalLens(entry, today);
         const pressed = sameLens(goal, lens);
-        return (
+        const button = (
           <button
             key={entry.slug ?? ""}
             type="button"
@@ -438,6 +439,16 @@ export function DoneLensGoals({
               <span className="opacity-55">/{entry.target}</span>
             </span>
           </button>
+        );
+        // The pill says today's numbers; only a weekly goal has more to say.
+        if (!entry.week) return button;
+        return (
+          <Tooltip key={entry.slug ?? ""}>
+            <TooltipTrigger render={button} />
+            <TooltipContent side="bottom">
+              <GoalTip goal={entry} />
+            </TooltipContent>
+          </Tooltip>
         );
       })}
     </span>

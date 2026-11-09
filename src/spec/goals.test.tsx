@@ -99,6 +99,22 @@ test("goals.tooltips: a weekly goal labels today and this week", async () => {
   const tip = (await screen.findByText("This week")).closest("[data-slot=tooltip-content]")!;
   expect(tip.textContent).toContain("Today0/2");
   expect(tip.textContent).toContain("This week0/14");
+
+  await user.keyboard("d");
+  const pill = await waitFor(() =>
+    within(document.querySelector<HTMLElement>("[data-done-lens-goals]")!).getByRole("button", {
+      name: /@work/,
+    }),
+  );
+  await user.hover(pill);
+  await waitFor(() =>
+    expect(
+      [...document.querySelectorAll("[data-slot=tooltip-content]")].some((content) =>
+        content.textContent?.includes("This week0/14"),
+      ),
+    ).toBe(true),
+  );
+  expect(pill.closest("[title]")?.getAttribute("title")).toBe("");
 });
 
 test("goals.lens: the done lens counts against the goals and narrows to one", async () => {
