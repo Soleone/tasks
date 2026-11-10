@@ -121,6 +121,8 @@ WSL has no emulator (no KVM). An emulator runs on the Windows side: the SDK is i
 
 ## Releasing
 
+Every push to `main` and every pull request runs `pnpm check`, `pnpm lint` and `pnpm test` on Linux (`.github/workflows/ci.yml`), so a broken `main` shows up before a release does.
+
 ### macOS test builds on GitHub Actions
 
 The manually triggered **macOS test build** workflow (`.github/workflows/macos-build.yml`) builds an experimental Apple Silicon DMG for macOS 13.5 or later (the bundled Node runtime's minimum), not a public GitHub release. It remains available for testing a branch without signing secrets or publishing. Tagged releases use the cross-platform workflow below.
