@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactElement } from "react";
+import { Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/variants/button";
 import {
@@ -381,7 +382,8 @@ export function DeleteTasksSection(): ReactElement {
       className="flex flex-col gap-4 rounded-lg border p-4"
     >
       <div className="flex flex-col gap-1">
-        <h2 id="settings-delete" className="text-sm font-medium">
+        <h2 id="settings-delete" className="flex items-center gap-2 text-sm font-medium">
+          <Trash2 aria-hidden="true" className="size-4 text-muted-foreground" />
           Delete tasks
         </h2>
         <p className="text-sm text-muted-foreground">

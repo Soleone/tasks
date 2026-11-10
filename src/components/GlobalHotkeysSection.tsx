@@ -1,4 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type ReactElement } from "react";
+import { Keyboard } from "lucide-react";
 import { Button } from "@/components/variants/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { CopyButton } from "@/components/CopyButton";
@@ -102,7 +103,8 @@ export function GlobalHotkeysSection(): ReactElement {
       className="flex flex-col gap-4 rounded-lg border p-4"
     >
       <div className="flex flex-col gap-1">
-        <h2 id="settings-hotkeys" className="text-sm font-medium">
+        <h2 id="settings-hotkeys" className="flex items-center gap-2 text-sm font-medium">
+          <Keyboard aria-hidden="true" className="size-4 text-muted-foreground" />
           Hotkeys
         </h2>
         <p className="text-sm text-muted-foreground">

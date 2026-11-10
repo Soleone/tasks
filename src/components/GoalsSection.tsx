@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactElement } from "react";
-import { Folder, Folders, Plus, Target, X } from "lucide-react";
+import { CalendarDays, Folder, Folders, Plus, Target, X } from "lucide-react";
 import { cn } from "cn";
 import { QuietButton } from "@/components/variants/button";
 import { Hinted } from "@/components/Hinted";
@@ -237,7 +237,8 @@ export function DaysSection(): ReactElement {
   return (
     <section aria-labelledby="settings-days" className="flex flex-col gap-4 rounded-lg border p-4">
       <div className="flex flex-col gap-1">
-        <h2 id="settings-days" className="text-sm font-medium">
+        <h2 id="settings-days" className="flex items-center gap-2 text-sm font-medium">
+          <CalendarDays aria-hidden="true" className="size-4 text-muted-foreground" />
           Days and weeks
         </h2>
         <p className="text-sm text-muted-foreground">
