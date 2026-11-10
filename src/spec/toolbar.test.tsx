@@ -542,6 +542,23 @@ describe("filters", () => {
     expect(sortShown()).toBe("priority");
     expect(pressed("[data-view=task-details]")).toBe("true");
   });
+
+  test("platform.swipe-back: a quick swipe left acts like Escape, other drags do nothing", async () => {
+    await workspace.create("Low", { priority: 4 });
+    await workspace.create("Urgent", { priority: 0 });
+    const { user } = await workspace.render();
+    await user.keyboard("f0");
+    await expectRows(["Urgent"]);
+    const drag = (toX: number, toY: number): void => {
+      fireEvent.touchStart(document.body, { changedTouches: [{ clientX: 200, clientY: 100 }] });
+      fireEvent.touchEnd(document.body, { changedTouches: [{ clientX: toX, clientY: toY }] });
+    };
+    drag(300, 100);
+    drag(120, 200);
+    await expectRows(["Urgent"]);
+    drag(100, 110);
+    await expectRows(["Urgent", "Low"]);
+  });
 });
 
 describe("rename", () => {

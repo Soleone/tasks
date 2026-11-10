@@ -2,6 +2,7 @@ import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useAppUpdate } from "./useAppUpdate";
 import { useGlobalHotkeys } from "./useGlobalHotkeys";
+import { useSwipeBack } from "./useSwipeBack";
 import { useHeaderCounts } from "./useHeaderCounts";
 import {
   useEffect,
@@ -436,6 +437,7 @@ export default function App({
     setComposer(null);
   }
   useGlobalHotkeys(() => openCreate());
+  useSwipeBack();
 
   const onAppKeyDown = useEffectEvent((event: KeyboardEvent): void => {
     if (event.isComposing || event.repeat) return;
