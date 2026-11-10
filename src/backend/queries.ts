@@ -1,6 +1,6 @@
 import { CommandError } from "./errors.js";
 import { isDueDate } from "./dueDate.js";
-import { assertArgs, TASK_LIST_MAX_LIMIT } from "./protocol.js";
+import { assertArgs, isRecord, TASK_LIST_MAX_LIMIT } from "./protocol.js";
 import type { CanonicalTask, TaskEffort } from "./taskModel.js";
 import { compareTasks, DEFAULT_EFFORT, isTimestamp } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
@@ -221,12 +221,44 @@ function listTasks(
   };
 }
 
+const BATCHED_QUERIES = new Set(["task.get", "task.list", "category.list", "tag.list"]);
+
+// Each command looks at every task file once, which on Windows costs about 80 µs per file, so a
+// screen that needs several answers asks for them together.
+function queryBatch(
+  args: Record<string, unknown>,
+  tasks: TaskProjection[],
+  revision: number,
+): Record<string, unknown> {
+  assertArgs(args, ["queries"]);
+  const { queries } = args;
+  if (!Array.isArray(queries) || queries.length < 1 || queries.length > 8) invalidFilter("queries");
+  return {
+    results: queries.map((query: unknown) => {
+      if (
+        !isRecord(query) ||
+        Object.keys(query).some((key) => key !== "command" && key !== "args") ||
+        !BATCHED_QUERIES.has(query.command as string) ||
+        (query.args !== undefined && !isRecord(query.args))
+      )
+        invalidFilter("queries");
+      return executeQuery(
+        query.command as string,
+        (query.args as Record<string, unknown> | undefined) ?? {},
+        tasks,
+        revision,
+      );
+    }),
+  };
+}
+
 export function executeQuery(
   command: string,
   args: Record<string, unknown>,
   tasks: TaskProjection[],
   revision: number,
 ): Record<string, unknown> {
+  if (command === "query.batch") return queryBatch(args, tasks, revision);
   if (command === "task.list") return listTasks(tasks, args, revision);
   if (command === "task.get") {
     assertArgs(args, ["id"]);

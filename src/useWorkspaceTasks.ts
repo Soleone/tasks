@@ -25,8 +25,7 @@ import { lensFilter, type ListLens } from "@/components/listLens";
 import {
   closeBackendSession,
   getWorkspaceRevision,
-  listCategories,
-  listTasks,
+  listTasksTogether,
 } from "@/platform/backendClient";
 
 const WORKSPACE_REVISION_POLL_MS = 1500;
@@ -105,32 +104,37 @@ export function useWorkspaceTasks({
           lensStatuses ?? (exact !== null ? [exact] : presetStatuses(statusPresetRef.current));
         // Every category, not just this view's, so the rows' category column keeps its width and
         // the editor can suggest any of them. It comes with the rows so both show at once.
-        const [result, categoryResult] = await Promise.all([
-          listTasks(
-            statuses,
-            offset,
-            showUnblockedRef.current,
-            categoryFilterRef.current ?? undefined,
-            {
-              ...(priorityFilterRef.current !== null
-                ? { priority: priorityFilterRef.current }
-                : {}),
-              ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
-              ...(searchQueryRef.current.trim() !== ""
-                ? { search: searchQueryRef.current.trim() }
-                : {}),
-              ...lensBounds,
-              limit,
-              sort: sortFieldRef.current,
-              direction: sortDirectionRef.current,
-              includeAncestors: true,
-              includeDescendants: true,
-            },
-          ),
-          offset ? null : listCategories(),
-        ]);
+        const {
+          lists: [result],
+          categories,
+        } = await listTasksTogether(
+          [
+            [
+              statuses,
+              offset,
+              showUnblockedRef.current,
+              categoryFilterRef.current ?? undefined,
+              {
+                ...(priorityFilterRef.current !== null
+                  ? { priority: priorityFilterRef.current }
+                  : {}),
+                ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
+                ...(searchQueryRef.current.trim() !== ""
+                  ? { search: searchQueryRef.current.trim() }
+                  : {}),
+                ...lensBounds,
+                limit,
+                sort: sortFieldRef.current,
+                direction: sortDirectionRef.current,
+                includeAncestors: true,
+                includeDescendants: true,
+              },
+            ],
+          ],
+          !offset,
+        );
         if (sequence !== querySequence.current) return false;
-        if (categoryResult) setCategories(categoryResult.categories);
+        if (categories) setCategories(categories);
         workspaceRevisionRef.current = result.workspaceRevision;
         if (!offset && !preserveContextOrder) setContextOrder(new Map());
         setTasks((previous) =>

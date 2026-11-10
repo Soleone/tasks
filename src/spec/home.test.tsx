@@ -46,7 +46,7 @@ describe("refresh", () => {
     let reloads = 0;
     globalThis.fetch = async (...args) => {
       const body = typeof args[1]?.body === "string" ? JSON.parse(args[1].body) : null;
-      if (body?.command === "task.list") {
+      if (body?.command === "query.batch") {
         reloads += 1;
         await held;
       }

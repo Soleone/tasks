@@ -175,6 +175,7 @@ test("info inspects empty, partial and unsupported roots without creating canoni
     "category.rename",
     "operation.redo",
     "operation.undo",
+    "query.batch",
     "tag.list",
     "tag.rename",
     "task.cancel",
@@ -221,6 +222,35 @@ test("info inspects empty, partial and unsupported roots without creating canoni
   const empty = result(query(replaced, "workspace.info"));
   assert.equal(empty.state, "empty");
   assert.deepEqual(readdirSync(current.root), []);
+});
+
+test("query.batch: several reads answer from one look at the folder, in order, and fail together", (t) => {
+  const current = workspace(t, {
+    a: { title: "Alpha", category: "work" },
+    b: { title: "Beta", status: "done", closedAt: "2026-01-01T00:00:00.000Z" },
+  });
+  const batch = result(
+    query(current, "query.batch", {
+      queries: [
+        { command: "task.list", args: { status: ["open"] } },
+        { command: "category.list" },
+        { command: "task.get", args: { id: "b" } },
+      ],
+    }),
+  );
+  const [list, categories, task] = batch.results as Record<string, unknown>[];
+  assert.deepEqual(list, result(query(current, "task.list", { status: ["open"] })));
+  assert.deepEqual(categories, result(query(current, "category.list")));
+  assert.equal((task.task as { title: string }).title, "Beta");
+  const missing = query(current, "query.batch", {
+    queries: [{ command: "category.list" }, { command: "task.get", args: { id: "zzz" } }],
+  });
+  assert.equal(missing.ok, false);
+  assert.equal(!missing.ok && missing.error.code, "TASK_NOT_FOUND");
+  for (const queries of [[], [{ command: "workspace.info" }], [{ command: "query.batch" }]]) {
+    const refused = query(current, "query.batch", { queries });
+    assert.equal(!refused.ok && refused.error.code, "INVALID_ARGUMENT");
+  }
 });
 
 test("list.descendants: a filtered page includes its whole tree without changing matching pagination", (t) => {

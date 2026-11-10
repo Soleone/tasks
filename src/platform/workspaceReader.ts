@@ -200,6 +200,28 @@ export class WorkspaceReader {
     return parseTaskPage(await this.query("task.list", { ...args, includeAncestors: true }));
   }
 
+  /** Task lists and, if asked, every category, from one look at the folder. */
+  async tasksTogether(
+    lists: Record<string, unknown>[],
+    withCategories: boolean,
+  ): Promise<{ pages: TaskPage[]; categories: unknown }> {
+    const { results } = await this.query("query.batch", {
+      queries: [
+        ...lists.map((args) => ({
+          command: "task.list",
+          args: { ...args, includeAncestors: true },
+        })),
+        ...(withCategories ? [{ command: "category.list" }] : []),
+      ],
+    });
+    if (!Array.isArray(results) || results.length !== lists.length + Number(withCategories))
+      invalidReply();
+    return {
+      pages: results.slice(0, lists.length).map(parseTaskPage),
+      categories: withCategories ? results.at(-1).categories : undefined,
+    };
+  }
+
   async close(): Promise<void> {
     await this.session?.close();
   }

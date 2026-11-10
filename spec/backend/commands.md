@@ -118,6 +118,7 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `task.get` | `id` | `task` |
 | `task.list` | filters below | `tasks`, `contextTasks`, `total`, `limit`, `offset`, `workspaceRevision` |
 | `category.list` / `tag.list` | none | `[{slug, taskCount}]`, counting tasks that aren't canceled, most recently updated task first, then by slug |
+| `query.batch` | `queries`: 1 to 8 of `{command, args}`, each `task.get`, `task.list`, `category.list` or `tag.list` | `results`, one per query in order |
 | `activity.list` | optional `taskId`, `limit` | `[{operationId, taskId, actor, createdAt, command, before, after}]` |
 | `workspace.info` | none | `state`, `schemaVersion`, `commands`, `issues`, `pendingOperationId`, `workspaceRevision` |
 
@@ -136,6 +137,7 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `list.ancestors` | Filters never detach a child from its tree. Non-matching ancestors come back in `contextTasks` and don't count in `total` |
 | `list.descendants` | `includeDescendants: true` includes ancestors and every descendant of each page task's root in `contextTasks`, excluding tasks already in the page. Unrelated trees stay out. Context doesn't change matching `total`, `limit` or `offset` |
 | `list.canceled-classification` | Categories and tags used only by canceled tasks are left out of `category.list` and `tag.list` |
+| `query.batch` | All answers come from one look at the folder, so they agree with each other and the folder is walked once. If any query fails, the whole batch fails with that query's error |
 | `info.state` | `state` is `empty`, `ready`, `incomplete`, `unsupported` or `recovery_pending`. `commands` lists what this build supports, sorted |
 | `info.refusals` | A known command this build doesn't offer fails `UNSUPPORTED_COMMAND`, an unknown one `UNKNOWN_COMMAND`. No command approximates another |
 

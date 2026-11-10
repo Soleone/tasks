@@ -36,6 +36,7 @@ const KNOWN_COMMANDS = [
   "home.themes.list",
   "operation.undo",
   "operation.redo",
+  "query.batch",
   "runtime.probe",
   "source.list",
   "tag.list",
@@ -151,6 +152,7 @@ export const TASK_LIST_MAX_LIMIT = 500;
 export const QUERY_COMMANDS = [
   "attachment.read",
   "category.list",
+  "query.batch",
   "tag.list",
   "task.get",
   "task.list",

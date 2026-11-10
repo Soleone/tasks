@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { TaskView } from "@/components/taskView";
 import { lensFilter, type ListLens } from "@/components/listLens";
 import { goalsToday, hasGoals, weekStart, type GoalsToday } from "@/goals";
-import { listTasks } from "@/platform/backendClient";
+import { listTasksTogether, type TaskListRequest } from "@/platform/backendClient";
 import { useSharedSettings, type SharedSettings } from "@/platform/sharedSettings";
 
 /** Tasks age out of the window, and days turn, without any write, so the counts also recheck on their own. */
@@ -10,20 +10,38 @@ const RECHECK_MS = 60 * 1000;
 
 type HeaderCounts = { doneToday: number; dueNow: number; goals: GoalsToday | null };
 
-/** How many tasks the lens shows with no other filter. */
-async function countLens(lens: ListLens): Promise<number> {
+function lensRequest(lens: ListLens): TaskListRequest {
   const { statuses, ...bounds } = lensFilter(lens);
-  return (await listTasks(statuses, 0, false, undefined, { ...bounds, limit: 1 })).total;
+  return [statuses, 0, false, undefined, { ...bounds, limit: 1 }];
 }
 
-/** Each goal's progress, from this week's done tasks; a week holds far fewer than a page. */
-async function countGoals(settings: SharedSettings): Promise<GoalsToday> {
+/**
+ * The counts in one request, since each request looks at every task file. With goals, this
+ * week's done tasks give each goal's progress and the done count; a week holds far fewer than a
+ * page.
+ */
+async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
   const now = new Date();
-  const { tasks } = await listTasks(["done"], 0, false, undefined, {
-    closedSince: weekStart(settings, now).start.toISOString(),
-    limit: 500,
-  });
-  return goalsToday(settings, tasks, now)!;
+  const goalsSet = hasGoals(settings);
+  const {
+    lists: [due, done],
+  } = await listTasksTogether(
+    [
+      lensRequest({ kind: "due" }),
+      goalsSet
+        ? [
+            ["done"],
+            0,
+            false,
+            undefined,
+            { closedSince: weekStart(settings, now).start.toISOString(), limit: 500 },
+          ]
+        : lensRequest({ kind: "done", window: "day" }),
+    ],
+    false,
+  );
+  const goals = goalsSet ? goalsToday(settings, done.tasks, now)! : null;
+  return { doneToday: goals ? goals.done : done.total, dueNow: due.total, goals };
 }
 
 /**
@@ -40,12 +58,8 @@ export function useHeaderCounts(listTasksShown: readonly TaskView[]): HeaderCoun
     const count = async (): Promise<void> => {
       const sequence = ++querySequence.current;
       try {
-        const [goals, dueNow] = await Promise.all([
-          hasGoals(settings) ? countGoals(settings) : null,
-          countLens({ kind: "due" }),
-        ]);
-        const doneToday = goals?.done ?? (await countLens({ kind: "done", window: "day" }));
-        if (sequence === querySequence.current) setCounts({ doneToday, dueNow, goals });
+        const next = await countAll(settings);
+        if (sequence === querySequence.current) setCounts(next);
       } catch {
         // The list reports backend failures; the counts keep their last answer.
       }

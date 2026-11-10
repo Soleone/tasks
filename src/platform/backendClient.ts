@@ -127,14 +127,26 @@ export type OperationUndoResult = {
   changed: boolean;
 };
 
-export async function listTasks(
+export async function listTasks(...request: TaskListRequest): Promise<TaskListResult> {
+  return selected().tasks(listArgs(...request));
+}
+
+export type TaskListRequest = [
+  status?: string | readonly string[],
+  offset?: number,
+  unblocked?: boolean,
+  category?: string,
+  filters?: TaskListFilters,
+];
+
+function listArgs(
   status?: string | readonly string[],
   offset = 0,
   unblocked = false,
   category?: string,
   filters: TaskListFilters = {},
-): Promise<TaskListResult> {
-  return selected().tasks({
+): Record<string, unknown> {
+  return {
     ...(status !== undefined ? { status } : {}),
     ...(unblocked ? { unblocked: true } : {}),
     ...(category !== undefined ? { category } : {}),
@@ -156,13 +168,33 @@ export async function listTasks(
     ...(filters.dueBefore !== undefined ? { dueBefore: filters.dueBefore } : {}),
     ...(filters.limit !== undefined ? { limit: filters.limit } : {}),
     offset,
-  });
+  };
+}
+
+/**
+ * Several lists and, if asked, every category, answered from one look at the folder. Each read
+ * stats every task file, which is most of what a refresh costs on Windows.
+ */
+export async function listTasksTogether(
+  requests: TaskListRequest[],
+  withCategories: boolean,
+): Promise<{ lists: TaskListResult[]; categories?: ClassificationOption[] }> {
+  const { pages, categories } = await selected().tasksTogether(
+    requests.map((request) => listArgs(...request)),
+    withCategories,
+  );
+  return {
+    lists: pages,
+    ...(categories ? { categories: categoryOptions(categories) } : {}),
+  };
+}
+
+function categoryOptions(entries: { slug: string; taskCount: number }[]): ClassificationOption[] {
+  return entries.map((entry) => ({ ...entry, label: entry.slug }));
 }
 
 export async function listCategories(): Promise<CategoryListResult> {
-  return {
-    categories: (await selected().categories()).map((entry) => ({ ...entry, label: entry.slug })),
-  };
+  return { categories: categoryOptions(await selected().categories()) };
 }
 
 export async function listTags(): Promise<TagListResult> {

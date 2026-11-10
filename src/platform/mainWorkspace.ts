@@ -38,6 +38,13 @@ function classificationEntries(value: unknown): { slug: string; taskCount: numbe
   });
 }
 
+// The UI's "desc" means most pressing first (P0, soonest due); the engine sorts the value.
+function engineListArgs(args: Record<string, unknown>): Record<string, unknown> {
+  if ((args.sort !== "priority" && args.sort !== "due") || args.direction === undefined)
+    return args;
+  return { ...args, direction: args.direction === "desc" ? "asc" : "desc" };
+}
+
 export type UnresolvedTaskRequest = {
   prepared: PreparedEdit<EditResult | OrderResult | UndoResult>;
   error: string;
@@ -97,24 +104,25 @@ export class MainWorkspace {
   }
 
   async tasks(args: Record<string, unknown>) {
-    // The UI's "desc" means most pressing first (P0, soonest due); the engine sorts the value.
-    const direction =
-      (args.sort === "priority" || args.sort === "due") && args.direction !== undefined
-        ? args.direction === "desc"
-          ? "asc"
-          : "desc"
-        : args.direction;
+    return (await this.tasksTogether([args], false)).pages[0];
+  }
+
+  /** Task lists and, if asked, every category, from one look at the folder. */
+  async tasksTogether(lists: Record<string, unknown>[], withCategories: boolean) {
     // A list refuses a root that isn't ready, so readiness costs a round trip only to explain a failure.
-    const page = await this.reader
-      .tasks({ ...args, ...(direction !== undefined ? { direction } : {}) })
+    const { pages, categories } = await this.reader
+      .tasksTogether(lists.map(engineListArgs), withCategories)
       .catch(async (error: unknown) => {
         await this.ready();
         throw error;
       });
     return {
-      ...page,
-      tasks: page.tasks.map(taskView),
-      contextTasks: page.contextTasks.map(taskView),
+      pages: pages.map((page) => ({
+        ...page,
+        tasks: page.tasks.map(taskView),
+        contextTasks: page.contextTasks.map(taskView),
+      })),
+      categories: withCategories ? classificationEntries(categories) : undefined,
     };
   }
 
