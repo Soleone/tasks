@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { watchTaskFolders } from "./canonicalReader.js";
 import { executeHomeLine } from "./homeGateway.js";
 import { EDITOR_COMMANDS } from "./editorCommands.js";
 import { homeCache, openHome } from "./home.js";
@@ -92,6 +93,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
   if (process.platform !== "linux")
     throw new Error("browser editing over the dev bridge runs only on Linux");
   const home = openHome(options.home);
+  watchTaskFolders();
   const databasePath = homeCache(home, "app");
   const selection: DevSelection = {
     version: 2,

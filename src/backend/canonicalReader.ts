@@ -9,7 +9,9 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  watch,
 } from "node:fs";
+import type { FSWatcher } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
@@ -227,8 +229,85 @@ export type RootInspection = {
   snapshot?: CanonicalSnapshot;
 };
 
+// Asking every file whether it changed is most of a read on Windows (about 80 µs per file). A
+// long-running backend instead asks the system to report changes, and reuses its last complete
+// inspection while nothing was reported, neither folder's own times moved (every writer publishes
+// by rename) and it is younger than TRUSTED_MS. Writes never take this path.
+const TRUSTED_MS = 30_000;
+type WatchedRoot = {
+  watchers: FSWatcher[];
+  changed: boolean;
+  folders: string;
+  at: number;
+  inspection?: RootInspection;
+};
+const watchedRoots = new Map<string, WatchedRoot>();
+let watching = false;
+
+/** For processes that answer many requests: the app's backend, `--stdio` and the dev bridge. */
+export function watchTaskFolders(): void {
+  watching = true;
+}
+
+/** Both folders' identity and times, or "" while either changed too recently to trust. */
+function folderStamp(rootPath: string): string {
+  const now = BigInt(Date.now());
+  const stamps = [];
+  for (const folder of [rootPath, path.join(rootPath, "tasks")]) {
+    const stat = lstatSync(folder, { bigint: true, throwIfNoEntry: false });
+    if (!stat?.isDirectory()) return "";
+    const changedNs = stat.mtimeNs > stat.ctimeNs ? stat.mtimeNs : stat.ctimeNs;
+    if (now - changedNs / 1_000_000n <= RACY_MS) return "";
+    stamps.push(`${stat.dev}:${stat.ino}:${stat.mtimeNs}:${stat.ctimeNs}`);
+  }
+  return stamps.join("|");
+}
+
+function forgetRoot(rootPath: string): void {
+  for (const watcher of watchedRoots.get(rootPath)?.watchers ?? []) watcher.close();
+  watchedRoots.delete(rootPath);
+}
+
+/** Starts watching afresh, so a replaced `tasks` folder is watched too; undefined if the system can't. */
+function watchRoot(rootPath: string): WatchedRoot | undefined {
+  forgetRoot(rootPath);
+  const entry: WatchedRoot = { watchers: [], changed: false, folders: "", at: 0 };
+  watchedRoots.set(rootPath, entry);
+  try {
+    for (const folder of [rootPath, path.join(rootPath, "tasks")]) {
+      const watcher = watch(folder, { persistent: false }, () => (entry.changed = true));
+      watcher.on("error", () => forgetRoot(rootPath));
+      entry.watchers.push(watcher);
+    }
+  } catch {
+    // Out of watches, a missing folder or a file system that can't report changes: read fully.
+    forgetRoot(rootPath);
+    return undefined;
+  }
+  return entry;
+}
+
 export function inspectCanonicalRoot(directory: string): RootInspection {
   const rootPath = realpathSync.native(directory);
+  if (!watching) return inspectRoot(rootPath);
+  const folders = folderStamp(rootPath);
+  const known = watchedRoots.get(rootPath);
+  if (
+    known?.inspection &&
+    !known.changed &&
+    folders !== "" &&
+    known.folders === folders &&
+    Date.now() - known.at < TRUSTED_MS
+  )
+    return known.inspection;
+  const entry = watchRoot(rootPath);
+  const inspection = inspectRoot(rootPath);
+  if (entry && inspection.state === "ready" && folders !== "")
+    Object.assign(entry, { folders, at: Date.now(), inspection });
+  return inspection;
+}
+
+function inspectRoot(rootPath: string): RootInspection {
   const rootIdentity = directoryIdentity(rootPath);
   const base = { rootPath, rootIdentity };
   let schemaVersion: number | null = null;
