@@ -25,6 +25,7 @@ The desktop, Android and web apps are one client. This folder describes what a p
 | `client.no-tab-buttons` | Buttons are mouse fallbacks, not Tab stops. Each surface has one keyboard stop |
 | `client.literal-text` | Titles and descriptions show exactly what is stored. Category and tags are shown separately |
 | `client.feedback` | Feedback doesn't add lines that move the layout. Confirming something just done on a visible control, like a copy, toggle or status change, flashes a tooltip on that control, which hovering never opens. Results with no visible control, like shortcuts, undo or changes out of view, and failures show in a toast above any open dialog. Text appears inline only when it is something to read or act on: a field's error, a result with a path to open, a link |
+| `client.crash` | A screen throws while rendering | The window says something went wrong and that the tasks are safe, with the error message, Reload and Send feedback. Send feedback opens the feedback dialog as a bug with the error and its stack filled in, to edit before sending |
 | `client.tooltips` | A hover tooltip only names its control: it closes as soon as the pointer leaves the control, even toward the tooltip, and whenever the window loses focus or is hidden, so it never lingers after switching to another tab or app |
 
 ## Keymap

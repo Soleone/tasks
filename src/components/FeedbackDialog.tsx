@@ -36,10 +36,17 @@ async function send(report: FeedbackReport): Promise<string> {
 }
 
 /** Mounted only while open, so every opening starts a fresh report. */
-export function FeedbackDialog({ onClose }: { onClose: () => void }): ReactElement {
+export function FeedbackDialog({
+  onClose,
+  initial,
+}: {
+  onClose: () => void;
+  /** A report started for the person, like a crash. */
+  initial?: { title: string; description: string };
+}): ReactElement {
   const [kind, setKind] = useState<FeedbackKind>("bug");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issueUrl, setIssueUrl] = useState<string | null>(null);
