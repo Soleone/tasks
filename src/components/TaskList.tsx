@@ -1979,6 +1979,10 @@ export function TaskList({
                     exitingTaskIds={exitingTaskIds}
                     showDetails={detailsShownFor(row.task.id)}
                     showCompletedAt={sortField === "closed"}
+                    completedClockOnly={
+                      lens?.kind === "done" &&
+                      (lens.window === "day" || lens.window === "yesterday")
+                    }
                     hiddenCategorySlug={categoryFilter?.slug ?? null}
                     taskById={taskById}
                     onClick={handleOptionClick}

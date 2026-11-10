@@ -474,9 +474,11 @@ function TaskRowTag({
 function TaskRowTrailing({
   task,
   showCompletedAt,
+  completedClockOnly,
 }: {
   task: TaskView;
   showCompletedAt: boolean;
+  completedClockOnly: boolean;
 }): ReactElement | null {
   if (showCompletedAt && task.closedAt) {
     return (
@@ -492,7 +494,7 @@ function TaskRowTrailing({
           }
         >
           <span className="sr-only">Done </span>
-          {formatCompletedTime(task.closedAt)}
+          {formatCompletedTime(task.closedAt, completedClockOnly)}
         </Hinted>
       </TaskItemTrailing>
     );
@@ -648,6 +650,7 @@ export function TaskRow({
   indented = false,
   showDetails = false,
   showCompletedAt = false,
+  completedClockOnly = false,
   contextOnly = false,
   hiddenCategorySlug,
   onSelectCategory,
@@ -663,6 +666,8 @@ export function TaskRow({
   showDetails?: boolean;
   /** Puts the done time in the trailing column, so it costs no extra line. */
   showCompletedAt?: boolean;
+  /** Shows the done time as a clock even for yesterday, when the view is already one day. */
+  completedClockOnly?: boolean;
   contextOnly?: boolean;
   hiddenCategorySlug?: string | null;
   onSelectCategory?: (category: ClassificationToken) => void;
@@ -720,7 +725,11 @@ export function TaskRow({
         ) : null}
       </div>
       {variant === "full" ? (
-        <TaskRowTrailing task={task} showCompletedAt={showCompletedAt} />
+        <TaskRowTrailing
+          task={task}
+          showCompletedAt={showCompletedAt}
+          completedClockOnly={completedClockOnly}
+        />
       ) : null}
       {variant === "full" ? (
         <div data-task-disclosure className="flex h-[1.375em] w-7 shrink-0 items-center self-start">

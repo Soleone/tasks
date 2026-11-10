@@ -35,6 +35,7 @@ type TaskOptionProps = {
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   showCompletedAt: boolean;
+  completedClockOnly: boolean;
   hiddenCategorySlug: string | null;
   taskById: ReadonlyMap<string, TaskView>;
   onClick: TaskOptionClick;
@@ -59,6 +60,7 @@ export const TaskOption = memo(function TaskOption({
   exitingTaskIds,
   showDetails,
   showCompletedAt,
+  completedClockOnly,
   hiddenCategorySlug,
   taskById,
   onClick,
@@ -109,6 +111,7 @@ export const TaskOption = memo(function TaskOption({
           blockedByLabels={blockedByLabels}
           showDetails={showDetails}
           showCompletedAt={showCompletedAt}
+          completedClockOnly={completedClockOnly}
           contextOnly={row.contextOnly}
           hiddenCategorySlug={hiddenCategorySlug}
           onSelectCategory={onSelectCategory}

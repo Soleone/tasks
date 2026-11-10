@@ -439,6 +439,32 @@ describe("completion", () => {
     await waitFor(() => expect(row("Finished").querySelector("[data-task-completed]")).toBeNull());
   });
 
+  test("done.completed-at: the done lens on yesterday shows the time, not the weekday", async () => {
+    const finished = await workspace.create("Finished");
+    await workspace.change("task.complete", finished.id);
+    // A day and a minute on, the completion is yesterday's.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000 + 60 * 1000);
+    try {
+      const { user } = await workspace.render();
+      await user.keyboard("d");
+      await waitFor(() => expect(countLine()).toBe("0 done today"));
+      await user.keyboard("{Shift>}d{/Shift}");
+      await waitFor(() => expect(countLine()).toBe("1 done yesterday"));
+      expect(row("Finished").querySelector("[data-task-completed]")?.textContent).toMatch(
+        /^Done \d\d:\d\d$/,
+      );
+      await user.keyboard("{Shift>}d{/Shift}");
+      await waitFor(() =>
+        expect(row("Finished").querySelector("[data-task-completed]")?.textContent).toMatch(
+          /^Done [A-Z][a-z]{2}$/,
+        ),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("done.all-clear: emptying the Active view after completing work says so", async () => {
     await workspace.create("Last one");
     const { user } = await workspace.render();

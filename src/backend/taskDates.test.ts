@@ -32,12 +32,13 @@ test("formatTaskDateTime renders the local date and time", () => {
 });
 
 test("formatCompletedTime stays short: the clock today, the weekday this week, then dates", () => {
-  assert.equal(formatCompletedTime(iso(2026, 8, 10, 9, 5), NOW), "09:05");
-  assert.equal(formatCompletedTime(iso(2026, 8, 9, 22, 10), NOW), "Wed");
-  assert.equal(formatCompletedTime(iso(2026, 8, 4), NOW), "Fri");
-  assert.equal(formatCompletedTime(iso(2026, 8, 3), NOW), "Sep 3");
-  assert.equal(formatCompletedTime(iso(2025, 11, 10), NOW), "Dec 2025");
-  assert.equal(formatCompletedTime("not-a-date", NOW), "");
+  assert.equal(formatCompletedTime(iso(2026, 8, 10, 9, 5), false, NOW), "09:05");
+  assert.equal(formatCompletedTime(iso(2026, 8, 9, 22, 10), false, NOW), "Wed");
+  assert.equal(formatCompletedTime(iso(2026, 8, 4), false, NOW), "Fri");
+  assert.equal(formatCompletedTime(iso(2026, 8, 3), false, NOW), "Sep 3");
+  assert.equal(formatCompletedTime(iso(2025, 11, 10), false, NOW), "Dec 2025");
+  assert.equal(formatCompletedTime(iso(2026, 8, 9, 22, 10), true, NOW), "22:10");
+  assert.equal(formatCompletedTime("not-a-date", false, NOW), "");
 });
 
 test("sameTaskDay compares local calendar days", () => {
