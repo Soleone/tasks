@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactElement } from "react";
-import { X } from "lucide-react";
+import { Folder, Folders, Plus, Target, X } from "lucide-react";
 import { cn } from "cn";
 import { QuietButton } from "@/components/variants/button";
 import { Hinted } from "@/components/Hinted";
@@ -7,7 +7,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { CountInput } from "@/components/variants/input";
 import { InlineRadio, InlineRadioGroup } from "@/components/variants/radio-group";
-import { SelectTrigger } from "@/components/variants/select";
+import { QuietSelectTrigger, SelectTrigger } from "@/components/variants/select";
 import { practice } from "@/learning/progress";
 import { listCategories } from "@/platform/backendClient";
 import {
@@ -58,18 +58,23 @@ function GoalRow({
   const [draft, setDraft] = useState<string | null>(null);
   const id = `goal-${slug ?? "other"}`;
   const per = goal?.per ?? "day";
+  const Icon = slug ? Folder : Folders;
   return (
     <div
       data-goal-row
-      className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-1.5 focus-within:bg-muted/50 sm:flex-nowrap sm:py-0"
+      className="flex min-h-10 flex-wrap items-center gap-x-4 gap-y-1 rounded-md px-2 py-1.5 focus-within:bg-muted/50 hover:bg-muted/30 sm:flex-nowrap sm:py-0"
     >
-      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm sm:w-36 sm:flex-none">
-        <span
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+        <Icon
           aria-hidden="true"
           data-swatch={swatch ?? undefined}
           className={cn(
-            "size-2.5 shrink-0 rounded-full",
-            swatch ? "bg-(--swatch)" : slug ? "bg-classification-category" : "bg-foreground",
+            "size-4 shrink-0",
+            swatch
+              ? "text-(--swatch)"
+              : slug
+                ? "text-classification-category"
+                : "text-muted-foreground",
           )}
         />
         <label htmlFor={id} className="truncate">
@@ -97,7 +102,7 @@ function GoalRow({
       <InlineRadioGroup
         aria-label={`${name} per`}
         // On a phone the radios take their own line, under the name.
-        className="order-last ml-4.5 basis-full sm:order-none sm:ml-0 sm:basis-auto"
+        className="order-last ml-6 basis-full sm:order-none sm:ml-0 sm:w-auto sm:basis-auto"
         value={per}
         disabled={!goal}
         onValueChange={(value) =>
@@ -120,7 +125,6 @@ function GoalRow({
             <QuietButton
               type="button"
               size="icon-xs"
-              className="ml-auto"
               aria-label={`Remove ${name} goal`}
               onClick={(event) => {
                 const row = event.currentTarget.closest("[data-goal-row]");
@@ -136,7 +140,7 @@ function GoalRow({
         </Hinted>
       ) : (
         // Holds the ×'s place so this row's number lines up with the others on a phone.
-        <span aria-hidden="true" className="ml-auto size-6 shrink-0" />
+        <span aria-hidden="true" className="size-6 shrink-0" />
       )}
     </div>
   );
@@ -155,7 +159,8 @@ export function GoalsSection({ open }: { open: boolean }): ReactElement {
   return (
     <section aria-labelledby="settings-goals" className="flex flex-col gap-3 rounded-lg border p-4">
       <div className="flex flex-col gap-1">
-        <h2 id="settings-goals" className="text-sm font-medium">
+        <h2 id="settings-goals" className="flex items-center gap-2 text-sm font-medium">
+          <Target aria-hidden="true" className="size-4 text-muted-foreground" />
           Goals
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -173,6 +178,12 @@ export function GoalsSection({ open }: { open: boolean }): ReactElement {
             goal={goals[slug]}
           />
         ))}
+        <GoalRow
+          slug={null}
+          name={slugs.length > 0 ? "Everything else" : "All tasks"}
+          swatch={null}
+          goal={otherGoal}
+        />
         <div data-goal-row className="flex min-h-10 items-center px-2">
           <Select
             value={null as string | null}
@@ -182,11 +193,17 @@ export function GoalsSection({ open }: { open: boolean }): ReactElement {
               requestAnimationFrame(() => document.getElementById(`goal-${slug}`)?.focus());
             }}
           >
-            <SelectTrigger size="sm" aria-label="Add a goal" disabled={addable.length === 0}>
+            <QuietSelectTrigger
+              size="sm"
+              aria-label="Add a goal"
+              disabled={addable.length === 0}
+              className="-ml-2.5"
+            >
+              <Plus aria-hidden="true" />
               <SelectValue
-                placeholder={addable.length === 0 ? "Every category has a goal" : "Add a goal…"}
+                placeholder={addable.length === 0 ? "Every category has a goal" : "Add a goal"}
               />
-            </SelectTrigger>
+            </QuietSelectTrigger>
             <SelectContent align="start">
               {addable.map((slug) => (
                 <SelectItem key={slug} value={slug}>
@@ -196,12 +213,6 @@ export function GoalsSection({ open }: { open: boolean }): ReactElement {
             </SelectContent>
           </Select>
         </div>
-        <GoalRow
-          slug={null}
-          name={slugs.length > 0 ? "Everything else" : "All tasks"}
-          swatch={null}
-          goal={otherGoal}
-        />
       </div>
       <p className="text-xs text-muted-foreground" aria-hidden="true">
         ↑ ↓ goal · Tab number, then a day / a week · × or clear a number to remove its goal

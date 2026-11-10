@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type ReactElement } from "react";
 import { flushSync } from "react-dom";
-import { Folder } from "lucide-react";
+import { Folder, Palette } from "lucide-react";
 import { cn } from "cn";
 import { listCategories } from "@/platform/backendClient";
 import {
@@ -79,7 +79,8 @@ export function CategoryColorsSection({ open }: { open: boolean }): ReactElement
       className="flex flex-col gap-3 rounded-lg border p-4"
     >
       <div className="flex flex-col gap-1">
-        <h2 id="settings-categories" className="text-sm font-medium">
+        <h2 id="settings-categories" className="flex items-center gap-2 text-sm font-medium">
+          <Palette aria-hidden="true" className="size-4 text-muted-foreground" />
           Category colors
         </h2>
         <p className="text-sm text-muted-foreground">
