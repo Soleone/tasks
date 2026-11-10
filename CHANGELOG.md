@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.3](https://github.com/Soleone/tasks/compare/v0.5.2...v0.5.3) (2026-11-10)
+
+### Features
+
+* **done-lens:** shift-click the count line in the done lens to step back to the previous window ([3779588](https://github.com/Soleone/tasks/commit/37795883011dc8b38081d837d95ad1dedd550def))
+* **done-lens:** show the time of day instead of the weekday on rows in the today and yesterday done lens ([a305d16](https://github.com/Soleone/tasks/commit/a305d167757a13c963084e5dacad7feb8b5372a8))
+* **settings:** a cleaner Goals section, with folder icons, the numbers lined up on the right and section icons for Goals and Category colors ([cb4a06e](https://github.com/Soleone/tasks/commit/cb4a06e6fd87616cf4c2d6f8ec30077b18ccda8c))
+* **settings:** every settings section has an icon next to its title ([feffe2f](https://github.com/Soleone/tasks/commit/feffe2fa5e7dbe215fd26e10d07251dd108a593c))
+* **touch:** swipe left to go back, like Escape ([54ba57d](https://github.com/Soleone/tasks/commit/54ba57d1ae6bb39c304d5803d0a86218694f45b9))
+
+### Bug Fixes
+
+* **editor:** the caret lands after the text when Tab moves between title and description ([001e843](https://github.com/Soleone/tasks/commit/001e843fdd0558eef3294b0de9010f4ebbbce23e))
+* **web:** support themes in the hosted backend ([32e287c](https://github.com/Soleone/tasks/commit/32e287c798e83cbdd030132fc5c4ec3ecc4f4c83))
+
 ## [0.5.2](https://github.com/Soleone/tasks/compare/v0.5.1...v0.5.2) (2026-11-09)
 
 ### Features
