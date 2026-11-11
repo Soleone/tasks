@@ -142,6 +142,13 @@ function rememberScan(taskDirectory: string, scan: Map<string, ObservedFile>): v
   }
 }
 
+/** A Syncthing transfer in progress (`~syncthing~` on Windows), or a stage of ours: not a task. */
+export function isTransferTemporary(name: string): boolean {
+  return (
+    (name.startsWith(".syncthing.") || name.startsWith("~syncthing~")) && name.endsWith(".tmp")
+  );
+}
+
 function observeRoot(
   rootPath: string,
   deletedTasks: readonly CanonicalTask[] = [],
@@ -168,8 +175,7 @@ function observeRoot(
   const scan = new Map<string, ObservedFile>();
   const names = readdirSync(taskDirectory).sort();
   for (const name of names) {
-    // Syncthing transfer temporaries are not published task documents.
-    if (name.startsWith(".syncthing.") && name.endsWith(".tmp")) continue;
+    if (isTransferTemporary(name)) continue;
     const conflict = /^[A-Za-z0-9_-]+\.sync-conflict-.+\.json$/.test(name);
     if (!conflict && !/^[A-Za-z0-9_-]+\.json$/.test(name)) invalidEntry();
     const filePath = path.join(taskDirectory, name);

@@ -285,3 +285,10 @@ test("observe.bytes: a settled file rewritten in place with the same size is has
   write("Other");
   assert.equal(readCanonicalRoot(root).tasks[0].title, "Other");
 });
+
+test("Node reader skips Syncthing's transfer temporaries under both of its names", (t) => {
+  const root = scratchRoot(t);
+  writeFileSync(path.join(root, "tasks", ".syncthing.a.json.tmp"), "partial");
+  writeFileSync(path.join(root, "tasks", "~syncthing~a.json.tmp"), "partial");
+  assert.deepEqual(readCanonicalRoot(root).tasks, []);
+});

@@ -2,7 +2,12 @@ import { lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
-import { readPhysicalRoot, readRegularFile, exactHash } from "./canonicalReader.js";
+import {
+  exactHash,
+  isTransferTemporary,
+  readPhysicalRoot,
+  readRegularFile,
+} from "./canonicalReader.js";
 import { directoryIdentity } from "./rootGuards.js";
 import type { RootBinding } from "./queryCache.js";
 import { isRecord } from "./protocol.js";
@@ -189,9 +194,7 @@ export function restoreDoctorSource(value: unknown): DoctorSource {
     !saved.rootEntries.includes("workspace.json") ||
     !saved.rootEntries.includes("tasks") ||
     JSON.stringify(
-      saved.taskEntries
-        .filter((name) => !(name.startsWith(".syncthing.") && name.endsWith(".tmp")))
-        .map((name) => `tasks/${name}`),
+      saved.taskEntries.filter((name) => !isTransferTemporary(name)).map((name) => `tasks/${name}`),
     ) !==
       JSON.stringify(
         saved.files
@@ -252,7 +255,7 @@ export function readDoctorSource(directory: string): DoctorSource {
     source.taskDirectoryIdentity = directoryIdentity(tasks);
     source.taskEntries = readdirSync(tasks).sort();
     for (const name of source.taskEntries) {
-      if (name.startsWith(".syncthing.") && name.endsWith(".tmp")) continue;
+      if (isTransferTemporary(name)) continue;
       if (!/^[A-Za-z0-9_-]+(?:\.sync-conflict-.+)?\.json$/.test(name)) {
         source.issues.push({ code: "UNREADABLE_OR_UNSAFE_ENTRY", relativePath: `tasks/${name}` });
         continue;
