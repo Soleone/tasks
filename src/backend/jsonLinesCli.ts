@@ -1,4 +1,4 @@
-import { watchTaskFolders } from "./canonicalReader.js";
+import { trustRenames } from "./canonicalReader.js";
 import { executeLine } from "./gateway.js";
 import { appHome } from "./appHome.js";
 import { executeHomeLine } from "./homeGateway.js";
@@ -62,7 +62,7 @@ export async function runJsonLinesCli(args: string[]): Promise<void> {
     process.exitCode = 2;
     return;
   }
-  watchTaskFolders();
+  trustRenames();
   await runStdio((line) =>
     homeForm
       ? executeHomeLine(line, homePath!, client as "app" | "cli")

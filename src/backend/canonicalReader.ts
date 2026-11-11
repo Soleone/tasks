@@ -9,9 +9,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
-  watch,
 } from "node:fs";
-import type { FSWatcher } from "node:fs";
 import path from "node:path";
 import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
@@ -70,6 +68,47 @@ const RACY_MS = 3_000n;
 const MAX_REMEMBERED_FOLDERS = 8;
 const previousScans = new Map<string, Map<string, ObservedFile>>();
 
+// Checking every file is most of a read on Windows (about 80 µs per file). The backend and
+// Syncthing both publish by rename, which moves the folder's own times, so a process that answers
+// many requests reuses its last complete read while both folders' stamps still match.
+const TRUSTED_MS = 30_000;
+type FolderStamp = { folders: string; settled: boolean };
+type TrustedRead = FolderStamp & { at: number; snapshot: CanonicalSnapshot };
+const trustedReads = new Map<string, TrustedRead>();
+let trusting = false;
+
+/** For processes that answer many requests: the app's backend, `--stdio` and the dev bridge. */
+export function trustRenames(): void {
+  trusting = true;
+}
+
+function folderStamp(rootPath: string): FolderStamp | undefined {
+  const now = BigInt(Date.now());
+  const stamps = [];
+  let settled = true;
+  for (const folder of [rootPath, path.join(rootPath, "tasks")]) {
+    const stat = lstatSync(folder, { bigint: true, throwIfNoEntry: false });
+    if (!stat?.isDirectory()) return undefined;
+    const changedNs = stat.mtimeNs > stat.ctimeNs ? stat.mtimeNs : stat.ctimeNs;
+    if (now - changedNs / 1_000_000n <= RACY_MS) settled = false;
+    stamps.push(`${stat.dev}:${stat.ino}:${stat.mtimeNs}:${stat.ctimeNs}`);
+  }
+  return { folders: stamps.join("|"), settled };
+}
+
+/**
+ * Two renames in one clock tick leave one stamp, so a read taken while a folder had just changed
+ * is trusted only until the folder settles, then checked once more.
+ */
+function trustedSnapshot(rootPath: string): CanonicalSnapshot | undefined {
+  const known = trustedReads.get(rootPath);
+  if (!known || Date.now() - known.at >= TRUSTED_MS) return undefined;
+  const now = folderStamp(rootPath);
+  return now?.folders === known.folders && (known.settled || !now.settled)
+    ? known.snapshot
+    : undefined;
+}
+
 function observeTaskFile(
   previous: Map<string, ObservedFile> | undefined,
   filePath: string,
@@ -96,14 +135,19 @@ function observeTaskFile(
 function rememberScan(taskDirectory: string, scan: Map<string, ObservedFile>): void {
   previousScans.delete(taskDirectory);
   previousScans.set(taskDirectory, scan);
-  if (previousScans.size > MAX_REMEMBERED_FOLDERS)
-    previousScans.delete(previousScans.keys().next().value!);
+  if (previousScans.size > MAX_REMEMBERED_FOLDERS) {
+    const oldest = previousScans.keys().next().value!;
+    previousScans.delete(oldest);
+    trustedReads.delete(path.dirname(oldest));
+  }
 }
 
 function observeRoot(
   rootPath: string,
   deletedTasks: readonly CanonicalTask[] = [],
 ): CanonicalSnapshot {
+  // A writer reads here and then renames, possibly within one clock tick of an earlier read.
+  trustedReads.delete(rootPath);
   const rootIdentity = directoryIdentity(rootPath);
   const manifestPath = path.join(rootPath, "workspace.json");
   const taskDirectory = path.join(rootPath, "tasks");
@@ -229,85 +273,8 @@ export type RootInspection = {
   snapshot?: CanonicalSnapshot;
 };
 
-// Asking every file whether it changed is most of a read on Windows (about 80 µs per file). A
-// long-running backend instead asks the system to report changes, and reuses its last complete
-// inspection while nothing was reported, neither folder's own times moved (every writer publishes
-// by rename) and it is younger than TRUSTED_MS. Writes never take this path.
-const TRUSTED_MS = 30_000;
-type WatchedRoot = {
-  watchers: FSWatcher[];
-  changed: boolean;
-  folders: string;
-  at: number;
-  inspection?: RootInspection;
-};
-const watchedRoots = new Map<string, WatchedRoot>();
-let watching = false;
-
-/** For processes that answer many requests: the app's backend, `--stdio` and the dev bridge. */
-export function watchTaskFolders(): void {
-  watching = true;
-}
-
-/** Both folders' identity and times, or "" while either changed too recently to trust. */
-function folderStamp(rootPath: string): string {
-  const now = BigInt(Date.now());
-  const stamps = [];
-  for (const folder of [rootPath, path.join(rootPath, "tasks")]) {
-    const stat = lstatSync(folder, { bigint: true, throwIfNoEntry: false });
-    if (!stat?.isDirectory()) return "";
-    const changedNs = stat.mtimeNs > stat.ctimeNs ? stat.mtimeNs : stat.ctimeNs;
-    if (now - changedNs / 1_000_000n <= RACY_MS) return "";
-    stamps.push(`${stat.dev}:${stat.ino}:${stat.mtimeNs}:${stat.ctimeNs}`);
-  }
-  return stamps.join("|");
-}
-
-function forgetRoot(rootPath: string): void {
-  for (const watcher of watchedRoots.get(rootPath)?.watchers ?? []) watcher.close();
-  watchedRoots.delete(rootPath);
-}
-
-/** Starts watching afresh, so a replaced `tasks` folder is watched too; undefined if the system can't. */
-function watchRoot(rootPath: string): WatchedRoot | undefined {
-  forgetRoot(rootPath);
-  const entry: WatchedRoot = { watchers: [], changed: false, folders: "", at: 0 };
-  watchedRoots.set(rootPath, entry);
-  try {
-    for (const folder of [rootPath, path.join(rootPath, "tasks")]) {
-      const watcher = watch(folder, { persistent: false }, () => (entry.changed = true));
-      watcher.on("error", () => forgetRoot(rootPath));
-      entry.watchers.push(watcher);
-    }
-  } catch {
-    // Out of watches, a missing folder or a file system that can't report changes: read fully.
-    forgetRoot(rootPath);
-    return undefined;
-  }
-  return entry;
-}
-
 export function inspectCanonicalRoot(directory: string): RootInspection {
   const rootPath = realpathSync.native(directory);
-  if (!watching) return inspectRoot(rootPath);
-  const folders = folderStamp(rootPath);
-  const known = watchedRoots.get(rootPath);
-  if (
-    known?.inspection &&
-    !known.changed &&
-    folders !== "" &&
-    known.folders === folders &&
-    Date.now() - known.at < TRUSTED_MS
-  )
-    return known.inspection;
-  const entry = watchRoot(rootPath);
-  const inspection = inspectRoot(rootPath);
-  if (entry && inspection.state === "ready" && folders !== "")
-    Object.assign(entry, { folders, at: Date.now(), inspection });
-  return inspection;
-}
-
-function inspectRoot(rootPath: string): RootInspection {
   const rootIdentity = directoryIdentity(rootPath);
   const base = { rootPath, rootIdentity };
   let schemaVersion: number | null = null;
@@ -327,7 +294,12 @@ function inspectRoot(rootPath: string): RootInspection {
       schemaVersion = (manifest as { schemaVersion: number }).schemaVersion;
     }
     validateManifest(manifest);
-    const snapshot = observeRoot(rootPath);
+    let snapshot = trustedSnapshot(rootPath);
+    if (!snapshot) {
+      const stamp = trusting ? folderStamp(rootPath) : undefined;
+      snapshot = observeRoot(rootPath);
+      if (stamp) trustedReads.set(rootPath, { ...stamp, at: Date.now(), snapshot });
+    }
     if (snapshot.rootIdentity !== rootIdentity)
       throw new CommandError("STALE_SCOPE", "root changed during inspection");
     const issues = snapshot.conflictFiles.map(() => ({
