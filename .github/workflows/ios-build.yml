@@ -29,6 +29,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The Xcode project is generated, not committed.
       - run: pnpm tauri ios init
+      - name: Check the app is built for iPhone and iPad, not as a scaled phone app
+        run: grep -rq 'TARGETED_DEVICE_FAMILY = "1,2"' src-tauri/gen/apple/*.xcodeproj/project.pbxproj
       - run: pnpm tauri icon src-tauri/app-icon/manifest.json
       - run: pnpm tauri ios build --no-sign
       - uses: actions/upload-artifact@v7
