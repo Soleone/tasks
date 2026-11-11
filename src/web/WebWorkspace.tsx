@@ -30,7 +30,15 @@ async function openWebHome(): Promise<WebHome> {
     readOnly: false,
     writeCommands: EDITOR_COMMANDS,
   };
-  const session = new JsonLineSession(() => Promise.resolve(workerBackend()), parseResponse);
+  const session = new JsonLineSession(
+    () =>
+      Promise.resolve(
+        workerBackend(
+          () => new Worker(new URL("./backendWorker.ts", import.meta.url), { type: "module" }),
+        ),
+      ),
+    parseResponse,
+  );
   const workspace = await openHomeWorkspace(
     new WorkspaceReader(selection, undefined, session),
     new EditorClient(session, selection),

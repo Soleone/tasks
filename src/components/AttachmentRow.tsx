@@ -15,8 +15,8 @@ import { preventFocusSteal } from "@/navigation";
 import { Hinted } from "@/components/Hinted";
 import { readAttachment } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
-import { shareImage } from "@/platform/androidImages";
-import { isAndroid } from "@/platform/runtime";
+import { shareImage } from "@/platform/mobileImages";
+import { isMobileApp } from "@/platform/runtime";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type ImageState = { url: string } | { missing: true } | { failed: string };
@@ -258,13 +258,13 @@ export function AttachmentRow({
             }}
           >
             {previewImage && "url" in previewImage ? (
-              <PreviewImage src={previewImage.url} withActions={isAndroid()} />
+              <PreviewImage src={previewImage.url} withActions={isMobileApp()} />
             ) : (
               <span className="block size-64 overflow-hidden rounded-md">
                 <Thumbnail image={previewImage} />
               </span>
             )}
-            {isAndroid() ? (
+            {isMobileApp() ? (
               <Button
                 type="button"
                 variant="secondary"

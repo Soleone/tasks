@@ -16,6 +16,7 @@ Native checks automation can't do:
 - Image paste and copy in each shell (WebView2, WebKitGTK, Android WebView). Add `tauri-plugin-clipboard-manager` only for a shell that fails.
 - Windows: Open folder for the home and exports; uninstall and reinstall keep the home.
 - Android: the gallery skips the home's images; the due-date strip fits above the keyboard; touch quest steps.
+- iOS: start the "iOS test build" workflow, sideload its unsigned IPA (Sideloadly or AltStore with a free Apple ID, renewed every 7 days) and check that a home can be created at all, since the backend's file access from the page is untested on a device. Then the keyboard bar above the soft keyboard, the notch and home-indicator areas, Add image, Share image… and the home showing in Files.
 - Global hotkeys on Omarchy: the Hyprland binds bring Tasks forward and open the New task editor; Update still restarts Tasks now that a second launch hands over to the running one.
 
 ## Open work

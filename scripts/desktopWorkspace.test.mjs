@@ -59,6 +59,8 @@ const bundle = await build({
   platform: "node",
   format: "esm",
   write: false,
+  // Vite defines it in every build; empty means not the iOS app.
+  define: { "import.meta.env.TAURI_ENV_PLATFORM": '""' },
   plugins: [
     {
       name: "tauri-stand-ins",

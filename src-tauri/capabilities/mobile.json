@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/android-schema.json",
   "identifier": "mobile",
-  "description": "Core permissions for the Android shell",
+  "description": "Core permissions for the Android and iOS shells",
   "windows": ["main"],
-  "platforms": ["android"],
+  "platforms": ["android", "iOS"],
   "permissions": ["core:default"]
 }

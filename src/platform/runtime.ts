@@ -1,4 +1,4 @@
-/** "native" is the Tauri app, on desktop and Android alike. */
+/** "native" is the Tauri app, on desktop and phones alike. */
 export type RuntimeKind = "native" | "browser";
 
 export function runtimeKind(): RuntimeKind {
@@ -9,15 +9,25 @@ export function isAndroid(): boolean {
   return typeof navigator !== "undefined" && /\bAndroid\b/.test(navigator.userAgent);
 }
 
+/** Known from the build: an iPad's WebView can call itself a Mac. */
+export function isIos(): boolean {
+  return import.meta.env.TAURI_ENV_PLATFORM === "ios";
+}
+
+/** The Tauri app on a phone or tablet, used by touch. */
+export function isMobileApp(): boolean {
+  return isAndroid() || isIos();
+}
+
 /** The Tauri app on Windows, macOS or Linux. */
 export function isDesktopApp(): boolean {
-  return runtimeKind() === "native" && !isAndroid();
+  return runtimeKind() === "native" && !isMobileApp();
 }
 
 type Platform = "macos" | "windows" | "linux";
 
 const USER_AGENTS: [Platform, RegExp][] = [
-  ["macos", /\bMacintosh\b/],
+  ["macos", /\b(Macintosh|iPhone|iPad)\b/],
   ["windows", /\bWindows\b/],
 ];
 const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
@@ -47,5 +57,6 @@ const PLATFORM_NAMES: Record<Platform, string> = {
 /** Where this copy of Tasks runs, as a person names it: "Windows", "Android" or "the web". */
 export function platformName(): string {
   if (isAndroid()) return "Android";
+  if (isIos()) return "iOS";
   return runtimeKind() === "native" ? PLATFORM_NAMES[platform] : "the web";
 }

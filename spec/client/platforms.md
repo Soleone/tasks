@@ -26,6 +26,15 @@ Android runs the desktop app's UI and the same backend, bundled in the app.
 | `platform.toolbar-cell` | Toolbar cells share a compact, consistent size | As desktop | As desktop, for mouse and touch |
 | `platform.prefs-scope` | Preferences and undo records belong to the Tasks home and load before the list shows. A home without settings takes this browser's earlier preferences, once. The browser storage keeps a copy of the theme only so the first paint has the right colors. A preference that can't be saved says so | As desktop | As desktop, through the browser's or the dev server's home |
 
+## iOS
+
+Experimental: built only as an unsigned test IPA and not yet run on an iPhone. It behaves as Android, except:
+
+- Opening a home: the home is a typed path inside the app's own folder (suggested: `/Tasks`), which the Files app shows under On My iPhone › Tasks, so a sync app can sync its `sync/` folder. No permission is asked.
+- Sharing an image: closing the share sheet without choosing is not a failure.
+- Updating: a new version is a new IPA, installed by hand.
+- Uninstalling removes the app's folder, and the Tasks home in it.
+
 ## Not yet built
 
 | Missing | Today instead |

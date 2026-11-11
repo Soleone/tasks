@@ -67,7 +67,7 @@ import { practice, useLearning } from "@/learning/progress";
 import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
 import { renameCategorySettings } from "@/platform/sharedSettings";
-import { isAndroid, keyName } from "@/platform/runtime";
+import { isMobileApp, keyName } from "@/platform/runtime";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 import { takeUserThemeProblems } from "@/theme/userThemes";
 
@@ -245,7 +245,7 @@ export default function App({
   const learning = useLearning();
   const { shown: questsShown, moment: questMoment, allComplete: questsAllComplete } = useQuests();
   const questCelebrating = questMoment?.kind === "complete" && !questMoment.leaving;
-  const android = isAndroid();
+  const mobile = isMobileApp();
   const [fontSizeIncrease, setFontSizeIncrease] = useState<FontSizeIncrease>(
     readStoredFontSizeIncrease,
   );
@@ -961,7 +961,7 @@ export default function App({
         </header>
 
         {/* Under the header on Android, so the soft keyboard never hides it (`platform.quest-card`). */}
-        {android && tasksLoaded ? <QuestCard onLearn={() => toggleLearn("pointer")} /> : null}
+        {mobile && tasksLoaded ? <QuestCard onLearn={() => toggleLearn("pointer")} /> : null}
         <TaskList
           ref={taskListRef}
           tasks={tasks}
@@ -1057,7 +1057,7 @@ export default function App({
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />
-        {android || !tasksLoaded ? null : <QuestCard onLearn={() => toggleLearn("pointer")} />}
+        {mobile || !tasksLoaded ? null : <QuestCard onLearn={() => toggleLearn("pointer")} />}
         <p role="status" className="sr-only">
           {announcement}
         </p>

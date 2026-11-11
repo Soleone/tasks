@@ -1,4 +1,4 @@
-import { isAndroid, keyName, modKey } from "@/platform/runtime";
+import { isMobileApp, keyName, modKey } from "@/platform/runtime";
 
 /** Keyboard devices learn shortcuts; touch devices learn taps and gestures. */
 export type Device = "keyboard" | "touch";
@@ -240,7 +240,7 @@ export type MoveId = (typeof MOVE_DEFINITIONS)[number]["id"];
 export type Move = Lesson & { id: MoveId };
 
 export function currentDevice(): Device {
-  return isAndroid() ? "touch" : "keyboard";
+  return isMobileApp() ? "touch" : "keyboard";
 }
 
 /** This device's moves. */

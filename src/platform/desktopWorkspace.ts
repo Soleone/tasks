@@ -7,7 +7,7 @@ import { EDITOR_COMMANDS } from "@/backend/editorCommands";
 import { androidBackend } from "./androidBackend";
 import { JsonLineSession } from "./backendSession";
 import type { EditorSelection } from "./editorClient";
-import { isAndroid } from "./runtime";
+import { isAndroid, isIos } from "./runtime";
 import { sidecarArgs } from "./workspaceReader";
 
 // Android's own document folders are app storage that Syncthing can't reach.
@@ -16,6 +16,8 @@ const CHOOSE_HOME_KEY = "tasks.chooseHome";
 
 /** A new home goes in the user folder: on Windows, Documents is often inside OneDrive. */
 export async function suggestedHome(): Promise<string> {
+  // The iOS backend sees only the app's Documents folder, as its root.
+  if (isIos()) return "/Tasks";
   return join(isAndroid() ? ANDROID_SHARED_STORAGE : await homeDir(), "Tasks");
 }
 
@@ -75,6 +77,9 @@ function homeSession(home: string): JsonLineSession<Response> {
   return new JsonLineSession(async () => {
     const args = sidecarArgs(home); // Validates the home on both routes.
     if (isAndroid()) return androidBackend(home);
+    // Spelled out and imported here, so other builds drop the worker.
+    if (import.meta.env.TAURI_ENV_PLATFORM === "ios")
+      return (await import("@/web/iosBackend")).iosBackend(home);
     const { Command } = await import("@tauri-apps/plugin-shell");
     return Command.sidecar("binaries/tasks-cli", args);
   }, parseResponse);

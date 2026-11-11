@@ -26,7 +26,7 @@ import {
 } from "./platform/desktopWorkspace";
 import { EditorClient } from "./platform/editorClient";
 import { openHomeWorkspace } from "./platform/homeWorkspace";
-import { isAndroid } from "./platform/runtime";
+import { isMobileApp } from "./platform/runtime";
 import type { MainWorkspace } from "./platform/mainWorkspace";
 import { DamagedSettingsError, readPreference } from "./platform/preferences";
 import { WorkspaceReader } from "./platform/workspaceReader";
@@ -245,7 +245,7 @@ export default function DesktopWorkspace(): ReactElement | null {
                   spellCheck={false}
                   disabled={busy !== null}
                 />
-                {!isAndroid() && (
+                {!isMobileApp() && (
                   <Button
                     type="button"
                     variant="outline"

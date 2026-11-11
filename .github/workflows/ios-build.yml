@@ -1,0 +1,39 @@
+name: iOS test build
+
+# An unsigned IPA for sideloading; no Apple developer account is involved.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - name: Set up Rust for iPhones
+        run: |
+          rustup toolchain install stable --profile minimal --target aarch64-apple-ios
+          rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      # The Xcode project is generated, not committed.
+      - run: pnpm tauri ios init
+      - run: pnpm tauri icon src-tauri/app-icon/manifest.json
+      - run: pnpm tauri ios build --no-sign
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tasks-ios-unsigned-${{ github.sha }}
+          path: src-tauri/gen/apple/build/**/*.ipa
+          if-no-files-found: error
+          retention-days: 14

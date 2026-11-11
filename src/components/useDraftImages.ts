@@ -2,7 +2,7 @@ import { useRef, useState, type ClipboardEvent } from "react";
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/backend/taskModel";
 import { practice } from "@/learning/progress";
 import { writeAttachment } from "@/platform/backendClient";
-import { pickImage } from "@/platform/androidImages";
+import { pickImage } from "@/platform/mobileImages";
 
 function refusal(file: File, count: number): string | null {
   if (!(ATTACHMENT_TYPES as readonly string[]).includes(file.type))

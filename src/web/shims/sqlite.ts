@@ -1,4 +1,4 @@
-import { fs } from "memfs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type { BindParams, Database, SqlJsStatic, SqlValue } from "sql.js";
 
 let sqlJs: SqlJsStatic | null = null;
@@ -24,16 +24,16 @@ function bindings(parameters: Parameter[]): BindParams | undefined {
 
 /**
  * node:sqlite's DatabaseSync over sql.js, for the backend running in a browser worker. sql.js keeps
- * the database in memory, so opening reads the file from memfs and closing writes it back. Only
- * the calls the backend makes are here.
+ * the database in memory, so opening reads the file and closing writes it back. Only the calls
+ * the backend makes are here.
  */
 export class DatabaseSync {
   private readonly database: Database;
 
   constructor(private readonly path: string) {
     if (!sqlJs) throw new Error("SQLite has not loaded.");
-    const bytes = fs.existsSync(path) ? (fs.readFileSync(path) as Uint8Array) : null;
-    if (!bytes) fs.writeFileSync(path, new Uint8Array());
+    const bytes = existsSync(path) ? readFileSync(path) : null;
+    if (!bytes) writeFileSync(path, new Uint8Array());
     this.database = new sqlJs.Database(bytes?.length ? bytes : undefined);
   }
 
@@ -81,7 +81,7 @@ export class DatabaseSync {
     } catch (error) {
       if (!String(error).includes("no transaction is active")) throw error;
     }
-    fs.writeFileSync(this.path, this.database.export());
+    writeFileSync(this.path, this.database.export());
     this.database.close();
   }
 }

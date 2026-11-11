@@ -146,7 +146,11 @@ export default defineConfig({
   ]),
   worker: { format: "es", plugins: () => [nodeShims()] },
   // Always defined, so other builds drop the hosted entry and its worker.
-  define: { "import.meta.env.VITE_HOSTED": JSON.stringify(hosted ? "1" : "") },
+  define: {
+    "import.meta.env.VITE_HOSTED": JSON.stringify(hosted ? "1" : ""),
+    // Likewise for the iOS app's worker; Tauri sets the platform only for its own builds.
+    "import.meta.env.TAURI_ENV_PLATFORM": JSON.stringify(process.env.TAURI_ENV_PLATFORM ?? ""),
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

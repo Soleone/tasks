@@ -4,6 +4,8 @@ mod android_backend;
 mod android_images;
 #[cfg(desktop)]
 mod global_hotkeys;
+#[cfg(target_os = "ios")]
+mod ios_files;
 #[cfg(target_os = "linux")]
 mod linux_launcher;
 
@@ -130,6 +132,25 @@ pub fn run() {
             android_backend::backend_kill,
             android_images::image_pick,
             android_images::image_share,
+        ]);
+
+    #[cfg(target_os = "ios")]
+    let builder = builder
+        .register_uri_scheme_protocol("tasksfs", |context, request| {
+            let (status, body) = match context.app_handle().path().document_dir() {
+                Ok(documents) => ios_files::serve(&documents, request.body()),
+                Err(error) => (500, error.to_string().into_bytes()),
+            };
+            tauri::http::Response::builder()
+                .status(status)
+                // The page's worker asks from the app's own scheme, another origin.
+                .header("Access-Control-Allow-Origin", "*")
+                .body(body)
+                .unwrap()
+        })
+        .invoke_handler(tauri::generate_handler![
+            home_pointer_read,
+            home_pointer_write
         ]);
 
     builder

@@ -119,6 +119,12 @@ The script verifies the signature with `apksigner` and prints the APK path (`src
 
 WSL has no emulator (no KVM). An emulator runs on the Windows side: the SDK is in `%LOCALAPPDATA%\Android\Sdk`, with the AVD `medium_phone` on the Google APIs image, so `adb` needs no on-screen approval. Start it with `emulator.exe -avd medium_phone -no-window`, and call `adb.exe` from WSL. It translates arm64, so the release APK and the arm64 Node build run on it, slowly.
 
+## iOS
+
+Experimental. iOS lets an app start no other program, so there is no bundled Node: the backend runs in a worker of the page (`src/web/iosWorker.ts`), as in the hosted web build, but on real files. Its `node:fs` is `src/web/shims/iosFs.ts`, which makes one blocking request per file call to the Rust shell (`src-tauri/src/ios_files.rs`). The shell serves only the app's Documents folder, which `src-tauri/Info.ios.plist` shows in the Files app.
+
+Building needs a Mac, so the "iOS test build" workflow (`.github/workflows/ios-build.yml`), started by hand, generates the Xcode project and uploads an unsigned IPA. Without an Apple developer account it is installed by sideloading, which signs it with a free Apple ID for 7 days at a time.
+
 ## Releasing
 
 Every push to `main` and every pull request runs `pnpm check`, `pnpm lint` and `pnpm test` on Linux (`.github/workflows/ci.yml`), so a broken `main` shows up before a release does.

@@ -83,7 +83,7 @@ import { EditorError, type LevelChange } from "@/platform/editorClient";
 import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
 import { practice } from "@/learning/progress";
-import { isAndroid } from "@/platform/runtime";
+import { isMobileApp } from "@/platform/runtime";
 import { cn } from "cn";
 import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { useCompletionSheen } from "./useCompletionSheen";
@@ -1648,7 +1648,7 @@ export function TaskList({
   useLensFlip(list, lens?.kind ?? null, loading);
   useCategoryPush(list, categoryFilter?.slug ?? null, lens?.kind ?? null, loading);
 
-  const touch = isAndroid();
+  const touch = isMobileApp();
   const captureHint = touch ? "Tap New task to capture." : "Press C or choose New task to capture.";
   // Clearing the list after real work earns a warmer word than "no tasks".
   const activeEmptyTitle = doneTodayCount > 0 ? "All clear" : "No active tasks";

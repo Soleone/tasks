@@ -10,8 +10,11 @@ type Listeners = {
   error: (message: string) => void;
 };
 
-/** Runs the backend in a Web Worker, the web build's stand-in for the desktop sidecar. */
-export function workerBackend(): BackendCommand {
+/**
+ * Runs the backend in a Web Worker, the stand-in for the desktop sidecar in the web build and the
+ * iOS app.
+ */
+export function workerBackend(start: () => Worker): BackendCommand {
   const listeners: Listeners = { data: () => {}, error: () => {} };
   return {
     stdout: {
@@ -23,9 +26,7 @@ export function workerBackend(): BackendCommand {
       if (event === "error") listeners.error = listener as Listeners["error"];
     },
     spawn() {
-      const worker = new Worker(new URL("./backendWorker.ts", import.meta.url), {
-        type: "module",
-      });
+      const worker = start();
       let markClosed = () => {};
       const closed = new Promise<void>((resolve) => (markClosed = resolve));
       worker.onmessage = ({ data }: MessageEvent<string>) => {

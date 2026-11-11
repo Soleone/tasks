@@ -50,7 +50,7 @@ import type { MoveId } from "@/learning/moves";
 import { practice } from "@/learning/progress";
 import { enterEditor, leaveEditor } from "@/learning/questProgress";
 import { InlineDescription, InlineTitleInput } from "@/components/variants/input";
-import { isAndroid, modKey } from "@/platform/runtime";
+import { isMobileApp, modKey } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
 import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
@@ -240,7 +240,7 @@ export function TaskComposer({
   const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
   // Touch cancels and saves from the keyboard bar (`platform.editor-buttons`).
-  const touch = isAndroid();
+  const touch = isMobileApp();
   // Saving teaches `Enter` unless the Add task button did it.
   const saveVia = useRef<"keys" | "pointer">("keys");
 
