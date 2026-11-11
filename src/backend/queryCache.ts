@@ -333,6 +333,16 @@ export function withCacheTransaction<T>(
     database.exec(
       "CREATE TABLE IF NOT EXISTS v2_scan (path TEXT PRIMARY KEY, stamp TEXT NOT NULL, sha256 TEXT NOT NULL, task TEXT)",
     );
+    // Once per process and folder: start from the files the last process saw in this cache.
+    // Writers get this in their own transaction, before they read the folder.
+    if (!hasScan(root.rootPath)) {
+      restoreScan(
+        root.rootPath,
+        cacheOrigin(database, root) === "same"
+          ? (database.prepare("SELECT path, stamp, sha256, task FROM v2_scan").all() as SavedFile[])
+          : [],
+      );
+    }
     const result = action(database);
     database.exec("COMMIT");
     return result;
@@ -358,15 +368,7 @@ export function observeQueryAuthority(
   });
 }
 
-/** Once per process and folder: start from the files the last process saw in this cache. */
+/** A read looks at the folder before its first transaction, so it opens one for the saved scan. */
 export function restoreSavedScan(cachePath: string, root: RootBinding): void {
-  if (hasScan(root.rootPath)) return;
-  withCacheTransaction(cachePath, root, (database) =>
-    restoreScan(
-      root.rootPath,
-      cacheOrigin(database, root) === "same"
-        ? (database.prepare("SELECT path, stamp, sha256, task FROM v2_scan").all() as SavedFile[])
-        : [],
-    ),
-  );
+  if (!hasScan(root.rootPath)) withCacheTransaction(cachePath, root, () => {});
 }

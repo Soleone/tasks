@@ -82,21 +82,43 @@ test("JSON-lines queries survive a process restart", (t) => {
 
 test("observe.bytes: a new process starts from the last one's scan and still sees a replaced file", async (t) => {
   const current = setup(t);
-  const titles = () => {
+  const list = () => {
     const [response] = run(current, lines([{ command: "task.list", args: { sort: "manual" } }]));
     if (!response.ok) throw new Error("query failed");
-    return (response.result.tasks as { title: string }[]).map((task) => task.title);
+    return response;
   };
+  const titles = () => (list().result.tasks as { title: string }[]).map((task) => task.title);
   // Past the racy window, so the first run saves every file's stamp.
   await new Promise((resolve) => setTimeout(resolve, 3_200));
   const before = titles();
+  const seen = list();
   assert.deepEqual(titles(), before);
 
-  const file = path.join(current.root, "tasks", "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed.json");
+  const id = "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed";
+  const file = path.join(current.root, "tasks", `${id}.json`);
   const task = JSON.parse(readFileSync(file, "utf8")) as { title: string };
   const stage = path.join(current.root, "replace.tmp");
   writeFileSync(stage, `${JSON.stringify({ ...task, title: "Replaced elsewhere" })}\n`);
   renameSync(stage, file);
+  // A write in a new process starts from the saved scan too, and must not write over the change.
+  const [write] = run(
+    current,
+    lines([
+      {
+        command: "task.update",
+        writeContext: seen.writeContext,
+        idempotencyKey: "stale-write",
+        args: {
+          id,
+          expectedVersion: (seen.result.tasks as { id: string; version: number }[]).find(
+            (listed) => listed.id === id,
+          )!.version,
+          title: "Written over",
+        },
+      },
+    ]),
+  );
+  assert.equal(write.ok, false);
   const after = before.map((title) => (title === task.title ? "Replaced elsewhere" : title));
   assert.deepEqual(titles(), after);
   assert.deepEqual(titles(), after);
