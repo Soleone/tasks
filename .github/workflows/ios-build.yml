@@ -32,7 +32,8 @@ jobs:
       - name: Check the app is built for iPhone and iPad, not as a scaled phone app
         run: grep -rq 'TARGETED_DEVICE_FAMILY = "1,2"' src-tauri/gen/apple/*.xcodeproj/project.pbxproj
       - run: pnpm tauri icon src-tauri/app-icon/manifest.json
-      - run: pnpm tauri ios build --no-sign
+      # A test build: Safari's Web Inspector on a Mac can attach to it.
+      - run: pnpm tauri ios build --no-sign --features devtools
       - uses: actions/upload-artifact@v7
         with:
           name: tasks-ios-unsigned-${{ github.sha }}
