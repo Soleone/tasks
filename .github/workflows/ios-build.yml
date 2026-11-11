@@ -31,6 +31,12 @@ jobs:
       - run: pnpm tauri ios init
       - name: Check the app is built for iPhone and iPad, not as a scaled phone app
         run: grep -rq 'TARGETED_DEVICE_FAMILY = "1,2"' src-tauri/gen/apple/*.xcodeproj/project.pbxproj
+      # Inside Xcode, pnpm finds another environment, wants to reinstall and stops for lack of a terminal.
+      - name: Have Xcode call the Tauri CLI directly, not through pnpm
+        run: |
+          cd src-tauri/gen/apple
+          grep -q 'pnpm tauri ios xcode-script' *.xcodeproj/project.pbxproj
+          sed -i '' 's|pnpm tauri ios xcode-script|../../../node_modules/.bin/tauri ios xcode-script|' *.xcodeproj/project.pbxproj project.yml
       - run: pnpm tauri icon src-tauri/app-icon/manifest.json
       # A test build: Safari's Web Inspector on a Mac can attach to it.
       - run: pnpm tauri ios build --no-sign --features devtools
