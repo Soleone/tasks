@@ -7,7 +7,7 @@ Tasks never pretends a write succeeded or invents data to fill a gap. Reading ne
 | Rule | Then |
 | --- | --- |
 | `observe.complete` | A read lists every task file, parses all of them and checks the whole graph. Anything less is incomplete and grants no write authority |
-| `observe.bytes` | Change detection hashes the exact file bytes (SHA-256). A file whose identity, size, modified and change times all match the previous read keeps that read's hash; anything else, and any file changed within a few seconds of being read, is hashed again. Reformatting counts as a change |
+| `observe.bytes` | Change detection hashes the exact file bytes (SHA-256). A file whose identity, size, modified and change times all match the previous read, in this run or the last one with the same cache, keeps that read's hash; anything else, and any file changed within a few seconds of being read, is hashed again. Reformatting counts as a change |
 | `observe.renames` | Tasks and Syncthing publish every change by rename, which moves the folder's own times. A backend that keeps running (the app, `--stdio`, the dev bridge) reuses its last complete read while the identity and times of the root and `tasks/` folders still match and that read is under 30 seconds old. A read taken within a few seconds of a folder change is checked once more when the folder settles. Writes always read in full. Editing a task file in place is unsupported: it may show up to 30 seconds late, and is never overwritten unseen |
 | `observe.no-resurrect` | A file that disappears is gone from the cache too. Reading never recreates it |
 | `observe.stale-view` | After an incomplete read, a client may show the last good view, clearly marked stale, but can't write from it |

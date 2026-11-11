@@ -1,7 +1,12 @@
 import { CommandError } from "./errors.js";
 import { listActivity } from "./activity.js";
-import { inspectCanonicalRoot } from "./canonicalReader.js";
-import { observeQueryAuthority, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import { inspectCanonicalRoot, readPhysicalRoot } from "./canonicalReader.js";
+import {
+  observeQueryAuthority,
+  restoreSavedScan,
+  synchronizeAuthority,
+  withCacheTransaction,
+} from "./queryCache.js";
 import { executeUpdate } from "./updateWriter.js";
 import { executeAttachmentWrite, readAttachment } from "./attachments.js";
 import { isTaskEditRequest } from "./taskEditRequest.js";
@@ -81,6 +86,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
                           : executeLifecycle(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
+    restoreSavedScan(cachePath, readPhysicalRoot(rootPath));
     const inspection = inspectCanonicalRoot(rootPath);
     if (request.command !== "workspace.info" && inspection.state === "unsupported") {
       throw new CommandError(

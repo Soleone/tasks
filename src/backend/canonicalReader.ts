@@ -66,7 +66,69 @@ type ObservedFile = { stamp: string; sha256: string; task: CanonicalTask | null 
 // (git's "racy" rule). Tasks are frozen because scans share them.
 const RACY_MS = 3_000n;
 const MAX_REMEMBERED_FOLDERS = 8;
-const previousScans = new Map<string, Map<string, ObservedFile>>();
+type Scan = Map<string, ObservedFile>;
+const previousScans = new Map<string, Scan>();
+
+// A new process would hash every file again, so the cache keeps the last scan between processes.
+// `saved` is what the cache holds as far as this process knows, by file path.
+export type SavedFile = { path: string; stamp: string; sha256: string; task: string | null };
+const savedScans = new Map<string, { from?: Scan; stamps: Map<string, string> }>();
+
+export function hasScan(rootPath: string): boolean {
+  return savedScans.has(path.join(rootPath, "tasks"));
+}
+
+export function restoreScan(rootPath: string, rows: SavedFile[]): void {
+  const taskDirectory = path.join(rootPath, "tasks");
+  const scan: Scan = new Map();
+  for (const row of rows) {
+    try {
+      const task =
+        row.task === null
+          ? null
+          : frozenTask(JSON.parse(row.task), path.basename(row.path, ".json"));
+      scan.set(row.path, { stamp: row.stamp, sha256: row.sha256, task });
+    } catch {
+      // Saved by a build with other task rules: the file itself is read instead.
+    }
+  }
+  savedScans.set(taskDirectory, { stamps: new Map(rows.map((row) => [row.path, row.stamp])) });
+  if (!previousScans.has(taskDirectory)) rememberScan(taskDirectory, scan);
+}
+
+/** What the cache must store and forget to match the latest scan; the caller saves it. */
+export function scanChanges(rootPath: string): { put: SavedFile[]; drop: string[] } {
+  const taskDirectory = path.join(rootPath, "tasks");
+  const scan = previousScans.get(taskDirectory);
+  const saved = savedScans.get(taskDirectory);
+  const put: SavedFile[] = [];
+  const drop: string[] = [];
+  if (!scan || !saved || saved.from === scan) return { put, drop };
+  for (const [filePath, file] of scan) {
+    if (file.stamp === "" || saved.stamps.get(filePath) === file.stamp) continue;
+    put.push({
+      path: filePath,
+      stamp: file.stamp,
+      sha256: file.sha256,
+      task: file.task && JSON.stringify(file.task),
+    });
+    saved.stamps.set(filePath, file.stamp);
+  }
+  for (const filePath of saved.stamps.keys()) {
+    if (scan.get(filePath)?.stamp) continue;
+    drop.push(filePath);
+    saved.stamps.delete(filePath);
+  }
+  saved.from = scan;
+  return { put, drop };
+}
+
+function frozenTask(value: unknown, id: string): CanonicalTask {
+  const task = validateTask(value, id);
+  Object.freeze(task.tags);
+  Object.freeze(task.dependencyIds);
+  return Object.freeze(task);
+}
 
 // Checking every file is most of a read on Windows (about 80 µs per file). The backend and
 // Syncthing both publish by rename, which moves the folder's own times, so a process that answers
@@ -110,7 +172,7 @@ function trustedSnapshot(rootPath: string): CanonicalSnapshot | undefined {
 }
 
 function observeTaskFile(
-  previous: Map<string, ObservedFile> | undefined,
+  previous: Scan | undefined,
   filePath: string,
   conflict: boolean,
 ): ObservedFile {
@@ -122,22 +184,19 @@ function observeTaskFile(
   const bytes = readRegularFile(filePath);
   const changedNs = stat.mtimeNs > stat.ctimeNs ? stat.mtimeNs : stat.ctimeNs;
   const settled = BigInt(Date.now()) - changedNs / 1_000_000n > RACY_MS;
-  let task: CanonicalTask | null = null;
-  if (!conflict) {
-    task = validateTask(parseCanonicalJson(bytes), path.basename(filePath, ".json"));
-    Object.freeze(task.tags);
-    Object.freeze(task.dependencyIds);
-    Object.freeze(task);
-  }
+  const task = conflict
+    ? null
+    : frozenTask(parseCanonicalJson(bytes), path.basename(filePath, ".json"));
   return { stamp: settled ? stamp : "", sha256: exactHash(bytes), task };
 }
 
-function rememberScan(taskDirectory: string, scan: Map<string, ObservedFile>): void {
+function rememberScan(taskDirectory: string, scan: Scan): void {
   previousScans.delete(taskDirectory);
   previousScans.set(taskDirectory, scan);
   if (previousScans.size > MAX_REMEMBERED_FOLDERS) {
     const oldest = previousScans.keys().next().value!;
     previousScans.delete(oldest);
+    savedScans.delete(oldest);
     trustedReads.delete(path.dirname(oldest));
   }
 }
@@ -172,7 +231,7 @@ function observeRoot(
   const conflictFiles: FileObservation[] = [];
   const tasks: CanonicalTask[] = [];
   const previous = previousScans.get(taskDirectory);
-  const scan = new Map<string, ObservedFile>();
+  const scan: Scan = new Map();
   const names = readdirSync(taskDirectory).sort();
   for (const name of names) {
     if (isTransferTemporary(name)) continue;

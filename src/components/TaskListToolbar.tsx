@@ -40,6 +40,7 @@ import {
   type StatusPreset,
 } from "./taskFilters";
 import { CategoryFact } from "./TaskRow";
+import { useFilterTuck } from "./useFilterTuck";
 import { lensFilter, lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "./listLens";
 import { DoneLensGoals, goalLens } from "./GoalRings";
 import type { GoalsToday } from "@/goals";
@@ -284,6 +285,8 @@ export function TaskListToolbar({
 }: TaskListToolbarProps): ReactElement {
   const tooltipId = useId();
   const touchTarget = useRef<HTMLButtonElement | null>(null);
+  const summaryList = useRef<HTMLOListElement | null>(null);
+  useFilterTuck(summaryList);
   const [touchFeedback, setTouchFeedback] = useState<{ key: string } | null>(null);
   const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
   const dismissFeedback = useEffectEvent((event: PointerEvent | KeyboardEvent) => {
@@ -827,7 +830,7 @@ export function TaskListToolbar({
         aria-atomic="true"
         className="overflow-hidden"
       >
-        <CompactBreadcrumbList>
+        <CompactBreadcrumbList ref={summaryList}>
           <BreadcrumbItem className="shrink-0">
             {statusIsDefault ? (
               <span className="font-medium">{summaryText}</span>

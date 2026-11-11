@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,6 +78,28 @@ test("JSON-lines queries survive a process restart", (t) => {
   const lost = run(current, lines([{ command: "workspace.info" }]));
   assert.equal(lost[0].ok, true);
   if (lost[0].ok) assert.notEqual(lost[0].writeContext, ctx);
+});
+
+test("observe.bytes: a new process starts from the last one's scan and still sees a replaced file", async (t) => {
+  const current = setup(t);
+  const titles = () => {
+    const [response] = run(current, lines([{ command: "task.list", args: { sort: "manual" } }]));
+    if (!response.ok) throw new Error("query failed");
+    return (response.result.tasks as { title: string }[]).map((task) => task.title);
+  };
+  // Past the racy window, so the first run saves every file's stamp.
+  await new Promise((resolve) => setTimeout(resolve, 3_200));
+  const before = titles();
+  assert.deepEqual(titles(), before);
+
+  const file = path.join(current.root, "tasks", "62f159c1-22a7-45cb-89a0-c0c35aaeb1ed.json");
+  const task = JSON.parse(readFileSync(file, "utf8")) as { title: string };
+  const stage = path.join(current.root, "replace.tmp");
+  writeFileSync(stage, `${JSON.stringify({ ...task, title: "Replaced elsewhere" })}\n`);
+  renameSync(stage, file);
+  const after = before.map((title) => (title === task.title ? "Replaced elsewhere" : title));
+  assert.deepEqual(titles(), after);
+  assert.deepEqual(titles(), after);
 });
 
 test("stdio preserves invalid UTF-8, nulls unsafe correlation and continues after errors/EOF", (t) => {

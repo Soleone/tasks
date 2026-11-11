@@ -3,7 +3,7 @@ import { flightsPlay } from "./categoryFlight";
 import type { ListLens } from "./listLens";
 
 /** How long a row takes to be pushed out past the list's left edge, or to come back in. */
-const PUSH_MS = 160;
+export const PUSH_MS = 160;
 /** How long a kept row takes to reach its new place, overshoot and settle. */
 const MOVE_MS = 200;
 /** How long before one stage ends the next one starts. */
@@ -13,7 +13,7 @@ const ROW_DELAY_MS = 17;
 const STAGGER_SPAN_MS = 67;
 /** A long move overshoots no further than a short one would, or it reads as a bounce, not a settle. */
 const MAX_OVERSHOOT_PX = 8;
-const PUSH_EASE = "cubic-bezier(.5,0,.9,.5)";
+export const PUSH_EASE = "cubic-bezier(.5,0,.9,.5)";
 const SLIDE_EASE = "cubic-bezier(.2,.8,.2,1)";
 const SWING_EASE = "cubic-bezier(.2,.7,.3,1)";
 

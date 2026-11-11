@@ -3,7 +3,8 @@ import { lstatSync, mkdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
-import type { CanonicalSnapshot } from "./canonicalReader.js";
+import { hasScan, restoreScan, scanChanges } from "./canonicalReader.js";
+import type { CanonicalSnapshot, SavedFile } from "./canonicalReader.js";
 import { compareTasks } from "./taskModel.js";
 
 export type RootBinding = { rootPath: string; rootIdentity: string };
@@ -328,6 +329,10 @@ export function withCacheTransaction<T>(
     database.exec("PRAGMA synchronous = FULL");
     beginImmediate(database);
     initializeQueryCache(database);
+    // Not a new user_version, so builds before it still open this cache.
+    database.exec(
+      "CREATE TABLE IF NOT EXISTS v2_scan (path TEXT PRIMARY KEY, stamp TEXT NOT NULL, sha256 TEXT NOT NULL, task TEXT)",
+    );
     const result = action(database);
     database.exec("COMMIT");
     return result;
@@ -342,7 +347,26 @@ export function observeQueryAuthority(
   root: RootBinding,
   snapshot?: CanonicalSnapshot,
 ): QueryAuthority {
-  return withCacheTransaction(cachePath, root, (database) =>
-    synchronizeAuthority(database, root, snapshot),
+  return withCacheTransaction(cachePath, root, (database) => {
+    const authority = synchronizeAuthority(database, root, snapshot);
+    const { put, drop } = scanChanges(root.rootPath);
+    const store = database.prepare("INSERT OR REPLACE INTO v2_scan VALUES (?, ?, ?, ?)");
+    for (const file of put) store.run(file.path, file.stamp, file.sha256, file.task);
+    const forget = database.prepare("DELETE FROM v2_scan WHERE path = ?");
+    for (const filePath of drop) forget.run(filePath);
+    return authority;
+  });
+}
+
+/** Once per process and folder: start from the files the last process saw in this cache. */
+export function restoreSavedScan(cachePath: string, root: RootBinding): void {
+  if (hasScan(root.rootPath)) return;
+  withCacheTransaction(cachePath, root, (database) =>
+    restoreScan(
+      root.rootPath,
+      cacheOrigin(database, root) === "same"
+        ? (database.prepare("SELECT path, stamp, sha256, task FROM v2_scan").all() as SavedFile[])
+        : [],
+    ),
   );
 }
