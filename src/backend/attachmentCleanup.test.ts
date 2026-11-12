@@ -357,3 +357,16 @@ test(
     assert.notEqual(task(w, "d"), undefined);
   },
 );
+
+test("export.workspace: a download answers the zip's bytes and leaves no file", linux, (t) => {
+  const w = materialize(t, { a: {} });
+  const result = success(send(w, { command: "workspace.export", args: { download: true } })).result;
+  assert.match(result.name as string, /^tasks-\d{4}-\d\d-\d\d-\d{6}\.zip$/);
+  const zip = Buffer.from(result.data as string, "base64");
+  assert.equal(zip.subarray(0, 2).toString(), "PK");
+  assert.ok(zip.includes("sync/tasks/a.json"));
+  assert.equal(result.exportLocation, undefined);
+  assert.deepEqual(readdirSync(path.join(w.directory, "exports")), []);
+  const refused = send(w, { command: "workspace.export", args: { download: "yes" } });
+  assert.equal(!refused.ok && refused.error.code, "INVALID_ARGUMENT");
+});

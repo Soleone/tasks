@@ -150,12 +150,12 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `workspace.init` | none | `schemaVersion`, `changed` |
 | `workspace.rebuild` | none | `taskCount`, `changed`, `workspaceRevision` (cache only) |
 | `workspace.recovery.resume` | `operationId` | `operationId`, `outcome`, original result when available |
-| `workspace.export` | none | `exportLocation`, `files` |
+| `workspace.export` | optional `download: true` | `exportLocation` and `files`, or `name`, `data` and `files` for a download |
 | `workspace.doctor.inspect` / `.plan` / `.apply` | see [sharing](../ecosystem/sharing.md#doctor) | issues, plan, repair result |
 
 | Rule | Then |
 | --- | --- |
-| `export.workspace` | `workspace.export` writes `tasks-<date>-<time>.zip` to the home's `exports/`: every file under the sync folder at its path below `sync/`, uncompressed, so unpacking gives the folder back. Syncthing's own entries (`.st*` and half-received files) stay out. It holds the writer lock while reading, changes nothing in the workspace and so answers a read-only request too. A bare `--root` folder refuses with `INVALID_ARGUMENT`. There is no restore command yet |
+| `export.workspace` | `workspace.export` writes `tasks-<date>-<time>.zip` to the home's `exports/`: every file under the sync folder at its path below `sync/`, uncompressed, so unpacking gives the folder back. Syncthing's own entries (`.st*` and half-received files) stay out. It holds the writer lock while reading, changes nothing in the workspace and so answers a read-only request too. A bare `--root` folder refuses with `INVALID_ARGUMENT`. With `download: true` it answers the zip's file name and its bytes as base64 instead of a path, and leaves no file in `exports/`: the way out of a home kept in a browser. There is no restore command yet |
 
 ## Errors
 

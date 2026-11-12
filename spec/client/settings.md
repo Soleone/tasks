@@ -43,7 +43,7 @@ Desktop only. Bring Tasks forward and New task work from any app once picked; bo
 | Rule | When | Then |
 | --- | --- | --- |
 | `settings.home` | Data | Shows the Tasks home's path with Open folder (desktop) and its sync folder's path with Copy path, and warns to add only the sync folder to Syncthing, because syncing the home copies this device's database and locks |
-| `settings.export` | Export all tasks in Data | Saves a zip of the sync folder as it stands (tasks, images and shared settings; `workspace.export`) to the home's `exports/` and shows its path, with Open exports on desktop. Nothing in the workspace changes. A failure says why in a toast. The hosted web build has no such button yet |
+| `settings.export` | Export all tasks in Data | Saves a zip of the sync folder as it stands (tasks, images and shared settings; `workspace.export`) to the home's `exports/` and shows its path, with Open exports on desktop. Nothing in the workspace changes. A failure says why in a toast. In the hosted web build the button is in its own Tasks home section and the browser downloads the zip instead |
 | `settings.agents` | Data, on desktop | An Agents section shows the path of the CLI that comes with the app, with Copy CLI path, and Copy agent instructions: a short block for an agent's own instructions file that names that path, points to `help` for the commands and says what the agent may touch. It names no home, since the CLI finds the app's (`cli.home`). On Windows, Copy for WSL gives the same block with the path as WSL sees it (`/mnt/c/…`). The section is missing where the build has no CLI |
 
 ## Cleanup

@@ -510,6 +510,13 @@ export function exportAllTasks(): Promise<string> {
   return selected().editor.exportWorkspace();
 }
 
+/** The same zip as a file for the browser to save, for a home that lives in the browser. */
+export async function downloadAllTasks(): Promise<File> {
+  const { name, data } = await selected().editor.downloadWorkspace();
+  const bytes = Uint8Array.from(atob(data), (character) => character.charCodeAt(0));
+  return new File([bytes], name, { type: "application/zip" });
+}
+
 /**
  * The conflicts this app can settle: a task in the list with copies beside it, all readable.
  * Anything else doctor reports stays with the CLI.

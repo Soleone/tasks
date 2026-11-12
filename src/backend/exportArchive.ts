@@ -17,6 +17,7 @@ import { CommandError } from "./errors.js";
 import { readRegularFile } from "./canonicalReader.js";
 import { homeOfRoot } from "./home.js";
 import { syncDirectory } from "./localDomain.js";
+import { assertArgs } from "./protocol.js";
 
 const UTF8_NAMES = 0x0800;
 
@@ -140,9 +141,16 @@ const SYNC_TOOL_ENTRY = /^(\.st|\.syncthing\.|~syncthing~)/;
 
 /**
  * Zips the sync folder as it stands into the home's `exports/`: every file under `sync/` in the
- * zip, so unpacking it gives the folder back.
+ * zip, so unpacking it gives the folder back. A download answers the zip itself and keeps no
+ * file, for a home that lives in a browser.
  */
-export function exportWorkspace(rootPath: string): { exportLocation: string; files: number } {
+export function exportWorkspace(
+  rootPath: string,
+  args: Record<string, unknown>,
+): { files: number } & ({ exportLocation: string } | { name: string; data: string }) {
+  assertArgs(args, ["download"]);
+  if (args.download !== undefined && typeof args.download !== "boolean")
+    throw new CommandError("INVALID_ARGUMENT", "download must be true or false");
   const home = homeOfRoot(rootPath);
   if (!home)
     throw new CommandError("INVALID_ARGUMENT", "export needs a Tasks home, not a bare folder");
@@ -166,5 +174,8 @@ export function exportWorkspace(rootPath: string): { exportLocation: string; fil
       read: () => readRegularFile(path.join(rootPath, file)),
     })),
   );
-  return { exportLocation, files: files.length };
+  if (!args.download) return { exportLocation, files: files.length };
+  const data = readRegularFile(exportLocation).toString("base64");
+  rmSync(exportLocation);
+  return { name: path.basename(exportLocation), data, files: files.length };
 }

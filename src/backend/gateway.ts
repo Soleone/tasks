@@ -142,8 +142,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
             workspaceRevision: authority.workspaceRevision,
           }
         : request.command === "workspace.export"
-          ? (assertArgs(request.args, []),
-            withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath)))
+          ? withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath, request.args))
           : request.command === "attachment.read"
             ? readAttachment(inspection.rootPath, request.args)
             : request.command === "activity.list"

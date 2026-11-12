@@ -126,3 +126,21 @@ test("platform.open-workspace: example tasks come and go without touching the vi
     ),
   ).toBe(true);
 });
+
+test("settings.export: the hosted home hands its tasks out as a zip and keeps no file", () => {
+  vol.reset();
+  send("home.create", {}, false);
+  send("workspace.init");
+  const { task } = send("task.create", { text: "Taken along" }).result as { task: { id: string } };
+
+  const { name, data } = send("workspace.export", { download: true }, false).result as {
+    name: string;
+    data: string;
+  };
+  expect(name).toMatch(/^tasks-[\d-]+\.zip$/);
+  const zip = atob(data);
+  expect(zip.startsWith("PK")).toBe(true);
+  expect(zip).toContain(`sync/tasks/${task.id}.json`);
+  expect(zip).toContain("Taken along");
+  expect(vol.readdirSync(`${HOME}/exports`)).toEqual([]);
+});

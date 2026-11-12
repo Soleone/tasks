@@ -602,6 +602,14 @@ export class EditorClient {
     return exportLocation;
   }
 
+  /** The same zip as bytes with its file name, kept nowhere: the web build's way out. */
+  async downloadWorkspace(): Promise<{ name: string; data: string }> {
+    const { name, data } = (await this.query("workspace.export", { download: true })).result;
+    if (typeof name !== "string" || typeof data !== "string")
+      throw new Error("The editor returned an invalid export result.");
+    return { name, data };
+  }
+
   /** Every version doctor found, and the issues that group them into conflicts. */
   async inspectConflicts(): Promise<Record<string, unknown>> {
     return (await this.query("workspace.doctor.inspect", {})).result;
