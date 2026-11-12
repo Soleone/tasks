@@ -51,25 +51,25 @@ export function useRowExits(
     if (fresh.length === 0) return;
     const exit: RowExit = { tasks: new Map(fresh.map((task) => [task.id, task])), timers: [] };
     const lingers = fresh.map((_, index) => lingerMs(index));
+    const last = lingers.indexOf(Math.max(...lingers));
+    function removeBatch(): void {
+      exits.current.delete(exit);
+      onLeaving(exits.current.size > 0);
+      setSliding([...exit.tasks.keys()], false);
+      removeRows([...exit.tasks.values()]);
+      afterRemove?.();
+    }
     fresh.forEach((task, index) =>
       exit.timers.push(
         window.setTimeout(() => {
-          if (!exit.tasks.has(task.id)) return;
-          noteFrameEvent("row slide");
-          setSliding([task.id], true);
+          if (exit.tasks.has(task.id)) {
+            noteFrameEvent("row slide");
+            setSliding([task.id], true);
+          }
+          // Timed from when the last slide starts: a busy thread can start it late, and a removal
+          // timed from the start of the linger would cut that slide short.
+          if (index === last) exit.timers.push(window.setTimeout(removeBatch, ROW_EXIT_MS));
         }, lingers[index]),
-      ),
-    );
-    exit.timers.push(
-      window.setTimeout(
-        () => {
-          exits.current.delete(exit);
-          onLeaving(exits.current.size > 0);
-          setSliding([...exit.tasks.keys()], false);
-          removeRows([...exit.tasks.values()]);
-          afterRemove?.();
-        },
-        Math.max(...lingers) + ROW_EXIT_MS,
       ),
     );
     exits.current.add(exit);
