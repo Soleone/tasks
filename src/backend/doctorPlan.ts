@@ -19,6 +19,11 @@ export type DoctorInput =
       canonicalVersions: { issueId: string; versionRef: string }[];
       linkChoices: LinkChoice[];
     }
+  | {
+      kind: "keep-one";
+      issueIds: string[];
+      canonicalVersions: { issueId: string; versionRef: string }[];
+    }
   | { kind: "repair-links"; edits: LinkEdit[] };
 export type DoctorAllocation = { planId: string; cloneIds: Record<string, string> };
 export type DoctorPlan = {
@@ -56,13 +61,19 @@ function strings(value: unknown): string[] {
   return value as string[];
 }
 export function parseDoctorInput(args: Record<string, unknown>): DoctorInput {
-  if (args.kind === "keep-both") {
-    assertArgs(args, ["kind", "issueIds", "canonicalVersions", "linkChoices"]);
+  if (args.kind === "keep-both" || args.kind === "keep-one") {
+    const linkChoiceArgs = args.kind === "keep-both" ? args.linkChoices : [];
+    assertArgs(
+      args,
+      args.kind === "keep-both"
+        ? ["kind", "issueIds", "canonicalVersions", "linkChoices"]
+        : ["kind", "issueIds", "canonicalVersions"],
+    );
     const issueIds = strings(args.issueIds);
     if (
       !issueIds.length ||
       !Array.isArray(args.canonicalVersions) ||
-      !Array.isArray(args.linkChoices)
+      !Array.isArray(linkChoiceArgs)
     )
       invalid();
     const canonicalVersions = args.canonicalVersions.map((value) => {
@@ -83,7 +94,8 @@ export function parseDoctorInput(args: Record<string, unknown>): DoctorInput {
       canonicalVersions.some((choice) => !issueIds.includes(choice.issueId))
     )
       invalid();
-    const linkChoices = args.linkChoices.map((value) => {
+    if (args.kind === "keep-one") return { kind: "keep-one", issueIds, canonicalVersions };
+    const linkChoices = linkChoiceArgs.map((value) => {
       if (!isRecord(value) || !isRecord(value.record)) invalid();
       assertArgs(value, ["record", "field", "fromId", "targetVersionRef"]);
       assertArgs(value.record, ["taskId", "versionRef"]);
@@ -147,7 +159,10 @@ export function doctorCloneVersions(input: DoctorInput, source: DoctorSource): D
     if (!versions.some((version) => version.versionRef === chosen)) stale();
     if (versions.some((version) => !version.valid))
       throw new CommandError("INVALID_CANONICAL", "reviewed repair requires valid source versions");
-    return versions.filter((version) => version.versionRef !== chosen);
+    // Keeping one version drops the others instead of cloning them.
+    return input.kind === "keep-one"
+      ? []
+      : versions.filter((version) => version.versionRef !== chosen);
   });
 }
 function prospectiveGraph(tasks: CanonicalTask[]): void {
@@ -216,7 +231,7 @@ export function buildDoctorPlan(
   for (const version of source.versionRefs.filter((version) => version.canonical && version.task))
     outputs.set(version.versionRef, { source: version, task: version.task! });
   const removedConflictPaths: string[] = [];
-  if (input.kind === "keep-both") {
+  if (input.kind !== "repair-links") {
     for (const issueId of input.issueIds) {
       const issue = source.issues.find((issue) => issue.issueId === issueId)!;
       const chosen = input.canonicalVersions.find(
@@ -225,6 +240,11 @@ export function buildDoctorPlan(
       for (const version of source.versionRefs.filter((version) =>
         issue.versionRefs!.includes(version.versionRef),
       )) {
+        if (!version.canonical) removedConflictPaths.push(version.relativePath);
+        if (input.kind === "keep-one" && version.versionRef !== chosen) {
+          outputs.delete(version.versionRef);
+          continue;
+        }
         outputs.set(version.versionRef, {
           source: version,
           task: {
@@ -235,14 +255,15 @@ export function buildDoctorPlan(
                 : allocation.cloneIds[version.versionRef],
           },
         });
-        if (!version.canonical) removedConflictPaths.push(version.relativePath);
       }
     }
+    // A kept version keeps its ID, so links to it need no choice.
+    const split = input.kind === "keep-both" ? input : { issueIds: [], linkChoices: [] };
     const splitIds = new Set(
-      input.issueIds.map((id) => source.issues.find((issue) => issue.issueId === id)!.taskId),
+      split.issueIds.map((id) => source.issues.find((issue) => issue.issueId === id)!.taskId),
     );
     const choices = new Map<string, LinkChoice>();
-    for (const choice of input.linkChoices) {
+    for (const choice of split.linkChoices) {
       const record = choice.record;
       const sourceVersion =
         "taskId" in record

@@ -22,7 +22,7 @@ function planResult(plan: DoctorPlan): Record<string, unknown> {
     linkEdits: plan.linkEdits,
     removedConflictPaths: plan.removedConflictPaths,
     canonicalVersions:
-      plan.input.kind === "keep-both"
+      plan.input.kind !== "repair-links"
         ? plan.input.canonicalVersions.map((choice) => ({
             taskId: plan.source.issues.find((issue) => issue.issueId === choice.issueId)!.taskId,
             versionRef: choice.versionRef,

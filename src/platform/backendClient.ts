@@ -460,8 +460,53 @@ export async function removeDependency(
   );
 }
 
-export async function getWorkspaceRevision(): Promise<number> {
-  return selected().revision();
+export async function getWorkspaceChanges(): Promise<{
+  revision: number;
+  conflictCopies: number;
+}> {
+  return selected().changes();
+}
+
+/** One task that sync left in more than one version: the one in the list first, then the copies. */
+export type SyncConflict = { issueId: string; versions: { versionRef: string; task: TaskView }[] };
+
+/**
+ * The conflicts this app can settle: a task in the list with copies beside it, all readable.
+ * Anything else doctor reports stays with the CLI.
+ */
+export async function listSyncConflicts(): Promise<SyncConflict[]> {
+  const { issues, versionRefs } = await selected().editor.inspectConflicts();
+  if (!Array.isArray(issues) || !Array.isArray(versionRefs))
+    throw new Error("The editor returned an invalid conflict list.");
+  const versions = new Map<string, { canonical: boolean; task: unknown }>(
+    versionRefs.map((version) => [version.versionRef, version]),
+  );
+  return issues.flatMap((issue) => {
+    if (issue.code !== "CONFLICT_COPY") return [];
+    const found = (issue.versionRefs as string[]).map((versionRef) => ({
+      versionRef,
+      ...versions.get(versionRef)!,
+    }));
+    if (found.some((version) => !version.task)) return [];
+    return [
+      {
+        issueId: issue.issueId as string,
+        versions: found
+          .sort((a, b) => Number(b.canonical) - Number(a.canonical))
+          .map(({ versionRef, task }) => ({
+            versionRef,
+            // A version outside the list has no list version or computed blockers.
+            task: taskView(
+              parseTaskProjection({ ...(task as object), version: 1, blockedByIds: [] }),
+            ),
+          })),
+      },
+    ];
+  });
+}
+
+export function keepSyncConflictVersion(issueId: string, versionRef: string): Promise<void> {
+  return queued((workspace) => workspace.editor.keepConflictVersion(issueId, versionRef));
 }
 
 export async function closeBackendSession(): Promise<void> {

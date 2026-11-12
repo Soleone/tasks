@@ -67,9 +67,9 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
       calls.push(["status", ...args]);
       return {};
     },
-    async revision() {
-      calls.push(["revision"]);
-      return 7;
+    async changes() {
+      calls.push(["changes"]);
+      return { revision: 7, conflictCopies: 0 };
     },
   };
   client.selectMainWorkspace(workspace);
@@ -95,13 +95,13 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
     { idempotencyKey: "priority-key" },
   );
   await client.transitionTask("task.start", "id", 3, { idempotencyKey: "status-key" });
-  assert.equal(await client.getWorkspaceRevision(), 7);
+  assert.equal((await client.getWorkspaceChanges()).revision, 7);
   assert.deepEqual(calls, [
     ["save", draft("Inline @work", "Notes", 1), "capture-key"],
     ["save", draft("Inline @work", "Notes", 1), "edit-key", "id", 3],
     ["level", "id", 3, { priority: 0 }, "priority-key"],
     ["status", "task.start", "id", 3, "status-key"],
-    ["revision"],
+    ["changes"],
   ]);
 });
 
@@ -204,7 +204,7 @@ test("platform.open-workspace: switching drains queued tasks and home saves befo
   const switching = client.switchHome();
   await assert.rejects(client.switchHome(), /HOME_CLOSING/);
   await assert.rejects(client.createTask(draft("Blocked"), {}), /HOME_CLOSING/);
-  await assert.rejects(client.getWorkspaceRevision(), /HOME_CLOSING/);
+  await assert.rejects(client.getWorkspaceChanges(), /HOME_CLOSING/);
   assert.deepEqual(events, ["task"]);
   releaseTask();
   await queued;
@@ -213,11 +213,11 @@ test("platform.open-workspace: switching drains queued tasks and home saves befo
   releaseDocuments();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(events, ["task", "documents", "close"]);
-  await assert.rejects(client.getWorkspaceRevision(), /HOME_CLOSING/);
+  await assert.rejects(client.getWorkspaceChanges(), /HOME_CLOSING/);
   releaseClose();
   await switching;
   assert.deepEqual(events, ["task", "documents", "close", ["tasks.chooseHome", "1"], "reload"]);
-  await assert.rejects(client.getWorkspaceRevision(), /HOME_CLOSING/);
+  await assert.rejects(client.getWorkspaceChanges(), /HOME_CLOSING/);
 });
 
 test("platform.open-workspace: active, unresolved, unsaved and failed-close homes stay open", async (t) => {
@@ -249,8 +249,8 @@ test("platform.open-workspace: active, unresolved, unsaved and failed-close home
           throw new Error("close failed");
         },
       },
-      async revision() {
-        return 4;
+      async changes() {
+        return { revision: 4, conflictCopies: 0 };
       },
     };
     client.selectMainWorkspace(workspace);
@@ -266,7 +266,8 @@ test("platform.open-workspace: active, unresolved, unsaved and failed-close home
           ? ["documents", "close"]
           : ["documents"],
     );
-    if (failure !== "selection changed") assert.equal(await client.getWorkspaceRevision(), 4);
+    if (failure !== "selection changed")
+      assert.equal((await client.getWorkspaceChanges()).revision, 4);
   }
 });
 
@@ -392,7 +393,7 @@ test("platform.open-workspace: an unresolved or reconciling task change keeps th
   assert.equal(workspace.getUnresolved(), null);
   await assert.rejects(httpClient.switchHome(), /WRITE_IN_PROGRESS/);
   assert.equal(closes, 0);
-  assert.equal(typeof (await httpClient.getWorkspaceRevision()), "number");
+  assert.equal(typeof (await httpClient.getWorkspaceChanges()).revision, "number");
 });
 
 test("main UI over the Linux HTTP bridge persists direct actions", async (t) => {

@@ -220,7 +220,8 @@ function executeDevCommand(
     if (
       !(QUERY_COMMANDS as readonly string[]).includes(request.command) &&
       !(EDITOR_COMMANDS as readonly string[]).includes(request.command) &&
-      !HOME_COMMANDS.includes(request.command)
+      !HOME_COMMANDS.includes(request.command) &&
+      request.command !== "workspace.doctor.inspect"
     ) {
       return {
         version: 2,
@@ -229,7 +230,7 @@ function executeDevCommand(
         error: {
           code: "UNSUPPORTED_COMMAND",
           message:
-            "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches, images, deleting canceled and done tasks, and backup/restore; order normalization, batch status undo and other controls remain unavailable",
+            "the dev bridge permits only capture, content updates, single-task status changes, eligible status undo, parent/dependency edits, manual reorder, eligible operation undo, status batches, images, deleting canceled and done tasks, reviewed conflict repair, and backup/restore; order normalization, batch status undo and other controls remain unavailable",
         },
       };
     }

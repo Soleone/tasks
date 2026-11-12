@@ -62,6 +62,8 @@ const linuxEditorCommands = [
   "task.clearDone",
   "category.rename",
   "tag.rename",
+  "workspace.doctor.plan",
+  "workspace.doctor.apply",
 ];
 const statusSources = {
   "task.start": "done",
@@ -179,7 +181,6 @@ for (const command of [
   "task.order.normalize",
   "workspace.init",
   "workspace.recovery.resume",
-  "workspace.doctor.apply",
 ]) {
   test(`editor HTTP bridge refuses unconnected ${command} before cache/effects`, async (t) => {
     const selected = workspace(t),

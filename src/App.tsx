@@ -37,6 +37,7 @@ import { LearnIcon } from "@/components/LearnIcon";
 import { LearnPanel } from "@/components/LearnPanel";
 import { QuestCard } from "@/components/QuestCard";
 import { DoneToday, DueNow } from "@/components/LensCounts";
+import { ConflictCount, ConflictDialog } from "@/components/SyncConflicts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
 import { ThemePicker } from "@/components/soleone/theme-picker";
@@ -56,7 +57,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/variants/tooltip";
 import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
-import { selectMainWorkspace } from "@/platform/backendClient";
+import { keepSyncConflictVersion, selectMainWorkspace } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
 import {
   readStoredFontSizeIncrease,
@@ -348,8 +349,11 @@ export default function App({
     sortFieldRef,
     categoryFilterRef,
     refreshTasks,
+    syncConflicts,
+    reloadSyncConflicts,
     isCurrentViewMatch,
   } = taskView;
+  const [conflictsOpen, setConflictsOpen] = useState(false);
   const { doneToday: doneTodayCount, dueNow: dueNowCount, goals } = useHeaderCounts(tasks);
   // The quest card waits for the first load, so the welcome starts over the first task.
   const [tasksLoaded, setTasksLoaded] = useState(false);
@@ -848,6 +852,7 @@ export default function App({
           </h1>
           {/* The count stands apart from the joined group, so its pressed state keeps round corners. */}
           <div className="flex items-center">
+            <ConflictCount total={syncConflicts.length} onOpen={() => setConflictsOpen(true)} />
             <DueNow
               total={dueNowCount}
               lensOn={lens?.kind === "due"}
@@ -1171,6 +1176,21 @@ export default function App({
         finalFocus={() => focusStack.restore("themes")}
         tagline={{ text: "Capture quickly,", highlight: "choose what matters" }}
       />
+      {conflictsOpen && syncConflicts.length > 0 ? (
+        <ConflictDialog
+          conflicts={syncConflicts}
+          onClose={() => setConflictsOpen(false)}
+          onKeep={async (conflict, versionRef) => {
+            try {
+              await keepSyncConflictVersion(conflict.issueId, versionRef);
+            } finally {
+              // A refusal usually means the versions changed underneath, so show the current ones.
+              if ((await reloadSyncConflicts()).length === 0) setConflictsOpen(false);
+              void refreshTasks();
+            }
+          }}
+        />
+      ) : null}
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}

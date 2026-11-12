@@ -24,7 +24,9 @@ import {
 import { lensFilter, type ListLens } from "@/components/listLens";
 import {
   closeBackendSession,
-  getWorkspaceRevision,
+  getWorkspaceChanges,
+  listSyncConflicts,
+  type SyncConflict,
   listTasksTogether,
 } from "@/platform/backendClient";
 
@@ -85,6 +87,13 @@ export function useWorkspaceTasks({
   const lensRef = useRef(lens);
   const restoredMetadataRef = useRef(false);
   const workspaceRevisionRef = useRef<number | null>(null);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+  const conflictCopiesRef = useRef(0);
+  const reloadSyncConflicts = useCallback(async (): Promise<SyncConflict[]> => {
+    const conflicts = await listSyncConflicts();
+    setSyncConflicts(conflicts);
+    return conflicts;
+  }, []);
   // This client's own writes move the revision too, and the reload that answers them would drop
   // rows still lingering or sliding out of view. While set, the check waits for its next turn.
   const revisionCheckHeld = useRef(false);
@@ -310,8 +319,13 @@ export function useWorkspaceTasks({
         return;
       checking = true;
       try {
-        const revision = await getWorkspaceRevision();
+        const { revision, conflictCopies } = await getWorkspaceChanges();
         if (disposed) return;
+        // Reading every version costs a full look at the folder, so only a changed count asks.
+        if (conflictCopies !== conflictCopiesRef.current) {
+          await reloadSyncConflicts();
+          conflictCopiesRef.current = conflictCopies;
+        }
         const previousRevision = workspaceRevisionRef.current;
         if (previousRevision !== null && revision !== previousRevision) {
           taskListRef.current?.startIdentityPreservingRefresh();
@@ -343,7 +357,7 @@ export function useWorkspaceTasks({
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshOnVisibility);
     };
-  }, [loading, refreshTasks, finishIdentityPreservingRefresh, taskListRef]);
+  }, [loading, refreshTasks, reloadSyncConflicts, finishIdentityPreservingRefresh, taskListRef]);
 
   useEffect(() => {
     const refreshOnFocus = (): void => {
@@ -512,6 +526,8 @@ export function useWorkspaceTasks({
     sortFieldRef,
     categoryFilterRef,
     refreshTasks,
+    syncConflicts,
+    reloadSyncConflicts,
     finishIdentityPreservingRefresh,
     holdRevisionCheck,
     removeVisibleTasks,

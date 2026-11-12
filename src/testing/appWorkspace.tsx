@@ -154,6 +154,15 @@ export class AppWorkspace {
     if (!response.ok) throw new Error(await response.text());
   }
 
+  /** Leaves a conflict copy of a task with `patch` applied, as Syncthing does after two devices changed it. */
+  async conflict(id: string, patch: Record<string, unknown>): Promise<void> {
+    const response = await fetch(
+      `${inject("workspaceServerUrl")}/conflict?url=${encodeURIComponent(this.url)}&id=${encodeURIComponent(id)}`,
+      { method: "POST", body: JSON.stringify(patch) },
+    );
+    if (!response.ok) throw new Error(await response.text());
+  }
+
   /** Removes an image file from the sync folder, as when it was removed on another device. */
   async loseImage(name: string): Promise<void> {
     const response = await fetch(

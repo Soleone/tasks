@@ -17,4 +17,6 @@ export const EDITOR_COMMANDS = [
   "task.clearDone",
   "category.rename",
   "tag.rename",
+  "workspace.doctor.plan",
+  "workspace.doctor.apply",
 ] as const;

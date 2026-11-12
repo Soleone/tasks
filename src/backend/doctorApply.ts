@@ -40,14 +40,16 @@ export function commitDoctor(
   requireDoctorBudget(database, intent.plan.nextTasks.length);
   const snapshot = applyDoctorJournal(intent),
     authority = synchronizeAuthority(database, intent.root, snapshot);
-  const splitIds =
-    intent.plan.input.kind === "keep-both"
-      ? intent.plan.input.issueIds.map(
+  const { input } = intent.plan;
+  const conflictIds =
+    input.kind === "repair-links"
+      ? []
+      : input.issueIds.map(
           (id) => intent.plan.source.issues.find((issue) => issue.issueId === id)!.taskId!,
-        )
-      : [];
+        );
+  const splitIds = input.kind === "keep-both" ? conflictIds : [];
   const repairedIds = [
-    ...new Set([...splitIds, ...intent.writes.map((write) => write.taskId)]),
+    ...new Set([...conflictIds, ...intent.writes.map((write) => write.taskId)]),
   ].sort();
   const before = intent.plan.source.versionRefs
     .filter((version) => version.canonical && repairedIds.includes(version.taskId))

@@ -275,7 +275,10 @@ test("main-client revision reads readiness once without listing tasks", async (t
     new WorkspaceReader(selection, undefined, state.session),
     new EditorClient(state.session, editorSelection),
   );
-  assert.equal(await workspace.revision(), info.workspaceRevision);
+  assert.deepEqual(await workspace.changes(), {
+    revision: info.workspaceRevision,
+    conflictCopies: 0,
+  });
   assert.deepEqual(
     state.requests.map((request) => request.command),
     ["workspace.info"],

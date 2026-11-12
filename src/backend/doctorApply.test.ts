@@ -20,6 +20,7 @@ import {
   doctorRaw as raw,
   planDoctor,
 } from "./doctorTestWorkspace.js";
+import type { DoctorIssue, DoctorVersion } from "./doctorSource.js";
 import type { CanonicalTask } from "./taskModel.js";
 const task = (w: ReturnType<typeof setup>, id: string) =>
   JSON.parse(readFileSync(path.join(w.root, "tasks", `${id}.json`), "utf8")) as CanonicalTask;
@@ -407,3 +408,58 @@ test("unsafe numeric budget refuses before creating archive or changing authorit
     request.writeContext,
   );
 });
+for (const keep of ["canonical", "copy"] as const)
+  test(
+    `doctor.keep-one: keeping the ${keep} version leaves one task under the original ID and the dropped bytes in the recovery copy`,
+    linux,
+    (t) => {
+      const w = setup(t, { a: {}, child: { parentId: "a" } }, { a: { title: "Other" } }),
+        before = raw(w),
+        inspected = success(send(w, { command: "workspace.doctor.inspect" })),
+        issue = (inspected.result.issues as DoctorIssue[]).find(
+          (issue) => issue.code === "CONFLICT_COPY",
+        )!,
+        chosen = (inspected.result.versionRefs as DoctorVersion[]).find(
+          (version) => version.taskId === "a" && version.canonical === (keep === "canonical"),
+        )!;
+      const planned = success(
+        send(w, {
+          command: "workspace.doctor.plan",
+          writeContext: inspected.writeContext,
+          idempotencyKey: "plan",
+          args: {
+            kind: "keep-one",
+            issueIds: [issue.issueId],
+            canonicalVersions: [{ issueId: issue.issueId, versionRef: chosen.versionRef }],
+          },
+        }),
+      );
+      assert.deepEqual(planned.result.clones, []);
+      const applied = success(
+        send(w, {
+          command: "workspace.doctor.apply",
+          writeContext: planned.writeContext,
+          idempotencyKey: "apply",
+          args: { planId: planned.result.planId },
+        }),
+      );
+      assert.deepEqual(applied.result.repairedIds, ["a"]);
+      assert.deepEqual(
+        raw(w).map(([name]) => name),
+        ["a.json", "child.json"],
+      );
+      assert.equal(task(w, "a").title, keep === "copy" ? "Other" : corpus.taskTemplate.title);
+      assert.equal(task(w, "child").parentId, "a");
+      const archive = JSON.parse(readFileSync(applied.result.recoveryLocation as string, "utf8"));
+      assert.deepEqual(
+        archive.plan.source.files
+          .filter((file: { relativePath: string }) => file.relativePath.startsWith("tasks/"))
+          .map((file: { relativePath: string; beforeBytes: string }) => [
+            path.basename(file.relativePath),
+            file.beforeBytes,
+          ]),
+        before,
+      );
+      assert.deepEqual(success(send(w, { command: "workspace.info" })).result.issues, []);
+    },
+  );

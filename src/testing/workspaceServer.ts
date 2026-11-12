@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -96,6 +96,17 @@ function arrive(url: string, name: string): object {
   return {};
 }
 
+/** The copy Syncthing leaves beside a task that also changed on another device. */
+function conflict(url: string, id: string, patch: object): object {
+  const tasks = path.join(directoryOf(url), "sync", "tasks");
+  const task = JSON.parse(readFileSync(path.join(tasks, `${path.basename(id)}.json`), "utf8"));
+  writeFileSync(
+    path.join(tasks, `${path.basename(id)}.sync-conflict-20260101-120000-ABCDEFG.json`),
+    `${JSON.stringify({ ...task, ...patch }, null, 2)}\n`,
+  );
+  return {};
+}
+
 /** An image file removed on another device, or not synced here yet. */
 function loseImage(url: string, name: string): object {
   rmSync(path.join(directoryOf(url), "sync", "attachments", path.basename(name)));
@@ -141,11 +152,15 @@ export default async function setup(project: TestProject): Promise<() => Promise
               ? body(request).then((text) =>
                   dropTheme(workspace, url.searchParams.get("name") ?? "", text as string),
                 )
-              : url.pathname === "/lose-image"
-                ? Promise.resolve().then(() =>
-                    loseImage(workspace, url.searchParams.get("name") ?? ""),
+              : url.pathname === "/conflict"
+                ? body(request).then((patch) =>
+                    conflict(workspace, url.searchParams.get("id") ?? "", patch as object),
                   )
-                : stopWorkspace(workspace).then(() => ({}));
+                : url.pathname === "/lose-image"
+                  ? Promise.resolve().then(() =>
+                      loseImage(workspace, url.searchParams.get("name") ?? ""),
+                    )
+                  : stopWorkspace(workspace).then(() => ({}));
     work.then(
       (body) => {
         response.writeHead(200, {

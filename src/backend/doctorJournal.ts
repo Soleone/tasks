@@ -140,7 +140,7 @@ export function parseDoctorIntent(value: unknown, root: RootBinding): DoctorInte
     if (privateNames?.some((name) => plan.source.taskEntries.includes(name))) conflict();
     if (
       canonicalJson(intent.writes) !== canonicalJson(doctorIntentWrites(plan, intent.at)) ||
-      !intent.writes.length
+      (!intent.writes.length && !plan.removedConflictPaths.length)
     )
       conflict();
     localPathOutsideRoot(intent.cachePath, root.rootPath);

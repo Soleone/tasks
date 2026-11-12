@@ -50,13 +50,17 @@ Syncthing copies files; it doesn't merge them. If a task changes on two devices 
 <home>/sync/tasks/<id>.sync-conflict-<date>-<time>-<device>.json
 ```
 
-Tasks never merges the two or picks a winner on its own. The list keeps showing the version under the usual name, and the conflict copy waits until you deal with it. To find any:
+Tasks never merges the two or picks a winner on its own. The list keeps showing the version under the usual name, and the conflict copy waits until you deal with it.
+
+The app shows a small count in the header while any task has a conflict copy. Click it to see both versions as tasks, with the fields that differ named, and choose Keep this one on the version you want. The other goes to a recovery copy in the home's `local/` folder.
+
+To find and resolve them by hand instead:
 
 ```bash
 ls ~/Tasks/sync/tasks/ | grep sync-conflict
 ```
 
-To resolve one, open both files and compare them:
+Open both files and compare them:
 
 - **The copy has nothing you need:** delete it.
 - **The copy has the change you want:** make that change in Tasks, then delete the copy.

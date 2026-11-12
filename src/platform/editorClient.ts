@@ -594,6 +594,30 @@ export class EditorClient {
     return result;
   }
 
+  /** Every version doctor found, and the issues that group them into conflicts. */
+  async inspectConflicts(): Promise<Record<string, unknown>> {
+    return (await this.query("workspace.doctor.inspect", {})).result;
+  }
+
+  /**
+   * Keeps one version of a conflicted task and drops the rest, which stay in doctor's recovery
+   * copy. Repeating it after a lost reply finds no conflict left to plan.
+   */
+  async keepConflictVersion(issueId: string, versionRef: string): Promise<void> {
+    const write = async (command: string, args: Record<string, unknown>) =>
+      this.query(command, args, {
+        writeContext: (await this.begin()).writeContext,
+        idempotencyKey: randomUUID(),
+        readOnly: false,
+      });
+    const { result } = await write("workspace.doctor.plan", {
+      kind: "keep-one",
+      issueIds: [issueId],
+      canonicalVersions: [{ issueId, versionRef }],
+    });
+    await write("workspace.doctor.apply", { planId: result.planId });
+  }
+
   private async query(
     command: string,
     args: Record<string, unknown>,

@@ -136,8 +136,13 @@ export class MainWorkspace {
     return classificationEntries(result.tags);
   }
 
-  async revision() {
-    return (await this.ready()).workspaceRevision;
+  /** What the idle check compares: the revision, and how many conflict copies sync left. */
+  async changes() {
+    const { workspaceRevision, issues } = await this.ready();
+    return {
+      revision: workspaceRevision,
+      conflictCopies: issues.filter((issue) => issue.code === "CONFLICT_COPY").length,
+    };
   }
 
   async save(draft: InlineDraft, key: string, id?: string, version?: number) {
