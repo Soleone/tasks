@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.1](https://github.com/Soleone/tasks/compare/v0.6.0...v0.6.1) (2026-11-12)
+
+### Features
+
+* **android:** map system back to Escape instead of swipe ([bae63d9](https://github.com/Soleone/tasks/commit/bae63d9640bb62a758efbb7149f6bda4d6ff56a7))
+
+### Bug Fixes
+
+* **list:** a completed row finishes sliding out even when the app is busy ([9d4a834](https://github.com/Soleone/tasks/commit/9d4a83471ee5023dcfaf0bbd1bd1318ee0489a0f))
+
 ## [0.6.0](https://github.com/Soleone/tasks/compare/v0.5.3...v0.6.0) (2026-11-12)
 
 ### Features
