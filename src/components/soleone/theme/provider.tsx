@@ -8,6 +8,9 @@ type ThemeContextValue = {
   resolvedMode: "dark" | "light" | undefined
   themes: ThemeOption[]
   setTheme: (name: string) => void
+  /** Names of the themes the visitor starred, remembered in this browser next to their choice. */
+  favorites: string[]
+  toggleFavorite: (name: string) => void
 }
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null)
@@ -27,6 +30,17 @@ const readNothing = () => undefined
 
 const systemDark = () => window.matchMedia("(prefers-color-scheme: dark)")
 const isDark = (mode: ThemeMode) => (mode === "system" ? systemDark().matches : mode === "dark")
+
+// Favorites live in localStorage as a JSON list; whatever else is found there counts as none.
+const NO_FAVORITES: string[] = []
+function parseFavorites(stored: string | null) {
+  try {
+    const names: unknown = JSON.parse(stored ?? "[]")
+    return Array.isArray(names) ? names.filter((name) => typeof name === "string") : NO_FAVORITES
+  } catch {
+    return NO_FAVORITES
+  }
+}
 
 // Swapping a theme changes every color at once; transitions would make each element ease on its own clock.
 function withoutTransitions(change: () => void) {
@@ -70,6 +84,33 @@ function ThemeProvider({
     [themes, storageKey]
   )
 
+  const favoritesKey = `${storageKey}.favorites`
+  const storedFavorites = React.useSyncExternalStore(
+    subscribe,
+    () => {
+      try {
+        return localStorage.getItem(favoritesKey)
+      } catch {
+        return null // without storage there are no favorites
+      }
+    },
+    () => null
+  )
+  const favorites = React.useMemo(() => parseFavorites(storedFavorites), [storedFavorites])
+
+  const toggleFavorite = React.useCallback(
+    (name: string) => {
+      const next = favorites.includes(name) ? favorites.filter((other) => other !== name) : [...favorites, name]
+      try {
+        localStorage.setItem(favoritesKey, JSON.stringify(next))
+      } catch {
+        return
+      }
+      notify()
+    },
+    [favorites, favoritesKey]
+  )
+
   const mode = themes.find((candidate) => candidate.name === theme)?.mode
 
   // A system theme tracks the OS appearance while it is open.
@@ -91,8 +132,8 @@ function ThemeProvider({
   }, [theme, resolvedMode])
 
   const value = React.useMemo(
-    () => ({ theme, resolvedMode, themes, setTheme }),
-    [theme, resolvedMode, themes, setTheme]
+    () => ({ theme, resolvedMode, themes, setTheme, favorites, toggleFavorite }),
+    [theme, resolvedMode, themes, setTheme, favorites, toggleFavorite]
   )
 
   return (

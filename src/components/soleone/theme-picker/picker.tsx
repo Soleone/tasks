@@ -12,7 +12,7 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react"
-import { Palette, X } from "lucide-react"
+import { Palette, Star, X } from "lucide-react"
 import {
   memo,
   useEffect,
@@ -117,6 +117,10 @@ type ThemePickerProps = {
   /** Set false when the host owns keyboard shortcuts. Defaults to plain T. */
   shortcut?: boolean
   finalFocus?: Dialog.Popup.Props["finalFocus"]
+  /** The key that stars or unstars the front theme, as KeyboardEvent.key. */
+  favoriteKey?: string
+  /** The key that narrows the ring to the starred themes and back. */
+  favoritesOnlyKey?: string
 }
 
 export function ThemePicker({
@@ -126,8 +130,10 @@ export function ThemePicker({
   trigger,
   shortcut = true,
   finalFocus,
+  favoriteKey = "!",
+  favoritesOnlyKey = "@",
 }: ThemePickerProps = {}) {
-  const { theme, themes: all, setTheme } = useTheme()
+  const { theme, themes: all, setTheme, favorites, toggleFavorite } = useTheme()
   // A hidden theme joins the ring only while it is the one in use.
   const themes = all.filter((candidate) => !candidate.hidden || candidate.name === theme)
   const reduced = useReducedMotion() ?? false
@@ -156,7 +162,10 @@ export function ThemePicker({
 
   // Typing filters the ring; the typed text takes the place of the theme name above it.
   const [query, setQuery] = useState("")
-  const shown = themes.filter((candidate) => matches(candidate, query))
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const select = (text: string, only: boolean, starred: string[]) =>
+    themes.filter((candidate) => matches(candidate, text) && (!only || starred.includes(candidate.name)))
+  const shown = select(query, favoritesOnly, favorites)
   const count = shown.length
   const frontTheme = shown[front]
 
@@ -246,6 +255,7 @@ export function ThemePicker({
   const prepareOpen = useEffectEvent(() => {
     // Opens on the current theme, ready to turn straight away.
     setQuery("")
+    setFavoritesOnly(false)
     setRevealing(false)
     setFit(fitToWindow())
     const start = Math.max(
@@ -290,22 +300,40 @@ export function ThemePicker({
     )
   }
 
-  // A new filter keeps the front theme if it still matches, otherwise the first match comes forward.
-  const filter = (next: string) => {
-    const nextShown = themes.filter((candidate) => matches(candidate, next))
+  // A narrower or wider ring keeps the front theme if it is still shown, otherwise the first one comes forward.
+  const bringForward = (nextShown: ThemeOption[]) => {
     const kept = frontTheme ? nextShown.indexOf(frontTheme) : -1
     const start = Math.max(0, kept)
     position.stop()
     position.jump(start)
     target.current = start
     setFront(start)
+  }
+  const filter = (next: string) => {
+    bringForward(select(next, favoritesOnly, favorites))
     setQuery(next)
+  }
+  const showFavoritesOnly = (only: boolean) => {
+    bringForward(select(query, only, favorites))
+    setFavoritesOnly(only)
+  }
+  const star = (starred: ThemeOption) => {
+    // Unstarring among the favorites takes the card out of the ring.
+    if (favoritesOnly) bringForward(shown.filter((candidate) => candidate !== starred))
+    toggleFavorite(starred.name)
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return
     // Keys the ring has no use for would scroll the page behind it.
     if (SCROLL_KEYS.has(event.key) && event.target === stage.current) event.preventDefault()
+    if (event.key === favoriteKey || event.key === favoritesOnlyKey) {
+      event.preventDefault()
+      if (event.repeat) return
+      if (event.key === favoritesOnlyKey) showFavoritesOnly(!favoritesOnly)
+      else if (frontTheme) star(frontTheme)
+      return
+    }
     const typing = event.key.length === 1 && (event.key !== " " || query !== "")
     if (typing && !(event.key === " " && event.target !== stage.current)) {
       event.preventDefault()
@@ -463,6 +491,7 @@ export function ThemePicker({
     const card = element.closest<HTMLElement>("[data-theme-index]")
     if (!card) return onOpenChange(false)
     const index = Number(card.dataset.themeIndex)
+    if (element.closest("[data-favorite]")) return star(shown[index])
     const distance = Math.round(offset(index, target.current, count))
     if (distance === 0) commit(shown[index])
     else turnBy(distance)
@@ -523,6 +552,20 @@ export function ThemePicker({
               </Button>
             }
           />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Favorites only"
+            aria-pressed={favoritesOnly}
+            aria-keyshortcuts={favoritesOnlyKey}
+            title={`Favorites only (${favoritesOnlyKey})`}
+            className="absolute top-4 right-14"
+            // The ring keeps focus, so the arrow keys and Enter go on working after a click here.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => showFavoritesOnly(!favoritesOnly)}
+          >
+            <Star className={cn(favoritesOnly && "fill-current")} />
+          </Button>
 
           {/* will-change keeps the cards' drawing as the picker grows, instead of redrawing them every frame. */}
           <motion.div
@@ -553,10 +596,13 @@ export function ThemePicker({
               </div>
               <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                 {count === 0
-                  ? "No theme matches"
+                  ? favoritesOnly && !query
+                    ? "No favorites yet"
+                    : "No theme matches"
                   : query
                     ? `${frontTheme?.label} · ${front + 1} of ${count}`
                     : `${String(front + 1).padStart(2, "0")} / ${String(count).padStart(2, "0")}`}
+                {favoritesOnly && " · favorites"}
                 {frontTheme?.name === theme && " · current"}
               </div>
             </div>
@@ -585,6 +631,7 @@ export function ThemePicker({
                       tilt={index === front && !dragging && !reduced}
                       aimRef={frontAim}
                       pressed={index === front && (keyPressed || held)}
+                      favorite={favorites.includes(candidate.name)}
                       taglineText={tagline?.text}
                       taglineHighlight={tagline?.highlight}
                     />
@@ -600,6 +647,10 @@ export function ThemePicker({
               <Kbd>Enter</Kbd>
               <span className="mr-2">select</span>
               <span className="mr-2">type to filter</span>
+              <Kbd>{favoriteKey}</Kbd>
+              <span className="mr-2">favorite</span>
+              <Kbd>{favoritesOnlyKey}</Kbd>
+              <span className="mr-2">favorites only</span>
               <Kbd>Esc</Kbd>
               <span>{query ? "clear" : "close"}</span>
             </div>
@@ -625,6 +676,7 @@ const RingCard = memo(function RingCard({
   tilt,
   aimRef,
   pressed,
+  favorite,
   taglineText,
   taglineHighlight,
 }: {
@@ -637,6 +689,7 @@ const RingCard = memo(function RingCard({
   tilt: boolean
   aimRef: RefObject<FrontAim | null> // where the front card takes a touch tilt from the ring's gestures
   pressed: boolean
+  favorite: boolean
   // Strings rather than an object, so a tagline passed inline does not defeat the memo.
   taglineText?: string
   taglineHighlight?: string
@@ -756,7 +809,7 @@ const RingCard = memo(function RingCard({
         id={`theme-card-${theme.name}`}
         role="option"
         aria-selected={isFront}
-        aria-label={theme.label}
+        aria-label={favorite ? `${theme.label}, favorite` : theme.label}
         className="relative size-full transform-3d"
         style={{ rotateX, rotateY }}
       >
@@ -769,6 +822,18 @@ const RingCard = memo(function RingCard({
           pressed={pressed}
           className="size-full"
         >
+          {/* A click target only, which the picker's onClick reads: an option may not hold a button, so
+              the keyboard and screen readers get the favorite key and the option's label instead. */}
+          <span
+            data-favorite
+            aria-hidden
+            className={cn(
+              "pointer-events-auto absolute top-1 right-1 flex size-11 items-center justify-center rounded-full transition duration-150 ease-out hover:scale-115",
+              favorite ? "text-primary" : "text-muted-foreground/60 hover:text-foreground",
+            )}
+          >
+            <Star className={cn("size-4", favorite && "fill-current")} />
+          </span>
           <motion.div aria-hidden className="absolute inset-0 rounded-3xl bg-black" style={{ opacity: shade }} />
           <motion.div className="absolute inset-0" style={{ opacity: near, visibility: nearVisibility }}>
             <Sheen

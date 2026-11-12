@@ -2,7 +2,7 @@
 
 Choose a palette with `Alt+T`, the header's **Themes** button, or `Ctrl/⌘+K` → **Themes**. Theme selection stays in the dedicated picker, not Settings. Gilt is the default.
 
-The shared picker shows a ring of preview cards. Drag, scroll or use the arrow keys to browse; type to filter by name or dark/light mode. Browsing does not change the page. Enter or clicking the front card confirms; Escape clears a filter first, then closes. Focus returns to the opener. Tasks keeps `Alt+T`, with no plain T or D theme shortcut.
+The shared picker shows a ring of preview cards. Drag, scroll or use the arrow keys to browse; type to filter by name or dark/light mode. Browsing does not change the page. `!` stars or unstars the front theme; clicking a card's star toggles that card's favorite status without selecting it, and `@` or the star button beside Close narrows the ring to favorites until the picker closes. Favorites are remembered per device, in the same browser storage as the selected theme (`tasks.selectedTheme.favorites`), and do not sync. Enter or clicking the front card confirms; Escape clears a filter first, then closes. Focus returns to the opener. Tasks keeps `Alt+T`, with no plain T or D theme shortcut.
 
 ## Shared implementation
 
@@ -15,7 +15,7 @@ Themes come from the [`@soleone` registry](https://github.com/Soleone/shadcn-com
 
 Registry sources stay upstream. Tasks only supplies opening, shortcut and focus-return behavior, plus its task-specific CSS roles. User themes are the exception: `home.themes.list` reads the home's `themes/` folder (`theme.user`), and `src/theme/userThemes.tsx` parses each file with the registry parser in the client, inlines its tokens in a `user-themes` style element and restores a saved user theme once the home has loaded, since the pre-paint script only knows the built-ins. Until then the default paints. There is no live Omarchy following or reload while running.
 
-The shared picker supports controlled `open`/`onOpenChange`, an optional `trigger`, `shortcut={false}` and `finalFocus`. These hooks and the denied-storage fallback were added in local shared commit `f3a38a0` for this adoption. Publish that commit before pulling future registry updates from GitHub; installing an older picker would remove those hooks. `kit check` was run against the local registry built from that commit; the configured GitHub registry will not match until it is published.
+The shared picker supports controlled `open`/`onOpenChange`, an optional `trigger`, `shortcut={false}`, `finalFocus`, and `favoriteKey` and `favoritesOnlyKey` to rebind `!` and `@`. `kit check` compares the installed sources with the published GitHub registry.
 
 ## Persistence and validation
 
