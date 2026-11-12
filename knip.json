@@ -10,5 +10,5 @@
   "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{mjs,ts}"],
   "ignore": ["src/components/ui/**", "src/components/soleone/**", "src/components/react-bits/**"],
   "ignoreDependencies": ["postject"],
-  "ignoreBinaries": ["rustc", "agent-browser", "vercel"]
+  "ignoreBinaries": ["rustc", "vercel"]
 }
