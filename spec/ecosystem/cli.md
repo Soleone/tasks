@@ -2,6 +2,8 @@
 
 There are two ways in from outside the app, both through `tasks-cli`, the same executable the desktop app runs as its backend. Both use the same [commands](../backend/commands.md) as the app.
 
+Every desktop install contains it (`platform.cli-location`), and Settings › Data shows its path and copies instructions for an agent (`settings.agents`).
+
 - **JSON lines** (`tasks-cli --stdio`): send one request envelope per line on stdin, get one reply per line on stdout. This is the complete interface for agents.
 - **Verbs** (`tasks-cli VERB`): friendly verbs for people and simple scripts.
 

@@ -43,6 +43,7 @@ Desktop only. Bring Tasks forward and New task work from any app once picked; bo
 | Rule | When | Then |
 | --- | --- | --- |
 | `settings.home` | Data | Shows the Tasks home's path with Open folder (desktop) and its sync folder's path with Copy path, and warns to add only the sync folder to Syncthing, because syncing the home copies this device's database and locks |
+| `settings.agents` | Data, on desktop | An Agents section shows the path of the CLI that comes with the app, with Copy CLI path, and Copy agent instructions: a short block for an agent's own instructions file that names that path, points to `help` for the commands and says what the agent may touch. It names no home, since the CLI finds the app's (`cli.home`). On Windows, Copy for WSL gives the same block with the path as WSL sees it (`/mnt/c/…`). The section is missing where the build has no CLI |
 
 ## Cleanup
 

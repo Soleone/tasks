@@ -45,6 +45,11 @@ export function revealExports(): Promise<void> {
   return invoke("home_reveal", { exports: true });
 }
 
+/** Where agents on this device find the CLI (desktop only); null when this build has none. */
+export function cliPath(): Promise<string | null> {
+  return invoke<string | null>("cli_path");
+}
+
 /** Settings' "Open another home" shows setup on the next start without forgetting this home. */
 export function chooseHomeOnNextStart(): void {
   sessionStorage.setItem(CHOOSE_HOME_KEY, "1");

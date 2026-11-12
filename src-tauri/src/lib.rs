@@ -87,6 +87,26 @@ fn home_reveal(app: AppHandle, exports: bool) -> Result<(), String> {
         .map_err(|error| format!("Could not open {folder}: {error}"))
 }
 
+/// Where agents find the CLI: the copy the app runs as its backend, or the one an AppImage keeps
+/// outside itself.
+#[cfg(desktop)]
+#[tauri::command]
+fn cli_path() -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(path) = linux_launcher::cli_outside_appimage() {
+            return Some(path.display().to_string());
+        }
+    }
+    let name = if cfg!(windows) {
+        "tasks-cli.exe"
+    } else {
+        "tasks-cli"
+    };
+    let path = std::env::current_exe().ok()?.with_file_name(name);
+    path.exists().then(|| path.display().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -116,6 +136,7 @@ pub fn run() {
             home_pointer_read,
             home_pointer_write,
             home_reveal,
+            cli_path,
             global_hotkeys::global_hotkeys_set,
             global_hotkeys::hyprland_launcher
         ]);
@@ -160,7 +181,7 @@ pub fn run() {
                 .expect("main window should exist")
                 .set_decorations(false)?;
             #[cfg(target_os = "linux")]
-            linux_launcher::register();
+            linux_launcher::register(app.package_info().version.to_string());
 
             #[cfg(debug_assertions)]
             app.get_webview_window("main")

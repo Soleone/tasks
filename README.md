@@ -48,7 +48,7 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
   tasks-cli --stdio --client cli
 ```
 
-For now, build the CLI from a checkout: `pnpm install && pnpm build:backend`, then run `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).
+The desktop app comes with the CLI. Settings › Data shows its path and copies a short instruction block to paste into an agent's `AGENTS.md` or `CLAUDE.md`; on Linux it is also linked as `~/.local/bin/tasks-cli`. From a checkout, `pnpm install && pnpm build:backend` builds it as `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).
 
 ## Your tasks are files
 

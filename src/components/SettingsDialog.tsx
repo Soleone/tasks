@@ -19,6 +19,7 @@ import { setQuestsShown, useQuests } from "@/learning/questProgress";
 import { Tabs } from "@/components/ui/tabs";
 import { FONT_SIZE_INCREASES, type FontSizeIncrease } from "@/fontSize";
 import { AnchoredDialogContent } from "@/components/variants/dialog";
+import { AgentSetupSection } from "@/components/AgentSetupSection";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
 import { CategoryColorsSection } from "@/components/CategoryColorsSection";
@@ -415,6 +416,7 @@ export function SettingsDialog({
                     )}
                   </section>
                 )}
+                {isDesktopApp() && <AgentSetupSection />}
               </div>
             </StackedTabsContent>
 

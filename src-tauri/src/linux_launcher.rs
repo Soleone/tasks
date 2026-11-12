@@ -1,5 +1,6 @@
 //! Puts the AppImage in the app menu. An AppImage is one file kept anywhere, so every start points
-//! the menu entry at the file it runs from; updates replace that file in place.
+//! the menu entry at the file it runs from; updates replace that file in place. The CLI inside it
+//! exists only while the app runs, so each new version is also copied out for agents to call.
 
 use std::path::{Path, PathBuf};
 
@@ -7,13 +8,58 @@ use std::path::{Path, PathBuf};
 const ID: &str = "com.soleone.tasks";
 const ICON: &[u8] = include_bytes!("../icons/128x128@2x.png");
 
-/// Writes the menu entry and its icon when the app runs as an AppImage; other builds have none.
-pub fn register() {
+/// Writes the menu entry and its icon and copies the CLI out when the app runs as an AppImage;
+/// other builds need neither.
+pub fn register(version: String) {
     let (Some(appimage), Some(data)) = (std::env::var_os("APPIMAGE"), data_home()) else {
         return;
     };
-    // A missing menu entry isn't worth failing the start over.
+    // Neither a missing menu entry nor a missing CLI copy is worth failing the start over.
     let _ = write(Path::new(&appimage), &data);
+    // Off the start's path: the CLI is over a hundred megabytes.
+    std::thread::spawn(move || {
+        let _ = install_cli(&data, &version);
+    });
+}
+
+/// Where an AppImage keeps the CLI for agents; none for other builds, which have it beside the app.
+pub fn cli_outside_appimage() -> Option<PathBuf> {
+    std::env::var_os("APPIMAGE")?;
+    Some(cli_copy(&data_home()?))
+}
+
+fn cli_copy(data: &Path) -> PathBuf {
+    data.join("tasks").join("tasks-cli")
+}
+
+/// Copies this version's CLI out once and links it from `~/.local/bin`, which most distributions
+/// have on PATH. A file someone else put at the link is left alone.
+fn install_cli(data: &Path, version: &str) -> std::io::Result<()> {
+    let target = cli_copy(data);
+    let stamp = target.with_extension("version");
+    let current = target.exists() && std::fs::read_to_string(&stamp).is_ok_and(|v| v == version);
+    if !current {
+        let source = std::env::current_exe()?.with_file_name("tasks-cli");
+        if let Some(folder) = target.parent() {
+            std::fs::create_dir_all(folder)?;
+        }
+        // Renamed into place, so an agent running the old copy keeps a whole file.
+        let stage = target.with_extension("preparing");
+        std::fs::copy(source, &stage)?;
+        std::fs::rename(&stage, &target)?;
+        std::fs::write(&stamp, version)?;
+    }
+    let Some(home) = std::env::var_os("HOME") else {
+        return Ok(());
+    };
+    let link = PathBuf::from(home).join(".local/bin/tasks-cli");
+    if std::fs::symlink_metadata(&link).is_ok() {
+        return Ok(());
+    }
+    if let Some(folder) = link.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    std::os::unix::fs::symlink(&target, &link)
 }
 
 fn data_home() -> Option<PathBuf> {
