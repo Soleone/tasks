@@ -87,6 +87,33 @@ fn home_reveal(app: AppHandle, exports: bool) -> Result<(), String> {
         .map_err(|error| format!("Could not open {folder}: {error}"))
 }
 
+/// Hands a web link from a task's notes to the system browser. Notes can come from agents and
+/// other devices, so nothing but a plain http(s) address is passed on.
+#[cfg(desktop)]
+#[tauri::command]
+fn link_open(url: String) -> Result<(), String> {
+    let web = url.starts_with("https://") || url.starts_with("http://");
+    if !web || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err("Only web links can be opened.".into());
+    }
+    #[cfg(target_os = "windows")]
+    let mut opener = {
+        // Not explorer: it opens Documents for some addresses with a query.
+        let mut opener = std::process::Command::new("rundll32");
+        opener.arg("url.dll,FileProtocolHandler");
+        opener
+    };
+    #[cfg(target_os = "macos")]
+    let mut opener = std::process::Command::new("open");
+    #[cfg(target_os = "linux")]
+    let mut opener = std::process::Command::new("xdg-open");
+    opener
+        .arg(&url)
+        .spawn()
+        .map(drop)
+        .map_err(|error| format!("Could not open {url}: {error}"))
+}
+
 /// Where agents find the CLI: the copy the app runs as its backend, or the one an AppImage keeps
 /// outside itself.
 #[cfg(desktop)]
@@ -137,6 +164,7 @@ pub fn run() {
             home_pointer_write,
             home_reveal,
             cli_path,
+            link_open,
             global_hotkeys::global_hotkeys_set,
             global_hotkeys::hyprland_launcher
         ]);

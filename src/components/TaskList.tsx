@@ -83,6 +83,7 @@ import { EditorError, type LevelChange } from "@/platform/editorClient";
 import { copyImage } from "@/platform/imageClipboard";
 import { APP_NAME } from "@/backend/branding";
 import { practice } from "@/learning/progress";
+import { firstLink, openLink } from "@/platform/links";
 import { isMobileApp } from "@/platform/runtime";
 import { cn } from "cn";
 import { TaskItem, TaskItemGroup } from "@/components/variants/item";
@@ -831,6 +832,15 @@ export function TaskList({
     } catch {
       onAnnounce("Could not copy the selected task.");
     }
+  }
+
+  function openFirstLink(task: TaskView): void {
+    const url = firstLink(`${task.title}\n${task.description}`);
+    if (!url) onToast("This task has no link");
+    else
+      void openLink(url).catch((error: unknown) =>
+        onToast(error instanceof Error ? error.message : String(error)),
+      );
   }
 
   // The newest image is the one just pasted, which is usually the one wanted.
@@ -1614,6 +1624,7 @@ export function TaskList({
       applySortField,
       reverseSort,
       toggleActiveDetails: toggleTaskDetails,
+      openLink: openFirstLink,
       toggleAllDetails,
       setPriority: setTaskPriority,
       setEffort: setTaskEffort,

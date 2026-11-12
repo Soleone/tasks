@@ -51,6 +51,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `B` | Add or remove a blocker | `pick.blocker` |
 | `M` | Move under another task, or remove the parent | `pick.parent` |
 | `V` / `Shift+V` | Toggle details of the active task / of all tasks | `details.toggle-active`, `details.toggle-all` |
+| `O` | Open the first link in the active task | `details.open-link` |
 | `D` | Tasks done in the last 24 hours, or back to your list | `done.lens`, `lens.back` |
 | `Shift+D` | Look further back for done tasks | `done.lens-window` |
 | `!` | Tasks due today or late, or back to your list | `due.lens`, `lens.back` |

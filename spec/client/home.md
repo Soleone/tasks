@@ -98,6 +98,8 @@ Reordering changes manual order, which is saved and shared with the CLI and agen
 | --- | --- | --- |
 | `details.toggle-all` | `Shift+V`, or the Details button | Descriptions and the time footer show or hide for every task together. Off by default and remembered. It is a display preference, so `Escape` never clears it. Pressing it resets any per-task change |
 | `details.toggle-active` | `V`, or Show or Hide details in the task menu | Flips details for that task alone, against the all-tasks setting. It lives in client memory only: never stored in the workspace, never synced, and gone on reload |
+| `details.links` | A shown description contains a web address (`http://` or `https://`) | The address is a link that opens in the system browser, or a new tab on the web, without selecting the row. The text stays exactly as stored (`client.literal-text`): nothing else is formatted, and punctuation that ends the sentence stays outside the link. Links are no Tab stops |
+| `details.open-link` | `O` | Opens the first web address in the active task's title or description, whether details show or not. A task without one says so in a toast |
 | `details.mixed-marker` | Some tasks differ from the all-tasks setting | The Details button shows a dot, and its tooltip says some tasks differ |
 | `details.keep-active-visible` | Details toggles while a task is active | The active task scrolls back into view, since its row height changed |
 | `details.blocked-by` | A task has active blockers | "Blocked by" stays visible with Details on or off |

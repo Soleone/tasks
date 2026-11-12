@@ -25,6 +25,8 @@ import {
 } from "@/components/taskFilters";
 import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
+import { canOpenLinks, linkParts, openLink } from "@/platform/links";
+import { showTaskToast } from "@/components/TaskToaster";
 import { Tooltip } from "@/components/variants/tooltip";
 import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
@@ -178,6 +180,34 @@ function useGlyphEntrance(task: TaskView): {
     );
   }
   return { entrance, effortFrom };
+}
+
+/** Text exactly as stored (`client.literal-text`), with its web links clickable where they can open. */
+function LinkedText({ text }: { text: string }): ReactNode {
+  if (!canOpenLinks()) return text;
+  return linkParts(text).map((part, index) =>
+    typeof part === "string" ? (
+      part
+    ) : (
+      <a
+        // eslint-disable-next-line react/no-array-index-key -- parts of one string never reorder
+        key={index}
+        href={part.url}
+        tabIndex={-1}
+        className="underline decoration-foreground/40 underline-offset-2 hover:decoration-foreground"
+        onMouseDown={preventFocusSteal}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void openLink(part.url).catch((error: unknown) =>
+            showTaskToast(error instanceof Error ? error.message : String(error)),
+          );
+        }}
+      >
+        {part.url}
+      </a>
+    ),
+  );
 }
 
 const STATUS_FEEDBACK_DURATION_MS = 900;
@@ -715,7 +745,9 @@ export function TaskRow({
           </p>
         ) : null}
         {variant === "full" && showDetails && task.description ? (
-          <TaskItemDescription data-task-description>{task.description}</TaskItemDescription>
+          <TaskItemDescription data-task-description>
+            <LinkedText text={task.description} />
+          </TaskItemDescription>
         ) : null}
         {variant === "full" && showDetails ? (
           <TaskRowFooter task={task} blocker={blocker} onCopyImage={onCopyImage} />

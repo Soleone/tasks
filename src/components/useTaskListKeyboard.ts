@@ -62,6 +62,7 @@ type HomeShortcutActions = {
   applySortField: (field: SortField) => void;
   reverseSort: () => void;
   toggleActiveDetails: (task: TaskView) => void;
+  openLink: (task: TaskView) => void;
   toggleAllDetails: () => void;
   setPriority: (task: TaskView, priority: TaskPriority) => Promise<void>;
   setEffort: (task: TaskView, effort: TaskEffort) => Promise<void>;
@@ -345,6 +346,10 @@ export function useTaskListKeyboard(
       if (event.repeat) return;
       event.preventDefault();
       actions.toggleLens("agents");
+    } else if (event.key.toLowerCase() === "o" && !event.shiftKey) {
+      if (event.repeat) return;
+      event.preventDefault();
+      if (actions.activeTask) actions.openLink(actions.activeTask);
     } else if (event.key.toLowerCase() === "l" && !event.shiftKey) {
       if (event.repeat) return;
       event.preventDefault();

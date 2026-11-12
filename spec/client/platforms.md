@@ -40,4 +40,5 @@ Experimental: built only as an unsigned test IPA and not yet run on an iPhone. I
 
 | Missing | Today instead |
 | --- | --- |
+| `details.links` and `details.open-link` on Android and iOS | Web addresses in notes show as plain text and `O` says links can't be opened yet |
 | `platform.update` on macOS | Experimental Apple Silicon test builds are installed and replaced manually; no macOS updater artifact is published |

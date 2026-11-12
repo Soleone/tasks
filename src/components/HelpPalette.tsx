@@ -13,6 +13,7 @@ import {
   FileText,
   ChevronsUp,
   Flag,
+  ExternalLink,
   Folder,
   Image,
   Link2,
@@ -162,6 +163,13 @@ const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
         action: "copy-task",
         keywords:
           "ctrl cmd c copy title description clipboard selected active task category tags metadata",
+      },
+      {
+        label: "Open link",
+        hint: "The first web link in the task's title or notes",
+        icon: ExternalLink,
+        keys: ["O"],
+        keywords: "o open link url web browser pr issue notes description",
       },
       {
         label: "Copy newest image",

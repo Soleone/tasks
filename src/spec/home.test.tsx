@@ -711,6 +711,42 @@ describe("details", () => {
     expect(screen.queryByText("Notes B")).toBeNull();
   });
 
+  test("details.links: a web address in shown notes opens without selecting the row, and the text stays as stored", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await workspace.create("Other");
+    await workspace.create("A", {
+      description: "See (https://example.com/pr/1?a=b). Then **rest**",
+    });
+    const { user } = await workspace.render();
+    await user.keyboard("{Shift>}v{/Shift}{ArrowDown}");
+    await expectActive("Other");
+    const link = await screen.findByRole("link", { name: "https://example.com/pr/1?a=b" });
+    expect(link.closest("[data-task-description]")?.textContent).toBe(
+      "See (https://example.com/pr/1?a=b). Then **rest**",
+    );
+    expect(link.tabIndex).toBe(-1);
+    await user.click(link);
+    expect(open).toHaveBeenCalledWith("https://example.com/pr/1?a=b", "_blank", expect.any(String));
+    await expectActive("Other");
+    open.mockRestore();
+  });
+
+  test("details.open-link: O opens the active task's first link, and says when there is none", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await workspace.create("Plain");
+    await workspace.create("A", {
+      description: "https://example.com/one and https://example.com/two",
+    });
+    const { user } = await workspace.render();
+    await expectActive("A");
+    await user.keyboard("o");
+    expect(open).toHaveBeenCalledWith("https://example.com/one", "_blank", expect.any(String));
+    await user.keyboard("{ArrowDown}o");
+    await screen.findByText("This task has no link");
+    expect(open).toHaveBeenCalledTimes(1);
+    open.mockRestore();
+  });
+
   test("details.toggle-active: the task menu shows or hides that task's details", async () => {
     await workspace.create("A", { description: "Notes A" });
     const { user } = await workspace.render();
