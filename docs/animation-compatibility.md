@@ -122,6 +122,8 @@ Use a disposable Tasks home and record the macOS version and a short screen reco
 
 ## Evidence and remaining gap
 
+`scripts/check-ui.mjs` and `pnpm test:ui`, cited below, were removed on 2026-11-12 after the script had gone stale. The Chromium checks named here are in git history only.
+
 - Empty-home welcome: real Chromium fail-before/pass-after regression in `scripts/check-ui.mjs`.
 - Editor save: a real Chromium probe observes **one** `task-save-draw` start and a single progressive path draw, not duplicate save dispatch. The even-pattern compatibility fix is applied; the affected Mac still needs to confirm the result.
 - Solid done glyph and completion-toast check: the actual Chromium stroke probe verifies a fully hidden start, progressive reveal without erasure, and a fully drawn end. The old solid-check pattern fails this check; the new pattern passes. These checks now live in `scripts/check-ui.mjs`.

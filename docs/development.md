@@ -67,7 +67,6 @@ Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to 
 | `pnpm build` | Types, backend and frontend build |
 | `pnpm build:test` | Prepare `test-dist`, the backend build tests run from, for focused script tests |
 | `pnpm test:sidecar` | Bundled Node SEA smoke check on the actual host |
-| `pnpm test:ui` | UI Chromium regression over the dev bridge on disposable data |
 | `node --test scripts/mainClientRouting.test.mjs scripts/appearancePreferences.test.mjs` | Client routing and stored appearance checks |
 
 On high-core hosts, use `VITEST_MAX_WORKERS=4 pnpm test` to bound client-test concurrency. The current Vitest fork pool emits stream-listener warnings with too many concurrent workers; limiting workers avoids those warnings without suppressing them. The Actions workflow uses the same limit.
