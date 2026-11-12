@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.6.0](https://github.com/Soleone/tasks/compare/v0.5.3...v0.6.0) (2026-11-12)
+
+### Features
+
+* **agents:** show the CLI's path in Settings and copy instructions for an agent ([ffc69e4](https://github.com/Soleone/tasks/commit/ffc69e4603d50a47137c821128b76242ba8df006))
+* **agents:** show which tasks agents changed with the CLI since you last looked ([a3c9618](https://github.com/Soleone/tasks/commit/a3c9618cb616e9f239fbdf0b177f9756fcbad177))
+* **android:** New task from the app icon's menu, and share text, links or images into a new task ([dd68a29](https://github.com/Soleone/tasks/commit/dd68a295e3410a78f2282aa85d5b63b0806990f8))
+* **crash:** a screen error shows what happened with Reload and a prefilled bug report instead of a blank window ([4b84e38](https://github.com/Soleone/tasks/commit/4b84e38bb3cc500a28f5c8ce7621f8c0f310af62))
+* **export:** download all tasks as a zip from the web version ([2994070](https://github.com/Soleone/tasks/commit/2994070a0217fe76e0ffb306bf78606afd808d6a))
+* **export:** save all tasks and images as one zip from Settings ([e216a44](https://github.com/Soleone/tasks/commit/e216a4439a5d9d8bed83cc85ee2530bb9b9703f6))
+* **notes:** open web links in a task's notes, by click or with O ([d8e9b4b](https://github.com/Soleone/tasks/commit/d8e9b4b771d9758e66cdd53ea25d60e5f52859d2))
+* **sync:** show tasks changed on two devices and keep one version ([70cee04](https://github.com/Soleone/tasks/commit/70cee048879d275616091f6eaa17cce24a24005e))
+* **theme:** star favorite palettes and filter the theme picker ([751bbb4](https://github.com/Soleone/tasks/commit/751bbb4ad6dee7fafb69b41c58c233ec67f1316c))
+
+### Bug Fixes
+
+* **search:** match letters outside ASCII whatever their case, so übung finds Übung ([1f49b32](https://github.com/Soleone/tasks/commit/1f49b3236fd8368e545d9b4feae009b7d0966b76))
+* **sync:** on Windows, a task arriving from another device no longer makes the folder look broken for a moment ([461b74c](https://github.com/Soleone/tasks/commit/461b74c270ff41f8ee07cb89dafc14f6ddb3fa90))
+
+### Performance Improvements
+
+* **backend:** the app asks the system which task files changed instead of checking every one, so views, search and the background check stay fast at any folder size ([ec016d0](https://github.com/Soleone/tasks/commit/ec016d0ebc0bbb5a05cdbdccc0720925a76becc2))
+* **backend:** the list refreshes several times faster right after a change, and no longer depends on the system reporting file changes ([bbfdb9f](https://github.com/Soleone/tasks/commit/bbfdb9f9d39a18c95120a8d4f93df01621512083))
+* **cli:** a tasks-cli command reads only the task files that changed since the last one, so it answers up to four times faster in large folders ([6e6328e](https://github.com/Soleone/tasks/commit/6e6328e747614f310fd13719ebb104fb0335559f))
+* **cli:** a tasks-cli command that changes a task reads only the files that changed since the last command, so it finishes sooner in large folders ([4222c9d](https://github.com/Soleone/tasks/commit/4222c9d8b8ea473d69e9cc1855d5b00837dde8a4))
+* **list:** a refresh reads the task folder twice instead of four or five times, so the list and header counts update about twice as fast on Windows ([cc1783a](https://github.com/Soleone/tasks/commit/cc1783a889d47f228ff3ce5463cb12dd7efc17a0))
+
 ## [0.5.3](https://github.com/Soleone/tasks/compare/v0.5.2...v0.5.3) (2026-11-10)
 
 ### Features
