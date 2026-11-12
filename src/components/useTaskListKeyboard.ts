@@ -6,6 +6,7 @@ import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import type { TaskView } from "./taskView";
 import { practice } from "@/learning/progress";
+import { escapeFoundNothing } from "@/useAndroidBack";
 
 const EXACT_STATUS_BY_KEY = new Map(
   EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]),
@@ -156,7 +157,7 @@ export function useTaskListKeyboard(
       if (actions.hasActiveFilters) {
         practice("filter.escape");
         actions.clearAllFilters();
-      }
+      } else escapeFoundNothing();
       return;
     }
     if (

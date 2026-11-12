@@ -2,7 +2,7 @@ import { useWorkspaceTasks } from "./useWorkspaceTasks";
 import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useAppUpdate } from "./useAppUpdate";
 import { useGlobalHotkeys } from "./useGlobalHotkeys";
-import { useSwipeBack } from "./useSwipeBack";
+import { useAndroidBack } from "./useAndroidBack";
 import { useAgentChanges } from "./useAgentChanges";
 import { useHeaderCounts } from "./useHeaderCounts";
 import {
@@ -486,7 +486,7 @@ export default function App({
     document.addEventListener("visibilitychange", takeLaunch);
     return () => document.removeEventListener("visibilitychange", takeLaunch);
   }, []);
-  useSwipeBack();
+  useAndroidBack();
 
   const onAppKeyDown = useEffectEvent((event: KeyboardEvent): void => {
     if (event.isComposing || event.repeat) return;

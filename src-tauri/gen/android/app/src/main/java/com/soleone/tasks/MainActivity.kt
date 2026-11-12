@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.view.View
+import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
@@ -32,5 +34,17 @@ class MainActivity : TauriActivity() {
         Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")),
       )
     }
+  }
+
+  override fun onWebViewCreate(webView: WebView) {
+    // Back is the page's Escape. The page answers false when nothing was left to go back from, and
+    // then back leaves the app as it does anywhere else.
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        webView.evaluateJavascript("window.tasksBack()") { went ->
+          if (went != "true") moveTaskToBack(true)
+        }
+      }
+    })
   }
 }
