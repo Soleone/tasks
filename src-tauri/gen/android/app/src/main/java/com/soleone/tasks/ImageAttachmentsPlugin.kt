@@ -3,11 +3,16 @@ package com.soleone.tasks
 import android.app.Activity
 import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
 import android.util.Base64
+import android.webkit.WebView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.core.content.FileProvider
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -21,6 +26,7 @@ import java.util.UUID
 import kotlin.concurrent.thread
 
 private const val MAX_IMAGE_BYTES = 10 * 1024 * 1024
+private const val NEW_TASK_ACTION = "com.soleone.tasks.NEW_TASK"
 private val IMAGE_EXTENSIONS = mapOf(
   "image/png" to "png",
   "image/jpeg" to "jpg",
@@ -35,6 +41,81 @@ class ShareImageArgs {
 
 @TauriPlugin
 class ImageAttachmentsPlugin(private val activity: Activity) : Plugin(activity) {
+  // The launch that asked for a new task, kept until the page takes it.
+  private var capture: Intent? = null
+
+  override fun load(webView: WebView) {
+    // The launcher's long-press menu: New task. Without CLEAR_TASK, so a running app keeps its page.
+    try {
+      val shortcut = ShortcutInfoCompat.Builder(activity, "new-task")
+        .setShortLabel("New task")
+        .setIcon(IconCompat.createWithResource(activity, R.drawable.ic_shortcut_new_task))
+        .setIntent(Intent(NEW_TASK_ACTION, null, activity, MainActivity::class.java))
+        .build()
+      ShortcutManagerCompat.setDynamicShortcuts(activity, listOf(shortcut))
+    } catch (error: Exception) {
+      // A launcher without shortcuts only loses the menu entry.
+    }
+    offerCapture(activity.intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    offerCapture(intent)
+  }
+
+  private fun offerCapture(intent: Intent?) {
+    if (intent == null) return
+    // Reopening from recents delivers the old launch again.
+    if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+    if (intent.action == NEW_TASK_ACTION || intent.action == Intent.ACTION_SEND) capture = intent
+  }
+
+  /** Answers the waiting New task launch once: what was shared with it, if anything. */
+  @Command
+  fun takeCapture(invoke: Invoke) {
+    val intent = capture
+    capture = null
+    if (intent == null) {
+      invoke.resolve(JSObject().put("pending", false))
+      return
+    }
+    val result = JSObject().put("pending", true)
+    intent.getStringExtra(Intent.EXTRA_SUBJECT)?.let { result.put("subject", it) }
+    intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.let { result.put("text", it.toString()) }
+    @Suppress("DEPRECATION")
+    val image = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+    if (image == null) {
+      invoke.resolve(result)
+      return
+    }
+    // Read while the sharing app's permission for the image is held, without blocking the UI.
+    thread {
+      try {
+        invoke.resolve(result.put("dataUrl", readImage(image)))
+      } catch (error: Exception) {
+        invoke.reject(error.message ?: "The shared image could not be read.")
+      }
+    }
+  }
+
+  private fun readImage(uri: Uri): String {
+    val resolver = activity.contentResolver
+    val type = resolver.getType(uri)
+    require(IMAGE_EXTENSIONS.containsKey(type)) { "Only PNG, JPEG, WebP and GIF images can be added." }
+    val bytes = resolver.openInputStream(uri)?.use { input ->
+      val output = ByteArrayOutputStream()
+      val buffer = ByteArray(8192)
+      var count = input.read(buffer)
+      while (count != -1) {
+        require(output.size() + count <= MAX_IMAGE_BYTES) { "Images must be at most 10 MiB." }
+        output.write(buffer, 0, count)
+        count = input.read(buffer)
+      }
+      output.toByteArray()
+    } ?: throw IllegalStateException("The selected image could not be read.")
+    return "data:$type;base64,${Base64.encodeToString(bytes, Base64.NO_WRAP)}"
+  }
+
   @Command
   fun pickImage(invoke: Invoke) {
     try {
@@ -59,22 +140,7 @@ class ImageAttachmentsPlugin(private val activity: Activity) : Plugin(activity) 
     // Read while the picker's temporary URI permission is held, without blocking the UI.
     thread {
       try {
-        val resolver = activity.contentResolver
-        val type = resolver.getType(uri)
-        require(IMAGE_EXTENSIONS.containsKey(type)) { "Only PNG, JPEG, WebP and GIF images can be added." }
-        val bytes = resolver.openInputStream(uri)?.use { input ->
-          val output = ByteArrayOutputStream()
-          val buffer = ByteArray(8192)
-          var count = input.read(buffer)
-          while (count != -1) {
-            require(output.size() + count <= MAX_IMAGE_BYTES) { "Images must be at most 10 MiB." }
-            output.write(buffer, 0, count)
-            count = input.read(buffer)
-          }
-          output.toByteArray()
-        } ?: throw IllegalStateException("The selected image could not be read.")
-        val data = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        invoke.resolve(JSObject().put("dataUrl", "data:$type;base64,$data"))
+        invoke.resolve(JSObject().put("dataUrl", readImage(uri)))
       } catch (error: Exception) {
         invoke.reject(error.message ?: "The selected image could not be read.")
       }

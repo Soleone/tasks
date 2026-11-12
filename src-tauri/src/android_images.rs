@@ -26,6 +26,16 @@ pub async fn image_pick(images: State<'_, Images>) -> Result<serde_json::Value, 
         .map_err(|error| error.to_string())
 }
 
+/// The New task launch waiting since the app came forward: the launcher shortcut or a share.
+#[tauri::command]
+pub async fn capture_take(images: State<'_, Images>) -> Result<serde_json::Value, String> {
+    images
+        .0
+        .run_mobile_plugin_async("takeCapture", serde_json::json!({}))
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub async fn image_share(images: State<'_, Images>, data_url: String) -> Result<(), String> {
     images

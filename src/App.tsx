@@ -59,6 +59,7 @@ import {
 } from "@/components/TaskList";
 import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
+import { takeCapture, type Capture } from "@/platform/mobileImages";
 import { ToggleButton } from "@/components/variants/button";
 import { ButtonRow } from "@/components/variants/button-group";
 import { Kbd } from "@/components/ui/kbd";
@@ -430,7 +431,7 @@ export default function App({
     setComposer((current) => (current?.mode === "create" ? { ...current, logged: true } : current));
   }
 
-  function openCreate(parentId?: string): void {
+  function openCreate(parentId?: string, capture?: Capture): void {
     if (composerRef.current) return;
     if (parentId && !workspace.supportsRelationships) {
       setAnnouncement("Child capture is not yet available in this selected workspace.");
@@ -452,12 +453,14 @@ export default function App({
       ...(categoryFilter ? [`@${categoryFilter.slug}`] : []),
       ...tagFilter.map((tag) => `#${tag.slug}`),
     ];
-    const initialTitle = classification.length > 0 ? `${classification.join(" ")} ` : undefined;
-    setComposer(
-      parentId
-        ? { mode: "create", parentId, ...(initialTitle ? { initialTitle } : {}) }
-        : { mode: "create", ...(initialTitle ? { initialTitle } : {}) },
-    );
+    const initialTitle = [...classification, capture?.title ?? ""].join(" ").trimStart();
+    setComposer({
+      mode: "create",
+      ...(parentId ? { parentId } : {}),
+      ...(initialTitle ? { initialTitle } : {}),
+      ...(capture?.description ? { initialDescription: capture.description } : {}),
+      ...(capture?.image ? { initialImage: capture.image } : {}),
+    });
   }
 
   function openEdit(task: TaskView): void {
@@ -469,6 +472,20 @@ export default function App({
     setComposer(null);
   }
   useGlobalHotkeys(() => openCreate());
+  // Android: the launcher's New task shortcut, or something shared from another app. An editor
+  // already open keeps the launch waiting rather than losing what was shared.
+  const takeLaunch = useEffectEvent(() => {
+    if (document.visibilityState !== "visible" || composerRef.current) return;
+    void takeCapture().then(
+      (capture) => capture && openCreate(undefined, capture),
+      (error: unknown) => showTaskToast(error instanceof Error ? error.message : String(error)),
+    );
+  });
+  useEffect(() => {
+    takeLaunch();
+    document.addEventListener("visibilitychange", takeLaunch);
+    return () => document.removeEventListener("visibilitychange", takeLaunch);
+  }, []);
   useSwipeBack();
 
   const onAppKeyDown = useEffectEvent((event: KeyboardEvent): void => {

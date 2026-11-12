@@ -56,7 +56,15 @@ import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
 
 export type ComposerState =
-  | { mode: "create"; parentId?: string; initialTitle?: string; logged?: boolean }
+  | {
+      mode: "create";
+      parentId?: string;
+      initialTitle?: string;
+      /** Notes and an image shared into the app with the launch (`platform.capture`). */
+      initialDescription?: string;
+      initialImage?: File;
+      logged?: boolean;
+    }
   | { mode: "edit"; task: TaskView };
 
 export type TaskCreateDraft = {
@@ -70,6 +78,8 @@ export type TaskCreateDraft = {
 type TaskComposerProps = {
   task?: TaskView;
   initialTitle?: string;
+  initialDescription?: string;
+  initialImage?: File;
   parentId?: string;
   /** Every category in the workspace, for `@` suggestions. */
   categories: ClassificationOption[];
@@ -177,6 +187,8 @@ function SuggestionNote({
 export function TaskComposer({
   task,
   initialTitle = "",
+  initialDescription = "",
+  initialImage,
   parentId,
   categories,
   categoryColumn,
@@ -223,11 +235,11 @@ export function TaskComposer({
   const pendingCaret = useRef<number | null>(null);
   // The latest lift, so a Backspace right after it can put the token back.
   const lastLift = useRef<Lift | null>(null);
-  const [description, setDescription] = useState(task?.description ?? "");
+  const [description, setDescription] = useState(task?.description ?? initialDescription);
   // Priority is set on the list after saving (`priority.set`), so the editor only carries it.
   const priority: TaskPriority = task?.priority ?? 2;
-  const images = useDraftImages(task?.attachments ?? []);
-  const [notesOpen, setNotesOpen] = useState(Boolean(task?.description));
+  const images = useDraftImages(task?.attachments ?? [], initialImage);
+  const [notesOpen, setNotesOpen] = useState(Boolean(task?.description ?? initialDescription));
   // Writing in the description counts once per editor (`edit.description`).
   const described = useRef(false);
   const [pending, setPending] = useState(false);

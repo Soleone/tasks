@@ -1,4 +1,4 @@
-import { useRef, useState, type ClipboardEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ClipboardEvent } from "react";
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/backend/taskModel";
 import { practice } from "@/learning/progress";
 import { writeAttachment } from "@/platform/backendClient";
@@ -25,7 +25,7 @@ function readDataUrl(file: File): Promise<string> {
  * The editor's image list. Pasted images are stored right away, one at a time so the list keeps
  * paste order; the task lists them only when the editor saves.
  */
-export function useDraftImages(initial: readonly string[]) {
+export function useDraftImages(initial: readonly string[], shared?: File) {
   const [attachments, setAttachments] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -59,6 +59,15 @@ export function useDraftImages(initial: readonly string[]) {
         queued.current -= 1;
       });
   }
+
+  // An image that arrived with the editor is stored like a picked one, once.
+  const sharedAdded = useRef(false);
+  const addShared = useEffectEvent(() => {
+    if (!shared || sharedAdded.current) return;
+    sharedAdded.current = true;
+    add(shared, false);
+  });
+  useEffect(() => addShared(), []);
 
   /** Takes over a paste with an image and no plain text; text pastes go through unchanged. */
   function paste(event: ClipboardEvent<HTMLElement>): void {

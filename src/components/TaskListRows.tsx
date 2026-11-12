@@ -269,6 +269,8 @@ export function InlineTaskComposer({
           task={task}
           parentId={parentId}
           initialTitle={initialTitle}
+          initialDescription={composer.mode === "create" ? composer.initialDescription : undefined}
+          initialImage={composer.mode === "create" ? composer.initialImage : undefined}
           logged={logged}
           categories={categories}
           categoryColumn={categoryColumn}

@@ -180,6 +180,7 @@ pub fn run() {
             android_backend::backend_write,
             android_backend::backend_kill,
             android_images::image_pick,
+            android_images::capture_take,
             android_images::image_share,
         ]);
 

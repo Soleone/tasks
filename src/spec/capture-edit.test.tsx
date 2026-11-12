@@ -1192,4 +1192,54 @@ describe("Android image actions", () => {
     await screen.findByText("No app could open the image.");
     expect(screen.getByRole("dialog", { name: "Image 2 of 2" })).toBe(preview);
   });
+
+  // The test app starts as a browser page; the launch is taken when the native app comes forward.
+  async function comeForward(): Promise<void> {
+    await workspace.create("Already here");
+    await workspace.render();
+    await expectActive("Already here");
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    document.dispatchEvent(new Event("visibilitychange"));
+  }
+
+  test("platform.capture: a share from another app opens the New task editor filled in, once", async () => {
+    let waiting = true;
+    nativeImages((command) => {
+      if (command !== "capture_take") return;
+      const pending = waiting;
+      waiting = false;
+      return pending
+        ? {
+            pending,
+            subject: "Release notes",
+            text: "https://example.com/notes",
+            dataUrl: imageUrl(2),
+          }
+        : { pending };
+    });
+    await comeForward();
+    const title = await focusedTitleField();
+    expect(title.value).toBe("Release notes");
+    expect(screen.getByDisplayValue("https://example.com/notes")).toBeTruthy();
+    const images = await screen.findByRole("listbox", { name: "Images" });
+    await waitFor(() => expect(images.querySelector("img")?.getAttribute("src")).toBe(imageUrl(2)));
+    // Coming forward again with nothing new leaves the draft alone.
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(title.value).toBe("Release notes");
+    vi.unstubAllGlobals();
+  });
+
+  test("platform.capture: shared text without a name puts its first line in the title", async () => {
+    let waiting = true;
+    nativeImages((command) => {
+      if (command !== "capture_take") return;
+      const pending = waiting;
+      waiting = false;
+      return pending ? { pending, text: "Call the plumber\nbefore Friday" } : { pending };
+    });
+    await comeForward();
+    expect((await focusedTitleField()).value).toBe("Call the plumber");
+    expect(screen.getByDisplayValue("before Friday")).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
 });
