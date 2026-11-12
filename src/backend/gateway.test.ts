@@ -201,6 +201,7 @@ test("info inspects empty, partial and unsupported roots without creating canoni
     "workspace.doctor.apply",
     "workspace.doctor.inspect",
     "workspace.doctor.plan",
+    "workspace.export",
     "workspace.info",
     "workspace.init",
     "workspace.rebuild",

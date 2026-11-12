@@ -246,8 +246,8 @@ test("clear-done.export: the zip holds exactly the removed tasks and images", li
 test("clear-done.export: a failed export leaves no partial file behind", (t) => {
   const home = mkdtempSync(path.join(tmpdir(), "tasks-export-"));
   t.after(() => rmSync(home, { recursive: true, force: true }));
-  const missing = { name: OLD, filePath: path.join(home, OLD) };
-  assert.throws(() => writeExport(home, "2026-10-22T09:00:00.000Z", Buffer.from("[]"), [missing]));
+  const missing = { name: OLD, read: () => readFileSync(path.join(home, OLD)) };
+  assert.throws(() => writeExport(home, "2026-10-22T09:00:00.000Z", "done-tasks", [missing]));
   assert.deepEqual(readdirSync(path.join(home, "exports")), []);
 });
 
@@ -328,3 +328,32 @@ for (const cut of ["rewrite", "retire"])
     assert.equal(task(w, "e")?.attachments, undefined);
     assert.deepEqual(images(w), []);
   });
+
+test(
+  "export.workspace: the zip holds the sync folder as it stands, without Syncthing's files",
+  linux,
+  (t) => {
+    const w = materialize(t, { a: { attachments: [OLD] }, d: done("2026-01-05T00:00:00.000Z") }, [
+      OLD,
+    ]);
+    mkdirSync(path.join(w.root, ".stfolder"));
+    writeFileSync(path.join(w.root, "tasks", ".syncthing.a.json.tmp"), "half");
+    const result = success(send(w, { command: "workspace.export" })).result;
+    const location = result.exportLocation as string;
+    assert.equal(path.dirname(location), path.join(w.directory, "exports"));
+    assert.match(path.basename(location), /^tasks-\d{4}-\d\d-\d\d-\d{6}\.zip$/);
+    const entries = unzip(location);
+    assert.deepEqual([...entries.keys()].sort(), [
+      `sync/attachments/${OLD}`,
+      "sync/tasks/a.json",
+      "sync/tasks/d.json",
+      "sync/workspace.json",
+    ]);
+    assert.equal(result.files, 4);
+    assert.deepEqual(
+      entries.get("sync/tasks/a.json"),
+      readFileSync(path.join(w.root, "tasks", "a.json")),
+    );
+    assert.notEqual(task(w, "d"), undefined);
+  },
+);

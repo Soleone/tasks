@@ -178,6 +178,18 @@ test("settings.home: Data shows the home and copies its sync folder's path", asy
   expect(panel.queryByRole("button", { name: "Open folder" })).toBeNull();
 });
 
+test("settings.export: Export all tasks saves a zip and shows where", async () => {
+  await workspace.create("Kept");
+  const { user } = await workspace.render();
+  await user.keyboard("{Control>},{/Control}");
+  await user.click(await screen.findByRole("tab", { name: "Data" }));
+  const panel = within(screen.getByRole("tabpanel"));
+  await user.click(panel.getByRole("button", { name: "Export all tasks" }));
+  const status = await panel.findByRole("status");
+  expect(status.textContent).toMatch(/Exported to:.*[\\/]exports[\\/]tasks-[\d-]+\.zip$/);
+  await screen.findByText("Kept");
+});
+
 test("client.feedback: a copy confirms in a tooltip that hovering never opens, and the panel gains no line", async () => {
   const { user } = await workspace.render();
   await user.keyboard("{Control>},{/Control}");

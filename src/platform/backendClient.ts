@@ -505,6 +505,11 @@ export async function getWorkspaceChanges(): Promise<{
 /** One task that sync left in more than one version: the one in the list first, then the copies. */
 export type SyncConflict = { issueId: string; versions: { versionRef: string; task: TaskView }[] };
 
+/** Saves every task, image and shared setting as one zip in the home's `exports/`. */
+export function exportAllTasks(): Promise<string> {
+  return selected().editor.exportWorkspace();
+}
+
 /**
  * The conflicts this app can settle: a task in the list with copies beside it, all readable.
  * Anything else doctor reports stays with the CLI.

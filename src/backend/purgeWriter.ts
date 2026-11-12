@@ -202,14 +202,19 @@ export function executeRemoval(request: Request, rootPath: string, cachePath: st
       // The export is a keepsake of exactly what goes, written before anything does.
       const exportLocation =
         clearing && request.args.export === true
-          ? writeExport(
-              home!,
-              at,
-              Buffer.from(
-                `[\n${changedTasks.map((task) => JSON.stringify(task)).join(",\n")}\n]\n`,
-              ),
-              attachments.map((name) => ({ name, filePath: attachmentPath(root.rootPath, name) })),
-            )
+          ? writeExport(home!, at, "done-tasks", [
+              {
+                name: "tasks.json",
+                read: () =>
+                  Buffer.from(
+                    `[\n${changedTasks.map((task) => JSON.stringify(task)).join(",\n")}\n]\n`,
+                  ),
+              },
+              ...attachments.map((name) => ({
+                name: `attachments/${name}`,
+                read: () => readRegularFile(attachmentPath(root.rootPath, name)),
+              })),
+            ])
           : null;
       const intent = parsePurgeIntent(
         {

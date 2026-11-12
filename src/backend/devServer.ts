@@ -221,7 +221,8 @@ function executeDevCommand(
       !(QUERY_COMMANDS as readonly string[]).includes(request.command) &&
       !(EDITOR_COMMANDS as readonly string[]).includes(request.command) &&
       !HOME_COMMANDS.includes(request.command) &&
-      request.command !== "workspace.doctor.inspect"
+      request.command !== "workspace.doctor.inspect" &&
+      request.command !== "workspace.export"
     ) {
       return {
         version: 2,

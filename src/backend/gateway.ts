@@ -14,6 +14,7 @@ import { executeCreate } from "./createWriter.js";
 import { STATUS_COMMANDS } from "./taskStatus.js";
 import { executeUndo } from "./undoWriter.js";
 import { executeRemoval } from "./purgeWriter.js";
+import { exportWorkspace } from "./exportArchive.js";
 import { executeDoctorApply } from "./doctorApply.js";
 import { executeDoctorInspect, executeDoctorPlan } from "./doctorWriter.js";
 import { REMOVAL_COMMANDS } from "./purgeJournal.js";
@@ -26,7 +27,7 @@ import { executeLifecycle } from "./lifecycleWriter.js";
 import { resumeOperation } from "./recovery.js";
 import { executeHistoryChoice } from "./historyChoice.js";
 import { readPending } from "./pending.js";
-import { selectOtherRootsDirectory } from "./localDomain.js";
+import { selectOtherRootsDirectory, withRootWriterLock } from "./localDomain.js";
 import { executeQuery, projectTasks } from "./queries.js";
 import { assertArgs, decodeEnvelope, isRecord, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 import type { Response } from "./protocol.js";
@@ -96,7 +97,12 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
           : "task commands require canonical schema 2",
       );
     }
-    const commands = [...QUERY_COMMANDS, ...writeCommands, "workspace.doctor.inspect"].sort();
+    const commands = [
+      ...QUERY_COMMANDS,
+      ...writeCommands,
+      "workspace.doctor.inspect",
+      "workspace.export",
+    ].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this build");
     }
@@ -135,21 +141,24 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
             pendingOperationId: pending?.operationId ?? null,
             workspaceRevision: authority.workspaceRevision,
           }
-        : request.command === "attachment.read"
-          ? readAttachment(inspection.rootPath, request.args)
-          : request.command === "activity.list"
-            ? request.args.from === "cli"
-              ? listCliActivity(cachePath, request.args)
-              : withCacheTransaction(cachePath, inspection, (database) => {
-                  synchronizeAuthority(database, inspection);
-                  return listActivity(database, request.args, authority.writeContext);
-                })
-            : executeQuery(
-                request.command,
-                request.args,
-                projectTasks(inspection.snapshot!.tasks, authority),
-                authority.workspaceRevision,
-              );
+        : request.command === "workspace.export"
+          ? (assertArgs(request.args, []),
+            withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath)))
+          : request.command === "attachment.read"
+            ? readAttachment(inspection.rootPath, request.args)
+            : request.command === "activity.list"
+              ? request.args.from === "cli"
+                ? listCliActivity(cachePath, request.args)
+                : withCacheTransaction(cachePath, inspection, (database) => {
+                    synchronizeAuthority(database, inspection);
+                    return listActivity(database, request.args, authority.writeContext);
+                  })
+              : executeQuery(
+                  request.command,
+                  request.args,
+                  projectTasks(inspection.snapshot!.tasks, authority),
+                  authority.workspaceRevision,
+                );
     if (request.command !== "workspace.info" && readPending(inspection))
       throw new CommandError("RECOVERY_PENDING", "root changed while querying");
     return {

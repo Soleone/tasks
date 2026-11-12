@@ -594,6 +594,14 @@ export class EditorClient {
     return result;
   }
 
+  /** Zips the sync folder into the home's `exports/`; answers the zip's path. */
+  async exportWorkspace(): Promise<string> {
+    const { exportLocation } = (await this.query("workspace.export", {})).result;
+    if (typeof exportLocation !== "string")
+      throw new Error("The editor returned an invalid export result.");
+    return exportLocation;
+  }
+
   /** Every version doctor found, and the issues that group them into conflicts. */
   async inspectConflicts(): Promise<Record<string, unknown>> {
     return (await this.query("workspace.doctor.inspect", {})).result;

@@ -1,8 +1,8 @@
 import { useRef, useState, type ReactElement, type ReactNode } from "react";
 import { GraduationCap, HardDrive, SunMoon, XIcon } from "lucide-react";
-import { selectedMainWorkspace, switchHome } from "@/platform/backendClient";
+import { exportAllTasks, selectedMainWorkspace, switchHome } from "@/platform/backendClient";
 import { isDesktopApp, runtimeKind } from "@/platform/runtime";
-import { revealHome } from "@/platform/desktopWorkspace";
+import { revealExports, revealHome } from "@/platform/desktopWorkspace";
 import { Button } from "@/components/variants/button";
 import {
   Dialog,
@@ -75,6 +75,52 @@ function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
     const bounds = element.getBoundingClientRect();
     return bounds.width > 0 && bounds.height > 0;
   });
+}
+
+/** Saves a zip of the workspace to the home's exports folder and shows where it went. */
+function ExportAllTasks(): ReactElement {
+  const [exporting, setExporting] = useState(false);
+  const [location, setLocation] = useState<string | null>(null);
+  const toastError = (error: unknown) =>
+    showTaskToast(error instanceof Error ? error.message : String(error));
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {isDesktopApp() && (
+          <Button variant="outline" onClick={() => void revealHome().catch(toastError)}>
+            Open folder
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          disabled={exporting}
+          onClick={() => {
+            setExporting(true);
+            void exportAllTasks()
+              .then(setLocation, toastError)
+              .finally(() => setExporting(false));
+          }}
+        >
+          Export all tasks
+        </Button>
+      </div>
+      {location && (
+        <div role="status" className="flex flex-col gap-2 text-sm text-muted-foreground">
+          <p>Exported to:</p>
+          <code className="wrap-anywhere text-xs">{location}</code>
+          {isDesktopApp() && (
+            <Button
+              variant="outline"
+              className="w-fit"
+              onClick={() => void revealExports().catch(toastError)}
+            >
+              Open exports
+            </Button>
+          )}
+        </div>
+      )}
+    </>
+  );
 }
 
 export function SettingsDialog({
@@ -354,7 +400,8 @@ export function SettingsDialog({
                       </h2>
                       <p className="text-sm text-muted-foreground">
                         Everything Tasks keeps on this device: tasks, settings, history and undo.
-                        For a full backup, close Tasks and the CLI and copy the whole folder.
+                        Export all tasks saves a copy of your tasks and images. For a full backup
+                        with history and undo, close Tasks and the CLI and copy the whole folder.
                       </p>
                     </div>
                     {workspace ? (
@@ -362,21 +409,7 @@ export function SettingsDialog({
                         <code className="wrap-anywhere text-xs">
                           {workspace.editor.selection.profilePath}
                         </code>
-                        {isDesktopApp() && (
-                          <Button
-                            variant="outline"
-                            className="w-fit"
-                            onClick={() =>
-                              void revealHome().catch((error: unknown) =>
-                                showTaskToast(
-                                  error instanceof Error ? error.message : String(error),
-                                ),
-                              )
-                            }
-                          >
-                            Open folder
-                          </Button>
-                        )}
+                        <ExportAllTasks />
                         <h3 className="text-sm font-medium">Sync folder</h3>
                         <code className="wrap-anywhere text-xs">
                           {workspace.editor.selection.rootPath}

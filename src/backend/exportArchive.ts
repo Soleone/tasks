@@ -5,6 +5,7 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readSync,
   renameSync,
   rmSync,
@@ -14,6 +15,7 @@ import path from "node:path";
 import { crc32 } from "node:zlib";
 import { CommandError } from "./errors.js";
 import { readRegularFile } from "./canonicalReader.js";
+import { homeOfRoot } from "./home.js";
 import { syncDirectory } from "./localDomain.js";
 
 const UTF8_NAMES = 0x0800;
@@ -39,15 +41,15 @@ function fileHash(filePath: string): string {
 }
 
 /**
- * Writes a zip of `tasks.json` and the given files under `attachments/` into the home's
- * `exports/`, and returns its path once it reads back exactly as written. Entries are stored
- * uncompressed: images are compressed already.
+ * Writes a zip of the entries into the home's `exports/` as `<name>-<date>-<time>.zip`, and
+ * returns its path once it reads back exactly as written. Entries are stored uncompressed:
+ * images are compressed already.
  */
 export function writeExport(
   homePath: string,
   at: string,
-  tasksJson: Buffer,
-  attachments: readonly { name: string; filePath: string }[],
+  name: string,
+  entries: readonly { name: string; read: () => Buffer }[],
 ): string {
   const directory = path.join(homePath, "exports");
   if (!lstatSync(directory, { throwIfNoEntry: false })) {
@@ -56,7 +58,7 @@ export function writeExport(
   }
   const target = path.join(
     directory,
-    `done-tasks-${at.slice(0, 10)}-${at.slice(11, 19).replaceAll(":", "")}.zip`,
+    `${name}-${at.slice(0, 10)}-${at.slice(11, 19).replaceAll(":", "")}.zip`,
   );
   if (lstatSync(target, { throwIfNoEntry: false }))
     throw new CommandError("STALE_SCOPE", "an export with this name already exists; try again");
@@ -73,13 +75,6 @@ export function writeExport(
         hash.update(bytes);
         offset += bytes.length;
       };
-      const entries = [
-        { name: "tasks.json", read: () => tasksJson },
-        ...attachments.map((file) => ({
-          name: `attachments/${file.name}`,
-          read: () => readRegularFile(file.filePath),
-        })),
-      ];
       if (entries.length > 0xffff)
         throw new CommandError("INVALID_ARGUMENT", "too many files for one export");
       for (const entry of entries) {
@@ -138,4 +133,38 @@ export function writeExport(
   renameSync(stage, target);
   syncDirectory(directory);
   return target;
+}
+
+/** Syncthing's own folders and half-received files, which aren't the person's data. */
+const SYNC_TOOL_ENTRY = /^(\.st|\.syncthing\.|~syncthing~)/;
+
+/**
+ * Zips the sync folder as it stands into the home's `exports/`: every file under `sync/` in the
+ * zip, so unpacking it gives the folder back.
+ */
+export function exportWorkspace(rootPath: string): { exportLocation: string; files: number } {
+  const home = homeOfRoot(rootPath);
+  if (!home)
+    throw new CommandError("INVALID_ARGUMENT", "export needs a Tasks home, not a bare folder");
+  const files: string[] = [];
+  const walk = (folder: string) => {
+    const entries = readdirSync(path.join(rootPath, folder), { withFileTypes: true });
+    for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (SYNC_TOOL_ENTRY.test(entry.name)) continue;
+      const child = folder ? `${folder}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(child);
+      else if (entry.isFile()) files.push(child);
+    }
+  };
+  walk("");
+  const exportLocation = writeExport(
+    home,
+    new Date().toISOString(),
+    "tasks",
+    files.map((file) => ({
+      name: `sync/${file}`,
+      read: () => readRegularFile(path.join(rootPath, file)),
+    })),
+  );
+  return { exportLocation, files: files.length };
 }
