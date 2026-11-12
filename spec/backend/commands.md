@@ -130,7 +130,7 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `list.due-before` | `dueBefore` is a `YYYY-MM-DD` date. It matches tasks due earlier than that day, whatever their status; undated tasks never match |
 | `list.ids` | `ids` is a list of task IDs. Only those tasks match, and IDs that name no task match nothing |
 | `activity.from-cli` | Each client keeps its own history in the home's `local/` folder. `from: "cli"` answers from the CLI's history on this device instead of the caller's own, read-only: a home the CLI never opened answers with nothing and gains no file. `since` is a stored-format timestamp and keeps only what was recorded after it. Changes made on another device are in neither history |
-| `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
+| `list.search` | Case-insensitive substring over title and description, for every script's letters (`übung` finds `Übung`). Trimmed and capped at 200 UTF-16 units |
 | `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `effort` defaults largest first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.sort-closed` | `closed` orders by `closedAt`. Tasks that were never closed come last in either direction |
 | `list.sort-due` | Tasks without a due date come last in either direction. Tasks due the same day go by priority, P0 first |

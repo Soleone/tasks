@@ -317,7 +317,7 @@ test("list.descendants: a filtered page includes its whole tree without changing
   assert.equal(query(current, "task.list", { includeDescendants: "yes" }).ok, false);
 });
 
-test("query filters preserve graph context, AND tags, ASCII search and full manual preorder", (t) => {
+test("query filters preserve graph context, AND tags, case-insensitive search and full manual preorder", (t) => {
   const current = workspace(t, {
     root: {
       title: "Parent",
@@ -367,7 +367,7 @@ test("query filters preserve graph context, AND tags, ASCII search and full manu
     ["before", "canceled", "root", "child"],
   );
   assert.equal(result(query(current, "task.list", { search: "%_ ascii" })).total, 1);
-  assert.equal(result(query(current, "task.list", { search: "ä" })).total, 0);
+  assert.equal(result(query(current, "task.list", { search: "ä unicode" })).total, 1);
   assert.equal(result(query(current, "task.list", { categoryIsNull: true })).total, 1);
   assert.deepEqual(result(query(current, "category.list")).categories, [
     { slug: "work", taskCount: 2 },

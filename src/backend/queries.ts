@@ -120,7 +120,7 @@ function listTasks(
     if (typeof args.search !== "string" || args.search.trim() === "") invalidFilter("search");
     search = args.search.trim().slice(0, 200);
     if (/[\uD800-\uDBFF]$/.test(search)) search = search.slice(0, -1);
-    search = asciiLower(search);
+    search = search.toLowerCase();
   }
   // Stored times share this exact form, so text order is time order.
   const closedSince = args.closedSince;
@@ -167,8 +167,8 @@ function listTasks(
       (dueBefore === undefined || (task.due !== null && task.due < dueBefore)) &&
       (ids === undefined || ids.has(task.id)) &&
       (search === undefined ||
-        asciiLower(task.title).includes(search) ||
-        asciiLower(task.description).includes(search)),
+        task.title.toLowerCase().includes(search) ||
+        task.description.toLowerCase().includes(search)),
   );
   if (sort !== "manual") {
     const sortValue = (task: TaskProjection): string | number =>
