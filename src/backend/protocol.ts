@@ -150,6 +150,7 @@ export function parseResponse(value: unknown): Response {
 export const TASK_LIST_MAX_LIMIT = 500;
 
 export const QUERY_COMMANDS = [
+  "activity.list",
   "attachment.read",
   "category.list",
   "query.batch",

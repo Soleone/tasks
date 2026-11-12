@@ -119,15 +119,17 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `task.list` | filters below | `tasks`, `contextTasks`, `total`, `limit`, `offset`, `workspaceRevision` |
 | `category.list` / `tag.list` | none | `[{slug, taskCount}]`, counting tasks that aren't canceled, most recently updated task first, then by slug |
 | `query.batch` | `queries`: 1 to 8 of `{command, args}`, each `task.get`, `task.list`, `category.list` or `tag.list` | `results`, one per query in order |
-| `activity.list` | optional `taskId`, `limit` | `[{operationId, taskId, actor, createdAt, command, before, after}]` |
+| `activity.list` | optional `taskId`, `limit`, `since`, `from` | `[{operationId, taskId, taskIds, actor, createdAt, command, before, after}]`, newest first, at most 100. `taskIds` names every task the operation touched |
 | `workspace.info` | none | `state`, `schemaVersion`, `commands`, `issues`, `pendingOperationId`, `workspaceRevision` |
 
 | Rule | Then |
 | --- | --- |
-| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `excludeCategories` (none of), `search`, `unblocked`, `closedSince`, `closedBefore`, `dueBefore`, `includeAncestors`, `includeDescendants` |
+| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `excludeCategories` (none of), `search`, `unblocked`, `closedSince`, `closedBefore`, `dueBefore`, `ids` (any of), `includeAncestors`, `includeDescendants` |
 | `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
 | `list.closed-before` | `closedBefore` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is before it; active tasks never match |
 | `list.due-before` | `dueBefore` is a `YYYY-MM-DD` date. It matches tasks due earlier than that day, whatever their status; undated tasks never match |
+| `list.ids` | `ids` is a list of task IDs. Only those tasks match, and IDs that name no task match nothing |
+| `activity.from-cli` | Each client keeps its own history in the home's `local/` folder. `from: "cli"` answers from the CLI's history on this device instead of the caller's own, read-only: a home the CLI never opened answers with nothing and gains no file. `since` is a stored-format timestamp and keeps only what was recorded after it. Changes made on another device are in neither history |
 | `list.search` | Case-insensitive (ASCII) substring over title and description. Trimmed and capped at 200 UTF-16 units |
 | `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `effort` defaults largest first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.sort-closed` | `closed` orders by `closedAt`. Tasks that were never closed come last in either direction |

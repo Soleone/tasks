@@ -140,3 +140,14 @@ test("list.sort-effort: largest first, the same effort by priority", () => {
   assert.deepEqual(order({}), ["huge-p1", "huge-p3", "normal", "tiny"]);
   assert.deepEqual(order({ direction: "asc" }), ["tiny", "normal", "huge-p1", "huge-p3"]);
 });
+
+test("list.ids: only the named tasks match; unknown ids match nothing", () => {
+  assert.deepEqual(ids({ ids: ["2", "4", "missing"] }), ["2", "4"]);
+  assert.deepEqual(ids({ ids: [] }), []);
+  for (const bad of ["2", [2], null]) {
+    assert.throws(
+      () => ids({ ids: bad }),
+      (error: unknown) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+    );
+  }
+});

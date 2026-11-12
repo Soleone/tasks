@@ -649,6 +649,7 @@ export function TaskRow({
   blockedByLabels,
   indented = false,
   showDetails = false,
+  note,
   showCompletedAt = false,
   completedClockOnly = false,
   contextOnly = false,
@@ -664,6 +665,8 @@ export function TaskRow({
   blockedByLabels?: string[];
   indented?: boolean;
   showDetails?: boolean;
+  /** A quiet line under the title, such as who changed the task in the agents lens. */
+  note?: string;
   /** Puts the done time in the trailing column, so it costs no extra line. */
   showCompletedAt?: boolean;
   /** Shows the done time as a clock even for yesterday, when the view is already one day. */
@@ -706,6 +709,11 @@ export function TaskRow({
               ))
             : null}
         </div>
+        {variant === "full" && note ? (
+          <p data-task-note className="text-xs text-muted-foreground">
+            {note}
+          </p>
+        ) : null}
         {variant === "full" && showDetails && task.description ? (
           <TaskItemDescription data-task-description>{task.description}</TaskItemDescription>
         ) : null}

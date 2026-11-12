@@ -153,6 +153,8 @@ type TaskListProps = {
   onWidenDoneLens: (backward?: boolean) => void;
   goals: GoalsToday | null;
   onGoalLens: (goal: GoalLens | undefined) => void;
+  /** Who last changed each task the agents lens shows, by task id. */
+  agentNotes: ReadonlyMap<string, string>;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
@@ -258,6 +260,7 @@ export function TaskList({
   onWidenDoneLens,
   goals,
   onGoalLens,
+  agentNotes,
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
@@ -1666,9 +1669,11 @@ export function TaskList({
       ? "Try different filters or clear them."
       : lens.kind === "due"
         ? "Nothing is due today or late."
-        : touch
-          ? "Tap the count to look further back."
-          : "Press Shift+D or choose the count to look further back.";
+        : lens.kind === "agents"
+          ? "What agents change with the CLI on this device shows here."
+          : touch
+            ? "Tap the count to look further back."
+            : "Press Shift+D or choose the count to look further back.";
   const isDefaultActiveEmpty =
     !loading &&
     !error &&
@@ -1978,6 +1983,7 @@ export function TaskList({
                     saved={row.task.id === savedTask?.id ? savedTask.kind : undefined}
                     exitingTaskIds={exitingTaskIds}
                     showDetails={detailsShownFor(row.task.id)}
+                    note={lens?.kind === "agents" ? agentNotes.get(row.task.id) : undefined}
                     showCompletedAt={sortField === "closed"}
                     completedClockOnly={
                       lens?.kind === "done" &&

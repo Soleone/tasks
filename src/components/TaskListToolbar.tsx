@@ -340,7 +340,9 @@ export function TaskListToolbar({
   // A lens replaces the status filter, so the chip names the statuses it shows.
   const statusActive = lens !== null || exactStatus !== null || statusPreset !== "active";
   const statusLabel = lens
-    ? statusesLabel(lensFilter(lens).statuses)
+    ? lens.kind === "agents"
+      ? STATUS_PRESET_LABELS.all
+      : statusesLabel(lensFilter(lens).statuses)
     : exactStatus !== null
       ? statusesLabel([exactStatus])
       : STATUS_PRESET_LABELS[statusPreset];

@@ -34,6 +34,7 @@ type TaskOptionProps = {
   saved?: SavedTask["kind"];
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
+  note?: string;
   showCompletedAt: boolean;
   completedClockOnly: boolean;
   hiddenCategorySlug: string | null;
@@ -59,6 +60,7 @@ export const TaskOption = memo(function TaskOption({
   saved,
   exitingTaskIds,
   showDetails,
+  note,
   showCompletedAt,
   completedClockOnly,
   hiddenCategorySlug,
@@ -110,6 +112,7 @@ export const TaskOption = memo(function TaskOption({
           indented={row.depth === 1}
           blockedByLabels={blockedByLabels}
           showDetails={showDetails}
+          note={note}
           showCompletedAt={showCompletedAt}
           completedClockOnly={completedClockOnly}
           contextOnly={row.contextOnly}

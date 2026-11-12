@@ -3,10 +3,12 @@ import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useAppUpdate } from "./useAppUpdate";
 import { useGlobalHotkeys } from "./useGlobalHotkeys";
 import { useSwipeBack } from "./useSwipeBack";
+import { useAgentChanges } from "./useAgentChanges";
 import { useHeaderCounts } from "./useHeaderCounts";
 import {
   useEffect,
   useEffectEvent,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
@@ -19,7 +21,13 @@ import type { MainWorkspace } from "@/platform/mainWorkspace";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
-import { lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "@/components/listLens";
+import {
+  agentChangeNote,
+  lensPhrase,
+  widerDoneWindow,
+  type GoalLens,
+  type ListLens,
+} from "@/components/listLens";
 import {
   sortSummary,
   type SortDirection,
@@ -36,7 +44,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { LearnIcon } from "@/components/LearnIcon";
 import { LearnPanel } from "@/components/LearnPanel";
 import { QuestCard } from "@/components/QuestCard";
-import { DoneToday, DueNow } from "@/components/LensCounts";
+import { AgentChanges, DoneToday, DueNow } from "@/components/LensCounts";
 import { ConflictCount, ConflictDialog } from "@/components/SyncConflicts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
@@ -355,6 +363,26 @@ export default function App({
   } = taskView;
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const { doneToday: doneTodayCount, dueNow: dueNowCount, goals } = useHeaderCounts(tasks);
+  const agentChanges = useAgentChanges(tasks);
+  const agentTaskIds = useMemo(
+    () => agentChanges.changes.map((change) => change.taskId),
+    [agentChanges.changes],
+  );
+  const agentNotes = useMemo(
+    () => new Map(agentChanges.changes.map((change) => [change.taskId, agentChangeNote(change)])),
+    [agentChanges.changes],
+  );
+  // A change that arrives while the agents lens is open joins it.
+  if (openLens?.lens.kind === "agents" && openLens.lens.taskIds.join() !== agentTaskIds.join())
+    setOpenLens({ ...openLens, lens: { kind: "agents", taskIds: agentTaskIds } });
+  // However the agents lens ends, what it showed now counts as looked at.
+  const inAgentsLens = lens?.kind === "agents";
+  const wasInAgentsLens = useRef(false);
+  const { markSeen: markAgentChangesSeen } = agentChanges;
+  useEffect(() => {
+    if (wasInAgentsLens.current && !inAgentsLens) markAgentChangesSeen();
+    wasInAgentsLens.current = inAgentsLens;
+  }, [inAgentsLens, markAgentChangesSeen]);
   // The quest card waits for the first load, so the welcome starts over the first task.
   const [tasksLoaded, setTasksLoaded] = useState(false);
   if (!tasksLoaded && !loading) setTasksLoaded(true);
@@ -534,10 +562,15 @@ export default function App({
       categoryFilter: null,
       sortDirection: "desc" as const,
     };
-    // Done sorts by its own Completed order; due sorts soonest first.
+    // Done sorts by its own Completed order; due sorts soonest first; agents, latest change first.
     return next.kind === "done"
       ? { ...cleared, exactStatus: "done", sortField, completedSort: true }
-      : { ...cleared, exactStatus: null, sortField: "due", completedSort };
+      : {
+          ...cleared,
+          exactStatus: null,
+          sortField: next.kind === "due" ? "due" : "updated",
+          completedSort,
+        };
   }
 
   function enterLens(next: ListLens): void {
@@ -563,7 +596,14 @@ export default function App({
 
   function toggleLens(kind: ListLens["kind"]): void {
     if (lens?.kind === kind) leaveLens();
-    else enterLens(kind === "done" ? { kind, window: "day" } : { kind });
+    else
+      enterLens(
+        kind === "done"
+          ? { kind, window: "day" }
+          : kind === "agents"
+            ? { kind, taskIds: agentTaskIds }
+            : { kind },
+      );
   }
 
   /** Narrows the done lens to one goal's tasks, or with undefined back to all of them. */
@@ -853,6 +893,12 @@ export default function App({
           {/* The count stands apart from the joined group, so its pressed state keeps round corners. */}
           <div className="flex items-center">
             <ConflictCount total={syncConflicts.length} onOpen={() => setConflictsOpen(true)} />
+            <AgentChanges
+              total={agentChanges.total}
+              agents={[...new Set(agentChanges.changes.map((change) => change.agent))]}
+              lensOn={lens?.kind === "agents"}
+              onToggleLens={() => toggleLens("agents")}
+            />
             <DueNow
               total={dueNowCount}
               lensOn={lens?.kind === "due"}
@@ -983,6 +1029,7 @@ export default function App({
           onWidenDoneLens={widenDoneLens}
           goals={goals}
           onGoalLens={narrowDoneLens}
+          agentNotes={agentNotes}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}

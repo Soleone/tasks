@@ -7,6 +7,7 @@ import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "
 import type { SortField } from "@/components/taskFilters";
 import { parseTaskProjection } from "../backend/taskResults";
 import { chooseHomeOnNextStart } from "./desktopWorkspace";
+import { isMobileApp } from "./runtime";
 
 let mainWorkspace: MainWorkspace | null = null;
 /** Why the UI's requests are refused while the home closes for a reload or an update. */
@@ -97,6 +98,7 @@ export type TaskListFilters = {
   closedSince?: string;
   closedBefore?: string;
   dueBefore?: string;
+  ids?: readonly string[];
   limit?: number;
 };
 
@@ -166,6 +168,7 @@ function listArgs(
     ...(filters.closedSince !== undefined ? { closedSince: filters.closedSince } : {}),
     ...(filters.closedBefore !== undefined ? { closedBefore: filters.closedBefore } : {}),
     ...(filters.dueBefore !== undefined ? { dueBefore: filters.dueBefore } : {}),
+    ...(filters.ids !== undefined ? { ids: filters.ids } : {}),
     ...(filters.limit !== undefined ? { limit: filters.limit } : {}),
     offset,
   };
@@ -199,6 +202,38 @@ export async function listCategories(): Promise<CategoryListResult> {
 
 export async function listTags(): Promise<TagListResult> {
   return { tags: (await selected().tags()).map((entry) => ({ ...entry, label: entry.slug })) };
+}
+
+/** The newest thing an agent did to a task. */
+export type AgentChange = { taskId: string; agent: string; command: string; at: string };
+
+/**
+ * What agents changed through the CLI on this device after `since`, newest first, one entry per
+ * task. Other devices' changes carry no record of who made them, so they never show here.
+ */
+export async function listAgentChanges(since: string): Promise<AgentChange[]> {
+  // No CLI runs on a phone, and there each question costs a look at every task file.
+  if (isMobileApp()) return [];
+  const { activity } = (await selected().reader.query("activity.list", {
+    from: "cli",
+    since,
+    limit: 100,
+  })) as {
+    activity: {
+      taskIds: string[];
+      actor: { kind: string; label: string };
+      command: string;
+      createdAt: string;
+    }[];
+  };
+  const newest = new Map<string, AgentChange>();
+  for (const { taskIds, actor, command, createdAt } of activity) {
+    if (actor.kind !== "agent") continue;
+    for (const taskId of taskIds)
+      if (!newest.has(taskId))
+        newest.set(taskId, { taskId, agent: actor.label, command, at: createdAt });
+  }
+  return [...newest.values()];
 }
 
 export async function getTask(id: string): Promise<{ task: TaskView }> {

@@ -1,5 +1,5 @@
 import { CommandError } from "./errors.js";
-import { listActivity } from "./activity.js";
+import { listActivity, listCliActivity } from "./activity.js";
 import { inspectCanonicalRoot, readPhysicalRoot } from "./canonicalReader.js";
 import {
   observeQueryAuthority,
@@ -96,12 +96,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
           : "task commands require canonical schema 2",
       );
     }
-    const commands = [
-      ...QUERY_COMMANDS,
-      ...writeCommands,
-      "activity.list",
-      "workspace.doctor.inspect",
-    ].sort();
+    const commands = [...QUERY_COMMANDS, ...writeCommands, "workspace.doctor.inspect"].sort();
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this build");
     }
@@ -143,10 +138,12 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
         : request.command === "attachment.read"
           ? readAttachment(inspection.rootPath, request.args)
           : request.command === "activity.list"
-            ? withCacheTransaction(cachePath, inspection, (database) => {
-                synchronizeAuthority(database, inspection);
-                return listActivity(database, request.args, authority.writeContext);
-              })
+            ? request.args.from === "cli"
+              ? listCliActivity(cachePath, request.args)
+              : withCacheTransaction(cachePath, inspection, (database) => {
+                  synchronizeAuthority(database, inspection);
+                  return listActivity(database, request.args, authority.writeContext);
+                })
             : executeQuery(
                 request.command,
                 request.args,

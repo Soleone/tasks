@@ -100,3 +100,67 @@ describe("due now", () => {
     expect(dueNowButton()).toBeNull();
   });
 });
+
+function agentsButton(): HTMLElement | null {
+  return document.querySelector("[data-lens-count=agents]");
+}
+
+/** Completes a task the way an agent with `--actor-label claude` would, or a person at the CLI. */
+async function completeFromCli(id: string, agent?: string): Promise<void> {
+  const { task } = await workspace.cli<{ task: { version: number } }>("task.get", { id });
+  await workspace.cli("task.complete", { id, expectedVersion: task.version }, agent);
+}
+
+describe("changed by agents", () => {
+  test("agents.count: the header counts tasks an agent changed with the CLI, not a person's changes", async () => {
+    const mine = await workspace.create("Closed by me");
+    const theirs = await workspace.create("Closed by claude");
+    await workspace.render();
+    await expectRows(["Closed by claude", "Closed by me"]);
+    expect(agentsButton()).toBeNull();
+    await completeFromCli(mine.id);
+    await completeFromCli(theirs.id, "claude");
+    // The list picks up the outside writes on its next revision check.
+    await waitFor(
+      () => expect(agentsButton()?.getAttribute("aria-label")).toBe("1 changed by agents"),
+      { timeout: 4000 },
+    );
+  });
+
+  test("agents.lens: Shift+A shows the tasks agents changed, in any status, naming the change", async () => {
+    await workspace.create("Untouched");
+    const closed = await workspace.create("Closed by claude");
+    await completeFromCli(closed.id, "claude");
+    const { user } = await workspace.render();
+    await expectRows(["Untouched"]);
+    await waitFor(() => expect(agentsButton()).not.toBeNull());
+    await user.keyboard("{Shift>}A{/Shift}");
+    await expectRows(["Closed by claude"]);
+    expect(countLine()).toBe("1 changed by agents");
+    expect(agentsButton()?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector("[data-task-note]")?.textContent).toMatch(
+      /^Completed by claude · \d\d:\d\d$/,
+    );
+  });
+
+  test("agents.seen: closing the lens clears the count until an agent changes something again", async () => {
+    const first = await workspace.create("First");
+    const second = await workspace.create("Second");
+    await completeFromCli(first.id, "claude");
+    const { user } = await workspace.render();
+    await waitFor(() => expect(agentsButton()).not.toBeNull());
+    await user.click(agentsButton()!);
+    await expectRows(["First"]);
+    await user.keyboard("{Shift>}A{/Shift}");
+    await expectRows(["Second"]);
+    await waitFor(() => expect(agentsButton()).toBeNull());
+    await user.keyboard("{Shift>}A{/Shift}");
+    await waitFor(() => expect(screen.getByText("Nothing changed by agents")).toBeTruthy());
+    await user.keyboard("{Shift>}A{/Shift}");
+    await completeFromCli(second.id, "claude");
+    await waitFor(
+      () => expect(agentsButton()?.getAttribute("aria-label")).toBe("1 changed by agents"),
+      { timeout: 4000 },
+    );
+  });
+});

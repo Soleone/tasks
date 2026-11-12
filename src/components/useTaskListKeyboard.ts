@@ -341,6 +341,10 @@ export function useTaskListKeyboard(
       event.preventDefault();
       practice("due.lens");
       actions.toggleLens("due");
+    } else if (event.key.toLowerCase() === "a" && event.shiftKey) {
+      if (event.repeat) return;
+      event.preventDefault();
+      actions.toggleLens("agents");
     } else if (event.key.toLowerCase() === "l" && !event.shiftKey) {
       if (event.repeat) return;
       event.preventDefault();

@@ -87,6 +87,7 @@ function listTasks(
     "closedSince",
     "closedBefore",
     "dueBefore",
+    "ids",
     "includeAncestors",
     "includeDescendants",
     "sort",
@@ -129,6 +130,12 @@ function listTasks(
   // Due dates are `YYYY-MM-DD`, so text order is day order too.
   const dueBefore = args.dueBefore;
   if (dueBefore !== undefined && !isDueDate(dueBefore)) invalidFilter("dueBefore");
+  if (
+    args.ids !== undefined &&
+    !(Array.isArray(args.ids) && args.ids.every((id) => typeof id === "string"))
+  )
+    invalidFilter("ids");
+  const ids = args.ids === undefined ? undefined : new Set(args.ids as string[]);
   const sort = args.sort === undefined ? "created" : args.sort;
   if (
     !["created", "updated", "priority", "effort", "due", "closed", "manual"].includes(
@@ -158,6 +165,7 @@ function listTasks(
       (closedSince === undefined || (task.closedAt !== null && task.closedAt >= closedSince)) &&
       (closedBefore === undefined || (task.closedAt !== null && task.closedAt < closedBefore)) &&
       (dueBefore === undefined || (task.due !== null && task.due < dueBefore)) &&
+      (ids === undefined || ids.has(task.id)) &&
       (search === undefined ||
         asciiLower(task.title).includes(search) ||
         asciiLower(task.description).includes(search)),

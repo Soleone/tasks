@@ -219,3 +219,32 @@ test(
     assert.notEqual(edited.updatedAt, task.updatedAt);
   },
 );
+
+test(
+  "activity.from-cli: the app reads what the CLI's cache recorded, newer than a time, and never creates it",
+  { skip: process.platform !== "linux" },
+  (t) => {
+    const app = setup(t);
+    const cli = { ...app, cache: path.join(path.dirname(app.cache), "cli.db") };
+    const fromCli = (args: object = {}) =>
+      success(send(app, { command: "activity.list", args: { from: "cli", ...args } })).result
+        .activity as { taskIds: string[]; actor: { label: string }; createdAt: string }[];
+    assert.deepEqual(fromCli(), []);
+    assert.equal(existsSync(cli.cache), false);
+    success(
+      send(cli, {
+        ...prepared(cli, { title: "By an agent" }),
+        actor: { kind: "agent", label: "claude" },
+      }),
+    );
+    const [entry] = fromCli();
+    assert.deepEqual(entry.taskIds, [parentId]);
+    assert.equal(entry.actor.label, "claude");
+    assert.deepEqual(fromCli({ since: entry.createdAt }), []);
+    assert.equal(fromCli({ since: "2000-01-01T00:00:00.000Z" }).length, 1);
+    // The app's own history stays its own.
+    assert.deepEqual(success(send(app, { command: "activity.list" })).result.activity, []);
+    const bad = send(app, { command: "activity.list", args: { from: "app" } });
+    assert.equal(bad.ok, false);
+  },
+);

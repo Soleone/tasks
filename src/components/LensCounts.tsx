@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { CalendarDays, CircleCheck } from "lucide-react";
+import { Bot, CalendarDays, CircleCheck } from "lucide-react";
 import { preventFocusSteal } from "@/navigation";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/variants/tooltip";
@@ -196,6 +196,28 @@ export function DueNow(props: LensCountProps): ReactElement | null {
       <span className="text-destructive" data-lens-number>
         {props.total}
       </span>
+    </LensCount>
+  );
+}
+
+/** Tasks agents changed since you last looked. Leaving its lens clears it. */
+export function AgentChanges({
+  agents,
+  ...props
+}: LensCountProps & {
+  /** Who made the changes, to name a lone agent in the tooltip. */
+  agents: readonly string[];
+}): ReactElement | null {
+  return (
+    <LensCount
+      {...props}
+      kind="agents"
+      label="changed by agents"
+      shortcut="Shift+A"
+      showLabel={`Show what ${agents.length === 1 ? agents[0] : "agents"} changed`}
+    >
+      <Bot data-icon="inline-start" aria-hidden="true" />
+      <span data-lens-number>{props.total}</span>
     </LensCount>
   );
 }

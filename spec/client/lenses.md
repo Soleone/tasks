@@ -12,6 +12,16 @@ A lens turns the task list itself into one question, such as what was done today
 | `lens.launch` | Launching after quitting with a lens on | The lens is never remembered; the list opens on the view it set aside |
 | `lens.count` | A header count's lens has nothing to show | The count is hidden, except while its lens is on |
 
+## Changed by agents
+
+The app shows what agents did while you were away, as far as this device knows: an agent's change is recorded by the CLI it ran on, and that record doesn't travel through sync.
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `agents.count` | An agent changed tasks through the CLI on this device since you last looked | The header shows how many tasks, with a robot, in the plain text color since it is news and not a warning, left of the due count. Changes a person makes with the CLI (`--actor-kind human`), changes from other devices and tasks that no longer exist don't count |
+| `agents.lens` | `Shift+A`, clicking the count, or Changed by agents in the `Ctrl/⌘+K` palette | The list shows those tasks in every status, the latest change first, and turns like the done lens (`done.lens-flip`). Under each title a line names the task's latest change by an agent, e.g. "Completed by claude · 14:32". A change that arrives while the lens is open joins it |
+| `agents.seen` | The agents lens closes, in any way | What it showed counts as looked at, so the count clears until an agent changes something again. The device remembers this between launches. A device that never looked starts 24 hours back |
+
 ## Due now
 
 | Rule | When | Then |

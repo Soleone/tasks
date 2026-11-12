@@ -14,7 +14,7 @@ type LensKind = ListLens["kind"];
 type Axis = "X" | "Y";
 
 /** Done turns sideways like a card; due turns over the top like a page on a flip calendar. */
-const LENS_AXIS: Record<LensKind, Axis> = { done: "Y", due: "X" };
+const LENS_AXIS: Record<LensKind, Axis> = { done: "Y", due: "X", agents: "Y" };
 
 /** A turn about the list's center line on `axis`, seen from a fixed distance. */
 const turn = (axis: Axis, degrees: number, sink = ""): string =>

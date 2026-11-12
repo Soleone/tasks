@@ -85,6 +85,7 @@ export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters)
   if (lens?.closedBefore !== undefined && (task.closedAt ?? "") >= lens.closedBefore) return false;
   if (lens?.dueBefore !== undefined && (task.due === null || task.due >= lens.dueBefore))
     return false;
+  if (lens?.ids !== undefined && !lens.ids.includes(task.id)) return false;
   if (lens?.category !== undefined && task.category?.slug !== lens.category) return false;
   if (task.category && lens?.excludeCategories?.includes(task.category.slug)) return false;
   if (filters.showUnblocked && task.blockedByIds.length > 0) return false;

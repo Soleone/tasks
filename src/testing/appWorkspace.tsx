@@ -119,10 +119,14 @@ export class AppWorkspace {
     ).task;
   }
 
-  /** Writes through `tasks-cli`'s path: the same home, with the CLI's own cache and context. */
+  /**
+   * Writes through `tasks-cli`'s path: the same home, with the CLI's own cache and context. Name
+   * an `agent` to write as one, the way `--actor-label` does; otherwise a person is at the CLI.
+   */
   async cli<T = Record<string, unknown>>(
     command: string,
     args: Record<string, unknown> = {},
+    agent?: string,
   ): Promise<T> {
     const send = async (request: Record<string, unknown>) => {
       const response = await fetch(
@@ -132,7 +136,7 @@ export class AppWorkspace {
           body: JSON.stringify({
             version: 2,
             requestId: crypto.randomUUID(),
-            actor: { kind: "human", label: "tasks-cli" },
+            actor: agent ? { kind: "agent", label: agent } : { kind: "human", label: "tasks-cli" },
             ...request,
           }),
         },

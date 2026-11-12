@@ -8,7 +8,7 @@ The desktop, Android and web apps are one client. This folder describes what a p
 | [toolbar.md](toolbar.md) | Filters, search, sort and the count line |
 | [capture-edit.md](capture-edit.md) | The inline editor, shorthand, the move and blocker pickers |
 | [status-undo.md](status-undo.md) | Status, priority and effort shortcuts, batches, copy, undo and redo |
-| [lenses.md](lenses.md) | Lenses: the list as one question, done today and due now |
+| [lenses.md](lenses.md) | Lenses: the list as one question, done today, due now and changed by agents |
 | [goals.md](goals.md) | Goals per category, the done count's rings, logging a task already done |
 | [settings.md](settings.md) | Settings, themes, the palette, font size and the Tasks home |
 | [learning.md](learning.md) | Moves, hints, the Learn panel and progress |
@@ -54,6 +54,7 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `D` | Tasks done in the last 24 hours, or back to your list | `done.lens`, `lens.back` |
 | `Shift+D` | Look further back for done tasks | `done.lens-window` |
 | `!` | Tasks due today or late, or back to your list | `due.lens`, `lens.back` |
+| `Shift+A` | Tasks agents changed since you last looked, or back to your list | `agents.lens`, `lens.back` |
 | `Up` `Down` `Home` `End` | Move the active row | `home.arrows`, `home.home-end` |
 | `Left` / `Right` | Parent, collapse, expand, category | `home.left`, `home.right-expand`, `home.right-category` |
 | `Shift+Up/Down/Home/End` | Extend the selection | `select.extend` |

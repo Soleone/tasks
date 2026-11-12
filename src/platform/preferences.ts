@@ -22,6 +22,7 @@ const PREFERENCE_KEYS = new Set([
   "tasks.learnedMoves",
   "tasks.globalHotkeyFocus",
   "tasks.globalHotkeyCreate",
+  "tasks.agentChangesSeen",
 ]);
 // Earlier versions kept these; they are dropped on load so those settings still open.
 const RETIRED_KEYS = new Set(["tasks.helpMode"]);
