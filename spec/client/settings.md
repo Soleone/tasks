@@ -4,7 +4,7 @@
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Categories, Goals, Hotkeys (desktop only), Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
+| `settings.open` | `Ctrl/⌘+,` or the header button | Settings opens with focus on its tabs: General, Categories, Goals, Keys, Data and Cleanup. Theme selection is only in the dedicated theme picker, not Settings |
 | `settings.tabs` | `Left` / `Right` on the tabs | Switches section without resizing: the dialog fits its tallest section. `Tab` or `Down` enters the section's first control, `Shift+Tab` returns. An arrow no control in the section uses moves nothing, neither focus nor a text caret |
 | `settings.close` | `Escape` | Closes and returns focus to where it was opened |
 | `settings.version` | Settings is open | Its footer shows the app version, e.g. Tasks 0.3.2, below every tab |
@@ -28,9 +28,20 @@
 | `settings.category-colors` | Categories | Lists every category, most recently used first as in the category picker, each with its color: red, orange, yellow, cyan, blue, magenta, brown or none (the theme's green, as before). `Up` / `Down` move between categories and the focused one shows all its swatches; `Left` / `Right`, `Home` and `End` pick one at once. Typing a name jumps to that category; repeating a letter steps through the categories starting with it. Colors are stored by name in the workspace's shared settings (`home.shared-settings`), so every device shows them in its own theme. Renaming a category in the picker carries its color |
 | `home.category-color` | A category with a color | Its folder icon takes the color on rows, in the editor and on the category filter chip. The name stays quiet text |
 
-## Hotkeys
+## Keys
 
-Desktop only. Bring Tasks forward and New task work from any app once picked; both are off until then (`platform.global-focus`).
+Every shortcut on the list and in the app can take another key. The tab shows them in a scrolling list grouped as in the `Ctrl/⌘+K` palette, with a search over names and keys, a Changed only filter, the count of changed keys and Reset all keys. Changed keys are stored in the preferences (`prefs.remembered`), so each device keeps its own.
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `keys.rebind` | Clicking an action's key, then pressing a key | The pressed key, with any Ctrl/⌘, Alt or Shift, does that action at once, and the old key does nothing. Backspace turns the action's key off, Escape keeps it without closing Settings. A changed key shows a dot and a reset button that brings back its default |
+| `keys.conflict` | Pressing a key another action already has | A note under the row names that action and keeps the old key. Swap gives the pressed key to this action and this action's old key to the other one; Cancel leaves both |
+| `keys.fixed` | Pressing `↑` `↓` `←` `→`, `Home`, `End`, `Enter`, `Esc`, `Tab`, `Backspace`, the Menu key, `0`–`4` or `Ctrl+Y` | Says the key always keeps its own meaning and keeps the old one. These are listed under Always the same. The second key of a [filter or sort mode](toolbar.md) stays the same too; only the mode's own key changes |
+| `keys.everywhere` | A changed key | The `Ctrl/⌘+K` palette, the filter and sort guides, tooltips, the Learn panel and quest steps name the key as it is now. An action whose key is off shows none. Plain keys (no Ctrl/⌘ or Alt) never act while typing in a field |
+
+### From any app
+
+Desktop only, above the list. Bring Tasks forward and New task work from any app once picked; both are off until then (`platform.global-focus`).
 
 | Rule | When | Then |
 | --- | --- | --- |
@@ -60,5 +71,5 @@ The Cleanup tab has one Delete tasks section with two items. Deletion controls a
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `prefs.remembered` | Theme, font size, hints and learned moves, Details, filters, search, sort, global hotkeys | Saved locally and restored on the next launch |
+| `prefs.remembered` | Theme, font size, hints and learned moves, Details, filters, search, sort, keys, global hotkeys | Saved locally and restored on the next launch |
 | `prefs.not-authority` | Any saved preference | Never picks a workspace or grants write access. Opening a workspace is always explicit |

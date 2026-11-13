@@ -48,7 +48,8 @@ import {
 } from "@/components/ui/command";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { ListLens } from "@/components/listLens";
-import { keyName, modKey } from "@/platform/runtime";
+import { modKey } from "@/platform/runtime";
+import { bindingCaps as caps, useKeymap, type BindingId } from "@/keymap";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog, KeysShortcut } from "@/components/variants/command";
 import {
@@ -90,395 +91,406 @@ type HelpEntry = {
     | "redo";
 };
 
-const helpGroups: { heading: string; entries: HelpEntry[] }[] = [
-  {
-    heading: "Task actions",
-    entries: [
-      {
-        label: "New task",
-        hint: "Inline editor",
-        icon: ListPlus,
-        keys: ["C"],
-        action: "new-task",
-        keywords: "c create new add task capture inline",
-      },
-      {
-        label: "Edit active task",
-        hint: "Inline editor",
-        icon: FileText,
-        keys: ["Enter"],
-        keywords: "enter inline edit selected active task row",
-      },
-      {
-        label: "Log a task already done",
-        hint: "Created done, now or earlier",
-        icon: CircleCheck,
-        keys: ["L"],
-        action: "log-done-task",
-        keywords: "l log done finished completed already record goal",
-      },
-      {
-        label: "New child task",
-        hint: "Under the selected task",
-        icon: CornerDownRight,
-        keys: ["Shift", "C"],
-        action: "new-child-task",
-        keywords: "shift c create child subtask parent selected task capture",
-      },
-      {
-        label: "Set task priority",
-        hint: "In the inline editor",
-        icon: Flag,
-        keys: ["0", "1", "2", "3", "4", "←", "→"],
-        keywords:
-          "inline editor create edit set choose task priority p0 p1 p2 p3 p4 arrow left right",
-      },
-      {
-        label: "Save the inline editor",
-        hint: `${modKey}+Enter in the description`,
-        icon: SaveCheck,
-        keys: ["Enter"],
-        keywords: "enter ctrl cmd save create edit title description inline",
-      },
-      {
-        label: "Change task status",
-        hint: "Shift+Space goes back",
-        icon: ListChecks,
-        keys: ["Space"],
-        keywords: "space shift space reverse backward open in progress done status cycle complete",
-      },
-      {
-        label: "Pause or resume task",
-        hint: "P pauses, again resumes",
-        icon: CirclePause,
-        keys: ["P"],
-        action: "pause-task",
-        keywords: "p pause resume sleep park soft cancel paused in progress",
-      },
-      {
-        label: "Copy task text",
-        hint: "Title, description and #tags",
-        icon: Copy,
-        keys: [modKey, "C"],
-        action: "copy-task",
-        keywords:
-          "ctrl cmd c copy title description clipboard selected active task category tags metadata",
-      },
-      {
-        label: "Open link",
-        hint: "The first web link in the task's title or notes",
-        icon: ExternalLink,
-        keys: ["O"],
-        keywords: "o open link url web browser pr issue notes description",
-      },
-      {
-        label: "Copy newest image",
-        hint: "The image added last",
-        icon: Image,
-        keys: [modKey, "Shift", "C"],
-        action: "copy-image",
-        keywords: "ctrl cmd shift c copy image picture screenshot attachment clipboard paste agent",
-      },
-      {
-        label: "Undo last change",
-        hint: "Restore the latest task change",
-        icon: Undo2,
-        keys: [modKey, "Z"],
-        action: "undo-status",
-        keywords:
-          "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order",
-      },
-      {
-        label: "Redo last change",
-        hint: `${modKey}+Shift+Z also works`,
-        icon: Redo2,
-        keys: ["Ctrl", "Y"],
-        action: "redo",
-        keywords:
-          "ctrl cmd y shift z redo reapply restore undone change task status capture edit move priority dependency order",
-      },
-      {
-        label: "Change active task priority",
-        hint: "[ lower, ] higher, or 0-4 to jump straight there",
-        icon: Flag,
-        keys: ["[", "]"],
-        keywords:
-          "[ ] bracket 0 1 2 3 4 p0 p1 p2 p3 p4 set raise lower active task priority number",
-      },
-      {
-        label: "Change active task effort",
-        hint: "Comma smaller, period bigger, from tiny to huge",
-        icon: ChevronsUp,
-        keys: [",", "."],
-        keywords: ", . < > comma period effort size big small tiny huge large estimate active task",
-      },
-      {
-        label: "Switch active or inactive",
-        hint: "F then S",
-        icon: Circle,
-        keys: ["F", "S"],
-        action: "filter-status",
-        keywords: "f s active inactive filter paused done canceled cancelled show hide toggle",
-      },
-      {
-        label: "Show all statuses",
-        hint: "F then A",
-        icon: Circle,
-        keys: ["F", "A"],
-        action: "filter-status",
-        keywords: "f a all every status filter show",
-      },
-      {
-        label: "Exact status",
-        hint: "F then O I D P X",
-        icon: Circle,
-        keys: ["F", "O/I/D/P/X"],
-        action: "filter-status",
-        keywords: "f exact open in progress done paused canceled o i d p x status",
-      },
-      {
-        label: "Priority filter",
-        hint: "F then 0-4, same key clears",
-        icon: Flag,
-        keys: ["F", "0-4"],
-        action: "filter-priority",
-        keywords: "f 0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter",
-      },
-      {
-        label: "Show unblocked tasks",
-        icon: ShieldCheck,
-        keys: ["F", "U"],
-        keywords: "f u unblocked ready available no blockers dependency depends prerequisite",
-      },
-      {
-        label: "Filter by category",
-        hint: "Also F then C",
-        icon: Folder,
-        keys: ["@", "F → C"],
-        action: "filter-category",
-        keywords: "@ f c category folder filter",
-      },
-      {
-        label: "Filter by tags",
-        hint: "Also F then T",
-        icon: Tags,
-        keys: ["#", "F → T"],
-        action: "filter-tags",
-        keywords: "# f t tags filter clear multi and",
-      },
-      {
-        label: "Rename a category or tag",
-        hint: "In the @ or # picker, on every task",
-        icon: PenLine,
-        keys: [modKey, "R"],
-        keywords: "ctrl cmd r rename category tag typo merge @ #",
-      },
-      {
-        label: "Search tasks",
-        hint: "Titles and notes",
-        icon: Search,
-        keys: ["/"],
-        action: "filter-search",
-        keywords: "slash search find title description fts query",
-      },
-      {
-        label: "Filter shortcuts",
-        hint: "Focus the toolbar; F again closes",
-        icon: ListFilter,
-        keys: ["F"],
-        keywords:
-          "f filter mode preset exact status priority category tags unblocked focus close toggle",
-      },
-      {
-        label: "Sort tasks",
-        hint: "Focus the toolbar; S then P by priority",
-        icon: ArrowDownUp,
-        keys: ["S", "C/U/P/E/T/M/R"],
-        keywords:
-          "s order sort created updated priority effort due date deadline time manual reverse newest oldest direction focus close toggle",
-      },
-      {
-        label: "Select a task range",
-        hint: "Or Shift/Ctrl-click",
-        icon: ListChecks,
-        keys: ["Shift+↑/↓", "Shift+Home/End"],
-        keywords: "shift selection range sibling group multiselect pointer mouse click",
-      },
-      {
-        label: "Move selected tasks",
-        hint: "In manual order",
-        icon: ArrowDownUp,
-        keys: [`${modKey}+↑/↓`, `${modKey}+Home/End`],
-        keywords: "manual reorder move selected group beginning end up down",
-      },
-      {
-        label: "Show details of the active task",
-        hint: "Descriptions and timestamps",
-        icon: ListChevronsUpDown,
-        keys: ["V"],
-        keywords:
-          "v view details description notes timestamps created updated time footer today yesterday date",
-      },
-      {
-        label: "Show details of all tasks",
-        hint: "Descriptions and timestamps",
-        icon: ListChevronsUpDown,
-        keys: ["Shift+V"],
-        keywords:
-          "v view details description notes timestamps created updated time footer today yesterday date everything",
-      },
-      {
-        label: "Add blocker",
-        icon: Link2,
-        keys: ["B"],
-        action: "add-blocker",
-        keywords: "b blocked by dependency depends prerequisite",
-      },
-      {
-        label: "Move under…",
-        icon: CornerDownRight,
-        keys: ["M"],
-        action: "move-under",
-        keywords: "m move under parent child hierarchy subtask",
-      },
-      {
-        label: "Open task menu",
-        hint: "Or the Menu key",
-        icon: Menu,
-        keys: ["A"],
-        keywords: "a actions menu key context right click long press",
-      },
-      {
-        label: "Cancel task",
-        hint: "Delete cancels immediately",
-        icon: Trash2,
-        keys: ["Delete"],
-        keywords: "delete remove cancel cancelled status immediate",
-      },
-    ],
-  },
-  {
-    heading: "Navigation",
-    entries: [
-      {
-        label: "Move backward in dialogs",
-        icon: MoveLeft,
-        keys: ["Shift", "Tab"],
-        keywords: "shift tab backwards dialog fields",
-      },
-      {
-        label: "Move through tasks",
-        icon: ListChecks,
-        keys: ["↑", "↓", "Home", "End"],
-        keywords: "arrow keys up down first last highlight list",
-      },
-      {
-        label: "Navigate task hierarchy or category",
-        hint: "Right filters category first",
-        icon: ListChecks,
-        keys: ["←", "→"],
-        keywords: "left right arrow child children parent subtask hierarchy category filter",
-      },
-      {
-        label: "Filter a task by category",
-        hint: "Right on a task without a filter",
-        icon: Folder,
-        keys: ["→"],
-        keywords: "right arrow task parent leaf category filter children",
-      },
-    ],
-  },
-  {
-    heading: "Workspace",
-    entries: [
-      {
-        label: "Settings",
-        hint: "Storage and export",
-        icon: Settings2,
-        keys: [modKey, ","],
-        action: "open-settings",
-        keywords: "ctrl cmd comma data export json sqlite database storage path",
-      },
-      {
-        label: "Themes",
-        hint: "Choose appearance",
-        action: "open-themes",
-        icon: Palette,
-        keys: [keyName("Alt"), "T"],
-        keywords: "alt theme colour color dark light accent palette",
-      },
-      {
-        label: "Done today",
-        hint: "Done in the last 24 hours",
-        action: "toggle-done-lens",
-        icon: CircleCheck,
-        keys: ["D"],
-        keywords: "accomplished finished completed recent history yesterday count",
-      },
-      {
-        label: "Due now",
-        hint: "Due today or late",
-        action: "toggle-due-lens",
-        icon: CalendarDays,
-        keys: ["!"],
-        keywords: "overdue late deadline today calendar date count",
-      },
-      {
-        label: "Changed by agents",
-        hint: "What agents changed since you last looked",
-        action: "toggle-agents-lens",
-        icon: Bot,
-        keys: ["Shift", "A"],
-        keywords: "agent claude cli activity history who changed bot ai",
-      },
-      {
-        label: "Look further back",
-        hint: "Done yesterday, then the last 7 days, then 30",
-        action: "widen-done-lens",
-        icon: CalendarCheck,
-        keys: ["Shift", "D"],
-        keywords: "accomplished finished completed yesterday week month history",
-      },
-      {
-        label: "Toggle this palette",
-        icon: CircleHelp,
-        keys: [modKey, "K"],
-        keywords: "ctrl cmd open close help syntax",
-      },
-      {
-        label: "Close or go back",
-        hint: "Esc leaves the toolbar",
-        icon: Undo2,
-        keys: ["Esc", "F/S"],
-        keywords:
-          "escape palette toolbar focus title notes list edit reset clear filters mode close toggle",
-      },
-    ],
-  },
-  {
-    heading: "Syntax",
-    entries: [
-      {
-        label: "@category",
-        hint: "One per task",
-        icon: Folder,
-        keywords: "@launch people mentions title description",
-      },
-      {
-        label: "#tags",
-        hint: "Any number in title",
-        icon: Tags,
-        keywords: "#planning #calls title",
-      },
-      {
-        label: "!date",
-        hint: "Due: !fri !tmr !3d !oct31",
-        icon: CalendarDays,
-        keywords: "! due date deadline today tomorrow weekday week month year",
-      },
-    ],
-  },
-];
+/** The palette's rows, with the keys as they are set now (`keys.everywhere`). */
+function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
+  return [
+    {
+      heading: "Task actions",
+      entries: [
+        {
+          label: "New task",
+          hint: "Inline editor",
+          icon: ListPlus,
+          keys: caps("capture.open"),
+          action: "new-task",
+          keywords: "c create new add task capture inline",
+        },
+        {
+          label: "Edit active task",
+          hint: "Inline editor",
+          icon: FileText,
+          keys: ["Enter"],
+          keywords: "enter inline edit selected active task row",
+        },
+        {
+          label: "Log a task already done",
+          hint: "Created done, now or earlier",
+          icon: CircleCheck,
+          keys: caps("capture.log"),
+          action: "log-done-task",
+          keywords: "l log done finished completed already record goal",
+        },
+        {
+          label: "New child task",
+          hint: "Under the selected task",
+          icon: CornerDownRight,
+          keys: caps("capture.child"),
+          action: "new-child-task",
+          keywords: "shift c create child subtask parent selected task capture",
+        },
+        {
+          label: "Set task priority",
+          hint: "In the inline editor",
+          icon: Flag,
+          keys: ["0", "1", "2", "3", "4", "←", "→"],
+          keywords:
+            "inline editor create edit set choose task priority p0 p1 p2 p3 p4 arrow left right",
+        },
+        {
+          label: "Save the inline editor",
+          hint: `${modKey}+Enter in the description`,
+          icon: SaveCheck,
+          keys: ["Enter"],
+          keywords: "enter ctrl cmd save create edit title description inline",
+        },
+        {
+          label: "Change task status",
+          hint: `${key("status.back")} goes back`,
+          icon: ListChecks,
+          keys: caps("status.forward"),
+          keywords:
+            "space shift space reverse backward open in progress done status cycle complete",
+        },
+        {
+          label: "Pause or resume task",
+          hint: "Again resumes",
+          icon: CirclePause,
+          keys: caps("status.pause"),
+          action: "pause-task",
+          keywords: "p pause resume sleep park soft cancel paused in progress",
+        },
+        {
+          label: "Copy task text",
+          hint: "Title, description and #tags",
+          icon: Copy,
+          keys: caps("copy.text"),
+          action: "copy-task",
+          keywords:
+            "ctrl cmd c copy title description clipboard selected active task category tags metadata",
+        },
+        {
+          label: "Open link",
+          hint: "The first web link in the task's title or notes",
+          icon: ExternalLink,
+          keys: caps("details.open-link"),
+          keywords: "o open link url web browser pr issue notes description",
+        },
+        {
+          label: "Copy newest image",
+          hint: "The image added last",
+          icon: Image,
+          keys: caps("attach.copy"),
+          action: "copy-image",
+          keywords:
+            "ctrl cmd shift c copy image picture screenshot attachment clipboard paste agent",
+        },
+        {
+          label: "Undo last change",
+          hint: "Restore the latest task change",
+          icon: Undo2,
+          keys: caps("undo.latest"),
+          action: "undo-status",
+          keywords:
+            "ctrl cmd z undo status change restore revert cancel complete edit move priority dependency order",
+        },
+        {
+          label: "Redo last change",
+          hint: "Ctrl+Y also works",
+          icon: Redo2,
+          keys: caps("redo.latest"),
+          action: "redo",
+          keywords:
+            "ctrl cmd y shift z redo reapply restore undone change task status capture edit move priority dependency order",
+        },
+        {
+          label: "Change active task priority",
+          hint: `${key("priority.lower")} lower, ${key("priority.raise")} higher, or 0-4 to jump straight there`,
+          icon: Flag,
+          keys: [...caps("priority.lower"), ...caps("priority.raise")],
+          keywords:
+            "[ ] bracket 0 1 2 3 4 p0 p1 p2 p3 p4 set raise lower active task priority number",
+        },
+        {
+          label: "Change active task effort",
+          hint: `${key("effort.smaller")} smaller, ${key("effort.bigger")} bigger, from tiny to huge`,
+          icon: ChevronsUp,
+          keys: [...caps("effort.smaller"), ...caps("effort.bigger")],
+          keywords:
+            ", . < > comma period effort size big small tiny huge large estimate active task",
+        },
+        {
+          label: "Switch active or inactive",
+          hint: `${key("filter.mode")} then S`,
+          icon: Circle,
+          keys: [...caps("filter.mode"), "S"],
+          action: "filter-status",
+          keywords: "f s active inactive filter paused done canceled cancelled show hide toggle",
+        },
+        {
+          label: "Show all statuses",
+          hint: `${key("filter.mode")} then A`,
+          icon: Circle,
+          keys: [...caps("filter.mode"), "A"],
+          action: "filter-status",
+          keywords: "f a all every status filter show",
+        },
+        {
+          label: "Exact status",
+          hint: `${key("filter.mode")} then O I D P X`,
+          icon: Circle,
+          keys: [...caps("filter.mode"), "O/I/D/P/X"],
+          action: "filter-status",
+          keywords: "f exact open in progress done paused canceled o i d p x status",
+        },
+        {
+          label: "Priority filter",
+          hint: `${key("filter.mode")} then 0-4, same key clears`,
+          icon: Flag,
+          keys: [...caps("filter.mode"), "0-4"],
+          action: "filter-priority",
+          keywords: "f 0 1 2 3 4 p0 p1 p2 p3 p4 priority flag filter",
+        },
+        {
+          label: "Show unblocked tasks",
+          icon: ShieldCheck,
+          keys: [...caps("filter.mode"), "U"],
+          keywords: "f u unblocked ready available no blockers dependency depends prerequisite",
+        },
+        {
+          label: "Filter by category",
+          hint: `Also ${key("filter.mode")} then C`,
+          icon: Folder,
+          keys: [...caps("filter.category"), `${key("filter.mode")} → C`],
+          action: "filter-category",
+          keywords: "@ f c category folder filter",
+        },
+        {
+          label: "Filter by tags",
+          hint: `Also ${key("filter.mode")} then T`,
+          icon: Tags,
+          keys: [...caps("filter.tags"), `${key("filter.mode")} → T`],
+          action: "filter-tags",
+          keywords: "# f t tags filter clear multi and",
+        },
+        {
+          label: "Rename a category or tag",
+          hint: "In the @ or # picker, on every task",
+          icon: PenLine,
+          keys: [modKey, "R"],
+          keywords: "ctrl cmd r rename category tag typo merge @ #",
+        },
+        {
+          label: "Search tasks",
+          hint: "Titles and notes",
+          icon: Search,
+          keys: caps("filter.search"),
+          action: "filter-search",
+          keywords: "slash search find title description fts query",
+        },
+        {
+          label: "Filter shortcuts",
+          hint: "Focus the toolbar; the same key closes",
+          icon: ListFilter,
+          keys: caps("filter.mode"),
+          keywords:
+            "f filter mode preset exact status priority category tags unblocked focus close toggle",
+        },
+        {
+          label: "Sort tasks",
+          hint: `Focus the toolbar; ${key("sort.mode")} then P by priority`,
+          icon: ArrowDownUp,
+          keys: [...caps("sort.mode"), "C/U/P/E/T/M/R"],
+          keywords:
+            "s order sort created updated priority effort due date deadline time manual reverse newest oldest direction focus close toggle",
+        },
+        {
+          label: "Select a task range",
+          hint: "Or Shift/Ctrl-click",
+          icon: ListChecks,
+          keys: ["Shift+↑/↓", "Shift+Home/End"],
+          keywords: "shift selection range sibling group multiselect pointer mouse click",
+        },
+        {
+          label: "Move selected tasks",
+          hint: "In manual order",
+          icon: ArrowDownUp,
+          keys: [`${modKey}+↑/↓`, `${modKey}+Home/End`],
+          keywords: "manual reorder move selected group beginning end up down",
+        },
+        {
+          label: "Show details of the active task",
+          hint: "Descriptions and timestamps",
+          icon: ListChevronsUpDown,
+          keys: caps("details.toggle-active"),
+          keywords:
+            "v view details description notes timestamps created updated time footer today yesterday date",
+        },
+        {
+          label: "Show details of all tasks",
+          hint: "Descriptions and timestamps",
+          icon: ListChevronsUpDown,
+          keys: caps("details.toggle-all"),
+          keywords:
+            "v view details description notes timestamps created updated time footer today yesterday date everything",
+        },
+        {
+          label: "Add blocker",
+          icon: Link2,
+          keys: caps("pick.blocker"),
+          action: "add-blocker",
+          keywords: "b blocked by dependency depends prerequisite",
+        },
+        {
+          label: "Move under…",
+          icon: CornerDownRight,
+          keys: caps("pick.parent"),
+          action: "move-under",
+          keywords: "m move under parent child hierarchy subtask",
+        },
+        {
+          label: "Open task menu",
+          hint: "Or the Menu key",
+          icon: Menu,
+          keys: caps("home.task-context-menu"),
+          keywords: "a actions menu key context right click long press",
+        },
+        {
+          label: "Cancel task",
+          hint: "Delete cancels immediately",
+          icon: Trash2,
+          keys: caps("status.cancel"),
+          keywords: "delete remove cancel cancelled status immediate",
+        },
+      ],
+    },
+    {
+      heading: "Navigation",
+      entries: [
+        {
+          label: "Move backward in dialogs",
+          icon: MoveLeft,
+          keys: ["Shift", "Tab"],
+          keywords: "shift tab backwards dialog fields",
+        },
+        {
+          label: "Move through tasks",
+          icon: ListChecks,
+          keys: ["↑", "↓", "Home", "End"],
+          keywords: "arrow keys up down first last highlight list",
+        },
+        {
+          label: "Navigate task hierarchy or category",
+          hint: "Right filters category first",
+          icon: ListChecks,
+          keys: ["←", "→"],
+          keywords: "left right arrow child children parent subtask hierarchy category filter",
+        },
+        {
+          label: "Filter a task by category",
+          hint: "Right on a task without a filter",
+          icon: Folder,
+          keys: ["→"],
+          keywords: "right arrow task parent leaf category filter children",
+        },
+      ],
+    },
+    {
+      heading: "Workspace",
+      entries: [
+        {
+          label: "Settings",
+          hint: "Storage and export",
+          icon: Settings2,
+          keys: caps("settings.open"),
+          action: "open-settings",
+          keywords: "ctrl cmd comma data export json sqlite database storage path",
+        },
+        {
+          label: "Themes",
+          hint: "Choose appearance",
+          action: "open-themes",
+          icon: Palette,
+          keys: caps("theme.picker"),
+          keywords: "alt theme colour color dark light accent palette",
+        },
+        {
+          label: "Done today",
+          hint: "Done in the last 24 hours",
+          action: "toggle-done-lens",
+          icon: CircleCheck,
+          keys: caps("done.lens"),
+          keywords: "accomplished finished completed recent history yesterday count",
+        },
+        {
+          label: "Due now",
+          hint: "Due today or late",
+          action: "toggle-due-lens",
+          icon: CalendarDays,
+          keys: caps("due.lens"),
+          keywords: "overdue late deadline today calendar date count",
+        },
+        {
+          label: "Changed by agents",
+          hint: "What agents changed since you last looked",
+          action: "toggle-agents-lens",
+          icon: Bot,
+          keys: caps("agents.lens"),
+          keywords: "agent claude cli activity history who changed bot ai",
+        },
+        {
+          label: "Look further back",
+          hint: "Done yesterday, then the last 7 days, then 30",
+          action: "widen-done-lens",
+          icon: CalendarCheck,
+          keys: caps("done.lens-window"),
+          keywords: "accomplished finished completed yesterday week month history",
+        },
+        {
+          label: "Toggle this palette",
+          icon: CircleHelp,
+          keys: caps("help.palette"),
+          keywords: "ctrl cmd open close help syntax",
+        },
+        {
+          label: "Close or go back",
+          hint: "Esc leaves the toolbar",
+          icon: Undo2,
+          keys: ["Esc", `${key("filter.mode")}/${key("sort.mode")}`],
+          keywords:
+            "escape palette toolbar focus title notes list edit reset clear filters mode close toggle",
+        },
+      ],
+    },
+    {
+      heading: "Syntax",
+      entries: [
+        {
+          label: "@category",
+          hint: "One per task",
+          icon: Folder,
+          keywords: "@launch people mentions title description",
+        },
+        {
+          label: "#tags",
+          hint: "Any number in title",
+          icon: Tags,
+          keywords: "#planning #calls title",
+        },
+        {
+          label: "!date",
+          hint: "Due: !fri !tmr !3d !oct31",
+          icon: CalendarDays,
+          keywords: "! due date deadline today tomorrow weekday week month year",
+        },
+      ],
+    },
+  ];
+}
+
+/** The key `id` has now, written like `Shift+C`, or Off. */
+function key(id: BindingId): string {
+  return caps(id).join("+") || "Off";
+}
 
 /** Search text that never shows up in the row but should still find it. */
 function entryKeywords(entry: HelpEntry): string[] {
@@ -542,6 +554,7 @@ export function HelpPalette({
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
   const questEntry = useQuestEntry();
+  useKeymap();
 
   return (
     <PaletteDialog
@@ -557,7 +570,7 @@ export function HelpPalette({
         <CommandInput ref={searchInput} placeholder="Search shortcuts or syntax…" />
         <CommandList label="Help results">
           <CommandEmpty>No matches. Try “Tab”, “@”, or “#”.</CommandEmpty>
-          {helpGroups.map((group, groupIndex) => (
+          {helpGroups().map((group, groupIndex) => (
             <Fragment key={group.heading}>
               {groupIndex > 0 ? <CommandSeparator /> : null}
               <CommandGroup heading={group.heading}>
@@ -631,11 +644,11 @@ export function HelpPalette({
                       <Icon aria-hidden="true" />
                       <span className="shrink-0 font-medium">{label}</span>
                       {hint ? <span className="truncate text-muted-foreground">{hint}</span> : null}
-                      {entry.keys ? (
+                      {entry.keys?.length ? (
                         <KeysShortcut>
                           <KbdGroup>
-                            {entry.keys.map((key) => (
-                              <Kbd key={key}>{key}</Kbd>
+                            {entry.keys.map((cap, index) => (
+                              <Kbd key={index}>{cap}</Kbd>
                             ))}
                           </KbdGroup>
                         </KeysShortcut>

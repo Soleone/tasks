@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Kbd } from "@/components/ui/kbd";
+import { bindingCaps, useKeymap, type BindingId } from "@/keymap";
 
 /** A large key cap for the quest card, so the key to press reads at a glance. */
 export function KeyCap({ className, ...props }: ComponentProps<typeof Kbd>) {
@@ -13,4 +14,11 @@ export function KeyCap({ className, ...props }: ComponentProps<typeof Kbd>) {
       {...props}
     />
   );
+}
+
+/** The key that does `id` now, as one cap like `Ctrl+K`, or nothing while it is off. */
+export function BindingKbd({ id }: { id: BindingId }) {
+  useKeymap();
+  const caps = bindingCaps(id);
+  return caps.length ? <Kbd>{caps.join("+")}</Kbd> : null;
 }

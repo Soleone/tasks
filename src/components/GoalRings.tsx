@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { Fragment } from "react";
 import { cn } from "cn";
-import { Kbd } from "@/components/ui/kbd";
+import { BindingKbd } from "@/components/variants/kbd";
 import { Tooltip } from "@/components/variants/tooltip";
 import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isMet, type GoalProgress, type GoalsToday } from "@/goals";
@@ -197,7 +197,7 @@ export function DoneTodayTip({
         </Line>
       ))}
       <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
-        {lensOn ? "Back to your list" : "Show what's done"} <Kbd>D</Kbd>
+        {lensOn ? "Back to your list" : "Show what's done"} <BindingKbd id="done.lens" />
       </span>
     </Columns>
   );

@@ -14,6 +14,7 @@ import {
 import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
 import { LearnIcon } from "./LearnIcon";
+import { expandKeys, useKeymap } from "@/keymap";
 
 function questStatus(quest: QuestView): string {
   if (quest.state === "active") return "Under way";
@@ -32,6 +33,7 @@ export function LearnPanel({
   onOpenPalette: () => void;
 }): ReactElement | null {
   const { moves, learned, learnedCount } = useLearning();
+  useKeymap();
   const { quests } = useQuests();
   if (!open) return null;
   const keyboard = moves.some((move) => move.keys);
@@ -158,8 +160,8 @@ export function LearnPanel({
                     </span>
                     {move.keys ? (
                       <KbdGroup>
-                        {move.keys.map((key) => (
-                          <Kbd key={key}>{key}</Kbd>
+                        {expandKeys(move.keys).map((cap, index) => (
+                          <Kbd key={index}>{cap}</Kbd>
                         ))}
                       </KbdGroup>
                     ) : null}

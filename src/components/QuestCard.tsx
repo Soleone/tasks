@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
 import { CircleCheck, CircleHelp, Hand, Pointer, Trophy } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/variants/button";
@@ -18,6 +18,7 @@ import {
 } from "@/learning/questProgress";
 import { reopenStep, type Quest } from "@/learning/quests";
 import { preventFocusSteal } from "@/navigation";
+import { bindingCaps, isBindingId, useKeymap } from "@/keymap";
 
 // Recap keys pop in one after another (`quest.complete`).
 const RECAP_STEP_MS = 150;
@@ -27,13 +28,26 @@ const SPARK_COUNT = 8;
 const CARD =
   "relative flex items-center gap-4 rounded-xl border bg-card p-4 text-card-foreground shadow-lg motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4";
 
-/** Quest text, with the parts in backticks shown as keys. */
+/** Quest text, with the parts in backticks shown as keys and an action's id as its key now. */
 function KeyedText({ text }: { text: string }): ReactElement {
   return (
     <>
-      {text
-        .split("`")
-        .map((part, index) => (index % 2 === 1 ? <Kbd key={index}>{part}</Kbd> : part))}
+      {text.split("`").map((part, index) =>
+        index % 2 === 0 ? (
+          part
+        ) : isBindingId(part) ? (
+          <Fragment key={index}>
+            {bindingCaps(part).map((cap, capIndex) => (
+              <Fragment key={capIndex}>
+                {capIndex > 0 && "+"}
+                <Kbd>{cap}</Kbd>
+              </Fragment>
+            ))}
+          </Fragment>
+        ) : (
+          <Kbd key={index}>{part}</Kbd>
+        ),
+      )}
     </>
   );
 }
@@ -50,6 +64,7 @@ function splitHint(text: string): [line: string, hint: string | undefined] {
  */
 export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | null {
   const { quests, active, offer, moment, ahead, editorOpen, welcome } = useQuests();
+  useKeymap();
   const cardRef = useRef<HTMLElement>(null);
   const showing = moment?.kind !== "complete" && Boolean(active ?? offer);
   useLayoutEffect(() => {
@@ -123,7 +138,7 @@ export function QuestCard({ onLearn }: { onLearn: () => void }): ReactElement | 
               className="size-10 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300"
             />
           ) : keys ? (
-            keys.map((key) => <KeyCap key={key}>{key}</KeyCap>)
+            keys.map((key, keyIndex) => <KeyCap key={keyIndex}>{key}</KeyCap>)
           ) : (
             <Pointer aria-hidden="true" className="size-8 text-muted-foreground" />
           )}

@@ -1,9 +1,9 @@
-import { isMobileApp, keyName, modKey } from "@/platform/runtime";
+import { isMobileApp, modKey } from "@/platform/runtime";
 
 /** Keyboard devices learn shortcuts; touch devices learn taps and gestures. */
 export type Device = "keyboard" | "touch";
 
-/** How one device learns a move. */
+/** How one device learns a move. A key that names an action stands for that action's key now (`keys.everywhere`). */
 type Lesson = { label: string; keys?: readonly string[] };
 
 type MoveDefinition = {
@@ -16,7 +16,7 @@ type MoveDefinition = {
 const MOVE_DEFINITIONS = [
   {
     id: "capture.open",
-    keyboard: { label: "New task", keys: ["C"] },
+    keyboard: { label: "New task", keys: ["capture.open"] },
     touch: { label: "Tap + for a new task" },
   },
   {
@@ -57,7 +57,7 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "status.forward",
-    keyboard: { label: "Start, then complete the active task", keys: ["Space"] },
+    keyboard: { label: "Start, then complete the active task", keys: ["status.forward"] },
     touch: { label: "Tap a status icon to start or complete a task" },
   },
   {
@@ -67,62 +67,62 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "priority.set",
-    keyboard: { label: "Raise or lower priority", keys: ["[", "]"] },
+    keyboard: { label: "Raise or lower priority", keys: ["priority.lower", "priority.raise"] },
     touch: { label: "Long-press a task to set its priority" },
   },
   {
     id: "effort.set",
-    keyboard: { label: "Make a task bigger or smaller", keys: [",", "."] },
+    keyboard: { label: "Make a task bigger or smaller", keys: ["effort.smaller", "effort.bigger"] },
     touch: { label: "Long-press a task to set its effort" },
   },
   {
     id: "status.back",
-    keyboard: { label: "Step a status back", keys: ["Shift", "Space"] },
+    keyboard: { label: "Step a status back", keys: ["status.back"] },
   },
   {
     id: "status.cancel",
-    keyboard: { label: "Cancel a task", keys: ["Delete"] },
+    keyboard: { label: "Cancel a task", keys: ["status.cancel"] },
   },
   {
     id: "status.pause",
-    keyboard: { label: "Pause or resume", keys: ["P"] },
+    keyboard: { label: "Pause or resume", keys: ["status.pause"] },
   },
   {
     id: "home.task-context-menu",
-    keyboard: { label: "Open the active task's menu", keys: ["A"] },
+    keyboard: { label: "Open the active task's menu", keys: ["home.task-context-menu"] },
     touch: { label: "Long-press a task for its actions" },
   },
   {
     id: "undo.latest",
-    keyboard: { label: "Undo", keys: [modKey, "Z"] },
+    keyboard: { label: "Undo", keys: ["undo.latest"] },
   },
   {
     id: "filter.mode",
-    keyboard: { label: "Filter, then a key", keys: ["F"] },
+    keyboard: { label: "Filter, then a key", keys: ["filter.mode"] },
   },
   {
     id: "sort.mode",
-    keyboard: { label: "Sort, then a key", keys: ["S"] },
+    keyboard: { label: "Sort, then a key", keys: ["sort.mode"] },
   },
   {
     id: "sort.priority",
-    keyboard: { label: "Most urgent first", keys: ["S", "P"] },
+    keyboard: { label: "Most urgent first", keys: ["sort.mode", "P"] },
   },
   {
     id: "sort.effort",
-    keyboard: { label: "Biggest first", keys: ["S", "E"] },
+    keyboard: { label: "Biggest first", keys: ["sort.mode", "E"] },
   },
   {
     id: "filter.search",
-    keyboard: { label: "Search", keys: ["/"] },
+    keyboard: { label: "Search", keys: ["filter.search"] },
   },
   {
     id: "filter.category",
-    keyboard: { label: "Filter by category", keys: ["@"] },
+    keyboard: { label: "Filter by category", keys: ["filter.category"] },
   },
   {
     id: "filter.tags",
-    keyboard: { label: "Filter by tag", keys: ["#"] },
+    keyboard: { label: "Filter by tag", keys: ["filter.tags"] },
   },
   {
     id: "filter.escape",
@@ -130,11 +130,11 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "capture.log",
-    keyboard: { label: "Log a task already done", keys: ["L"] },
+    keyboard: { label: "Log a task already done", keys: ["capture.log"] },
   },
   {
     id: "capture.child",
-    keyboard: { label: "New child of the active task", keys: ["Shift", "C"] },
+    keyboard: { label: "New child of the active task", keys: ["capture.child"] },
   },
   {
     id: "home.arrows",
@@ -162,12 +162,12 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "pick.parent",
-    keyboard: { label: "Move under another task", keys: ["M"] },
+    keyboard: { label: "Move under another task", keys: ["pick.parent"] },
     touch: { label: "Move a task under another" },
   },
   {
     id: "pick.blocker",
-    keyboard: { label: "Add or remove a blocker", keys: ["B"] },
+    keyboard: { label: "Add or remove a blocker", keys: ["pick.blocker"] },
     touch: { label: "Mark what blocks a task" },
   },
   {
@@ -184,53 +184,53 @@ const MOVE_DEFINITIONS = [
   },
   {
     id: "copy.text",
-    keyboard: { label: "Copy the active task's text", keys: [modKey, "C"] },
+    keyboard: { label: "Copy the active task's text", keys: ["copy.text"] },
   },
   {
     id: "attach.copy",
-    keyboard: { label: "Copy its newest image", keys: [modKey, "Shift", "C"] },
+    keyboard: { label: "Copy its newest image", keys: ["attach.copy"] },
   },
   {
     id: "done.lens",
-    keyboard: { label: "What you've done today", keys: ["D"] },
+    keyboard: { label: "What you've done today", keys: ["done.lens"] },
     touch: { label: "Tap the done count to see today's work" },
   },
   {
     id: "done.lens-window",
-    keyboard: { label: "Look further back for done tasks", keys: ["Shift", "D"] },
+    keyboard: { label: "Look further back for done tasks", keys: ["done.lens-window"] },
   },
   {
     id: "due.lens",
-    keyboard: { label: "What's due now", keys: ["!"] },
+    keyboard: { label: "What's due now", keys: ["due.lens"] },
     touch: { label: "Tap the due count to see what's due now" },
   },
   {
     id: "details.toggle-active",
-    keyboard: { label: "Show details of the active task", keys: ["V"] },
+    keyboard: { label: "Show details of the active task", keys: ["details.toggle-active"] },
   },
   {
     id: "details.toggle-all",
-    keyboard: { label: "Show details of every task", keys: ["Shift", "V"] },
+    keyboard: { label: "Show details of every task", keys: ["details.toggle-all"] },
   },
   {
     id: "help.palette",
-    keyboard: { label: "Every shortcut", keys: [modKey, "K"] },
+    keyboard: { label: "Every shortcut", keys: ["help.palette"] },
   },
   {
     id: "learn.panel",
-    keyboard: { label: "Quests and the keys you've learned", keys: ["?"] },
+    keyboard: { label: "Quests and the keys you've learned", keys: ["learn.panel"] },
   },
   {
     id: "theme.picker",
-    keyboard: { label: "Pick a theme", keys: [keyName("Alt"), "T"] },
+    keyboard: { label: "Pick a theme", keys: ["theme.picker"] },
   },
   {
     id: "settings.open",
-    keyboard: { label: "Settings", keys: [modKey, ","] },
+    keyboard: { label: "Settings", keys: ["settings.open"] },
   },
   {
     id: "settings.goals",
-    keyboard: { label: "Set a goal in Settings › Goals", keys: [modKey, ","] },
+    keyboard: { label: "Set a goal in Settings › Goals", keys: ["settings.open"] },
   },
 ] as const satisfies readonly MoveDefinition[];
 

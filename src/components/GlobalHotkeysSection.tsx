@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type ReactElement } from "react";
-import { Keyboard } from "lucide-react";
+import { Globe } from "lucide-react";
 import { Button } from "@/components/variants/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { CopyButton } from "@/components/CopyButton";
@@ -104,11 +104,11 @@ export function GlobalHotkeysSection(): ReactElement {
     >
       <div className="flex flex-col gap-1">
         <h2 id="settings-hotkeys" className="flex items-center gap-2 text-sm font-medium">
-          <Keyboard aria-hidden="true" className="size-4 text-muted-foreground" />
-          Hotkeys
+          <Globe aria-hidden="true" className="size-4 text-muted-foreground" />
+          From any app
         </h2>
         <p className="text-sm text-muted-foreground">
-          These work from any app, even while Tasks is in the background.
+          These work even while Tasks is in the background.
         </p>
       </div>
       <div className="flex flex-col gap-4">

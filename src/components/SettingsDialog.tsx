@@ -22,6 +22,7 @@ import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { AgentSetupSection } from "@/components/AgentSetupSection";
 import { DeleteTasksSection } from "@/components/DeleteTasksSection";
 import { GlobalHotkeysSection } from "@/components/GlobalHotkeysSection";
+import { KeysSection } from "@/components/KeysSection";
 import { CategoryColorsSection } from "@/components/CategoryColorsSection";
 import { DaysSection, GoalsSection } from "@/components/GoalsSection";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
@@ -204,7 +205,9 @@ export function SettingsDialog({
         <div className="pr-8">
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>Adjust appearance, quests, and workspace data.</DialogDescription>
+            <DialogDescription>
+              Adjust appearance, keys, quests, and workspace data.
+            </DialogDescription>
           </DialogHeader>
         </div>
 
@@ -220,7 +223,7 @@ export function SettingsDialog({
               </ReadableTabsTrigger>
               <ReadableTabsTrigger value="categories">Categories</ReadableTabsTrigger>
               <ReadableTabsTrigger value="goals">Goals</ReadableTabsTrigger>
-              {isDesktopApp() && <ReadableTabsTrigger value="hotkeys">Hotkeys</ReadableTabsTrigger>}
+              <ReadableTabsTrigger value="keys">Keys</ReadableTabsTrigger>
               <ReadableTabsTrigger value="workspace">Data</ReadableTabsTrigger>
               <ReadableTabsTrigger value="cleanup">Cleanup</ReadableTabsTrigger>
             </PhoneFitTabsList>
@@ -377,11 +380,12 @@ export function SettingsDialog({
               <GoalsSection open={open} />
             </StackedTabsContent>
 
-            {isDesktopApp() && (
-              <StackedTabsContent value="hotkeys" tabIndex={-1}>
-                <GlobalHotkeysSection />
-              </StackedTabsContent>
-            )}
+            <StackedTabsContent value="keys" tabIndex={-1}>
+              <div className="flex flex-col gap-4">
+                {isDesktopApp() && <GlobalHotkeysSection />}
+                <KeysSection />
+              </div>
+            </StackedTabsContent>
 
             <StackedTabsContent value="workspace" tabIndex={-1}>
               <div className="grid gap-4 md:grid-cols-2">

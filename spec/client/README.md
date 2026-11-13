@@ -30,7 +30,7 @@ The desktop, Android and web apps are one client. This folder describes what a p
 
 ## Keymap
 
-List keys work anywhere on the home screen while no field, editor or dialog has focus.
+List keys work anywhere on the home screen while no field, editor or dialog has focus. These are the defaults; Settings › Keys gives most of them other keys (`keys.rebind`).
 
 | Key | Action | Rule |
 | --- | --- | --- |

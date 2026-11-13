@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from "react";
 import { cn } from "cn";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { MoveId } from "@/learning/moves";
+import { bindingCaps, useKeymap, type BindingId } from "@/keymap";
 import { useLearning } from "@/learning/progress";
 import { Popover, PopoverDescription, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { GuidePopoverContent, InlinePopoverHeader } from "@/components/variants/popover";
@@ -23,15 +24,14 @@ type ShortcutGroup = {
 type ModeGuide = {
   title: string;
   description: string;
-  closeKey: string;
   groups: ShortcutGroup[];
 };
 
 const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   filter: {
     title: "Filter",
-    description: "Choose a filter option, or press F or Escape to return to the task list.",
-    closeKey: "F",
+    description:
+      "Choose a filter option, or press its key again or Escape to return to the task list.",
     groups: [
       {
         id: "status",
@@ -60,8 +60,8 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   },
   sort: {
     title: "Sort",
-    description: "Choose a sort option, or press S or Escape to return to the task list.",
-    closeKey: "S",
+    description:
+      "Choose a sort option, or press its key again or Escape to return to the task list.",
     groups: [
       {
         id: "order",
@@ -81,7 +81,10 @@ const MODE_GUIDES: Record<TaskListMode, ModeGuide> = {
   },
 };
 
-const MODE_MOVES: Record<TaskListMode, MoveId> = { filter: "filter.mode", sort: "sort.mode" };
+const MODE_MOVES: Record<TaskListMode, MoveId & BindingId> = {
+  filter: "filter.mode",
+  sort: "sort.mode",
+};
 
 // How long a practiced mode waits for its next key before showing the guide (`learn.hesitation`).
 const HESITATION_MS = 600;
@@ -94,6 +97,8 @@ export function TaskListModeHelp({
   onDismiss: () => void;
 }): ReactElement | null {
   const guide = MODE_GUIDES[mode];
+  useKeymap();
+  const closeKey = bindingCaps(MODE_MOVES[mode]).join("+");
   const { learned } = useLearning();
   // Decided once per mode: choosing an option, which learns the mode, also ends it.
   const [shown, setShown] = useState(() => !learned.has(MODE_MOVES[mode]));
@@ -131,8 +136,12 @@ export function TaskListModeHelp({
           <PopoverTitle>{guide.title}</PopoverTitle>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <KbdGroup>
-              <Kbd data-shortcut-key={guide.closeKey}>{guide.closeKey}</Kbd>
-              <span aria-hidden="true">or</span>
+              {closeKey && (
+                <>
+                  <Kbd data-shortcut-key={closeKey}>{closeKey}</Kbd>
+                  <span aria-hidden="true">or</span>
+                </>
+              )}
               <Kbd data-shortcut-key="Escape">Esc</Kbd>
             </KbdGroup>
             <span>close</span>

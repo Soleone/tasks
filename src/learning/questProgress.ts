@@ -3,6 +3,7 @@ import { CirclePause } from "lucide-react";
 import { showTaskToast } from "@/components/TaskToaster";
 import { readPreference, writePreference } from "@/platform/preferences";
 import { currentDevice, movesFor, type MoveId } from "./moves";
+import { expandKeys } from "@/keymap";
 import { questsFor, type Quest, type QuestId, type QuestStep } from "./quests";
 
 const PROGRESS_KEY = "tasks.questProgress";
@@ -118,7 +119,8 @@ function showMoment(next: QuestMoment | null, ms = SUCCESS_MS): void {
 
 /** The keys a step shows on this device, if it has any. */
 export function stepKeys(step: QuestStep): readonly string[] | undefined {
-  return step.keys ?? movesFor(currentDevice()).find((move) => move.id === step.move)?.keys;
+  const keys = step.keys ?? movesFor(currentDevice()).find((move) => move.id === step.move)?.keys;
+  return keys && expandKeys(keys);
 }
 
 /** Puts the quest under way aside at its step. */

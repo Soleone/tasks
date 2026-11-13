@@ -7,6 +7,7 @@ import type { TaskMoveDirection } from "./taskReordering";
 import type { TaskView } from "./taskView";
 import { practice } from "@/learning/progress";
 import { escapeFoundNothing } from "@/useAndroidBack";
+import { boundAction, type BindingId } from "@/keymap";
 
 const EXACT_STATUS_BY_KEY = new Map(
   EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]),
@@ -116,6 +117,231 @@ function sortChoice(key: string, actions: HomeShortcutActions): (() => void) | n
   return field ? () => actions.applySortField(field) : null;
 }
 
+/** Keys that keep working while held down. */
+const REPEATING: ReadonlySet<BindingId> = new Set([
+  "priority.raise",
+  "priority.lower",
+  "effort.bigger",
+  "effort.smaller",
+]);
+
+/** Selecting and reordering with Shift or Ctrl/⌘ and the arrows, which no one rebinds. */
+function moveSelection(event: KeyboardEvent, actions: HomeShortcutActions): boolean {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+    const direction =
+      event.key === "ArrowUp"
+        ? "up"
+        : event.key === "ArrowDown"
+          ? "down"
+          : event.key === "Home"
+            ? "start"
+            : event.key === "End"
+              ? "end"
+              : null;
+    if (direction === null) return false;
+    event.preventDefault();
+    if (direction === "start" || direction === "end")
+      practice("reorder.edge", "keys", direction === "start" ? "top" : "bottom");
+    else practice("reorder.step");
+    void actions.reorderSelection(direction);
+    return true;
+  }
+  if (!event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    practice("select.extend");
+    actions.moveActive(event.key === "ArrowUp" ? "previous" : "next", true);
+    return true;
+  }
+  if (event.key !== "Home" && event.key !== "End") return false;
+  event.preventDefault();
+  actions.selectBoundary(event.key === "Home" ? "start" : "end");
+  return true;
+}
+
+function undo(event: KeyboardEvent, actions: HomeShortcutActions): void {
+  if (!actions.canUndoStatus) return;
+  event.preventDefault();
+  practice("undo.latest");
+  actions.undoStatus();
+}
+
+function redo(event: KeyboardEvent, actions: HomeShortcutActions): void {
+  if (!actions.canRedo) return;
+  event.preventDefault();
+  actions.redo();
+}
+
+function stepPriority(
+  task: TaskView | undefined,
+  step: number,
+  actions: HomeShortcutActions,
+): void {
+  // Raising priority makes the number smaller.
+  const priority = task ? task.priority + step : -1;
+  if (!task || priority < 0 || priority > 4) return;
+  practice("priority.set", "keys", `P${priority}`);
+  void actions.setPriority(task, priority as TaskPriority);
+}
+
+function stepEffort(task: TaskView | undefined, step: number, actions: HomeShortcutActions): void {
+  const effort = task ? task.effort + step : 0;
+  if (!task || !isEffort(effort)) return;
+  practice("effort.set", "keys", EFFORT_LABELS[effort]);
+  void actions.setEffort(task, effort);
+}
+
+/** Does what a rebindable key asks for on the list (`keys.rebind`). */
+function runBinding(id: BindingId, event: KeyboardEvent, actions: HomeShortcutActions): void {
+  const task = actions.activeTask;
+  switch (id) {
+    // The app itself answers these, from anywhere.
+    case "help.palette":
+    case "learn.panel":
+    case "theme.picker":
+    case "settings.open":
+      return;
+    case "undo.latest":
+      return undo(event, actions);
+    case "redo.latest":
+      return redo(event, actions);
+    case "status.forward":
+    case "status.back":
+      if (isNativeButtonAction(event.target)) return;
+  }
+  event.preventDefault();
+  switch (id) {
+    case "capture.open":
+      practice("capture.open");
+      return actions.createTask();
+    case "capture.child":
+      practice("capture.child");
+      return actions.createTask(task?.id);
+    case "capture.log":
+      practice("capture.log");
+      return actions.logDoneTask();
+    case "status.forward":
+      if (!task) return;
+      practice("status.forward");
+      return void actions.toggleSelectedStatus();
+    case "status.back":
+      if (!task) return;
+      practice("status.back");
+      return void actions.reverseSelectedStatus();
+    case "status.pause":
+      practice("status.pause");
+      return void actions.pauseSelectedTasks();
+    case "status.cancel":
+      practice("status.cancel");
+      return void actions.deleteSelectedTasks();
+    case "priority.raise":
+      return stepPriority(task, -1, actions);
+    case "priority.lower":
+      return stepPriority(task, 1, actions);
+    case "effort.bigger":
+      return stepEffort(task, 1, actions);
+    case "effort.smaller":
+      return stepEffort(task, -1, actions);
+    case "copy.text":
+      practice("copy.text");
+      if (task) void actions.copyTask(task);
+      return;
+    case "attach.copy":
+      practice("attach.copy");
+      if (task) actions.copyImage(task);
+      return;
+    case "details.open-link":
+      if (task) actions.openLink(task);
+      return;
+    case "details.toggle-active":
+      if (!task) return;
+      practice("details.toggle-active");
+      return actions.toggleActiveDetails(task);
+    case "details.toggle-all":
+      practice("details.toggle-all");
+      return actions.toggleAllDetails();
+    case "pick.blocker":
+      if (!task) return;
+      practice("pick.blocker");
+      return actions.addBlocker(task);
+    case "pick.parent":
+      if (!task) return;
+      practice("pick.parent");
+      return actions.moveUnder(task);
+    case "home.task-context-menu":
+      if (task) actions.openTaskMenu(task);
+      return;
+    case "filter.mode":
+      return actions.startFilterMode();
+    case "sort.mode":
+      return actions.startSortMode();
+    case "filter.category":
+      practice("filter.category");
+      return actions.openCategoryPicker();
+    case "filter.tags":
+      practice("filter.tags");
+      return actions.openTagPicker();
+    case "filter.search":
+      practice("filter.search");
+      return actions.openSearch();
+    case "done.lens":
+      practice("done.lens");
+      return actions.toggleLens("done");
+    case "done.lens-window":
+      practice("done.lens-window");
+      return actions.widenDoneLens();
+    case "due.lens":
+      practice("due.lens");
+      return actions.toggleLens("due");
+    case "agents.lens":
+      return actions.toggleLens("agents");
+  }
+}
+
+/** The keys that always mean the same (`keys.fixed`). */
+function runFixedKey(event: KeyboardEvent, actions: HomeShortcutActions): void {
+  const task = actions.activeTask;
+  if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+    if (event.key.toLowerCase() === "y" && !event.repeat) redo(event, actions);
+    return;
+  }
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key === "ContextMenu") {
+    if (event.repeat) return;
+    event.preventDefault();
+    if (task) actions.openTaskMenu(task);
+  } else if (event.key >= "0" && event.key <= "4" && event.key.length === 1 && !event.shiftKey) {
+    if (event.repeat) return;
+    event.preventDefault();
+    if (task) {
+      practice("priority.set", "keys", `P${event.key}`);
+      void actions.setPriority(task, Number(event.key) as TaskPriority);
+    }
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    practice("home.arrows");
+    actions.moveActive(event.key === "ArrowDown" ? "next" : "previous");
+  } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    actions.handleHorizontalNavigation(event.key);
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    practice("home.home-end", "keys", "First");
+    actions.moveActive(0);
+  } else if (event.key === "End") {
+    event.preventDefault();
+    practice("home.home-end", "keys", "Last");
+    actions.moveActive(actions.visibleRowCount - 1);
+  } else if (event.key === "Enter") {
+    if (isNativeButtonAction(event.target)) return;
+    event.preventDefault();
+    if (task) {
+      practice("home.open-editor");
+      actions.editTask(task);
+    }
+  }
+}
+
 type HomeShortcutSurface = {
   toolbarModeRef: RefObject<ToolbarMode | null>;
   composerOpenRef: RefObject<boolean>;
@@ -160,312 +386,47 @@ export function useTaskListKeyboard(
       } else escapeFoundNothing();
       return;
     }
-    if (
-      toolbarModeRef.current !== null &&
-      event.altKey &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      event.key.toLowerCase() === "t"
-    ) {
-      // Let the app-level theme shortcut continue, but make its modal return
-      // target the task list rather than this temporary toolbar surface.
-      actions.returnToList();
-      return;
-    }
-    if (
-      toolbarModeRef.current !== null &&
-      (event.ctrlKey || event.metaKey) &&
-      !event.altKey &&
-      event.key.toLowerCase() === "k"
-    ) {
-      // The help palette is another app-level shortcut with a modal return
-      // target. Clear the toolbar first for the same reason as themes.
-      actions.returnToList();
-      return;
-    }
-    if (
-      (event.ctrlKey || event.metaKey) &&
-      !event.altKey &&
-      (event.key.toLowerCase() === "z" ||
-        (event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "y"))
-    ) {
-      if (toolbarModeRef.current !== null) return;
-      if (event.repeat || event.isComposing || event.keyCode === 229) return;
-      const redo = event.shiftKey || event.key.toLowerCase() === "y";
-      if (redo ? !actions.canRedo : !actions.canUndoStatus) return;
-      event.preventDefault();
-      if (redo) actions.redo();
-      else {
-        practice("undo.latest");
-        actions.undoStatus();
-      }
-      return;
-    }
-    if (
-      (event.ctrlKey || event.metaKey) &&
-      !event.altKey &&
-      event.shiftKey &&
-      event.key.toLowerCase() === "c"
-    ) {
-      if (event.repeat || event.isComposing || event.keyCode === 229) return;
-      event.preventDefault();
-      practice("attach.copy");
-      if (actions.activeTask) actions.copyImage(actions.activeTask);
-      return;
-    }
-    if (
-      (event.ctrlKey || event.metaKey) &&
-      !event.altKey &&
-      !event.shiftKey &&
-      event.key.toLowerCase() === "c"
-    ) {
-      if (event.repeat || event.isComposing || event.keyCode === 229) return;
-      event.preventDefault();
-      practice("copy.text");
-      if (actions.activeTask) void actions.copyTask(actions.activeTask);
-      return;
-    }
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
-      const moveDirection =
-        event.key === "ArrowUp"
-          ? "up"
-          : event.key === "ArrowDown"
-            ? "down"
-            : event.key === "Home"
-              ? "start"
-              : event.key === "End"
-                ? "end"
-                : null;
-      if (moveDirection !== null) {
-        if (event.isComposing || event.keyCode === 229) return;
-        event.preventDefault();
-        if (moveDirection === "start" || moveDirection === "end")
-          practice("reorder.edge", "keys", moveDirection === "start" ? "top" : "bottom");
-        else practice("reorder.step");
-        void actions.reorderSelection(moveDirection);
-        return;
-      }
-    }
-    if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        event.preventDefault();
-        practice("select.extend");
-        actions.moveActive(event.key === "ArrowUp" ? "previous" : "next", true);
-        return;
-      }
-      if (event.key === "Home") {
-        event.preventDefault();
-        actions.selectBoundary("start");
-        return;
-      }
-      if (event.key === "End") {
-        event.preventDefault();
-        actions.selectBoundary("end");
-        return;
-      }
-    }
-    if (
-      toolbarModeRef.current === null &&
-      (event.key === "ContextMenu" || (event.key.toLowerCase() === "a" && !event.shiftKey)) &&
-      !event.repeat &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
-      event.preventDefault();
-      if (actions.activeTask) actions.openTaskMenu(actions.activeTask);
-      return;
-    }
-    if (
-      event.isComposing ||
-      event.keyCode === 229 ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.altKey
-    )
-      return;
+    if (event.isComposing || event.keyCode === 229) return;
+    if (moveSelection(event, actions)) return;
 
-    // A toolbar mode owns the keyboard until an option is chosen or Escape
-    // returns focus to the task list. It has no timeout or fall-through to
-    // unrelated home shortcuts.
-    const activeToolbarMode = toolbarModeRef.current;
-    if (activeToolbarMode !== null) {
-      event.preventDefault();
-      if (event.repeat || event.shiftKey) return;
-      const key = event.key.toLowerCase();
-      // The mode's own key closes it again.
-      if (key === (activeToolbarMode === "filter" ? "f" : "s")) {
+    const id = boundAction(event);
+    // A toolbar mode owns the plain keys until an option is chosen or Escape returns focus to
+    // the task list. It has no timeout or fall-through to unrelated home shortcuts.
+    const mode = toolbarModeRef.current;
+    if (mode !== null) {
+      if (id === "theme.picker" || id === "help.palette" || id === "settings.open") {
+        // Let the app-level shortcut continue, but make its modal return target the task list
+        // rather than this temporary toolbar surface.
         actions.returnToList();
         return;
       }
-      const choice =
-        activeToolbarMode === "filter" ? filterChoice(key, actions) : sortChoice(key, actions);
+      if (id === "copy.text" || id === "attach.copy") {
+        if (!event.repeat) runBinding(id, event, actions);
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      event.preventDefault();
+      // The mode's own key closes it again.
+      if (id === `${mode}.mode`) {
+        actions.returnToList();
+        return;
+      }
+      if (event.repeat || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      const choice = mode === "filter" ? filterChoice(key, actions) : sortChoice(key, actions);
       if (!choice) return;
-      practice(activeToolbarMode === "filter" ? "filter.mode" : "sort.mode");
-      const sorted = activeToolbarMode === "sort" ? SORT_BY_KEY.get(key) : undefined;
+      practice(mode === "filter" ? "filter.mode" : "sort.mode");
+      const sorted = mode === "sort" ? SORT_BY_KEY.get(key) : undefined;
       if (sorted === "priority" || sorted === "effort") practice(`sort.${sorted}`);
       choice();
       return;
     }
-    if (event.key === "Delete") {
-      if (
-        event.repeat ||
-        event.isComposing ||
-        event.keyCode === 229 ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
-        event.shiftKey
-      )
-        return;
-      event.preventDefault();
-      practice("status.cancel");
-      void actions.deleteSelectedTasks();
+    if (id) {
+      if (event.repeat && !REPEATING.has(id)) return;
+      runBinding(id, event, actions);
       return;
     }
-    if (event.key === "/") {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice("filter.search");
-      actions.openSearch();
-    } else if (event.key === "@") {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice("filter.category");
-      actions.openCategoryPicker();
-    } else if (event.key === "#") {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice("filter.tags");
-      actions.openTagPicker();
-    } else if (event.key === "!") {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice("due.lens");
-      actions.toggleLens("due");
-    } else if (event.key.toLowerCase() === "a" && event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      actions.toggleLens("agents");
-    } else if (event.key.toLowerCase() === "o" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      if (actions.activeTask) actions.openLink(actions.activeTask);
-    } else if (event.key.toLowerCase() === "l" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice("capture.log");
-      actions.logDoneTask();
-    } else if (event.key.toLowerCase() === "c") {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice(event.shiftKey ? "capture.child" : "capture.open");
-      actions.createTask(event.shiftKey ? actions.activeTask?.id : undefined);
-    } else if (event.key.toLowerCase() === "f" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      actions.startFilterMode();
-    } else if (event.key.toLowerCase() === "s" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      actions.startSortMode();
-    } else if (event.key.toLowerCase() === "v") {
-      if (event.repeat) return;
-      event.preventDefault();
-      if (event.shiftKey) {
-        practice("details.toggle-all");
-        actions.toggleAllDetails();
-      } else if (actions.activeTask) {
-        practice("details.toggle-active");
-        actions.toggleActiveDetails(actions.activeTask);
-      }
-    } else if (event.key >= "0" && event.key <= "4" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      if (actions.activeTask) {
-        practice("priority.set", "keys", `P${event.key}`);
-        void actions.setPriority(actions.activeTask, Number(event.key) as TaskPriority);
-      }
-    } else if (event.key === "[" || event.key === "]") {
-      event.preventDefault();
-      const task = actions.activeTask;
-      // `]` raises priority, which is the smaller number.
-      const priority = task ? task.priority + (event.key === "]" ? -1 : 1) : -1;
-      if (task && priority >= 0 && priority <= 4) {
-        practice("priority.set", "keys", `P${priority}`);
-        void actions.setPriority(task, priority as TaskPriority);
-      }
-    } else if (event.key === "," || event.key === ".") {
-      event.preventDefault();
-      const task = actions.activeTask;
-      const effort = task ? task.effort + (event.key === "." ? 1 : -1) : 0;
-      if (task && isEffort(effort)) {
-        practice("effort.set", "keys", EFFORT_LABELS[effort]);
-        void actions.setEffort(task, effort);
-      }
-    } else if (event.key.toLowerCase() === "d") {
-      if (event.repeat) return;
-      event.preventDefault();
-      if (event.shiftKey) {
-        practice("done.lens-window");
-        actions.widenDoneLens();
-      } else {
-        practice("done.lens");
-        actions.toggleLens("done");
-      }
-    } else if (event.key.toLowerCase() === "b") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      if (actions.activeTask) {
-        practice("pick.blocker");
-        actions.addBlocker(actions.activeTask);
-      }
-    } else if (event.key.toLowerCase() === "m") {
-      if (event.repeat || event.shiftKey) return;
-      event.preventDefault();
-      if (actions.activeTask) {
-        practice("pick.parent");
-        actions.moveUnder(actions.activeTask);
-      }
-    } else if (event.key.toLowerCase() === "p" && !event.shiftKey) {
-      if (event.repeat) return;
-      event.preventDefault();
-      practice("status.pause");
-      void actions.pauseSelectedTasks();
-    } else if (event.key === " ") {
-      if (event.repeat || isNativeButtonAction(event.target)) return;
-      event.preventDefault();
-      if (actions.activeTask) {
-        practice(event.shiftKey ? "status.back" : "status.forward");
-        void (event.shiftKey ? actions.reverseSelectedStatus() : actions.toggleSelectedStatus());
-      }
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      practice("home.arrows");
-      actions.moveActive("next");
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      practice("home.arrows");
-      actions.moveActive("previous");
-    } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-      event.preventDefault();
-      actions.handleHorizontalNavigation(event.key);
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      practice("home.home-end", "keys", "First");
-      actions.moveActive(0);
-    } else if (event.key === "End") {
-      event.preventDefault();
-      practice("home.home-end", "keys", "Last");
-      actions.moveActive(actions.visibleRowCount - 1);
-    } else if (event.key === "Enter") {
-      if (isNativeButtonAction(event.target)) return;
-      event.preventDefault();
-      if (actions.activeTask) {
-        practice("home.open-editor");
-        actions.editTask(actions.activeTask);
-      }
-    }
+    runFixedKey(event, actions);
   });
 
   // Keep one window listener so state changes cannot leave a gap between

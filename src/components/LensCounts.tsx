@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { Bot, CalendarDays, CircleCheck } from "lucide-react";
 import { preventFocusSteal } from "@/navigation";
-import { Kbd } from "@/components/ui/kbd";
+import { BindingKbd } from "@/components/variants/kbd";
+import { ariaShortcut, type BindingId } from "@/keymap";
 import { Tooltip } from "@/components/variants/tooltip";
 import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleButton } from "@/components/variants/button";
@@ -33,7 +34,7 @@ function LensCount({
 }: LensCountProps & {
   kind: ListLens["kind"];
   label: string;
-  shortcut: string;
+  shortcut: BindingId;
   showLabel: string;
   holdPlace?: boolean;
   /** Shown even at zero, as the done count is while goals are set. */
@@ -55,7 +56,7 @@ function LensCount({
             aria-pressed={lensOn}
             tabIndex={-1}
             aria-label={`${total} ${label}`}
-            aria-keyshortcuts={shortcut}
+            aria-keyshortcuts={ariaShortcut(shortcut)}
             data-lens-count={kind}
             onMouseDown={preventFocusSteal}
             onClick={onToggleLens}
@@ -67,7 +68,7 @@ function LensCount({
       <TooltipContent>
         {tip ?? (
           <>
-            {lensOn ? "Back to your list" : showLabel} <Kbd>{shortcut}</Kbd>
+            {lensOn ? "Back to your list" : showLabel} <BindingKbd id={shortcut} />
           </>
         )}
       </TooltipContent>
@@ -138,7 +139,7 @@ export function DoneToday({
       tip={shownGoals && <DoneTodayTip today={shownGoals} lensOn={props.lensOn} />}
       kind="done"
       label="done today"
-      shortcut="D"
+      shortcut="done.lens"
       showLabel="Show what's done"
     >
       {shownGoals ? (
@@ -191,7 +192,13 @@ export function DoneToday({
 /** Open tasks due today or late, in red so the count stands apart from the accent in every theme. */
 export function DueNow(props: LensCountProps): ReactElement | null {
   return (
-    <LensCount {...props} kind="due" label="due now" shortcut="!" showLabel="Show what's due">
+    <LensCount
+      {...props}
+      kind="due"
+      label="due now"
+      shortcut="due.lens"
+      showLabel="Show what's due"
+    >
       <CalendarDays data-icon="inline-start" aria-hidden="true" className="text-destructive" />
       <span className="text-destructive" data-lens-number>
         {props.total}
@@ -213,7 +220,7 @@ export function AgentChanges({
       {...props}
       kind="agents"
       label="changed by agents"
-      shortcut="Shift+A"
+      shortcut="agents.lens"
       showLabel={`Show what ${agents.length === 1 ? agents[0] : "agents"} changed`}
     >
       <Bot data-icon="inline-start" aria-hidden="true" />

@@ -1,8 +1,9 @@
 import type { Device, MoveId } from "./moves";
-import { keyName, modKey } from "@/platform/runtime";
+import { modKey } from "@/platform/runtime";
 
 /**
- * One step of a quest (`quest.step`). Text in backticks shows as keys, and `{}` in the success
+ * One step of a quest (`quest.step`). Text in backticks shows as keys, an action's id as the key it
+ * has now (`keys.everywhere`), and `{}` in the success
  * line is what was typed, like the category's name.
  */
 export type QuestStep = {
@@ -33,7 +34,7 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "capture.open",
-        prompt: "Press `C` to create your first task",
+        prompt: "Press `capture.open` to create your first task",
         success: "New task",
       },
       {
@@ -49,20 +50,24 @@ const QUEST_DEFINITIONS = [
         success: "Saved",
         inEditor: true,
       },
-      { move: "status.forward", prompt: "Press `Space` to start the task", success: "In progress" },
       {
         move: "status.forward",
-        prompt: "Press `Space` again to complete it",
+        prompt: "Press `status.forward` to start the task",
+        success: "In progress",
+      },
+      {
+        move: "status.forward",
+        prompt: "Press `status.forward` again to complete it",
         success: "Done",
       },
       {
         move: "done.lens",
-        prompt: "Press `D` to see what you've done today",
+        prompt: "Press `done.lens` to see what you've done today",
         success: "Done today",
       },
       {
         move: "done.lens",
-        prompt: "Press `D` again to go back to your previous view",
+        prompt: "Press `done.lens` again to go back to your previous view",
         success: "Back where you were",
       },
     ],
@@ -102,7 +107,7 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "capture.open",
-        prompt: "Press `C` for a new task",
+        prompt: "Press `capture.open` for a new task",
         success: "New task",
       },
       {
@@ -125,7 +130,8 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "capture.open",
-        prompt: "Press `C` for another task. While you see one category, new tasks start in it",
+        prompt:
+          "Press `capture.open` for another task. While you see one category, new tasks start in it",
         success: "New task",
       },
       {
@@ -141,7 +147,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "filter.category",
-        prompt: "Press `@` and pick a category to see only its tasks",
+        prompt: "Press `filter.category` and pick a category to see only its tasks",
         success: "Category filter. `Enter` picks one",
       },
       {
@@ -173,30 +179,31 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "priority.set",
-        prompt: "How urgent is it? Press `]` to raise the task's priority or `[` to lower it",
+        prompt:
+          "How urgent is it? Press `priority.raise` to raise the task's priority or `priority.lower` to lower it",
         success: "Priority set to {}",
       },
       {
         move: "effort.set",
         prompt:
-          "Big job or a quick one? Press `.` to make the task bigger or `,` to make it smaller",
+          "Big job or a quick one? Press `effort.bigger` to make the task bigger or `effort.smaller` to make it smaller",
         success: "Effort {}",
       },
       {
         move: "sort.priority",
-        prompt: "Press `S`, then `P` to put the most urgent first",
+        prompt: "Press `sort.mode`, then `P` to put the most urgent first",
         success: "Most urgent first",
       },
       {
         move: "sort.effort",
-        prompt: "Press `S`, then `E` to put the biggest first",
+        prompt: "Press `sort.mode`, then `E` to put the biggest first",
         success: "Biggest first",
       },
       {
         move: "sort.mode",
-        prompt: "Press `S`, then `C` to go back to newest first",
+        prompt: "Press `sort.mode`, then `C` to go back to newest first",
         success: "Sorted",
-        keys: ["S", "C"],
+        keys: ["sort.mode", "C"],
       },
     ],
     touch: [
@@ -219,7 +226,7 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "capture.open",
-        prompt: "Press `C` for a new task",
+        prompt: "Press `capture.open` for a new task",
         success: "New task",
       },
       {
@@ -243,17 +250,17 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "due.lens",
-        prompt: "Press `!` to see what's due now",
+        prompt: "Press `due.lens` to see what's due now",
         success: "Due now",
       },
       {
         move: "due.lens",
-        prompt: "Press `!` again to go back to your previous view",
+        prompt: "Press `due.lens` again to go back to your previous view",
         success: "Back where you were",
       },
       {
         move: "filter.tags",
-        prompt: "Press `#` and pick a tag to see only tasks with it",
+        prompt: "Press `filter.tags` and pick a tag to see only tasks with it",
         success: "Tag filter. `Enter` picks one",
       },
       {
@@ -305,7 +312,7 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "capture.open",
-        prompt: "Press `C` to create a task to practice on",
+        prompt: "Press `capture.open` to create a task to practice on",
         success: "New task",
       },
       {
@@ -314,21 +321,25 @@ const QUEST_DEFINITIONS = [
         success: "Saved",
         inEditor: true,
       },
-      { move: "status.forward", prompt: "Press `Space` to start it", success: "In progress" },
+      {
+        move: "status.forward",
+        prompt: "Press `status.forward` to start it",
+        success: "In progress",
+      },
       {
         move: "status.back",
-        prompt: "Started too soon? Press `Shift`+`Space` to step back",
+        prompt: "Started too soon? Press `status.back` to step back",
         success: "Open",
       },
-      { move: "status.pause", prompt: "Press `P` to pause it", success: "Paused" },
+      { move: "status.pause", prompt: "Press `status.pause` to pause it", success: "Paused" },
       {
         move: "undo.latest",
-        prompt: `Changed your mind? Press \`${modKey}\`+\`Z\` to undo`,
+        prompt: "Changed your mind? Press `undo.latest` to undo",
         success: "Undone",
       },
       {
         move: "status.cancel",
-        prompt: "Press `Delete` to cancel the practice task",
+        prompt: "Press `status.cancel` to cancel the practice task",
         success: "Canceled",
       },
     ],
@@ -350,12 +361,12 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "filter.mode",
-        prompt: "Press `F`, then one of the keys it shows to filter the list",
+        prompt: "Press `filter.mode`, then one of the keys it shows to filter the list",
         success: "Filtered",
       },
       {
         move: "filter.search",
-        prompt: "Press `/` to search",
+        prompt: "Press `filter.search` to search",
         success: "Searching. `Enter` applies it",
       },
       {
@@ -372,7 +383,7 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "capture.child",
-        prompt: "Press `Shift`+`C` for a task under the active one",
+        prompt: "Press `capture.child` for a task under the active one",
         success: "New child task",
       },
       {
@@ -394,12 +405,12 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "pick.parent",
-        prompt: "Press `M` to move the active task under another one",
+        prompt: "Press `pick.parent` to move the active task under another one",
         success: "Moving. Pick its new parent",
       },
       {
         move: "pick.blocker",
-        prompt: "Press `B` to say which task blocks the active one",
+        prompt: "Press `pick.blocker` to say which task blocks the active one",
         success: "Adding a blocker. Pick what's in the way",
       },
       {
@@ -469,18 +480,18 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "attach.copy",
-        prompt: `Press \`${modKey}\`+\`Shift\`+\`C\` to copy its image`,
+        prompt: "Press `attach.copy` to copy its image",
         success: "Image copied",
       },
       {
         move: "details.toggle-active",
-        prompt: "Press `V` to see its description in the list",
-        success: "Details shown. `V` again hides them",
+        prompt: "Press `details.toggle-active` to see its description in the list",
+        success: "Details shown. `details.toggle-active` again hides them",
       },
       {
         move: "details.toggle-all",
-        prompt: "Press `Shift`+`V` to show the details of every task",
-        success: "Details for every task. `Shift`+`V` again hides them",
+        prompt: "Press `details.toggle-all` to show the details of every task",
+        success: "Details for every task. `details.toggle-all` again hides them",
       },
     ],
   },
@@ -516,7 +527,7 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "copy.text",
-        prompt: `Press \`${modKey}\`+\`C\` to copy the task's text, ready to paste anywhere`,
+        prompt: "Press `copy.text` to copy the task's text, ready to paste anywhere",
         success: "Copied",
       },
     ],
@@ -528,12 +539,14 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "settings.goals",
-        prompt: `Press \`${modKey}\`+\`,\` for settings, then under Goals type how many tasks you'd like done a day`,
+        prompt:
+          "Press `settings.open` for settings, then under Goals type how many tasks you'd like done a day",
         success: "Goal set",
       },
       {
         move: "capture.log",
-        prompt: "Press `Esc` to close settings, then `L` to log something you already did",
+        prompt:
+          "Press `Esc` to close settings, then `capture.log` to log something you already did",
         success: "Logging",
       },
       {
@@ -544,12 +557,12 @@ const QUEST_DEFINITIONS = [
       },
       {
         move: "done.lens",
-        prompt: "Press `D` to see how each goal is going",
+        prompt: "Press `done.lens` to see how each goal is going",
         success: "Done today",
       },
       {
         move: "done.lens",
-        prompt: "Press `D` again to go back to your previous view",
+        prompt: "Press `done.lens` again to go back to your previous view",
         success: "Back where you were",
       },
     ],
@@ -561,43 +574,43 @@ const QUEST_DEFINITIONS = [
     keyboard: [
       {
         move: "theme.picker",
-        prompt: `Press \`${keyName("Alt")}\`+\`T\` to pick a theme. \`Esc\` closes it without changing anything`,
+        prompt: "Press `theme.picker` to pick a theme. `Esc` closes it without changing anything",
         success: "Themes",
       },
       {
         move: "settings.open",
-        prompt: `Press \`${modKey}\`+\`,\` for settings. \`Esc\` closes them`,
+        prompt: "Press `settings.open` for settings. `Esc` closes them",
         success: "Settings",
       },
       {
         move: "done.lens-window",
-        prompt: "Press `Shift`+`D` to see what you've done this week",
-        success: "Done this week. `Shift`+`D` again looks further back",
+        prompt: "Press `done.lens-window` to see what you've done this week",
+        success: "Done this week. `done.lens-window` again looks further back",
       },
       {
         move: "done.lens",
-        prompt: "Press `D` to go back to your previous view",
+        prompt: "Press `done.lens` to go back to your previous view",
         success: "Back where you were",
       },
       {
         move: "home.task-context-menu",
         prompt:
-          "Forgot a key? Press `A` for everything you can do with the active task. `Esc` closes it",
+          "Forgot a key? Press `home.task-context-menu` for everything you can do with the active task. `Esc` closes it",
         success: "Task actions",
       },
       {
         move: "help.palette",
-        prompt: `Press \`${modKey}\`+\`K\` for every shortcut there is. \`Esc\` closes it`,
+        prompt: "Press `help.palette` for every shortcut there is. `Esc` closes it",
         success: "Every shortcut",
       },
       {
         move: "learn.panel",
-        prompt: "Press `?` to see every quest and the keys you've learned",
+        prompt: "Press `learn.panel` to see every quest and the keys you've learned",
         success: "Your progress",
       },
       {
         move: "learn.panel",
-        prompt: "Press `?` again to close it",
+        prompt: "Press `learn.panel` again to close it",
         success: "Closed",
       },
     ],
@@ -621,7 +634,7 @@ export function questsFor(device: Device): Quest[] {
 const REOPEN_STEPS: Record<Device, QuestStep> = {
   keyboard: {
     move: "home.open-editor",
-    prompt: "Press `Enter` to open the active task, or `C` for a new one",
+    prompt: "Press `Enter` to open the active task, or `capture.open` for a new one",
     success: "Editing",
   },
   touch: {

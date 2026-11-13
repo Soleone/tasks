@@ -55,8 +55,8 @@ async function openHotkeys() {
   await user.keyboard("{Control>},{/Control}");
   await waitFor(() => expect(document.activeElement?.textContent).toBe("General"));
   await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}");
-  await waitFor(() => expect(document.activeElement?.textContent).toBe("Hotkeys"));
-  return { user, panel: within(screen.getByRole("tabpanel")) };
+  await waitFor(() => expect(document.activeElement?.textContent).toBe("Keys"));
+  return { user, panel: within(screen.getByRole("region", { name: "From any app" })) };
 }
 
 const PICKED = { focus: "Ctrl+Alt+Space", create: "Ctrl+Alt+N" };

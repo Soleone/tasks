@@ -62,7 +62,6 @@ import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { takeCapture, type Capture } from "@/platform/mobileImages";
 import { ToggleButton } from "@/components/variants/button";
 import { ButtonRow } from "@/components/variants/button-group";
-import { Kbd } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/variants/tooltip";
 import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
@@ -77,7 +76,9 @@ import { practice, useLearning } from "@/learning/progress";
 import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
 import { renameCategorySettings } from "@/platform/sharedSettings";
-import { isMobileApp, keyName } from "@/platform/runtime";
+import { isMobileApp } from "@/platform/runtime";
+import { ariaShortcut, boundAction } from "@/keymap";
+import { BindingKbd } from "@/components/variants/kbd";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 import { takeUserThemeProblems } from "@/theme/userThemes";
 
@@ -495,45 +496,38 @@ export default function App({
       target instanceof HTMLElement &&
       (target.matches("input, textarea, [contenteditable=true]") ||
         target.closest('[role="dialog"], [data-inline-task-editor]') !== null);
-    if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey && !typing) {
-      event.preventDefault();
-      toggleLearn("keys");
-      return;
-    }
     if (event.key === "Escape" && learnOpen) {
       event.preventDefault();
       setLearnOpen(false);
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key === ",") {
+    const id = boundAction(event);
+    // A plain key types into fields and dialogs; only Ctrl/⌘ or Alt keys reach past them.
+    if (typing && !event.ctrlKey && !event.metaKey && !event.altKey) return;
+    if (id === "learn.panel") {
+      event.preventDefault();
+      toggleLearn("keys");
+    } else if (id === "settings.open") {
       event.preventDefault();
       if (settingsOpen) setSettingsOpen(false);
       else {
         practice("settings.open");
         openSettings();
       }
-      return;
-    }
-    // On macOS, Option+T types "†", so the physical T key counts too.
-    const t = event.key.toLowerCase() === "t" || event.code === "KeyT";
-    if (event.altKey && !event.ctrlKey && !event.metaKey && t) {
+    } else if (id === "theme.picker") {
       event.preventDefault();
       if (themesOpen) setThemesOpen(false);
       else {
         practice("theme.picker");
         openThemes();
       }
-      return;
-    }
-    if (event.altKey) return;
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    } else if (id === "help.palette") {
       event.preventDefault();
       if (helpOpen) setHelpOpen(false);
       else {
         practice("help.palette");
         openHelp();
       }
-      return;
     }
   });
   useEffect(() => {
@@ -957,7 +951,7 @@ export default function App({
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
-                      aria-keyshortcuts="Shift+/"
+                      aria-keyshortcuts={ariaShortcut("learn.panel")}
                       onMouseDown={preventFocusSteal}
                       onClick={() => toggleLearn("pointer")}
                     />
@@ -975,7 +969,7 @@ export default function App({
                   <span className="sr-only">Learn</span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Learn <Kbd>?</Kbd>
+                  Learn <BindingKbd id="learn.panel" />
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -986,7 +980,7 @@ export default function App({
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
-                      aria-keyshortcuts="Alt+t"
+                      aria-keyshortcuts={ariaShortcut("theme.picker")}
                       onMouseDown={preventFocusSteal}
                       onClick={() => {
                         practice("theme.picker", "pointer");
@@ -999,7 +993,7 @@ export default function App({
                   <span className="sr-only">Themes</span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Themes <Kbd>{keyName("Alt")} T</Kbd>
+                  Themes <BindingKbd id="theme.picker" />
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -1010,7 +1004,7 @@ export default function App({
                       variant="ghost"
                       size="icon"
                       tabIndex={-1}
-                      aria-keyshortcuts="Control+, Meta+,"
+                      aria-keyshortcuts={ariaShortcut("settings.open")}
                       onMouseDown={preventFocusSteal}
                       onClick={() => {
                         practice("settings.open", "pointer");
