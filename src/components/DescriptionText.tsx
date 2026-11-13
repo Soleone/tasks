@@ -202,10 +202,16 @@ export function DescriptionText({
   });
 }
 
-/** The description as typed, every character in place, styled as its Markdown reads (`edit.description-preview`). */
+/**
+ * The description as typed, every character in place, styled as its Markdown reads
+ * (`edit.description-preview`). Each checklist box carries its offset in `data-box`.
+ */
 export function DescriptionSource({ text }: { text: string }): ReactNode {
+  let lineStart = 0;
   return text.split("\n").map((line, index) => {
     const item = listItem(line);
+    const start = lineStart;
+    lineStart += line.length + 1;
     return (
       // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
       <Fragment key={index}>
@@ -217,9 +223,14 @@ export function DescriptionSource({ text }: { text: string }): ReactNode {
             </Drawn>{" "}
             {item.box ? (
               <>
-                <Drawn typed={item.box}>
-                  <Checkbox done={item.done} className="" />
-                </Drawn>{" "}
+                <span
+                  data-box={start + item.indent.length + item.dash.length + 1}
+                  className="pointer-events-auto cursor-pointer"
+                >
+                  <Drawn typed={item.box}>
+                    <Checkbox done={item.done} className="" />
+                  </Drawn>
+                </span>{" "}
               </>
             ) : null}
             <span className={cn(item.done && "text-muted-foreground")}>

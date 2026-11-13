@@ -60,12 +60,24 @@ export function InlineDescription({
         value={value}
         {...props}
       />
+      {/* Only its checklist boxes take the pointer: a press ticks or unticks one in the field's
+          text, keeping focus and the caret where they were. */}
       <div
         aria-hidden
         className={cn(
           DESCRIPTION_TYPE,
           "pointer-events-none wrap-break-word whitespace-pre-wrap text-foreground/80",
         )}
+        onMouseDown={(event) => {
+          const box = (event.target as Element).closest<HTMLElement>("[data-box]");
+          const field = event.currentTarget.parentElement?.querySelector("textarea");
+          if (!box || !field || field.readOnly) return;
+          event.preventDefault();
+          const start = Number(box.dataset.box);
+          const done = field.value.slice(start, start + 3) !== "[ ]";
+          field.setRangeText(done ? "[ ]" : "[x]", start, start + 3, "preserve");
+          field.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+        }}
       >
         <DescriptionSource text={value} />
       </div>

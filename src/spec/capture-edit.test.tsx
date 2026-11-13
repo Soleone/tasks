@@ -270,6 +270,9 @@ describe("inside the editor", () => {
     await user.type(field, "{Shift>}{Enter}{/Shift}- [[x] done");
     expect(preview.textContent).toBe(`${field.value}\n`);
     expect(preview.querySelector("[aria-label=Done]")).not.toBeNull();
+    await user.click(preview.querySelector("[aria-label=Done]")!);
+    expect(field.value).toMatch(/- \[ \] done$/);
+    expect(document.activeElement).toBe(field);
   });
 
   test("edit.description-list: Enter continues a list, and on an empty item ends it", async () => {
