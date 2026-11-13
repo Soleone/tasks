@@ -3,6 +3,7 @@ import { Keyboard, RotateCcw } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/variants/button";
 import { Checkbox } from "@/components/variants/checkbox";
+import { Hinted } from "@/components/Hinted";
 import { Input } from "@/components/variants/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
@@ -178,16 +179,20 @@ export function KeysSection(): ReactElement {
                           <span className="text-muted-foreground">Off</span>
                         )}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className={cn(!isChanged && "invisible")}
-                        aria-label={`Reset ${name} to ${keyCaps(defaultKey(id)).join("+")}`}
-                        title={`Back to ${keyCaps(defaultKey(id)).join("+")}`}
-                        onClick={() => choose(id, defaultKey(id))}
+                      <Hinted
+                        hint={`Back to ${keyCaps(defaultKey(id)).join("+")}`}
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className={cn(!isChanged && "invisible")}
+                            aria-label={`Reset ${name} to ${keyCaps(defaultKey(id)).join("+")}`}
+                            onClick={() => choose(id, defaultKey(id))}
+                          />
+                        }
                       >
                         <RotateCcw aria-hidden="true" />
-                      </Button>
+                      </Hinted>
                     </span>
                     {clash?.id === id && (
                       <ClashNote
