@@ -257,6 +257,18 @@ describe("inside the editor", () => {
     await screen.findByPlaceholderText("Write in Markdown…");
   });
 
+  test("edit.description-preview: Markdown typed in the description is styled with every character kept", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Task");
+    await user.click(within(editor()).getByRole("button", { name: /description/i }));
+    const field = await screen.findByPlaceholderText<HTMLTextAreaElement>("Write in Markdown…");
+    await user.type(field, "- **Bold** and _under_ snake_case");
+    const preview = field.nextElementSibling!;
+    expect(preview.textContent).toBe(`${field.value}\n`);
+    expect(preview.querySelector("strong")?.textContent).toBe("Bold");
+    expect(preview.querySelector("em")?.textContent).toBe("under");
+  });
+
   test("edit.description-visible: opening the description scrolls it into view", async () => {
     const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
     const { user } = await workspace.render();

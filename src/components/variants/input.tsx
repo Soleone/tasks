@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Input as StockInput } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DescriptionSource } from "@/components/DescriptionText";
 import { FOCUS_RING } from "./focus";
 
 /** Setup fields use the same keyboard focus ring as the rest of the app. */
@@ -36,17 +37,39 @@ export function InlineTitleInput({ className, ...props }: ComponentProps<typeof 
   );
 }
 
-/** The description in the type Details shows it in, growing with its text until it scrolls. */
-export function InlineDescription({ className, ...props }: ComponentProps<typeof Textarea>) {
+const DESCRIPTION_TYPE = "col-start-1 row-start-1 text-xs leading-normal md:text-xs";
+
+/**
+ * The description in the type Details shows it in, growing with its text until it scrolls. The
+ * field's own text is invisible: the same text lies over it with its Markdown styled.
+ */
+export function InlineDescription({
+  className,
+  value,
+  ...props
+}: ComponentProps<typeof Textarea> & { value: string }) {
   return (
-    <Textarea
-      className={cn(
-        BARE,
-        "max-h-80 min-h-0 resize-none overflow-y-auto text-xs leading-normal text-foreground/80 md:text-xs",
-        className,
-      )}
-      {...props}
-    />
+    <div className="grid max-h-80 overflow-y-auto">
+      <Textarea
+        className={cn(
+          BARE,
+          DESCRIPTION_TYPE,
+          "min-h-0 resize-none overflow-hidden text-transparent selection:text-transparent",
+          className,
+        )}
+        value={value}
+        {...props}
+      />
+      <div
+        aria-hidden
+        className={cn(
+          DESCRIPTION_TYPE,
+          "pointer-events-none wrap-break-word whitespace-pre-wrap text-foreground/80",
+        )}
+      >
+        <DescriptionSource text={value} />
+      </div>
+    </div>
   );
 }
 

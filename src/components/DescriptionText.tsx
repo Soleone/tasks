@@ -8,7 +8,15 @@ import { showTaskToast } from "@/components/TaskToaster";
 const INLINE =
   /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<>"'`]+|\*\*(\S(?:.*?\S)?)\*\*|(?<!\w)\*(\S(?:.*?\S)?)\*(?!\w)|(?<!\w)_(\S(?:.*?\S)?)_(?!\w)/g;
 
-const LIST_ITEM = /^\s*[-*] (.*)$/;
+const LIST_ITEM = /^(\s*[-*] )(.*)$/;
+
+// The editor draws this over its own text, so nothing here may change a letter's width: bold is a
+// stroke, not a weight.
+const SOURCE_BOLD = "font-normal text-foreground [-webkit-text-stroke:0.4px_currentColor]";
+
+function Mark({ children }: { children: string }) {
+  return <span className="text-muted-foreground/60">{children}</span>;
+}
 
 function DescriptionLink({ url, children }: { url: string; children: ReactNode }) {
   return (
@@ -30,9 +38,11 @@ function DescriptionLink({ url, children }: { url: string; children: ReactNode }
   );
 }
 
-function inline(text: string): ReactNode[] {
+/** One line's inline Markdown. `source` keeps every character, with the marks dimmed. */
+function inline(text: string, source: boolean): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern = new RegExp(INLINE);
+  const mark = (value: string) => (source ? <Mark>{value}</Mark> : null);
   let end = 0;
   for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
     const [whole, label, target, bold, starred, underscored] = match;
@@ -41,19 +51,29 @@ function inline(text: string): ReactNode[] {
     let node: ReactNode;
     if (bold) {
       node = (
-        <strong key={key} className="font-semibold">
-          {inline(bold)}
-        </strong>
+        <Fragment key={key}>
+          {mark("**")}
+          <strong className={source ? SOURCE_BOLD : "font-semibold"}>{inline(bold, source)}</strong>
+          {mark("**")}
+        </Fragment>
       );
     } else if (starred ?? underscored) {
-      node = <em key={key}>{inline(starred ?? underscored ?? "")}</em>;
+      node = (
+        <Fragment key={key}>
+          {mark(whole.charAt(0))}
+          <em>{inline(starred ?? underscored ?? "", source)}</em>
+          {mark(whole.charAt(0))}
+        </Fragment>
+      );
     } else if (!canOpenLinks()) {
       continue;
     } else if (target) {
       node = (
-        <DescriptionLink key={key} url={target}>
-          {label}
-        </DescriptionLink>
+        <Fragment key={key}>
+          {mark("[")}
+          <DescriptionLink url={target}>{label}</DescriptionLink>
+          {mark(`](${target})`)}
+        </Fragment>
       );
     } else {
       // The address without the punctuation that ends its sentence, which is read again as text.
@@ -82,13 +102,28 @@ export function DescriptionText({ text }: { text: string }): ReactNode {
       // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
       <span key={index} className="block pl-3 -indent-3">
         <span className="inline-block w-3 indent-0">•</span>
-        {inline(item[1] ?? "")}
+        {inline(item[2] ?? "", false)}
       </span>
     ) : (
       // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
       <Fragment key={index}>
-        {inline(line)}
+        {inline(line, false)}
         {index < lines.length - 1 ? "\n" : null}
+      </Fragment>
+    );
+  });
+}
+
+/** The description as typed, every character in place, styled as its Markdown reads (`edit.description-preview`). */
+export function DescriptionSource({ text }: { text: string }): ReactNode {
+  return text.split("\n").map((line, index) => {
+    const item = LIST_ITEM.exec(line);
+    return (
+      // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
+      <Fragment key={index}>
+        {item ? <Mark>{item[1] ?? ""}</Mark> : null}
+        {inline(item ? (item[2] ?? "") : line, true)}
+        {"\n"}
       </Fragment>
     );
   });
