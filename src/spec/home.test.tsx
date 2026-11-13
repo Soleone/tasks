@@ -711,24 +711,49 @@ describe("details", () => {
     expect(screen.queryByText("Notes B")).toBeNull();
   });
 
-  test("details.links: a web address in shown notes opens without selecting the row, and the text stays as stored", async () => {
+  test("details.links: a web address in shown notes opens without selecting the row, and its sentence's punctuation stays outside", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     await workspace.create("Other");
     await workspace.create("A", {
-      description: "See (https://example.com/pr/1?a=b). Then **rest**",
+      description: "See (https://example.com/pr/1?a=b). Then [the docs](https://example.com/docs)",
     });
     const { user } = await workspace.render();
     await user.keyboard("{Shift>}v{/Shift}{ArrowDown}");
     await expectActive("Other");
     const link = await screen.findByRole("link", { name: "https://example.com/pr/1?a=b" });
     expect(link.closest("[data-task-description]")?.textContent).toBe(
-      "See (https://example.com/pr/1?a=b). Then **rest**",
+      "See (https://example.com/pr/1?a=b). Then the docs",
+    );
+    expect(screen.getByRole<HTMLAnchorElement>("link", { name: "the docs" }).href).toBe(
+      "https://example.com/docs",
     );
     expect(link.tabIndex).toBe(-1);
     await user.click(link);
     expect(open).toHaveBeenCalledWith("https://example.com/pr/1?a=b", "_blank", expect.any(String));
     await expectActive("Other");
     open.mockRestore();
+  });
+
+  test("details.markdown: shown notes format list items, bold and italic, and leave marks inside words", async () => {
+    await workspace.create("A", {
+      description: "**Bold** and *star* and _under_\n- one **two**\n* three\nsnake_case_name 2*3*4",
+    });
+    const { user } = await workspace.render();
+    await user.keyboard("{Shift>}v{/Shift}");
+    const notes = await waitFor(() => {
+      const found = row("A").querySelector("[data-task-description]");
+      if (!found) throw new Error("no description");
+      return found;
+    });
+    expect([...notes.querySelectorAll("strong")].map((node) => node.textContent)).toEqual([
+      "Bold",
+      "two",
+    ]);
+    expect([...notes.querySelectorAll("em")].map((node) => node.textContent)).toEqual([
+      "star",
+      "under",
+    ]);
+    expect(notes.textContent).toBe("Bold and star and under\n•one two•threesnake_case_name 2*3*4");
   });
 
   test("details.open-link: O opens the active task's first link, and says when there is none", async () => {
