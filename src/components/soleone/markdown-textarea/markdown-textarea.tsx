@@ -82,12 +82,16 @@ function ListMarker({ item }: { item: NonNullable<ReturnType<typeof listItem>> }
   )
 }
 
-function Link({ url, onOpen, children }: { url: string; onOpen: (url: string) => void; children: ReactNode }) {
+const LINK = "underline decoration-foreground/40 underline-offset-2"
+
+/** A link that opens with `onOpen`, or without it the link's look alone, as the editor shows it. */
+function Link({ url, onOpen, children }: { url: string; onOpen?: (url: string) => void; children: ReactNode }) {
+  if (!onOpen) return <span className={LINK}>{children}</span>
   return (
     <a
       href={url}
       tabIndex={-1}
-      className="underline decoration-foreground/40 underline-offset-2 hover:decoration-foreground"
+      className={cn(LINK, "hover:decoration-foreground")}
       // Opening a link leaves focus where it was.
       onMouseDown={(event) => event.preventDefault()}
       onClick={(event) => {
@@ -128,7 +132,7 @@ function inline(text: string, source: boolean, onOpenLink?: (url: string) => voi
           {mark(whole.charAt(0))}
         </Fragment>
       )
-    } else if (!onOpenLink) {
+    } else if (!onOpenLink && !source) {
       continue
     } else if (target) {
       node = (

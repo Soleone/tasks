@@ -267,6 +267,15 @@ describe("inside the editor", () => {
     expect(preview.textContent).toBe(`${field.value}\n`);
     expect(preview.querySelector("strong")?.textContent).toBe("Bold");
     expect(preview.querySelector("em")?.textContent).toBe("under");
+    await user.type(
+      field,
+      "{Shift>}{Enter}{/Shift}[[site](https://a.example) and https://b.example.",
+    );
+    expect([...preview.querySelectorAll(".underline")].map((link) => link.textContent)).toEqual([
+      "site",
+      "https://b.example",
+    ]);
+    expect(preview.querySelector("a")).toBeNull();
     await user.type(field, "{Shift>}{Enter}{/Shift}- [[x] done");
     expect(preview.textContent).toBe(`${field.value}\n`);
     expect(preview.querySelector("[aria-label=Done]")).not.toBeNull();
