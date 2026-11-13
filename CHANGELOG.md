@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.2](https://github.com/Soleone/tasks/compare/v0.6.1...v0.6.2) (2026-11-13)
+
+### Features
+
+* **keys:** change any shortcut in Settings › Keys ([758ac36](https://github.com/Soleone/tasks/commit/758ac361ccf74a0bfd5f1b7f2f15b523936b4a1d))
+* **notes:** continue lists on Enter and tick checklist boxes from the list ([0f32f2b](https://github.com/Soleone/tasks/commit/0f32f2babb2c8c9f1a293b62c407eabf713c2479))
+* **notes:** show list dashes as dots and GitHub-style checklists as boxes ([24fcfa7](https://github.com/Soleone/tasks/commit/24fcfa7cc9d6a440fd8f37221ffe88e9e2d3ddec))
+* **notes:** show list items, bold, italic and named links in a task's notes ([fda90ff](https://github.com/Soleone/tasks/commit/fda90ffee33a118d1f4991396b9db0b1a9d1f915))
+* **notes:** style Markdown in the description while you type ([97a3e11](https://github.com/Soleone/tasks/commit/97a3e11f9b96d26f263ad689dcf3e286b5c42479))
+* **notes:** tick checklist boxes while editing a description ([bf7531c](https://github.com/Soleone/tasks/commit/bf7531cad4336683dacae8857f973d7c549f0e01))
+
+### Bug Fixes
+
+* **keys:** show the reset hint as a tooltip instead of a native title ([ec41b60](https://github.com/Soleone/tasks/commit/ec41b60d1dc1fd60eb4cf38a80cc3bcb929ddee9))
+* **notes:** close the gap between a checklist box and its text ([ea067e8](https://github.com/Soleone/tasks/commit/ea067e8da68684db8d00cec5c835b60c60cd12f9))
+* **notes:** line checklist boxes up with list dots, and keep notes in place when editing ([f3e63c9](https://github.com/Soleone/tasks/commit/f3e63c952c91101d2009abc51ddbf8f2fe1fd833))
+* **notes:** underline links in the description while editing ([b15f7cb](https://github.com/Soleone/tasks/commit/b15f7cb310496e779829b5add542c3d025077d52))
+
 ## [0.6.1](https://github.com/Soleone/tasks/compare/v0.6.0...v0.6.1) (2026-11-12)
 
 ### Features
