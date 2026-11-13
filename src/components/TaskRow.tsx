@@ -30,7 +30,9 @@ import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { Hinted } from "./Hinted";
-import { DescriptionText } from "./DescriptionText";
+import { MarkdownText } from "@/components/soleone/markdown-textarea";
+import { canOpenLinks, openLink } from "@/platform/links";
+import { showTaskToast } from "./TaskToaster";
 import { flyCategoryToFilter } from "./categoryFlight";
 import { useSharedSettings } from "@/platform/sharedSettings";
 import { startAfterPaint } from "./startAfterPaint";
@@ -635,6 +637,13 @@ function TaskRowFooter({
   );
 }
 
+// Details shows links (`details.links`), except on the phone apps, which can't open them yet.
+function openDescriptionLink(url: string): void {
+  void openLink(url).catch((error: unknown) =>
+    showTaskToast(error instanceof Error ? error.message : String(error)),
+  );
+}
+
 /**
  * Shared task presentation. The parent owns the outer wrapper (list option
  * or picker result), selection styling, and activation; this renders the
@@ -719,9 +728,10 @@ export function TaskRow({
         ) : null}
         {variant === "full" && showDetails && task.description ? (
           <TaskItemDescription data-task-description>
-            <DescriptionText
+            <MarkdownText
               text={task.description}
               onChange={onEditDescription && ((text) => onEditDescription(task, text))}
+              onOpenLink={canOpenLinks() ? openDescriptionLink : undefined}
             />
           </TaskItemDescription>
         ) : null}

@@ -754,15 +754,14 @@ describe("details", () => {
       "star",
       "under",
     ]);
-    expect(notes.textContent).toBe(
-      "Bold and star and under\n•one two•threedoneopensnake_case_name 2*3*4",
+    // List markers keep their typed width with invisible characters, which no one sees.
+    const shown = notes.cloneNode(true) as Element;
+    for (const hidden of shown.querySelectorAll(".invisible")) hidden.remove();
+    expect(shown.textContent).toBe(
+      "Bold and star and under\n one two three done opensnake_case_name 2*3*4",
     );
-    expect(notes.querySelector("[aria-label=Done]")?.closest("span.block")?.textContent).toBe(
-      "done",
-    );
-    expect(notes.querySelector("[aria-label='To do']")?.closest("span.block")?.textContent).toBe(
-      "open",
-    );
+    expect(screen.getByRole("checkbox", { name: "done", checked: true })).not.toBeNull();
+    expect(screen.getByRole("checkbox", { name: "open", checked: false })).not.toBeNull();
   });
 
   test("details.checklist: clicking a checklist box in Details ticks it and saves", async () => {

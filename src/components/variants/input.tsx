@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { cn } from "cn";
 import { Input as StockInput } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DescriptionSource } from "@/components/DescriptionText";
+import { MarkdownTextarea } from "@/components/soleone/markdown-textarea";
 import { FOCUS_RING } from "./focus";
 
 /** Setup fields use the same keyboard focus ring as the rest of the app. */
@@ -37,51 +37,22 @@ export function InlineTitleInput({ className, ...props }: ComponentProps<typeof 
   );
 }
 
-const DESCRIPTION_TYPE = "col-start-1 row-start-1 text-xs leading-normal md:text-xs";
-
 /**
- * The description in the type Details shows it in, growing with its text until it scrolls. The
- * field's own text is invisible: the same text lies over it with its Markdown styled.
+ * The description in the type Details shows it in, its Markdown styled as typed, growing with its
+ * text until it scrolls. Like the title, it carries no box.
  */
 export function InlineDescription({
   className,
-  value,
   ...props
-}: ComponentProps<typeof Textarea> & { value: string }) {
+}: ComponentProps<typeof MarkdownTextarea>) {
   return (
-    <div className="grid max-h-80 overflow-y-auto">
-      <Textarea
-        className={cn(
-          BARE,
-          DESCRIPTION_TYPE,
-          "min-h-0 resize-none overflow-hidden text-transparent selection:text-transparent",
-          className,
-        )}
-        value={value}
-        {...props}
-      />
-      {/* Only its checklist boxes take the pointer: a press ticks or unticks one in the field's
-          text, keeping focus and the caret where they were. */}
-      <div
-        aria-hidden
-        className={cn(
-          DESCRIPTION_TYPE,
-          "pointer-events-none wrap-break-word whitespace-pre-wrap text-foreground/80",
-        )}
-        onMouseDown={(event) => {
-          const box = (event.target as Element).closest<HTMLElement>("[data-box]");
-          const field = event.currentTarget.parentElement?.querySelector("textarea");
-          if (!box || !field || field.readOnly) return;
-          event.preventDefault();
-          const start = Number(box.dataset.box);
-          const done = field.value.slice(start, start + 3) !== "[ ]";
-          field.setRangeText(done ? "[ ]" : "[x]", start, start + 3, "preserve");
-          field.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
-        }}
-      >
-        <DescriptionSource text={value} />
-      </div>
-    </div>
+    <MarkdownTextarea
+      className={cn(
+        "max-h-80 rounded-none border-0 p-0 text-xs text-foreground/80 caret-primary focus-within:ring-0 md:text-xs [&_textarea]:placeholder:text-muted-foreground/70",
+        className,
+      )}
+      {...props}
+    />
   );
 }
 

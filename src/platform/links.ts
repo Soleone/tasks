@@ -4,7 +4,7 @@ import { isMobileApp, runtimeKind } from "./runtime";
 const LINK = /https?:\/\/[^\s<>"'`]+/g;
 
 /** Splits text into plain runs and the web links in it; the runs joined are the text unchanged. */
-export function linkParts(text: string): (string | { url: string })[] {
+function linkParts(text: string): (string | { url: string })[] {
   const parts: (string | { url: string })[] = [];
   let end = 0;
   for (const match of text.matchAll(LINK)) {
