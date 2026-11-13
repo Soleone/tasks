@@ -765,6 +765,23 @@ describe("details", () => {
     );
   });
 
+  test("details.checklist: clicking a checklist box in Details ticks it and saves", async () => {
+    const task = await workspace.create("A", { description: "Steps\r\n- [ ] open\n- [x] done" });
+    const { user } = await workspace.render();
+    await user.keyboard("{Shift>}v{/Shift}");
+    const open = await screen.findByRole("checkbox", { name: "open" });
+    const selected = row("A").getAttribute("aria-selected");
+    await user.click(open);
+    await waitFor(async () =>
+      expect((await workspace.task(task.id)).description).toBe("Steps\r\n- [x] open\n- [x] done"),
+    );
+    expect(row("A").getAttribute("aria-selected")).toBe(selected);
+    await user.click(screen.getByRole("checkbox", { name: "done" }));
+    await waitFor(async () =>
+      expect((await workspace.task(task.id)).description).toBe("Steps\r\n- [x] open\n- [ ] done"),
+    );
+  });
+
   test("details.open-link: O opens the active task's first link, and says when there is none", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     await workspace.create("Plain");

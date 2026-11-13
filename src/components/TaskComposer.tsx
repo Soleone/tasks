@@ -52,6 +52,7 @@ import { enterEditor, leaveEditor } from "@/learning/questProgress";
 import { InlineDescription, InlineTitleInput } from "@/components/variants/input";
 import { isMobileApp, modKey } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
+import { listEnter } from "./DescriptionText";
 import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
 
@@ -909,6 +910,24 @@ export function TaskComposer({
               if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
                 event.preventDefault();
                 focusAfter("description", event.shiftKey);
+                return;
+              }
+              const field = event.currentTarget;
+              const edit =
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.altKey &&
+                field.selectionStart === field.selectionEnd
+                  ? listEnter(field.value, field.selectionStart)
+                  : null;
+              if (edit) {
+                event.preventDefault();
+                field.setRangeText(edit.insert, edit.start, edit.end, "end");
+                field.dispatchEvent(
+                  new InputEvent("input", { bubbles: true, inputType: "insertText" }),
+                );
                 return;
               }
               if (event.key === "Escape") {

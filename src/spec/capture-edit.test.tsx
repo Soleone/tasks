@@ -267,9 +267,21 @@ describe("inside the editor", () => {
     expect(preview.textContent).toBe(`${field.value}\n`);
     expect(preview.querySelector("strong")?.textContent).toBe("Bold");
     expect(preview.querySelector("em")?.textContent).toBe("under");
-    await user.type(field, "{Enter}- [[x] done");
+    await user.type(field, "{Shift>}{Enter}{/Shift}- [[x] done");
     expect(preview.textContent).toBe(`${field.value}\n`);
     expect(preview.querySelector("[aria-label=Done]")).not.toBeNull();
+  });
+
+  test("edit.description-list: Enter continues a list, and on an empty item ends it", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Task");
+    await user.click(within(editor()).getByRole("button", { name: /description/i }));
+    const field = await screen.findByPlaceholderText<HTMLTextAreaElement>("Write in Markdown…");
+    await user.type(
+      field,
+      "- one{Enter}two{Enter}{Enter}  - [[x] three{Enter}four{Shift>}{Enter}{/Shift}x",
+    );
+    expect(field.value).toBe("- one\n- two\n  - [x] three\n  - [ ] four\nx");
   });
 
   test("edit.description-visible: opening the description scrolls it into view", async () => {

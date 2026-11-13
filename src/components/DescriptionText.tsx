@@ -119,8 +119,42 @@ function inline(text: string, source: boolean): ReactNode[] {
   return nodes;
 }
 
-/** A task's description with its basic Markdown shown: list and checklist items, bold, italic and links (`details.markdown`). */
-export function DescriptionText({ text }: { text: string }): ReactNode {
+/**
+ * What Enter types at `caret` in a list item: the next item's marker, or, on an empty item, the
+ * marker's removal, which ends the list (`edit.description-list`). Null outside a list.
+ */
+export function listEnter(text: string, caret: number) {
+  const start = text.lastIndexOf("\n", caret - 1) + 1;
+  const end = text.indexOf("\n", caret);
+  const item = listItem(text.slice(start, caret));
+  if (!item) return null;
+  if (!listItem(text.slice(start, end === -1 ? undefined : end))?.rest.trim())
+    return { start, end: caret, insert: "" };
+  return {
+    start: caret,
+    end: caret,
+    insert: `\n${item.indent}${item.dash} ${item.box ? "[ ] " : ""}`,
+  };
+}
+
+/** The description with the checklist box on line `index` ticked or unticked. */
+function toggled(text: string, index: number, done: boolean): string {
+  const lines = text.split(/(?<=\n)/);
+  lines[index] = lines[index]!.replace(/\[[ xX]\]/, done ? "[ ]" : "[x]");
+  return lines.join("");
+}
+
+/**
+ * A task's description with its basic Markdown shown: list and checklist items, bold, italic and
+ * links (`details.markdown`). With `onChange`, clicking a checklist box ticks it (`details.checklist`).
+ */
+export function DescriptionText({
+  text,
+  onChange,
+}: {
+  text: string;
+  onChange?: (text: string) => void;
+}): ReactNode {
   return text.split(/\r?\n/).map((line, index, lines) => {
     const item = listItem(line);
     return item ? (
@@ -133,7 +167,23 @@ export function DescriptionText({ text }: { text: string }): ReactNode {
           item.done && "text-muted-foreground",
         )}
       >
-        {item.box ? (
+        {item.box && onChange ? (
+          // A pointer shortcut inside a list option, like a tag.
+          <span
+            role="checkbox"
+            aria-checked={item.done}
+            aria-label={item.rest}
+            tabIndex={-1}
+            className="inline-block w-4 cursor-pointer indent-0"
+            onMouseDown={preventFocusSteal}
+            onClick={(event) => {
+              event.stopPropagation();
+              onChange(toggled(text, index, item.done));
+            }}
+          >
+            <Checkbox done={item.done} className="inline align-[-0.125em]" />
+          </span>
+        ) : item.box ? (
           <span className="inline-block w-4 indent-0">
             <Checkbox done={item.done} className="inline align-[-0.125em]" />
           </span>

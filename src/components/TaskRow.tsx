@@ -658,6 +658,7 @@ export function TaskRow({
   onSelectCategory,
   onSelectTag,
   onCopyImage,
+  onEditDescription,
 }: {
   task: TaskView;
   variant: TaskRowVariant;
@@ -677,6 +678,7 @@ export function TaskRow({
   onSelectCategory?: (category: ClassificationToken) => void;
   onSelectTag?: (tag: ClassificationToken) => void;
   onCopyImage?: (task: TaskView) => void;
+  onEditDescription?: (task: TaskView, description: string) => void;
 }): ReactElement {
   const blocker = variant === "full" ? taskBlocker(task, blockedByLabels) : null;
   const category = task.category?.slug !== hiddenCategorySlug ? (task.category ?? null) : null;
@@ -717,7 +719,10 @@ export function TaskRow({
         ) : null}
         {variant === "full" && showDetails && task.description ? (
           <TaskItemDescription data-task-description>
-            <DescriptionText text={task.description} />
+            <DescriptionText
+              text={task.description}
+              onChange={onEditDescription && ((text) => onEditDescription(task, text))}
+            />
           </TaskItemDescription>
         ) : null}
         {variant === "full" && showDetails ? (

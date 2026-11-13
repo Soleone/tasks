@@ -40,8 +40,11 @@ export type LiteralContent = Pick<
   TaskProjection,
   "title" | "description" | "priority" | "category" | "tags"
 >;
-/** A one-key change from the list: a new priority or a new effort. */
-export type LevelChange = Pick<TaskProjection, "priority"> | Pick<TaskProjection, "effort">;
+/** A one-field change from the list: a new priority or effort, or a ticked checklist box. */
+export type LevelChange =
+  | Pick<TaskProjection, "priority">
+  | Pick<TaskProjection, "effort">
+  | Pick<TaskProjection, "description">;
 export type InlineDraft = Pick<TaskProjection, "description" | "priority" | "attachments"> & {
   text: string;
   /** Logs a new task as already done at this time (`create.logged`). */

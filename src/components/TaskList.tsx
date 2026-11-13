@@ -1436,7 +1436,8 @@ export function TaskList({
       },
       (previous, result) => {
         if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
-        if (result.changed !== false)
+        // The status glyph shows priority and effort, not the description.
+        if (result.changed !== false && !("description" in change))
           setGlyphFeedback({ taskId: task.id, version: result.task.version });
         announce(`${task.title}: ${label}`);
       },
@@ -1604,6 +1605,10 @@ export function TaskList({
     onAnnounce(`Showing tasks tagged ${tag.label}`);
   });
   const handleOptionCopyImage = useStableHandler(copyNewestImage);
+  const handleOptionEditDescription = useStableHandler(
+    (task: TaskView, description: string): void =>
+      void setTaskLevel(task, { description }, "checklist updated"),
+  );
   const handleOptionContextActions = useStableHandler(contextActions);
 
   useTaskListKeyboard(
@@ -2009,6 +2014,7 @@ export function TaskList({
                     onSelectCategory={handleOptionSelectCategory}
                     onSelectTag={handleOptionSelectTag}
                     onCopyImage={handleOptionCopyImage}
+                    onEditDescription={handleOptionEditDescription}
                   />
                 ),
               )}

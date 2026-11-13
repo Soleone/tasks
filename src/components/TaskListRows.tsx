@@ -46,6 +46,7 @@ type TaskOptionProps = {
   onSelectCategory: (category: ClassificationToken) => void;
   onSelectTag: (tag: ClassificationToken) => void;
   onCopyImage: (task: TaskView) => void;
+  onEditDescription: (task: TaskView, description: string) => void;
 };
 
 export const TaskOption = memo(function TaskOption({
@@ -72,6 +73,7 @@ export const TaskOption = memo(function TaskOption({
   onSelectCategory,
   onSelectTag,
   onCopyImage,
+  onEditDescription,
 }: TaskOptionProps): ReactElement {
   const { task } = row;
   const blockedByLabels = task.blockedByIds
@@ -120,6 +122,7 @@ export const TaskOption = memo(function TaskOption({
           onSelectCategory={onSelectCategory}
           onSelectTag={onSelectTag}
           onCopyImage={onCopyImage}
+          onEditDescription={onEditDescription}
           statusSlot={
             <TaskStatusToggle
               task={task}
