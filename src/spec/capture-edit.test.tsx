@@ -267,6 +267,9 @@ describe("inside the editor", () => {
     expect(preview.textContent).toBe(`${field.value}\n`);
     expect(preview.querySelector("strong")?.textContent).toBe("Bold");
     expect(preview.querySelector("em")?.textContent).toBe("under");
+    await user.type(field, "{Enter}- [[x] done");
+    expect(preview.textContent).toBe(`${field.value}\n`);
+    expect(preview.querySelector("[aria-label=Done]")).not.toBeNull();
   });
 
   test("edit.description-visible: opening the description scrolls it into view", async () => {

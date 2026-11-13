@@ -1,4 +1,6 @@
 import { Fragment, type ReactNode } from "react";
+import { Square, SquareCheck } from "lucide-react";
+import { cn } from "cn";
 import { preventFocusSteal } from "@/navigation";
 import { canOpenLinks, linkParts, openLink } from "@/platform/links";
 import { showTaskToast } from "@/components/TaskToaster";
@@ -8,7 +10,20 @@ import { showTaskToast } from "@/components/TaskToaster";
 const INLINE =
   /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<>"'`]+|\*\*(\S(?:.*?\S)?)\*\*|(?<!\w)\*(\S(?:.*?\S)?)\*(?!\w)|(?<!\w)_(\S(?:.*?\S)?)_(?!\w)/g;
 
-const LIST_ITEM = /^(\s*[-*] )(.*)$/;
+// A list item, or with `[ ]` or `[x]` after its dash a checklist item as GitHub writes them.
+const LIST_ITEM = /^(?<indent>\s*)(?<dash>[-*]) (?:(?<box>\[[ xX]\]) )?(?<rest>.*)$/;
+
+function listItem(line: string) {
+  const item = LIST_ITEM.exec(line)?.groups;
+  if (!item) return null;
+  const { indent = "", dash = "", box, rest = "" } = item;
+  return { indent, dash, box, rest, done: box !== undefined && box !== "[ ]" };
+}
+
+function Checkbox({ done, className }: { done: boolean; className: string }) {
+  const Icon = done ? SquareCheck : Square;
+  return <Icon aria-label={done ? "Done" : "To do"} className={cn("size-3", className)} />;
+}
 
 // The editor draws this over its own text, so nothing here may change a letter's width: bold is a
 // stroke, not a weight.
@@ -16,6 +31,16 @@ const SOURCE_BOLD = "font-normal text-foreground [-webkit-text-stroke:0.4px_curr
 
 function Mark({ children }: { children: string }) {
   return <span className="text-muted-foreground/60">{children}</span>;
+}
+
+/** Draws something else where typed characters are, in exactly their width. */
+function Drawn({ typed, children }: { typed: string; children?: ReactNode }) {
+  return (
+    <span className="relative">
+      <span className="invisible">{typed}</span>
+      <span className="absolute inset-0 flex items-center">{children}</span>
+    </span>
+  );
 }
 
 function DescriptionLink({ url, children }: { url: string; children: ReactNode }) {
@@ -94,15 +119,28 @@ function inline(text: string, source: boolean): ReactNode[] {
   return nodes;
 }
 
-/** A task's description with its basic Markdown shown: list items, bold, italic and links (`details.markdown`). */
+/** A task's description with its basic Markdown shown: list and checklist items, bold, italic and links (`details.markdown`). */
 export function DescriptionText({ text }: { text: string }): ReactNode {
   return text.split(/\r?\n/).map((line, index, lines) => {
-    const item = LIST_ITEM.exec(line);
+    const item = listItem(line);
     return item ? (
-      // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
-      <span key={index} className="block pl-3 -indent-3">
-        <span className="inline-block w-3 indent-0">•</span>
-        {inline(item[2] ?? "", false)}
+      <span
+        // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
+        key={index}
+        className={cn(
+          "block",
+          item.box ? "pl-4 -indent-4" : "pl-3 -indent-3",
+          item.done && "text-muted-foreground",
+        )}
+      >
+        {item.box ? (
+          <span className="inline-block w-4 indent-0">
+            <Checkbox done={item.done} className="inline align-[-0.125em]" />
+          </span>
+        ) : (
+          <span className="inline-block w-3 indent-0">•</span>
+        )}
+        {inline(item.rest, false)}
       </span>
     ) : (
       // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
@@ -117,12 +155,30 @@ export function DescriptionText({ text }: { text: string }): ReactNode {
 /** The description as typed, every character in place, styled as its Markdown reads (`edit.description-preview`). */
 export function DescriptionSource({ text }: { text: string }): ReactNode {
   return text.split("\n").map((line, index) => {
-    const item = LIST_ITEM.exec(line);
+    const item = listItem(line);
     return (
       // eslint-disable-next-line react/no-array-index-key -- lines of one string never reorder
       <Fragment key={index}>
-        {item ? <Mark>{item[1] ?? ""}</Mark> : null}
-        {inline(item ? (item[2] ?? "") : line, true)}
+        {item ? (
+          <>
+            {item.indent}
+            <Drawn typed={item.dash}>
+              {item.box ? null : <span className="before:content-['•']" />}
+            </Drawn>{" "}
+            {item.box ? (
+              <>
+                <Drawn typed={item.box}>
+                  <Checkbox done={item.done} className="" />
+                </Drawn>{" "}
+              </>
+            ) : null}
+            <span className={cn(item.done && "text-muted-foreground")}>
+              {inline(item.rest, true)}
+            </span>
+          </>
+        ) : (
+          inline(line, true)
+        )}
         {"\n"}
       </Fragment>
     );

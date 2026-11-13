@@ -734,9 +734,10 @@ describe("details", () => {
     open.mockRestore();
   });
 
-  test("details.markdown: shown notes format list items, bold and italic, and leave marks inside words", async () => {
+  test("details.markdown: shown notes format list and checklist items, bold and italic, and leave marks inside words", async () => {
     await workspace.create("A", {
-      description: "**Bold** and *star* and _under_\n- one **two**\n* three\nsnake_case_name 2*3*4",
+      description:
+        "**Bold** and *star* and _under_\n- one **two**\n* three\n- [x] done\n- [ ] open\nsnake_case_name 2*3*4",
     });
     const { user } = await workspace.render();
     await user.keyboard("{Shift>}v{/Shift}");
@@ -753,7 +754,15 @@ describe("details", () => {
       "star",
       "under",
     ]);
-    expect(notes.textContent).toBe("Bold and star and under\n•one two•threesnake_case_name 2*3*4");
+    expect(notes.textContent).toBe(
+      "Bold and star and under\n•one two•threedoneopensnake_case_name 2*3*4",
+    );
+    expect(notes.querySelector("[aria-label=Done]")?.closest("span.block")?.textContent).toBe(
+      "done",
+    );
+    expect(notes.querySelector("[aria-label='To do']")?.closest("span.block")?.textContent).toBe(
+      "open",
+    );
   });
 
   test("details.open-link: O opens the active task's first link, and says when there is none", async () => {
