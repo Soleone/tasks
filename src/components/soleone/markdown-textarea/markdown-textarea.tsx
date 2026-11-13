@@ -44,7 +44,7 @@ function toggled(text: string, index: number, done: boolean): string {
 
 function Checkbox({ done }: { done: boolean }) {
   const Icon = done ? SquareCheck : Square
-  return <Icon aria-label={done ? "Done" : "To do"} className="size-[1em]" />
+  return <Icon aria-label={done ? "Done" : "To do"} className="mx-auto size-[1em]" />
 }
 
 // The editor draws this over its own text, so nothing here may change a letter's width: bold is a
@@ -66,7 +66,8 @@ function Drawn({ typed, children }: { typed: string; children?: ReactNode }) {
 }
 
 /**
- * A bullet's dot, or a checklist box standing where the dot would, over the dash and the brackets.
+ * A bullet's dot, or a checklist box centered over the dash and the brackets, so it sits between
+ * the dots' column and its text.
  * The dot is drawn by CSS, so the editor's copy keeps exactly the field's text.
  */
 function ListMarker({ item }: { item: NonNullable<ReturnType<typeof listItem>> }) {
