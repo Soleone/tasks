@@ -233,8 +233,6 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
       expectedVersion: args.expectedVersion,
       tasks: args.tasks,
       operationId: args.operationId,
-      sourceDirectory: args.sourceDirectory,
-      destinationDirectory: args.destinationDirectory,
       actor,
       readOnly,
       dryRun,
