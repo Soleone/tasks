@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { TaskView } from "@/components/taskView";
 import { lensFilter, type ListLens } from "@/components/listLens";
 import { goalsToday, hasGoals, weekStart, type GoalsToday } from "@/goals";
-import { listTasksTogether, type TaskListRequest } from "@/platform/backendClient";
+import { listTasksTogether, type TaskListQuery } from "@/platform/backendClient";
 import { useSharedSettings, type SharedSettings } from "@/platform/sharedSettings";
 
 /** Tasks age out of the window, and days turn, without any write, so the counts also recheck on their own. */
@@ -10,9 +10,9 @@ const RECHECK_MS = 60 * 1000;
 
 type HeaderCounts = { doneToday: number; dueNow: number; goals: GoalsToday | null };
 
-function lensRequest(lens: ListLens): TaskListRequest {
+function lensQuery(lens: ListLens): TaskListQuery {
   const { statuses, ...bounds } = lensFilter(lens);
-  return [statuses, 0, false, undefined, { ...bounds, limit: 1 }];
+  return { status: statuses, ...bounds, limit: 1 };
 }
 
 /**
@@ -27,16 +27,14 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
     lists: [due, done],
   } = await listTasksTogether(
     [
-      lensRequest({ kind: "due" }),
+      lensQuery({ kind: "due" }),
       goalsSet
-        ? [
-            ["done"],
-            0,
-            false,
-            undefined,
-            { closedSince: weekStart(settings, now).start.toISOString(), limit: 500 },
-          ]
-        : lensRequest({ kind: "done", window: "day" }),
+        ? {
+            status: ["done"],
+            closedSince: weekStart(settings, now).start.toISOString(),
+            limit: 500,
+          }
+        : lensQuery({ kind: "done", window: "day" }),
     ],
     false,
   );

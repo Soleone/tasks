@@ -333,7 +333,7 @@ export function useWorkspaceActions({
 
   function showHistory(history: UndoHistory): void {
     setStatusUndo(history.latest());
-    setRedoEntry(workspace.supportsOperationRedo ? history.latestRedo() : null);
+    setRedoEntry(history.latestRedo());
   }
 
   async function handleHistory(direction: "undo" | "redo"): Promise<void> {
@@ -347,7 +347,6 @@ export function useWorkspaceActions({
       await taskListRef.current?.waitForWrites();
       const selected = await waitForTaskWrites();
       if (selected !== workspace) return;
-      if (direction === "redo" && !workspace.supportsOperationRedo) return;
       history = await workspace.undoHistory();
       entry = direction === "redo" ? history.latestRedo() : history.latest();
       if (!entry) return;
@@ -447,7 +446,7 @@ export function useWorkspaceActions({
       (history) => {
         if (!cancelled) {
           setStatusUndo(history.latest());
-          setRedoEntry(workspace.supportsOperationRedo ? history.latestRedo() : null);
+          setRedoEntry(history.latestRedo());
         }
       },
       () => undefined,

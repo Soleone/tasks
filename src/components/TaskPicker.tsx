@@ -83,7 +83,7 @@ export function TaskPicker({
       ...new Set([...(subject.parentId ? [subject.parentId] : []), ...subject.dependencyIds]),
     ];
     const [result, relationships] = await Promise.all([
-      listTasks(NON_CANCELED_TASK_STATUSES, 0),
+      listTasks({ status: NON_CANCELED_TASK_STATUSES }),
       Promise.all(relationshipIds.map((id) => getTask(id))),
     ]);
     const byId = new Map(result.tasks.map((task) => [task.id, task]));

@@ -39,20 +39,12 @@ const draft = (text, description = "", priority = 2) => ({
   due: null,
 });
 
-const withheldActions = [
-  ["redoOperation", ["operation", {}]],
-  ["moveTask", ["id", null, 1, {}]],
-  ["reorderTasks", [[{ id: "id", expectedVersion: 1 }], { first: true }, {}]],
-  ["addDependency", ["id", "blocker", 1, {}]],
-  ["removeDependency", ["id", "blocker", 1, {}]],
-];
-
 test("without an open task folder every client call refuses", async () => {
   await assert.rejects(() => client.listTasks(), /NO_WORKSPACE/);
   await assert.rejects(() => client.createTask(draft("Lost"), {}), /NO_WORKSPACE/);
 });
 
-test("main UI calls concrete selected actions; unadvertised operations never fall through", async () => {
+test("main UI calls concrete selected actions", async () => {
   const calls = [];
   const workspace = {
     async save(...args) {
@@ -73,18 +65,6 @@ test("main UI calls concrete selected actions; unadvertised operations never fal
     },
   };
   client.selectMainWorkspace(workspace);
-  await assert.rejects(
-    () => client.createTask(draft("Child"), { parentId: "parent" }),
-    /Child capture/,
-  );
-  for (const [action, args] of withheldActions) {
-    await assert.rejects(
-      () => client[action](...args),
-      /selected workspace/,
-      `${action} needs its command advertised`,
-    );
-  }
-  assert.deepEqual(calls, []);
   await client.createTask(draft("Inline @work", "Notes", 1), { idempotencyKey: "capture-key" });
   await client.updateTask("id", draft("Inline @work", "Notes", 1), 3, {
     idempotencyKey: "edit-key",
@@ -400,7 +380,6 @@ test("main UI over the Linux HTTP bridge persists direct actions", async (t) => 
   const { root, calls, workspace } = await selectedHttpWorkspace(t);
   httpClient.selectMainWorkspace(workspace);
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
-  assert.equal(workspace.supportsRelationships, true);
 
   const created = await httpClient.createTask(draft("Call @alice #home", "Notes", 0), {});
   assert.deepEqual([created.task.title, created.task.priority], ["Call", 0]);
@@ -632,7 +611,6 @@ test("Linux route persists manual reorder across reopen and previews ordering re
     doneId = "f3e5499b-402e-4d7d-8b61-eefc4409ca32";
   const openId = "c8d4206d-c25a-4317-baa4-a2c5443060e9",
     childId = "6e1bf023-da3c-4785-b8a9-a696ac1fa5c1";
-  assert.equal(workspace.supportsOrdering, true);
   assert.deepEqual(await topLevel(workspace), [pausedId, doneId, openId]);
 
   const version = (id) =>

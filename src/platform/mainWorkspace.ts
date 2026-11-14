@@ -82,17 +82,6 @@ export class MainWorkspace {
     };
   };
   getUnresolved = (): UnresolvedTaskRequest | null => this.unresolved;
-  /** Only the Linux route advertises parent/dependency writers; the native route withholds them. */
-  get supportsRelationships(): boolean {
-    return this.editor.selection.writeCommands.includes("task.move");
-  }
-  /** Only the Linux route advertises manual reorder. */
-  get supportsOrdering(): boolean {
-    return this.editor.selection.writeCommands.includes("task.reorder");
-  }
-  get supportsOperationRedo(): boolean {
-    return this.editor.selection.writeCommands.includes("operation.redo");
-  }
   hasWriteInProgress = (): boolean => this.writing;
 
   assertCanClose(): void {

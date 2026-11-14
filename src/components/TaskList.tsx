@@ -76,7 +76,6 @@ import {
   transitionTask,
   transitionTasks,
   updateTaskLevel,
-  selectedMainWorkspace,
   type TaskMutationResult,
 } from "@/platform/backendClient";
 import { EditorError, type LevelChange } from "@/platform/editorClient";
@@ -853,9 +852,6 @@ export function TaskList({
   }
 
   function reorderDisabledReason(row: VisibleTaskRow | undefined): string | null {
-    const selected = selectedMainWorkspace();
-    if (selected && !selected.supportsOrdering)
-      return "Reordering is not yet available in this selected workspace.";
     if (!row) return "No task is selected.";
     if (row.contextOnly) return "Context-only tasks cannot be reordered.";
     if (exactStatus !== null) return "Clear the exact-status filter before reordering.";

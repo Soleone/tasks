@@ -39,7 +39,7 @@ export function useAgentChanges(listTasksShown: readonly TaskView[]): AgentChang
         const total =
           changes.length === 0
             ? 0
-            : (await listTasks(statuses, 0, false, undefined, { ...bounds, limit: 1 })).total;
+            : (await listTasks({ status: statuses, ...bounds, limit: 1 })).total;
         if (sequence !== querySequence.current) return;
         changesRef.current = changes;
         setFound({ changes, total });
