@@ -5,12 +5,10 @@ import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
 import { readCanonicalRoot, readRegularFile, exactHash } from "./canonicalReader.js";
 import type { CanonicalSnapshot, FileObservation } from "./canonicalReader.js";
-import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
-import { isRecord, parseRequest } from "./protocol.js";
+import { parseIntentEnvelope, syncDirectory, writeDurableFile } from "./localDomain.js";
 import type { Request } from "./protocol.js";
-import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp, taskFilePath, uuidV4, validateTask } from "./taskModel.js";
+import { taskFilePath, validateTask } from "./taskModel.js";
 import { parseOrder, planOrder, ORDER_COMMANDS } from "./taskOrdering.js";
 import type { OrderPlan } from "./taskOrdering.js";
 
@@ -51,27 +49,8 @@ export function orderIntentPlan(intent: OrderIntent): OrderPlan {
 
 export function parseOrderIntent(value: unknown, root: RootBinding): OrderIntent {
   try {
-    if (!isRecord(value)) conflict();
-    const intent = value as unknown as OrderIntent;
-    if (
-      intent.format !== "taskdb.pending-order" ||
-      intent.version !== 1 ||
-      intent.root.rootPath !== root.rootPath ||
-      intent.root.rootIdentity !== root.rootIdentity ||
-      !path.isAbsolute(intent.cachePath) ||
-      !isTimestamp(intent.at) ||
-      !uuidV4.test(intent.operationId)
-    )
-      conflict();
-    const request = parseRequest(intent.request);
-    if (
-      !ORDER_COMMANDS.includes(request.command) ||
-      request.readOnly ||
-      request.dryRun ||
-      !request.writeContext ||
-      !request.idempotencyKey
-    )
-      conflict();
+    const request = parseIntentEnvelope(value, root, "taskdb.pending-order", ORDER_COMMANDS);
+    const intent = value as OrderIntent;
     if (
       !Array.isArray(intent.files) ||
       intent.files.length === 0 ||
@@ -128,8 +107,6 @@ export function parseOrderIntent(value: unknown, root: RootBinding): OrderIntent
       )
         conflict();
     }
-    localPathOutsideRoot(intent.cachePath, root.rootPath);
-    localDomain(root);
     return parsed;
   } catch {
     return conflict();

@@ -5,12 +5,15 @@ import { CommandError } from "./errors.js";
 import { parseCanonicalJson } from "./strictJson.js";
 import { readCanonicalRoot, readRegularFile, exactHash } from "./canonicalReader.js";
 import type { CanonicalSnapshot, FileObservation } from "./canonicalReader.js";
-import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
-import { isRecord, parseRequest } from "./protocol.js";
+import {
+  localDomain,
+  parseIntentEnvelope,
+  syncDirectory,
+  writeDurableFile,
+} from "./localDomain.js";
 import type { Request } from "./protocol.js";
-import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp, taskFilePath, uuidV4, validateGraph, validateTask } from "./taskModel.js";
+import { taskFilePath, validateGraph, validateTask } from "./taskModel.js";
 import { historyOrigin, historyTasks, parseUndo, planUndo, UNDO_COMMANDS } from "./undoPlan.js";
 import type { HistorySource, UndoPlan } from "./undoPlan.js";
 
@@ -57,27 +60,8 @@ export function batchIntentPlan(intent: BatchIntent): UndoPlan {
 
 export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent {
   try {
-    if (!isRecord(value)) conflict();
-    const intent = value as unknown as BatchIntent;
-    if (
-      intent.format !== "taskdb.pending-batch" ||
-      intent.version !== 1 ||
-      intent.root.rootPath !== root.rootPath ||
-      intent.root.rootIdentity !== root.rootIdentity ||
-      !path.isAbsolute(intent.cachePath) ||
-      !isTimestamp(intent.at) ||
-      !uuidV4.test(intent.operationId)
-    )
-      conflict();
-    const request = parseRequest(intent.request);
-    if (
-      !UNDO_COMMANDS.includes(request.command) ||
-      request.dryRun ||
-      request.readOnly ||
-      !request.writeContext ||
-      !request.idempotencyKey
-    )
-      conflict();
+    const request = parseIntentEnvelope(value, root, "taskdb.pending-batch", UNDO_COMMANDS);
+    const intent = value as BatchIntent;
     if (
       !Array.isArray(intent.sources) ||
       intent.sources.some(
@@ -177,8 +161,6 @@ export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent
           conflict();
       }
     }
-    localPathOutsideRoot(intent.cachePath, root.rootPath);
-    localDomain(root);
     return parsed;
   } catch {
     return conflict();
