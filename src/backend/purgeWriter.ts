@@ -31,7 +31,12 @@ import {
 import type { PurgeIntent } from "./purgeJournal.js";
 import { listedAttachments, parseClearDone, planRemoval, remainingTasks } from "./purgePlan.js";
 import type { RemovalPlan } from "./purgePlan.js";
-import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import {
+  localPathOutsideRoot,
+  requireVersionBudget,
+  synchronizeAuthority,
+  withCacheTransaction,
+} from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { attachmentName } from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
@@ -41,17 +46,12 @@ import { invalidatePurgeUndo } from "./undoHistory.js";
 const UNLISTED_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function requirePurgeBudget(database: DatabaseSync, count: number): void {
-  const state = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get()!;
-  if (
-    !Number.isSafeInteger((state.counter as number) + count * 3 + 8) ||
-    !Number.isSafeInteger((state.revision as number) + 3)
-  )
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before purge",
-    );
+  requireVersionBudget(
+    database,
+    count * 3 + 8,
+    3,
+    "explicit fresh-cache authority is required before purge",
+  );
 }
 
 /** When an attachment was added, read from its `YYYY-MM-DD-HHMMSS` name. */

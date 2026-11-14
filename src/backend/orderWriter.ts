@@ -21,7 +21,12 @@ import type { OrderIntent } from "./orderJournal.js";
 import { readPending } from "./pending.js";
 import type { Request } from "./protocol.js";
 import { projectTasks } from "./queries.js";
-import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import {
+  localPathOutsideRoot,
+  requireVersionBudget,
+  synchronizeAuthority,
+  withCacheTransaction,
+} from "./queryCache.js";
 import type { QueryAuthority } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { parseOrder, planOrder } from "./taskOrdering.js";
@@ -48,17 +53,12 @@ function orderResult(
   };
 }
 function requireOrderBudget(database: DatabaseSync, taskCount: number): void {
-  const state = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get()!;
-  if (
-    !Number.isSafeInteger((state.counter as number) + taskCount * 3 + 5) ||
-    !Number.isSafeInteger((state.revision as number) + 3)
-  )
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before ordering",
-    );
+  requireVersionBudget(
+    database,
+    taskCount * 3 + 5,
+    3,
+    "explicit fresh-cache authority is required before ordering",
+  );
 }
 
 export function commitOrder(database: DatabaseSync, intent: OrderIntent): Record<string, unknown> {

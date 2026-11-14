@@ -1,6 +1,5 @@
 import { lstatSync } from "node:fs";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import {
   assertInitRoot,
@@ -16,26 +15,12 @@ import type { Request } from "./protocol.js";
 import {
   localPathOutsideRoot,
   rebuildQueryAuthority,
+  requireVersionBudget,
   synchronizeAuthority,
   withCacheTransaction,
 } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { initRoot } from "./workspaceInit.js";
-
-function requireInitAuthorityBudget(database: DatabaseSync): void {
-  const state = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get()!;
-  if (
-    !Number.isSafeInteger((state.counter as number) + 2) ||
-    !Number.isSafeInteger((state.revision as number) + 2)
-  ) {
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before initialization",
-    );
-  }
-}
 
 export function executeLifecycle(request: Request, rootPath: string, cachePath: string) {
   const initializing = request.command === "workspace.init";
@@ -68,7 +53,12 @@ export function executeLifecycle(request: Request, rootPath: string, cachePath: 
             },
           };
         localPathOutsideRoot(cachePath, root.rootPath);
-        requireInitAuthorityBudget(database);
+        requireVersionBudget(
+          database,
+          2,
+          2,
+          "explicit fresh-cache authority is required before initialization",
+        );
         const initialized = synchronizeAuthority(database, root, initRoot(root));
         const result = { schemaVersion: 2, changed: true };
         if (initialized.writeContext === request.writeContext)

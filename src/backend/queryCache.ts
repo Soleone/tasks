@@ -275,25 +275,40 @@ export function synchronizeAuthority(
   return { writeContext: state.context, workspaceRevision: state.revision, versions };
 }
 
+/**
+ * Refuses a command whose version and revision allocations could pass the safe-integer range,
+ * before it has any effect. Returns the current version counter.
+ */
+export function requireVersionBudget(
+  database: DatabaseSync,
+  counterNeed: number,
+  revisionNeed: number,
+  message: string,
+): number {
+  const state = database
+    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
+    .get() as Pick<CacheState, "counter" | "revision">;
+  if (
+    !Number.isSafeInteger(state.counter + counterNeed) ||
+    !Number.isSafeInteger(state.revision + revisionNeed)
+  )
+    throw new CommandError("UNSUPPORTED_COMMAND", message);
+  return state.counter;
+}
+
 /** Rebuild the projection only; retained context, receipts and grouped history remain authoritative. */
 export function rebuildQueryAuthority(
   database: DatabaseSync,
   root: RootBinding,
   snapshot: CanonicalSnapshot,
 ): QueryAuthority {
-  const state = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get() as Pick<CacheState, "counter" | "revision">;
   // Reserve the rebuild allocations and the following complete read, without rotating mid-command.
-  if (
-    !Number.isSafeInteger(state.counter + snapshot.tasks.length * 2 + 2) ||
-    !Number.isSafeInteger(state.revision + 2)
-  ) {
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before rebuild",
-    );
-  }
+  requireVersionBudget(
+    database,
+    snapshot.tasks.length * 2 + 2,
+    2,
+    "explicit fresh-cache authority is required before rebuild",
+  );
   database.exec(
     "DELETE FROM v2_query_tasks; UPDATE v2_query_state SET fingerprint = '' WHERE singleton = 1",
   );

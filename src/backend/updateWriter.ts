@@ -10,7 +10,7 @@ import { decodeTaskEdit } from "./taskEditRequest.js";
 import type { TaskEditRequest } from "./taskEditRequest.js";
 import type { TaskEditResult, TaskExecutionResult } from "./taskResults.js";
 import type { CanonicalTask } from "./taskModel.js";
-import { synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import { requireVersionBudget, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findTaskEditReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { applyUpdate } from "./updateInputs.js";
 import { requireAddedAttachments } from "./attachments.js";
@@ -85,18 +85,12 @@ export function executeUpdate(
         storeReceipt(database, request, result);
         return { writeContext: authority.writeContext, result };
       }
-      const budget = database
-        .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-        .get()!;
-      if (
-        !Number.isSafeInteger((budget.counter as number) + snapshot.tasks.length * 3 + 4) ||
-        !Number.isSafeInteger((budget.revision as number) + 3)
-      ) {
-        throw new CommandError(
-          "UNSUPPORTED_COMMAND",
-          "version budget is nearly exhausted; explicit fresh-cache authority is required before this write",
-        );
-      }
+      requireVersionBudget(
+        database,
+        snapshot.tasks.length * 3 + 4,
+        3,
+        "version budget is nearly exhausted; explicit fresh-cache authority is required before this write",
+      );
       const operationId = randomUUID();
       const bytes = Buffer.from(`${JSON.stringify(update.task)}\n`);
       const target = path.join(root.rootPath, "tasks", `${task.id}.json`);

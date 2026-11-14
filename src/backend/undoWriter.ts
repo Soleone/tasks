@@ -25,7 +25,12 @@ import { readPending } from "./pending.js";
 import { isRecord } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { projectTasks } from "./queries.js";
-import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import {
+  localPathOutsideRoot,
+  requireVersionBudget,
+  synchronizeAuthority,
+  withCacheTransaction,
+} from "./queryCache.js";
 import type { QueryAuthority } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import type { CanonicalTask } from "./taskModel.js";
@@ -34,17 +39,12 @@ import { historyOrigin, parseUndo, planUndo } from "./undoPlan.js";
 import type { UndoPlan } from "./undoPlan.js";
 
 function requireUndoBudget(database: DatabaseSync, count: number): void {
-  const state = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get()!;
-  if (
-    !Number.isSafeInteger((state.counter as number) + count * 3 + 9) ||
-    !Number.isSafeInteger((state.revision as number) + 3)
-  )
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before undo or status batch",
-    );
+  requireVersionBudget(
+    database,
+    count * 3 + 9,
+    3,
+    "explicit fresh-cache authority is required before undo or status batch",
+  );
 }
 function undoResult(
   command: string,

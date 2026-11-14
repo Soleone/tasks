@@ -18,24 +18,18 @@ import { syncDirectory, withRootWriterLock, writeDurableFile } from "./localDoma
 import { readPending } from "./pending.js";
 import { projectTasks } from "./queries.js";
 import type { Request } from "./protocol.js";
-import { synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import { requireVersionBudget, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import { compareTasks } from "./taskModel.js";
 
 function requireCreateBudget(database: DatabaseSync, taskCount: number): number {
-  const budget = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get()!;
-  if (
-    !Number.isSafeInteger((budget.counter as number) + taskCount * 3 + 7) ||
-    !Number.isSafeInteger((budget.revision as number) + 3)
-  ) {
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before capture",
-    );
-  }
-  return (budget.counter as number) + 1;
+  const counter = requireVersionBudget(
+    database,
+    taskCount * 3 + 7,
+    3,
+    "explicit fresh-cache authority is required before capture",
+  );
+  return counter + 1;
 }
 
 function guardCreateDestination(
