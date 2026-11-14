@@ -7,6 +7,11 @@ import { THEME_CONFIG } from "./src/theme/config";
 import { priorityColorsPlugin } from "./src/theme/priorityColors";
 import { nodeShims } from "./src/web/nodeShims";
 
+// Vitest only defaults NODE_ENV, so an inherited "production" would load React's production
+// build, which has no act(), and resolve import.meta.env.DEV as false. Vite reads NODE_ENV only
+// after this file runs, and Vitest's workers inherit it.
+if (process.env.VITEST) process.env.NODE_ENV = "test";
+
 const host = process.env.TAURI_DEV_HOST;
 // The hosted web build runs the backend in a worker instead of reaching a dev server.
 const hosted = process.env.VITE_HOSTED === "1";
