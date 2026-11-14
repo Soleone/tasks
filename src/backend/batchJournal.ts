@@ -10,7 +10,7 @@ import { isRecord, parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp, validateGraph, validateTask } from "./taskModel.js";
+import { isTimestamp, taskFilePath, uuidV4, validateGraph, validateTask } from "./taskModel.js";
 import { historyOrigin, historyTasks, parseUndo, planUndo, UNDO_COMMANDS } from "./undoPlan.js";
 import type { HistorySource, UndoPlan } from "./undoPlan.js";
 
@@ -66,9 +66,7 @@ export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent
       intent.root.rootIdentity !== root.rootIdentity ||
       !path.isAbsolute(intent.cachePath) ||
       !isTimestamp(intent.at) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-        intent.operationId,
-      )
+      !uuidV4.test(intent.operationId)
     )
       conflict();
     const request = parseRequest(intent.request);
@@ -101,10 +99,7 @@ export function parseBatchIntent(value: unknown, root: RootBinding): BatchIntent
       conflict();
     for (const guard of intent.guards) {
       if (
-        (guard.relativePath !== "workspace.json" &&
-          !/^tasks\/(?:[A-Za-z0-9_-]+|[A-Za-z0-9_-]+\.sync-conflict-[^/\\]+)\.json$/.test(
-            guard.relativePath,
-          )) ||
+        (guard.relativePath !== "workspace.json" && !taskFilePath.test(guard.relativePath)) ||
         !/^[0-9a-f]{64}$/.test(guard.sha256)
       )
         conflict();

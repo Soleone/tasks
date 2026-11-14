@@ -13,7 +13,7 @@ import { assertArgs, isRecord, parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp } from "./taskModel.js";
+import { isTimestamp, uuidV4 } from "./taskModel.js";
 
 export type DoctorWrite = { taskId: string; beforeBytes: string | null; nextBytes: string };
 export type DoctorIntent = {
@@ -29,7 +29,6 @@ export type DoctorIntent = {
 };
 type Publication = { stageIdentity: string | null; started: boolean; published: boolean };
 type Progress = { operationId: string; writes: Publication[] };
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 function conflict(): never {
   throw new CommandError(
     "RECOVERY_CONFLICT",
@@ -68,7 +67,7 @@ export function parseRetainedDoctorPlan(value: unknown, root: RootBinding): Doct
     const saved = decoded as unknown as DoctorPlan;
     const source = restoreDoctorSource(saved.source);
     if (
-      !uuid.test(saved.planId) ||
+      !uuidV4.test(saved.planId) ||
       saved.allocation.planId !== saved.planId ||
       source.root.rootPath !== root.rootPath ||
       source.root.rootIdentity !== root.rootIdentity
@@ -115,7 +114,7 @@ export function parseDoctorIntent(value: unknown, root: RootBinding): DoctorInte
       intent.version !== 1 ||
       intent.root.rootPath !== root.rootPath ||
       intent.root.rootIdentity !== root.rootIdentity ||
-      !uuid.test(intent.operationId) ||
+      !uuidV4.test(intent.operationId) ||
       !path.isAbsolute(intent.cachePath) ||
       !isTimestamp(intent.at)
     )

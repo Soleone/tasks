@@ -10,7 +10,7 @@ import { isRecord, parseRequest } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp, validateTask } from "./taskModel.js";
+import { isTimestamp, taskFilePath, uuidV4, validateTask } from "./taskModel.js";
 import { parseOrder, planOrder, ORDER_COMMANDS } from "./taskOrdering.js";
 import type { OrderPlan } from "./taskOrdering.js";
 
@@ -60,9 +60,7 @@ export function parseOrderIntent(value: unknown, root: RootBinding): OrderIntent
       intent.root.rootIdentity !== root.rootIdentity ||
       !path.isAbsolute(intent.cachePath) ||
       !isTimestamp(intent.at) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-        intent.operationId,
-      )
+      !uuidV4.test(intent.operationId)
     )
       conflict();
     const request = parseRequest(intent.request);
@@ -89,10 +87,7 @@ export function parseOrderIntent(value: unknown, root: RootBinding): OrderIntent
     for (const guard of intent.guards) {
       if (
         typeof guard.relativePath !== "string" ||
-        (guard.relativePath !== "workspace.json" &&
-          !/^tasks\/(?:[A-Za-z0-9_-]+|[A-Za-z0-9_-]+\.sync-conflict-[^/\\]+)\.json$/.test(
-            guard.relativePath,
-          )) ||
+        (guard.relativePath !== "workspace.json" && !taskFilePath.test(guard.relativePath)) ||
         !/^[0-9a-f]{64}$/.test(guard.sha256)
       )
         conflict();

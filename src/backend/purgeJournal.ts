@@ -21,6 +21,8 @@ import type { RootBinding } from "./queryCache.js";
 import {
   attachmentName,
   isTimestamp,
+  taskFilePath,
+  uuidV4,
   validateGraph,
   validateManifest,
   validateTask,
@@ -109,9 +111,7 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
       !/^\d+:\d+$/.test(intent.taskDirectoryIdentity) ||
       !path.isAbsolute(intent.cachePath) ||
       !isTimestamp(intent.at) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-        intent.operationId,
-      )
+      !uuidV4.test(intent.operationId)
     )
       conflict();
     const request = parseRequest(intent.request);
@@ -130,10 +130,7 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
       conflict();
     for (const file of intent.files) {
       if (
-        (file.relativePath !== "workspace.json" &&
-          !/^tasks\/(?:[A-Za-z0-9_-]+|[A-Za-z0-9_-]+\.sync-conflict-[^/\\]+)\.json$/.test(
-            file.relativePath,
-          )) ||
+        (file.relativePath !== "workspace.json" && !taskFilePath.test(file.relativePath)) ||
         !/^\d+:\d+$/.test(file.identity) ||
         typeof file.beforeBytes !== "string" ||
         Buffer.from(file.beforeBytes, "base64").toString("base64") !== file.beforeBytes
