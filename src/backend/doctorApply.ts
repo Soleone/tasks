@@ -18,20 +18,20 @@ import { persistPending, retirePending, withRootWriterLock } from "./localDomain
 import { readPending } from "./pending.js";
 import { assertArgs } from "./protocol.js";
 import type { Request } from "./protocol.js";
-import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
+import {
+  localPathOutsideRoot,
+  requireVersionBudget,
+  synchronizeAuthority,
+  withCacheTransaction,
+} from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 function requireDoctorBudget(database: DatabaseSync, count: number): void {
-  const state = database
-    .prepare("SELECT counter, revision FROM v2_query_state WHERE singleton = 1")
-    .get()!;
-  if (
-    !Number.isSafeInteger((state.counter as number) + count * 3 + 8) ||
-    !Number.isSafeInteger((state.revision as number) + 3)
-  )
-    throw new CommandError(
-      "UNSUPPORTED_COMMAND",
-      "explicit fresh-cache authority is required before doctor apply",
-    );
+  requireVersionBudget(
+    database,
+    count * 3 + 8,
+    3,
+    "explicit fresh-cache authority is required before doctor apply",
+  );
 }
 export function commitDoctor(
   database: DatabaseSync,

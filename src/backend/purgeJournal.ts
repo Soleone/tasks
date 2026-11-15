@@ -11,16 +11,19 @@ import {
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { attachmentPath } from "./attachments.js";
 import { directoryIdentity } from "./rootGuards.js";
-import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
-import { isRecord, parseRequest } from "./protocol.js";
+import {
+  localDomain,
+  parseIntentEnvelope,
+  syncDirectory,
+  writeDurableFile,
+} from "./localDomain.js";
 import type { Request } from "./protocol.js";
 import { listedAttachments, planRemoval, remainingTasks, strippedTask } from "./purgePlan.js";
 import type { RemovalPlan } from "./purgePlan.js";
-import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
 import {
   attachmentName,
-  isTimestamp,
+  taskFilePath,
   validateGraph,
   validateManifest,
   validateTask,
@@ -99,30 +102,9 @@ export function purgeIntentTasks(intent: PurgeIntent): CanonicalTask[] {
 }
 export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent {
   try {
-    if (!isRecord(value)) conflict();
-    const intent = value as unknown as PurgeIntent;
-    if (
-      intent.format !== "taskdb.pending-purge" ||
-      intent.version !== 1 ||
-      intent.root.rootPath !== root.rootPath ||
-      intent.root.rootIdentity !== root.rootIdentity ||
-      !/^\d+:\d+$/.test(intent.taskDirectoryIdentity) ||
-      !path.isAbsolute(intent.cachePath) ||
-      !isTimestamp(intent.at) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-        intent.operationId,
-      )
-    )
-      conflict();
-    const request = parseRequest(intent.request);
-    if (
-      !REMOVAL_COMMANDS.includes(request.command) ||
-      request.dryRun ||
-      request.readOnly ||
-      !request.writeContext ||
-      !request.idempotencyKey
-    )
-      conflict();
+    const request = parseIntentEnvelope(value, root, "taskdb.pending-purge", REMOVAL_COMMANDS);
+    const intent = value as PurgeIntent;
+    if (!/^\d+:\d+$/.test(intent.taskDirectoryIdentity)) conflict();
     if (
       !Array.isArray(intent.files) ||
       new Set(intent.files.map((file) => file.relativePath)).size !== intent.files.length
@@ -130,10 +112,7 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
       conflict();
     for (const file of intent.files) {
       if (
-        (file.relativePath !== "workspace.json" &&
-          !/^tasks\/(?:[A-Za-z0-9_-]+|[A-Za-z0-9_-]+\.sync-conflict-[^/\\]+)\.json$/.test(
-            file.relativePath,
-          )) ||
+        (file.relativePath !== "workspace.json" && !taskFilePath.test(file.relativePath)) ||
         !/^\d+:\d+$/.test(file.identity) ||
         typeof file.beforeBytes !== "string" ||
         Buffer.from(file.beforeBytes, "base64").toString("base64") !== file.beforeBytes
@@ -161,8 +140,6 @@ export function parsePurgeIntent(value: unknown, root: RootBinding): PurgeIntent
       !(intent.purgedIds.length || intent.rewrites.length || intent.attachments.length)
     )
       conflict();
-    localPathOutsideRoot(intent.cachePath, root.rootPath);
-    localDomain(root);
     return { ...intent, request };
   } catch {
     return conflict();

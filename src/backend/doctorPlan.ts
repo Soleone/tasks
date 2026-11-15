@@ -2,7 +2,14 @@ import { generateKeyBetween } from "fractional-indexing";
 import { CommandError } from "./errors.js";
 import { assertArgs, isRecord } from "./protocol.js";
 import type { DoctorRecord, DoctorSource, DoctorVersion } from "./doctorSource.js";
-import { compareTasks, isOrderKey, validateGraph, validateTask, GraphError } from "./taskModel.js";
+import {
+  compareTasks,
+  isOrderKey,
+  uuidV4,
+  validateGraph,
+  validateTask,
+  GraphError,
+} from "./taskModel.js";
 import type { CanonicalTask } from "./taskModel.js";
 
 type LinkChoice = {
@@ -221,9 +228,7 @@ export function buildDoctorPlan(
     cloneVersions.some((version) => !allocation.cloneIds[version.versionRef]) ||
     new Set(cloneIds).size !== cloneIds.length ||
     cloneIds.some(
-      (id) =>
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id) ||
-        source.versionRefs.some((version) => version.taskId === id),
+      (id) => !uuidV4.test(id) || source.versionRefs.some((version) => version.taskId === id),
     )
   )
     stale();

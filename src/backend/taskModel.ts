@@ -49,6 +49,11 @@ export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
 export type AttachmentType = (typeof ATTACHMENT_TYPES)[number];
 export const attachmentName = /^\d{4}-\d{2}-\d{2}-\d{6}-[0-9a-f]{8}\.(?:png|jpg|webp|gif)$/;
+/** A lowercase random UUID, as `randomUUID()` writes operation, plan and clone IDs. */
+export const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+/** A root-relative task file or one of its sync conflict copies. */
+export const taskFilePath =
+  /^tasks\/(?:[A-Za-z0-9_-]+|[A-Za-z0-9_-]+\.sync-conflict-[^/\\]+)\.json$/;
 const safeId = /^[A-Za-z0-9_-]+$/;
 const slug = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
 const statuses = new Set(["open", "in_progress", "paused", "done", "canceled"]);

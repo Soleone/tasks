@@ -1,3 +1,4 @@
+import type { DatabaseSync } from "node:sqlite";
 import { commitDoctor } from "./doctorApply.js";
 import { retireDoctorStages } from "./doctorJournal.js";
 import { CommandError } from "./errors.js";
@@ -15,6 +16,33 @@ import { assertArgs } from "./protocol.js";
 import type { Request } from "./protocol.js";
 import { localPathOutsideRoot, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
+
+function commitIntent(database: DatabaseSync, intent: PendingIntent): Record<string, unknown> {
+  switch (intent.format) {
+    case "taskdb.pending-order":
+      return commitOrder(database, intent);
+    case "taskdb.pending-batch":
+      return commitUndo(database, intent);
+    case "taskdb.pending-purge":
+      return commitPurge(database, intent);
+    case "taskdb.pending-doctor":
+      return commitDoctor(database, intent);
+  }
+}
+
+/** Removes an intent's private stages or quarantines once its effect and receipt have committed. */
+function retireIntentEvidence(intent: PendingIntent): void {
+  switch (intent.format) {
+    case "taskdb.pending-order":
+      return retireOrderStages(intent);
+    case "taskdb.pending-batch":
+      return retireBatchStages(intent);
+    case "taskdb.pending-purge":
+      return retirePurgeQuarantines(intent);
+    case "taskdb.pending-doctor":
+      return retireDoctorStages(intent);
+  }
+}
 
 export function resumeOperation(request: Request, rootPath: string, cachePath: string) {
   const root = readRootDescriptor(rootPath);
@@ -52,18 +80,10 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
           "RECOVERY_CONFLICT",
           "resume requires the original cache location, or manual reconciliation",
         );
-      let originalResult =
-        authority.writeContext !== intent.request.writeContext
-          ? undefined
-          : findReceipt(database, intent.request);
-      if (!originalResult && intent.format === "taskdb.pending-order")
-        originalResult = commitOrder(database, intent);
-      if (!originalResult && intent.format === "taskdb.pending-batch")
-        originalResult = commitUndo(database, intent);
-      if (!originalResult && intent.format === "taskdb.pending-purge")
-        originalResult = commitPurge(database, intent);
-      if (!originalResult && intent.format === "taskdb.pending-doctor")
-        originalResult = commitDoctor(database, intent);
+      const originalResult =
+        (authority.writeContext === intent.request.writeContext
+          ? findReceipt(database, intent.request)
+          : undefined) ?? commitIntent(database, intent);
       const result = { operationId: intent.operationId, outcome: "complete", originalResult };
       // The recovery acknowledgment and original effect/receipt commit together before cleanup.
       storeReceipt(database, request, result);
@@ -72,24 +92,8 @@ export function resumeOperation(request: Request, rootPath: string, cachePath: s
     });
     if (completed) {
       try {
-        switch (completed.format) {
-          case "taskdb.pending-order":
-            retireOrderStages(completed);
-            retirePending(root);
-            break;
-          case "taskdb.pending-batch":
-            retireBatchStages(completed);
-            retirePending(root);
-            break;
-          case "taskdb.pending-purge":
-            retirePurgeQuarantines(completed);
-            retirePending(root);
-            break;
-          case "taskdb.pending-doctor":
-            retireDoctorStages(completed);
-            retirePending(root);
-            break;
-        }
+        retireIntentEvidence(completed);
+        retirePending(root);
       } catch (error) {
         // Historical success remains replayable; corrupt cleanup evidence stays pending for inspection.
         if (!replayed || !(error instanceof CommandError) || error.code !== "RECOVERY_CONFLICT")

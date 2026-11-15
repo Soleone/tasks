@@ -434,10 +434,6 @@ export default function App({
 
   function openCreate(parentId?: string, capture?: Capture): void {
     if (composerRef.current) return;
-    if (parentId && !workspace.supportsRelationships) {
-      setAnnouncement("Child capture is not yet available in this selected workspace.");
-      return;
-    }
     if (parentId) {
       const parent = tasks.find((task) => task.id === parentId);
       if (parent?.status === "canceled") {
@@ -652,10 +648,6 @@ export default function App({
   }
 
   function openPicker(mode: TaskPickerMode, subject: TaskView): void {
-    if (!workspace.supportsRelationships) {
-      setAnnouncement("Relationship changes are not yet available in this selected workspace.");
-      return;
-    }
     // From the palette, inherit its return target like settings does so the
     // picker's close restores focus past the unmounted palette search field.
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;

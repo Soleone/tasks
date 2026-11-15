@@ -118,27 +118,22 @@ export function useWorkspaceTasks({
           categories,
         } = await listTasksTogether(
           [
-            [
-              statuses,
+            {
+              status: statuses,
               offset,
-              showUnblockedRef.current,
-              categoryFilterRef.current ?? undefined,
-              {
-                ...(priorityFilterRef.current !== null
-                  ? { priority: priorityFilterRef.current }
-                  : {}),
-                ...(tagFilterRef.current.length > 0 ? { tags: [...tagFilterRef.current] } : {}),
-                ...(searchQueryRef.current.trim() !== ""
-                  ? { search: searchQueryRef.current.trim() }
-                  : {}),
-                ...lensBounds,
-                limit,
-                sort: sortFieldRef.current,
-                direction: sortDirectionRef.current,
-                includeAncestors: true,
-                includeDescendants: true,
-              },
-            ],
+              unblocked: showUnblockedRef.current,
+              category: categoryFilterRef.current ?? undefined,
+              priority: priorityFilterRef.current ?? undefined,
+              tags: [...tagFilterRef.current],
+              search: searchQueryRef.current,
+              // A goal lens's category replaces the view's.
+              ...lensBounds,
+              limit,
+              sort: sortFieldRef.current,
+              direction: sortDirectionRef.current,
+              includeAncestors: true,
+              includeDescendants: true,
+            },
           ],
           !offset,
         );

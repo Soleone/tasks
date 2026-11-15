@@ -8,12 +8,16 @@ import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { buildDoctorPlan, parseDoctorInput } from "./doctorPlan.js";
 import type { DoctorPlan } from "./doctorPlan.js";
 import { readDoctorSource, restoreDoctorSource } from "./doctorSource.js";
-import { syncDirectory, localDomain, writeDurableFile } from "./localDomain.js";
-import { assertArgs, isRecord, parseRequest } from "./protocol.js";
+import {
+  localDomain,
+  parseIntentEnvelope,
+  syncDirectory,
+  writeDurableFile,
+} from "./localDomain.js";
+import { assertArgs, isRecord } from "./protocol.js";
 import type { Request } from "./protocol.js";
-import { localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
-import { isTimestamp } from "./taskModel.js";
+import { uuidV4 } from "./taskModel.js";
 
 export type DoctorWrite = { taskId: string; beforeBytes: string | null; nextBytes: string };
 export type DoctorIntent = {
@@ -29,7 +33,6 @@ export type DoctorIntent = {
 };
 type Publication = { stageIdentity: string | null; started: boolean; published: boolean };
 type Progress = { operationId: string; writes: Publication[] };
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 function conflict(): never {
   throw new CommandError(
     "RECOVERY_CONFLICT",
@@ -68,7 +71,7 @@ export function parseRetainedDoctorPlan(value: unknown, root: RootBinding): Doct
     const saved = decoded as unknown as DoctorPlan;
     const source = restoreDoctorSource(saved.source);
     if (
-      !uuid.test(saved.planId) ||
+      !uuidV4.test(saved.planId) ||
       saved.allocation.planId !== saved.planId ||
       source.root.rootPath !== root.rootPath ||
       source.root.rootIdentity !== root.rootIdentity
@@ -108,29 +111,12 @@ export function doctorIntentWrites(plan: DoctorPlan, at: string): DoctorWrite[] 
 }
 export function parseDoctorIntent(value: unknown, root: RootBinding): DoctorIntent {
   try {
-    if (!isRecord(value)) conflict();
-    const intent = value as unknown as DoctorIntent;
-    if (
-      intent.format !== "taskdb.pending-doctor" ||
-      intent.version !== 1 ||
-      intent.root.rootPath !== root.rootPath ||
-      intent.root.rootIdentity !== root.rootIdentity ||
-      !uuid.test(intent.operationId) ||
-      !path.isAbsolute(intent.cachePath) ||
-      !isTimestamp(intent.at)
-    )
-      conflict();
-    const request = parseRequest(intent.request);
+    const request = parseIntentEnvelope(value, root, "taskdb.pending-doctor", [
+      "workspace.doctor.apply",
+    ]);
+    const intent = value as DoctorIntent;
     assertArgs(request.args, ["planId"]);
-    if (
-      request.command !== "workspace.doctor.apply" ||
-      request.dryRun ||
-      request.readOnly ||
-      !request.idempotencyKey ||
-      !request.writeContext ||
-      request.args.planId !== intent.plan.planId
-    )
-      conflict();
+    if (request.args.planId !== intent.plan.planId) conflict();
     const plan = parseRetainedDoctorPlan(intent.plan, root);
     const privateNames = intent.writes
       ?.map((_, index) => path.basename(stagePath(intent, index)))
@@ -143,8 +129,6 @@ export function parseDoctorIntent(value: unknown, root: RootBinding): DoctorInte
       (!intent.writes.length && !plan.removedConflictPaths.length)
     )
       conflict();
-    localPathOutsideRoot(intent.cachePath, root.rootPath);
-    localDomain(root);
     return { ...intent, request, plan };
   } catch {
     return conflict();

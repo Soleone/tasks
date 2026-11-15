@@ -14,8 +14,11 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import { homeOfRoot } from "./home.js";
+import { isRecord, parseRequest } from "./protocol.js";
+import type { Request } from "./protocol.js";
 import { beginImmediate, localPathOutsideRoot } from "./queryCache.js";
 import type { RootBinding } from "./queryCache.js";
+import { isTimestamp, uuidV4 } from "./taskModel.js";
 
 let otherRoots: string | undefined;
 
@@ -105,6 +108,46 @@ export function persistPending(root: RootBinding, intent: unknown): void {
   syncDirectory(path.dirname(pending));
   if (!readFileSync(pending).equals(bytes))
     throw new CommandError("RECOVERY_CONFLICT", "pending intent failed verification");
+}
+
+/**
+ * The fields every pending intent shares: its format, binding, cache, time, operation and the
+ * executing request, which it returns parsed. Throws when any is not as written; each journal
+ * turns that into its own recovery conflict.
+ */
+export function parseIntentEnvelope(
+  value: unknown,
+  root: RootBinding,
+  format: string,
+  commands: readonly string[],
+): Request {
+  const refuse = (): never => {
+    throw new CommandError("RECOVERY_CONFLICT", "pending intent envelope is not as written");
+  };
+  if (!isRecord(value)) refuse();
+  const intent = value as Record<string, unknown> & { root: RootBinding; cachePath: string };
+  if (
+    intent.format !== format ||
+    intent.version !== 1 ||
+    intent.root.rootPath !== root.rootPath ||
+    intent.root.rootIdentity !== root.rootIdentity ||
+    !path.isAbsolute(intent.cachePath) ||
+    !isTimestamp(intent.at) ||
+    !uuidV4.test(intent.operationId as string)
+  )
+    refuse();
+  const request = parseRequest(intent.request);
+  if (
+    !commands.includes(request.command) ||
+    request.dryRun ||
+    request.readOnly ||
+    !request.writeContext ||
+    !request.idempotencyKey
+  )
+    refuse();
+  localPathOutsideRoot(intent.cachePath, root.rootPath);
+  localDomain(root);
+  return request;
 }
 
 export function retirePending(root: RootBinding): void {

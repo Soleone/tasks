@@ -34,16 +34,6 @@ function selected(): MainWorkspace {
   return mainWorkspace;
 }
 
-function unsupported(message: string): EditorError {
-  return new EditorError("UNSUPPORTED_COMMAND", message);
-}
-
-function relationshipWorkspace(workspace: MainWorkspace): MainWorkspace {
-  if (!workspace.supportsRelationships)
-    throw unsupported("Relationship changes are not yet available in this selected workspace.");
-  return workspace;
-}
-
 // A workspace runs one write at a time and refuses a second. The UI queues instead, so changes
 // made faster than the disk keeps up apply in order. A write belongs to the workspace selected
 // when it was requested and is dropped unsent if that workspace closes first.
@@ -111,12 +101,8 @@ export type TaskMutationResult = {
   operationId?: string;
   changed?: boolean;
 };
-export type TaskReorderResult = {
-  tasks: TaskView[];
-  operationId?: string;
-  changed: boolean;
-};
-export type TaskTransitionManyResult = {
+/** A reorder, status batch or redo: the tasks it returned, in request order. */
+export type TaskGroupResult = {
   tasks: TaskView[];
   operationId?: string;
   changed: boolean;
@@ -129,29 +115,26 @@ export type OperationUndoResult = {
   changed: boolean;
 };
 
-export async function listTasks(...request: TaskListRequest): Promise<TaskListResult> {
-  return selected().tasks(listArgs(...request));
+/** One page of one list. Empty tags and a blank search are left out; search is trimmed. */
+export type TaskListQuery = TaskListFilters & {
+  status?: string | readonly string[];
+  offset?: number;
+  unblocked?: boolean;
+};
+
+export async function listTasks(query: TaskListQuery = {}): Promise<TaskListResult> {
+  return selected().tasks(listArgs(query));
 }
 
-export type TaskListRequest = [
-  status?: string | readonly string[],
-  offset?: number,
-  unblocked?: boolean,
-  category?: string,
-  filters?: TaskListFilters,
-];
-
-function listArgs(
-  status?: string | readonly string[],
+function listArgs({
+  status,
   offset = 0,
   unblocked = false,
-  category?: string,
-  filters: TaskListFilters = {},
-): Record<string, unknown> {
+  ...filters
+}: TaskListQuery): Record<string, unknown> {
   return {
     ...(status !== undefined ? { status } : {}),
     ...(unblocked ? { unblocked: true } : {}),
-    ...(category !== undefined ? { category } : {}),
     ...(filters.category !== undefined ? { category: filters.category } : {}),
     ...(filters.excludeCategories !== undefined
       ? { excludeCategories: filters.excludeCategories }
@@ -179,11 +162,11 @@ function listArgs(
  * stats every task file, which is most of what a refresh costs on Windows.
  */
 export async function listTasksTogether(
-  requests: TaskListRequest[],
+  queries: TaskListQuery[],
   withCategories: boolean,
 ): Promise<{ lists: TaskListResult[]; categories?: ClassificationOption[] }> {
   const { pages, categories } = await selected().tasksTogether(
-    requests.map((request) => listArgs(...request)),
+    queries.map(listArgs),
     withCategories,
   );
   return {
@@ -201,7 +184,7 @@ export async function listCategories(): Promise<CategoryListResult> {
 }
 
 export async function listTags(): Promise<TagListResult> {
-  return { tags: (await selected().tags()).map((entry) => ({ ...entry, label: entry.slug })) };
+  return { tags: categoryOptions(await selected().tags()) };
 }
 
 /** The newest thing an agent did to a task. */
@@ -245,14 +228,11 @@ export async function createTask(
   draft: InlineDraft,
   options: CommandOptions & { parentId?: string },
 ): Promise<TaskMutationResult> {
-  return queued(async (workspace) => {
-    if (options.parentId) {
-      if (!workspace.supportsRelationships)
-        throw unsupported("Child capture is not yet available in the selected workspace.");
-      return workspace.createChild(options.parentId, draft, writeKey(options));
-    }
-    return workspace.save(draft, writeKey(options));
-  });
+  return queued((workspace) =>
+    options.parentId
+      ? workspace.createChild(options.parentId, draft, writeKey(options))
+      : workspace.save(draft, writeKey(options)),
+  );
 }
 
 export async function updateTask(
@@ -407,7 +387,7 @@ export async function transitionTask(
 export async function transitionTasks(
   tasks: TaskTransitionItem[],
   options: CommandOptions,
-): Promise<TaskTransitionManyResult> {
+): Promise<TaskGroupResult> {
   return queued((workspace) => workspace.transitionMany(tasks, writeKey(options)));
 }
 
@@ -424,12 +404,8 @@ export async function undoOperation(
 export async function redoOperation(
   operationId: string,
   options: CommandOptions,
-): Promise<TaskReorderResult> {
-  return queued((workspace) => {
-    if (!workspace.supportsOperationRedo)
-      throw unsupported("Redo is not available in this selected workspace.");
-    return workspace.redo(operationId, writeKey(options));
-  });
+): Promise<TaskGroupResult> {
+  return queued((workspace) => workspace.redo(operationId, writeKey(options)));
 }
 
 export async function moveTask(
@@ -439,13 +415,7 @@ export async function moveTask(
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
   return queued((workspace) =>
-    relationshipWorkspace(workspace).relationship(
-      "task.move",
-      id,
-      expectedVersion,
-      parentId,
-      writeKey(options),
-    ),
+    workspace.relationship("task.move", id, expectedVersion, parentId, writeKey(options)),
   );
 }
 
@@ -453,12 +423,8 @@ export async function reorderTasks(
   tasks: TaskReorderTask[],
   placement: TaskReorderPlacement,
   options: CommandOptions,
-): Promise<TaskReorderResult> {
-  return queued(async (workspace) => {
-    if (!workspace.supportsOrdering)
-      throw unsupported("Reordering is not yet available in this selected workspace.");
-    return workspace.reorder(tasks, placement, writeKey(options));
-  });
+): Promise<TaskGroupResult> {
+  return queued((workspace) => workspace.reorder(tasks, placement, writeKey(options)));
 }
 
 export async function addDependency(
@@ -468,7 +434,7 @@ export async function addDependency(
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
   return queued((workspace) =>
-    relationshipWorkspace(workspace).relationship(
+    workspace.relationship(
       "task.dependency.add",
       id,
       expectedVersion,
@@ -485,7 +451,7 @@ export async function removeDependency(
   options: CommandOptions,
 ): Promise<TaskMutationResult> {
   return queued((workspace) =>
-    relationshipWorkspace(workspace).relationship(
+    workspace.relationship(
       "task.dependency.remove",
       id,
       expectedVersion,
