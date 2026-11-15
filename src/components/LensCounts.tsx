@@ -12,6 +12,7 @@ import { isMet, type GoalsToday } from "@/goals";
 import { BigRing, DoneTodayTip, GoalRings } from "./GoalRings";
 import { startAfterPaint } from "./startAfterPaint";
 import { celebrateGoals } from "./goalCelebration";
+import type { WeekDay } from "@/useHeaderCounts";
 
 type LensCountProps = { total: number; lensOn: boolean; onToggleLens: () => void };
 
@@ -86,11 +87,13 @@ const allMet = (today: GoalsToday): boolean => isMet({ done: today.filled, targe
 export function DoneToday({
   landing,
   goals,
+  week,
   categoryFilter,
   ...props
 }: LensCountProps & {
   landing: number;
   goals: GoalsToday | null;
+  week: readonly WeekDay[] | null;
   categoryFilter: string | null;
 }): ReactElement | null {
   const { total } = props;
@@ -136,7 +139,7 @@ export function DoneToday({
       total={shownTotal}
       holdPlace={landing > 0}
       alwaysShown={shownGoals !== null}
-      tip={shownGoals && <DoneTodayTip today={shownGoals} lensOn={props.lensOn} />}
+      tip={shownGoals && <DoneTodayTip today={shownGoals} week={week} lensOn={props.lensOn} />}
       kind="done"
       label="done today"
       shortcut="done.lens"

@@ -64,7 +64,7 @@ The Cleanup tab has one Delete tasks section with two items. Deletion controls a
 | Rule | When | Then |
 | --- | --- | --- |
 | `settings.delete-canceled` | Delete canceled tasks | Says how many canceled tasks there are and asks before deleting them for good (`task.purgeCanceled`), with Cancel where the first button stood so a double click never deletes. When other tasks link to canceled ones, it names them and deletes nothing |
-| `settings.delete-done` | Delete done tasks… | A dialog picks an age (done more than 1 month, 3 months, 1 year ago, or all; 3 months first) and what to delete: Images only, or Tasks and images. Each choice shows its counts and size from a preview. Delete (the destructive one), Export and delete and Cancel close it; it says deleting can't be undone |
+| `settings.delete-done` | Delete done tasks… | A dialog picks an age (done more than 1 month, 3 months, 1 year ago, or all; 3 months first) and what to delete: Images only, or Tasks and images. Each choice shows its counts and size from a preview. Delete (the destructive one), Export and delete and Cancel close it; it says deleting can't be undone. Deleted tasks still count in the goal report (`goals.report-tally`) |
 | `settings.delete-result` | Deleting done tasks finishes | It says what was deleted and how many tasks were kept because others link to them, and shows the export's path with Open folder (desktop) |
 
 ## Preferences

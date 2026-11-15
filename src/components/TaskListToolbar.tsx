@@ -42,7 +42,10 @@ import {
 import { CategoryFact } from "./TaskRow";
 import { useFilterTuck } from "./useFilterTuck";
 import { lensFilter, lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "./listLens";
-import { DoneLensGoals, goalLens } from "./GoalRings";
+import { DoneLensGoals, goalLens, WeekDots } from "./GoalRings";
+import { Hinted } from "./Hinted";
+import { BindingKbd } from "@/components/variants/kbd";
+import type { WeekDay } from "@/useHeaderCounts";
 import type { GoalsToday } from "@/goals";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
@@ -223,6 +226,8 @@ type TaskListToolbarProps = {
   widenDoneLens: (backward: boolean) => void;
   /** Today's goals, shown on the done lens's count line, or null without goals. */
   goals: GoalsToday | null;
+  week: readonly WeekDay[] | null;
+  onOpenGoalReport: () => void;
   onGoalLens: (goal: GoalLens | undefined) => void;
   clearStatusFilter: () => void;
   clearCategoryFilter: () => void;
@@ -276,6 +281,8 @@ export function TaskListToolbar({
   lens,
   widenDoneLens,
   goals,
+  week,
+  onOpenGoalReport,
   onGoalLens,
   clearStatusFilter,
   clearCategoryFilter,
@@ -826,76 +833,101 @@ export function TaskListToolbar({
         </div>
       </div>
       {searchInput}
-      <Breadcrumb
-        data-filter-summary="true"
-        aria-live="polite"
-        aria-atomic="true"
-        className="overflow-hidden"
-      >
-        <CompactBreadcrumbList ref={summaryList}>
-          <BreadcrumbItem className="shrink-0">
-            {statusIsDefault ? (
-              <span className="font-medium">{summaryText}</span>
-            ) : (
-              <FilterSummaryAction
-                filter="status"
-                label={
-                  lens?.kind === "done"
-                    ? `Show tasks ${lensPhrase({ kind: "done", window: widerDoneWindow(lens.window) })}`
-                    : "Reset status filter to Active"
-                }
-                onClear={
-                  lens?.kind === "done"
-                    ? (event) => widenDoneLens(event.shiftKey)
-                    : clearStatusFilter
-                }
-                className="font-medium text-foreground"
-              >
-                {summaryText}
-              </FilterSummaryAction>
-            )}
-          </BreadcrumbItem>
-          {lensGoals ? (
-            <BreadcrumbItem className="min-w-0">
-              <DoneLensGoals today={lensGoals} goal={narrowedTo} onGoal={onGoalLens} />
+      {/* The done lens's week sits beside the summary, or under it on a phone (`goals.report-open`). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <Breadcrumb
+          data-filter-summary="true"
+          aria-live="polite"
+          aria-atomic="true"
+          className="min-w-0 overflow-hidden"
+        >
+          <CompactBreadcrumbList ref={summaryList}>
+            <BreadcrumbItem className="shrink-0">
+              {statusIsDefault ? (
+                <span className="font-medium">{summaryText}</span>
+              ) : (
+                <FilterSummaryAction
+                  filter="status"
+                  label={
+                    lens?.kind === "done"
+                      ? `Show tasks ${lensPhrase({ kind: "done", window: widerDoneWindow(lens.window) })}`
+                      : "Reset status filter to Active"
+                  }
+                  onClear={
+                    lens?.kind === "done"
+                      ? (event) => widenDoneLens(event.shiftKey)
+                      : clearStatusFilter
+                  }
+                  className="font-medium text-foreground"
+                >
+                  {summaryText}
+                </FilterSummaryAction>
+              )}
             </BreadcrumbItem>
-          ) : null}
-          {categoryFilter ? (
-            <>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem className="shrink-0">
-                <FilterSummaryAction
-                  filter="category"
-                  label={`Clear category filter: ${categoryFilter.label}`}
-                  hint="Clear category filter"
-                  onClear={clearCategoryFilter}
-                  className="group/fact shrink-0"
-                >
-                  <span data-filter-category="true" className="flex">
-                    <CategoryFact label={categoryFilter.label} />
-                  </span>
-                </FilterSummaryAction>
-              </BreadcrumbItem>
-            </>
-          ) : null}
-          {summarySuffixParts.map((part) => (
-            <Fragment key={part.filter}>
-              <BreadcrumbSeparator />
+            {lensGoals ? (
               <BreadcrumbItem className="min-w-0">
-                <FilterSummaryAction
-                  filter={part.filter}
-                  label={part.label}
-                  hint={part.hint}
-                  onClear={part.onClear}
-                  className="min-w-0 truncate text-left text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {part.value}
-                </FilterSummaryAction>
+                <DoneLensGoals today={lensGoals} goal={narrowedTo} onGoal={onGoalLens} />
               </BreadcrumbItem>
-            </Fragment>
-          ))}
-        </CompactBreadcrumbList>
-      </Breadcrumb>
+            ) : null}
+            {categoryFilter ? (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="shrink-0">
+                  <FilterSummaryAction
+                    filter="category"
+                    label={`Clear category filter: ${categoryFilter.label}`}
+                    hint="Clear category filter"
+                    onClear={clearCategoryFilter}
+                    className="group/fact shrink-0"
+                  >
+                    <span data-filter-category="true" className="flex">
+                      <CategoryFact label={categoryFilter.label} />
+                    </span>
+                  </FilterSummaryAction>
+                </BreadcrumbItem>
+              </>
+            ) : null}
+            {summarySuffixParts.map((part) => (
+              <Fragment key={part.filter}>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="min-w-0">
+                  <FilterSummaryAction
+                    filter={part.filter}
+                    label={part.label}
+                    hint={part.hint}
+                    onClear={part.onClear}
+                    className="min-w-0 truncate text-left text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {part.value}
+                  </FilterSummaryAction>
+                </BreadcrumbItem>
+              </Fragment>
+            ))}
+          </CompactBreadcrumbList>
+        </Breadcrumb>
+        {lensGoals && week ? (
+          <Hinted
+            hint={
+              <>
+                Goal report <BindingKbd id="goals.report" />
+              </>
+            }
+            render={
+              <button
+                type="button"
+                tabIndex={-1}
+                data-week-strip
+                onMouseDown={preventFocusSteal}
+                onClick={onOpenGoalReport}
+                className="flex shrink-0 items-center gap-2 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground max-sm:-ml-2"
+              />
+            }
+          >
+            This week
+            <WeekDots week={week} />
+          </Hinted>
+        ) : null}
+      </div>
     </div>
   );
 }

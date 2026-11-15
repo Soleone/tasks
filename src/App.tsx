@@ -5,6 +5,11 @@ import { useGlobalHotkeys } from "./useGlobalHotkeys";
 import { useAndroidBack } from "./useAndroidBack";
 import { useAgentChanges } from "./useAgentChanges";
 import { useHeaderCounts } from "./useHeaderCounts";
+import { useDoneHistory } from "./useDoneHistory";
+import { GoalReport } from "@/components/GoalReport";
+import { weekDots, type ReportTakeOff } from "@/components/goalReportMotion";
+import type { ReportRange } from "@/goalReport";
+import { dayOf, goalsOn, hasGoals } from "@/goals";
 import {
   useEffect,
   useEffectEvent,
@@ -75,7 +80,7 @@ import {
 import { practice, useLearning } from "@/learning/progress";
 import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
-import { renameCategorySettings } from "@/platform/sharedSettings";
+import { renameCategorySettings, useSharedSettings } from "@/platform/sharedSettings";
 import { isMobileApp } from "@/platform/runtime";
 import { ariaShortcut, boundAction } from "@/keymap";
 import { BindingKbd } from "@/components/variants/kbd";
@@ -208,6 +213,17 @@ const VIEW_PREFERENCES: [key: string, stored: (view: ListView) => string][] = [
 /** The lens on screen and the way back from it. Switching lenses keeps the way back. */
 type OpenLens = { lens: ListLens; returnTo: ListView; place: TaskListPlace | null };
 
+/**
+ * The goal report in place of the list (`goals.report`). While a day it opened shows in the done
+ * lens, `dayLens` keeps the lens that day replaced, so going back returns to the report.
+ */
+type OpenReport = {
+  range: ReportRange;
+  day: string;
+  takeOff: ReportTakeOff;
+  dayLens?: { under: OpenLens | null };
+};
+
 // The list is the default surface. Create and edit use an inline editor opened
 // by the New task button, the C key, or the palette. Tab does not leave the
 // task editor or list.
@@ -267,6 +283,11 @@ export default function App({
   );
   const [openLens, setOpenLens] = useState<OpenLens | null>(null);
   const lens = openLens?.lens ?? null;
+  const [report, setReport] = useState<OpenReport | null>(null);
+  const reportShown = report !== null && report.dayLens === undefined;
+  // A day the report opened is its way back only while the done lens still shows that day.
+  if (report?.dayLens && !(lens?.kind === "done" && lens.day === report.day)) setReport(null);
+  const sharedSettings = useSharedSettings();
   const [categoryFilter, setCategoryFilter] = useState<ClassificationToken | null>(
     readInitialCategoryFilter,
   );
@@ -364,7 +385,13 @@ export default function App({
     isCurrentViewMatch,
   } = taskView;
   const [conflictsOpen, setConflictsOpen] = useState(false);
-  const { doneToday: doneTodayCount, dueNow: dueNowCount, goals } = useHeaderCounts(tasks);
+  const { doneToday: doneTodayCount, dueNow: dueNowCount, goals, week } = useHeaderCounts(tasks);
+  const doneHistory = useDoneHistory(report !== null, tasks);
+  // A day from the report shows that day's goals in the done lens.
+  const lensGoals =
+    lens?.kind === "done" && lens.day !== undefined && doneHistory && hasGoals(sharedSettings)
+      ? goalsOn(sharedSettings, doneHistory, lens.day)
+      : goals;
   const agentChanges = useAgentChanges(tasks);
   const agentTaskIds = useMemo(
     () => agentChanges.changes.map((change) => change.taskId),
@@ -594,6 +621,16 @@ export default function App({
 
   function leaveLens(): void {
     if (!openLens) return;
+    // Back to the report, on the day it showed (`goals.report-back`).
+    if (report?.dayLens) {
+      const { under } = report.dayLens;
+      setReport({ ...report, dayLens: undefined, takeOff: { kind: "day" } });
+      if (under) {
+        setOpenLens(under);
+        showListView(lensView(under.lens));
+        return;
+      }
+    }
     setOpenLens(null);
     showListView(openLens.returnTo);
     if (openLens.place) taskListRef.current?.restorePlace(openLens.place);
@@ -602,6 +639,11 @@ export default function App({
   }
 
   function toggleLens(kind: ListLens["kind"]): void {
+    if (reportShown) {
+      // The done count stands for the report too, so it closes it.
+      closeGoalReport();
+      if (kind === "done") return;
+    }
     if (lens?.kind === kind) leaveLens();
     else
       enterLens(
@@ -616,12 +658,14 @@ export default function App({
   /** Narrows the done lens to one goal's tasks, or with undefined back to all of them. */
   function narrowDoneLens(goal: GoalLens | undefined): void {
     if (openLens?.lens.kind !== "done") return;
-    const next: ListLens = { kind: "done", window: openLens.lens.window, ...(goal && { goal }) };
+    const { window, day } = openLens.lens;
+    const next: ListLens = { kind: "done", window, ...(day && { day }), ...(goal && { goal }) };
     setOpenLens({ ...openLens, lens: next });
     requestActiveTask();
   }
 
   function widenDoneLens(backward = false): void {
+    if (reportShown) closeGoalReport();
     if (openLens?.lens.kind !== "done") {
       enterLens({ kind: "done", window: "week" });
       return;
@@ -634,6 +678,34 @@ export default function App({
     setOpenLens({ ...openLens, lens: next });
     requestActiveTask();
     setAnnouncement(`Showing tasks ${lensPhrase(next)}`);
+  }
+
+  /** Opens the goal report on today, from the done count's ring or the done lens's week. */
+  function openGoalReport(range: ReportRange, from: "count" | "week" = "count"): void {
+    if (!hasGoals(sharedSettings)) {
+      showTaskToast("Set a goal in Settings › Goals to see how your days went");
+      return;
+    }
+    setHelpOpen(false);
+    setReport({
+      range,
+      day: dayOf(sharedSettings, new Date()),
+      takeOff: from === "week" ? { kind: "week", dots: weekDots() } : { kind: "count" },
+    });
+    setAnnouncement("Showing the goal report");
+  }
+
+  function closeGoalReport(): void {
+    setReport(null);
+    setAnnouncement("Back to your list");
+    requestAnimationFrame(() => nav.last());
+  }
+
+  /** Shows one of the report's days in the done lens; going back returns to the report. */
+  function openReportDay(day: string): void {
+    if (!report) return;
+    setReport({ ...report, day, dayLens: { under: openLens } });
+    enterLens({ kind: "done", window: "day", day });
   }
 
   // From the palette the active element is its search field, which unmounts
@@ -913,9 +985,10 @@ export default function App({
             <DoneToday
               total={doneTodayCount}
               goals={goals}
+              week={week}
               categoryFilter={categoryFilter?.slug ?? null}
               landing={landingTaskIds.size}
-              lensOn={lens?.kind === "done"}
+              lensOn={lens?.kind === "done" || reportShown}
               onToggleLens={() => {
                 practice("done.lens", "pointer");
                 toggleLens("done");
@@ -1030,7 +1103,10 @@ export default function App({
           lens={lens}
           onToggleLens={toggleLens}
           onWidenDoneLens={widenDoneLens}
-          goals={goals}
+          onOpenGoalReport={openGoalReport}
+          hidden={reportShown}
+          goals={lensGoals}
+          week={lens?.kind === "done" && lens.day === undefined ? week : null}
           onGoalLens={narrowDoneLens}
           agentNotes={agentNotes}
           statusPreset={statusPreset}
@@ -1112,6 +1188,19 @@ export default function App({
           onAddBlocker={(task) => openPicker("blocker", task)}
           onMoveUnder={(task) => openPicker("move", task)}
         />
+        {reportShown ? (
+          <GoalReport
+            settings={sharedSettings}
+            done={doneHistory}
+            range={report.range}
+            day={report.day}
+            takeOff={report.takeOff}
+            onMove={(day) => setReport({ ...report, day })}
+            onRange={(range) => setReport({ ...report, range })}
+            onOpenDay={openReportDay}
+            onClose={closeGoalReport}
+          />
+        ) : null}
         {mobile || !tasksLoaded ? null : <QuestCard onLearn={() => toggleLearn("pointer")} />}
         <p role="status" className="sr-only">
           {announcement}
@@ -1134,6 +1223,7 @@ export default function App({
         onOpenThemes={openThemes}
         onToggleLens={toggleLens}
         onWidenDoneLens={widenDoneLens}
+        onOpenGoalReport={() => openGoalReport("month")}
         onCreate={openCreate}
         onLogDone={openLog}
         onCreateChild={(task) => openCreate(task.id)}

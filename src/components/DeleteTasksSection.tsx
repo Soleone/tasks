@@ -19,6 +19,7 @@ import { ChoiceCard, ChoiceRadio } from "@/components/variants/radio-group";
 import {
   clearDone,
   getTask,
+  listCompletions,
   purgeCanceled,
   type ClearDoneResult,
   type ClearDoneScope,
@@ -26,6 +27,8 @@ import {
 import { revealExports } from "@/platform/desktopWorkspace";
 import { EditorError } from "@/platform/editorClient";
 import { isDesktopApp } from "@/platform/runtime";
+import { addToTally, readSharedSettings } from "@/platform/sharedSettings";
+import { tallyOf } from "@/goals";
 
 function errorText(caught: unknown): string {
   return caught instanceof Error ? caught.message : String(caught);
@@ -223,7 +226,15 @@ function DeleteDoneDialog({
     setBusy(true);
     setRunError(null);
     try {
+      // What the deleted tasks counted toward stays in the tally, so the goal report keeps them.
+      const done = scope === "tasks" ? await listCompletions() : [];
       const result = await clearDone(closedBefore(age), scope, { export: exporting });
+      const cleared = new Set(result.clearedIds);
+      const tally = tallyOf(
+        readSharedSettings(),
+        done.filter((task) => cleared.has(task.id)),
+      );
+      if (Object.keys(tally).length > 0) void addToTally(tally);
       onFinished({ scope, result });
       onClose();
     } catch (caught) {

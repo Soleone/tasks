@@ -1,7 +1,7 @@
 import { addDays, localToday } from "@/backend/dueDate";
-import { formatCompletedTime } from "@/backend/taskDates";
+import { formatCompletedTime, formatDueDate } from "@/backend/taskDates";
 import type { TaskStatus } from "@/backend/taskModel";
-import { doneTodaySince } from "@/goals";
+import { doneTodaySince, startOfDay } from "@/goals";
 import type { AgentChange } from "@/platform/backendClient";
 import { readSharedSettings } from "@/platform/sharedSettings";
 
@@ -17,7 +17,13 @@ export type DoneWindow = "day" | "yesterday" | "week" | "month";
  * remembered between launches.
  */
 export type ListLens =
-  | { kind: "done"; window: DoneWindow; goal?: GoalLens }
+  | {
+      kind: "done";
+      window: DoneWindow;
+      goal?: GoalLens;
+      /** One day, `YYYY-MM-DD`, opened from the goal report (`goals.report-day`). */
+      day?: string;
+    }
   | { kind: "due" }
   /** The tasks agents changed that you haven't looked at yet (useAgentChanges). */
   | { kind: "agents"; taskIds: readonly string[] };
@@ -42,6 +48,14 @@ const DONE_WINDOW_DAYS = { week: 7, month: 30 };
 export function lensFilter(lens: ListLens, now = new Date()): LensFilter {
   if (lens.kind === "done") {
     const done = { statuses: ["done"] as TaskStatus[], ...lens.goal };
+    if (lens.day !== undefined) {
+      const settings = readSharedSettings();
+      return {
+        ...done,
+        closedSince: startOfDay(settings, lens.day).toISOString(),
+        closedBefore: startOfDay(settings, addDays(lens.day, 1)).toISOString(),
+      };
+    }
     if (lens.window === "week" || lens.window === "month") {
       const since = new Date(now.getTime() - DONE_WINDOW_DAYS[lens.window] * DAY_MS);
       return { ...done, closedSince: since.toISOString() };
@@ -71,6 +85,7 @@ export function widerDoneWindow(doneWindow: DoneWindow, backward = false): DoneW
 export function lensPhrase(lens: ListLens): string {
   if (lens.kind === "due") return "due now";
   if (lens.kind === "agents") return "changed by agents";
+  if (lens.day !== undefined) return `done on ${formatDueDate(lens.day, localToday())}`;
   if (lens.window === "day") return "done today";
   if (lens.window === "yesterday") return "done yesterday";
   return `done in the last ${DONE_WINDOW_DAYS[lens.window]} days`;

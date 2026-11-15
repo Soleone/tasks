@@ -25,6 +25,7 @@ import {
   Palette,
   PenLine,
   Play,
+  CalendarRange,
   Redo2,
   SaveCheck,
   Search,
@@ -74,6 +75,7 @@ type HelpEntry = {
     | "toggle-due-lens"
     | "toggle-agents-lens"
     | "widen-done-lens"
+    | "open-goal-report"
     | "add-blocker"
     | "move-under"
     | "pause-task"
@@ -446,6 +448,14 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           keywords: "accomplished finished completed yesterday week month history",
         },
         {
+          label: "Goal report",
+          hint: "Every day of the month against your goals",
+          action: "open-goal-report",
+          icon: CalendarRange,
+          keys: caps("goals.report"),
+          keywords: "goals report calendar month year streak history days met",
+        },
+        {
           label: "Toggle this palette",
           icon: CircleHelp,
           keys: caps("help.palette"),
@@ -507,6 +517,7 @@ export function HelpPalette({
   onOpenThemes,
   onToggleLens,
   onWidenDoneLens,
+  onOpenGoalReport,
   onCreate,
   onLogDone,
   onCreateChild,
@@ -533,6 +544,7 @@ export function HelpPalette({
   onOpenThemes: () => void;
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: () => void;
+  onOpenGoalReport: () => void;
   onCreate: () => void;
   onLogDone: () => void;
   onCreateChild?: (task: TaskView) => void;
@@ -588,51 +600,53 @@ export function HelpPalette({
                             ? () => onToggleLens("agents")
                             : entry.action === "widen-done-lens"
                               ? onWidenDoneLens
-                              : entry.action === "open-settings"
-                                ? onOpenSettings
-                                : entry.action === "copy-task" && activeTask && onCopyTask
-                                  ? () => onCopyTask(activeTask)
-                                  : entry.action === "copy-image" && activeTask && onCopyImage
-                                    ? () => onCopyImage(activeTask)
-                                    : entry.action === "undo-status"
-                                      ? canUndoStatus && onUndoStatus
-                                        ? onUndoStatus
-                                        : undefined
-                                      : entry.action === "redo"
-                                        ? canRedo
-                                          ? onRedo
+                              : entry.action === "open-goal-report"
+                                ? onOpenGoalReport
+                                : entry.action === "open-settings"
+                                  ? onOpenSettings
+                                  : entry.action === "copy-task" && activeTask && onCopyTask
+                                    ? () => onCopyTask(activeTask)
+                                    : entry.action === "copy-image" && activeTask && onCopyImage
+                                      ? () => onCopyImage(activeTask)
+                                      : entry.action === "undo-status"
+                                        ? canUndoStatus && onUndoStatus
+                                          ? onUndoStatus
                                           : undefined
-                                        : entry.action === "new-task"
-                                          ? onCreate
-                                          : entry.action === "log-done-task"
-                                            ? onLogDone
-                                            : entry.action === "new-child-task" &&
-                                                activeTask &&
-                                                onCreateChild
-                                              ? () => onCreateChild(activeTask)
-                                              : entry.action === "filter-category"
-                                                ? onOpenCategoryPicker
-                                                : entry.action === "filter-status"
-                                                  ? onOpenStatusMenu
-                                                  : entry.action === "filter-priority"
-                                                    ? onOpenPriorityMenu
-                                                    : entry.action === "filter-tags"
-                                                      ? onOpenTagPicker
-                                                      : entry.action === "filter-search"
-                                                        ? onOpenSearch
-                                                        : entry.action === "add-blocker" &&
-                                                            activeTask &&
-                                                            onAddBlocker
-                                                          ? () => onAddBlocker(activeTask)
-                                                          : entry.action === "pause-task" &&
+                                        : entry.action === "redo"
+                                          ? canRedo
+                                            ? onRedo
+                                            : undefined
+                                          : entry.action === "new-task"
+                                            ? onCreate
+                                            : entry.action === "log-done-task"
+                                              ? onLogDone
+                                              : entry.action === "new-child-task" &&
+                                                  activeTask &&
+                                                  onCreateChild
+                                                ? () => onCreateChild(activeTask)
+                                                : entry.action === "filter-category"
+                                                  ? onOpenCategoryPicker
+                                                  : entry.action === "filter-status"
+                                                    ? onOpenStatusMenu
+                                                    : entry.action === "filter-priority"
+                                                      ? onOpenPriorityMenu
+                                                      : entry.action === "filter-tags"
+                                                        ? onOpenTagPicker
+                                                        : entry.action === "filter-search"
+                                                          ? onOpenSearch
+                                                          : entry.action === "add-blocker" &&
                                                               activeTask &&
-                                                              onPauseTask
-                                                            ? () => onPauseTask(activeTask)
-                                                            : entry.action === "move-under" &&
+                                                              onAddBlocker
+                                                            ? () => onAddBlocker(activeTask)
+                                                            : entry.action === "pause-task" &&
                                                                 activeTask &&
-                                                                onMoveUnder
-                                                              ? () => onMoveUnder(activeTask)
-                                                              : undefined;
+                                                                onPauseTask
+                                                              ? () => onPauseTask(activeTask)
+                                                              : entry.action === "move-under" &&
+                                                                  activeTask &&
+                                                                  onMoveUnder
+                                                                ? () => onMoveUnder(activeTask)
+                                                                : undefined;
                   return (
                     <CommandItem
                       key={entry.label}

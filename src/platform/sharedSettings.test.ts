@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { HomeDocuments } from "./homeDocuments";
 import {
+  addToTally,
   loadSharedSettings,
   readSharedSettings,
   renameCategorySettings,
@@ -45,10 +46,15 @@ test("home.shared-settings: bad values are skipped and a damaged file is kept as
       format: "tasks.shared",
       colors: { work: "plaid", Bad: "red" },
       dayEndsAt: "4",
+      tally: { "2026-11-09": { life: 2, Bad: 1, home: 0 }, someday: { life: 1 } },
     }),
   );
   await loadSharedSettings(documents);
-  expect(readSharedSettings()).toMatchObject({ colors: {}, dayEndsAt: "04:00" });
+  expect(readSharedSettings()).toMatchObject({
+    colors: {},
+    dayEndsAt: "04:00",
+    tally: { "2026-11-09": { life: 2 } },
+  });
   disk.text = "{damaged";
   await setGoal(null, { count: 3, per: "day" });
   expect(JSON.parse(disk.text!)).toEqual({
@@ -58,14 +64,17 @@ test("home.shared-settings: bad values are skipped and a damaged file is kept as
   });
 });
 
-test("settings.category-colors: a rename carries the color and goal to the new name", async () => {
+test("settings.category-colors: a rename carries the color, goal and tally to the new name", async () => {
   const { disk, documents } = homeWith(null);
   await loadSharedSettings(documents);
   await setCategoryColor("job", "blue");
   await setGoal("job", { count: 10, per: "week" });
+  await addToTally({ "2026-11-09": { job: 2, work: 1 } });
+  await addToTally({ "2026-11-09": { job: 1 }, "2026-11-10": { "": 1 } });
   await renameCategorySettings("job", "work");
   expect(JSON.parse(disk.text!)).toMatchObject({
     colors: { work: "blue" },
     goals: { work: { count: 10, per: "week" } },
+    tally: { "2026-11-09": { work: 4 }, "2026-11-10": { "": 1 } },
   });
 });

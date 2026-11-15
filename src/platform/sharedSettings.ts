@@ -21,6 +21,12 @@ export const WEEKDAYS = [
 ] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
+/**
+ * Tasks done per day (`YYYY-MM-DD`) and category slug (`""` for none), kept for tasks Delete done
+ * tasks removed so the goal report still counts them (`goals.report-tally`).
+ */
+export type Tally = Readonly<Record<string, Readonly<Record<string, number>>>>;
+
 /** Settings every device shares, kept in the workspace's `settings.json`. */
 export type SharedSettings = {
   colors: Readonly<Record<string, Swatch>>;
@@ -31,6 +37,7 @@ export type SharedSettings = {
   /** When today ends, as "HH:MM" after midnight. */
   dayEndsAt: string;
   weekStartsOn: Weekday;
+  tally: Tally;
 };
 
 const DEFAULTS: SharedSettings = {
@@ -39,9 +46,11 @@ const DEFAULTS: SharedSettings = {
   otherGoal: null,
   dayEndsAt: "04:00",
   weekStartsOn: "monday",
+  tally: {},
 };
 const FORMAT = "tasks.shared";
 const SLUG = /^[a-z](?:[a-z0-9_-]*[a-z0-9_])?$/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const MAX_GOAL = 99;
 
 type SettingsFile = Record<string, unknown>;
@@ -72,6 +81,16 @@ function settingsOf(file: SettingsFile): SharedSettings {
       const goal = readGoal(value);
       if (SLUG.test(slug) && goal) goals[slug] = goal;
     }
+  const tally: Record<string, Record<string, number>> = {};
+  if (isRecord(file.tally))
+    for (const [day, counts] of Object.entries(file.tally)) {
+      if (!DAY.test(day) || !isRecord(counts)) continue;
+      const kept = Object.entries(counts).filter(
+        ([slug, count]) =>
+          (slug === "" || SLUG.test(slug)) && Number.isInteger(count) && (count as number) > 0,
+      );
+      if (kept.length > 0) tally[day] = Object.fromEntries(kept) as Record<string, number>;
+    }
   const { dayEndsAt, weekStartsOn } = file;
   return {
     colors,
@@ -84,6 +103,7 @@ function settingsOf(file: SettingsFile): SharedSettings {
     weekStartsOn: WEEKDAYS.includes(weekStartsOn as Weekday)
       ? (weekStartsOn as Weekday)
       : DEFAULTS.weekStartsOn,
+    tally,
   };
 }
 
@@ -195,6 +215,20 @@ export function setWeekStartsOn(day: Weekday): Promise<void> {
   });
 }
 
+/** Adds the tasks Delete done tasks removed to the tally, onto what it already holds. */
+export function addToTally(added: Tally): Promise<void> {
+  return edit((file) => {
+    const tally: Record<string, unknown> = isRecord(file.tally) ? { ...file.tally } : {};
+    for (const [day, counts] of Object.entries(added)) {
+      const kept: Record<string, unknown> = isRecord(tally[day]) ? { ...tally[day] } : {};
+      for (const [slug, count] of Object.entries(counts))
+        kept[slug] = (Number.isInteger(kept[slug]) ? (kept[slug] as number) : 0) + count;
+      tally[day] = kept;
+    }
+    file.tally = tally;
+  });
+}
+
 /** A renamed category keeps its color and goal; one the new name already had wins. */
 export function renameCategorySettings(from: string, to: string): Promise<void> {
   return edit((file) => {
@@ -205,5 +239,15 @@ export function renameCategorySettings(from: string, to: string): Promise<void> 
       delete record[from];
       file[key] = record;
     }
+    // The renamed tasks merge into `to`, so their tallied counts do too.
+    if (isRecord(file.tally))
+      file.tally = Object.fromEntries(
+        Object.entries(file.tally).map(([day, counts]) => {
+          if (!isRecord(counts) || !Number.isInteger(counts[from])) return [day, counts];
+          const { [from]: moved, ...rest } = counts;
+          const already = Number.isInteger(rest[to]) ? (rest[to] as number) : 0;
+          return [day, { ...rest, [to]: already + (moved as number) }];
+        }),
+      );
   });
 }

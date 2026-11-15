@@ -6,6 +6,8 @@ import { Tooltip } from "@/components/variants/tooltip";
 import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isMet, type GoalProgress, type GoalsToday } from "@/goals";
 import type { GoalLens } from "./listLens";
+import { dayMet, dayShare } from "@/goalReport";
+import type { WeekDay } from "@/useHeaderCounts";
 
 const RADIUS = 10;
 /** The arc's length in its own units, as pathLength. */
@@ -98,7 +100,7 @@ export function BigRing({ today }: { today: GoalsToday }): ReactElement {
 }
 
 /** Done, then the goal, as right-aligned columns that never move when the check appears. */
-function Numbers({
+export function Numbers({
   done,
   target,
   check = true,
@@ -127,7 +129,7 @@ function Numbers({
  * Lays out its lines with done and goal columns as wide as the widest numbers among `pairs`, so a
  * two-digit count still lines up.
  */
-function Columns({
+export function Columns({
   pairs,
   className,
   children,
@@ -146,7 +148,7 @@ function Columns({
 }
 
 /** A goal's color; everything else is neutral, in the tooltip's ink unless `neutral` says otherwise. */
-function GoalDot({
+export function GoalDot({
   goal,
   neutral = "bg-background",
 }: {
@@ -166,16 +168,46 @@ function GoalDot({
   );
 }
 
-function Line({ children }: { children: ReactNode }): ReactElement {
+export function Line({ children }: { children: ReactNode }): ReactElement {
   return <span className="flex items-center justify-between">{children}</span>;
 }
 
-/** The done count's tooltip: today's total, then each goal's numbers. */
+/**
+ * This week day by day (`goals.report-open`): each day's dot fills with green as it nears every
+ * goal and is solid once they're all met; today's is ringed.
+ */
+export function WeekDots({ week }: { week: readonly WeekDay[] }): ReactElement {
+  const today = week.filter((entry) => entry.goals !== null).at(-1)?.day;
+  return (
+    <span className="flex items-center gap-1" aria-hidden="true">
+      {week.map(({ day, goals }) => {
+        const met = goals !== null && dayMet(goals);
+        const share = goals === null ? 0 : dayShare(goals);
+        return (
+          <span
+            key={day}
+            data-week-dot={day}
+            className={cn(
+              "size-2 rounded-full",
+              met ? "bg-success" : "bg-success/(--share) inset-ring inset-ring-current/25",
+              day === today && "ring-1 ring-primary",
+            )}
+            style={{ "--share": `${Math.round(share * 55)}%` } as CSSProperties}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
+/** The done count's tooltip: today's total, then each goal's numbers and this week. */
 export function DoneTodayTip({
   today,
+  week,
   lensOn,
 }: {
   today: GoalsToday;
+  week?: readonly WeekDay[] | null;
   lensOn: boolean;
 }): ReactElement {
   const pairs = today.goals.map((goal): [number, number] => [goal.done, goal.target]);
@@ -196,8 +228,16 @@ export function DoneTodayTip({
           <Numbers done={goal.done} target={goal.target} />
         </Line>
       ))}
+      {week && (
+        <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
+          This week <WeekDots week={week} />
+        </span>
+      )}
       <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
         {lensOn ? "Back to your list" : "Show what's done"} <BindingKbd id="done.lens" />
+      </span>
+      <span className="flex items-center justify-between gap-3">
+        Goal report <BindingKbd id="goals.report" />
       </span>
     </Columns>
   );

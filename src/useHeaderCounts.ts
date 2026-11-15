@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaskView } from "@/components/taskView";
 import { lensFilter, type ListLens } from "@/components/listLens";
-import { goalsToday, hasGoals, weekStart, type GoalsToday } from "@/goals";
+import { dayOf, goalsOn, goalsToday, hasGoals, weekStart, type GoalsToday } from "@/goals";
+import { thisWeek } from "@/goalReport";
 import { listTasksTogether, type TaskListQuery } from "@/platform/backendClient";
 import { useSharedSettings, type SharedSettings } from "@/platform/sharedSettings";
 
 /** Tasks age out of the window, and days turn, without any write, so the counts also recheck on their own. */
 const RECHECK_MS = 60 * 1000;
 
-type HeaderCounts = { doneToday: number; dueNow: number; goals: GoalsToday | null };
+/** A day of this week and how it went, or null for one still to come. */
+export type WeekDay = { day: string; goals: GoalsToday | null };
+
+type HeaderCounts = {
+  doneToday: number;
+  dueNow: number;
+  goals: GoalsToday | null;
+  /** With goals set, this week day by day, for the done lens's week (`goals.report-open`). */
+  week: WeekDay[] | null;
+};
 
 function lensQuery(lens: ListLens): TaskListQuery {
   const { statuses, ...bounds } = lensFilter(lens);
@@ -39,7 +49,14 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
     false,
   );
   const goals = goalsSet ? goalsToday(settings, done.tasks, now)! : null;
-  return { doneToday: goals ? goals.done : done.total, dueNow: due.total, goals };
+  const today = dayOf(settings, now);
+  const week = goalsSet
+    ? thisWeek(settings, today).map((day) => ({
+        day,
+        goals: day > today ? null : goalsOn(settings, done.tasks, day),
+      }))
+    : null;
+  return { doneToday: goals ? goals.done : done.total, dueNow: due.total, goals, week };
 }
 
 /**
@@ -49,7 +66,12 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
  */
 export function useHeaderCounts(listTasksShown: readonly TaskView[]): HeaderCounts {
   const settings = useSharedSettings();
-  const [counts, setCounts] = useState<HeaderCounts>({ doneToday: 0, dueNow: 0, goals: null });
+  const [counts, setCounts] = useState<HeaderCounts>({
+    doneToday: 0,
+    dueNow: 0,
+    goals: null,
+    week: null,
+  });
   const querySequence = useRef(0);
 
   useEffect(() => {

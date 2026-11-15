@@ -181,6 +181,7 @@ test("info inspects empty, partial and unsupported roots without creating canoni
     "task.cancel",
     "task.clearDone",
     "task.complete",
+    "task.completions",
     "task.create",
     "task.delete",
     "task.dependency.add",
@@ -413,6 +414,19 @@ test("categories and tags list the most recently updated first, ties by slug", (
     { slug: "y", taskCount: 2 },
     { slug: "w", taskCount: 1 },
     { slug: "x", taskCount: 1 },
+  ]);
+});
+
+test("completions list every done task's id, closedAt and category, nothing else", (t) => {
+  const current = workspace(t, {
+    done: { status: "done", category: "work", closedAt: "2026-10-01T09:00:00.000Z" },
+    plain: { status: "done", closedAt: "2026-10-02T09:00:00.000Z" },
+    canceled: { status: "canceled", closedAt: "2026-10-03T09:00:00.000Z" },
+    open: {},
+  });
+  assert.deepEqual(result(query(current, "task.completions")).completions, [
+    { id: "done", closedAt: "2026-10-01T09:00:00.000Z", category: "work" },
+    { id: "plain", closedAt: "2026-10-02T09:00:00.000Z", category: null },
   ]);
 });
 

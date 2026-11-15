@@ -268,6 +268,16 @@ export function executeQuery(
 ): Record<string, unknown> {
   if (command === "query.batch") return queryBatch(args, tasks, revision);
   if (command === "task.list") return listTasks(tasks, args, revision);
+  if (command === "task.completions") {
+    assertArgs(args, []);
+    return {
+      completions: tasks.flatMap((task) =>
+        task.status === "done" && task.closedAt !== null
+          ? [{ id: task.id, closedAt: task.closedAt, category: task.category }]
+          : [],
+      ),
+    };
+  }
   if (command === "task.get") {
     assertArgs(args, ["id"]);
     if (typeof args.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.id)) invalidFilter("id");

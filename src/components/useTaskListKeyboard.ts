@@ -8,6 +8,7 @@ import type { TaskView } from "./taskView";
 import { practice } from "@/learning/progress";
 import { escapeFoundNothing } from "@/useAndroidBack";
 import { boundAction, type BindingId } from "@/keymap";
+import type { ReportRange } from "@/goalReport";
 
 const EXACT_STATUS_BY_KEY = new Map(
   EXACT_STATUS_META.map((entry) => [entry.key.toLowerCase(), entry.status]),
@@ -80,6 +81,7 @@ type HomeShortcutActions = {
   addBlocker: (task: TaskView) => void;
   toggleLens: (kind: ListLens["kind"]) => void;
   widenDoneLens: () => void;
+  openGoalReport: (range: ReportRange) => void;
   moveUnder: (task: TaskView) => void;
   toggleSelectedStatus: () => Promise<void>;
   reverseSelectedStatus: () => Promise<void>;
@@ -295,6 +297,10 @@ function runBinding(id: BindingId, event: KeyboardEvent, actions: HomeShortcutAc
       return actions.toggleLens("due");
     case "agents.lens":
       return actions.toggleLens("agents");
+    case "goals.report":
+      return actions.openGoalReport("month");
+    case "goals.report-range":
+      return actions.openGoalReport("year");
   }
 }
 
@@ -361,6 +367,8 @@ export function useTaskListKeyboard(
   const { toolbarModeRef, composerOpenRef, list, section } = surface;
 
   const onWindowKeyDown = useEffectEvent((event: KeyboardEvent): void => {
+    // The goal report takes the list's place and its keys.
+    if (section.current?.hidden) return;
     if (event.key === "Tab") {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (

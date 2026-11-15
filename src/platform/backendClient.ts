@@ -5,6 +5,7 @@ import { taskView, type ClassificationOption, type TaskView } from "@/components
 import type { TaskPriority } from "@/backend/taskModel";
 import type { TaskReorderPlacement, TaskReorderTask, TaskTransitionItem } from "@/backend/protocol";
 import type { SortField } from "@/components/taskFilters";
+import type { DoneTask } from "@/goals";
 import { parseTaskProjection } from "../backend/taskResults";
 import { chooseHomeOnNextStart } from "./desktopWorkspace";
 import { isMobileApp } from "./runtime";
@@ -217,6 +218,18 @@ export async function listAgentChanges(since: string): Promise<AgentChange[]> {
         newest.set(taskId, { taskId, agent: actor.label, command, at: createdAt });
   }
   return [...newest.values()];
+}
+
+/** Every done task: its id, when it was done and its category, for the goal report. */
+export async function listCompletions(): Promise<(DoneTask & { id: string })[]> {
+  const { completions } = (await selected().reader.query("task.completions")) as {
+    completions: { id: string; closedAt: string; category: string | null }[];
+  };
+  return completions.map(({ id, closedAt, category }) => ({
+    id,
+    closedAt,
+    category: category === null ? null : { slug: category },
+  }));
 }
 
 export async function getTask(id: string): Promise<{ task: TaskView }> {

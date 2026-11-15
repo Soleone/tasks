@@ -52,6 +52,13 @@ export const BINDINGS = [
   { id: "done.lens-window", label: "Look further back", group: "Workspace", key: "Shift+D" },
   { id: "due.lens", label: "Due now", group: "Workspace", key: "!" },
   { id: "agents.lens", label: "Changed by agents", group: "Workspace", key: "Shift+A" },
+  { id: "goals.report", label: "Goal report", group: "Workspace", key: "G" },
+  {
+    id: "goals.report-range",
+    label: "Goal report by month or year",
+    group: "Workspace",
+    key: "Shift+G",
+  },
   { id: "help.palette", label: "Shortcuts and syntax", group: "Workspace", key: "Mod+K" },
   { id: "learn.panel", label: "Quests and learned keys", group: "Workspace", key: "?" },
   { id: "theme.picker", label: "Themes", group: "Workspace", key: "Alt+T" },

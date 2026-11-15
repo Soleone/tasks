@@ -89,6 +89,8 @@ import { TaskItem, TaskItemGroup } from "@/components/variants/item";
 import { useCompletionSheen } from "./useCompletionSheen";
 import { flyCategoryToFilter } from "./categoryFlight";
 import { useLensFlip } from "./useLensFlip";
+import type { ReportRange } from "@/goalReport";
+import type { WeekDay } from "@/useHeaderCounts";
 import { useCategoryPush } from "./useCategoryPush";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { useStableHandler } from "./useStableHandler";
@@ -151,7 +153,12 @@ type TaskListProps = {
   lens: ListLens | null;
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: (backward?: boolean) => void;
+  /** Opens the goal report, which takes the list's place while `hidden`. */
+  onOpenGoalReport: (range: ReportRange, from?: "week") => void;
+  hidden: boolean;
   goals: GoalsToday | null;
+  /** This week day by day, while the done lens shows today (`goals.report-open`). */
+  week: readonly WeekDay[] | null;
   onGoalLens: (goal: GoalLens | undefined) => void;
   /** Who last changed each task the agents lens shows, by task id. */
   agentNotes: ReadonlyMap<string, string>;
@@ -258,7 +265,10 @@ export function TaskList({
   lens,
   onToggleLens,
   onWidenDoneLens,
+  onOpenGoalReport,
+  hidden,
   goals,
+  week,
   onGoalLens,
   agentNotes,
   statusPreset,
@@ -1641,6 +1651,7 @@ export function TaskList({
       addBlocker: onAddBlocker,
       toggleLens: onToggleLens,
       widenDoneLens: onWidenDoneLens,
+      openGoalReport: onOpenGoalReport,
       moveUnder: onMoveUnder,
       toggleSelectedStatus,
       reverseSelectedStatus,
@@ -1761,6 +1772,7 @@ export function TaskList({
   return (
     <section
       ref={section}
+      hidden={hidden}
       tabIndex={-1}
       aria-label="Saved tasks"
       aria-keyshortcuts="Escape C Shift+C Enter S U T B M P Space Shift+Space Delete ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+Home Shift+End Control+c Meta+c Control+Shift+c Meta+Shift+c Control+ArrowUp Control+ArrowDown Control+Home Control+End Meta+ArrowUp Meta+ArrowDown Meta+Home Meta+End 0 1 2 3 4 , . [ ] / @ # F O V D Shift+D Control+z Meta+z Control+y Control+Shift+z Meta+Shift+z"
@@ -1872,6 +1884,8 @@ export function TaskList({
           onWidenDoneLens(backward);
         }}
         goals={goals}
+        week={week}
+        onOpenGoalReport={() => onOpenGoalReport("month", "week")}
         onGoalLens={onGoalLens}
         clearStatusFilter={clearStatusFilter}
         clearCategoryFilter={clearCategoryFilter}

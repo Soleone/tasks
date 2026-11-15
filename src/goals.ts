@@ -1,4 +1,11 @@
-import { WEEKDAYS, type Goal, type SharedSettings, type Swatch } from "@/platform/sharedSettings";
+import { addDays, localToday } from "@/backend/dueDate";
+import {
+  WEEKDAYS,
+  type Goal,
+  type SharedSettings,
+  type Swatch,
+  type Tally,
+} from "@/platform/sharedSettings";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -55,7 +62,7 @@ export function doneTodaySince(settings: SharedSettings, now = new Date()): Date
   return hasGoals(settings) ? dayStart(settings, now) : new Date(now.getTime() - DAY_MS);
 }
 
-type DoneTask = { category: { slug: string } | null; closedAt: string | null };
+export type DoneTask = { category: { slug: string } | null; closedAt: string | null };
 
 function todayTarget(goal: Goal, doneBeforeToday: number, daysLeft: number): number {
   if (goal.per === "day") return goal.count;
@@ -111,4 +118,57 @@ export function goalsToday(
     target: goals.reduce((sum, goal) => sum + goal.target, 0),
     goals,
   };
+}
+
+/** The calendar day a moment counts toward, as `YYYY-MM-DD`: before the day ends, it is still yesterday. */
+export function dayOf(settings: SharedSettings, moment: Date): string {
+  return localToday(dayStart(settings, moment));
+}
+
+/** When a calendar day begins, at the hour days end. */
+export function startOfDay(settings: SharedSettings, day: string): Date {
+  const [year, month, date] = day.split("-").map(Number);
+  const [hours, minutes] = settings.dayEndsAt.split(":").map(Number);
+  return new Date(year, month - 1, date, hours, minutes);
+}
+
+/**
+ * How a day went, judged by today's goals (`goals.report-judged`): its goals as the done count
+ * showed them that day, counting only what was done by its end.
+ */
+export function goalsOn(
+  settings: SharedSettings,
+  done: readonly DoneTask[],
+  day: string,
+): GoalsToday {
+  const start = startOfDay(settings, day);
+  const week = weekStart(settings, start).start.toISOString();
+  const end = startOfDay(settings, addDays(day, 1)).toISOString();
+  return goalsToday(
+    settings,
+    done.filter((task) => task.closedAt !== null && task.closedAt >= week && task.closedAt < end),
+    start,
+  )!;
+}
+
+/** How many tasks each day had done per category, `""` for none, as the tally keeps them. */
+export function tallyOf(settings: SharedSettings, done: readonly DoneTask[]): Tally {
+  const tally: Record<string, Record<string, number>> = {};
+  for (const task of done) {
+    if (task.closedAt === null) continue;
+    const day = (tally[dayOf(settings, new Date(task.closedAt))] ??= {});
+    const slug = task.category?.slug ?? "";
+    day[slug] = (day[slug] ?? 0) + 1;
+  }
+  return tally;
+}
+
+/** The tally's counts as done tasks at noon of their day, so the report counts them like any other. */
+export function tallyTasks(settings: SharedSettings): DoneTask[] {
+  return Object.entries(settings.tally).flatMap(([day, counts]) => {
+    const closedAt = new Date(startOfDay(settings, day).getTime() + DAY_MS / 2).toISOString();
+    return Object.entries(counts).flatMap(([slug, count]) =>
+      Array.from({ length: count }, () => ({ category: slug ? { slug } : null, closedAt })),
+    );
+  });
 }
